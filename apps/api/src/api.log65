@@ -1,0 +1,14 @@
+[32mINFO[0m:     Will watch for changes in these directories: ['/Users/runout/awork/code/my_git/agent/apps/api/src']
+[32mINFO[0m:     Uvicorn running on [1mhttp://0.0.0.0:8000[0m (Press CTRL+C to quit)
+[32mINFO[0m:     Started reloader process [[36m[1m96804[0m] using [36m[1mWatchFiles[0m
+[2m2025-08-08 12:48:33[0m [[32m[1minfo     [0m] [1m所有API中间件已配置完成                 [0m
+[32mINFO[0m:     Started server process [[36m96809[0m]
+[32mINFO[0m:     Waiting for application startup.
+[32mINFO[0m:     Application startup complete.
+[32mINFO[0m:     127.0.0.1:57875 - "[1mGET /api/v1/rag/index/stats HTTP/1.1[0m" [32m200 OK[0m
+[32mINFO[0m:     127.0.0.1:57875 - "[1mGET /api/v1/rag/health HTTP/1.1[0m" [32m200 OK[0m
+[32mINFO[0m:     Shutting down
+[32mINFO[0m:     Waiting for application shutdown.
+[32mINFO[0m:     Application shutdown complete.
+[32mINFO[0m:     Finished server process [[36m96809[0m]
+[32mINFO[0m:     Stopping reloader process [[36m[1m96804[0m]

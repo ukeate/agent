@@ -1,0 +1,82 @@
+# Page snapshot
+
+```yaml
+- navigation:
+  - list:
+    - listitem:
+      - link "home":
+        - /url: /
+        - img "home"
+    - listitem:
+      - img "search"
+      - text: RAG 搜索
+    - listitem: "\"什么是人工智能？\""
+- button "升级到 Agentic RAG"
+- button "🚀 智能升级"
+- main:
+  - img "search"
+  - heading "RAG 智能搜索" [level=4]
+  - combobox "请输入搜索关键词... (支持 AND/OR 逻辑操作符, \"精确短语\", title:关键词等语法)" [expanded]:
+    - text: 什么是人工智能？ 什么是人工智能？
+    - listbox:
+      - option "如何什么是人工智能？"
+      - option "什么是人工智能？示例"
+      - option "什么是人工智能？文档"
+  - combobox
+  - text: 全部
+  - combobox
+  - text: 智能
+  - button "clear":
+    - img "clear"
+  - button "search 搜索":
+    - img "search"
+    - text: 搜索
+  - button "collapsed setting 高级选项":
+    - img "collapsed"
+    - img "setting"
+    - text: 高级选项
+  - button "collapsed history 查询历史 (0)":
+    - img "collapsed"
+    - img "history"
+    - text: 查询历史 (0)
+  - button "collapsed question-circle 搜索语法":
+    - img "collapsed"
+    - img "question-circle"
+    - text: 搜索语法
+  - img "暂无数据"
+  - text: 未找到相关结果
+  - img "database"
+  - heading "索引状态" [level=4]
+  - text: 正常
+  - button "reload":
+    - img "reload"
+  - button "file-add":
+    - img "file-add"
+  - text: 文档数量
+  - img "file-add"
+  - text: 0 向量数量
+  - img "cloud-server"
+  - text: 0 存储大小
+  - img "database"
+  - text: NaN undefined 最后更新
+  - img "clock-circle"
+  - text: 未知
+  - alert:
+    - img "check-circle"
+    - text: "健康检查: 正常 上次检查: 10:27:27 AM"
+  - button "folder-add 索引目录":
+    - img "folder-add"
+    - text: 索引目录
+  - button "delete 重置索引":
+    - img "delete"
+    - text: 重置索引
+  - text: 文件上传
+  - button "upload 点击或拖拽文件到此区域上传 支持单个或批量上传，上传后将自动建立索引":
+    - paragraph:
+      - img "upload"
+    - paragraph: 点击或拖拽文件到此区域上传
+    - paragraph: 支持单个或批量上传，上传后将自动建立索引
+  - button "setting":
+    - img "setting"
+- text: 如何什么是人工智能？ 什么是人工智能？示例 什么是人工智能？文档 什么是人工智能？API 什么是人工智能？错误
+```

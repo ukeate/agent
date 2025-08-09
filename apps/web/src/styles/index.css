@@ -1,0 +1,198 @@
+@import 'tailwindcss/base';
+@import 'tailwindcss/components';
+@import 'tailwindcss/utilities';
+
+/* Ant Design 样式 - 5.x 版本使用 reset.css */
+
+/* 代码高亮样式 */
+@import 'highlight.js/styles/github.css';
+
+/* Markdown内容样式 */
+.markdown-content {
+  @apply text-gray-800 leading-relaxed;
+}
+
+.markdown-content pre {
+  @apply bg-gray-50 border border-gray-200 rounded-md p-4 overflow-x-auto my-3;
+  white-space: pre;
+  line-height: 1.5;
+}
+
+.markdown-content pre code {
+  @apply bg-transparent p-0 text-sm font-mono;
+  white-space: pre;
+  word-wrap: normal;
+  overflow-wrap: normal;
+}
+
+.markdown-content code:not(pre code) {
+  @apply bg-gray-100 px-1 py-0.5 rounded text-sm font-mono text-red-600;
+}
+
+.markdown-content p {
+  @apply mb-3 leading-relaxed;
+  white-space: pre-wrap;
+}
+
+.markdown-content h1, .markdown-content h2, .markdown-content h3 {
+  @apply font-semibold mt-4 mb-2;
+}
+
+.markdown-content h1 {
+  @apply text-xl;
+}
+
+.markdown-content h2 {
+  @apply text-lg;
+}
+
+.markdown-content h3 {
+  @apply text-base;
+}
+
+.markdown-content ul, .markdown-content ol {
+  @apply mb-3 pl-6;
+}
+
+.markdown-content li {
+  @apply mb-1;
+}
+
+.markdown-content blockquote {
+  @apply border-l-4 border-gray-300 pl-4 italic my-3 text-gray-600;
+}
+
+/* 全局样式 */
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* 自定义组件样式 */
+.chat-container {
+  @apply h-full flex flex-col;
+}
+
+.message-list {
+  @apply flex-1 overflow-y-auto p-4 space-y-4;
+}
+
+.message-item {
+  animation: slideInFromBottom 0.3s ease-out;
+}
+
+@keyframes slideInFromBottom {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.message-input-container {
+  @apply border-t bg-white p-4;
+}
+
+/* 历史记录抽屉样式 */
+.history-drawer .ant-drawer-body {
+  @apply p-0;
+}
+
+/* Ant Design 主题定制 */
+.ant-layout {
+  @apply min-h-screen;
+}
+
+.ant-layout-header {
+  @apply bg-white border-b border-gray-200 px-6;
+}
+
+.ant-layout-sider {
+  @apply bg-gray-50;
+}
+
+.ant-layout-content {
+  @apply bg-gray-50;
+}
+
+/* Markdown 内容样式定制 */
+.markdown-content {
+  @apply text-gray-800 leading-relaxed;
+}
+
+.markdown-content pre {
+  @apply bg-gray-50 border border-gray-200 rounded-lg p-4 overflow-x-auto;
+}
+
+.markdown-content code {
+  @apply font-mono text-sm;
+}
+
+.markdown-content pre code {
+  @apply bg-transparent p-0 border-0;
+}
+
+.markdown-content blockquote {
+  @apply border-l-4 border-blue-200 pl-4 italic text-gray-600 my-3;
+}
+
+.markdown-content table {
+  @apply border-collapse border border-gray-300 w-full my-3;
+}
+
+.markdown-content th,
+.markdown-content td {
+  @apply border border-gray-300 px-3 py-2 text-left;
+}
+
+.markdown-content th {
+  @apply bg-gray-100 font-semibold;
+}
+
+/* 自定义滚动条样式 */
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(156, 163, 175, 0.5) transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(156, 163, 175, 0.5);
+  border-radius: 3px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(156, 163, 175, 0.8);
+}
+
+/* 渐变效果 */
+.gradient-bg {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+/* 卡片阴影效果 */
+.card-shadow {
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+}
+
+.card-shadow-hover {
+  transition: box-shadow 0.15s ease-in-out;
+}
+
+.card-shadow-hover:hover {
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}

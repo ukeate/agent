@@ -1,0 +1,84 @@
+{
+  "name": "ai-agent-system",
+  "version": "0.1.0",
+  "description": "基于多智能体架构的企业级AI开发平台",
+  "main": "index.js",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "concurrently \"npm run dev:api\" \"npm run dev:web\"",
+    "dev:web": "npm run dev --workspace=apps/web",
+    "dev:api": "cd apps/api/src && uv run uvicorn main:app --host 0.0.0.0 --port 8000 --reload",
+    "dev:shared": "npm run dev --workspace=packages/shared",
+    "build": "npm run build:shared && npm run build --workspaces --if-present",
+    "build:shared": "npm run build --workspace=packages/shared",
+    "build:web": "npm run build --workspace=apps/web",
+    "build:api": "echo 'API build completed - Python project'",
+    "test": "npm run test:shared && npm run test:web && npm run test:api",
+    "test:shared": "npm run test --workspace=packages/shared --if-present",
+    "test:web": "npm run test --workspace=apps/web --if-present",
+    "test:api": "cd apps/api && uv run pytest",
+    "lint": "npm run lint:shared && npm run lint:web && npm run lint:api",
+    "lint:shared": "npm run lint --workspace=packages/shared --if-present",
+    "lint:web": "npm run lint --workspace=apps/web --if-present",
+    "lint:api": "cd apps/api && uv run black src tests && uv run ruff check src tests",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "clean": "npm run clean --workspaces --if-present && rm -rf node_modules",
+    "clean:shared": "npm run clean --workspace=packages/shared",
+    "clean:web": "npm run clean --workspace=apps/web",
+    "clean:api": "cd apps/api && find . -type d -name '__pycache__' -exec rm -rf {} + 2>/dev/null || true",
+    "format": "npm run format --workspaces --if-present && npm run lint:api",
+    "format:shared": "npm run format --workspace=packages/shared --if-present",
+    "format:web": "npm run format --workspace=apps/web --if-present",
+    "docker:up": "docker compose -f infrastructure/docker/docker-compose.yml up -d",
+    "docker:down": "docker compose -f infrastructure/docker/docker-compose.yml down",
+    "docker:logs": "docker compose -f infrastructure/docker/docker-compose.yml logs -f",
+    "docker:build": "docker compose -f infrastructure/docker/docker-compose.yml build",
+    "deploy:dev": "npm run build && npm run docker:build",
+    "deploy:prod": "npm run test && npm run build && npm run docker:build",
+    "health": "curl -f http://localhost:8000/api/v1/multi-agent/health && curl -f http://localhost:3002",
+    "install:all": "npm install && cd apps/api && uv sync"
+  },
+  "keywords": [
+    "ai",
+    "agent",
+    "multi-agent",
+    "langgraph",
+    "autogen",
+    "fastapi",
+    "react"
+  ],
+  "author": "AI Agent Team",
+  "license": "MIT",
+  "devDependencies": {
+    "@typescript-eslint/eslint-plugin": "^6.0.0",
+    "@typescript-eslint/parser": "^6.0.0",
+    "concurrently": "^8.2.2",
+    "cross-env": "^7.0.3",
+    "eslint": "^8.0.0",
+    "eslint-config-prettier": "^9.0.0",
+    "eslint-plugin-react": "^7.33.0",
+    "eslint-plugin-react-hooks": "^4.6.0",
+    "husky": "^8.0.3",
+    "lint-staged": "^15.0.0",
+    "prettier": "^3.0.0",
+    "typescript": "^5.3.0"
+  },
+  "lint-staged": {
+    "packages/shared/src/**/*.{ts,tsx}": [
+      "eslint --fix",
+      "prettier --write"
+    ],
+    "apps/web/src/**/*.{ts,tsx,js,jsx}": [
+      "eslint --fix",
+      "prettier --write"
+    ],
+    "apps/api/**/*.py": [
+      "cd apps/api && uv run black",
+      "cd apps/api && uv run ruff check --fix"
+    ]
+  }
+}

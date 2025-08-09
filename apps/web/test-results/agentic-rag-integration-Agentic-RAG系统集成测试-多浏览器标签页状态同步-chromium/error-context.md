@@ -1,0 +1,83 @@
+# Page snapshot
+
+```yaml
+- banner:
+  - img "robot"
+  - heading "Agentic RAG 智能系统" [level=3]
+  - button "history 会话管理":
+    - img "history"
+    - text: 会话管理
+  - button "question-circle 使用指南":
+    - img "question-circle"
+    - text: 使用指南
+  - button "fullscreen 全屏模式":
+    - img "fullscreen"
+    - text: 全屏模式
+- complementary:
+  - text: 当前会话
+  - img "history"
+  - heading "会话管理" [level=4]
+  - superscript: "0"
+  - button "plus 新建会话":
+    - img "plus"
+    - text: 新建会话
+  - img "暂无数据"
+  - text: 暂无会话记录
+  - button "plus 创建首个会话":
+    - img "plus"
+    - text: 创建首个会话
+  - text: "系统状态 查询状态: 就绪 结果数量:"
+  - strong: "0"
+  - text: 快速操作
+  - button "thunderbolt 查看检索过程":
+    - img "thunderbolt"
+    - text: 查看检索过程
+  - button "bulb 显示解释":
+    - img "bulb"
+    - text: 显示解释
+  - button "experiment 紧凑模式":
+    - img "experiment"
+    - text: 紧凑模式
+  - img "left"
+- main:
+  - img "robot"
+  - heading "智能查询" [level=4]
+  - button "setting":
+    - img "setting"
+  - textbox "请输入您的查询问题，AI将智能分析意图并优化检索策略..."
+  - text: 0 / 500
+  - button "search 智能检索" [disabled]:
+    - img "search"
+    - text: 智能检索
+  - button "experiment 优化查询" [disabled]:
+    - img "experiment"
+    - text: 优化查询
+  - text: 快速查询
+  - strong: "快速查询:"
+  - button "如何实现多智能体协作?"
+  - button "什么是RAG检索增强生成?"
+  - button "LangGraph框架使用方法"
+  - button "FastAPI异步编程最佳实践"
+  - button "Vector数据库性能优化"
+  - img "暂无数据"
+  - text: 暂无检索过程数据
+  - strong: 智能结果分析
+  - searchbox "筛选结果..."
+  - button "search":
+    - img "search"
+  - combobox
+  - text: 相关性
+  - combobox
+  - text: 全部
+  - img "暂无数据"
+  - text: 暂无检索结果
+  - img "暂无数据"
+  - text: 暂无解释数据
+- button "robot":
+  - img "robot"
+- img
+- button "关闭":
+  - img "close"
+- text: 欢迎使用Agentic RAG系统 这是一个智能多代理检索增强生成系统，让我们开始探索其强大功能
+- button "下一步"
+```

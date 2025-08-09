@@ -1,0 +1,76 @@
+services:
+  # PostgreSQL数据库
+  postgres:
+    image: postgres:15
+    container_name: ai-agent-postgres
+    environment:
+      POSTGRES_DB: ai_agent_db
+      POSTGRES_USER: ai_agent_user
+      POSTGRES_PASSWORD: ai_agent_password
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    restart: unless-stopped
+    networks:
+      - ai-agent-network
+
+  # Redis缓存
+  redis:
+    image: redis:7.2-alpine
+    container_name: ai-agent-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+    networks:
+      - ai-agent-network
+    command: redis-server --appendonly yes
+
+  # Qdrant向量数据库
+  qdrant:
+    image: qdrant/qdrant:v1.7.0
+    container_name: ai-agent-qdrant
+    ports:
+      - "6333:6333"
+      - "6334:6334"
+    volumes:
+      - qdrant_data:/qdrant/storage
+    restart: unless-stopped
+    networks:
+      - ai-agent-network
+
+  # pgAdmin (可选，用于数据库管理)
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: ai-agent-pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@aiagent.com
+      PGADMIN_DEFAULT_PASSWORD: admin123
+    ports:
+      - "8080:80"
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    depends_on:
+      - postgres
+    restart: unless-stopped
+    networks:
+      - ai-agent-network
+    profiles:
+      - tools
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  qdrant_data:
+    driver: local
+  pgadmin_data:
+    driver: local
+
+networks:
+  ai-agent-network:
+    driver: bridge

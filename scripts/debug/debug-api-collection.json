@@ -1,0 +1,49 @@
+{
+  "info": {
+    "name": "AI Agent API调试集合",
+    "description": "用于调试AI Agent系统的API接口集合"
+  },
+  "variables": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8000"
+    }
+  ],
+  "requests": [
+    {
+      "name": "健康检查",
+      "method": "GET",
+      "url": "{{base_url}}/api/v1/agent/status"
+    },
+    {
+      "name": "单智能体对话",
+      "method": "POST",
+      "url": "{{base_url}}/api/v1/agent/chat",
+      "headers": [
+        {
+          "key": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "body": {
+        "mode": "raw",
+        "raw": "{\n  \"message\": \"你好，请介绍你的功能\",\n  \"stream\": false\n}"
+      }
+    },
+    {
+      "name": "多智能体健康检查",
+      "method": "GET",
+      "url": "{{base_url}}/api/v1/multi-agent/health"
+    },
+    {
+      "name": "多智能体统计信息",
+      "method": "GET", 
+      "url": "{{base_url}}/api/v1/multi-agent/statistics"
+    },
+    {
+      "name": "获取会话列表",
+      "method": "GET",
+      "url": "{{base_url}}/api/v1/multi-agent/conversations"
+    }
+  ]
+}
