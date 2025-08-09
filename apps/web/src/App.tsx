@@ -4,7 +4,7 @@ import { ChatPage } from './pages/ChatPage'
 import { MultiAgentPage } from './pages/MultiAgentPage'
 import { SupervisorPage } from './pages/SupervisorPage'
 import RagPage from './pages/RagPage'
-import AgenticRagPage from './pages/AgenticRagPage'
+import WorkflowPage from './pages/WorkflowPage'
 
 const App: React.FC = () => {
   return (
@@ -14,7 +14,7 @@ const App: React.FC = () => {
       <Route path="/multi-agent" element={<MultiAgentPage />} />
       <Route path="/supervisor" element={<SupervisorPage />} />
       <Route path="/rag" element={<RagPage />} />
-      <Route path="/agentic-rag" element={<AgenticRagPage />} />
+      <Route path="/workflows" element={<WorkflowPage />} />
     </Routes>
   )
 }

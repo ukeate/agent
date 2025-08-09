@@ -148,24 +148,14 @@ const RagPage: React.FC = () => {
         </Breadcrumb>
       </Col>
       <Col>
-        <Space>
+<Space>
           <Button
             type="primary"
             ghost
-            onClick={() => window.location.href = '/agentic-rag'}
             style={{ borderStyle: 'dashed' }}
           >
-            升级到 Agentic RAG
+            RAG检索系统
           </Button>
-          <Tooltip title="体验智能多代理检索系统">
-            <Button
-              type="link"
-              onClick={() => window.location.href = '/agentic-rag'}
-              style={{ fontSize: 12 }}
-            >
-              🚀 智能升级
-            </Button>
-          </Tooltip>
         </Space>
       </Col>
     </Row>

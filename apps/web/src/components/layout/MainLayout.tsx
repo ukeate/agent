@@ -1,23 +1,16 @@
 import React, { useState } from 'react'
-import { Layout, Menu, Button, Typography, Space, Avatar, Breadcrumb, Drawer } from 'antd'
+import { Layout, Menu, Button, Typography, Space, Avatar } from 'antd'
 import { useNavigate, useLocation } from 'react-router-dom'
 import {
   MessageOutlined,
-  SettingOutlined,
   MenuFoldOutlined,
   MenuUnfoldOutlined,
-  UserOutlined,
   RobotOutlined,
-  HistoryOutlined,
   TeamOutlined,
-  HomeOutlined,
   ControlOutlined,
+  SearchOutlined,
+  NodeIndexOutlined,
 } from '@ant-design/icons'
-import ConversationHistory from '../conversation/ConversationHistory'
-import MultiAgentHistory from '../multi-agent/MultiAgentHistory'
-import { useConversationStore } from '../../stores/conversationStore'
-import { useMultiAgentStore, ConversationSession } from '../../stores/multiAgentStore'
-import { Conversation } from '../../types'
 
 const { Header, Sider, Content } = Layout
 const { Title, Text } = Typography
@@ -28,103 +21,50 @@ interface MainLayoutProps {
 
 const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
   const [collapsed, setCollapsed] = useState(false)
-  const [showChatHistory, setShowChatHistory] = useState(false)
-  const [showMultiAgentHistory, setShowMultiAgentHistory] = useState(false)
   
   const navigate = useNavigate()
   const location = useLocation()
-  const { setCurrentConversation } = useConversationStore()
-  const { loadSessionHistory } = useMultiAgentStore()
-
-  const handleSelectConversation = (conversation: Conversation) => {
-    setCurrentConversation(conversation)
-    navigate('/chat')
-    setShowChatHistory(false)
-  }
-
-  const handleSelectMultiAgentSession = async (session: ConversationSession) => {
-    try {
-      await loadSessionHistory(session.session_id)
-      navigate('/multi-agent')
-      setShowMultiAgentHistory(false)
-    } catch (error) {
-      console.error('加载多智能体会话失败:', error)
-    }
-  }
 
   // 根据当前路径确定选中的菜单项
   const getSelectedKey = () => {
     if (location.pathname === '/multi-agent') return 'multi-agent'
     if (location.pathname === '/supervisor') return 'supervisor'
+    if (location.pathname === '/rag') return 'rag'
+    if (location.pathname === '/workflows') return 'workflows'
     if (location.pathname === '/chat' || location.pathname === '/') return 'chat'
     return 'chat'
-  }
-
-  // 根据当前路径生成面包屑项目
-  const getBreadcrumbItems = () => {
-    const items = [
-      {
-        title: (
-          <span className="cursor-pointer flex items-center gap-1" onClick={() => navigate('/chat')}>
-            <HomeOutlined />
-            首页
-          </span>
-        ),
-      },
-    ]
-
-    if (location.pathname === '/multi-agent') {
-      items.push({
-        title: <span>多智能体协作</span>,
-      })
-    } else if (location.pathname === '/supervisor') {
-      items.push({
-        title: <span>Supervisor 监控</span>,
-      })
-    } else if (location.pathname === '/chat' || location.pathname === '/') {
-      items.push({
-        title: <span>智能对话</span>,
-      })
-    }
-
-    return items
   }
 
   const menuItems = [
     {
       key: 'chat',
       icon: <MessageOutlined />,
-      label: '智能对话',
+      label: '单代理对话',
       onClick: () => navigate('/chat'),
     },
     {
       key: 'multi-agent',
       icon: <TeamOutlined />,
-      label: '多智能体协作',
+      label: '多代理协作',
       onClick: () => navigate('/multi-agent'),
     },
     {
       key: 'supervisor',
       icon: <ControlOutlined />,
-      label: 'Supervisor 监控',
+      label: '监督者模式',
       onClick: () => navigate('/supervisor'),
     },
     {
-      key: 'chat-history',
-      icon: <HistoryOutlined />,
-      label: '对话历史',
-      onClick: () => setShowChatHistory(!showChatHistory),
+      key: 'rag',
+      icon: <SearchOutlined />,
+      label: 'RAG检索',
+      onClick: () => navigate('/rag'),
     },
     {
-      key: 'multi-agent-history',
-      icon: <HistoryOutlined />,
-      label: '协作历史',
-      onClick: () => setShowMultiAgentHistory(!showMultiAgentHistory),
-    },
-    {
-      key: 'settings',
-      icon: <SettingOutlined />,
-      label: '设置',
+      key: 'workflows',
+      icon: <NodeIndexOutlined />,
+      label: '工作流可视化',
+      onClick: () => navigate('/workflows'),
     },
   ]
 
@@ -176,15 +116,6 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                 onClick={() => setCollapsed(!collapsed)}
                 className="text-lg"
               />
-              <Breadcrumb 
-                items={getBreadcrumbItems()}
-                className="text-sm"
-              />
-            </Space>
-
-            <Space align="center">
-              <Avatar icon={<UserOutlined />} size="small" />
-              <Text className="text-sm">用户</Text>
             </Space>
           </div>
         </Header>
@@ -193,42 +124,6 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
           {children}
         </Content>
       </Layout>
-
-      {/* 对话历史抽屉 */}
-      <Drawer
-        title="对话历史"
-        placement="right"
-        open={showChatHistory}
-        onClose={() => setShowChatHistory(false)}
-        width={400}
-        className="history-drawer"
-      >
-        <ConversationHistory
-          visible={showChatHistory}
-          onSelectConversation={(conversation) => {
-            handleSelectConversation(conversation)
-            setShowChatHistory(false)
-          }}
-        />
-      </Drawer>
-
-      {/* 多智能体历史抽屉 */}
-      <Drawer
-        title="多智能体协作历史"
-        placement="right"
-        open={showMultiAgentHistory}
-        onClose={() => setShowMultiAgentHistory(false)}
-        width={400}
-        className="history-drawer"
-      >
-        <MultiAgentHistory
-          visible={showMultiAgentHistory}
-          onSelectSession={(session) => {
-            handleSelectMultiAgentSession(session)
-            setShowMultiAgentHistory(false)
-          }}
-        />
-      </Drawer>
     </Layout>
   )
 }
