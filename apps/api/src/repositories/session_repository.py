@@ -10,7 +10,7 @@ from datetime import datetime, timedelta
 import logging
 
 from .base import BaseRepository
-from ..models.database.session import Session
+from src.models.database.session import Session
 
 logger = logging.getLogger(__name__)
 

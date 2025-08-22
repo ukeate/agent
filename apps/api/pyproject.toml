@@ -38,22 +38,32 @@ dependencies = [
     "asyncpg>=0.29.0", # PostgreSQL async driver
     "redis>=5.0.0",
     # AI Frameworks
-    "langgraph>=0.2.76",
-    "autogen-agentchat>=0.2.18",
+    "langgraph==0.6.5",
+    "autogen-agentchat>=0.7.1", # 使用当前可用的稳定版本
     "langchain>=0.3.0",
     "openai>=1.54.0",
     # Vector Database
     "qdrant-client>=1.7.0",
+    "pgvector>=0.4.1", # Latest available version, will upgrade to 0.8 when released
+    "psycopg2-binary>=2.9.0", # PostgreSQL driver with binary extensions
+    "numpy>=1.24.0", # For vector quantization algorithms
+    "scikit-learn>=1.3.0", # For K-means clustering in quantization
+    # Deep Learning & Reinforcement Learning
+    "tensorflow>=2.15.0", # Deep learning framework for DQN
+    "tensorflow-probability>=0.22.0", # Probabilistic programming for RL
     # Graph Processing
     "networkx>=3.2.0",
     # MCP Protocol
     "mcp>=1.0.0",
-    # Authentication
+    # Authentication & Security
     "fastapi-users[sqlalchemy]>=12.1.0",
     "python-jose[cryptography]>=3.3.0",
     "passlib[bcrypt]>=1.7.4",
+    "slowapi>=0.1.9", # Rate limiting
+    "python-multipart>=0.0.6", # Form data (already listed below, removing duplicate)
+    "cryptography>=42.0.0", # Encryption support
+    "bcrypt>=4.1.0", # Password hashing
     # Utilities
-    "python-multipart>=0.0.6", # Form data
     "aiofiles>=23.2.1", # Async file operations
     "httpx>=0.25.0", # HTTP client
     "structlog>=23.2.0", # Structured logging
@@ -63,6 +73,30 @@ dependencies = [
     "python-dotenv>=1.0.0",
     "autogen-ext>=0.7.1",
     "tiktoken>=0.9.0",
+    "matplotlib>=3.10.5",
+    "seaborn>=0.13.2",
+    "h5py>=3.14.0",
+    "pandas>=2.3.1",
+    "numba>=0.61.2",
+    # Multimodal Processing
+    "opencv-python>=4.8.0", # Video processing
+    "Pillow>=10.0.0", # Image processing
+    "PyPDF2>=3.0.0", # PDF processing
+    "PyMuPDF>=1.23.0", # Advanced PDF processing
+    "python-docx>=1.0.0", # Word document processing
+    "python-pptx>=0.6.23", # PowerPoint processing
+    "pytesseract>=0.3.10", # OCR for text extraction
+    "unstructured[all-docs]>=0.10.0", # Document parsing for multimodal
+    "langchain-community>=0.3.0", # LangChain community integrations
+    "chromadb>=0.5.0", # Vector database for multimodal storage
+    "nomic>=3.0.0", # Nomic embeddings for multimodal
+    "openpyxl>=3.1.0", # Excel file processing
+    "chardet>=5.2.0", # Character encoding detection
+    "beautifulsoup4>=4.12.0", # HTML/XML parsing
+    # A/B Testing and Statistical Analysis
+    "mmh3>=4.1.0", # MurmurHash3 for traffic splitting
+    "scipy>=1.11.0", # Statistical tests and functions
+    "statsmodels>=0.14.0", # Advanced statistical modeling and power analysis
 ]
 
 [project.optional-dependencies]

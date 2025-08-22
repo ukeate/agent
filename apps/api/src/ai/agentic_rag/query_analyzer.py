@@ -15,7 +15,7 @@ from enum import Enum
 from dataclasses import dataclass
 from datetime import datetime
 
-from ..openai_client import get_openai_client
+from src.ai.openai_client import get_openai_client
 
 
 class QueryIntent(str, Enum):

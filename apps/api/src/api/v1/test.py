@@ -9,9 +9,9 @@ import structlog
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..exceptions import ValidationError
-from ...core.database import get_db
-from ...core.redis import RedisCache, get_cache
+from src.api.exceptions import ValidationError
+from src.core.database import get_db
+from src.core.redis import RedisCache, get_cache
 
 logger = structlog.get_logger(__name__)
 
@@ -21,7 +21,7 @@ router = APIRouter(prefix="/test", tags=["测试"])
 @router.get("/async-db")
 async def test_async_database(db: AsyncSession = Depends(get_db)) -> dict[str, Any]:
     """测试异步数据库操作"""
-    from ...core.config import get_settings
+    from src.core.config import get_settings
 
     settings = get_settings()
 
@@ -59,7 +59,7 @@ async def test_async_database(db: AsyncSession = Depends(get_db)) -> dict[str, A
 @router.get("/async-redis")
 async def test_async_redis(cache: RedisCache = Depends(get_cache)) -> dict[str, Any]:
     """测试异步Redis操作"""
-    from ...core.config import get_settings
+    from src.core.config import get_settings
 
     settings = get_settings()
 
@@ -151,7 +151,7 @@ async def test_mixed_async_operations(
     db: AsyncSession = Depends(get_db), cache: RedisCache = Depends(get_cache)
 ) -> dict[str, Any]:
     """测试混合异步操作（数据库 + Redis + 计算）"""
-    from ...core.config import get_settings
+    from src.core.config import get_settings
 
     settings = get_settings()
 

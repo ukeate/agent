@@ -128,7 +128,41 @@ export const TaskList: React.FC = () => {
     if (!selectedTask || selectedTask.id !== task.id) return null
     
     const outputData = selectedTask.output_data
-    if (!outputData) return <div className="text-gray-500 italic">暂无输出数据</div>
+    
+    // 根据任务状态显示不同的信息
+    if (!outputData) {
+      // 对于pending和running状态的任务，显示状态信息而不是"暂无输出数据"
+      if (selectedTask.status === 'pending' || selectedTask.status === 'running') {
+        return (
+          <div className="space-y-3">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+              <div>
+                <span className="text-gray-500">执行状态:</span>
+                <div className="font-medium">
+                  {selectedTask.status === 'pending' ? (
+                    <span className="text-yellow-600">⏳ 等待执行</span>
+                  ) : selectedTask.status === 'running' ? (
+                    <span className="text-blue-600">🔄 执行中</span>
+                  ) : (
+                    <span className="text-gray-600">➖ 未知</span>
+                  )}
+                </div>
+              </div>
+              <div>
+                <span className="text-gray-500">分配智能体:</span>
+                <div className="font-medium">{selectedTask.assigned_agent_name || '未分配'}</div>
+              </div>
+              <div>
+                <span className="text-gray-500">任务类型:</span>
+                <div className="font-medium">{selectedTask.task_type || '-'}</div>
+              </div>
+            </div>
+            <div className="text-gray-500 italic">任务尚未开始执行，暂无输出数据</div>
+          </div>
+        )
+      }
+      return <div className="text-gray-500 italic">暂无输出数据</div>
+    }
     
     return (
       <div className="space-y-3">
@@ -139,8 +173,10 @@ export const TaskList: React.FC = () => {
             <div className="font-medium">
               {outputData.success ? (
                 <span className="text-green-600">✅ 成功</span>
-              ) : (
+              ) : outputData.success === false ? (
                 <span className="text-red-600">❌ 失败</span>
+              ) : (
+                <span className="text-gray-600">➖ 执行中</span>
               )}
             </div>
           </div>

@@ -1,0 +1,295 @@
+# 强化学习系统Ingress和服务网格配置
+
+---
+# Ingress - 外部访问入口
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: rl-system-ingress
+  namespace: rl-system
+  annotations:
+    # Nginx Ingress 配置
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/proxy-connect-timeout: "60"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "60"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "60"
+    nginx.ingress.kubernetes.io/proxy-body-size: "10m"
+    
+    # 限流配置
+    nginx.ingress.kubernetes.io/rate-limit-connections: "100"
+    nginx.ingress.kubernetes.io/rate-limit-rps: "50"
+    nginx.ingress.kubernetes.io/rate-limit-window: "1m"
+    
+    # 缓存配置
+    nginx.ingress.kubernetes.io/configuration-snippet: |
+      location ~* \.(css|js|png|jpg|jpeg|gif|ico|svg)$ {
+        expires 1y;
+        add_header Cache-Control "public, immutable";
+      }
+      
+      location /api/v1/recommendations {
+        add_header X-Cache-Status $upstream_cache_status;
+      }
+    
+    # 健康检查
+    nginx.ingress.kubernetes.io/server-snippet: |
+      location /health {
+        access_log off;
+        return 200 "healthy\n";
+        add_header Content-Type text/plain;
+      }
+      
+    # CORS配置
+    nginx.ingress.kubernetes.io/enable-cors: "true"
+    nginx.ingress.kubernetes.io/cors-allow-origin: "https://app.company.com"
+    nginx.ingress.kubernetes.io/cors-allow-methods: "GET, POST, PUT, DELETE, OPTIONS"
+    nginx.ingress.kubernetes.io/cors-allow-headers: "DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range,Authorization"
+    
+    # SSL配置
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    
+spec:
+  ingressClassName: nginx
+  tls:
+  - hosts:
+    - rl-api.company.com
+    secretName: rl-system-tls
+  rules:
+  - host: rl-api.company.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: rl-system-service
+            port:
+              number: 80
+      - path: /api
+        pathType: Prefix
+        backend:
+          service:
+            name: rl-system-service
+            port:
+              number: 80
+      - path: /metrics
+        pathType: Prefix
+        backend:
+          service:
+            name: rl-system-service
+            port:
+              number: 80
+
+---
+# Istio VirtualService - 服务网格路由 (可选)
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: rl-system-vs
+  namespace: rl-system
+spec:
+  hosts:
+  - rl-api.company.com
+  - rl-system-service.rl-system.svc.cluster.local
+  gateways:
+  - rl-system-gateway
+  - mesh
+  http:
+  # API路由
+  - match:
+    - uri:
+        prefix: /api/v1/recommendations
+    route:
+    - destination:
+        host: rl-system-service.rl-system.svc.cluster.local
+        port:
+          number: 80
+    timeout: 30s
+    retries:
+      attempts: 3
+      perTryTimeout: 10s
+      retryOn: 5xx,gateway-error,connect-failure,refused-stream
+    fault:
+      delay:
+        percentage:
+          value: 0.1  # 0.1%的请求注入延迟用于测试
+        fixedDelay: 5s
+  
+  # 健康检查路由
+  - match:
+    - uri:
+        prefix: /health
+    route:
+    - destination:
+        host: rl-system-service.rl-system.svc.cluster.local
+        port:
+          number: 80
+    timeout: 5s
+  
+  # 指标路由
+  - match:
+    - uri:
+        prefix: /metrics
+    route:
+    - destination:
+        host: rl-system-service.rl-system.svc.cluster.local
+        port:
+          number: 80
+    timeout: 10s
+  
+  # 默认路由
+  - route:
+    - destination:
+        host: rl-system-service.rl-system.svc.cluster.local
+        port:
+          number: 80
+    timeout: 30s
+
+---
+# Istio Gateway - 服务网格网关 (可选)
+apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: rl-system-gateway
+  namespace: rl-system
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+  - port:
+      number: 80
+      name: http
+      protocol: HTTP
+    hosts:
+    - rl-api.company.com
+    tls:
+      httpsRedirect: true
+  - port:
+      number: 443
+      name: https
+      protocol: HTTPS
+    tls:
+      mode: SIMPLE
+      credentialName: rl-system-tls
+    hosts:
+    - rl-api.company.com
+
+---
+# Istio DestinationRule - 流量策略 (可选)
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: rl-system-dr
+  namespace: rl-system
+spec:
+  host: rl-system-service.rl-system.svc.cluster.local
+  trafficPolicy:
+    connectionPool:
+      tcp:
+        maxConnections: 100
+        connectTimeout: 10s
+        keepAlive:
+          time: 7200s
+          interval: 75s
+      http:
+        http1MaxPendingRequests: 50
+        http2MaxRequests: 100
+        maxRequestsPerConnection: 10
+        maxRetries: 3
+        consecutiveGatewayErrors: 5
+        interval: 30s
+        baseEjectionTime: 30s
+        maxEjectionPercent: 50
+        minHealthPercent: 30
+    loadBalancer:
+      simple: LEAST_CONN
+    outlierDetection:
+      consecutiveGatewayErrors: 5
+      interval: 30s
+      baseEjectionTime: 30s
+      maxEjectionPercent: 50
+      minHealthPercent: 30
+  portLevelSettings:
+  - port:
+      number: 80
+    connectionPool:
+      tcp:
+        maxConnections: 50
+      http:
+        http1MaxPendingRequests: 25
+        maxRequestsPerConnection: 5
+
+---
+# Istio AuthorizationPolicy - 访问控制 (可选)
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: rl-system-authz
+  namespace: rl-system
+spec:
+  selector:
+    matchLabels:
+      app: rl-system-api
+  rules:
+  # 允许健康检查
+  - to:
+    - operation:
+        paths: ["/health", "/health/*"]
+  
+  # 允许指标收集
+  - from:
+    - source:
+        namespaces: ["monitoring", "istio-system"]
+    to:
+    - operation:
+        paths: ["/metrics"]
+  
+  # 允许API访问（需要JWT）
+  - from:
+    - source:
+        requestPrincipals: ["*"]
+    to:
+    - operation:
+        paths: ["/api/*"]
+    when:
+    - key: request.headers[authorization]
+      values: ["Bearer *"]
+  
+  # 允许内部服务调用
+  - from:
+    - source:
+        namespaces: ["rl-system"]
+
+---
+# Istio PeerAuthentication - mTLS配置 (可选)
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: rl-system-mtls
+  namespace: rl-system
+spec:
+  selector:
+    matchLabels:
+      app: rl-system-api
+  mtls:
+    mode: STRICT
+
+---
+# Certificate - SSL证书 (cert-manager)
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: rl-system-cert
+  namespace: rl-system
+spec:
+  secretName: rl-system-tls
+  issuerRef:
+    name: letsencrypt-prod
+    kind: ClusterIssuer
+  dnsNames:
+  - rl-api.company.com
+  usages:
+  - digital signature
+  - key encipherment

@@ -1,6 +1,32 @@
-# AI Agent System
+# AI智能体系统平台
 
-基于多智能体架构的企业级AI开发平台，实现从单体AI向专业化智能体网络的范式转变。
+> 基于多智能体架构的企业级AI开发平台，集成A/B测试实验功能
+
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Python](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
+[![TypeScript](https://img.shields.io/badge/typescript-5.0+-blue.svg)](https://www.typescriptlang.org/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.104+-green.svg)](https://fastapi.tiangolo.com/)
+[![React](https://img.shields.io/badge/React-18+-61dafb.svg)](https://reactjs.org/)
+
+## 🌟 项目特色
+
+### 🤖 多智能体系统
+- **单智能体**: 基于ReAct架构的推理-行动循环智能体
+- **多智能体协作**: AutoGen框架驱动的智能体对话与协作
+- **工作流编排**: LangGraph 0.6.5状态机工作流引擎  
+- **监督者模式**: 智能任务分配和执行监控
+
+### 🧪 A/B测试实验平台
+- **实验管理**: 完整的实验生命周期管理
+- **流量分配**: Murmur3哈希算法精确流量分配
+- **统计分析**: t检验、卡方检验、置信区间计算
+- **发布策略**: 灰度发布、蓝绿部署、金丝雀发布
+
+### 📊 企业级特性
+- **RAG系统**: 基于向量检索的智能问答
+- **MCP协议**: 标准化工具集成协议
+- **监控告警**: Prometheus指标收集和结构化日志
+- **高可用**: 分布式架构和故障自动恢复
 
 ## 快速开始
 

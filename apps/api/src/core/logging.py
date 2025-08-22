@@ -33,3 +33,7 @@ def setup_logging() -> None:
 def get_logger(name: str = __name__) -> Any:
     """获取结构化日志器"""
     return structlog.get_logger(name)
+
+
+# 创建默认logger实例供其他模块使用
+logger = get_logger(__name__)

@@ -139,11 +139,8 @@ jspm_packages/
 # Yarn Integrity file
 .yarn-integrity
 
-# dotenv environment variables file
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
+# Environment variables files (recursive)
+**/.env
 
 # Stores VSCode versions used for testing VSCode extensions
 .vscode-test
@@ -182,3 +179,31 @@ chromadb/
 .mypy_cache/
 .dmypy.json
 dmypy.json
+
+# AI
+.bmad-core
+.claude
+.cursor
+.gemini
+
+# Playwright
+.playwright-mcp/
+playwright-report/
+test-results/
+*-report.json
+
+# E2E Testing
+**/*test-results/
+**/*playwright-report/
+
+# API Testing & Reports
+**/langgraph_e2e_test_report.json
+**/test_report.json
+
+# Screenshots and UI captures
+ui-simplification-*.png
+*-page-working.png
+current_page.png
+flow_control_error.png
+no_pause_button.png
+page_screenshot.png

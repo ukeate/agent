@@ -11,8 +11,8 @@ from typing import Any, Dict, List, Optional, Union, AsyncGenerator
 from dataclasses import dataclass, field
 import structlog
 
-from ...ai.openai_client import get_openai_client
-from ...ai.mcp.client import get_mcp_client_manager
+from src.ai.openai_client import get_openai_client
+from src.ai.mcp.client import get_mcp_client_manager
 
 logger = structlog.get_logger(__name__)
 

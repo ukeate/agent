@@ -25,7 +25,7 @@ const NetworkErrorAlert: React.FC<NetworkErrorAlertProps> = ({
     <Alert
       message={isNetworkError ? "网络连接异常" : "请求失败"}
       description={error}
-      type="error"
+      variant="destructive"
       showIcon
       icon={isNetworkError ? <WifiOutlined /> : undefined}
       className={`animate-slide-up ${className}`}

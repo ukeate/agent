@@ -94,6 +94,10 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
             yield session
 
 
+# 兼容性别名
+get_session = get_db
+
+
 async def test_database_connection() -> bool:
     """测试数据库连接"""
     try:

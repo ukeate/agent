@@ -8,12 +8,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import desc, and_, or_, func
 import structlog
 
-from ..repositories.base import BaseRepository
-from ..models.database.supervisor import (
+from src.repositories.base import BaseRepository
+from src.models.database.supervisor import (
     SupervisorAgent, SupervisorTask, SupervisorDecision, 
     AgentLoadMetrics, SupervisorConfig
 )
-from ..models.schemas.supervisor import TaskStatus, TaskType, TaskPriority, AgentStatus
+from src.models.schemas.supervisor import TaskStatus, TaskType, TaskPriority, AgentStatus
 
 logger = structlog.get_logger(__name__)
 
@@ -284,7 +284,25 @@ class SupervisorTaskRepository(BaseRepository[SupervisorTask, str]):
     ) -> bool:
         """将任务分配给智能体"""
         try:
-            from sqlalchemy import update
+            from sqlalchemy import update, select
+            
+            # 首先检查任务是否存在
+            check_stmt = select(SupervisorTask).where(SupervisorTask.id == task_id)
+            check_result = await self.session.execute(check_stmt)
+            existing_task = check_result.scalar_one_or_none()
+            
+            if not existing_task:
+                logger.error("任务不存在，无法分配", task_id=task_id)
+                return False
+                
+            logger.info("开始分配任务", 
+                       task_id=task_id, 
+                       agent_id=agent_id, 
+                       agent_name=agent_name,
+                       current_status=existing_task.status,
+                       current_assigned_agent=existing_task.assigned_agent_name)
+            
+            # 更新任务分配信息
             stmt = update(SupervisorTask).where(
                 SupervisorTask.id == task_id
             ).values(
@@ -298,11 +316,37 @@ class SupervisorTaskRepository(BaseRepository[SupervisorTask, str]):
             await self.session.commit()
             
             if result.rowcount > 0:
-                logger.info("任务已分配", task_id=task_id, agent_name=agent_name)
-                return True
-            return False
+                logger.info("任务分配成功", 
+                          task_id=task_id, 
+                          agent_id=agent_id, 
+                          agent_name=agent_name,
+                          rows_affected=result.rowcount)
+                
+                # 验证分配结果
+                verify_stmt = select(SupervisorTask).where(SupervisorTask.id == task_id)
+                verify_result = await self.session.execute(verify_stmt)
+                updated_task = verify_result.scalar_one_or_none()
+                
+                if updated_task:
+                    logger.info("分配验证成功", 
+                              task_id=task_id,
+                              verified_agent_id=updated_task.assigned_agent_id,
+                              verified_agent_name=updated_task.assigned_agent_name,
+                              verified_status=updated_task.status)
+                    return True
+                else:
+                    logger.error("分配验证失败，任务不存在", task_id=task_id)
+                    return False
+            else:
+                logger.error("任务分配失败，没有行被更新", task_id=task_id, agent_name=agent_name)
+                return False
+                
         except Exception as e:
-            logger.error("分配任务失败", task_id=task_id, agent_name=agent_name, error=str(e))
+            logger.error("分配任务异常", 
+                        task_id=task_id, 
+                        agent_id=agent_id,
+                        agent_name=agent_name, 
+                        error=str(e))
             await self.session.rollback()
             return False
     

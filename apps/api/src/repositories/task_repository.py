@@ -10,7 +10,7 @@ from datetime import datetime, timedelta
 import logging
 
 from .base import BaseRepository
-from ..models.database.workflow import Task
+from src.models.database.workflow import Task
 
 logger = logging.getLogger(__name__)
 

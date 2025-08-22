@@ -7,11 +7,11 @@ from datetime import datetime
 import uuid
 import asyncio
 
-from ..ai.langgraph.state import MessagesState, create_initial_state
-from ..ai.langgraph.state_graph import LangGraphWorkflowBuilder, create_simple_workflow, create_conditional_workflow
-from ..ai.langgraph.checkpoints import checkpoint_manager
-from ..repositories.workflow_repository import WorkflowRepository
-from ..models.schemas.workflow import WorkflowCreate, WorkflowUpdate, WorkflowResponse
+from src.ai.langgraph.state import MessagesState, create_initial_state
+from src.ai.langgraph.state_graph import LangGraphWorkflowBuilder, create_simple_workflow, create_conditional_workflow
+from src.ai.langgraph.checkpoints import checkpoint_manager
+from src.repositories.workflow_repository import WorkflowRepository
+from src.models.schemas.workflow import WorkflowCreate, WorkflowUpdate, WorkflowResponse
 
 
 class WorkflowService:

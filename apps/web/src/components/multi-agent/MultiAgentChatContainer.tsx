@@ -52,7 +52,7 @@ export const MultiAgentChatContainer: React.FC<MultiAgentChatContainerProps> = (
     behavior: 'smooth',
   })
 
-  // 从API加载智能体
+  // 从API加载Agent
   useEffect(() => {
     const loadAgents = async () => {
       try {
@@ -65,22 +65,22 @@ export const MultiAgentChatContainer: React.FC<MultiAgentChatContainerProps> = (
         
         if (result.success && result.data.agents) {
           const apiAgents = result.data.agents
-          console.log('从API加载到智能体:', apiAgents)
+          console.log('从API加载到Agent:', apiAgents)
           
           // 检查数据是否有变化，避免无效更新
           if (JSON.stringify(agents) !== JSON.stringify(apiAgents)) {
-            // 设置智能体数据
+            // 设置Agent数据
             setAgents(apiAgents)
             
-            // 默认选择所有智能体
+            // 默认选择所有Agent
             setSelectedAgents(apiAgents.map((a: any) => a.id))
           }
         } else {
           throw new Error('API返回数据格式错误')
         }
       } catch (error) {
-        console.error('加载智能体失败:', error)
-        setError(`加载智能体失败: ${error instanceof Error ? error.message : '未知错误'}`)
+        console.error('加载Agent失败:', error)
+        setError(`加载Agent失败: ${error instanceof Error ? error.message : '未知错误'}`)
       }
     }
 
@@ -90,7 +90,7 @@ export const MultiAgentChatContainer: React.FC<MultiAgentChatContainerProps> = (
 
   const handleCreateConversation = async () => {
     if (selectedAgents.length === 0) {
-      setError('请选择至少一个智能体参与对话')
+      setError('请选择至少一个Agent参与对话')
       return
     }
 
@@ -209,13 +209,13 @@ export const MultiAgentChatContainer: React.FC<MultiAgentChatContainerProps> = (
               /* 创建对话 */
               <div className="bg-white border border-gray-200 rounded-lg p-4">
                 <h3 className="text-lg font-medium text-gray-900 mb-3">
-                  创建多智能体对话
+                  创建Multi-Agent对话
                 </h3>
                 
                 {/* 智能体选择 */}
                 <div className="mb-4">
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    选择参与智能体
+                    选择参与Agent
                   </label>
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                     {agents.map((agent) => (
@@ -280,7 +280,7 @@ export const MultiAgentChatContainer: React.FC<MultiAgentChatContainerProps> = (
                     transition-colors
                   "
                 >
-                  {loading ? '创建中...' : '🚀 开始多智能体讨论'}
+                  {loading ? '创建中...' : '🚀 开始Multi-Agent讨论'}
                 </button>
               </div>
             ) : currentSession.status === 'created' ? (
@@ -321,7 +321,7 @@ export const MultiAgentChatContainer: React.FC<MultiAgentChatContainerProps> = (
                 <div className="flex items-center gap-2 text-blue-700">
                   <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse" />
                   <span className="font-medium">
-                    对话进行中 - 智能体正在协作讨论
+                    对话进行中 - Agent正在协作讨论
                   </span>
                 </div>
               </div>

@@ -9,13 +9,13 @@ from datetime import datetime, timezone
 import structlog
 
 from sqlalchemy.ext.asyncio import AsyncSession
-from ..core.database import get_db_session
-from ..repositories.supervisor_repository import (
+from src.core.database import get_db_session
+from src.repositories.supervisor_repository import (
     SupervisorTaskRepository, SupervisorRepository, 
     SupervisorDecisionRepository
 )
-from ..models.schemas.supervisor import TaskStatus
-from ..ai.autogen.agents import BaseAutoGenAgent, create_default_agents
+from src.models.schemas.supervisor import TaskStatus
+from src.ai.autogen.agents import BaseAutoGenAgent, create_default_agents
 
 logger = structlog.get_logger(__name__)
 
@@ -84,6 +84,9 @@ class TaskExecutor:
                 
                 # 更新任务状态为running
                 await task_repo.update_task_status(task_id, TaskStatus.RUNNING)
+                
+                # 确保状态更新后有足够时间让前端获取到running状态
+                await asyncio.sleep(3)  # 增加到3秒，让running状态更容易被观察到  
                 
                 # 执行任务
                 start_time = datetime.now(timezone.utc)

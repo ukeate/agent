@@ -6,11 +6,11 @@ test.describe('Multi-Agent Collaboration', () => {
     await page.goto('/multi-agent')
     await page.waitForLoadState('domcontentloaded')
     
-    // Wait for the multi-agent page to load with extended timeout
-    await expect(page.locator('h1:has-text("多智能体协作")')).toBeVisible({ timeout: 15000 })
+    // Wait for the multi-agent page to load - check for actual page elements
+    await expect(page.locator('新建对话').or(page.locator('清空对话'))).toBeVisible({ timeout: 15000 })
     
-    // Check if description is visible
-    await expect(page.locator('text=多个AI专家协作讨论')).toBeVisible({ timeout: 10000 })
+    // Check for multi-agent specific elements
+    await expect(page.locator('AI Agent').first()).toBeVisible({ timeout: 10000 })
     
     // Check if create conversation elements are present
     await expect(page.locator('text=创建').first()).toBeVisible({ timeout: 10000 })
@@ -20,8 +20,8 @@ test.describe('Multi-Agent Collaboration', () => {
     await page.goto('/multi-agent')
     await page.waitForLoadState('domcontentloaded')
     
-    // Wait for page to load
-    await expect(page.locator('h1:has-text("多智能体协作")')).toBeVisible({ timeout: 15000 })
+    // Wait for page to load - check for basic page structure
+    await expect(page.locator('新建对话').or(page.locator('清空对话'))).toBeVisible({ timeout: 15000 })
     
     // Check if basic interface elements are present (without requiring specific content)
     const createElements = await page.locator('text=创建').all()

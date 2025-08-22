@@ -8,13 +8,13 @@ from dataclasses import dataclass, field
 from datetime import datetime
 import json
 import uuid
-from sqlalchemy import Column, String, DateTime, Text, Integer, Boolean, JSON
-from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy import Column, String, DateTime, Text, Integer, Boolean, JSON, select
+from sqlalchemy.orm import declarative_base
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.exc import SQLAlchemyError
 
 from .state import MessagesState, serialize_state, deserialize_state
-from ...core.database import get_db_session
+from src.core.database import get_db_session
 
 Base = declarative_base()
 
@@ -79,11 +79,13 @@ class PostgreSQLCheckpointStorage:
         try:
             async with get_db_session() as session:
                 # 检查是否已存在相同检查点
-                existing = session.query(CheckpointModel).filter(
+                stmt = select(CheckpointModel).where(
                     CheckpointModel.workflow_id == checkpoint.workflow_id,
                     CheckpointModel.checkpoint_id == checkpoint.id,
                     CheckpointModel.is_deleted == False
-                ).first()
+                )
+                result = await session.execute(stmt)
+                existing = result.scalar_one_or_none()
                 
                 if existing:
                     # 更新现有检查点
@@ -113,11 +115,13 @@ class PostgreSQLCheckpointStorage:
         """从PostgreSQL加载检查点"""
         try:
             async with get_db_session() as session:
-                model = session.query(CheckpointModel).filter(
+                stmt = select(CheckpointModel).where(
                     CheckpointModel.workflow_id == workflow_id,
                     CheckpointModel.checkpoint_id == checkpoint_id,
                     CheckpointModel.is_deleted == False
-                ).first()
+                )
+                result = await session.execute(stmt)
+                model = result.scalar_one_or_none()
                 
                 if not model:
                     return None
@@ -139,10 +143,12 @@ class PostgreSQLCheckpointStorage:
         """列出工作流的所有检查点"""
         try:
             async with get_db_session() as session:
-                models = session.query(CheckpointModel).filter(
+                stmt = select(CheckpointModel).where(
                     CheckpointModel.workflow_id == workflow_id,
                     CheckpointModel.is_deleted == False
-                ).order_by(CheckpointModel.created_at.desc()).all()
+                ).order_by(CheckpointModel.created_at.desc())
+                result = await session.execute(stmt)
+                models = result.scalars().all()
                 
                 return [
                     Checkpoint(
@@ -164,11 +170,13 @@ class PostgreSQLCheckpointStorage:
         """软删除检查点"""
         try:
             async with get_db_session() as session:
-                model = session.query(CheckpointModel).filter(
+                stmt = select(CheckpointModel).where(
                     CheckpointModel.workflow_id == workflow_id,
                     CheckpointModel.checkpoint_id == checkpoint_id,
                     CheckpointModel.is_deleted == False
-                ).first()
+                )
+                result = await session.execute(stmt)
+                model = result.scalar_one_or_none()
                 
                 if model:
                     model.is_deleted = True
@@ -185,10 +193,12 @@ class PostgreSQLCheckpointStorage:
         try:
             async with get_db_session() as session:
                 # 获取所有检查点，按创建时间降序
-                all_checkpoints = session.query(CheckpointModel).filter(
+                stmt = select(CheckpointModel).where(
                     CheckpointModel.workflow_id == workflow_id,
                     CheckpointModel.is_deleted == False
-                ).order_by(CheckpointModel.created_at.desc()).all()
+                ).order_by(CheckpointModel.created_at.desc())
+                result = await session.execute(stmt)
+                all_checkpoints = result.scalars().all()
                 
                 if len(all_checkpoints) <= keep_count:
                     return 0

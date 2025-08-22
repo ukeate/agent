@@ -8,15 +8,15 @@ from fastapi import APIRouter, HTTPException, Depends, Query, Path, status
 from fastapi.responses import JSONResponse
 import structlog
 
-from ...services.supervisor_service import supervisor_service
-from ...models.schemas.supervisor import (
+from src.services.supervisor_service import supervisor_service
+from src.models.schemas.supervisor import (
     TaskSubmissionRequest, TaskSubmissionResponse,
     SupervisorStatusApiResponse, SupervisorDecisionListResponse,
     SupervisorConfigUpdateRequest, SupervisorConfigApiResponse,
     LoadStatisticsApiResponse, TaskType, TaskPriority
 )
-from ...models.schemas.base import BaseResponse, ErrorResponse
-from ..exceptions import ValidationError, NotFoundError
+from src.models.schemas.base import BaseResponse, ErrorResponse
+from src.api.exceptions import ValidationError, NotFoundError
 
 logger = structlog.get_logger(__name__)
 
@@ -499,8 +499,8 @@ async def get_tasks(
                    offset=offset)
         
         # 获取真实的任务数据
-        from ...core.database import get_db_session
-        from ...repositories.supervisor_repository import SupervisorTaskRepository
+        from src.core.database import get_db_session
+        from src.repositories.supervisor_repository import SupervisorTaskRepository
         
         async with get_db_session() as db:
             task_repo = SupervisorTaskRepository(db)
@@ -517,13 +517,13 @@ async def get_tasks(
                     "id": task.id,
                     "name": task.name,
                     "description": task.description,
-                    "type": task.task_type,
+                    "task_type": task.task_type,  # 修正字段名
                     "status": task.status,
-                    "assigned_agent": task.assigned_agent_name or "未分配",
+                    "assigned_agent_name": task.assigned_agent_name or "未分配",  # 修正字段名
                     "created_at": task.created_at.isoformat() if task.created_at else None,
                     "priority": task.priority,
                     "complexity_score": task.complexity_score,
-                    "estimated_completion_time": task.estimated_time_seconds
+                    "estimated_time_seconds": task.estimated_time_seconds  # 修正字段名
                 })
         
         return BaseResponse(
@@ -561,7 +561,7 @@ async def get_supervisor_config(
         logger.info("查询Supervisor配置", supervisor_id=supervisor_id)
         
         # 返回模拟的配置数据
-        from ...models.schemas.supervisor import RoutingStrategy
+        from src.models.schemas.supervisor import RoutingStrategy
         config_data = {
             "id": "config_001",
             "supervisor_id": supervisor_id,
@@ -637,7 +637,7 @@ async def execute_task(
     try:
         logger.info("手动执行任务", task_id=task_id)
         
-        from ...services.task_executor import task_executor
+        from src.services.task_executor import task_executor
         result = await task_executor.execute_task(task_id)
         
         if result.get("success", False):
@@ -672,7 +672,7 @@ async def force_task_execution() -> BaseResponse:
     try:
         logger.info("强制执行任务调度")
         
-        from ...services.task_scheduler import task_scheduler
+        from src.services.task_scheduler import task_scheduler
         result = await task_scheduler.force_execution()
         
         return BaseResponse(
@@ -698,7 +698,7 @@ async def force_task_execution() -> BaseResponse:
 async def get_scheduler_status() -> BaseResponse:
     """获取调度器状态"""
     try:
-        from ...services.task_scheduler import task_scheduler
+        from src.services.task_scheduler import task_scheduler
         status_data = task_scheduler.get_status()
         
         return BaseResponse(
@@ -728,8 +728,8 @@ async def get_task_details(
     try:
         logger.info("查询任务详细信息", task_id=task_id)
         
-        from ...core.database import get_db_session
-        from ...repositories.supervisor_repository import SupervisorTaskRepository
+        from src.core.database import get_db_session
+        from src.repositories.supervisor_repository import SupervisorTaskRepository
         
         async with get_db_session() as db:
             task_repo = SupervisorTaskRepository(db)

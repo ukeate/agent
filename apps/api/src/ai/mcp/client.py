@@ -9,7 +9,7 @@ from collections.abc import AsyncGenerator
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
 
-from ...core.config import get_settings
+from src.core.config import get_settings
 from .exceptions import MCPConnectionError, MCPToolError, MCPTimeoutError, handle_mcp_exception
 from .retry import RetryManager, RetryConfig, get_retry_manager
 from .monitoring import MonitoringContextManager, get_mcp_monitor
@@ -155,6 +155,7 @@ class MCPClientManager:
             raise MCPConnectionError(f"Unknown server type: {server_type}")
         
         pool = self.connection_pools[server_type]
+        client = None
         
         try:
             # 从连接池获取客户端
@@ -174,11 +175,12 @@ class MCPClientManager:
             yield client
         finally:
             # 将客户端返回连接池
-            try:
-                pool.put_nowait(client)
-            except asyncio.QueueFull:
-                # 连接池已满，关闭连接
-                await client.close()
+            if client is not None:
+                try:
+                    pool.put_nowait(client)
+                except asyncio.QueueFull:
+                    # 连接池已满，关闭连接
+                    await client.close()
     
     async def list_available_tools(self, server_type: Optional[str] = None) -> Dict[str, List[Dict[str, Any]]]:
         """列出可用的MCP工具"""

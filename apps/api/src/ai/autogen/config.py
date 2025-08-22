@@ -3,9 +3,9 @@ AutoGen智能体配置管理
 """
 from enum import Enum
 from typing import Dict, List, Optional, Any
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 
-from ...core.constants import ConversationConstants
+from src.core.constants import ConversationConstants
 
 
 class AgentRole(str, Enum):
@@ -28,8 +28,7 @@ class AgentConfig(BaseModel):
     tools: List[str] = Field(default_factory=list, description="可用工具列表")
     capabilities: List[str] = Field(default_factory=list, description="智能体能力")
     
-    class Config:
-        use_enum_values = True
+    model_config = ConfigDict(use_enum_values=True)
 
 
 class ConversationConfig(BaseModel):

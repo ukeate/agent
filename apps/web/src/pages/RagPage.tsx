@@ -281,163 +281,162 @@ const RagPage: React.FC = () => {
   // ==================== 渲染主组件 ====================
 
   return (
-    <div className="rag-page">
-      {/* 页面头部 */}
-      <div style={{ padding: layoutMode === 'mobile' ? '8px 16px' : '16px 24px' }}>
-        
-        {/* 移动端头部 */}
-        {layoutMode === 'mobile' && (
-          <Row align="middle" justify="space-between" style={{ marginBottom: 16 }}>
-            <Col>
-              <Title level={3} style={{ margin: 0 }}>
-                RAG 搜索
-              </Title>
-            </Col>
-            <Col>
-              <Space>
-                <Button
-                  icon={<SettingOutlined />}
-                  onClick={() => setShowStatusDrawer(true)}
-                  size="small"
-                />
-                <Button
-                  icon={<MenuOutlined />}
-                  onClick={() => setShowMobileMenu(true)}
-                  size="small"
-                />
-              </Space>
-            </Col>
-          </Row>
-        )}
+      <div className="rag-page h-full">
+        {/* 页面头部 */}
+        <div style={{ padding: layoutMode === 'mobile' ? '8px 16px' : '16px 24px' }}>
+          
+          {/* 移动端头部 */}
+          {layoutMode === 'mobile' && (
+            <Row align="middle" justify="space-between" style={{ marginBottom: 16 }}>
+              <Col>
+                <Title level={3} style={{ margin: 0 }}>
+                  RAG 搜索
+                </Title>
+              </Col>
+              <Col>
+                <Space>
+                  <Button
+                    icon={<SettingOutlined />}
+                    onClick={() => setShowStatusDrawer(true)}
+                    size="small"
+                  />
+                  <Button
+                    icon={<MenuOutlined />}
+                    onClick={() => setShowMobileMenu(true)}
+                    size="small"
+                  />
+                </Space>
+              </Col>
+            </Row>
+          )}
 
-        {/* 桌面端面包屑 */}
-        {layoutMode !== 'mobile' && renderBreadcrumb()}
+          {/* 桌面端面包屑 */}
+          {layoutMode !== 'mobile' && renderBreadcrumb()}
 
-        {/* 全局错误提示 */}
-        {error && (
-          <Alert
-            message="系统错误"
-            description={error}
-            type="error"
-            showIcon
-            closable
-            onClose={clearErrors}
-            style={{ marginBottom: 16 }}
-          />
-        )}
+          {/* 全局错误提示 */}
+          {error && (
+            <Alert
+              message="系统错误"
+              description={error}
+              variant="destructive"
+              showIcon
+              closable
+              onClose={clearErrors}
+              style={{ marginBottom: 16 }}
+            />
+          )}
 
-        {/* 全局加载状态 */}
-        {isQuerying && (
-          <Alert
-            message={
-              <Space>
-                <Spin size="small" />
-                <Text>正在搜索中...</Text>
-              </Space>
+          {/* 全局加载状态 */}
+          {isQuerying && (
+            <Alert
+              message={
+                <Space>
+                  <Spin size="small" />
+                  <Text>正在搜索中...</Text>
+                </Space>
+              }
+              variant="default"
+              style={{ marginBottom: 16 }}
+            />
+          )}
+
+        </div>
+
+        {/* 主内容区域 */}
+        <Content style={{ 
+          padding: layoutMode === 'mobile' ? '0 16px' : '0 24px',
+          minHeight: 'calc(100vh - 200px)'
+        }}>
+          
+          {/* 响应式布局渲染 */}
+          {layoutMode === 'desktop' && renderDesktopLayout()}
+          {layoutMode === 'tablet' && renderTabletLayout()}
+          {layoutMode === 'mobile' && renderMobileLayout()}
+
+          {/* 布局控制按钮 */}
+          {renderLayoutControls()}
+
+          {/* 回到顶部 */}
+          <BackTop />
+
+        </Content>
+
+        {/* 状态监控抽屉 */}
+        <Drawer
+          title="索引状态监控"
+          placement={layoutMode === 'mobile' ? 'bottom' : 'right'}
+          width={layoutMode === 'mobile' ? undefined : 400}
+          height={layoutMode === 'mobile' ? '70%' : undefined}
+          open={showStatusDrawer}
+          onClose={() => setShowStatusDrawer(false)}
+        >
+          <RagIndexStatus />
+        </Drawer>
+
+        {/* 移动端菜单抽屉 */}
+        <Drawer
+          title="菜单"
+          placement="right"
+          width={280}
+          open={showMobileMenu}
+          onClose={() => setShowMobileMenu(false)}
+        >
+          <Space direction="vertical" style={{ width: '100%' }}>
+            <Button
+              block
+              icon={<SearchOutlined />}
+              onClick={() => {
+                setShowMobileMenu(false);
+                // 滚动到查询面板
+                document.querySelector('.rag-query-panel')?.scrollIntoView({ 
+                  behavior: 'smooth' 
+                });
+              }}
+            >
+              搜索面板
+            </Button>
+            
+            <Button
+              block
+              icon={<SettingOutlined />}
+              onClick={() => {
+                setShowMobileMenu(false);
+                setShowStatusDrawer(true);
+              }}
+            >
+              索引状态
+            </Button>
+            
+            <Button
+              block
+              icon={<QuestionCircleOutlined />}
+              onClick={() => {
+                setShowMobileMenu(false);
+                message.info('帮助文档功能开发中...');
+              }}
+            >
+              帮助文档
+            </Button>
+          </Space>
+        </Drawer>
+
+        {/* 页面样式 */}
+        <style>{`
+          .rag-page {
+            background-color: #f5f5f5;
+          }
+          
+          @media (max-width: 768px) {
+            .rag-page .ant-card {
+              margin-bottom: 12px;
             }
-            type="info"
-            style={{ marginBottom: 16 }}
-          />
-        )}
-
+            
+            .rag-page .ant-card-body {
+              padding: 12px;
+            }
+          }
+        `}</style>
       </div>
-
-      {/* 主内容区域 */}
-      <Content style={{ 
-        padding: layoutMode === 'mobile' ? '0 16px' : '0 24px',
-        minHeight: 'calc(100vh - 200px)'
-      }}>
-        
-        {/* 响应式布局渲染 */}
-        {layoutMode === 'desktop' && renderDesktopLayout()}
-        {layoutMode === 'tablet' && renderTabletLayout()}
-        {layoutMode === 'mobile' && renderMobileLayout()}
-
-        {/* 布局控制按钮 */}
-        {renderLayoutControls()}
-
-        {/* 回到顶部 */}
-        <BackTop />
-
-      </Content>
-
-      {/* 状态监控抽屉 */}
-      <Drawer
-        title="索引状态监控"
-        placement={layoutMode === 'mobile' ? 'bottom' : 'right'}
-        width={layoutMode === 'mobile' ? undefined : 400}
-        height={layoutMode === 'mobile' ? '70%' : undefined}
-        open={showStatusDrawer}
-        onClose={() => setShowStatusDrawer(false)}
-      >
-        <RagIndexStatus />
-      </Drawer>
-
-      {/* 移动端菜单抽屉 */}
-      <Drawer
-        title="菜单"
-        placement="right"
-        width={280}
-        open={showMobileMenu}
-        onClose={() => setShowMobileMenu(false)}
-      >
-        <Space direction="vertical" style={{ width: '100%' }}>
-          <Button
-            block
-            icon={<SearchOutlined />}
-            onClick={() => {
-              setShowMobileMenu(false);
-              // 滚动到查询面板
-              document.querySelector('.rag-query-panel')?.scrollIntoView({ 
-                behavior: 'smooth' 
-              });
-            }}
-          >
-            搜索面板
-          </Button>
-          
-          <Button
-            block
-            icon={<SettingOutlined />}
-            onClick={() => {
-              setShowMobileMenu(false);
-              setShowStatusDrawer(true);
-            }}
-          >
-            索引状态
-          </Button>
-          
-          <Button
-            block
-            icon={<QuestionCircleOutlined />}
-            onClick={() => {
-              setShowMobileMenu(false);
-              message.info('帮助文档功能开发中...');
-            }}
-          >
-            帮助文档
-          </Button>
-        </Space>
-      </Drawer>
-
-      {/* 页面样式 */}
-      <style>{`
-        .rag-page {
-          min-height: 100vh;
-          background-color: #f5f5f5;
-        }
-        
-        @media (max-width: 768px) {
-          .rag-page .ant-card {
-            margin-bottom: 12px;
-          }
-          
-          .rag-page .ant-card-body {
-            padding: 12px;
-          }
-        }
-      `}</style>
-    </div>
   );
 };
 

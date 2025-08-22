@@ -7,7 +7,7 @@ from datetime import datetime, timedelta
 from typing import Optional
 import structlog
 
-from ..services.task_executor import task_executor
+from src.services.task_executor import task_executor
 
 logger = structlog.get_logger(__name__)
 
@@ -15,7 +15,7 @@ logger = structlog.get_logger(__name__)
 class TaskScheduler:
     """后台任务调度器"""
     
-    def __init__(self, poll_interval: int = 10, max_tasks_per_cycle: int = 5):
+    def __init__(self, poll_interval: int = 15, max_tasks_per_cycle: int = 3):
         self.poll_interval = poll_interval  # 轮询间隔（秒）
         self.max_tasks_per_cycle = max_tasks_per_cycle  # 每次最多执行任务数
         self._running = False

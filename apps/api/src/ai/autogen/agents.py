@@ -11,8 +11,8 @@ from autogen_core import CancellationToken
 from autogen_ext.models.openai import OpenAIChatCompletionClient
 import structlog
 
-from ..openai_client import get_openai_client
-from ...core.config import get_settings
+from src.ai.openai_client import get_openai_client
+from src.core.config import get_settings
 from .config import AgentConfig, AgentRole, AGENT_CONFIGS
 
 logger = structlog.get_logger(__name__)
@@ -149,7 +149,7 @@ class BaseAutoGenAgent:
                 return f"我是{self.config.name}，响应已被暂停。"
             
             # 使用OpenAI客户端直接进行流式调用
-            from ...ai.openai_client import OpenAIClient
+            from src.ai.openai_client import OpenAIClient
             
             openai_client = OpenAIClient()
             

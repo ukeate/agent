@@ -18,56 +18,19 @@
 
 ## LangGraph Orchestrator
 
-**Responsibility:** 多智能体工作流编排，状态管理，条件分支控制和执行监控
+**Responsibility:** 多智能体工作流编排，Context API v0.6状态管理，Node级缓存和执行监控
 
 **Key Interfaces:**
-- 工作流定义和执行API
-- 状态检查点管理
-- 智能体间消息传递
-- 条件路由和分支逻辑
+- **LangGraph v0.6.5 Context API**: 类型安全的运行时上下文管理，替代config['configurable']
+- **Durability Controls**: 细粒度持久化控制 (`durability="sync/async/exit"`)
+- **Node Caching**: 跳过重复计算，开发迭代加速，缓存命中率优化
+- **Deferred Nodes**: 延迟执行支持，map-reduce模式，批处理优化
+- **Pre/Post Model Hooks**: 模型调用前后的自定义逻辑，guardrails集成
+- **Checkpoint Management**: 高级状态检查点，支持工作流恢复和回滚
 
-**Dependencies:** AutoGen Agent Pool, MCP Tool Registry, PostgreSQL (状态持久化)
+**Dependencies:** AutoGen Agent Pool, MCP Tool Registry, PostgreSQL (状态持久化), Redis (Node缓存), OpenTelemetry (监控)
 
-**Technology Stack:** LangGraph 0.0.69+, Python asyncio, 状态管理机制
+**Technology Stack:** LangGraph 0.6.5, Context API v0.6, Durability控制, Node-level缓存, Python asyncio
 
-## AutoGen Agent Pool
-
-**Responsibility:** 管理专业化AI智能体实例，提供群组对话和智能体间协作能力
-
-**Key Interfaces:**
-- 智能体创建和配置管理
-- 群组对话API
-- 智能体状态监控
-- 角色分配和能力路由
-
-**Dependencies:** OpenAI API, MCP Tools, LangGraph Orchestrator
-
-**Technology Stack:** AutoGen 0.2.18+, OpenAI API集成, 智能体配置管理
-
-## RAG Knowledge Engine
-
-**Responsibility:** 智能知识检索系统，支持语义搜索、上下文增强和答案生成
-
-**Key Interfaces:**
-- 知识条目向量化和存储
-- 语义相似度搜索API
-- RAG增强查询接口
-- 知识图谱关系分析
-
-**Dependencies:** Qdrant Vector DB, OpenAI Embeddings, Knowledge Repository
-
-**Technology Stack:** Qdrant 1.7+, sentence-transformers, 向量检索算法
-
-## React Frontend Shell
-
-**Responsibility:** 前端应用框架，路由管理，状态协调，组件渲染
-
-**Key Interfaces:**
-- 页面路由系统
-- 全局状态管理
-- API客户端集成
-- 实时通信WebSocket
-
-**Dependencies:** API Gateway, 各功能组件
-
-**Technology Stack:** React 18.2+, React Router, Zustand, WebSocket客户端
+**2025升级特性:**
+```python

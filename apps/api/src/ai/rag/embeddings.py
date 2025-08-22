@@ -7,8 +7,8 @@ from typing import Dict, List, Optional
 import numpy as np
 from openai import AsyncOpenAI
 
-from ...core.config import get_settings
-from ...core.redis import get_redis
+from src.core.config import get_settings
+from src.core.redis import get_redis
 
 logger = logging.getLogger(__name__)
 settings = get_settings()

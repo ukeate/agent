@@ -13,8 +13,8 @@ from openai import AsyncOpenAI
 import structlog
 from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
 
-from ..core.config import get_settings
-from ..core.constants import TimeoutConstants
+from src.core.config import get_settings
+from src.core.constants import TimeoutConstants
 
 logger = structlog.get_logger(__name__)
 

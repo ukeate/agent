@@ -10,7 +10,7 @@ from typing import Dict, List, Optional
 from qdrant_client.models import PointStruct, Filter, FieldCondition, MatchValue
 
 from src.ai.rag.embeddings import embedding_service, text_chunker
-from ...core.qdrant import get_qdrant_client
+from src.core.qdrant import get_qdrant_client
 
 logger = logging.getLogger(__name__)
 
@@ -305,22 +305,38 @@ class FileVectorizer:
             except Exception as e:
                 logger.warning(f"Failed to remove {file_path} from {collection_name}: {e}")
 
-    async def get_index_stats(self) -> Dict:
+    def get_index_stats(self) -> Dict:
         """获取索引统计信息"""
         stats = {}
         
         for collection_name in ["documents", "code"]:
             try:
                 info = self.client.get_collection(collection_name)
+                
+                # 估算存储大小：1536维 float32向量 + 元数据开销
+                # 每个向量: 1536 * 4 bytes = 6,144 bytes
+                # 加上元数据、索引等开销，约 7KB per point
+                estimated_size = (info.points_count or 0) * 7 * 1024  # 7KB per point
+                
+                logger.info(f"Collection {collection_name}: points={info.points_count}, estimated_size={estimated_size}")
+                
                 stats[collection_name] = {
-                    "vectors_count": info.vectors_count,
-                    "points_count": info.points_count,
-                    "segments_count": info.segments_count,
-                    "status": info.status,
+                    "vectors_count": info.vectors_count or 0,
+                    "points_count": info.points_count or 0,
+                    "segments_count": info.segments_count or 0,
+                    "status": str(info.status) if info.status else "unknown",
+                    "estimated_disk_size": estimated_size,
                 }
             except Exception as e:
                 logger.error(f"Failed to get stats for {collection_name}: {e}")
-                stats[collection_name] = {"error": str(e)}
+                stats[collection_name] = {
+                    "error": str(e),
+                    "vectors_count": 0,
+                    "points_count": 0,
+                    "segments_count": 0,
+                    "status": "error",
+                    "estimated_disk_size": 0,
+                }
         
         return stats
 

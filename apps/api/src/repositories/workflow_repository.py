@@ -6,8 +6,8 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy import and_, or_, desc, select
 from datetime import datetime
 
-from ..models.database.workflow import WorkflowModel, Task, DAGExecution as DAGExecutionModel
-from ..core.database import get_db_session
+from src.models.database.workflow import WorkflowModel, Task, DAGExecution as DAGExecutionModel
+from src.core.database import get_db_session
 
 
 class WorkflowRepository:
@@ -41,7 +41,7 @@ class WorkflowRepository:
                 return None
             
             return {
-                "id": workflow.id,
+                "id": str(workflow.id),
                 "name": workflow.name,
                 "description": workflow.description,
                 "workflow_type": workflow.workflow_type,
@@ -115,7 +115,7 @@ class WorkflowRepository:
             
             return [
                 {
-                    "id": wf.id,
+                    "id": str(wf.id),
                     "name": wf.name,
                     "description": wf.description,
                     "workflow_type": wf.workflow_type,

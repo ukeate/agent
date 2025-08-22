@@ -8,7 +8,8 @@ import logging
 from typing import Any, Dict, List, Optional
 from datetime import datetime
 
-from ..client import get_mcp_client_manager, MCPConnectionError
+from ..client import get_mcp_client_manager
+from ..exceptions import MCPConnectionError
 
 logger = logging.getLogger(__name__)
 

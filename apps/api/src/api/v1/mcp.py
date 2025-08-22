@@ -6,9 +6,9 @@ from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
 
-from ...ai.mcp.client import get_mcp_client_manager, MCPClientManager
-from ...ai.mcp.exceptions import MCPError, create_mcp_error_response
-from ...ai.mcp.monitoring import get_monitor_dependency, MCPMonitor
+from src.ai.mcp.client import get_mcp_client_manager, MCPClientManager
+from src.ai.mcp.exceptions import MCPError, create_mcp_error_response
+from src.ai.mcp.monitoring import get_monitor_dependency, MCPMonitor
 
 logger = logging.getLogger(__name__)
 

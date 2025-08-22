@@ -19,7 +19,7 @@ import re
 import json
 from difflib import SequenceMatcher
 
-from ..rag.embeddings import embedding_service
+from src.ai.rag.embeddings import embedding_service
 from .query_analyzer import QueryAnalysis, QueryIntent
 from .result_validator import ValidationResult, QualityScore
 

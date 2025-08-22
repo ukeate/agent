@@ -10,8 +10,8 @@ from typing import Dict, List, Optional, Tuple
 import numpy as np
 from qdrant_client.models import Filter, FieldCondition, MatchValue, MatchText
 
-from ...ai.rag.embeddings import embedding_service
-from ...core.qdrant import get_qdrant_client
+from src.ai.rag.embeddings import embedding_service
+from src.core.qdrant import get_qdrant_client
 
 logger = logging.getLogger(__name__)
 

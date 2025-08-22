@@ -9,8 +9,8 @@ from datetime import datetime, timezone
 import json
 import structlog
 
-from ..core.config import get_settings
-from ..db.models import Conversation, Message, Task
+from src.core.config import get_settings
+from src.db.models import Conversation, Message, Task
 
 logger = structlog.get_logger(__name__)
 
@@ -375,7 +375,7 @@ class ConversationService:
         """从数据库加载对话会话"""
         try:
             from sqlalchemy.ext.asyncio import AsyncSession
-            from ..core.database import async_session_factory
+            from src.core.database import async_session_factory
             
             if not async_session_factory:
                 logger.warning("数据库会话工厂未初始化")

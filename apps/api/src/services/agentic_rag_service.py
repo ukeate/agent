@@ -17,7 +17,7 @@ import uuid
 from datetime import datetime
 from typing import List, Dict, Any, Optional, AsyncGenerator
 
-from ..models.schemas.agentic_rag import (
+from src.models.schemas.agentic_rag import (
     # 枚举类型
     QueryIntentType, ExpansionStrategyType, RetrievalStrategyType, 
     QualityDimensionType, FailureType, StreamEventType,

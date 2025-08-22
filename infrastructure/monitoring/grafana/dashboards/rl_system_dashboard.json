@@ -1,0 +1,473 @@
+{
+  "dashboard": {
+    "id": null,
+    "title": "强化学习系统监控仪表板",
+    "tags": ["reinforcement-learning", "ai", "monitoring"],
+    "timezone": "browser",
+    "refresh": "30s",
+    "time": {
+      "from": "now-1h",
+      "to": "now"
+    },
+    "panels": [
+      {
+        "id": 1,
+        "title": "系统概览",
+        "type": "stat",
+        "gridPos": {"h": 8, "w": 24, "x": 0, "y": 0},
+        "targets": [
+          {
+            "expr": "rate(rl_recommendation_requests_total[5m])",
+            "legendFormat": "推荐QPS",
+            "refId": "A"
+          },
+          {
+            "expr": "rl_active_users",
+            "legendFormat": "活跃用户",
+            "refId": "B"
+          },
+          {
+            "expr": "rl_model_accuracy",
+            "legendFormat": "模型准确率",
+            "refId": "C"
+          },
+          {
+            "expr": "rate(rl_cache_hits_total[5m]) / (rate(rl_cache_hits_total[5m]) + rate(rl_cache_misses_total[5m]))",
+            "legendFormat": "缓存命中率",
+            "refId": "D"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short",
+            "decimals": 2
+          },
+          "overrides": [
+            {
+              "matcher": {"id": "byName", "options": "模型准确率"},
+              "properties": [
+                {"id": "unit", "value": "percentunit"},
+                {"id": "min", "value": 0},
+                {"id": "max", "value": 1}
+              ]
+            },
+            {
+              "matcher": {"id": "byName", "options": "缓存命中率"},
+              "properties": [
+                {"id": "unit", "value": "percentunit"},
+                {"id": "min", "value": 0},
+                {"id": "max", "value": 1}
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "id": 2,
+        "title": "推荐请求QPS",
+        "type": "graph",
+        "gridPos": {"h": 9, "w": 12, "x": 0, "y": 8},
+        "targets": [
+          {
+            "expr": "rate(rl_recommendation_requests_total[5m])",
+            "legendFormat": "总QPS",
+            "refId": "A"
+          },
+          {
+            "expr": "rate(rl_recommendation_requests_total{algorithm=\"ucb\"}[5m])",
+            "legendFormat": "UCB算法",
+            "refId": "B"
+          },
+          {
+            "expr": "rate(rl_recommendation_requests_total{algorithm=\"thompson_sampling\"}[5m])",
+            "legendFormat": "Thompson Sampling",
+            "refId": "C"
+          },
+          {
+            "expr": "rate(rl_recommendation_requests_total{algorithm=\"epsilon_greedy\"}[5m])",
+            "legendFormat": "Epsilon Greedy",
+            "refId": "D"
+          },
+          {
+            "expr": "rate(rl_recommendation_requests_total{algorithm=\"linear_contextual\"}[5m])",
+            "legendFormat": "Linear Contextual",
+            "refId": "E"
+          }
+        ],
+        "yAxes": [
+          {
+            "label": "requests/sec",
+            "min": 0
+          }
+        ],
+        "legend": {
+          "show": true,
+          "values": false,
+          "current": false,
+          "max": false,
+          "min": false,
+          "total": false,
+          "avg": false
+        }
+      },
+      {
+        "id": 3,
+        "title": "推荐延迟分布",
+        "type": "graph",
+        "gridPos": {"h": 9, "w": 12, "x": 12, "y": 8},
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.50, rate(rl_recommendation_latency_seconds_bucket[5m]))",
+            "legendFormat": "P50",
+            "refId": "A"
+          },
+          {
+            "expr": "histogram_quantile(0.90, rate(rl_recommendation_latency_seconds_bucket[5m]))",
+            "legendFormat": "P90",
+            "refId": "B"
+          },
+          {
+            "expr": "histogram_quantile(0.95, rate(rl_recommendation_latency_seconds_bucket[5m]))",
+            "legendFormat": "P95",
+            "refId": "C"
+          },
+          {
+            "expr": "histogram_quantile(0.99, rate(rl_recommendation_latency_seconds_bucket[5m]))",
+            "legendFormat": "P99",
+            "refId": "D"
+          }
+        ],
+        "yAxes": [
+          {
+            "label": "seconds",
+            "min": 0
+          }
+        ],
+        "alert": {
+          "conditions": [
+            {
+              "evaluator": {
+                "params": [0.1],
+                "type": "gt"
+              },
+              "operator": {
+                "type": "and"
+              },
+              "query": {
+                "params": ["C", "5m", "now"]
+              },
+              "reducer": {
+                "params": [],
+                "type": "last"
+              },
+              "type": "query"
+            }
+          ],
+          "executionErrorState": "alerting",
+          "for": "5m",
+          "frequency": "10s",
+          "handler": 1,
+          "name": "推荐延迟告警",
+          "noDataState": "no_data",
+          "notifications": []
+        }
+      },
+      {
+        "id": 4,
+        "title": "错误率",
+        "type": "graph",
+        "gridPos": {"h": 9, "w": 12, "x": 0, "y": 17},
+        "targets": [
+          {
+            "expr": "rate(rl_recommendation_errors_total[5m]) / rate(rl_recommendation_requests_total[5m])",
+            "legendFormat": "总错误率",
+            "refId": "A"
+          },
+          {
+            "expr": "rate(rl_recommendation_errors_total{algorithm=\"ucb\"}[5m]) / rate(rl_recommendation_requests_total{algorithm=\"ucb\"}[5m])",
+            "legendFormat": "UCB错误率",
+            "refId": "B"
+          },
+          {
+            "expr": "rate(rl_recommendation_errors_total{algorithm=\"thompson_sampling\"}[5m]) / rate(rl_recommendation_requests_total{algorithm=\"thompson_sampling\"}[5m])",
+            "legendFormat": "Thompson Sampling错误率",
+            "refId": "C"
+          }
+        ],
+        "yAxes": [
+          {
+            "label": "error rate",
+            "min": 0,
+            "max": 1
+          }
+        ],
+        "alert": {
+          "conditions": [
+            {
+              "evaluator": {
+                "params": [0.05],
+                "type": "gt"
+              },
+              "operator": {
+                "type": "and"
+              },
+              "query": {
+                "params": ["A", "5m", "now"]
+              },
+              "reducer": {
+                "params": [],
+                "type": "last"
+              },
+              "type": "query"
+            }
+          ],
+          "executionErrorState": "alerting",
+          "for": "3m",
+          "frequency": "10s",
+          "handler": 1,
+          "name": "错误率告警",
+          "noDataState": "no_data",
+          "notifications": []
+        }
+      },
+      {
+        "id": 5,
+        "title": "算法使用分布",
+        "type": "piechart",
+        "gridPos": {"h": 9, "w": 12, "x": 12, "y": 17},
+        "targets": [
+          {
+            "expr": "increase(rl_algorithm_selections_total[1h])",
+            "legendFormat": "{{algorithm}}",
+            "refId": "A"
+          }
+        ],
+        "options": {
+          "pieType": "donut",
+          "tooltip": {
+            "mode": "single"
+          },
+          "legend": {
+            "displayMode": "table",
+            "placement": "right",
+            "values": ["value", "percent"]
+          }
+        }
+      },
+      {
+        "id": 6,
+        "title": "缓存性能",
+        "type": "graph",
+        "gridPos": {"h": 9, "w": 12, "x": 0, "y": 26},
+        "targets": [
+          {
+            "expr": "rate(rl_cache_hits_total[5m])",
+            "legendFormat": "缓存命中/秒",
+            "refId": "A"
+          },
+          {
+            "expr": "rate(rl_cache_misses_total[5m])",
+            "legendFormat": "缓存未命中/秒",
+            "refId": "B"
+          },
+          {
+            "expr": "rate(rl_cache_hits_total[5m]) / (rate(rl_cache_hits_total[5m]) + rate(rl_cache_misses_total[5m]))",
+            "legendFormat": "命中率",
+            "refId": "C"
+          }
+        ],
+        "yAxes": [
+          {
+            "label": "ops/sec",
+            "min": 0
+          }
+        ],
+        "seriesOverrides": [
+          {
+            "alias": "命中率",
+            "yAxis": 2
+          }
+        ]
+      },
+      {
+        "id": 7,
+        "title": "反馈处理性能",
+        "type": "graph",
+        "gridPos": {"h": 9, "w": 12, "x": 12, "y": 26},
+        "targets": [
+          {
+            "expr": "rate(rl_feedback_processed_total[5m])",
+            "legendFormat": "反馈处理/秒",
+            "refId": "A"
+          },
+          {
+            "expr": "histogram_quantile(0.95, rate(rl_feedback_processing_latency_seconds_bucket[5m]))",
+            "legendFormat": "P95处理延迟",
+            "refId": "B"
+          }
+        ],
+        "yAxes": [
+          {
+            "label": "ops/sec",
+            "min": 0
+          }
+        ],
+        "seriesOverrides": [
+          {
+            "alias": "P95处理延迟",
+            "yAxis": 2
+          }
+        ]
+      },
+      {
+        "id": 8,
+        "title": "A/B测试性能",
+        "type": "graph",
+        "gridPos": {"h": 9, "w": 24, "x": 0, "y": 35},
+        "targets": [
+          {
+            "expr": "rate(rl_ab_test_assignments_total[5m])",
+            "legendFormat": "{{experiment_id}} - 分配/秒",
+            "refId": "A"
+          },
+          {
+            "expr": "rate(rl_ab_test_conversions_total[5m]) / rate(rl_ab_test_assignments_total[5m])",
+            "legendFormat": "{{experiment_id}} - {{variant}} 转化率",
+            "refId": "B"
+          }
+        ],
+        "yAxes": [
+          {
+            "label": "assignments/sec",
+            "min": 0
+          }
+        ],
+        "seriesOverrides": [
+          {
+            "alias": "/.*转化率/",
+            "yAxis": 2
+          }
+        ]
+      },
+      {
+        "id": 9,
+        "title": "老虎机臂选择热力图",
+        "type": "heatmap",
+        "gridPos": {"h": 9, "w": 24, "x": 0, "y": 44},
+        "targets": [
+          {
+            "expr": "increase(rl_bandit_arm_selections_total[5m])",
+            "legendFormat": "{{arm_id}}",
+            "refId": "A"
+          }
+        ],
+        "heatmap": {
+          "xAxis": {
+            "show": true
+          },
+          "yAxis": {
+            "show": true,
+            "label": "Arm ID"
+          },
+          "colorScale": {
+            "colorScheme": "interpolateBlues"
+          }
+        }
+      },
+      {
+        "id": 10,
+        "title": "系统健康状态",
+        "type": "stat",
+        "gridPos": {"h": 8, "w": 24, "x": 0, "y": 53},
+        "targets": [
+          {
+            "expr": "up{job=\"rl-system\"}",
+            "legendFormat": "系统状态",
+            "refId": "A"
+          },
+          {
+            "expr": "rl_active_users",
+            "legendFormat": "活跃用户数",
+            "refId": "B"
+          },
+          {
+            "expr": "rl_model_accuracy",
+            "legendFormat": "模型准确率",
+            "refId": "C"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short",
+            "decimals": 2,
+            "thresholds": {
+              "steps": [
+                {"color": "red", "value": 0},
+                {"color": "yellow", "value": 0.7},
+                {"color": "green", "value": 0.9}
+              ]
+            }
+          },
+          "overrides": [
+            {
+              "matcher": {"id": "byName", "options": "系统状态"},
+              "properties": [
+                {
+                  "id": "mappings",
+                  "value": [
+                    {"type": "value", "value": "0", "text": "Down"},
+                    {"type": "value", "value": "1", "text": "Up"}
+                  ]
+                }
+              ]
+            },
+            {
+              "matcher": {"id": "byName", "options": "模型准确率"},
+              "properties": [
+                {"id": "unit", "value": "percentunit"},
+                {"id": "min", "value": 0},
+                {"id": "max", "value": 1}
+              ]
+            }
+          ]
+        }
+      }
+    ],
+    "templating": {
+      "list": [
+        {
+          "name": "algorithm",
+          "type": "query",
+          "query": "label_values(rl_recommendation_requests_total, algorithm)",
+          "refresh": 1,
+          "includeAll": true,
+          "multi": true
+        },
+        {
+          "name": "experiment",
+          "type": "query",
+          "query": "label_values(rl_ab_test_assignments_total, experiment_id)",
+          "refresh": 1,
+          "includeAll": true,
+          "multi": true
+        }
+      ]
+    },
+    "annotations": {
+      "list": [
+        {
+          "name": "部署事件",
+          "datasource": "prometheus",
+          "expr": "ALERTS{alertname=\"DeploymentEvent\"}",
+          "iconColor": "blue"
+        },
+        {
+          "name": "系统告警",
+          "datasource": "prometheus", 
+          "expr": "ALERTS{component=\"rl-system\"}",
+          "iconColor": "red"
+        }
+      ]
+    }
+  }
+}

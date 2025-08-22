@@ -14,8 +14,8 @@ import structlog
 
 from .agents import BaseAutoGenAgent, create_default_agents
 from .config import ConversationConfig
-from ...core.config import get_settings
-from ...core.constants import TimeoutConstants
+from src.core.config import get_settings
+from src.core.constants import TimeoutConstants
 
 logger = structlog.get_logger(__name__)
 

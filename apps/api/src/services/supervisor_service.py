@@ -8,25 +8,25 @@ import uuid
 import structlog
 
 from sqlalchemy.ext.asyncio import AsyncSession
-from ..core.database import get_db_session
-from ..ai.autogen.supervisor_agent import (
+from src.core.database import get_db_session
+from src.ai.autogen.supervisor_agent import (
     SupervisorAgent, TaskType, TaskPriority, TaskAssignment, 
     SupervisorDecision, TaskComplexity
 )
-from ..ai.autogen.agents import BaseAutoGenAgent
-from ..ai.autogen.config import AGENT_CONFIGS, AgentRole
-from ..repositories.supervisor_repository import (
+from src.ai.autogen.agents import BaseAutoGenAgent
+from src.ai.autogen.config import AGENT_CONFIGS, AgentRole
+from src.repositories.supervisor_repository import (
     SupervisorRepository, SupervisorTaskRepository, 
     SupervisorDecisionRepository, AgentLoadMetricsRepository,
     SupervisorConfigRepository
 )
-from ..models.database.supervisor import (
+from src.models.database.supervisor import (
     SupervisorAgent as DBSupervisorAgent,
     SupervisorTask as DBSupervisorTask,
     SupervisorDecision as DBSupervisorDecision,
     SupervisorConfig as DBSupervisorConfig
 )
-from ..models.schemas.supervisor import (
+from src.models.schemas.supervisor import (
     TaskSubmissionRequest, TaskSubmissionResponse, SupervisorStatusResponse,
     SupervisorConfigUpdateRequest, TaskStatus, AgentStatus
 )
@@ -44,7 +44,7 @@ class SupervisorService:
     def _create_default_agent_pool(self) -> Dict[str, BaseAutoGenAgent]:
         """创建默认的智能体池"""
         try:
-            from ..ai.autogen.agents import (
+            from src.ai.autogen.agents import (
                 CodeExpertAgent, ArchitectAgent, DocExpertAgent, 
                 KnowledgeRetrievalExpertAgent, create_default_agents
             )
@@ -229,11 +229,24 @@ class SupervisorService:
                 )
                 
                 # 更新任务分配信息
-                await task_repo.assign_task_to_agent(
+                logger.info("准备分配任务", 
+                          task_id=task_id, 
+                          assigned_agent=assignment.assigned_agent,
+                          assignment_reason=assignment.assignment_reason)
+                
+                success = await task_repo.assign_task_to_agent(
                     task_id=task_id,
                     agent_id=assignment.assigned_agent,  # 这里暂时使用名称作为ID
                     agent_name=assignment.assigned_agent
                 )
+                
+                if not success:
+                    logger.error("任务分配失败", task_id=task_id, assigned_agent=assignment.assigned_agent)
+                    raise ValueError(f"任务分配失败: {task_id}")
+                
+                logger.info("任务分配成功", 
+                          task_id=task_id, 
+                          assigned_agent=assignment.assigned_agent)
                 
                 # 更新任务复杂度和时间估算
                 complexity_metadata = assignment.decision_metadata.get("complexity", {})
@@ -341,12 +354,14 @@ class SupervisorService:
                         "match_score": d.match_score if d.match_score is not None else 0.0,
                         "routing_strategy": d.routing_strategy,
                         "alternative_agents": d.alternative_agents,
+                        "alternatives_considered": d.alternatives_considered,  # 添加替代方案
                         "task_success": d.task_success,
                         "quality_score": d.quality_score,
                         "timestamp": d.timestamp.isoformat() if d.timestamp else None,
                         "estimated_completion_time": d.estimated_completion_time.isoformat() if d.estimated_completion_time else None,
                         "actual_completion_time": d.actual_completion_time.isoformat() if d.actual_completion_time else None,
-                        "decision_metadata": d.decision_metadata
+                        "decision_metadata": d.decision_metadata,
+                        "routing_metadata": d.routing_metadata  # 添加路由元数据
                     }
                     for d in decisions
                 ]
@@ -550,6 +565,16 @@ class SupervisorService:
         try:
             decision_repo = SupervisorDecisionRepository(db)
             
+            # 转换alternatives格式
+            alternatives_considered = []
+            if assignment.decision_metadata and "alternatives" in assignment.decision_metadata:
+                for alt in assignment.decision_metadata["alternatives"]:
+                    alternatives_considered.append({
+                        "agent": alt.get("agent_name", ""),
+                        "score": alt.get("match_score", 0.0),
+                        "reason": f"匹配度: {alt.get('match_score', 0.0)*100:.1f}%, 负载: {alt.get('load_factor', 0.0)*100:.1f}%"
+                    })
+            
             db_decision = DBSupervisorDecision(
                 id=str(uuid.uuid4()),
                 decision_id=assignment.task_id.replace("task_", "decision_"),
@@ -560,7 +585,9 @@ class SupervisorService:
                 assignment_reason=assignment.assignment_reason,
                 confidence_level=assignment.confidence_level,
                 match_score=assignment.decision_metadata.get("match_details", {}).get("match_score", 0.0),
+                routing_strategy=assignment.decision_metadata.get("routing_strategy", "capability_based"),  # 添加路由策略
                 alternative_agents=assignment.alternative_agents,
+                alternatives_considered=alternatives_considered,  # 添加转换后的替代方案
                 decision_metadata=assignment.decision_metadata,
                 estimated_completion_time=assignment.estimated_completion_time
             )

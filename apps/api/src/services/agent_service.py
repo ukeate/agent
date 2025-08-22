@@ -7,9 +7,9 @@ import uuid
 from typing import Dict, List, Optional, Any, AsyncGenerator
 import structlog
 
-from ..ai.agents.react_agent import ReActAgent, ReActStep, ReActStepType
-from ..services.conversation_service import get_conversation_service
-from ..core.config import get_settings
+from src.ai.agents.react_agent import ReActAgent, ReActStep, ReActStepType
+from src.services.conversation_service import get_conversation_service
+from src.core.config import get_settings
 
 logger = structlog.get_logger(__name__)
 

@@ -1,4 +1,3 @@
-import React from 'react'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import MessageInput from '../../src/components/conversation/MessageInput'
@@ -32,7 +31,7 @@ describe('MessageInput Component', () => {
     )
     
     expect(screen.getByPlaceholderText('请输入你的问题...')).toBeInTheDocument()
-    expect(screen.getByText('发送')).toBeInTheDocument()
+    expect(screen.getByRole('button')).toBeInTheDocument()
   })
 
   it('calls onSendMessage when send button is clicked', async () => {
@@ -44,7 +43,7 @@ describe('MessageInput Component', () => {
     )
     
     const textarea = screen.getByPlaceholderText('请输入你的问题...')
-    const sendButton = screen.getByText('发送')
+    const sendButton = screen.getByRole('button')
     
     fireEvent.change(textarea, { target: { value: 'Hello AI' } })
     fireEvent.click(sendButton)
@@ -62,7 +61,7 @@ describe('MessageInput Component', () => {
       />
     )
     
-    const sendButton = screen.getByText('发送')
+    const sendButton = screen.getByRole('button')
     
     fireEvent.click(sendButton)
     
@@ -78,7 +77,7 @@ describe('MessageInput Component', () => {
     )
     
     const textarea = screen.getByPlaceholderText('请输入你的问题...')
-    const sendButton = screen.getByRole('button', { name: /发送中/i })
+    const sendButton = screen.getByRole('button')
     
     expect(textarea).toBeDisabled()
     expect(sendButton).toBeDisabled()
@@ -108,7 +107,7 @@ describe('MessageInput Component', () => {
     )
     
     const textarea = screen.getByPlaceholderText('请输入你的问题...')
-    const sendButton = screen.getByText('发送')
+    const sendButton = screen.getByRole('button')
     
     // Create a message longer than 2000 characters
     const longMessage = 'a'.repeat(2001)

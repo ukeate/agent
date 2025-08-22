@@ -19,10 +19,10 @@ from abc import ABC, abstractmethod
 from collections import Counter, defaultdict
 import re
 
-from ..rag.retriever import SemanticRetriever
-from ..rag.embeddings import embedding_service
-from ...core.database import get_db_session
-from ...db.models import *
+from src.ai.rag.retriever import SemanticRetriever
+from src.ai.rag.embeddings import embedding_service
+from src.core.database import get_db_session
+from src.db.models import *
 from .query_analyzer import QueryAnalysis, QueryIntent
 
 logger = logging.getLogger(__name__)

@@ -5,7 +5,7 @@ LangGraph状态管理
 from typing import Any, Dict, List, Optional, TypedDict, Annotated
 from typing_extensions import TypedDict as TypedDictExt
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 import uuid
 import json
 
@@ -23,7 +23,7 @@ def create_initial_state(workflow_id: Optional[str] = None) -> MessagesState:
     return MessagesState(
         messages=[],
         metadata={
-            "created_at": datetime.now().isoformat(),
+            "created_at": datetime.now(timezone.utc).isoformat(),
             "step_count": 0,
             "status": "pending",
             "version": "1.0"

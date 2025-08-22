@@ -55,15 +55,40 @@ class ApiClient {
     try {
       const response = await this.client.request<ApiResponse<T>>(config)
       
-      if (!response.data.success) {
-        throw new Error(response.data.error || '请求失败')
+      // 检查是否是标准的ApiResponse格式
+      if (response.data && typeof response.data === 'object' && 'success' in response.data) {
+        if (!response.data.success) {
+          throw new Error(response.data.error || '请求失败')
+        }
+        return response.data.data
+      } else {
+        // 直接返回数据（用于工作流等API）
+        return response.data as T
       }
-      
-      return response.data.data
     } catch (error) {
       console.error('[API] Request failed:', error)
       throw error
     }
+  }
+
+  // 通用GET方法
+  async get<T>(url: string, config?: AxiosRequestConfig): Promise<AxiosResponse<T>> {
+    return this.client.get<T>(url, config)
+  }
+
+  // 通用POST方法
+  async post<T>(url: string, data?: any, config?: AxiosRequestConfig): Promise<AxiosResponse<T>> {
+    return this.client.post<T>(url, data, config)
+  }
+
+  // 通用PUT方法
+  async put<T>(url: string, data?: any, config?: AxiosRequestConfig): Promise<AxiosResponse<T>> {
+    return this.client.put<T>(url, data, config)
+  }
+
+  // 通用DELETE方法
+  async delete<T>(url: string, config?: AxiosRequestConfig): Promise<AxiosResponse<T>> {
+    return this.client.delete<T>(url, config)
   }
 
   // 聊天接口
@@ -89,6 +114,45 @@ class ApiClient {
     return this.request({
       method: 'GET',
       url: '/agent/status',
+    })
+  }
+
+  // 工作流相关接口
+  async createWorkflow(workflowData: any): Promise<any> {
+    return this.request({
+      method: 'POST',
+      url: '/workflows',
+      data: workflowData,
+    })
+  }
+
+  async startWorkflow(workflowId: string, inputData?: any): Promise<any> {
+    return this.request({
+      method: 'POST',
+      url: `/workflows/${workflowId}/start`,
+      data: inputData ? { input_data: inputData } : {},
+    })
+  }
+
+  async getWorkflowStatus(workflowId: string): Promise<any> {
+    return this.request({
+      method: 'GET',
+      url: `/workflows/${workflowId}/status`,
+    })
+  }
+
+  async listWorkflows(): Promise<any> {
+    return this.request({
+      method: 'GET',
+      url: '/workflows',
+    })
+  }
+
+  async controlWorkflow(workflowId: string, action: string): Promise<any> {
+    return this.request({
+      method: 'PUT',
+      url: `/workflows/${workflowId}/control`,
+      data: { action },
     })
   }
 

@@ -21,13 +21,10 @@ import {
   Alert,
   Tooltip,
   Modal,
-  List,
   Typography,
-  Divider,
   Upload,
   Input,
   message,
-  Tag,
 } from 'antd';
 import {
   DatabaseOutlined,
@@ -40,8 +37,6 @@ import {
   FolderAddOutlined,
   DeleteOutlined,
   UploadOutlined,
-  SyncOutlined,
-  InfoCircleOutlined,
 } from '@ant-design/icons';
 import { useRagStore } from '../../stores/ragStore';
 import { ragService } from '../../services/ragService';
@@ -233,7 +228,7 @@ const RagIndexStatus: React.FC<RagIndexStatusProps> = ({
     }
   }, [setIndexLoading, refreshStatus]);
 
-  const handleFileUpload = useCallback(async (file: File) => {
+  const handleFileUpload = useCallback(async (_file: File) => {
     // 这里应该实现文件上传到服务器并索引的逻辑
     message.info('文件上传功能需要后端支持');
     return false; // 阻止默认上传行为
@@ -398,8 +393,7 @@ const RagIndexStatus: React.FC<RagIndexStatusProps> = ({
               {indexingProgress.errors.length > 0 && (
                 <Alert
                   message={`发现 ${indexingProgress.errors.length} 个错误`}
-                  type="error"
-                  size="small"
+                  variant="destructive"
                 />
               )}
             </Space>
@@ -486,7 +480,7 @@ const RagIndexStatus: React.FC<RagIndexStatusProps> = ({
           <Alert
             message="提示"
             description="索引过程可能需要一些时间，请耐心等待。大量文件的索引会消耗较多系统资源。"
-            type="info"
+            variant="default"
             showIcon
           />
         </Space>
@@ -507,7 +501,7 @@ const RagIndexStatus: React.FC<RagIndexStatusProps> = ({
           <Alert
             message="警告"
             description="此操作将删除所有已建立的索引数据，包括向量数据和元数据。此操作不可撤销！"
-            type="warning"
+            variant="warning"
             showIcon
           />
           <Text>请确认您要重置所有索引数据。</Text>

@@ -1,0 +1,134 @@
+# Prometheus配置文件 - 强化学习系统监控
+
+global:
+  scrape_interval: 15s      # 默认采集间隔
+  evaluation_interval: 15s  # 规则评估间隔
+  external_labels:
+    cluster: 'rl-system'
+    environment: 'production'
+
+# 告警规则文件
+rule_files:
+  - "alert_rules.yml"
+  - "recording_rules.yml"
+
+# Alertmanager配置
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: 
+          - "alertmanager:9093"
+      timeout: 10s
+      api_version: v2
+
+# 采集任务配置
+scrape_configs:
+  # 强化学习系统主服务
+  - job_name: 'rl-system-api'
+    static_configs:
+      - targets: 
+        - 'localhost:8000'
+        - 'api-server-1:8000'
+        - 'api-server-2:8000'
+    metrics_path: '/metrics'
+    scrape_interval: 10s
+    scrape_timeout: 5s
+    honor_labels: true
+    params:
+      format: ['prometheus']
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+      - source_labels: [__address__]
+        regex: '([^:]+):.*'
+        target_label: server
+        replacement: '${1}'
+
+  # 数据库监控
+  - job_name: 'postgresql'
+    static_configs:
+      - targets: 
+        - 'postgres-exporter:9187'
+    scrape_interval: 30s
+    metrics_path: '/metrics'
+
+  # Redis监控
+  - job_name: 'redis'
+    static_configs:
+      - targets:
+        - 'redis-exporter:9121'
+    scrape_interval: 30s
+    metrics_path: '/metrics'
+
+  # 系统指标监控
+  - job_name: 'node-exporter'
+    static_configs:
+      - targets:
+        - 'node-exporter:9100'
+    scrape_interval: 15s
+    metrics_path: '/metrics'
+
+  # Kubernetes集群监控 (如果部署在K8s中)
+  - job_name: 'kubernetes-pods'
+    kubernetes_sd_configs:
+      - role: pod
+        namespaces:
+          names:
+            - rl-system
+    relabel_configs:
+      - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
+        action: keep
+        regex: true
+      - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_path]
+        action: replace
+        target_label: __metrics_path__
+        regex: (.+)
+      - source_labels: [__address__, __meta_kubernetes_pod_annotation_prometheus_io_port]
+        action: replace
+        regex: ([^:]+)(?::\d+)?;(\d+)
+        replacement: $1:$2
+        target_label: __address__
+      - action: labelmap
+        regex: __meta_kubernetes_pod_label_(.+)
+      - source_labels: [__meta_kubernetes_namespace]
+        action: replace
+        target_label: kubernetes_namespace
+      - source_labels: [__meta_kubernetes_pod_name]
+        action: replace
+        target_label: kubernetes_pod_name
+
+  # 业务指标自定义采集
+  - job_name: 'rl-business-metrics'
+    static_configs:
+      - targets:
+        - 'business-metrics-exporter:8080'
+    metrics_path: '/business-metrics'
+    scrape_interval: 60s
+    honor_labels: true
+
+  # 实验和A/B测试指标
+  - job_name: 'ab-test-metrics'
+    static_configs:
+      - targets:
+        - 'ab-test-service:8090'
+    metrics_path: '/ab-metrics'
+    scrape_interval: 30s
+    params:
+      format: ['prometheus']
+
+# 远程写入配置 (可选 - 用于长期存储)
+remote_write:
+  - url: "http://cortex:9009/api/prom/push"
+    queue_config:
+      max_samples_per_send: 1000
+      batch_send_deadline: 5s
+      max_retries: 3
+    write_relabel_configs:
+      - source_labels: [__name__]
+        regex: 'rl_.*'
+        action: keep
+
+# 远程读取配置 (可选)
+remote_read:
+  - url: "http://cortex:9009/api/prom/read"
+    read_recent: true

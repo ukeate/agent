@@ -9,10 +9,10 @@ import json
 import asyncio
 from datetime import datetime
 
-from ...services.multi_agent_service import MultiAgentService
-from ...ai.autogen.config import AgentRole, ConversationConfig
-from ...core.logging import get_logger
-from ...core.constants import ConversationConstants
+from src.services.multi_agent_service import MultiAgentService
+from src.ai.autogen.config import AgentRole, ConversationConfig
+from src.core.logging import get_logger
+from src.core.constants import ConversationConstants
 
 logger = get_logger(__name__)
 
@@ -493,7 +493,7 @@ async def get_agents(
     """获取智能体列表"""
     try:
         # 从配置中获取智能体信息
-        from ...ai.autogen.config import AGENT_CONFIGS
+        from src.ai.autogen.config import AGENT_CONFIGS
         
         agents = []
         for role, config in AGENT_CONFIGS.items():
@@ -704,7 +704,7 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
                     logger.info(f"启动对话 - 消息: '{initial_message}' (长度: {len(initial_message)}), 参与者: {participants}")
                     
                     # 将参与者ID转换为AgentRole
-                    from ...ai.autogen.config import AgentRole
+                    from src.ai.autogen.config import AgentRole
                     agent_roles = []
                     for participant_id in participants:
                         if "code_expert" in participant_id:

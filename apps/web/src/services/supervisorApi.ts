@@ -75,8 +75,10 @@ class SupervisorApiService {
     pageSize: number
     totalPages: number
   }> {
+    // 将页码转换为offset
+    const offset = (page - 1) * pageSize
     const response = await fetch(
-      `${API_BASE}/tasks?supervisor_id=${supervisorId}&page=${page}&page_size=${pageSize}`
+      `${API_BASE}/tasks?supervisor_id=${supervisorId}&limit=${pageSize}&offset=${offset}`
     )
     
     if (!response.ok) {
@@ -84,7 +86,23 @@ class SupervisorApiService {
     }
     
     const data = await response.json()
-    return data.data
+    
+    if (!data.success) {
+      throw new Error(data.message || '获取任务列表失败')
+    }
+    
+    // 转换后端返回的数据格式
+    const tasks = data.data.tasks || []
+    const total = data.data.pagination?.total || tasks.length
+    const totalPages = Math.ceil(total / pageSize)
+    
+    return {
+      tasks,
+      total,
+      page,
+      pageSize,
+      totalPages
+    }
   }
 
   /**
@@ -120,8 +138,10 @@ class SupervisorApiService {
     pageSize: number
     totalPages: number
   }> {
+    // 将页码转换为offset
+    const offset = (page - 1) * pageSize
     const response = await fetch(
-      `${API_BASE}/decisions?supervisor_id=${supervisorId}&page=${page}&page_size=${pageSize}`
+      `${API_BASE}/decisions?supervisor_id=${supervisorId}&limit=${pageSize}&offset=${offset}`
     )
     
     if (!response.ok) {
@@ -129,7 +149,23 @@ class SupervisorApiService {
     }
     
     const data = await response.json()
-    return data.data
+    
+    if (!data.success) {
+      throw new Error(data.message || '获取决策历史失败')
+    }
+    
+    // 转换后端返回的数据格式
+    const decisions = data.data || []
+    const total = data.pagination?.total || decisions.length
+    const totalPages = Math.ceil(total / pageSize)
+    
+    return {
+      decisions,
+      total,
+      page,
+      pageSize,
+      totalPages
+    }
   }
 
   /**

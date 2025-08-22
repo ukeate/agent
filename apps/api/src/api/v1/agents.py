@@ -10,8 +10,8 @@ from typing import Dict, List, Optional, Any
 import json
 import structlog
 
-from ...services.agent_service import get_agent_service, AgentService
-from ...core.dependencies import get_current_user
+from src.services.agent_service import get_agent_service, AgentService
+from src.core.dependencies import get_current_user
 
 logger = structlog.get_logger(__name__)
 

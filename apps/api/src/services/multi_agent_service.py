@@ -6,7 +6,7 @@ from typing import Dict, List, Optional, Any, AsyncGenerator
 from datetime import datetime, timezone
 import json
 
-from ..ai.autogen import (
+from src.ai.autogen import (
     GroupChatManager,
     ConversationSession,
     create_default_agents,
@@ -15,7 +15,7 @@ from ..ai.autogen import (
     AgentRole,
     ConversationConfig,
 )
-from ..ai.autogen.agents import BaseAutoGenAgent
+from src.ai.autogen.agents import BaseAutoGenAgent
 import structlog
 
 logger = structlog.get_logger(__name__)

@@ -1,20 +1,31 @@
 """
-RAG (Retrieval-Augmented Generation) 知识检索系统
-提供文档索引、检索和生成能力
+RAG (Retrieval-Augmented Generation) 系统
+
+提供向量检索、量化压缩、性能优化等功能
 """
 
-from .indexer import DocumentIndexer, VectorIndexer
-from .retriever import SemanticRetriever, HybridRetriever  
-from .generator import RAGGenerator
-from .models import Document, DocumentChunk, RetrievalResult
+from .quantization import (
+    VectorQuantizer,
+    BinaryQuantizer,
+    HalfPrecisionQuantizer,
+    QuantizationManager,
+    get_quantization_manager
+)
+
+from .vector_store import (
+    PgVectorStore,
+    get_vector_store
+)
 
 __all__ = [
-    "DocumentIndexer",
-    "VectorIndexer",
-    "SemanticRetriever", 
-    "HybridRetriever",
-    "RAGGenerator",
-    "Document",
-    "DocumentChunk", 
-    "RetrievalResult"
+    # Quantization
+    "VectorQuantizer",
+    "BinaryQuantizer",
+    "HalfPrecisionQuantizer", 
+    "QuantizationManager",
+    "get_quantization_manager",
+    
+    # Vector Store
+    "PgVectorStore",
+    "get_vector_store"
 ]

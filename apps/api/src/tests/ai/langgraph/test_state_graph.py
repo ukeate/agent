@@ -170,8 +170,12 @@ class TestLangGraphWorkflowBuilder:
         
         # 验证执行结果
         assert result["metadata"]["status"] == "completed"
-        assert "analysis_result" in result["context"]
-        assert result["context"]["analysis_result"] in ["success", "failure"]
+        # 验证条件工作流特定的上下文
+        assert "data_quality" in result["context"]
+        assert result["context"]["data_quality"] in ["high", "low"]
+        assert "decision_result" in result["context"]
+        # 验证路径执行
+        assert result["context"].get("optimization_applied") or result["context"].get("cleaning_applied")
     
     @pytest.mark.asyncio
     async def test_workflow_pause_resume(self):

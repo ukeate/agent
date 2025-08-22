@@ -1,16 +1,17 @@
 """
 工作流管理API路由
 """
+import json
 from typing import List, Optional
-from fastapi import APIRouter, HTTPException, Query, Path
+from fastapi import APIRouter, HTTPException, Query, Path, WebSocket, WebSocketDisconnect
 from fastapi.responses import JSONResponse
 
-from ...models.schemas.workflow import (
+from src.models.schemas.workflow import (
     WorkflowCreate, WorkflowUpdate, WorkflowResponse,
     WorkflowExecuteRequest, WorkflowControlRequest,
     CheckpointResponse
 )
-from ...services.workflow_service import workflow_service
+from src.services.workflow_service import workflow_service
 
 router = APIRouter(prefix="/workflows", tags=["workflows"])
 
@@ -155,6 +156,76 @@ async def delete_workflow(
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
+
+# WebSocket连接管理
+class ConnectionManager:
+    def __init__(self):
+        self.active_connections: dict[str, WebSocket] = {}
+
+    async def connect(self, websocket: WebSocket, workflow_id: str):
+        """接受WebSocket连接"""
+        await websocket.accept()
+        self.active_connections[workflow_id] = websocket
+
+    def disconnect(self, workflow_id: str):
+        """断开WebSocket连接"""
+        if workflow_id in self.active_connections:
+            del self.active_connections[workflow_id]
+
+    async def send_workflow_update(self, workflow_id: str, data: dict):
+        """向特定工作流发送更新"""
+        if workflow_id in self.active_connections:
+            try:
+                await self.active_connections[workflow_id].send_text(json.dumps(data))
+            except Exception as e:
+                print(f"Error sending update to {workflow_id}: {e}")
+                self.disconnect(workflow_id)
+
+    async def broadcast_update(self, data: dict):
+        """广播更新到所有连接"""
+        for workflow_id, connection in list(self.active_connections.items()):
+            try:
+                await connection.send_text(json.dumps(data))
+            except Exception as e:
+                print(f"Error broadcasting to {workflow_id}: {e}")
+                self.disconnect(workflow_id)
+
+manager = ConnectionManager()
+
+@router.websocket("/{workflow_id}/ws")
+async def workflow_websocket_endpoint(websocket: WebSocket, workflow_id: str):
+    """工作流实时状态WebSocket端点"""
+    await manager.connect(websocket, workflow_id)
+    
+    try:
+        # 发送初始状态
+        initial_status = await workflow_service.get_workflow_status(workflow_id)
+        await websocket.send_text(json.dumps({
+            "type": "initial_status",
+            "data": initial_status.dict() if initial_status else None
+        }))
+        
+        # 保持连接并处理客户端消息
+        while True:
+            data = await websocket.receive_text()
+            message = json.loads(data)
+            
+            # 处理客户端请求
+            if message.get("type") == "get_status":
+                current_status = await workflow_service.get_workflow_status(workflow_id)
+                await websocket.send_text(json.dumps({
+                    "type": "status_update",
+                    "data": current_status.dict() if current_status else None
+                }))
+                
+            elif message.get("type") == "ping":
+                await websocket.send_text(json.dumps({"type": "pong"}))
+                
+    except WebSocketDisconnect:
+        manager.disconnect(workflow_id)
+    except Exception as e:
+        print(f"WebSocket error for workflow {workflow_id}: {e}")
+        manager.disconnect(workflow_id)
 
 # 健康检查端点
 @router.get("/health/check")

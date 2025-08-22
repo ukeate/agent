@@ -9,6 +9,11 @@ from .checkpoints import CheckpointManager, checkpoint_manager
 from .error_handling import WorkflowErrorRecovery, error_recovery
 from .timeout_control import TimeoutManager, timeout_manager
 from .event_system import EventBus, event_bus, event_emitter
+from .context import AgentContext, create_default_context, validate_context
+from .caching import CacheConfig, NodeCache, RedisNodeCache, MemoryNodeCache, create_node_cache
+from .cached_node import cached_node, invalidate_node_cache, cache_warmup
+from .cache_factory import get_node_cache, initialize_cache, shutdown_cache
+from .cache_monitor import CacheMonitor, CacheHealthChecker, get_cache_monitor
 
 __all__ = [
     "MessagesState",
@@ -24,5 +29,23 @@ __all__ = [
     "timeout_manager",
     "EventBus",
     "event_bus",
-    "event_emitter"
+    "event_emitter",
+    # 缓存相关
+    "AgentContext",
+    "create_default_context",
+    "validate_context",
+    "CacheConfig",
+    "NodeCache", 
+    "RedisNodeCache",
+    "MemoryNodeCache",
+    "create_node_cache",
+    "cached_node",
+    "invalidate_node_cache",
+    "cache_warmup",
+    "get_node_cache",
+    "initialize_cache",
+    "shutdown_cache",
+    "CacheMonitor",
+    "CacheHealthChecker",
+    "get_cache_monitor"
 ]

@@ -18,7 +18,7 @@ from enum import Enum
 from collections import Counter, defaultdict
 import re
 
-from ..openai_client import get_openai_client
+from src.ai.openai_client import get_openai_client
 from .query_analyzer import QueryAnalysis, QueryIntent
 from .retrieval_agents import RetrievalResult
 

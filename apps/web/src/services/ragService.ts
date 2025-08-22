@@ -269,7 +269,7 @@ export class RagService {
           stats: {
             total_documents: (documentsStats.points_count || 0) + (codeStats.points_count || 0),
             total_vectors: (documentsStats.vectors_count || 0) + (codeStats.vectors_count || 0),
-            index_size: 0, // 后端暂时没有提供这个字段，使用默认值
+            index_size: backendData.total_disk_size || 0, // 使用后端返回的真实存储大小
             last_updated: new Date().toISOString(), // 使用当前时间作为默认值
           },
           error: backendData.error

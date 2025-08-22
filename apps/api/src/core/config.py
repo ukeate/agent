@@ -21,13 +21,28 @@ class Settings(BaseSettings):
     # 安全配置
     SECRET_KEY: str = Field(description="应用密钥")
     ALLOWED_HOSTS: list[str] = Field(
-        default=["http://localhost:3000", "http://127.0.0.1:3000", "http://localhost:3001", "http://127.0.0.1:3001"],
+        default=["http://localhost:3000", "http://127.0.0.1:3000", "http://localhost:3001", "http://127.0.0.1:3001", "http://localhost:3004", "http://127.0.0.1:3004"],
         description="允许的跨域来源",
     )
+    JWT_ALGORITHM: str = Field(default="HS256", description="JWT算法")
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = Field(default=30, description="访问令牌过期时间（分钟）")
+    REFRESH_TOKEN_EXPIRE_DAYS: int = Field(default=7, description="刷新令牌过期时间（天）")
+    
+    # 安全增强配置
+    FORCE_HTTPS: bool = Field(default=False, description="强制HTTPS")
+    CSP_HEADER: str = Field(
+        default="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline';",
+        description="Content Security Policy头"
+    )
+    SECURITY_THRESHOLD: float = Field(default=0.7, description="安全阈值")
+    AUTO_BLOCK_THRESHOLD: float = Field(default=0.9, description="自动阻断阈值")
+    MAX_REQUESTS_PER_MINUTE: int = Field(default=60, description="每分钟最大请求数")
+    MAX_REQUEST_SIZE: int = Field(default=10485760, description="最大请求大小（字节）")
+    DEFAULT_RATE_LIMIT: str = Field(default="100/minute", description="默认频率限制")
 
     # 数据库配置
     DATABASE_URL: str = Field(
-        default="postgresql+asyncpg://user:password@localhost:5433/agent_db",
+        default="postgresql+asyncpg://ai_agent_user:ai_agent_password@localhost:5433/ai_agent_db",
         description="数据库连接URL",
     )
 
@@ -46,9 +61,113 @@ class Settings(BaseSettings):
     # Qdrant配置
     QDRANT_HOST: str = Field(default="localhost", description="Qdrant主机")
     QDRANT_PORT: int = Field(default=6333, description="Qdrant端口")
+    
+    # pgvector配置
+    PGVECTOR_ENABLED: bool = Field(default=True, description="启用pgvector支持")
+    PGVECTOR_VERSION: str = Field(default="0.8.0", description="pgvector版本")
+    PGVECTOR_DATABASE_URL: str = Field(
+        default="postgresql://ai_agent_user:ai_agent_password@localhost:5433/ai_agent_db",
+        description="pgvector专用数据库连接URL（纯PostgreSQL格式）"
+    )
+    
+    # HNSW索引配置
+    HNSW_EF_CONSTRUCTION: int = Field(default=64, description="HNSW构建时候选列表大小")
+    HNSW_EF_SEARCH: int = Field(default=100, description="HNSW搜索时候选列表大小")
+    HNSW_M: int = Field(default=16, description="HNSW每层连接数")
+    HNSW_ITERATIVE_SCAN: str = Field(default="strict_order", description="HNSW迭代扫描模式")
+    HNSW_MAX_SCAN_TUPLES: int = Field(default=20000, description="HNSW最大扫描元组数")
+    HNSW_SCAN_MEM_MULTIPLIER: int = Field(default=2, description="HNSW扫描内存倍数")
+    
+    # IVFFlat索引配置
+    IVFFLAT_LISTS: int = Field(default=1000, description="IVFFlat列表数量")
+    IVFFLAT_PROBES: int = Field(default=10, description="IVFFlat探测数量")
+    IVFFLAT_ITERATIVE_SCAN: str = Field(default="strict_order", description="IVFFlat迭代扫描模式")
+    IVFFLAT_MAX_PROBES: int = Field(default=100, description="IVFFlat最大探测数")
+    
+    # 向量量化配置
+    VECTOR_QUANTIZATION_ENABLED: bool = Field(default=True, description="启用向量量化")
+    VECTOR_BINARY_QUANTIZATION: bool = Field(default=False, description="启用二进制量化")
+    VECTOR_HALFVEC_ENABLED: bool = Field(default=True, description="启用半精度向量")
+    VECTOR_SPARSEVEC_ENABLED: bool = Field(default=True, description="启用稀疏向量")
+    
+    # 向量索引性能配置
+    VECTOR_INDEX_BUILD_MEMORY: str = Field(default="512MB", description="向量索引构建内存")
+    VECTOR_INDEX_PARALLEL_WORKERS: int = Field(default=4, description="向量索引构建并行工作数")
+    VECTOR_INDEX_MAINTENANCE_WORKERS: int = Field(default=4, description="向量索引维护工作数")
+    VECTOR_INDEX_CONCURRENT_BUILD: bool = Field(default=True, description="启用并发索引构建")
+    
+    # 向量查询性能配置
+    VECTOR_QUERY_CACHE_ENABLED: bool = Field(default=True, description="启用向量查询缓存")
+    VECTOR_QUERY_CACHE_SIZE: int = Field(default=10000, description="向量查询缓存大小")
+    VECTOR_QUERY_CACHE_TTL: int = Field(default=1800, description="向量查询缓存TTL（秒）")
+    VECTOR_QUERY_TIMEOUT: int = Field(default=30, description="向量查询超时时间（秒）")
+    VECTOR_BATCH_SIZE: int = Field(default=100, description="向量批处理大小")
+    VECTOR_MAX_CONNECTIONS: int = Field(default=20, description="向量数据库最大连接数")
+    
+    # 向量监控配置
+    VECTOR_MONITORING_ENABLED: bool = Field(default=True, description="启用向量监控")
+    VECTOR_METRICS_COLLECTION_INTERVAL: int = Field(default=60, description="向量指标收集间隔（秒）")
+    VECTOR_PERFORMANCE_LOGGING: bool = Field(default=True, description="启用向量性能日志")
+    VECTOR_SLOW_QUERY_THRESHOLD: float = Field(default=1.0, description="慢查询阈值（秒）")
+    
+    # 向量数据完整性配置
+    VECTOR_BACKUP_ENABLED: bool = Field(default=True, description="启用向量数据备份")
+    VECTOR_VALIDATION_ENABLED: bool = Field(default=True, description="启用向量数据验证")
+    VECTOR_MIGRATION_BATCH_SIZE: int = Field(default=1000, description="向量迁移批处理大小")
+    
+    # BM42混合搜索配置
+    HYBRID_SEARCH_VECTOR_WEIGHT: float = Field(default=0.7, description="语义搜索权重")
+    HYBRID_SEARCH_BM25_WEIGHT: float = Field(default=0.3, description="BM25搜索权重")
+    HYBRID_SEARCH_TOP_K: int = Field(default=20, description="混合搜索返回结果数量")
+    HYBRID_SEARCH_RERANK_SIZE: int = Field(default=100, description="重排序候选结果数量")
+    HYBRID_SEARCH_STRATEGY: str = Field(default="hybrid_rrf", description="混合搜索策略")
+    HYBRID_SEARCH_RRF_K: int = Field(default=60, description="RRF算法参数K")
+    HYBRID_SEARCH_ENABLE_CACHE: bool = Field(default=True, description="启用混合搜索缓存")
+    BM25_K1: float = Field(default=1.2, description="BM25算法参数K1")
+    BM25_B: float = Field(default=0.75, description="BM25算法参数B")
+    BM25_AVG_DOC_LENGTH: float = Field(default=1000.0, description="BM25平均文档长度")
 
     # 日志配置
     LOG_LEVEL: str = Field(default="INFO", description="日志级别")
+
+    # 缓存配置
+    CACHE_ENABLED: bool = Field(default=True, description="启用缓存")
+    CACHE_BACKEND: str = Field(default="redis", description="缓存后端")
+    CACHE_TTL_DEFAULT: int = Field(default=3600, description="默认缓存TTL（秒）")
+    CACHE_MAX_ENTRIES: int = Field(default=10000, description="最大缓存条目数")
+    CACHE_KEY_PREFIX: str = Field(default="langgraph:cache", description="缓存键前缀")
+    CACHE_REDIS_URL: str = Field(default="redis://localhost:6379/1", description="缓存专用Redis URL")
+    CACHE_COMPRESSION: bool = Field(default=True, description="启用缓存压缩")
+    CACHE_MONITORING: bool = Field(default=True, description="启用缓存监控")
+    CACHE_SERIALIZE_METHOD: str = Field(default="pickle", description="缓存序列化方法")
+    CACHE_CLEANUP_INTERVAL: int = Field(default=300, description="缓存清理间隔（秒）")
+
+    # 离线能力配置
+    OFFLINE_STORAGE_PATH: str = Field(default="/tmp/ai_agent_offline", description="离线存储路径")
+    OFFLINE_SYNC_INTERVAL: int = Field(default=30, description="离线同步间隔（秒）")
+    OFFLINE_MAX_OPERATIONS: int = Field(default=10000, description="最大离线操作数")
+    OFFLINE_BATCH_SIZE: int = Field(default=100, description="同步批量大小")
+
+    # 用户反馈学习系统配置
+    FEEDBACK_BUFFER_SIZE: int = Field(default=1000, description="反馈缓冲区大小")
+    FEEDBACK_FLUSH_INTERVAL: float = Field(default=5.0, description="反馈刷新间隔（秒）")
+    FEEDBACK_DEDUP_WINDOW: int = Field(default=300, description="反馈去重窗口（秒）")
+    FEEDBACK_QUALITY_THRESHOLD: float = Field(default=0.6, description="反馈质量阈值")
+    FEEDBACK_BATCH_SIZE: int = Field(default=100, description="反馈批处理大小")
+    FEEDBACK_PROCESSING_ENABLED: bool = Field(default=True, description="启用反馈处理")
+    FEEDBACK_COLLECTOR_THREADS: int = Field(default=4, description="反馈收集线程数")
+    REWARD_SIGNAL_TTL: int = Field(default=86400, description="奖励信号TTL（秒）")
+    REWARD_CALCULATION_STRATEGY: str = Field(default="weighted_average", description="奖励计算策略")
+    OFFLINE_CONFLICT_RESOLUTION: str = Field(default="merge", description="冲突解决策略")
+    OFFLINE_COMPRESSION: bool = Field(default=True, description="启用离线数据压缩")
+    OFFLINE_ENCRYPTION: bool = Field(default=False, description="启用离线数据加密")
+    OFFLINE_RETRY_MAX_COUNT: int = Field(default=3, description="最大重试次数")
+    OFFLINE_RETRY_BACKOFF_FACTOR: float = Field(default=2.0, description="重试退避系数")
+    OFFLINE_CONNECTION_TIMEOUT: int = Field(default=10, description="连接超时时间（秒）")
+    OFFLINE_NETWORK_CHECK_INTERVAL: int = Field(default=5, description="网络检查间隔（秒）")
+    OFFLINE_VECTOR_CLOCK_ENABLED: bool = Field(default=True, description="启用向量时钟")
+    OFFLINE_MODEL_CACHE_SIZE: int = Field(default=1000, description="本地模型缓存大小（MB）")
+    OFFLINE_MODEL_CACHE_PATH: str = Field(default="/tmp/ai_agent_models", description="本地模型缓存路径")
 
     @field_validator("SECRET_KEY", mode="before")
     @classmethod

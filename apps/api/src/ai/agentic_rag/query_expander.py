@@ -14,7 +14,7 @@ from typing import List, Dict, Any, Optional, Tuple
 from dataclasses import dataclass
 from enum import Enum
 
-from ..openai_client import get_openai_client
+from src.ai.openai_client import get_openai_client
 from .query_analyzer import QueryAnalysis, QueryIntent
 
 

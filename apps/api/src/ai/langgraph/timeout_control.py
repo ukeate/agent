@@ -3,7 +3,7 @@
 """
 from typing import Any, Dict, Optional, Callable
 import asyncio
-from datetime import datetime, timedelta
+from datetime import datetime, timezone, timedelta
 from dataclasses import dataclass, field
 from enum import Enum
 
@@ -56,7 +56,7 @@ class CancellationToken:
         if not self._cancelled:
             self._cancelled = True
             self._cancellation_reason = reason
-            self._cancelled_at = datetime.now()
+            self._cancelled_at = datetime.now(timezone.utc)
             
             # 执行取消回调
             for callback in self._callbacks:
@@ -179,7 +179,7 @@ class TimeoutManager:
         timeout_info = {
             "type": timeout_type.value,
             "timeout_seconds": timeout_seconds,
-            "timestamp": datetime.now().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
             "node": state["metadata"].get("current_node", "unknown")
         }
         
@@ -206,7 +206,7 @@ class TimeoutManager:
         """处理取消"""
         cancellation_info = {
             "reason": reason,
-            "timestamp": datetime.now().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
             "node": state["metadata"].get("current_node", "unknown")
         }
         

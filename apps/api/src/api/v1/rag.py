@@ -10,7 +10,7 @@ from fastapi.responses import StreamingResponse
 
 from fastapi import APIRouter, HTTPException, status, BackgroundTasks
 
-from ...models.schemas.rag import (
+from src.models.schemas.rag import (
     IndexDirectoryRequest,
     IndexFileRequest,
     IndexResponse,
@@ -21,7 +21,7 @@ from ...models.schemas.rag import (
     StatsResponse,
     UpdateIndexRequest,
 )
-from ...models.schemas.agentic_rag import (
+from src.models.schemas.agentic_rag import (
     AgenticQueryRequest,
     AgenticQueryResponse,
     ExplanationRequest,
@@ -32,7 +32,7 @@ from ...models.schemas.agentic_rag import (
     HealthCheckResponse,
     StreamEvent,
 )
-from ...services.rag_service import rag_service
+from src.services.rag_service import rag_service
 
 logger = logging.getLogger(__name__)
 
@@ -177,7 +177,27 @@ async def get_index_stats() -> StatsResponse:
                 detail=result["error"]
             )
         
-        return StatsResponse(**result)
+        # 手动构造StatsResponse来确保所有字段都包含
+        from src.models.schemas.rag import CollectionStats, HealthStatus
+        
+        # 构造集合统计
+        stats_dict = {}
+        for collection_name, collection_data in result["stats"].items():
+            stats_dict[collection_name] = CollectionStats(**collection_data)
+        
+        # 构造健康状态
+        health = HealthStatus(**result["health"])
+        
+        # 构造完整响应
+        response = StatsResponse(
+            success=result["success"],
+            stats=stats_dict,
+            total_disk_size=result.get("total_disk_size", 0),
+            health=health,
+            error=result.get("error")
+        )
+        
+        return response
     except HTTPException:
         raise
     except Exception as e:
@@ -250,7 +270,7 @@ async def agentic_query(
     """
     try:
         # 导入放在这里避免循环导入
-        from ...services.agentic_rag_service import agentic_rag_service
+        from src.services.agentic_rag_service import agentic_rag_service
         
         result = await agentic_rag_service.intelligent_query(
             query=request.query,
@@ -290,7 +310,7 @@ async def agentic_query_stream(
     包括查询分析、扩展、检索、验证、组合等步骤的实时状态。
     """
     try:
-        from ...services.agentic_rag_service import agentic_rag_service
+        from src.services.agentic_rag_service import agentic_rag_service
         
         async def generate_stream():
             async for event_data in agentic_rag_service.intelligent_query_stream(
@@ -338,7 +358,7 @@ async def get_retrieval_explanation(
     置信度分析、改进建议和可视化数据。
     """
     try:
-        from ...services.agentic_rag_service import agentic_rag_service
+        from src.services.agentic_rag_service import agentic_rag_service
         
         request_data = ExplanationRequest(
             query_id=query_id,
@@ -378,7 +398,7 @@ async def submit_feedback(
     用于系统学习和优化改进。
     """
     try:
-        from ...services.agentic_rag_service import agentic_rag_service
+        from src.services.agentic_rag_service import agentic_rag_service
         
         # 在后台处理反馈学习
         background_tasks.add_task(
@@ -414,7 +434,7 @@ async def get_agentic_rag_stats() -> AgenticRagStats:
     策略效果分析等综合数据。
     """
     try:
-        from ...services.agentic_rag_service import agentic_rag_service
+        from src.services.agentic_rag_service import agentic_rag_service
         
         result = await agentic_rag_service.get_statistics()
         
@@ -444,7 +464,7 @@ async def agentic_rag_health_check() -> HealthCheckResponse:
     包括查询分析器、扩展器、多代理检索器、验证器等。
     """
     try:
-        from ...services.agentic_rag_service import agentic_rag_service
+        from src.services.agentic_rag_service import agentic_rag_service
         
         result = await agentic_rag_service.health_check()
         

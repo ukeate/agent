@@ -12,7 +12,7 @@ import json
 
 from .config import AgentConfig, AgentRole, AGENT_CONFIGS
 from .agents import BaseAutoGenAgent
-from ...core.constants import ConversationConstants
+from src.core.constants import ConversationConstants
 
 logger = structlog.get_logger(__name__)
 
@@ -258,9 +258,20 @@ class AgentCapabilityMatcher:
             matches = []
             
             for agent_name, agent in self.available_agents.items():
+                logger.info("评估智能体匹配", 
+                          agent_key=agent_name, 
+                          agent_config_name=agent.config.name,
+                          agent_role=agent.config.role)
+                
                 match = await self._evaluate_agent_match(agent, complexity, task_type)
                 if match:
+                    logger.info("智能体匹配成功", 
+                              agent_key=agent_name,
+                              match_agent_name=match.agent_name,
+                              match_score=match.match_score)
                     matches.append(match)
+                else:
+                    logger.warning("智能体匹配失败", agent_key=agent_name)
             
             # 根据匹配分数排序
             matches.sort(key=lambda x: x.match_score, reverse=True)
@@ -374,7 +385,7 @@ class AgentCapabilityMatcher:
             final_score = (base_score * 0.5 + capability_score * 0.3 + load_factor * 0.2)
             
             return AgentCapabilityMatch(
-                agent_name=agent_config.name,
+                agent_name=agent_config.name,  # 使用智能体配置中的名称（如"代码专家"）
                 agent_role=agent_config.role,
                 match_score=final_score,
                 capability_alignment=capability_alignment,
@@ -457,6 +468,7 @@ class SupervisorAgent(BaseAutoGenAgent):
                 ) + timedelta(seconds=complexity.estimated_time),
                 alternative_agents=[match.agent_name for match in candidate_matches[1:3]],
                 decision_metadata={
+                    "task_description": task_description,
                     "complexity": complexity.to_dict(),
                     "match_details": best_match.to_dict(),
                     "alternatives": [match.to_dict() for match in candidate_matches[1:3]]

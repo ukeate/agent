@@ -1,20 +1,43 @@
 services:
-  # PostgreSQL数据库
+  # PostgreSQL数据库 with pgvector 0.8.0
   postgres:
-    image: postgres:15
+    image: pgvector/pgvector:pg17
     container_name: ai-agent-postgres
     environment:
       POSTGRES_DB: ai_agent_db
       POSTGRES_USER: ai_agent_user
       POSTGRES_PASSWORD: ai_agent_password
+      # pgvector优化配置
+      POSTGRES_SHARED_PRELOAD_LIBRARIES: 'vector'
+      POSTGRES_MAX_CONNECTIONS: '200'
+      # 性能优化参数
+      POSTGRES_SHARED_BUFFERS: '256MB'
+      POSTGRES_EFFECTIVE_CACHE_SIZE: '1GB'
+      POSTGRES_MAINTENANCE_WORK_MEM: '512MB'
+      POSTGRES_MAX_PARALLEL_MAINTENANCE_WORKERS: '4'
+      POSTGRES_MAX_PARALLEL_WORKERS_PER_GATHER: '2'
+      POSTGRES_MAX_PARALLEL_WORKERS: '8'
+      POSTGRES_RANDOM_PAGE_COST: '1.1'
     ports:
       - "5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+      - ./pgvector_init.sql:/docker-entrypoint-initdb.d/pgvector_init.sql
     restart: unless-stopped
     networks:
       - ai-agent-network
+    command: >
+      postgres
+      -c shared_preload_libraries=vector
+      -c shared_buffers=256MB
+      -c effective_cache_size=1GB
+      -c maintenance_work_mem=512MB
+      -c max_parallel_maintenance_workers=4
+      -c max_parallel_workers_per_gather=2
+      -c max_parallel_workers=8
+      -c random_page_cost=1.1
+      -c log_statement=all
 
   # Redis缓存
   redis:

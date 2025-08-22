@@ -255,7 +255,7 @@ const RagQueryPanel: React.FC<RagQueryPanelProps> = ({
     <Card className={`rag-query-panel ${className}`} title={
       <Space>
         <SearchOutlined />
-        <Title level={4} style={{ margin: 0 }}>RAG 智能搜索</Title>
+        <Title level={4} style={{ margin: 0 }}>RAG 混合搜索</Title>
       </Space>
     }>
       {/* 主搜索区域 */}
@@ -312,9 +312,9 @@ const RagQueryPanel: React.FC<RagQueryPanelProps> = ({
                 size="small"
                 disabled={disabled}
               >
-                <Option value="hybrid">智能</Option>
-                <Option value="semantic">语义</Option>
-                <Option value="keyword">关键词</Option>
+                <Option value="hybrid">混合</Option>
+                <Option value="semantic">向量</Option>
+                <Option value="keyword">BM25</Option>
               </Select>
             </Space>
           </Col>
@@ -444,7 +444,7 @@ const RagQueryPanel: React.FC<RagQueryPanelProps> = ({
                       </Text>
                       <Space size="small">
                         <Tag color={item.type === 'basic' ? 'blue' : 'green'}>
-                          {item.type === 'basic' ? '基础' : '智能'}
+                          {item.type === 'basic' ? '基础' : '混合'}
                         </Tag>
                         <Text type="secondary" style={{ fontSize: 11 }}>
                           {item.results_count} 结果

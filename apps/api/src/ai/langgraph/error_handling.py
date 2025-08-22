@@ -3,7 +3,7 @@
 """
 from typing import Any, Dict, List, Optional, Callable
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 import asyncio
 import traceback
@@ -39,7 +39,7 @@ class ErrorSeverity(Enum):
 @dataclass
 class WorkflowError:
     """工作流错误信息"""
-    id: str = field(default_factory=lambda: str(datetime.now().timestamp()))
+    id: str = field(default_factory=lambda: str(datetime.now(timezone.utc).timestamp()))
     error_type: ErrorType = ErrorType.UNKNOWN_ERROR
     severity: ErrorSeverity = ErrorSeverity.MEDIUM
     message: str = ""

@@ -1,0 +1,249 @@
+# Prometheus告警规则 - 强化学习系统
+
+groups:
+  # 强化学习系统核心告警
+  - name: rl_system_critical_alerts
+    rules:
+      # 高响应延迟告警
+      - alert: RLSystemHighLatency
+        expr: histogram_quantile(0.95, rate(rl_recommendation_latency_seconds_bucket[5m])) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+          component: rl-system
+          team: ai-platform
+        annotations:
+          summary: "强化学习系统响应延迟过高"
+          description: "推荐服务P95延迟 {{ $value }}s 超过100ms阈值，持续5分钟"
+          runbook_url: "https://wiki.company.com/rl-system/runbooks/high-latency"
+
+      # 严重延迟告警
+      - alert: RLSystemCriticalLatency
+        expr: histogram_quantile(0.95, rate(rl_recommendation_latency_seconds_bucket[5m])) > 0.5
+        for: 2m
+        labels:
+          severity: critical
+          component: rl-system
+          team: ai-platform
+        annotations:
+          summary: "强化学习系统响应延迟严重"
+          description: "推荐服务P95延迟 {{ $value }}s 超过500ms严重阈值，持续2分钟"
+          action_required: "立即检查系统负载和数据库性能"
+
+      # 高错误率告警
+      - alert: RLSystemHighErrorRate
+        expr: rate(rl_recommendation_errors_total[5m]) / rate(rl_recommendation_requests_total[5m]) > 0.05
+        for: 3m
+        labels:
+          severity: critical
+          component: rl-system
+          team: ai-platform
+        annotations:
+          summary: "强化学习系统错误率过高"
+          description: "推荐服务错误率 {{ $value | humanizePercentage }} 超过5%阈值，持续3分钟"
+          action_required: "检查应用日志和错误详情"
+
+      # 服务宕机告警
+      - alert: RLSystemDown
+        expr: up{job="rl-system-api"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          component: rl-system
+          team: ai-platform
+        annotations:
+          summary: "强化学习系统服务宕机"
+          description: "实例 {{ $labels.instance }} 无法访问，持续1分钟"
+          action_required: "立即检查服务状态和重启"
+
+  # 性能和资源告警
+  - name: rl_system_performance_alerts
+    rules:
+      # 缓存命中率低告警
+      - alert: RLSystemLowCacheHitRate
+        expr: rate(rl_cache_hits_total[5m]) / (rate(rl_cache_hits_total[5m]) + rate(rl_cache_misses_total[5m])) < 0.7
+        for: 10m
+        labels:
+          severity: warning
+          component: rl-system
+          team: ai-platform
+        annotations:
+          summary: "强化学习系统缓存命中率低"
+          description: "缓存命中率 {{ $value | humanizePercentage }} 低于70%阈值，持续10分钟"
+          action_required: "检查缓存配置和过期策略"
+
+      # 内存使用率高告警
+      - alert: RLSystemHighMemoryUsage
+        expr: (process_resident_memory_bytes{job="rl-system-api"} / node_memory_MemTotal_bytes) > 0.8
+        for: 5m
+        labels:
+          severity: warning
+          component: rl-system
+          team: ai-platform
+        annotations:
+          summary: "强化学习系统内存使用率高"
+          description: "实例 {{ $labels.instance }} 内存使用率 {{ $value | humanizePercentage }} 超过80%"
+          action_required: "检查内存泄漏和优化内存使用"
+
+      # CPU使用率高告警
+      - alert: RLSystemHighCPUUsage
+        expr: rate(process_cpu_seconds_total{job="rl-system-api"}[5m]) > 0.8
+        for: 5m
+        labels:
+          severity: warning
+          component: rl-system
+          team: ai-platform
+        annotations:
+          summary: "强化学习系统CPU使用率高"
+          description: "实例 {{ $labels.instance }} CPU使用率 {{ $value | humanizePercentage }} 超过80%"
+          action_required: "检查CPU密集型操作和负载分布"
+
+  # 业务指标告警
+  - name: rl_system_business_alerts
+    rules:
+      # 模型准确率下降告警
+      - alert: RLSystemModelAccuracyDrop
+        expr: rl_model_accuracy < 0.6
+        for: 30m
+        labels:
+          severity: critical
+          component: rl-system
+          team: ai-platform
+        annotations:
+          summary: "强化学习模型准确率下降"
+          description: "模型准确率 {{ $value | humanizePercentage }} 低于60%阈值，持续30分钟"
+          action_required: "检查模型训练数据和重新训练模型"
+
+      # 活跃用户数异常告警
+      - alert: RLSystemLowActiveUsers
+        expr: rl_active_users < 100
+        for: 15m
+        labels:
+          severity: warning
+          component: rl-system
+          team: ai-platform
+        annotations:
+          summary: "强化学习系统活跃用户数异常"
+          description: "活跃用户数 {{ $value }} 低于100，持续15分钟"
+          action_required: "检查用户流量和系统可用性"
+
+      # 反馈处理延迟告警
+      - alert: RLSystemFeedbackProcessingDelay
+        expr: histogram_quantile(0.95, rate(rl_feedback_processing_latency_seconds_bucket[5m])) > 1.0
+        for: 10m
+        labels:
+          severity: warning
+          component: rl-system
+          team: ai-platform
+        annotations:
+          summary: "强化学习系统反馈处理延迟"
+          description: "反馈处理P95延迟 {{ $value }}s 超过1秒阈值，持续10分钟"
+          action_required: "检查反馈处理队列和优化处理逻辑"
+
+  # A/B测试和实验告警
+  - name: rl_system_experiment_alerts
+    rules:
+      # A/B测试转化率异常告警
+      - alert: RLSystemABTestConversionAbnormal
+        expr: rate(rl_ab_test_conversions_total[1h]) / rate(rl_ab_test_assignments_total[1h]) < 0.01
+        for: 1h
+        labels:
+          severity: warning
+          component: rl-system
+          team: ai-platform
+        annotations:
+          summary: "A/B测试转化率异常"
+          description: "实验 {{ $labels.experiment_id }} 变体 {{ $labels.variant }} 转化率 {{ $value | humanizePercentage }} 异常低"
+          action_required: "检查实验设置和用户行为"
+
+      # 实验流量分配不均告警
+      - alert: RLSystemExperimentTrafficImbalance
+        expr: |
+          (
+            max(rate(rl_ab_test_assignments_total[10m])) by (experiment_id) - 
+            min(rate(rl_ab_test_assignments_total[10m])) by (experiment_id)
+          ) / max(rate(rl_ab_test_assignments_total[10m])) by (experiment_id) > 0.2
+        for: 20m
+        labels:
+          severity: warning
+          component: rl-system
+          team: ai-platform
+        annotations:
+          summary: "实验流量分配不均"
+          description: "实验 {{ $labels.experiment_id }} 流量分配不均，最大最小差异超过20%"
+          action_required: "检查流量分配算法和配置"
+
+  # 数据库和外部依赖告警
+  - name: rl_system_dependency_alerts
+    rules:
+      # 数据库连接失败告警
+      - alert: RLSystemDatabaseConnectionFailed
+        expr: increase(db_connection_errors_total[5m]) > 5
+        for: 2m
+        labels:
+          severity: critical
+          component: rl-system
+          team: ai-platform
+        annotations:
+          summary: "强化学习系统数据库连接失败"
+          description: "数据库连接错误数 {{ $value }} 在5分钟内超过5次"
+          action_required: "检查数据库状态和网络连接"
+
+      # Redis连接失败告警
+      - alert: RLSystemRedisConnectionFailed
+        expr: increase(redis_connection_errors_total[5m]) > 3
+        for: 2m
+        labels:
+          severity: warning
+          component: rl-system
+          team: ai-platform
+        annotations:
+          summary: "强化学习系统Redis连接失败"
+          description: "Redis连接错误数 {{ $value }} 在5分钟内超过3次"
+          action_required: "检查Redis服务状态"
+
+      # 外部API调用失败告警
+      - alert: RLSystemExternalAPIFailure
+        expr: rate(external_api_errors_total[5m]) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+          component: rl-system
+          team: ai-platform
+        annotations:
+          summary: "强化学习系统外部API调用失败"
+          description: "外部API {{ $labels.api_name }} 错误率 {{ $value | humanizePercentage }} 超过10%"
+          action_required: "检查外部服务状态和网络连接"
+
+  # 算法性能告警
+  - name: rl_algorithm_performance_alerts
+    rules:
+      # 算法收敛性告警
+      - alert: RLAlgorithmConvergenceIssue
+        expr: stddev_over_time(rl_model_accuracy[2h]) > 0.1
+        for: 2h
+        labels:
+          severity: warning
+          component: rl-system
+          team: ai-platform
+        annotations:
+          summary: "强化学习算法收敛性问题"
+          description: "模型准确率在2小时内标准差 {{ $value }} 超过0.1，表明收敛不稳定"
+          action_required: "检查算法参数和训练数据质量"
+
+      # 老虎机臂选择偏差告警
+      - alert: RLBanditArmSelectionBias
+        expr: |
+          (
+            max(rate(rl_bandit_arm_selections_total[1h])) by (algorithm) - 
+            min(rate(rl_bandit_arm_selections_total[1h])) by (algorithm)
+          ) / max(rate(rl_bandit_arm_selections_total[1h])) by (algorithm) > 0.8
+        for: 1h
+        labels:
+          severity: warning
+          component: rl-system
+          team: ai-platform
+        annotations:
+          summary: "老虎机算法选择偏差"
+          description: "算法 {{ $labels.algorithm }} 臂选择偏差超过80%，可能存在探索不足"
+          action_required: "检查探索参数和奖励分布"

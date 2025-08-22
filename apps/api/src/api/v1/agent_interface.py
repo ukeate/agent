@@ -12,15 +12,15 @@ import structlog
 from datetime import datetime
 from typing import AsyncIterator, Dict
 
-from ...models.schemas import (
+from src.models.schemas import (
     APIResponse, SuccessResponse, ErrorResponse,
     ChatRequest, ChatResponse, ToolCall,
     TaskRequest, TaskResponse, TaskStatus, TaskResult,
     AgentStatusResponse, AgentHealth, AgentInfo, 
     SystemResource, PerformanceMetrics
 )
-from ...services.agent_service import get_agent_service, AgentService
-from ...core.dependencies import get_current_user
+from src.services.agent_service import get_agent_service, AgentService
+from src.core.dependencies import get_current_user
 
 logger = structlog.get_logger(__name__)
 
@@ -556,7 +556,7 @@ async def get_performance_metrics(
     request_id = str(uuid.uuid4())
     
     try:
-        from ..middleware import middleware_manager
+        from middleware import middleware_manager
         
         # 获取性能指标
         metrics = middleware_manager.get_performance_metrics()

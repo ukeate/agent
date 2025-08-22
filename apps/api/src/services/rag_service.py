@@ -6,10 +6,11 @@ import logging
 from typing import Dict, List, Optional
 
 from src.ai.rag.embeddings import embedding_service
+from src.ai.rag.hybrid_search import get_hybrid_search_engine, SearchStrategy
 from src.ai.rag.retriever import hybrid_retriever, query_classifier, semantic_retriever
 from src.ai.rag.vectorizer import file_vectorizer
-from ..core.config import get_settings
-from ..core.qdrant import qdrant_manager
+from src.core.config import get_settings
+from src.core.qdrant import qdrant_manager
 
 settings = get_settings()
 
@@ -24,6 +25,7 @@ class RAGService:
         self.semantic_retriever = semantic_retriever
         self.hybrid_retriever = hybrid_retriever
         self.query_classifier = query_classifier
+        self.bm42_search_engine = get_hybrid_search_engine()
 
     async def initialize(self):
         """初始化RAG系统"""
@@ -39,10 +41,11 @@ class RAGService:
     async def query(
         self,
         query: str,
-        search_type: str = "hybrid",
+        search_type: str = "bm42_hybrid",
         limit: int = 10,
         score_threshold: float = 0.5,
         filter_dict: Optional[Dict] = None,
+        strategy: Optional[str] = None,
     ) -> Dict:
         """执行检索查询"""
         try:
@@ -55,8 +58,67 @@ class RAGService:
             else:
                 collection = "documents"
             
+            # 映射搜索策略
+            search_strategy = None
+            if strategy:
+                strategy_map = {
+                    "vector_only": SearchStrategy.VECTOR_ONLY,
+                    "bm25_only": SearchStrategy.BM25_ONLY,
+                    "hybrid_rrf": SearchStrategy.HYBRID_RRF,
+                    "hybrid_weighted": SearchStrategy.HYBRID_WEIGHTED,
+                    "adaptive": SearchStrategy.ADAPTIVE,
+                }
+                search_strategy = strategy_map.get(strategy)
+            
             # 执行检索
-            if search_type == "semantic":
+            if search_type == "bm42_hybrid":
+                # 使用新的BM42混合搜索引擎
+                search_results = await self.bm42_search_engine.search(
+                    query=query,
+                    collection=collection,
+                    limit=limit,
+                    filters=filter_dict,
+                    strategy=search_strategy
+                )
+                # 转换为旧格式兼容
+                results = []
+                for result in search_results:
+                    results.append({
+                        "id": result.id,
+                        "score": result.final_score,
+                        "content": result.content,
+                        "file_path": result.file_path,
+                        "file_type": result.file_type,
+                        "chunk_index": result.chunk_index,
+                        "metadata": result.metadata,
+                        "semantic_score": result.semantic_score,
+                        "keyword_score": result.keyword_score,
+                        "collection": result.collection
+                    })
+            elif search_type == "bm42_multi":
+                # 跨集合BM42搜索
+                search_results = await self.bm42_search_engine.multi_collection_search(
+                    query=query,
+                    collections=["documents", "code"],
+                    limit=limit,
+                    strategy=search_strategy
+                )
+                # 转换为旧格式兼容
+                results = []
+                for result in search_results:
+                    results.append({
+                        "id": result.id,
+                        "score": result.final_score,
+                        "content": result.content,
+                        "file_path": result.file_path,
+                        "file_type": result.file_type,
+                        "chunk_index": result.chunk_index,
+                        "metadata": result.metadata,
+                        "semantic_score": result.semantic_score,
+                        "keyword_score": result.keyword_score,
+                        "collection": result.collection
+                    })
+            elif search_type == "semantic":
                 results = await self.semantic_retriever.search(
                     query=query,
                     collection=collection,
@@ -65,6 +127,7 @@ class RAGService:
                     filter_dict=filter_dict,
                 )
             elif search_type == "hybrid":
+                # 保留旧的混合搜索以向后兼容
                 results = await self.hybrid_retriever.hybrid_search(
                     query=query,
                     collection=collection,
@@ -189,14 +252,18 @@ class RAGService:
     async def get_index_stats(self) -> Dict:
         """获取索引统计信息"""
         try:
-            stats = await self.vectorizer.get_index_stats()
+            logger.info("RAG service: Starting to get index stats")
+            stats = self.vectorizer.get_index_stats()
+            logger.info(f"RAG service: Got stats from vectorizer: {stats}")
             
             # 检查Qdrant健康状态
             health = await qdrant_manager.health_check()
             
-            # 处理stats中的错误情况
+            # 处理stats中的错误情况并计算总存储大小
             processed_stats = {}
+            total_disk_size = 0
             for collection_name, collection_data in stats.items():
+                logger.info(f"RAG service: Processing collection {collection_name}: {collection_data}")
                 if "error" in collection_data:
                     # 如果集合有错误，返回默认值和错误信息
                     processed_stats[collection_name] = {
@@ -204,14 +271,22 @@ class RAGService:
                         "points_count": 0,
                         "segments_count": 0,
                         "status": "error",
+                        "estimated_disk_size": 0,
                         "error": collection_data["error"]
                     }
                 else:
                     processed_stats[collection_name] = collection_data
+                    # 累加估算磁盘存储大小
+                    estimated_size = collection_data.get("estimated_disk_size", 0)
+                    total_disk_size += estimated_size
+                    logger.info(f"RAG service: Collection {collection_name} data: {collection_data}")
+                    logger.info(f"RAG service: Collection {collection_name} estimated_size: {estimated_size}, total so far: {total_disk_size}")
             
+            logger.info(f"RAG service: Final total_disk_size: {total_disk_size}")
             return {
                 "success": True,
                 "stats": processed_stats,
+                "total_disk_size": total_disk_size,
                 "health": {
                     "qdrant": health,
                     "openai": settings.OPENAI_API_KEY != "",
