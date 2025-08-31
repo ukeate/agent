@@ -11,6 +11,7 @@ from enum import Enum
 import time
 import logging
 from datetime import datetime
+from src.core.utils.timezone_utils import utc_now, utc_factory
 
 logger = logging.getLogger(__name__)
 
@@ -215,7 +216,7 @@ class TokenStreamer:
                 if self.streaming:  # 再次检查状态
                     heartbeat_event = self._create_event(
                         StreamType.HEARTBEAT,
-                        {"timestamp": datetime.utcnow().isoformat()},
+                        {"timestamp": utc_now().isoformat()},
                         session_id=session_id
                     )
                     await self._broadcast(heartbeat_event)

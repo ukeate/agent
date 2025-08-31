@@ -3,6 +3,7 @@ import time
 import uuid
 from typing import Dict, List, Optional, Any
 from datetime import datetime
+from src.core.utils.timezone_utils import utc_now, utc_factory
 from redis.asyncio import Redis
 import numpy as np
 import logging
@@ -308,7 +309,7 @@ class PersonalizationEngine:
                 features={},
                 preferences={},
                 behavior_history=[],
-                last_updated=datetime.utcnow()
+                last_updated=utc_now()
             )
             
         except Exception as e:
@@ -343,7 +344,7 @@ class PersonalizationEngine:
                 item_type = feedback.context.get("item_type", "unknown")
                 profile.preferences[item_type] = profile.preferences.get(item_type, 0) + 1
             
-            profile.last_updated = datetime.utcnow()
+            profile.last_updated = utc_now()
             
             # 保存到缓存
             import json

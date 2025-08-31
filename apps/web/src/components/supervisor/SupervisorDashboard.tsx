@@ -52,20 +52,41 @@ export const SupervisorDashboard: React.FC<SupervisorDashboardProps> = ({
     }
   }, [currentSupervisorId, refreshAll])
 
-  // 自动刷新逻辑
+  // 智能自动刷新逻辑 - 只在页面可见且用户激活时启用
   useEffect(() => {
     let intervalId: NodeJS.Timeout | null = null
 
-    if (autoRefresh && currentSupervisorId) {
+    // 只有在页面可见、用户明确启用自动刷新、且有supervisor ID时才启用轮询
+    if (autoRefresh && currentSupervisorId && !document.hidden) {
       intervalId = setInterval(() => {
-        refreshAll()
+        // 检查页面是否仍然可见
+        if (!document.hidden) {
+          refreshAll()
+        }
       }, refreshInterval)
     }
+
+    // 页面可见性变化处理
+    const handleVisibilityChange = () => {
+      if (document.hidden && intervalId) {
+        clearInterval(intervalId)
+        intervalId = null
+      } else if (!document.hidden && autoRefresh && currentSupervisorId) {
+        intervalId = setInterval(() => {
+          if (!document.hidden) {
+            refreshAll()
+          }
+        }, refreshInterval)
+      }
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange)
 
     return () => {
       if (intervalId) {
         clearInterval(intervalId)
       }
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
     }
   }, [autoRefresh, currentSupervisorId, refreshAll, refreshInterval])
 

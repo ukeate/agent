@@ -8,7 +8,9 @@ import logging
 import time
 import psutil
 import gc
-from datetime import datetime, timedelta
+from datetime import datetime
+from datetime import timedelta
+from src.core.utils.timezone_utils import utc_now, utc_factory
 from typing import Dict, List, Any, Optional
 from dataclasses import dataclass
 import json
@@ -53,7 +55,7 @@ class ProductionMonitor:
         # 监控状态
         self._running = False
         self._tasks = []
-        self._last_metrics_update = datetime.utcnow()
+        self._last_metrics_update = utc_now()
         
         # 监控配置
         self.config = {
@@ -127,7 +129,7 @@ class ProductionMonitor:
                 await self._collect_application_metrics()
                 await self._collect_business_metrics()
                 
-                self._last_metrics_update = datetime.utcnow()
+                self._last_metrics_update = utc_now()
                 await asyncio.sleep(self.config["metrics_interval"])
                 
             except asyncio.CancelledError:
@@ -333,7 +335,7 @@ class ProductionMonitor:
                     "ping_success": True,
                     "read_write_success": value == "test_value"
                 },
-                timestamp=datetime.utcnow()
+                timestamp=utc_now()
             )
             
         except Exception as e:
@@ -343,7 +345,7 @@ class ProductionMonitor:
                 status="unhealthy",
                 latency_ms=latency_ms,
                 details={"error": str(e)},
-                timestamp=datetime.utcnow()
+                timestamp=utc_now()
             )
     
     async def _check_personalization_engine_health(self) -> HealthCheckResult:
@@ -373,7 +375,7 @@ class ProductionMonitor:
                     "recommendations_count": len(response.recommendations),
                     "response_complete": response.request_id is not None
                 },
-                timestamp=datetime.utcnow()
+                timestamp=utc_now()
             )
             
         except Exception as e:
@@ -383,7 +385,7 @@ class ProductionMonitor:
                 status="unhealthy",
                 latency_ms=latency_ms,
                 details={"error": str(e)},
-                timestamp=datetime.utcnow()
+                timestamp=utc_now()
             )
     
     async def _check_feature_engine_health(self) -> HealthCheckResult:
@@ -409,7 +411,7 @@ class ProductionMonitor:
                     "has_temporal": "temporal" in features if features else False,
                     "has_behavioral": "behavioral" in features if features else False
                 },
-                timestamp=datetime.utcnow()
+                timestamp=utc_now()
             )
             
         except Exception as e:
@@ -419,7 +421,7 @@ class ProductionMonitor:
                 status="unhealthy",
                 latency_ms=latency_ms,
                 details={"error": str(e)},
-                timestamp=datetime.utcnow()
+                timestamp=utc_now()
             )
     
     async def _check_model_service_health(self) -> HealthCheckResult:
@@ -442,7 +444,7 @@ class ProductionMonitor:
                     "prediction_shape": result.shape if hasattr(result, 'shape') else None,
                     "prediction_success": result is not None
                 },
-                timestamp=datetime.utcnow()
+                timestamp=utc_now()
             )
             
         except Exception as e:
@@ -452,7 +454,7 @@ class ProductionMonitor:
                 status="unhealthy",
                 latency_ms=latency_ms,
                 details={"error": str(e)},
-                timestamp=datetime.utcnow()
+                timestamp=utc_now()
             )
     
     async def _check_cache_health(self) -> HealthCheckResult:
@@ -485,7 +487,7 @@ class ProductionMonitor:
                     "cache_read_success": cached_data is not None,
                     "cache_data_correct": cache_working
                 },
-                timestamp=datetime.utcnow()
+                timestamp=utc_now()
             )
             
         except Exception as e:
@@ -495,7 +497,7 @@ class ProductionMonitor:
                 status="unhealthy",
                 latency_ms=latency_ms,
                 details={"error": str(e)},
-                timestamp=datetime.utcnow()
+                timestamp=utc_now()
             )
     
     async def _process_health_results(self, health_results: List[HealthCheckResult]):
@@ -549,7 +551,7 @@ class ProductionMonitor:
     async def _cleanup_old_data(self):
         """清理旧数据"""
         try:
-            cutoff_time = datetime.utcnow() - timedelta(hours=self.config["retention_hours"])
+            cutoff_time = utc_now() - timedelta(hours=self.config["retention_hours"])
             cutoff_timestamp = cutoff_time.timestamp()
             
             # 清理旧的指标数据
@@ -774,19 +776,19 @@ class ProductionMonitor:
             }
             
             return {
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": utc_now().isoformat(),
                 "overall_status": self._calculate_overall_status(health_status, active_alerts),
                 "health_checks": health_status,
                 "active_alerts": [alert.dict() for alert in active_alerts],
                 "key_metrics": key_metrics,
                 "system_resources": system_resources,
-                "uptime_seconds": (datetime.utcnow() - self._last_metrics_update).total_seconds() if self._running else 0
+                "uptime_seconds": (utc_now() - self._last_metrics_update).total_seconds() if self._running else 0
             }
             
         except Exception as e:
             logger.error(f"获取系统状态失败: {e}")
             return {
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": utc_now().isoformat(),
                 "overall_status": "error",
                 "error": str(e)
             }

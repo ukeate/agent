@@ -4,7 +4,8 @@ import pytest
 import asyncio
 from typing import List, Dict, Any
 import time
-from datetime import datetime, timedelta
+from datetime import datetime
+from src.core.utils.timezone_utils import utc_now, utc_factory, timedelta
 from unittest.mock import Mock, AsyncMock, patch
 
 # Mock implementations since these classes may not exist yet
@@ -248,7 +249,7 @@ class TestAutoGenIntegration:
         test_state = {
             "conversation_history": ["msg1", "msg2"],
             "context": {"key": "value"},
-            "metadata": {"created_at": datetime.utcnow().isoformat()}
+            "metadata": {"created_at": utc_now().isoformat()}
         }
         
         agent.state = test_state

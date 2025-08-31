@@ -9,7 +9,8 @@ from langgraph.graph.message import MessagesState as LangGraphMessagesState
 from langgraph.types import RunnableConfig
 from langgraph.runtime import Runtime, get_runtime
 import asyncio
-from datetime import datetime, timezone
+from datetime import datetime
+from src.core.utils.timezone_utils import utc_now, utc_factory, timezone
 
 from .state import MessagesState, create_initial_state, validate_state
 from .checkpoints import CheckpointManager, checkpoint_manager
@@ -57,7 +58,7 @@ class WorkflowNode:
                 state["metadata"]["step_count"] = 0
             state["metadata"]["step_count"] += 1
             state["metadata"]["current_node"] = self.name
-            state["metadata"]["last_updated"] = datetime.now(timezone.utc).isoformat()
+            state["metadata"]["last_updated"] = utc_now().isoformat()
             
             # 执行处理逻辑，检查handler是否接受context参数
             import inspect
@@ -81,7 +82,7 @@ class WorkflowNode:
             
             result["context"]["execution_log"].append({
                 "node": self.name,
-                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "timestamp": utc_now().isoformat(),
                 "status": "completed"
             })
             
@@ -93,7 +94,7 @@ class WorkflowNode:
             state["context"]["execution_log"] = state["context"].get("execution_log", [])
             state["context"]["execution_log"].append({
                 "node": self.name,
-                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "timestamp": utc_now().isoformat(),
                 "status": "failed",
                 "error": str(e)
             })
@@ -144,7 +145,7 @@ class ConditionalRouter:
             
             state["context"]["routing_log"].append({
                 "router": self.name,
-                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "timestamp": utc_now().isoformat(),
                 "decision": next_node,
                 "state_snapshot": {
                     "step_count": state["metadata"].get("step_count", 0),
@@ -245,7 +246,7 @@ class LangGraphWorkflowBuilder:
         # 存储默认durability模式
         self.default_durability = durability_mode
         
-        # 使用PostgreSQL检查点保存器
+        # 使用PostgreSQL检查点保存器或内存检查点保存器
         if checkpointer is None and hasattr(settings, 'database_url') and settings.database_url:
             try:
                 # checkpointer = PostgresSaver.from_conn_string(settings.database_url)
@@ -253,6 +254,16 @@ class LangGraphWorkflowBuilder:
                 checkpointer = None
             except Exception as e:
                 print(f"创建PostgreSQL检查点保存器失败: {e}")
+                checkpointer = None
+        
+        # 如果没有checkpointer但使用了durability，提供默认内存checkpointer来避免警告
+        if checkpointer is None and durability_mode != "exit":
+            try:
+                from langgraph.checkpoint.memory import MemorySaver
+                checkpointer = MemorySaver()
+                print(f"使用内存检查点保存器 (durability_mode: {durability_mode})")
+            except ImportError:
+                print("无法导入MemorySaver，将不使用checkpointer")
                 checkpointer = None
         
         self.compiled_graph = self.graph.compile(checkpointer=checkpointer)
@@ -290,7 +301,7 @@ class LangGraphWorkflowBuilder:
             if self.use_context_api:
                 # 使用新Context API
                 ctx_schema = LangGraphContextSchema.from_agent_context(context)
-                thread_id = context.workflow_id or initial_state.get("workflow_id", f"workflow_{datetime.now(timezone.utc).timestamp()}")
+                thread_id = context.workflow_id or initial_state.get("workflow_id", f"workflow_{utc_now().timestamp()}")
                 ctx_schema.thread_id = thread_id
                 context.thread_id = thread_id
                 
@@ -326,7 +337,7 @@ class LangGraphWorkflowBuilder:
                 execution_config["configurable"].update(context.to_dict())
                 
                 # 添加工作流ID
-                thread_id = context.workflow_id or initial_state.get("workflow_id", f"workflow_{datetime.now(timezone.utc).timestamp()}")
+                thread_id = context.workflow_id or initial_state.get("workflow_id", f"workflow_{utc_now().timestamp()}")
                 execution_config["configurable"]["thread_id"] = thread_id
                 context.thread_id = thread_id
                 
@@ -334,8 +345,14 @@ class LangGraphWorkflowBuilder:
                 result = await self.compiled_graph.ainvoke(initial_state, config=execution_config)
             
             # 更新最终状态
-            result["metadata"]["status"] = "completed"
-            result["metadata"]["completed_at"] = datetime.now(timezone.utc).isoformat()
+            if isinstance(result, dict) and "metadata" in result:
+                result["metadata"]["status"] = "completed"
+                result["metadata"]["completed_at"] = utc_now().isoformat()
+            else:
+                # 如果结果不是字典或缺少metadata，使用初始状态结构
+                result = initial_state.copy()
+                result["metadata"]["status"] = "completed"
+                result["metadata"]["completed_at"] = utc_now().isoformat()
             
             return result
             
@@ -343,7 +360,7 @@ class LangGraphWorkflowBuilder:
             # 保存失败状态
             initial_state["metadata"]["status"] = "failed"
             initial_state["metadata"]["error"] = str(e)
-            initial_state["metadata"]["failed_at"] = datetime.now(timezone.utc).isoformat()
+            initial_state["metadata"]["failed_at"] = utc_now().isoformat()
             
             # 创建错误检查点
             if self.checkpoint_manager:
@@ -362,7 +379,7 @@ class LangGraphWorkflowBuilder:
             latest_checkpoint = await self.checkpoint_manager.get_latest_checkpoint(workflow_id)
             if latest_checkpoint:
                 latest_checkpoint.state["metadata"]["status"] = "paused"
-                latest_checkpoint.state["metadata"]["paused_at"] = datetime.now(timezone.utc).isoformat()
+                latest_checkpoint.state["metadata"]["paused_at"] = utc_now().isoformat()
                 
                 await self.checkpoint_manager.create_checkpoint(
                     workflow_id=workflow_id,
@@ -385,7 +402,7 @@ class LangGraphWorkflowBuilder:
             
             # 更新状态为运行中
             state["metadata"]["status"] = "running"
-            state["metadata"]["resumed_at"] = datetime.now(timezone.utc).isoformat()
+            state["metadata"]["resumed_at"] = utc_now().isoformat()
             
             # 继续执行
             return await self.execute(state, context, config)
@@ -400,7 +417,7 @@ class LangGraphWorkflowBuilder:
             latest_checkpoint = await self.checkpoint_manager.get_latest_checkpoint(workflow_id)
             if latest_checkpoint:
                 latest_checkpoint.state["metadata"]["status"] = "cancelled"
-                latest_checkpoint.state["metadata"]["cancelled_at"] = datetime.now(timezone.utc).isoformat()
+                latest_checkpoint.state["metadata"]["cancelled_at"] = utc_now().isoformat()
                 
                 await self.checkpoint_manager.create_checkpoint(
                     workflow_id=workflow_id,
@@ -422,7 +439,7 @@ def create_simple_workflow() -> LangGraphWorkflowBuilder:
         state["messages"].append({
             "role": "system",
             "content": "工作流开始执行",
-            "timestamp": datetime.now(timezone.utc).isoformat()
+            "timestamp": utc_now().isoformat()
         })
         return state
     
@@ -441,10 +458,10 @@ def create_simple_workflow() -> LangGraphWorkflowBuilder:
             record = {
                 'id': f'record_{i+1:04d}',
                 'category': random.choice(categories),
-                'timestamp': datetime.now(timezone.utc).isoformat(),
+                'timestamp': utc_now().isoformat(),
                 'value': round(random.uniform(10.5, 999.9), 2),
                 'status': random.choice(['success', 'warning', 'info']),
-                'processed_at': datetime.now(timezone.utc).isoformat()
+                'processed_at': utc_now().isoformat()
             }
             sample_data.append(record)
         
@@ -473,7 +490,7 @@ def create_simple_workflow() -> LangGraphWorkflowBuilder:
         state["messages"].append({
             "role": "assistant", 
             "content": f"数据处理完成，共处理 {processing_stats['total_records']} 条记录",
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": utc_now().isoformat(),
             "metadata": {
                 "processing_stats": processing_stats,
                 "sample_records": sample_data[:5]  # 只包含前5条作为示例
@@ -486,7 +503,7 @@ def create_simple_workflow() -> LangGraphWorkflowBuilder:
         state["messages"].append({
             "role": "system",
             "content": "工作流执行完成",
-            "timestamp": datetime.now(timezone.utc).isoformat()
+            "timestamp": utc_now().isoformat()
         })
         return state
     
@@ -513,7 +530,7 @@ def create_conditional_workflow() -> LangGraphWorkflowBuilder:
         state["messages"].append({
             "role": "system",
             "content": "工作流开始执行",
-            "timestamp": datetime.now(timezone.utc).isoformat()
+            "timestamp": utc_now().isoformat()
         })
         return state
     
@@ -532,10 +549,10 @@ def create_conditional_workflow() -> LangGraphWorkflowBuilder:
             record = {
                 'id': f'record_{i+1:04d}',
                 'category': random.choice(categories),
-                'timestamp': datetime.now(timezone.utc).isoformat(),
+                'timestamp': utc_now().isoformat(),
                 'value': round(random.uniform(10.5, 999.9), 2),
                 'status': random.choice(['success', 'warning', 'info']),
-                'processed_at': datetime.now(timezone.utc).isoformat()
+                'processed_at': utc_now().isoformat()
             }
             sample_data.append(record)
         
@@ -568,7 +585,7 @@ def create_conditional_workflow() -> LangGraphWorkflowBuilder:
         state["messages"].append({
             "role": "assistant", 
             "content": f"数据处理完成，共处理 {processing_stats['total_records']} 条记录，错误率: {error_rate:.1%}",
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": utc_now().isoformat(),
             "metadata": {
                 "processing_stats": processing_stats,
                 "sample_records": sample_data[:5]  # 只包含前5条作为示例
@@ -582,7 +599,7 @@ def create_conditional_workflow() -> LangGraphWorkflowBuilder:
         state["messages"].append({
             "role": "system",
             "content": f"条件判断完成，数据质量: {data_quality}，选择对应处理路径",
-            "timestamp": datetime.now(timezone.utc).isoformat()
+            "timestamp": utc_now().isoformat()
         })
         state["context"]["decision_result"] = data_quality
         return state
@@ -592,7 +609,7 @@ def create_conditional_workflow() -> LangGraphWorkflowBuilder:
         state["messages"].append({
             "role": "assistant",
             "content": "执行路径A：高质量数据优化处理",
-            "timestamp": datetime.now(timezone.utc).isoformat()
+            "timestamp": utc_now().isoformat()
         })
         state["context"]["optimization_applied"] = True
         return state
@@ -602,7 +619,7 @@ def create_conditional_workflow() -> LangGraphWorkflowBuilder:
         state["messages"].append({
             "role": "assistant", 
             "content": "执行路径B：低质量数据清理处理",
-            "timestamp": datetime.now(timezone.utc).isoformat()
+            "timestamp": utc_now().isoformat()
         })
         state["context"]["cleaning_applied"] = True
         return state
@@ -612,7 +629,7 @@ def create_conditional_workflow() -> LangGraphWorkflowBuilder:
         state["messages"].append({
             "role": "system",
             "content": f"工作流执行完成，通过{path_taken}处理",
-            "timestamp": datetime.now(timezone.utc).isoformat()
+            "timestamp": utc_now().isoformat()
         })
         return state
     

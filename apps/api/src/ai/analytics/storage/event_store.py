@@ -7,7 +7,9 @@
 import json
 import asyncio
 from typing import List, Dict, Any, Optional, Tuple
-from datetime import datetime, timedelta
+from datetime import datetime
+from datetime import timedelta
+from src.core.utils.timezone_utils import utc_now, utc_factory
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 import logging
@@ -73,7 +75,7 @@ class EventStore:
         """创建分区表"""
         try:
             # 创建当前月和下个月的分区
-            current_date = datetime.utcnow()
+            current_date = utc_now()
             for month_offset in range(0, 3):  # 当前月、下月、下下月
                 target_date = current_date.replace(day=1) + timedelta(days=32 * month_offset)
                 target_date = target_date.replace(day=1)
@@ -362,7 +364,7 @@ class EventStore:
         await self._ensure_table()
         
         try:
-            cutoff_date = datetime.utcnow() - timedelta(days=retention_days)
+            cutoff_date = utc_now() - timedelta(days=retention_days)
             
             async with get_db_session() as session:
                 delete_sql = f"""

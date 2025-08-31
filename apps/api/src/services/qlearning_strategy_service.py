@@ -8,7 +8,9 @@ import asyncio
 import numpy as np
 from typing import Dict, List, Any, Optional, Tuple
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import datetime
+from datetime import timedelta
+from src.core.utils.timezone_utils import utc_now, utc_factory
 import json
 from pathlib import Path
 
@@ -169,7 +171,7 @@ class QLearningStrategyService:
                 confidence_score=confidence_score if request.return_confidence else 0.0,
                 exploration_info=exploration_info,
                 inference_time_ms=inference_time_ms,
-                timestamp=datetime.now()
+                timestamp=utc_now()
             )
             
             # 缓存结果
@@ -304,7 +306,7 @@ class QLearningStrategyService:
             # 生成随机状态进行分析
             insights = {
                 "agent_id": agent_id,
-                "analysis_timestamp": datetime.now().isoformat(),
+                "analysis_timestamp": utc_now().isoformat(),
                 "state_space_analysis": {},
                 "action_preferences": {},
                 "confidence_distribution": {},
@@ -408,7 +410,7 @@ class QLearningStrategyService:
             cached_data = self.inference_cache[cache_key]
             
             # 检查缓存是否过期
-            if datetime.now() - cached_data["timestamp"] < timedelta(seconds=self.cache_ttl_seconds):
+            if utc_now() - cached_data["timestamp"] < timedelta(seconds=self.cache_ttl_seconds):
                 return cached_data["response"]
             else:
                 # 清理过期缓存
@@ -420,7 +422,7 @@ class QLearningStrategyService:
         """缓存推理结果"""
         self.inference_cache[cache_key] = {
             "response": response,
-            "timestamp": datetime.now()
+            "timestamp": utc_now()
         }
         
         # 限制缓存大小

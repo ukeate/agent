@@ -6,10 +6,10 @@ import { Message } from '../../src/types'
 
 // 模拟localStorage
 const localStorageMock = {
-  getItem: vi.fn(),
-  setItem: vi.fn(),
-  removeItem: vi.fn(),
-  clear: vi.fn(),
+  getItem: mockFn()fn(),
+  setItem: mockFn()fn(),
+  removeItem: mockFn()fn(),
+  clear: mockFn()fn(),
 }
 Object.defineProperty(window, 'localStorage', {
   value: localStorageMock
@@ -24,7 +24,7 @@ describe('聊天历史记录集成测试', () => {
       conversations: [],
       messages: [],
     })
-    vi.clearAllMocks()
+    mockFn()clearAllMocks()
   })
 
   it('应该能够创建新对话并保存消息', () => {

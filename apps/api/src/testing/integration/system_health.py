@@ -1,11 +1,13 @@
 """系统健康监控模块"""
 from typing import Dict, List, Any, Optional
-from datetime import datetime, timedelta
+from datetime import datetime
+from datetime import timedelta
+from src.core.utils.timezone_utils import utc_now, utc_factory
 import asyncio
 from enum import Enum
 from dataclasses import dataclass
 
-from src.core.config import settings
+from ...core.config import get_settings
 from src.core.monitoring import monitor
 
 
@@ -72,7 +74,7 @@ class SystemHealthMonitor:
         monitor.log_info("开始运行系统健康检查...")
         
         health_report = {
-            'timestamp': datetime.now().isoformat(),
+            'timestamp': utc_now().isoformat(),
             'overall_status': HealthStatus.HEALTHY.value,
             'components': {},
             'dependencies': {},
@@ -349,7 +351,7 @@ class SystemHealthMonitor:
         return {
             'passed': True,
             'details': "备份策略已配置",
-            'last_backup': datetime.now() - timedelta(hours=2),
+            'last_backup': utc_now() - timedelta(hours=2),
             'backup_retention_days': 30
         }
         
@@ -406,7 +408,7 @@ class LangGraphMonitor(ComponentMonitor):
             component_name='langgraph',
             status=HealthStatus.HEALTHY,
             response_time_ms=12,
-            last_check_time=datetime.now(),
+            last_check_time=utc_now(),
             metrics={
                 'active_nodes': 5,
                 'cache_hit_rate': 85,
@@ -429,7 +431,7 @@ class AutoGenMonitor(ComponentMonitor):
             component_name='autogen',
             status=HealthStatus.HEALTHY,
             response_time_ms=15,
-            last_check_time=datetime.now(),
+            last_check_time=utc_now(),
             metrics={
                 'active_agents': 3,
                 'event_queue_size': 10,
@@ -452,7 +454,7 @@ class PgVectorMonitor(ComponentMonitor):
             component_name='pgvector',
             status=HealthStatus.HEALTHY,
             response_time_ms=8,
-            last_check_time=datetime.now(),
+            last_check_time=utc_now(),
             metrics={
                 'index_size_mb': 512,
                 'query_performance_ms': 25,
@@ -475,7 +477,7 @@ class FastAPIMonitor(ComponentMonitor):
             component_name='fastapi',
             status=HealthStatus.HEALTHY,
             response_time_ms=5,
-            last_check_time=datetime.now(),
+            last_check_time=utc_now(),
             metrics={
                 'requests_per_second': 850,
                 'active_connections': 45,
@@ -498,7 +500,7 @@ class OpenTelemetryMonitor(ComponentMonitor):
             component_name='opentelemetry',
             status=HealthStatus.HEALTHY,
             response_time_ms=7,
-            last_check_time=datetime.now(),
+            last_check_time=utc_now(),
             metrics={
                 'traces_per_minute': 5000,
                 'metrics_collected': 10000,
@@ -521,7 +523,7 @@ class RedisMonitor(ComponentMonitor):
             component_name='redis',
             status=HealthStatus.HEALTHY,
             response_time_ms=2,
-            last_check_time=datetime.now(),
+            last_check_time=utc_now(),
             metrics={
                 'memory_used_mb': 512,
                 'hit_rate': 85,
@@ -544,7 +546,7 @@ class PostgreSQLMonitor(ComponentMonitor):
             component_name='postgresql',
             status=HealthStatus.HEALTHY,
             response_time_ms=5,
-            last_check_time=datetime.now(),
+            last_check_time=utc_now(),
             metrics={
                 'connections_active': 15,
                 'connections_idle': 35,
@@ -567,7 +569,7 @@ class QdrantMonitor(ComponentMonitor):
             component_name='qdrant',
             status=HealthStatus.HEALTHY,
             response_time_ms=8,
-            last_check_time=datetime.now(),
+            last_check_time=utc_now(),
             metrics={
                 'collections': 5,
                 'total_vectors': 1000000,

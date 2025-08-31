@@ -9,6 +9,7 @@ import logging
 from typing import Dict, List, Optional, Any, Tuple, Set
 from uuid import uuid4
 from datetime import datetime
+from src.core.utils.timezone_utils import utc_now, utc_factory
 
 import networkx as nx
 
@@ -480,7 +481,7 @@ class TaskDecomposer:
                 "complexity_target": request.target_complexity,
                 "max_depth_requested": request.max_depth,
                 "time_limit": request.time_limit_minutes,
-                "created_at": datetime.utcnow().isoformat()
+                "created_at": utc_now().isoformat()
             }
         )
         

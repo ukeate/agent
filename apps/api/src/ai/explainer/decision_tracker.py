@@ -8,11 +8,12 @@
 """
 
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime
+from src.core.utils.timezone_utils import utc_now, utc_factory, timezone
 from typing import Any, Dict, List, Optional, Set, Union
 from uuid import UUID
 
-from models.schemas.explanation import (
+from src.models.schemas.explanation import (
     ExplanationType,
     EvidenceType,
     ExplanationComponent,
@@ -39,7 +40,7 @@ class DecisionNode:
         self.parent_id = parent_id
         self.children: List[str] = []
         self.metadata: Dict[str, Any] = {}
-        self.timestamp = datetime.now(timezone.utc)
+        self.timestamp = utc_now()
         self.processing_time_ms: Optional[int] = None
         self.status = "pending"  # pending, processing, completed, failed
         
@@ -83,7 +84,7 @@ class DecisionTracker:
         self.decision_path: List[str] = []  # 记录决策路径
         self.data_sources: Set[str] = set()  # 记录数据来源
         self.processing_steps: List[Dict[str, Any]] = []  # 记录处理步骤
-        self.created_at = datetime.now(timezone.utc)
+        self.created_at = utc_now()
         self.completed_at: Optional[datetime] = None
         self.final_decision: Optional[str] = None
         self.confidence_factors: List[Dict[str, Any]] = []
@@ -148,7 +149,7 @@ class DecisionTracker:
             "step_type": node.node_type,
             "description": node.description,
             "processing_time_ms": processing_time_ms,
-            "timestamp": datetime.now(timezone.utc).isoformat()
+            "timestamp": utc_now().isoformat()
         })
         
         # 提取数据来源
@@ -232,7 +233,7 @@ class DecisionTracker:
     ):
         """最终化决策"""
         self.final_decision = final_decision
-        self.completed_at = datetime.now(timezone.utc)
+        self.completed_at = utc_now()
         
         # 添加最终决策节点
         final_node_id = self.create_node(
@@ -267,7 +268,7 @@ class DecisionTracker:
             "weight": weight,
             "impact": impact,
             "source": source,
-            "timestamp": datetime.now(timezone.utc).isoformat()
+            "timestamp": utc_now().isoformat()
         })
     
     def get_decision_path(self) -> List[Dict[str, Any]]:

@@ -5,6 +5,7 @@ import asyncio
 import json
 import uuid
 from datetime import datetime
+from src.core.utils.timezone_utils import utc_now, utc_factory
 import logging
 
 from models.schemas.personalization import (
@@ -205,7 +206,7 @@ async def recommendation_stream(
         await websocket.send_json({
             "type": "connected",
             "user_id": user_id,
-            "timestamp": datetime.utcnow().isoformat()
+            "timestamp": utc_now().isoformat()
         })
         
         # 实时推荐循环
@@ -231,7 +232,7 @@ async def recommendation_stream(
                     await websocket.send_json({
                         "type": "recommendations",
                         "data": response.model_dump(),
-                        "timestamp": datetime.utcnow().isoformat()
+                        "timestamp": utc_now().isoformat()
                     })
                     
                 elif data.get("type") == "feedback":
@@ -248,14 +249,14 @@ async def recommendation_stream(
                     
                     await websocket.send_json({
                         "type": "feedback_received",
-                        "timestamp": datetime.utcnow().isoformat()
+                        "timestamp": utc_now().isoformat()
                     })
                     
                 elif data.get("type") == "ping":
                     # 心跳
                     await websocket.send_json({
                         "type": "pong",
-                        "timestamp": datetime.utcnow().isoformat()
+                        "timestamp": utc_now().isoformat()
                     })
                     
             except WebSocketDisconnect:
@@ -412,7 +413,7 @@ async def model_predict(
         return {
             "model_id": model_id,
             "prediction": result.tolist() if hasattr(result, 'tolist') else result,
-            "timestamp": datetime.utcnow().isoformat()
+            "timestamp": utc_now().isoformat()
         }
         
     except Exception as e:
@@ -557,7 +558,7 @@ async def log_recommendation_request(
             "recommendation_count": len(response.recommendations),
             "latency_ms": response.latency_ms,
             "cache_hit": response.cache_hit,
-            "timestamp": datetime.utcnow().isoformat()
+            "timestamp": utc_now().isoformat()
         }
         
         # 保存到Redis（用于分析）

@@ -6,7 +6,9 @@
 
 import asyncio
 from typing import Dict, Any, List, Optional
-from datetime import datetime, timedelta
+from datetime import datetime
+from datetime import timedelta
+from src.core.utils.timezone_utils import utc_now, utc_factory
 from uuid import uuid4
 
 from ..models.schemas.offline import (
@@ -31,7 +33,7 @@ class OfflineService:
             "pending_operations": 0,
             "has_conflicts": False,
             "sync_in_progress": False,
-            "last_sync_at": datetime.utcnow().isoformat()
+            "last_sync_at": utc_now().isoformat()
         }
     
     async def get_network_statistics(self) -> Dict[str, Any]:
@@ -48,7 +50,7 @@ class OfflineService:
             },
             "mode_switcher": {
                 "current_mode": "auto",
-                "last_online_time": datetime.utcnow().isoformat(),
+                "last_online_time": utc_now().isoformat(),
                 "last_offline_time": None,
                 "offline_threshold_seconds": 30,
                 "online_threshold_seconds": 10,
@@ -69,7 +71,7 @@ class OfflineService:
             "conflicts_resolved": 0,
             "conflicts_pending": 0,
             "storage_used_mb": 0.0,
-            "last_sync_time": datetime.utcnow().isoformat(),
+            "last_sync_time": utc_now().isoformat(),
             "network_stats": {
                 "uptime_percentage": 100.0,
                 "average_latency_ms": 0,
@@ -111,7 +113,7 @@ class OfflineService:
             "message": "同步完成",
             "synced_operations": 0,
             "failed_operations": 0,
-            "sync_time": datetime.utcnow().isoformat()
+            "sync_time": utc_now().isoformat()
         }
     
     async def background_sync(self, user_id: str, batch_size: int = 100):
@@ -143,5 +145,5 @@ class OfflineService:
                 "database": "healthy",
                 "cache": "healthy"
             },
-            "timestamp": datetime.utcnow().isoformat()
+            "timestamp": utc_now().isoformat()
         }

@@ -1,7 +1,7 @@
 import React from 'react'
 import { MultiAgentMessage, Agent } from '../../stores/multiAgentStore'
 import { AgentAvatar, RoleBadge } from './AgentAvatar'
-import { MarkdownRenderer } from '../ui/MarkdownRenderer'
+import MarkdownRenderer from '../ui/MarkdownRenderer'
 
 interface GroupChatMessagesProps {
   messages: MultiAgentMessage[]

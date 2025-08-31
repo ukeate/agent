@@ -5,7 +5,8 @@
 from typing import Type, TypeVar, Any, Dict, List, Optional, get_origin, get_args
 from pydantic import BaseModel, ValidationError
 import json
-from datetime import datetime, timezone
+from datetime import datetime
+from src.core.utils.timezone_utils import utc_now, utc_factory, timezone
 import uuid
 import importlib
 
@@ -29,7 +30,7 @@ class TypeSafeSerializer:
             "class": context.__class__.__name__,
             "module": context.__class__.__module__,
             "version": context.version.value if hasattr(context, 'version') else "1.0",
-            "timestamp": datetime.now(timezone.utc).isoformat()
+            "timestamp": utc_now().isoformat()
         }
         
         # 提取泛型类型信息

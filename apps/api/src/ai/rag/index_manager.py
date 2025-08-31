@@ -10,7 +10,8 @@ from enum import Enum
 from dataclasses import dataclass
 import asyncio
 import logging
-from datetime import datetime, timezone
+from datetime import datetime
+from src.core.utils.timezone_utils import utc_now, utc_factory, timezone
 import json
 import hashlib
 import psutil
@@ -548,7 +549,7 @@ class AdvancedIndexManager:
                 dimension=stats["dimension"],
                 build_time_ms=build_time,
                 memory_usage_mb=memory_usage_mb,
-                last_updated=datetime.now(timezone.utc)
+                last_updated=utc_now()
             )
             
         except Exception as e:

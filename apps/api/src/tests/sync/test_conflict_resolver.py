@@ -4,7 +4,9 @@
 
 import pytest
 import asyncio
-from datetime import datetime, timedelta
+from datetime import datetime
+from datetime import timedelta
+from src.core.utils.timezone_utils import utc_now, utc_factory
 from uuid import uuid4
 
 from ...sync.conflict_detector import (
@@ -44,7 +46,7 @@ class TestConflictDetector:
             object_id=object_id,
             object_type="user",
             data={"name": "Alice", "age": 31},
-            client_timestamp=datetime.utcnow(),
+            client_timestamp=utc_now(),
             vector_clock=VectorClock(node_id="client1", clock={"client1": 2, "server": 1})
         )
         
@@ -57,7 +59,7 @@ class TestConflictDetector:
             object_id=object_id,
             object_type="user",
             data={"name": "Alice Smith", "email": "alice@example.com"},
-            client_timestamp=datetime.utcnow() - timedelta(minutes=1),
+            client_timestamp=utc_now() - timedelta(minutes=1),
             vector_clock=VectorClock(node_id="client2", clock={"client2": 3, "server": 1})
         )
         
@@ -88,7 +90,7 @@ class TestConflictDetector:
             object_id=object_id,
             object_type="post",
             data={"title": "My Post", "content": "Local content"},
-            client_timestamp=datetime.utcnow(),
+            client_timestamp=utc_now(),
             vector_clock=VectorClock(node_id="client1", clock={"client1": 1})
         )
         
@@ -100,7 +102,7 @@ class TestConflictDetector:
             object_id=object_id,
             object_type="post",
             data={"title": "My Post", "content": "Remote content"},
-            client_timestamp=datetime.utcnow() - timedelta(seconds=30),
+            client_timestamp=utc_now() - timedelta(seconds=30),
             vector_clock=VectorClock(node_id="client2", clock={"client2": 1})
         )
         
@@ -125,7 +127,7 @@ class TestConflictDetector:
             object_id=object_id,
             object_type="document",
             data={"status": "published"},
-            client_timestamp=datetime.utcnow(),
+            client_timestamp=utc_now(),
             vector_clock=VectorClock(node_id="client1", clock={"client1": 3, "server": 2})
         )
         
@@ -138,7 +140,7 @@ class TestConflictDetector:
             object_id=object_id,
             object_type="document",
             data={},
-            client_timestamp=datetime.utcnow() - timedelta(minutes=2),
+            client_timestamp=utc_now() - timedelta(minutes=2),
             vector_clock=VectorClock(node_id="client2", clock={"client2": 2, "server": 2})
         )
         
@@ -162,7 +164,7 @@ class TestConflictDetector:
             object_id=object_id,
             object_type="item",
             data={"value": 100},
-            client_timestamp=datetime.utcnow(),
+            client_timestamp=utc_now(),
             vector_clock=VectorClock(node_id="client1", clock={"client1": 2, "server": 1})
         )
         
@@ -174,7 +176,7 @@ class TestConflictDetector:
             object_id=object_id,
             object_type="item",
             data={"status": "active"},
-            client_timestamp=datetime.utcnow() - timedelta(minutes=5),
+            client_timestamp=utc_now() - timedelta(minutes=5),
             vector_clock=VectorClock(node_id="client2", clock={"client1": 1, "client2": 1, "server": 1})
         )
         
@@ -198,7 +200,7 @@ class TestConflictDetector:
                     object_id=f"obj_{i}",
                     object_type="test",
                     data={"value": i},
-                    client_timestamp=datetime.utcnow(),
+                    client_timestamp=utc_now(),
                     vector_clock=VectorClock(node_id="client1")
                 ),
                 remote_operation=SyncOperation(
@@ -209,7 +211,7 @@ class TestConflictDetector:
                     object_id=f"obj_{i}",
                     object_type="test",
                     data={"value": i + 10},
-                    client_timestamp=datetime.utcnow(),
+                    client_timestamp=utc_now(),
                     vector_clock=VectorClock(node_id="client2")
                 ),
                 conflict_type=ConflictType.UPDATE_UPDATE,
@@ -249,7 +251,7 @@ class TestConflictResolver:
             object_id="user_123",
             object_type="user",
             data={"name": "Alice Johnson", "age": 31},
-            client_timestamp=datetime.utcnow(),
+            client_timestamp=utc_now(),
             vector_clock=VectorClock(node_id="client1", clock={"client1": 2})
         )
         
@@ -261,7 +263,7 @@ class TestConflictResolver:
             object_id="user_123",
             object_type="user",
             data={"name": "Alice Smith", "email": "alice@example.com"},
-            client_timestamp=datetime.utcnow() - timedelta(minutes=1),
+            client_timestamp=utc_now() - timedelta(minutes=1),
             vector_clock=VectorClock(node_id="client2", clock={"client2": 3})
         )
         
@@ -394,7 +396,7 @@ class TestConflictResolver:
                 object_id="setting_1",
                 object_type="setting",
                 data={"value": "local_value"},
-                client_timestamp=datetime.utcnow(),
+                client_timestamp=utc_now(),
                 vector_clock=VectorClock(node_id="client1")
             ),
             remote_operation=SyncOperation(
@@ -405,7 +407,7 @@ class TestConflictResolver:
                 object_id="setting_1",
                 object_type="setting",
                 data={"value": "remote_value"},
-                client_timestamp=datetime.utcnow() - timedelta(minutes=2),
+                client_timestamp=utc_now() - timedelta(minutes=2),
                 vector_clock=VectorClock(node_id="client2")
             ),
             conflict_type=ConflictType.UPDATE_UPDATE,
@@ -433,7 +435,7 @@ class TestConflictResolver:
                 object_id="doc_1",
                 object_type="document",
                 data={},
-                client_timestamp=datetime.utcnow(),
+                client_timestamp=utc_now(),
                 vector_clock=VectorClock(node_id="client1")
             ),
             remote_operation=SyncOperation(
@@ -444,7 +446,7 @@ class TestConflictResolver:
                 object_id="doc_1",
                 object_type="document",
                 data={"content": "updated content"},
-                client_timestamp=datetime.utcnow() - timedelta(minutes=1),
+                client_timestamp=utc_now() - timedelta(minutes=1),
                 vector_clock=VectorClock(node_id="client2")
             ),
             conflict_type=ConflictType.DELETE_UPDATE,

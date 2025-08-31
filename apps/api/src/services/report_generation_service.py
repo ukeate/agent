@@ -1,7 +1,9 @@
 """
 实验报告自动生成服务
 """
-from datetime import datetime, timedelta
+from datetime import datetime
+from datetime import timedelta
+from src.core.utils.timezone_utils import utc_now, utc_factory
 from typing import Dict, List, Any, Optional, Tuple
 from enum import Enum
 import json
@@ -10,7 +12,7 @@ from dataclasses import dataclass, asdict
 import numpy as np
 from scipy import stats
 
-from ..core.database import async_session_manager
+from ..core.database import get_db_session
 from ..services.statistical_analysis_service import StatisticalAnalysisService
 from ..services.hypothesis_testing_service import HypothesisTestingService
 from ..services.confidence_interval_service import ConfidenceIntervalService
@@ -218,7 +220,7 @@ class ReportGenerationService:
             recommendations=recommendations,
             warnings=warnings,
             metadata={
-                "generated_at": datetime.utcnow().isoformat(),
+                "generated_at": utc_now().isoformat(),
                 "confidence_level": confidence_level,
                 "report_version": "1.0"
             }
@@ -232,7 +234,7 @@ class ReportGenerationService:
             "id": experiment_id,
             "name": f"Experiment {experiment_id}",
             "status": "running",
-            "start_date": datetime.utcnow() - timedelta(days=14),
+            "start_date": utc_now() - timedelta(days=14),
             "end_date": None,
             "variants": ["control", "treatment"],
             "allocation": {"control": 0.5, "treatment": 0.5},
@@ -511,7 +513,7 @@ class ReportGenerationService:
             status=experiment_info["status"],
             start_date=experiment_info["start_date"],
             end_date=experiment_info.get("end_date"),
-            duration_days=(datetime.utcnow() - experiment_info["start_date"]).days,
+            duration_days=(utc_now() - experiment_info["start_date"]).days,
             total_users=experiment_info["total_users"],
             variants=experiment_info["variants"],
             primary_metric_lift=primary_metric.relative_diff if primary_metric else 0,
@@ -566,7 +568,7 @@ class ReportGenerationService:
                 warnings.append(f"指标 {metric.name} 样本量过小，结果可能不可靠")
                 
         # 运行时间警告
-        duration = (datetime.utcnow() - experiment_info["start_date"]).days
+        duration = (utc_now() - experiment_info["start_date"]).days
         if duration < 7:
             warnings.append("实验运行时间少于7天，可能受到周期性影响")
             

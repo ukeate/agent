@@ -50,6 +50,7 @@ async def test_basic_functionality():
         from ai.batch.checkpoint_manager import CheckpointManager, CheckpointConfig
         from ai.batch.batch_processor import BatchJob, BatchStatus
         from datetime import datetime
+from src.core.utils.timezone_utils import utc_now, utc_factory
         import tempfile
         
         # 测试容错连接配置
@@ -80,7 +81,7 @@ async def test_basic_functionality():
             tasks=tasks,
             status=BatchStatus.PENDING,
             priority=5,
-            created_at=datetime.utcnow()
+            created_at=utc_now()
         )
         print("✓ 批处理作业创建成功")
         
@@ -142,7 +143,7 @@ async def test_integration():
                 failed_tasks=0,
                 status=BatchStatus.RUNNING,
                 priority=5,
-                created_at=datetime.utcnow()
+                created_at=utc_now()
             )
             
             # 创建检查点

@@ -2,6 +2,7 @@ import asyncio
 import logging
 from typing import Dict, List, Optional, Any
 from datetime import datetime
+from src.core.utils.timezone_utils import utc_now, utc_factory
 from redis.asyncio import Redis
 
 from models.schemas.personalization import (

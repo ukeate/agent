@@ -6,6 +6,7 @@ from typing import Type, TypeVar, Any, Dict, List, get_origin, get_args, Union, 
 from pydantic import BaseModel, ValidationError
 import inspect
 from datetime import datetime
+from src.core.utils.timezone_utils import utc_now, utc_factory
 import json
 
 from .context import AgentContext, ContextVersion

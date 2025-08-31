@@ -5,14 +5,14 @@ import { BrowserRouter } from 'react-router-dom';
 import ModelCacheMonitorPage from '../../../src/pages/ModelCacheMonitorPage';
 
 // Mock antd components
-vi.mock('antd', async () => {
-  const actual = await vi.importActual('antd');
+mockFn()mock('antd', async () => {
+  const actual = await mockFn()importActual('antd');
   return {
     ...actual,
     message: {
-      success: vi.fn(),
-      error: vi.fn(),
-      info: vi.fn(),
+      success: mockFn()fn(),
+      error: mockFn()fn(),
+      info: mockFn()fn(),
     },
   };
 });
@@ -27,7 +27,7 @@ const renderWithRouter = (component: React.ReactElement) => {
 
 describe('ModelCacheMonitorPage', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    mockFn()clearAllMocks();
   });
 
   it('应该渲染页面标题和描述', () => {

@@ -18,7 +18,7 @@ describe('WorkflowVisualization', () => {
   });
 
   it('应该处理节点点击事件', () => {
-    const onNodeClick = vi.fn();
+    const onNodeClick = mockFn()fn();
     render(<WorkflowVisualization workflowId="test-workflow-1" onNodeClick={onNodeClick} />);
     
     const clickButton = screen.getByText('Test Node Click');

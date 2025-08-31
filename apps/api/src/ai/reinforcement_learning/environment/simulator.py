@@ -11,6 +11,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 import uuid
 from datetime import datetime
+from src.core.utils.timezone_utils import utc_now, utc_factory
 import copy
 
 from ..qlearning.base import AgentState, Experience
@@ -244,7 +245,7 @@ class AgentEnvironmentSimulator(BaseEnvironment):
             next_state=next_state,
             done=terminated or truncated,
             priority=1.0,
-            timestamp=datetime.now()
+            timestamp=utc_now()
         )
         self.episode_history.append(experience)
         self.reward_history.append(reward)

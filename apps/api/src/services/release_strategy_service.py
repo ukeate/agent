@@ -3,13 +3,15 @@
 
 管理实验的发布策略和流程配置
 """
-from datetime import datetime, timedelta
+from datetime import datetime
+from datetime import timedelta
+from src.core.utils.timezone_utils import utc_now, utc_factory
 from typing import Dict, List, Any, Optional
 from enum import Enum
 from dataclasses import dataclass, field
 import json
 
-from ..core.database import async_session_manager
+from ..core.database import get_db_session
 
 
 class ReleaseType(str, Enum):
@@ -391,7 +393,7 @@ class ReleaseStrategyService:
     ) -> ReleaseStrategy:
         """创建发布策略"""
         strategy = ReleaseStrategy(
-            id=f"strategy_{experiment_id}_{datetime.utcnow().timestamp()}",
+            id=f"strategy_{experiment_id}_{utc_now().timestamp()}",
             name=name,
             description=kwargs.get("description", ""),
             experiment_id=experiment_id,
@@ -423,7 +425,7 @@ class ReleaseStrategyService:
         
         # 复制模板
         strategy = ReleaseStrategy(
-            id=f"strategy_{experiment_id}_{datetime.utcnow().timestamp()}",
+            id=f"strategy_{experiment_id}_{utc_now().timestamp()}",
             name=template.name,
             description=template.description,
             experiment_id=experiment_id,
@@ -457,10 +459,10 @@ class ReleaseStrategyService:
             experiment_id=strategy.experiment_id,
             current_stage=0,
             status="in_progress",
-            started_at=datetime.utcnow()
+            started_at=utc_now()
         )
         
-        exec_id = f"exec_{strategy_id}_{datetime.utcnow().timestamp()}"
+        exec_id = f"exec_{strategy_id}_{utc_now().timestamp()}"
         self.executions[exec_id] = execution
         
         # 这里应该启动异步任务执行各个阶段
@@ -498,7 +500,7 @@ class ReleaseStrategyService:
             "approver": approver,
             "approved": approved,
             "comments": comments,
-            "timestamp": datetime.utcnow().isoformat()
+            "timestamp": utc_now().isoformat()
         }
         
         execution.approvals.append(approval)
@@ -564,7 +566,7 @@ class ReleaseStrategyService:
                         pending.append({
                             "stage": stage.name,
                             "approver": approver,
-                            "required_by": datetime.utcnow() + timedelta(hours=24)
+                            "required_by": utc_now() + timedelta(hours=24)
                         })
                         
         return pending

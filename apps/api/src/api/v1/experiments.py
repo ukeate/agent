@@ -3,6 +3,7 @@ A/B测试实验平台API端点
 """
 from typing import List, Optional, Dict, Any
 from datetime import datetime
+from src.core.utils.timezone_utils import utc_now, utc_factory
 from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks, Query
 from sqlalchemy.orm import Session
 
@@ -751,6 +752,7 @@ async def configure_allocation_stages(
     """配置实验的阶段设置"""
     try:
         from datetime import datetime
+from src.core.utils.timezone_utils import utc_now, utc_factory
         
         stage_configs = []
         for stage_data in stages:

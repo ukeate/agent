@@ -18,7 +18,9 @@ try:
     from pydantic_settings import BaseSettings
 except ImportError:
     from pydantic import BaseSettings
-from datetime import datetime, timedelta
+from datetime import datetime
+from datetime import timedelta
+from src.core.utils.timezone_utils import utc_now, utc_factory
 
 logger = structlog.get_logger(__name__)
 
@@ -53,8 +55,8 @@ class ConfigItem:
     min_value: Optional[Union[int, float]] = None
     max_value: Optional[Union[int, float]] = None
     valid_values: Optional[List] = None
-    created_at: datetime = field(default_factory=datetime.now)
-    updated_at: datetime = field(default_factory=datetime.now)
+    created_at: datetime = field(default_factory=utc_factory)
+    updated_at: datetime = field(default_factory=utc_factory)
     version: str = "1.0.0"
 
 
@@ -285,7 +287,7 @@ class EnterpriseConfigManager:
             category=category,
             level=level,
             description=description,
-            updated_at=datetime.now()
+            updated_at=utc_now()
         )
         
         # 验证配置值
@@ -347,7 +349,7 @@ class EnterpriseConfigManager:
                 json.dumps({
                     'key': config_item.key,
                     'value': config_item.value,
-                    'timestamp': datetime.now().isoformat()
+                    'timestamp': utc_now().isoformat()
                 })
             )
         except Exception as e:
@@ -370,7 +372,7 @@ class EnterpriseConfigManager:
                         category=ConfigCategory(config_dict.get('category', 'performance')),
                         level=ConfigLevel(config_dict.get('level', 'system')),
                         description=config_dict.get('description', ''),
-                        updated_at=datetime.fromisoformat(config_dict.get('updated_at', datetime.now().isoformat())),
+                        updated_at=datetime.fromisoformat(config_dict.get('updated_at', utc_now().isoformat())),
                         version=config_dict.get('version', '1.0.0')
                     )
                     self._config_cache[config_item.key] = config_item
@@ -401,7 +403,7 @@ class EnterpriseConfigManager:
                         # 更新本地缓存
                         if key in self._config_cache:
                             self._config_cache[key].value = value
-                            self._config_cache[key].updated_at = datetime.now()
+                            self._config_cache[key].updated_at = utc_now()
                         
                         # 通知订阅者
                         await self._notify_subscribers(key, value)
@@ -457,7 +459,7 @@ class EnterpriseConfigManager:
                     'category': 'performance',
                     'level': 'system',
                     'description': field_info.description or f"Setting: {field_name}",
-                    'updated_at': datetime.now().isoformat(),
+                    'updated_at': utc_now().isoformat(),
                     'version': '1.0.0'
                 }
         

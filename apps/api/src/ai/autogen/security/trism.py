@@ -6,7 +6,9 @@ import asyncio
 import re
 import json
 import hashlib
-from datetime import datetime, timezone, timedelta
+from datetime import datetime
+from datetime import timedelta
+from src.core.utils.timezone_utils import utc_now, utc_factory
 from typing import Dict, Any, List, Optional, Callable, Tuple
 from dataclasses import dataclass, field
 from enum import Enum
@@ -1015,7 +1017,7 @@ class SecurityModule:
     ):
         """记录安全审计日志"""
         audit_entry = {
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": utc_now().isoformat(),
             "agent_id": agent_id,
             "output_hash": hashlib.md5(output.encode()).hexdigest(),
             "violations_count": len(violations),
@@ -1074,7 +1076,7 @@ class AITRiSMFramework:
             
             # 综合评估结果
             evaluation_result = {
-                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "timestamp": utc_now().isoformat(),
                 "agent_id": agent_id,
                 "trust": trust_result,
                 "risk": risk_result,
@@ -1095,7 +1097,7 @@ class AITRiSMFramework:
         except Exception as e:
             logger.error("TRiSM框架评估失败", agent_id=agent_id, error=str(e))
             return {
-                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "timestamp": utc_now().isoformat(),
                 "agent_id": agent_id,
                 "error": str(e),
                 "overall_assessment": {

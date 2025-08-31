@@ -6,10 +6,11 @@
 import json
 import html
 from datetime import datetime
+from src.core.utils.timezone_utils import utc_now, utc_factory
 from typing import Any, Dict, List, Optional, Union
 from jinja2 import Template
 
-from models.schemas.explanation import (
+from src.models.schemas.explanation import (
     DecisionExplanation,
     ExplanationComponent,
     ExplanationLevel,
@@ -154,7 +155,7 @@ class ExplanationFormatter:
                 "component_count": len(explanation.components),
                 "counterfactual_count": len(explanation.counterfactuals),
                 "explanation_length": len(explanation.summary_explanation or ""),
-                "format_timestamp": datetime.now().isoformat()
+                "format_timestamp": utc_now().isoformat()
             }
         
         # 格式化输出

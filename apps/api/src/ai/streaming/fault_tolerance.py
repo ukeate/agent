@@ -10,7 +10,9 @@ import logging
 from typing import Dict, List, Optional, Callable, Any, AsyncIterator
 from dataclasses import dataclass, field
 from enum import Enum
-from datetime import datetime, timedelta
+from datetime import datetime
+from datetime import timedelta
+from src.core.utils.timezone_utils import utc_now, utc_factory
 import json
 import websockets
 from contextlib import asynccontextmanager
@@ -186,7 +188,7 @@ class FaultTolerantConnection:
             
             # 连接成功
             self.state = ConnectionState.CONNECTED
-            self.session_state.connection_start_time = datetime.utcnow()
+            self.session_state.connection_start_time = utc_now()
             self.retry_count = 0
             
             # 更新指标
@@ -246,7 +248,7 @@ class FaultTolerantConnection:
             
             # 连接成功
             self.state = ConnectionState.CONNECTED
-            self.session_state.connection_start_time = datetime.utcnow()
+            self.session_state.connection_start_time = utc_now()
             self.retry_count = 0  # 重置重试计数
             
             # 更新指标
@@ -478,7 +480,7 @@ class FaultTolerantConnection:
         uptime = 0
         if (self.session_state.connection_start_time and 
             self.state == ConnectionState.CONNECTED):
-            uptime = (datetime.utcnow() - self.session_state.connection_start_time).total_seconds()
+            uptime = (utc_now() - self.session_state.connection_start_time).total_seconds()
         
         return {
             'session_id': self.session_id,
@@ -564,7 +566,7 @@ class ConnectionManager:
     
     async def cleanup_failed_connections(self, max_age_hours: int = 24):
         """清理失败的连接"""
-        cutoff_time = datetime.utcnow() - timedelta(hours=max_age_hours)
+        cutoff_time = utc_now() - timedelta(hours=max_age_hours)
         
         sessions_to_remove = []
         for session_id, conn in self.connections.items():

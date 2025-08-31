@@ -5,6 +5,7 @@ from typing import Any, Dict, List, Optional
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy import and_, or_, desc, select
 from datetime import datetime
+from src.core.utils.timezone_utils import utc_now, utc_factory
 
 from src.models.database.workflow import WorkflowModel, Task, DAGExecution as DAGExecutionModel
 from src.core.database import get_db_session
@@ -95,7 +96,7 @@ class WorkflowRepository:
                 return False
             
             workflow.is_deleted = True
-            workflow.deleted_at = datetime.now()
+            workflow.deleted_at = utc_now()
             await session.commit()
             return True
     
@@ -278,6 +279,6 @@ class WorkflowRepository:
                 if hasattr(dag, key):
                     setattr(dag, key, value)
             
-            dag.updated_at = datetime.now()
+            dag.updated_at = utc_now()
             await session.commit()
             return True

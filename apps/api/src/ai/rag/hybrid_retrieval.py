@@ -9,6 +9,7 @@ from typing import Dict, Any, List, Optional, Tuple, Union
 import asyncio
 import logging
 from datetime import datetime
+from src.core.utils.timezone_utils import utc_now, utc_factory
 
 from .pgvector_optimizer import PgVectorOptimizer
 from .vector_cache import VectorCacheManager
@@ -307,7 +308,7 @@ class HybridVectorRetriever:
             "cache_stats": cache_stats,
             "total_searches": total_searches,
             "cache_hit_rate": cache_stats.get("hit_rate", 0.0),
-            "timestamp": datetime.utcnow().isoformat()
+            "timestamp": utc_now().isoformat()
         }
     
     async def benchmark_retrieval_methods(
@@ -400,5 +401,5 @@ class HybridVectorRetriever:
                 "cache": cache_health if 'cache_health' in locals() else {}
             },
             "stats": await self.get_retrieval_stats(),
-            "timestamp": datetime.utcnow().isoformat()
+            "timestamp": utc_now().isoformat()
         }

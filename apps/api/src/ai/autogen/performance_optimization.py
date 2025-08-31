@@ -10,7 +10,9 @@ import queue
 from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
 from typing import Dict, List, Optional, Any, Callable, Union, Tuple
 from dataclasses import dataclass, field
-from datetime import datetime, timezone, timedelta
+from datetime import datetime
+from datetime import timedelta
+from src.core.utils.timezone_utils import utc_now, utc_factory
 from enum import Enum
 import structlog
 import weakref
@@ -91,7 +93,7 @@ class PerformanceProfile:
 @dataclass
 class ResourceMetrics:
     """资源指标"""
-    timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    timestamp: datetime = field(default_factory=lambda: utc_now())
     cpu_usage: float = 0.0
     memory_usage: float = 0.0
     memory_rss: int = 0
@@ -660,7 +662,7 @@ class ResourceMonitor:
         if not self.metrics_history:
             return {}
         
-        cutoff_time = datetime.now(timezone.utc) - timedelta(minutes=duration_minutes)
+        cutoff_time = utc_now() - timedelta(minutes=duration_minutes)
         recent_metrics = [
             m for m in self.metrics_history
             if m.timestamp > cutoff_time

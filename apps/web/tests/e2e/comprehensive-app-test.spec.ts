@@ -12,10 +12,10 @@ test.describe('完整应用功能验证', () => {
     const menuItems = await page.locator('.ant-menu-item, .ant-menu-submenu').count();
     expect(menuItems).toBeGreaterThan(15); // 应该有很多菜单项
     
-    // 验证主要功能分组存在
-    await expect(page.locator('text=智能体系统')).toBeVisible();
-    await expect(page.locator('text=智能检索引擎')).toBeVisible();
-    await expect(page.locator('text=强化学习系统')).toBeVisible();
+    // 验证主要功能分组存在 - 使用实际菜单文本
+    await expect(page.locator('text=🤖 智能体系统')).toBeVisible();
+    await expect(page.locator('text=🔍 智能检索引擎')).toBeVisible();
+    await expect(page.locator('text=🧠 强化学习系统').first()).toBeVisible();
     
     // 截图记录正常状态
     await page.screenshot({ path: 'test-results/app-working-homepage.png', fullPage: true });
@@ -115,14 +115,14 @@ test.describe('完整应用功能验证', () => {
     await page.goto('http://localhost:3000');
     await page.waitForLoadState('networkidle');
     
-    // 验证主要功能分组都存在
+    // 验证主要功能分组都存在 - 使用实际菜单文本
     const groups = [
-      '智能体系统',
-      '智能检索引擎', 
-      '强化学习系统',
-      '探索策略系统',
-      '奖励函数系统',
-      '环境建模系统'
+      '🤖 智能体系统',
+      '🔍 智能检索引擎', 
+      '🧠 强化学习系统',
+      '🎯 探索策略系统',
+      '🏆 奖励函数系统',
+      '🌍 环境建模系统'
     ];
     
     for (const group of groups) {
@@ -167,13 +167,13 @@ test.describe('完整应用功能验证', () => {
     await page.waitForLoadState('networkidle');
     
     // 最终验证
-    const layout = page.locator('.ant-layout');
+    const layout = page.locator('.ant-layout').first();
     await expect(layout).toBeVisible();
     
-    const sidebar = page.locator('.ant-layout-sider');
+    const sidebar = page.locator('.ant-layout-sider').first();
     await expect(sidebar).toBeVisible();
     
-    const content = page.locator('.ant-layout-content');
+    const content = page.locator('.ant-layout-content').first();
     await expect(content).toBeVisible();
     
     // 验证菜单完全可交互

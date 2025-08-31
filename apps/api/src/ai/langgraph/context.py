@@ -7,7 +7,8 @@ from typing import Optional, Any, Dict, TypeVar, Generic, List, Union
 from pydantic import BaseModel, Field, field_validator, model_validator
 from dataclasses import dataclass
 from enum import Enum
-from datetime import datetime, timezone
+from datetime import datetime
+from src.core.utils.timezone_utils import utc_now, utc_factory, timezone
 import uuid
 
 T = TypeVar('T')
@@ -30,8 +31,8 @@ class UserPreferences(BaseModel):
 class SessionContext(BaseModel):
     """会话上下文类型"""
     session_id: str = Field(..., description="会话唯一标识")
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    last_active: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = Field(default_factory=lambda: utc_now())
+    last_active: datetime = Field(default_factory=lambda: utc_now())
     message_count: int = Field(default=0, ge=0)
     interaction_mode: str = Field(default="chat", description="交互模式")
     
@@ -42,7 +43,10 @@ class SessionContext(BaseModel):
             uuid.UUID(v)
             return v
         except ValueError:
-            raise ValueError('session_id必须是有效的UUID')
+            # 允许非UUID格式的session_id，但要求长度至少3个字符
+            if len(str(v)) < 3:
+                raise ValueError('session_id长度至少需要3个字符')
+            return v
 
 class WorkflowMetadata(BaseModel):
     """工作流元数据"""
@@ -143,7 +147,7 @@ class AgentContext(BaseModel, Generic[T]):
         """更新步骤信息"""
         self.step_count += 1
         self.current_node = node_name
-        self.last_updated = datetime.now(timezone.utc)
+        self.last_updated = utc_now()
         if self.workflow_metadata:
             self.workflow_metadata.execution_path.append(node_name)
     
@@ -152,7 +156,7 @@ class AgentContext(BaseModel, Generic[T]):
         if not self.last_updated:
             return False
         
-        elapsed = (datetime.now(timezone.utc) - self.last_updated).total_seconds()
+        elapsed = (utc_now() - self.last_updated).total_seconds()
         return elapsed > self.timeout_seconds
     
     def is_max_iterations_reached(self) -> bool:
@@ -163,7 +167,7 @@ class AgentContext(BaseModel, Generic[T]):
         """添加检查点"""
         if self.enable_checkpoints and self.workflow_metadata:
             checkpoint = {
-                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "timestamp": utc_now().isoformat(),
                 "step_count": self.step_count,
                 "node": self.current_node,
                 "data": checkpoint_data

@@ -1,13 +1,14 @@
 """安全验证模块"""
 from typing import Dict, List, Any, Optional
 from datetime import datetime
+from src.core.utils.timezone_utils import utc_now, utc_factory
 import asyncio
 from enum import Enum
 from dataclasses import dataclass
 import hashlib
 import secrets
 
-from src.core.config import settings
+from ...core.config import get_settings
 from src.core.monitoring import monitor
 
 
@@ -63,7 +64,7 @@ class SecurityValidator:
         monitor.log_info("开始安全合规性验证...")
         
         results = {
-            'timestamp': datetime.now().isoformat(),
+            'timestamp': utc_now().isoformat(),
             'overall_status': 'compliant',
             'checks': {},
             'vulnerabilities': [],
@@ -568,7 +569,7 @@ class PenetrationTester:
         monitor.log_info("运行渗透测试...")
         
         test_results = {
-            'timestamp': datetime.now().isoformat(),
+            'timestamp': utc_now().isoformat(),
             'tests_performed': [],
             'vulnerabilities_found': [],
             'risk_assessment': {}

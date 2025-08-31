@@ -11,6 +11,7 @@ import logging
 from fastapi import WebSocket, WebSocketDisconnect
 from fastapi.responses import StreamingResponse
 from datetime import datetime
+from src.core.utils.timezone_utils import utc_now, utc_factory
 
 from .token_streamer import TokenStreamer, StreamEvent, StreamType
 from .stream_buffer import StreamBuffer
@@ -67,7 +68,7 @@ class StreamingResponseHandler:
                 yield self._format_sse_event({
                     "type": "connection",
                     "data": {"status": "connected", "session_id": session_id},
-                    "timestamp": datetime.utcnow().isoformat()
+                    "timestamp": utc_now().isoformat()
                 })
                 
                 # 流式发送事件
@@ -118,7 +119,7 @@ class StreamingResponseHandler:
                         # 发送心跳保持连接
                         yield self._format_sse_event({
                             "type": "heartbeat",
-                            "data": {"timestamp": datetime.utcnow().isoformat()}
+                            "data": {"timestamp": utc_now().isoformat()}
                         })
                         continue
                     
@@ -173,7 +174,7 @@ class StreamingResponseHandler:
             await websocket.send_json({
                 "type": "connection",
                 "data": {"status": "connected", "session_id": session_id},
-                "timestamp": datetime.utcnow().isoformat()
+                "timestamp": utc_now().isoformat()
             })
             
             # 启动接收和发送任务
@@ -242,7 +243,7 @@ class StreamingResponseHandler:
                     # 响应ping
                     await websocket.send_json({
                         "type": "pong",
-                        "data": {"timestamp": datetime.utcnow().isoformat()}
+                        "data": {"timestamp": utc_now().isoformat()}
                     })
                 elif message_type in self._message_processors:
                     # 使用注册的处理器
@@ -332,7 +333,7 @@ class StreamingResponseHandler:
                 await websocket.send_json({
                     "type": event_type,
                     "data": data,
-                    "timestamp": datetime.utcnow().isoformat()
+                    "timestamp": utc_now().isoformat()
                 })
             except Exception as e:
                 logger.error(f"广播消息失败: {e}")

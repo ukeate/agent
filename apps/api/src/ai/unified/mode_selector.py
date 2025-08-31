@@ -11,7 +11,9 @@ from enum import Enum
 import logging
 import time
 import statistics
-from datetime import datetime, timedelta
+from datetime import datetime
+from datetime import timedelta
+from src.core.utils.timezone_utils import utc_now, utc_factory
 
 logger = logging.getLogger(__name__)
 
@@ -92,11 +94,11 @@ class ModePerformanceHistory:
         self.success_rate = self.success_count / self.request_count
         
         # 计算吞吐量（基于时间窗口）
-        elapsed_hours = (datetime.utcnow() - self.window_start).total_seconds() / 3600
+        elapsed_hours = (utc_now() - self.window_start).total_seconds() / 3600
         if elapsed_hours > 0:
             self.throughput = self.request_count / elapsed_hours
         
-        self.last_updated = datetime.utcnow()
+        self.last_updated = utc_now()
     
     @property
     def performance_score(self) -> float:
@@ -161,7 +163,7 @@ class ModeSelector:
         
         # 记录决策
         decision_record = {
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": utc_now().isoformat(),
             "selected_mode": mode.value,
             "strategy": self.strategy.value,
             "request_features": self._extract_request_features(request),

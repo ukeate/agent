@@ -6,7 +6,8 @@ import os
 import hashlib
 import mimetypes
 from pathlib import Path
-from datetime import datetime, timezone
+from datetime import datetime
+from src.core.utils.timezone_utils import utc_now, utc_factory, timezone
 from typing import Optional, BinaryIO, Dict, Any
 import aiofiles
 import structlog
@@ -49,7 +50,7 @@ class FileUploadService:
         mime_type = content_type or mimetypes.guess_type(filename)[0]
         
         # 创建日期目录
-        date_dir = datetime.now().strftime("%Y/%m/%d")
+        date_dir = utc_now().strftime("%Y/%m/%d")
         save_dir = self.upload_path / date_dir
         save_dir.mkdir(parents=True, exist_ok=True)
         
@@ -100,7 +101,7 @@ class FileUploadService:
             mime_type=mime_type,
             metadata={
                 "original_filename": filename,
-                "upload_timestamp": datetime.now(timezone.utc).isoformat(),
+                "upload_timestamp": utc_now().isoformat(),
                 "openai_file_id": openai_file_id,
                 "file_extension": file_extension
             }
@@ -163,7 +164,7 @@ class FileUploadService:
     
     async def cleanup_old_files(self, days: int = 7):
         """清理旧文件"""
-        cutoff_time = datetime.now().timestamp() - (days * 24 * 3600)
+        cutoff_time = utc_now().timestamp() - (days * 24 * 3600)
         deleted_count = 0
         
         for root, dirs, files in os.walk(self.upload_path):

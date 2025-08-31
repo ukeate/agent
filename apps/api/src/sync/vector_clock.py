@@ -7,6 +7,7 @@
 from typing import Dict, List, Optional, Tuple, Set
 from dataclasses import dataclass, field
 from datetime import datetime
+from src.core.utils.timezone_utils import utc_now, utc_factory
 from enum import Enum
 
 from ..models.schemas.offline import VectorClock
@@ -344,7 +345,7 @@ class VectorClockManager:
                 for node_id, clock in self.node_clocks.items()
             },
             "sync_history_count": len(self.sync_history),
-            "export_timestamp": datetime.utcnow().isoformat()
+            "export_timestamp": utc_now().isoformat()
         }
     
     def import_clock_state(self, state_data: Dict[str, any]) -> bool:

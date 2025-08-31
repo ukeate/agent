@@ -10,7 +10,9 @@ import asyncio
 import logging
 import time
 from enum import Enum
-from datetime import datetime, timedelta
+from datetime import datetime
+from datetime import timedelta
+from src.core.utils.timezone_utils import utc_now, utc_factory
 import weakref
 
 logger = logging.getLogger(__name__)
@@ -365,7 +367,7 @@ class BackpressureManager:
     def _record_metrics_history(self):
         """记录指标历史"""
         metrics_snapshot = {
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": utc_now().isoformat(),
             "throttle_level": self.current_throttle_level.value,
             "buffer_usage": self.buffer_usage,
             "pressure_metrics": {

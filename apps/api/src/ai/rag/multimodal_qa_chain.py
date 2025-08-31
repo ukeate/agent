@@ -5,6 +5,7 @@ import time
 import asyncio
 from typing import Optional, Dict, Any, AsyncGenerator
 from datetime import datetime
+from src.core.utils.timezone_utils import utc_now, utc_factory
 
 from src.ai.openai_client import get_openai_client
 from .multimodal_config import (
@@ -426,7 +427,7 @@ class MultimodalQAChain:
         
         # 检查缓存时间
         cache_time = cached_response["timestamp"]
-        current_time = datetime.now().timestamp()
+        current_time = utc_now().timestamp()
         
         # 缓存有效期
         if current_time - cache_time > self.config.cache_ttl_seconds:
@@ -442,7 +443,7 @@ class MultimodalQAChain:
             response: 响应数据
         """
         # 添加时间戳
-        response["timestamp"] = datetime.now().timestamp()
+        response["timestamp"] = utc_now().timestamp()
         
         # 限制缓存大小
         if len(self._query_cache) >= self._cache_max_size:

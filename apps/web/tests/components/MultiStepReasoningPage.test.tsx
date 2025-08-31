@@ -5,16 +5,16 @@ import MultiStepReasoningPage from '../../src/pages/MultiStepReasoningPage';
 import { multiStepReasoningApi } from '../../src/services/multiStepReasoningApi';
 
 // Mock API service
-vi.mock('../../src/services/multiStepReasoningApi', () => ({
+mockFn()mock('../../src/services/multiStepReasoningApi', () => ({
   multiStepReasoningApi: {
-    decomposeProblem: vi.fn(),
-    startExecution: vi.fn(),
-    getExecutionStatus: vi.fn(),
-    controlExecution: vi.fn(),
-    getSystemMetrics: vi.fn(),
-    pollExecutionStatus: vi.fn(),
-    monitorSystemMetrics: vi.fn(),
-    getExecutionResults: vi.fn(),
+    decomposeProblem: mockFn()fn(),
+    startExecution: mockFn()fn(),
+    getExecutionStatus: mockFn()fn(),
+    controlExecution: mockFn()fn(),
+    getSystemMetrics: mockFn()fn(),
+    pollExecutionStatus: mockFn()fn(),
+    monitorSystemMetrics: mockFn()fn(),
+    getExecutionResults: mockFn()fn(),
   }
 }));
 
@@ -97,14 +97,14 @@ const mockSystemMetrics = {
 
 describe('MultiStepReasoningPage', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    mockFn()clearAllMocks();
     
     // 设置默认 mock 返回值
-    vi.mocked(multiStepReasoningApi.decomposeProblem).mockResolvedValue(mockDecompositionResult);
-    vi.mocked(multiStepReasoningApi.startExecution).mockResolvedValue(mockExecutionResult);
-    vi.mocked(multiStepReasoningApi.getSystemMetrics).mockResolvedValue(mockSystemMetrics);
-    vi.mocked(multiStepReasoningApi.monitorSystemMetrics).mockResolvedValue(() => {});
-    vi.mocked(multiStepReasoningApi.pollExecutionStatus).mockImplementation(() => {});
+    mockFn()mocked(multiStepReasoningApi.decomposeProblem).mockResolvedValue(mockDecompositionResult);
+    mockFn()mocked(multiStepReasoningApi.startExecution).mockResolvedValue(mockExecutionResult);
+    mockFn()mocked(multiStepReasoningApi.getSystemMetrics).mockResolvedValue(mockSystemMetrics);
+    mockFn()mocked(multiStepReasoningApi.monitorSystemMetrics).mockResolvedValue(() => {});
+    mockFn()mocked(multiStepReasoningApi.pollExecutionStatus).mockImplementation(() => {});
   });
 
   it('应该正确渲染页面基本结构', () => {
@@ -294,7 +294,7 @@ describe('MultiStepReasoningPage', () => {
 
   it('应该正确处理错误状态', async () => {
     // Mock API 错误
-    vi.mocked(multiStepReasoningApi.decomposeProblem).mockRejectedValue(new Error('API错误'));
+    mockFn()mocked(multiStepReasoningApi.decomposeProblem).mockRejectedValue(new Error('API错误'));
     
     render(<MultiStepReasoningPage />);
     

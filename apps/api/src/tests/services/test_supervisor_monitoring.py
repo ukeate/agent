@@ -4,7 +4,9 @@ Supervisor任务监控测试
 """
 import pytest
 import asyncio
-from datetime import datetime, timezone, timedelta
+from datetime import datetime
+from datetime import timedelta
+from src.core.utils.timezone_utils import utc_now, utc_factory
 from unittest.mock import Mock, AsyncMock, patch, MagicMock
 from uuid import uuid4
 import structlog
@@ -68,7 +70,7 @@ def sample_task_assignment():
         assigned_agent="code_expert",
         assignment_reason="最佳匹配的智能体",
         confidence_level=0.85,
-        estimated_completion_time=datetime.now(timezone.utc) + timedelta(minutes=10),
+        estimated_completion_time=utc_now() + timedelta(minutes=10),
         alternative_agents=["architect"],
         decision_metadata={
             "complexity": {
@@ -111,7 +113,7 @@ class TestTaskStatusTracking:
                         supervisor_id="supervisor_1",
                         task_description="测试任务",
                         status=TaskStatus.PENDING.value,
-                        created_at=datetime.now(timezone.utc)
+                        created_at=utc_now()
                     )
                     MockTaskRepo.return_value.create = AsyncMock(return_value=mock_task)
                     
@@ -252,10 +254,10 @@ class TestProgressMonitoring:
     async def test_monitor_estimated_completion_time(self, supervisor_service, sample_task_assignment):
         """测试预估完成时间监控"""
         # 验证预估时间计算
-        assert sample_task_assignment.estimated_completion_time > datetime.now(timezone.utc)
+        assert sample_task_assignment.estimated_completion_time > utc_now()
         
         # 验证时间差在合理范围内
-        time_diff = sample_task_assignment.estimated_completion_time - datetime.now(timezone.utc)
+        time_diff = sample_task_assignment.estimated_completion_time - utc_now()
         assert timedelta(minutes=5) <= time_diff <= timedelta(hours=1)
     
     @pytest.mark.asyncio
@@ -325,7 +327,7 @@ class TestPerformanceMetrics:
     @pytest.mark.asyncio
     async def test_collect_task_execution_time_metrics(self, supervisor_service, mock_db_session):
         """测试任务执行时间指标收集"""
-        start_time = datetime.now(timezone.utc)
+        start_time = utc_now()
         
         with patch('src.services.supervisor_service.get_db_session') as mock_get_db:
             mock_get_db.return_value.__aenter__.return_value = mock_db_session
@@ -358,11 +360,11 @@ class TestPerformanceMetrics:
         # 创建带有性能指标的supervisor agent
         mock_agent = Mock(spec=SupervisorAgent)
         mock_agent.decision_history = [
-            Mock(confidence=0.8, timestamp=datetime.now(timezone.utc)),
-            Mock(confidence=0.9, timestamp=datetime.now(timezone.utc)),
-            Mock(confidence=0.7, timestamp=datetime.now(timezone.utc)),
-            Mock(confidence=0.85, timestamp=datetime.now(timezone.utc)),
-            Mock(confidence=0.95, timestamp=datetime.now(timezone.utc))
+            Mock(confidence=0.8, timestamp=utc_now()),
+            Mock(confidence=0.9, timestamp=utc_now()),
+            Mock(confidence=0.7, timestamp=utc_now()),
+            Mock(confidence=0.85, timestamp=utc_now()),
+            Mock(confidence=0.95, timestamp=utc_now())
         ]
         
         mock_agent.get_supervisor_status = AsyncMock(return_value={
@@ -527,15 +529,15 @@ class TestMonitoringAlerts:
     async def test_task_timeout_alert(self, supervisor_service, sample_task_assignment):
         """测试任务超时告警"""
         # 设置预估完成时间为过去
-        sample_task_assignment.estimated_completion_time = datetime.now(timezone.utc) - timedelta(minutes=10)
+        sample_task_assignment.estimated_completion_time = utc_now() - timedelta(minutes=10)
         
         # 检查是否超时
-        is_timeout = datetime.now(timezone.utc) > sample_task_assignment.estimated_completion_time
+        is_timeout = utc_now() > sample_task_assignment.estimated_completion_time
         
         assert is_timeout is True
         
         # 计算超时时长
-        timeout_duration = datetime.now(timezone.utc) - sample_task_assignment.estimated_completion_time
+        timeout_duration = utc_now() - sample_task_assignment.estimated_completion_time
         assert timeout_duration.total_seconds() > 0
         
         # 应该触发超时告警

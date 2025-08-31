@@ -7,7 +7,9 @@ import json
 import uuid
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from datetime import datetime, timezone, timedelta
+from datetime import datetime
+from datetime import timedelta
+from src.core.utils.timezone_utils import utc_now, utc_factory
 from enum import Enum
 from typing import Dict, List, Any, Callable, Optional, Union
 import structlog
@@ -25,7 +27,7 @@ class EventContext:
     session_id: Optional[str] = None
     trace_id: str = field(default_factory=lambda: str(uuid.uuid4()))
     metadata: Dict[str, Any] = field(default_factory=dict)
-    started_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    started_at: datetime = field(default_factory=lambda: utc_now())
     
     def add_metadata(self, key: str, value: Any) -> None:
         """添加元数据"""
@@ -244,14 +246,14 @@ class AsyncEventProcessingEngine:
         if batch:
             # 添加到批处理缓冲
             async with self.batch_locks[priority]:
-                self.batch_buffers[priority].append((datetime.now(timezone.utc).timestamp(), event))
+                self.batch_buffers[priority].append((utc_now().timestamp(), event))
                 
                 # 如果缓冲区满了，立即刷新
                 if len(self.batch_buffers[priority]) >= self.batch_size:
                     await self._flush_batch(priority)
         else:
             # 直接添加到队列
-            await self.priority_queues[priority].put((datetime.now(timezone.utc).timestamp(), event))
+            await self.priority_queues[priority].put((utc_now().timestamp(), event))
     
     async def submit_batch(self, events: List[Event], priority: EventPriority = EventPriority.NORMAL) -> None:
         """批量提交事件"""
@@ -608,7 +610,7 @@ class SystemMonitorProcessor(EventProcessor):
     async def _handle_error(self, event: Event, context: EventContext) -> None:
         """处理错误事件"""
         self.error_count += 1
-        self.last_error_time = datetime.now(timezone.utc)
+        self.last_error_time = utc_now()
         
         logger.error(
             "系统错误",

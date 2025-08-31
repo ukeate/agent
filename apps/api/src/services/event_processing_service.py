@@ -1,7 +1,9 @@
 """
 事件处理服务 - 负责事件的验证、处理和流转
 """
-from datetime import datetime, timezone, timedelta
+from datetime import datetime
+from datetime import timedelta
+from src.core.utils.timezone_utils import utc_now, utc_factory
 from typing import List, Optional, Dict, Any, Tuple
 import asyncio
 import json
@@ -54,7 +56,7 @@ class EventValidationService:
     
     async def validate_event(self, event: CreateEventRequest) -> EventValidationResult:
         """全面验证事件"""
-        start_time = datetime.now(timezone.utc)
+        start_time = utc_now()
         errors = []
         warnings = []
         quality = DataQuality.HIGH
@@ -90,7 +92,7 @@ class EventValidationService:
             quality, quality_score = self._calculate_quality_score(errors, warnings)
             
             # 计算处理时间
-            duration = datetime.now(timezone.utc) - start_time
+            duration = utc_now() - start_time
             duration_ms = int(duration.total_seconds() * 1000)
             
             return EventValidationResult(
@@ -105,7 +107,7 @@ class EventValidationService:
             
         except Exception as e:
             logger.error(f"事件验证异常: {e}", exc_info=True)
-            duration = datetime.now(timezone.utc) - start_time
+            duration = utc_now() - start_time
             duration_ms = int(duration.total_seconds() * 1000)
             
             return EventValidationResult(
@@ -175,7 +177,7 @@ class EventValidationService:
         warnings = []
         
         if event.event_timestamp:
-            now = datetime.now(timezone.utc)
+            now = utc_now()
             
             # 未来时间检查
             if event.event_timestamp > now + timedelta(minutes=5):
@@ -323,7 +325,7 @@ class EventDeduplicationService:
                     original_event_id=duplicate_info.original_event_id,
                     duplicate_count=duplicate_info.duplicate_count + 1,
                     first_seen_at=duplicate_info.first_seen_at,
-                    last_duplicate_at=datetime.now(timezone.utc)
+                    last_duplicate_at=utc_now()
                 )
             else:
                 # 记录新事件指纹
@@ -332,7 +334,7 @@ class EventDeduplicationService:
                     original_event_id=event.event_id,
                     experiment_id=event.experiment_id,
                     user_id=event.user_id,
-                    event_timestamp=event.event_timestamp or datetime.now(timezone.utc)
+                    event_timestamp=event.event_timestamp or utc_now()
                 )
                 
                 return EventDeduplicationInfo(
@@ -403,7 +405,7 @@ class EventEnrichmentService:
         context = event.experiment_context or {}
         
         # 添加处理时间戳
-        context["enriched_at"] = datetime.now(timezone.utc).isoformat()
+        context["enriched_at"] = utc_now().isoformat()
         context["processing_version"] = "1.0"
         
         return context
@@ -427,7 +429,7 @@ class EventProcessingService:
     
     async def process_event(self, event: CreateEventRequest, client_ip: str = None) -> EventProcessingResult:
         """处理单个事件的完整流程"""
-        start_time = datetime.now(timezone.utc)
+        start_time = utc_now()
         
         try:
             # 阶段1: 事件验证
@@ -466,7 +468,7 @@ class EventProcessingService:
             db_event = await self.event_repo.create_event(enriched_event, validation_result.data_quality)
             
             # 计算处理时间
-            duration = datetime.now(timezone.utc) - start_time
+            duration = utc_now() - start_time
             duration_ms = int(duration.total_seconds() * 1000)
             
             return EventProcessingResult(
@@ -486,7 +488,7 @@ class EventProcessingService:
                 f"处理异常: {str(e)}", {"exception": str(e)}
             )
             
-            duration = datetime.now(timezone.utc) - start_time
+            duration = utc_now() - start_time
             duration_ms = int(duration.total_seconds() * 1000)
             
             return EventProcessingResult(

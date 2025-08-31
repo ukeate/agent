@@ -12,7 +12,9 @@
 import asyncio
 import time
 from typing import Dict, List, Any, Optional, Tuple
-from datetime import datetime, timedelta
+from datetime import datetime
+from datetime import timedelta
+from src.core.utils.timezone_utils import utc_now, utc_factory
 from dataclasses import dataclass
 import logging
 
@@ -149,7 +151,7 @@ class DatabaseOptimizer:
             ORDER BY timestamp DESC
             LIMIT 100
             """,
-            params=("user_123", datetime.now() - timedelta(days=30))
+            params=("user_123", utc_now() - timedelta(days=30))
         )
         optimizations.append(metrics)
         
@@ -173,7 +175,7 @@ class DatabaseOptimizer:
             ORDER BY interaction_count DESC
             LIMIT 1000
             """,
-            params=(datetime.now() - timedelta(days=7),)
+            params=(utc_now() - timedelta(days=7),)
         )
         optimizations.append(metrics)
         
@@ -203,7 +205,7 @@ class DatabaseOptimizer:
             SELECT * FROM user_category_stats
             ORDER BY user_id, avg_rating DESC
             """,
-            params=(datetime.now() - timedelta(days=30),)
+            params=(utc_now() - timedelta(days=30),)
         )
         optimizations.append(metrics)
         
@@ -257,7 +259,7 @@ class DatabaseOptimizer:
             GROUP BY algorithm_used
             ORDER BY total_recommendations DESC
             """,
-            params=(datetime.now() - timedelta(days=7),)
+            params=(utc_now() - timedelta(days=7),)
         )
         optimizations.append(metrics)
         
@@ -288,7 +290,7 @@ class DatabaseOptimizer:
             GROUP BY feedback_type
             ORDER BY count DESC
             """,
-            params=(datetime.now() - timedelta(days=1),)
+            params=(utc_now() - timedelta(days=1),)
         )
         optimizations.append(metrics)
         
@@ -320,7 +322,7 @@ class DatabaseOptimizer:
             SELECT * FROM hourly_feedback
             ORDER BY user_id, hour
             """,
-            params=(datetime.now() - timedelta(hours=24),)
+            params=(utc_now() - timedelta(hours=24),)
         )
         optimizations.append(metrics)
         
@@ -549,7 +551,7 @@ class DatabaseOptimizer:
 - 慢查询数量 (目标: < 1% of total queries)
 - 缓存命中率 (目标: > 80%)
 
-报告生成时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+报告生成时间: {utc_now().strftime('%Y-%m-%d %H:%M:%S')}
 """
         
         return report

@@ -120,7 +120,7 @@ export const useSupervisorStore = create<SupervisorStore>()(
       },
       
       autoRefresh: false,
-      refreshInterval: 10000, // 10秒
+      refreshInterval: 60000, // 60秒 - 减少频率
       
       // Actions
       setSupervisorId: (id: string) => {

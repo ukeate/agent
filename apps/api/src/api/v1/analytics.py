@@ -9,7 +9,9 @@
 """
 
 from typing import List, Optional, Dict, Any
-from datetime import datetime, timedelta
+from datetime import datetime
+from datetime import timedelta
+from src.core.utils.timezone_utils import utc_now, utc_factory
 from fastapi import APIRouter, HTTPException, Query, BackgroundTasks, WebSocket, WebSocketDisconnect
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
@@ -153,8 +155,8 @@ async def get_sessions(
             {
                 "session_id": f"session_{i}",
                 "user_id": f"user_{i % 10}",
-                "start_time": datetime.now().isoformat(),
-                "end_time": datetime.now().isoformat(),
+                "start_time": utc_now().isoformat(),
+                "end_time": utc_now().isoformat(),
                 "duration_seconds": 300 + i * 60,
                 "event_count": 10 + i,
                 "properties": {"device": "web", "location": "US"}
@@ -189,7 +191,7 @@ async def analyze_behavior(request: AnalysisRequest):
         analysis_result = {
             "analysis_id": str(uuid.uuid4()),
             "request": request.dict(),
-            "timestamp": datetime.now().isoformat(),
+            "timestamp": utc_now().isoformat(),
             "results": {
                 "patterns": [
                     {
@@ -208,7 +210,7 @@ async def analyze_behavior(request: AnalysisRequest):
                         "description": "异常高频点击行为",
                         "severity": "medium",
                         "score": 0.68,
-                        "timestamp": datetime.now().isoformat(),
+                        "timestamp": utc_now().isoformat(),
                         "affected_users": ["user_123", "user_456"]
                     }
                 ] if "anomalies" in request.analysis_types else [],
@@ -252,7 +254,7 @@ async def get_patterns(
                 "confidence": 0.75 - i * 0.03,
                 "occurrences": 200 - i * 10,
                 "users_affected": 150 - i * 8,
-                "created_at": datetime.now().isoformat()
+                "created_at": utc_now().isoformat()
             } for i in range(10)
         ]
         
@@ -303,7 +305,7 @@ async def get_anomalies(
                     {
                         'user_id': f'user_{i}',
                         'event_type': 'page_view',
-                        'timestamp': datetime.now() - timedelta(minutes=i),
+                        'timestamp': utc_now() - timedelta(minutes=i),
                         'properties': {'page': f'/page{i % 5}'}
                     } for i in range(100)
                 ]
@@ -354,7 +356,7 @@ async def get_anomalies(
                     "anomaly_id": f"mock_anomaly_{i}",
                     "user_id": f"user_{i}",
                     "event_type": "click",
-                    "timestamp": datetime.now().isoformat(),
+                    "timestamp": utc_now().isoformat(),
                     "severity": ["low", "medium", "high"][i % 3],
                     "confidence": 0.9 - i * 0.1,
                     "description": f"模拟异常 {i + 1}: 检测到异常行为模式",
@@ -386,7 +388,7 @@ async def generate_report(request: ReportRequest):
             "type": request.report_type,
             "format": request.format,
             "status": "generated",
-            "created_at": datetime.now().isoformat(),
+            "created_at": utc_now().isoformat(),
             "download_url": f"/api/v1/analytics/reports/{report_id}/download",
             "summary": {
                 "total_events": len(events_data),
@@ -422,7 +424,7 @@ async def get_report(report_id: str):
             "type": "comprehensive",
             "format": "json",
             "status": "completed",
-            "created_at": datetime.now().isoformat(),
+            "created_at": utc_now().isoformat(),
             "content": {
                 "summary": "行为分析报告摘要",
                 "metrics": {
@@ -448,7 +450,7 @@ async def get_dashboard_stats(
         # 模拟统计数据
         stats = {
             "time_range": time_range,
-            "timestamp": datetime.now().isoformat(),
+            "timestamp": utc_now().isoformat(),
             "metrics": {
                 "total_events": 25430,
                 "unique_users": 3420,
@@ -504,7 +506,7 @@ async def health_check():
         "status": "healthy",
         "service": "behavior-analytics",
         "version": "1.0.0",
-        "timestamp": datetime.now().isoformat(),
+        "timestamp": utc_now().isoformat(),
         "checks": {
             "api": "ok",
             "storage": "ok",
@@ -622,7 +624,7 @@ async def analyze_behavior(request: AnalysisRequest):
         return {
             "status": "success",
             "event_count": len(events),
-            "analysis_timestamp": datetime.utcnow().isoformat(),
+            "analysis_timestamp": utc_now().isoformat(),
             "results": results
         }
         
@@ -743,7 +745,7 @@ async def generate_report(
             raise HTTPException(status_code=404, detail="没有找到匹配的数据")
         
         # 异步生成报告
-        report_id = f"report_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}"
+        report_id = f"report_{utc_now().strftime('%Y%m%d_%H%M%S')}"
         
         background_tasks.add_task(
             _generate_report_async,
@@ -775,7 +777,7 @@ async def get_report(report_id: str):
         return {
             "report_id": report_id,
             "status": "completed",
-            "generated_at": datetime.utcnow().isoformat(),
+            "generated_at": utc_now().isoformat(),
             "download_url": f"/analytics/reports/{report_id}/download"
         }
         
@@ -793,7 +795,7 @@ async def get_dashboard_stats(
     """
     try:
         # 解析时间范围
-        now = datetime.utcnow()
+        now = utc_now()
         if time_range == "1h":
             start_time = now - timedelta(hours=1)
         elif time_range == "24h":
@@ -901,7 +903,7 @@ async def websocket_endpoint(websocket: WebSocket, user_id: Optional[str] = None
     """
     WebSocket实时数据推送端点
     """
-    connection_id = f"ws_{datetime.utcnow().timestamp()}"
+    connection_id = f"ws_{utc_now().timestamp()}"
     
     try:
         await realtime_manager.websocket_manager.connect(
@@ -934,7 +936,7 @@ async def websocket_endpoint(websocket: WebSocket, user_id: Optional[str] = None
                 elif message.get("action") == "ping":
                     await websocket.send_text(json.dumps({
                         "type": "pong",
-                        "timestamp": datetime.utcnow().isoformat()
+                        "timestamp": utc_now().isoformat()
                     }))
                 
             except WebSocketDisconnect:
@@ -965,7 +967,7 @@ async def get_websocket_stats():
         return {
             "status": "success",
             "stats": stats,
-            "timestamp": datetime.utcnow().isoformat()
+            "timestamp": utc_now().isoformat()
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"获取统计失败: {str(e)}")
@@ -993,7 +995,7 @@ async def broadcast_realtime_message(
         return {
             "status": "success",
             "message": "消息已广播",
-            "timestamp": datetime.utcnow().isoformat()
+            "timestamp": utc_now().isoformat()
         }
         
     except Exception as e:
@@ -1032,7 +1034,7 @@ async def export_events(
         if format == "json":
             content = json.dumps([event.dict() for event in events], default=str, ensure_ascii=False)
             media_type = "application/json"
-            filename = f"events_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}.json"
+            filename = f"events_{utc_now().strftime('%Y%m%d_%H%M%S')}.json"
         
         elif format == "csv":
             import csv
@@ -1051,7 +1053,7 @@ async def export_events(
             
             content = output.getvalue()
             media_type = "text/csv"
-            filename = f"events_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}.csv"
+            filename = f"events_{utc_now().strftime('%Y%m%d_%H%M%S')}.csv"
         
         else:  # xlsx
             import pandas as pd
@@ -1060,7 +1062,7 @@ async def export_events(
             df.to_excel(output, index=False)
             content = output.getvalue()
             media_type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-            filename = f"events_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}.xlsx"
+            filename = f"events_{utc_now().strftime('%Y%m%d_%H%M%S')}.xlsx"
         
         # 返回文件响应
         from fastapi.responses import Response
@@ -1085,7 +1087,7 @@ async def download_report(report_id: str, format: str = Query("json", descriptio
         if format == "json":
             content = json.dumps({
                 "report_id": report_id,
-                "generated_at": datetime.utcnow().isoformat(),
+                "generated_at": utc_now().isoformat(),
                 "summary": "示例报告内容",
                 "data": {}
             }, ensure_ascii=False)
@@ -1100,7 +1102,7 @@ async def download_report(report_id: str, format: str = Query("json", descriptio
             <body>
                 <h1>行为分析报告</h1>
                 <p>报告ID: {report_id}</p>
-                <p>生成时间: {datetime.utcnow().isoformat()}</p>
+                <p>生成时间: {utc_now().isoformat()}</p>
             </body>
             </html>
             """
@@ -1131,7 +1133,7 @@ async def health_check():
         # 检查各个组件状态
         status = {
             "status": "healthy",
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": utc_now().isoformat(),
             "components": {
                 "event_collector": "healthy",
                 "pattern_engine": "healthy",
@@ -1148,5 +1150,5 @@ async def health_check():
         return {
             "status": "unhealthy",
             "error": str(e),
-            "timestamp": datetime.utcnow().isoformat()
+            "timestamp": utc_now().isoformat()
         }

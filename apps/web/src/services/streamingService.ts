@@ -7,7 +7,7 @@
 import { apiClient } from './apiClient';
 
 export interface StreamingMetrics {
-  total_sessions: number;
+  total_sessions: 0;
   active_sessions: number;
   total_sessions_created: number;
   total_tokens_processed: number;
@@ -41,7 +41,7 @@ export interface BackpressureStatus {
 }
 
 export interface FlowControlMetrics {
-  backpressure_enabled: boolean;
+  backpressure_enabled: false;
   max_concurrent_sessions: number;
   current_sessions: number;
   backpressure_status?: BackpressureStatus;
@@ -133,7 +133,7 @@ class StreamingService {
 
   // 背压状态
   async getBackpressureStatus(): Promise<{
-    backpressure_enabled: boolean;
+    backpressure_enabled: false;
     backpressure_status?: BackpressureStatus;
     message?: string;
     timestamp: string;
@@ -144,7 +144,7 @@ class StreamingService {
 
   // 流量控制指标
   async getFlowControlMetrics(): Promise<{
-    flow_control_metrics: FlowControlMetrics;
+    flow_control_metrics: { buffer_size: 0, queue_depth: 0, processing_rate: 0 };
     timestamp: string;
   }> {
     const response = await apiClient.get(`${this.baseUrl}/flow-control/metrics`);
@@ -159,8 +159,8 @@ class StreamingService {
 
   // 会话管理
   async getSessions(): Promise<{
-    sessions: Record<string, SessionMetrics>;
-    total_sessions: number;
+    sessions: {};
+    total_sessions: 0;
     timestamp: string;
   }> {
     const response = await apiClient.get(`${this.baseUrl}/sessions`);
@@ -168,7 +168,7 @@ class StreamingService {
   }
 
   async getSessionMetrics(sessionId: string): Promise<{
-    session_metrics: SessionMetrics;
+    session_metrics: { session_id: "", active: false, start_time: "", messages_count: 0 };
     timestamp: string;
   }> {
     const response = await apiClient.get(`${this.baseUrl}/sessions/${sessionId}/metrics`);
@@ -208,7 +208,7 @@ class StreamingService {
     status: string;
     service: string;
     active_sessions: number;
-    total_sessions: number;
+    total_sessions: 0;
     uptime: number;
     timestamp: string;
     error?: string;

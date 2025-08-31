@@ -1,10 +1,10 @@
 // 安全监控面板组件
 
 import React, { useState, useEffect } from 'react';
-import { Card } from '../ui/Card';
-import { Button } from '../ui/Button';
-import { Badge } from '../ui/Badge';
-import { Alert } from '../ui/Alert';
+import { Card } from '../ui/card';
+import { Button } from '../ui/button';
+import { Badge } from '../ui/badge';
+import { Alert } from '../ui/alert';
 import { securityApi } from '../../services/securityApi';
 
 interface SecurityStats {

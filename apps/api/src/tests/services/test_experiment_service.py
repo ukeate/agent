@@ -2,7 +2,9 @@
 实验服务单元测试
 """
 import pytest
-from datetime import datetime, timedelta
+from datetime import datetime
+from datetime import timedelta
+from src.core.utils.timezone_utils import utc_now, utc_factory
 from unittest.mock import Mock, patch, AsyncMock
 import json
 
@@ -58,8 +60,8 @@ def sample_config():
         ],
         sample_size=10000,
         confidence_level=0.95,
-        start_date=datetime.now(),
-        end_date=datetime.now() + timedelta(days=14)
+        start_date=utc_now(),
+        end_date=utc_now() + timedelta(days=14)
     )
 
 

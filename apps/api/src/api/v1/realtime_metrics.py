@@ -5,6 +5,7 @@ from typing import List, Dict, Any, Optional
 from fastapi import APIRouter, HTTPException, Query, BackgroundTasks
 from pydantic import BaseModel, Field, validator
 from datetime import datetime
+from src.core.utils.timezone_utils import utc_now, utc_factory
 
 from core.logging import get_logger
 from services.realtime_metrics_service import (
@@ -238,7 +239,7 @@ async def calculate_experiment_metrics(request: MetricsCalculationRequest):
         return RealtimeMetricsResponse(
             experiment_id=request.experiment_id,
             groups=groups_response,
-            timestamp=datetime.utcnow().isoformat(),
+            timestamp=utc_now().isoformat(),
             time_window=request.time_window.value,
             message=f"Calculated {len(groups_response)} groups with metrics"
         )

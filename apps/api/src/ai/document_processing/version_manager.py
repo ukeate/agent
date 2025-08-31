@@ -6,6 +6,7 @@ import difflib
 from typing import List, Dict, Any, Optional, Tuple
 from dataclasses import dataclass, field
 from datetime import datetime
+from src.core.utils.timezone_utils import utc_now, utc_factory
 from enum import Enum
 import json
 
@@ -141,7 +142,7 @@ class DocumentVersionManager:
             version_number=version_number,
             content=content,
             content_hash=content_hash,
-            created_at=datetime.utcnow(),
+            created_at=utc_now(),
             created_by=created_by,
             change_summary=change_summary,
             metadata=metadata or {},
@@ -172,7 +173,7 @@ class DocumentVersionManager:
                 to_version=version_id,
                 change_type=ChangeType.CREATED,
                 change_details={"initial_creation": True},
-                changed_at=datetime.utcnow(),
+                changed_at=utc_now(),
                 changed_by=created_by
             )
             self.changes.append(change)
@@ -321,7 +322,7 @@ class DocumentVersionManager:
             change_summary=f"Rollback to version {target_version.version_number}",
             metadata={
                 "rollback_from": target_version.version_id,
-                "rollback_at": datetime.utcnow().isoformat()
+                "rollback_at": utc_now().isoformat()
             }
         )
         
@@ -351,7 +352,7 @@ class DocumentVersionManager:
             base_version_id = base_version.version_id
         
         # 生成分支ID
-        branch_id = f"branch_{doc_id}_{branch_name}_{datetime.utcnow().timestamp()}"
+        branch_id = f"branch_{doc_id}_{branch_name}_{utc_now().timestamp()}"
         
         # 创建分支
         branch = VersionBranch(
@@ -359,7 +360,7 @@ class DocumentVersionManager:
             branch_name=branch_name,
             base_version_id=base_version_id,
             head_version_id=base_version_id,
-            created_at=datetime.utcnow()
+            created_at=utc_now()
         )
         
         self.branches[branch_id] = branch
@@ -420,7 +421,7 @@ class DocumentVersionManager:
             metadata={
                 "merge_source": source_branch_id,
                 "merge_target": target_branch_id,
-                "merge_at": datetime.utcnow().isoformat()
+                "merge_at": utc_now().isoformat()
             }
         )
         

@@ -1,6 +1,8 @@
 import asyncio
 from typing import Dict, Any, List, Optional
-from datetime import datetime, timedelta
+from datetime import datetime
+from datetime import timedelta
+from src.core.utils.timezone_utils import utc_now, utc_factory
 import numpy as np
 import logging
 from collections import Counter
@@ -48,7 +50,7 @@ class FeatureExtractor:
         features = {}
         
         try:
-            now = datetime.utcnow()
+            now = utc_now()
             
             # 时间点特征
             features["hour_of_day"] = now.hour / 24.0

@@ -4,7 +4,9 @@
 """
 from fastapi import APIRouter, HTTPException, Query, WebSocket, WebSocketDisconnect, Depends
 from typing import List, Optional, Dict, Any
-from datetime import datetime, timedelta, timezone
+from datetime import datetime
+from datetime import timedelta
+from src.core.utils.timezone_utils import utc_now, utc_factory, timezone
 from pydantic import BaseModel, Field
 import asyncio
 import json
@@ -152,7 +154,7 @@ def convert_event_to_response(event: Event) -> EventResponse:
     
     return EventResponse(
         id=getattr(event, 'id', str(uuid.uuid4())),
-        timestamp=getattr(event, 'timestamp', datetime.now(timezone.utc)),
+        timestamp=getattr(event, 'timestamp', utc_now()),
         type=type_map.get(event.type, "info"),
         source=getattr(event, 'source', 'System'),
         target=getattr(event, 'target', None),
@@ -172,7 +174,7 @@ async def get_events(query: EventQuery = Depends()) -> List[EventResponse]:
         return [
             EventResponse(
                 id="1",
-                timestamp=datetime.now(timezone.utc),
+                timestamp=utc_now(),
                 type="info",
                 source="System",
                 title="系统启动",
@@ -184,8 +186,8 @@ async def get_events(query: EventQuery = Depends()) -> List[EventResponse]:
     
     try:
         # 设置默认时间范围
-        start_time = query.start_time or datetime.now(timezone.utc) - timedelta(hours=24)
-        end_time = query.end_time or datetime.now(timezone.utc)
+        start_time = query.start_time or utc_now() - timedelta(hours=24)
+        end_time = query.end_time or utc_now()
         
         # 构建过滤条件
         filters = {}
@@ -235,8 +237,8 @@ async def get_event_stats(
     
     try:
         # 查询时间范围内的事件
-        start_time = datetime.now(timezone.utc) - timedelta(hours=hours)
-        end_time = datetime.now(timezone.utc)
+        start_time = utc_now() - timedelta(hours=hours)
+        end_time = utc_now()
         
         events = await event_store.replay_events(
             start_time=start_time,
@@ -419,7 +421,7 @@ async def submit_event(
             type=EventType[event_type.upper()] if event_type.upper() in EventType.__members__ else EventType.MESSAGE_SENT,
             source=source,
             data={"message": message},
-            timestamp=datetime.now(timezone.utc),
+            timestamp=utc_now(),
             priority=EventPriority[priority.upper()] if priority.upper() in EventPriority.__members__ else EventPriority.NORMAL
         )
         

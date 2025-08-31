@@ -5,6 +5,7 @@ from fastapi import APIRouter, HTTPException, Query, BackgroundTasks
 from typing import Dict, Any, List, Optional
 from pydantic import BaseModel, Field
 from datetime import datetime
+from src.core.utils.timezone_utils import utc_now, utc_factory
 from enum import Enum
 
 from ...services.report_generation_service import (
@@ -89,7 +90,7 @@ async def generate_report(request: GenerateReportRequest) -> Dict[str, Any]:
         return {
             "success": True,
             "report": report,
-            "generated_at": datetime.utcnow().isoformat()
+            "generated_at": utc_now().isoformat()
         }
         
     except Exception as e:
@@ -114,7 +115,7 @@ async def generate_summary(experiment_id: str) -> Dict[str, Any]:
         return {
             "success": True,
             "summary": report,
-            "generated_at": datetime.utcnow().isoformat()
+            "generated_at": utc_now().isoformat()
         }
         
     except Exception as e:
@@ -172,7 +173,7 @@ async def export_report(
             return {
                 "success": True,
                 "download_url": f"/reports/download/{experiment_id}.pdf",
-                "expires_at": datetime.utcnow().isoformat()
+                "expires_at": utc_now().isoformat()
             }
         elif format == ReportFormat.HTML:
             return {
@@ -274,7 +275,7 @@ async def create_template(request: ReportTemplateRequest) -> Dict[str, Any]:
         "sections": request.sections,
         "default_format": request.default_format,
         "custom_settings": request.custom_settings,
-        "created_at": datetime.utcnow().isoformat()
+        "created_at": utc_now().isoformat()
     }
     
     return {

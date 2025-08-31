@@ -39,6 +39,88 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/rag", tags=["RAG"])
 
 
+@router.post("/documents")
+async def add_document(request: dict):
+    """
+    添加文档到RAG索引
+    """
+    try:
+        text = request.get("text", "")
+        metadata = request.get("metadata", {})
+        
+        if not text:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="文档内容不能为空"
+            )
+        
+        # 生成文档ID
+        import uuid
+        doc_id = str(uuid.uuid4())
+        
+        # 添加到向量存储
+        result = await rag_service.add_document(
+            doc_id=doc_id,
+            text=text,
+            metadata=metadata
+        )
+        
+        return {
+            "success": True,
+            "document_id": doc_id,
+            "message": "文档已成功添加到索引",
+            "text_length": len(text),
+            "metadata": metadata
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Add document failed: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e)
+        )
+
+
+@router.post("/search")
+async def search_documents(request: dict):
+    """
+    搜索文档
+    """
+    try:
+        query = request.get("query", "")
+        top_k = request.get("top_k", 3)
+        
+        if not query:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="查询不能为空"
+            )
+        
+        # 执行搜索
+        result = await rag_service.search(
+            query=query,
+            top_k=top_k
+        )
+        
+        return {
+            "success": True,
+            "query": query,
+            "results": result,
+            "total_results": len(result)
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Search failed: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e)
+        )
+
+
 @router.post("/query", response_model=QueryResponse)
 async def query_rag(
     request: QueryRequest,
@@ -476,3 +558,88 @@ async def agentic_rag_health_check() -> HealthCheckResponse:
             components={},
             error=str(e)
         )
+
+
+# ==================== GraphRAG 路由 ====================
+
+@router.post("/graphrag/query")
+async def graphrag_query(request: dict):
+    """
+    GraphRAG增强查询
+    
+    结合知识图谱和向量检索的混合RAG查询，提供更准确的结果
+    """
+    try:
+        # 导入GraphRAG组件
+        from ...ai.graphrag.core_engine import get_graphrag_engine
+        from ...ai.graphrag.data_models import create_graph_rag_request, RetrievalMode, validate_graph_rag_request
+        
+        # 解析请求参数
+        query = request.get('query', '')
+        if not query:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="查询不能为空"
+            )
+        
+        # 创建GraphRAG请求
+        graphrag_request = create_graph_rag_request(
+            query=query,
+            retrieval_mode=RetrievalMode(request.get('retrieval_mode', 'hybrid')),
+            max_docs=request.get('max_docs', 10),
+            include_reasoning=request.get('include_reasoning', True),
+            expansion_depth=request.get('expansion_depth', 2),
+            confidence_threshold=request.get('confidence_threshold', 0.6),
+            filters=request.get('filters')
+        )
+        
+        # 验证请求
+        validation_errors = validate_graph_rag_request(graphrag_request)
+        if validation_errors:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"请求验证失败: {'; '.join(validation_errors)}"
+            )
+        
+        # 执行GraphRAG查询
+        engine = await get_graphrag_engine()
+        result = await engine.enhanced_query(graphrag_request)
+        
+        return {
+            "success": True,
+            "data": result,
+            "query_id": result["query_id"],
+            "performance_metrics": result["performance_metrics"]
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"GraphRAG查询失败: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"GraphRAG查询失败: {str(e)}"
+        )
+
+
+@router.get("/graphrag/health")
+async def graphrag_health_check():
+    """
+    GraphRAG系统健康检查
+    """
+    try:
+        from ...ai.graphrag.core_engine import get_graphrag_engine
+        
+        engine = await get_graphrag_engine()
+        stats = await engine.get_performance_stats()
+        
+        return {
+            "status": "healthy" if stats.get("engine_status") == "initialized" else "unhealthy",
+            "details": stats
+        }
+    except Exception as e:
+        logger.error(f"GraphRAG健康检查失败: {e}")
+        return {
+            "status": "unhealthy",
+            "error": str(e)
+        }

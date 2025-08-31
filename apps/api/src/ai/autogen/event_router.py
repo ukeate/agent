@@ -6,7 +6,8 @@ import re
 import asyncio
 from typing import Pattern, Dict, List, Any, Optional, Callable, Union, Tuple
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import datetime
+from src.core.utils.timezone_utils import utc_now, utc_factory, timezone
 from enum import Enum
 import structlog
 
@@ -484,11 +485,11 @@ class EventAggregator:
         # 初始化窗口
         if window_key not in self.event_windows:
             self.event_windows[window_key] = []
-            self.window_start_times[window_key] = datetime.now(timezone.utc)
+            self.window_start_times[window_key] = utc_now()
             self.stats["windows_created"] += 1
         
         # 检查时间窗口
-        current_time = datetime.now(timezone.utc)
+        current_time = utc_now()
         window_start = self.window_start_times[window_key]
         
         if (current_time - window_start).total_seconds() > self.time_window_seconds:
@@ -547,7 +548,7 @@ class EventAggregator:
         
         events = self.event_windows[window_key]
         window_start = self.window_start_times[window_key]
-        current_time = datetime.now(timezone.utc)
+        current_time = utc_now()
         
         return {
             "window_key": window_key,

@@ -4,7 +4,9 @@
 import asyncio
 import json
 import pickle
-from datetime import datetime, timezone, timedelta
+from datetime import datetime
+from datetime import timedelta
+from src.core.utils.timezone_utils import utc_now, utc_factory
 from typing import Dict, List, Optional, Any, Callable, Union
 from dataclasses import dataclass, asdict
 from enum import Enum
@@ -245,7 +247,7 @@ class EventQueueService:
                 event_data=event.dict(),
                 priority=priority,
                 queue_name=full_queue_name,
-                queued_at=datetime.now(timezone.utc)
+                queued_at=utc_now()
             )
             
             # 序列化事件数据
@@ -253,7 +255,7 @@ class EventQueueService:
             
             if delay_seconds > 0:
                 # 延迟队列
-                score = (datetime.now(timezone.utc) + timedelta(seconds=delay_seconds)).timestamp()
+                score = (utc_now() + timedelta(seconds=delay_seconds)).timestamp()
                 await self.redis_client.zadd(f"{full_queue_name}:delayed", {event_data: score})
             else:
                 # 立即队列
@@ -344,7 +346,7 @@ class EventQueueService:
                 else:
                     metrics.failed_count += 1
                 
-                metrics.last_processed_at = datetime.now(timezone.utc)
+                metrics.last_processed_at = utc_now()
             
             logger.debug(f"Completed event {event_id} in queue {full_queue_name}, success: {success}")
             
@@ -370,7 +372,7 @@ class EventQueueService:
             
             # 增加重试次数
             queued_event.retry_count += 1
-            queued_event.next_retry_at = datetime.now(timezone.utc) + timedelta(seconds=delay_seconds)
+            queued_event.next_retry_at = utc_now() + timedelta(seconds=delay_seconds)
             
             if queued_event.retry_count >= queued_event.max_retries:
                 # 超过最大重试次数，移到失败队列
@@ -482,7 +484,7 @@ class EventQueueService:
         """延迟队列监控器"""
         while self.is_running:
             try:
-                current_time = datetime.now(timezone.utc).timestamp()
+                current_time = utc_now().timestamp()
                 
                 for queue_name in self.queues:
                     # 检查延迟队列中到期的事件
@@ -514,7 +516,7 @@ class EventQueueService:
         while self.is_running:
             try:
                 # 清理超时的处理中事件
-                current_time = datetime.now(timezone.utc)
+                current_time = utc_now()
                 
                 for queue_name in self.queues:
                     processing_key = f"{queue_name}:processing"

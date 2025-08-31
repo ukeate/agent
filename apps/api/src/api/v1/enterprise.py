@@ -3,7 +3,9 @@
 提供企业级架构的监控、配置和管理接口
 """
 import asyncio
-from datetime import datetime, timezone, timedelta
+from datetime import datetime
+from datetime import timedelta
+from src.core.utils.timezone_utils import utc_now, utc_factory
 from typing import Dict, List, Optional, Any
 from fastapi import APIRouter, HTTPException, BackgroundTasks, Query
 from pydantic import BaseModel, Field
@@ -207,7 +209,7 @@ async def get_enterprise_overview():
             performance=performance_metrics,
             compliance=compliance_data,
             configuration=configuration,
-            last_updated=datetime.now(timezone.utc)
+            last_updated=utc_now()
         )
         
     except Exception as e:
@@ -247,7 +249,7 @@ async def get_system_health_data() -> SystemHealthResponse:
             active_tasks=34,   # 模拟数据
             error_rate=0.02,   # 模拟数据
             response_time=156.0,  # 模拟数据
-            timestamp=datetime.now(timezone.utc)
+            timestamp=utc_now()
         )
         
     except Exception as e:
@@ -261,7 +263,7 @@ async def get_system_health_data() -> SystemHealthResponse:
             active_tasks=34,
             error_rate=0.02,
             response_time=156.0,
-            timestamp=datetime.now(timezone.utc)
+            timestamp=utc_now()
         )
 
 
@@ -298,7 +300,7 @@ async def get_security_metrics_data() -> SecurityMetricsResponse:
             blocked_requests=27,  # 模拟数据
             security_events=stats.get("events", {}).get("total", 8),
             compliance_score=94.5,  # 模拟数据
-            last_security_scan=datetime.now(timezone.utc) - timedelta(hours=2),
+            last_security_scan=utc_now() - timedelta(hours=2),
             active_threats=[]  # 模拟数据
         )
         
@@ -310,7 +312,7 @@ async def get_security_metrics_data() -> SecurityMetricsResponse:
             blocked_requests=27,
             security_events=8,
             compliance_score=94.5,
-            last_security_scan=datetime.now(timezone.utc) - timedelta(hours=2),
+            last_security_scan=utc_now() - timedelta(hours=2),
             active_threats=[]
         )
 
@@ -412,7 +414,7 @@ async def get_compliance_data() -> ComplianceDataResponse:
             overall_score=92.8,
             status="compliant",
             standards=["ISO27001", "SOC2", "GDPR"],
-            last_assessment=datetime.now(timezone.utc) - timedelta(hours=24),
+            last_assessment=utc_now() - timedelta(hours=24),
             issues_count=2,
             requirements_total=45,
             requirements_passed=43,
@@ -425,7 +427,7 @@ async def get_compliance_data() -> ComplianceDataResponse:
             overall_score=92.8,
             status="compliant",
             standards=["ISO27001", "SOC2", "GDPR"],
-            last_assessment=datetime.now(timezone.utc) - timedelta(hours=24),
+            last_assessment=utc_now() - timedelta(hours=24),
             issues_count=2,
             requirements_total=45,
             requirements_passed=43,
@@ -510,7 +512,7 @@ async def run_compliance_assessment(
             raise HTTPException(status_code=503, detail="合规框架未初始化")
         
         # 在后台运行评估
-        assessment_id = f"assessment-{int(datetime.now(timezone.utc).timestamp())}"
+        assessment_id = f"assessment-{int(utc_now().timestamp())}"
         
         async def run_assessment():
             try:
@@ -538,7 +540,7 @@ async def trigger_security_scan(
 ):
     """触发安全扫描"""
     try:
-        scan_id = f"scan-{int(datetime.now(timezone.utc).timestamp())}"
+        scan_id = f"scan-{int(utc_now().timestamp())}"
         
         async def run_scan():
             # 模拟安全扫描
@@ -571,7 +573,7 @@ async def get_alerts(
                 "level": "warning",
                 "title": "CPU使用率较高",
                 "description": "系统CPU使用率超过80%",
-                "timestamp": datetime.now(timezone.utc) - timedelta(minutes=30),
+                "timestamp": utc_now() - timedelta(minutes=30),
                 "resolved": False
             },
             {
@@ -579,7 +581,7 @@ async def get_alerts(
                 "level": "info",
                 "title": "合规评估完成",
                 "description": "定期合规评估已完成，总分94.5%",
-                "timestamp": datetime.now(timezone.utc) - timedelta(hours=2),
+                "timestamp": utc_now() - timedelta(hours=2),
                 "resolved": True
             }
         ]
@@ -617,7 +619,7 @@ async def get_audit_logs(
             {
                 "event_id": "audit-001",
                 "event_type": "system_error",
-                "timestamp": datetime.now(timezone.utc) - timedelta(minutes=15),
+                "timestamp": utc_now() - timedelta(minutes=15),
                 "user_id": "system",
                 "action": "monitoring_started",
                 "result": "success",
@@ -626,7 +628,7 @@ async def get_audit_logs(
             {
                 "event_id": "audit-002",
                 "event_type": "configuration_changed",
-                "timestamp": datetime.now(timezone.utc) - timedelta(hours=1),
+                "timestamp": utc_now() - timedelta(hours=1),
                 "user_id": "admin",
                 "action": "update_security_config",
                 "result": "success",

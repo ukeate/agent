@@ -11,6 +11,7 @@ import pickle
 import asyncio
 from typing import List, Dict, Any, Union, Optional, Tuple
 from datetime import datetime
+from src.core.utils.timezone_utils import utc_now, utc_factory
 from dataclasses import dataclass
 from enum import Enum
 import logging
@@ -359,7 +360,7 @@ class AdaptiveCompressionManager:
     ):
         """记录性能数据"""
         performance_record = {
-            'timestamp': datetime.utcnow(),
+            'timestamp': utc_now(),
             'compression_ratio': metrics.compression_ratio,
             'compression_time_ms': metrics.compression_time_ms,
             'method': metrics.method,

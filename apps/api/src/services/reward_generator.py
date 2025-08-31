@@ -7,7 +7,9 @@
 
 import math
 import numpy as np
-from datetime import datetime, timedelta
+from datetime import datetime
+from datetime import timedelta
+from src.core.utils.timezone_utils import utc_now, utc_factory
 from typing import Dict, List, Optional, Any, Tuple
 from dataclasses import dataclass
 from enum import Enum
@@ -156,7 +158,7 @@ class TimeDecayCalculator:
     ) -> float:
         """计算时间衰减因子"""
         if current_time is None:
-            current_time = datetime.now()
+            current_time = utc_now()
         
         # 计算时间差（小时）
         time_diff = (current_time - feedback_time).total_seconds() / 3600.0

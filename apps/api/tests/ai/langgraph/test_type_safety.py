@@ -5,6 +5,7 @@
 import pytest
 from typing import Dict, Any, List, Optional
 from datetime import datetime
+from src.core.utils.timezone_utils import utc_now, utc_factory
 import uuid
 from pydantic import ValidationError, BaseModel, Field
 
@@ -206,7 +207,7 @@ class TestAgentContext:
         assert not context.is_timeout()
         
         # 设置过去的时间
-        context.last_updated = datetime.utcnow()
+        context.last_updated = utc_now()
         import time
         time.sleep(1.1)
         assert context.is_timeout()

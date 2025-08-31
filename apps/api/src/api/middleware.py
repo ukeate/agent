@@ -7,7 +7,9 @@ import time
 import uuid
 import structlog
 from typing import Dict, Optional
-from datetime import datetime, timedelta
+from datetime import datetime
+from datetime import timedelta
+from src.core.utils.timezone_utils import utc_now, utc_factory
 from collections import defaultdict, deque
 from contextlib import asynccontextmanager
 
@@ -109,7 +111,7 @@ class PerformanceMonitoringMiddleware(BaseHTTPMiddleware):
                     "success": False,
                     "error": "内部服务器错误",
                     "request_id": request_id,
-                    "timestamp": datetime.now().isoformat()
+                    "timestamp": utc_now().isoformat()
                 },
                 headers={"X-Request-ID": request_id}
             )
@@ -189,7 +191,7 @@ class RateLimitingMiddleware(BaseHTTPMiddleware):
             self._cleanup_task_started = True
             
         client_ip = self._get_client_ip(request)
-        current_time = datetime.now()
+        current_time = utc_now()
         
         # 检查频率限制
         if not self._check_rate_limit(client_ip, current_time):
@@ -286,7 +288,7 @@ class RateLimitingMiddleware(BaseHTTPMiddleware):
         while True:
             await asyncio.sleep(300)  # 每5分钟清理一次
             
-            current_time = datetime.now()
+            current_time = utc_now()
             hour_ago = current_time - timedelta(hours=1)
             
             # 清理过期的客户端记录
@@ -332,7 +334,7 @@ class ErrorHandlingMiddleware(BaseHTTPMiddleware):
                     "success": False,
                     "error": e.detail,
                     "error_code": "HTTP_ERROR",
-                    "timestamp": datetime.now().isoformat(),
+                    "timestamp": utc_now().isoformat(),
                     "request_id": getattr(request.state, "request_id", None)
                 }
             )
@@ -352,7 +354,7 @@ class ErrorHandlingMiddleware(BaseHTTPMiddleware):
                     "success": False,
                     "error": f"输入验证失败: {str(e)}",
                     "error_code": "VALIDATION_ERROR",
-                    "timestamp": datetime.now().isoformat(),
+                    "timestamp": utc_now().isoformat(),
                     "request_id": getattr(request.state, "request_id", None)
                 }
             )
@@ -373,7 +375,7 @@ class ErrorHandlingMiddleware(BaseHTTPMiddleware):
                     "success": False,
                     "error": "内部服务器错误",
                     "error_code": "INTERNAL_ERROR",
-                    "timestamp": datetime.now().isoformat(),
+                    "timestamp": utc_now().isoformat(),
                     "request_id": getattr(request.state, "request_id", None)
                 }
             )

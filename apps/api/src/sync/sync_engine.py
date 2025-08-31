@@ -6,7 +6,9 @@
 
 import asyncio
 import json
-from datetime import datetime, timedelta
+from datetime import datetime
+from datetime import timedelta
+from src.core.utils.timezone_utils import utc_now, utc_factory
 from typing import Dict, Any, List, Optional, Tuple, Set
 from dataclasses import dataclass, field
 from enum import Enum
@@ -218,7 +220,7 @@ class SyncEngine:
         
         # 开始执行
         task.status = SyncStatus.IN_PROGRESS
-        task.started_at = datetime.utcnow()
+        task.started_at = utc_now()
         
         try:
             if task.direction == SyncDirection.UPLOAD:
@@ -229,7 +231,7 @@ class SyncEngine:
                 result = await self._execute_bidirectional_task(task)
             
             task.status = SyncStatus.COMPLETED
-            task.completed_at = datetime.utcnow()
+            task.completed_at = utc_now()
             
             return result
             
@@ -270,7 +272,7 @@ class SyncEngine:
     
     async def _execute_upload_task(self, task: SyncTask) -> SyncResult:
         """执行上传任务"""
-        start_time = datetime.utcnow()
+        start_time = utc_now()
         conflicts = []
         
         # 批量处理操作
@@ -307,11 +309,11 @@ class SyncEngine:
                 task.checkpoint_data = {
                     "completed_batches": batch_index + 1,
                     "completed_operations": task.completed_operations,
-                    "last_checkpoint": datetime.utcnow().isoformat()
+                    "last_checkpoint": utc_now().isoformat()
                 }
         
         # 计算结果
-        end_time = datetime.utcnow()
+        end_time = utc_now()
         duration = (end_time - start_time).total_seconds()
         throughput = task.completed_operations / duration if duration > 0 else 0
         
@@ -335,7 +337,7 @@ class SyncEngine:
     
     async def _execute_download_task(self, task: SyncTask) -> SyncResult:
         """执行下载任务"""
-        start_time = datetime.utcnow()
+        start_time = utc_now()
         
         # 获取服务器端的更新
         # 这里模拟从服务器获取数据的过程
@@ -364,7 +366,7 @@ class SyncEngine:
                 task.failed_operations += 1
         
         # 计算结果
-        end_time = datetime.utcnow()
+        end_time = utc_now()
         duration = (end_time - start_time).total_seconds()
         throughput = task.completed_operations / duration if duration > 0 else 0
         
@@ -457,7 +459,7 @@ class SyncEngine:
                     # 标记为已同步
                     self.database.mark_operation_synced(
                         operation.id, 
-                        datetime.utcnow()
+                        utc_now()
                     )
                     successful_operations += 1
                 else:
@@ -499,7 +501,7 @@ class SyncEngine:
                 object_id=f"server_obj_{i}",
                 object_type="server_data",
                 data={"server_field": f"server_value_{i}"},
-                client_timestamp=datetime.utcnow(),
+                client_timestamp=utc_now(),
                 vector_clock=VectorClock(node_id="server")
             )
             server_ops.append(op)
@@ -536,7 +538,7 @@ class SyncEngine:
                     remote_data=operation.data or {},
                     local_vector_clock=conflicting_op.vector_clock,
                     remote_vector_clock=operation.vector_clock,
-                    detected_at=datetime.utcnow()
+                    detected_at=utc_now()
                 )
         
         return None

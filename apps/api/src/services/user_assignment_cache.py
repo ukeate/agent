@@ -4,7 +4,9 @@
 import json
 import hashlib
 from typing import Dict, List, Optional, Any, Tuple
-from datetime import datetime, timezone, timedelta
+from datetime import datetime
+from datetime import timedelta
+from src.core.utils.timezone_utils import utc_now, utc_factory
 from dataclasses import dataclass, asdict
 from enum import Enum
 import asyncio
@@ -15,7 +17,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, update, delete, and_
 
 from models.database.experiment import ExperimentAssignment
-from core.database import get_async_db
+from core.database import get_db
 from core.logging import logger
 
 
@@ -165,7 +167,7 @@ class UserAssignmentCache:
         Returns:
             (分配记录, 缓存状态)
         """
-        start_time = datetime.now()
+        start_time = utc_now()
         self.metrics.total_requests += 1
         
         try:
@@ -180,7 +182,7 @@ class UserAssignmentCache:
                     assignment = CachedAssignment.from_dict(assignment_data)
                     
                     # 检查是否过期
-                    if assignment.expires_at and assignment.expires_at <= datetime.now(timezone.utc):
+                    if assignment.expires_at and assignment.expires_at <= utc_now():
                         await self._redis.delete(cache_key)
                         self.metrics.cache_misses += 1
                         return None, CacheStatus.EXPIRED
@@ -212,7 +214,7 @@ class UserAssignmentCache:
             
         finally:
             # 更新响应时间统计
-            response_time = (datetime.now() - start_time).total_seconds() * 1000
+            response_time = (utc_now() - start_time).total_seconds() * 1000
             self._update_avg_response_time(response_time)
     
     async def set_assignment(self, assignment: CachedAssignment, ttl: Optional[int] = None) -> bool:
@@ -295,7 +297,7 @@ class UserAssignmentCache:
                             assignment = CachedAssignment.from_dict(assignment_data)
                             
                             # 检查是否过期
-                            if not assignment.expires_at or assignment.expires_at > datetime.now(timezone.utc):
+                            if not assignment.expires_at or assignment.expires_at > utc_now():
                                 assignments.append(assignment)
                                 
                         except (json.JSONDecodeError, TypeError) as e:
@@ -403,7 +405,7 @@ class UserAssignmentCache:
                         assignment = CachedAssignment.from_dict(assignment_data)
                         
                         # 检查是否过期
-                        if not assignment.expires_at or assignment.expires_at > datetime.now(timezone.utc):
+                        if not assignment.expires_at or assignment.expires_at > utc_now():
                             result[pair] = assignment
                             self.metrics.cache_hits += 1
                         else:
@@ -720,7 +722,7 @@ class UserAssignmentCache:
     async def health_check(self) -> Dict[str, Any]:
         """健康检查"""
         try:
-            start_time = datetime.now()
+            start_time = utc_now()
             
             # 测试Redis连接
             await self._redis.ping()
@@ -731,7 +733,7 @@ class UserAssignmentCache:
             test_value = await self._redis.get(test_key)
             await self._redis.delete(test_key)
             
-            response_time = (datetime.now() - start_time).total_seconds() * 1000
+            response_time = (utc_now() - start_time).total_seconds() * 1000
             
             return {
                 "status": "healthy",
@@ -739,7 +741,7 @@ class UserAssignmentCache:
                 "read_write_test": test_value == b"test",
                 "response_time_ms": round(response_time, 2),
                 "cache_strategy": self.cache_strategy.value,
-                "timestamp": datetime.now(timezone.utc).isoformat()
+                "timestamp": utc_now().isoformat()
             }
             
         except Exception as e:
@@ -747,5 +749,5 @@ class UserAssignmentCache:
             return {
                 "status": "unhealthy",
                 "error": str(e),
-                "timestamp": datetime.now(timezone.utc).isoformat()
+                "timestamp": utc_now().isoformat()
             }

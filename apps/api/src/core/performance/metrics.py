@@ -4,7 +4,9 @@ API性能指标收集
 
 import time
 from collections import defaultdict
-from datetime import datetime, timedelta
+from datetime import datetime
+from datetime import timedelta
+from src.core.utils.timezone_utils import utc_now, utc_factory
 from typing import Any, Dict, List, Optional
 
 import structlog
@@ -109,7 +111,7 @@ class MetricsCollector:
             response_size_bytes=response_size,
             user_id=user_id,
             api_key=api_key,
-            timestamp=datetime.utcnow(),
+            timestamp=utc_now(),
             cache_hit=cache_hit,
             cache_key=cache_key,
             error_type=type(error).__name__ if error else None,
@@ -209,9 +211,9 @@ class MetricsCollector:
         
         # 设置时间范围
         if not start_time:
-            start_time = datetime.utcnow() - timedelta(hours=1)
+            start_time = utc_now() - timedelta(hours=1)
         if not end_time:
-            end_time = datetime.utcnow()
+            end_time = utc_now()
         
         start_score = start_time.timestamp()
         end_score = end_time.timestamp()

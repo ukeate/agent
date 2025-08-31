@@ -10,7 +10,9 @@ import uuid
 import hashlib
 import platform
 import os
-from datetime import datetime, timezone, timedelta
+from datetime import datetime
+from datetime import timedelta
+from src.core.utils.timezone_utils import utc_now, utc_factory
 from typing import Dict, List, Optional, Any, Callable, Union, Tuple
 from dataclasses import dataclass, field
 from collections import defaultdict, deque
@@ -74,7 +76,7 @@ class PerformanceMetric:
     name: str
     value: float
     unit: str
-    timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    timestamp: datetime = field(default_factory=lambda: utc_now())
     tags: Dict[str, str] = field(default_factory=dict)
     metadata: Dict[str, Any] = field(default_factory=dict)
     
@@ -96,7 +98,7 @@ class TraceSpan:
     parent_span_id: Optional[str] = None
     trace_id: str = ""
     operation_name: str = ""
-    start_time: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    start_time: datetime = field(default_factory=lambda: utc_now())
     end_time: Optional[datetime] = None
     duration_ms: Optional[float] = None
     status: str = "running"
@@ -105,14 +107,14 @@ class TraceSpan:
     
     def finish(self, status: str = "completed") -> None:
         """完成跨度"""
-        self.end_time = datetime.now(timezone.utc)
+        self.end_time = utc_now()
         self.duration_ms = (self.end_time - self.start_time).total_seconds() * 1000
         self.status = status
     
     def add_log(self, level: str, message: str, **kwargs) -> None:
         """添加日志"""
         self.logs.append({
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": utc_now().isoformat(),
             "level": level,
             "message": message,
             **kwargs
@@ -138,7 +140,7 @@ class ConversationTrace:
     """对话追踪"""
     conversation_id: str
     session_id: str
-    start_time: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    start_time: datetime = field(default_factory=lambda: utc_now())
     end_time: Optional[datetime] = None
     participants: List[str] = field(default_factory=list)
     message_count: int = 0
@@ -159,7 +161,7 @@ class ConversationTrace:
     
     def finish(self) -> None:
         """完成追踪"""
-        self.end_time = datetime.now(timezone.utc)
+        self.end_time = utc_now()
     
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -281,7 +283,7 @@ class PerformanceMonitor:
         if name not in self.metrics:
             return {}
         
-        cutoff_time = datetime.now(timezone.utc) - timedelta(minutes=duration_minutes)
+        cutoff_time = utc_now() - timedelta(minutes=duration_minutes)
         recent_metrics = [
             m for m in self.metrics[name]
             if m.timestamp > cutoff_time
@@ -544,7 +546,7 @@ class DebugConsole:
             "target_type": target_type,
             "target_id": target_id,
             "debug_level": debug_level,
-            "start_time": datetime.now(timezone.utc),
+            "start_time": utc_now(),
             "events": [],
             "snapshots": [],
             "active": True
@@ -568,7 +570,7 @@ class DebugConsole:
         
         session = self.debug_sessions[session_id]
         session["active"] = False
-        session["end_time"] = datetime.now(timezone.utc)
+        session["end_time"] = utc_now()
         
         logger.info("停止调试会话", session_id=session_id)
         return True
@@ -597,7 +599,7 @@ class DebugConsole:
             agent_tasks = await self.agent_manager.list_tasks(agent_id=agent_id)
             
             snapshot = {
-                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "timestamp": utc_now().isoformat(),
                 "agent_id": agent_id,
                 "agent_info": agent_info,
                 "tasks": agent_tasks,
@@ -735,7 +737,7 @@ class AgentDashboard:
             task_stats = self._calculate_task_stats(all_tasks)
             
             return {
-                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "timestamp": utc_now().isoformat(),
                 "agents": {
                     "list": agents,
                     "stats": manager_stats
@@ -802,7 +804,7 @@ class AgentDashboard:
             return {
                 "status": health_status,
                 "issues": issues,
-                "last_check": datetime.now(timezone.utc).isoformat()
+                "last_check": utc_now().isoformat()
             }
             
         except Exception as e:
@@ -810,7 +812,7 @@ class AgentDashboard:
             return {
                 "status": "unknown",
                 "issues": [f"健康检查失败: {str(e)}"],
-                "last_check": datetime.now(timezone.utc).isoformat()
+                "last_check": utc_now().isoformat()
             }
 
 
@@ -994,7 +996,7 @@ class EventProcessingMonitor:
     async def get_event_flow_visualization(self) -> Dict[str, Any]:
         """获取事件流可视化数据"""
         visualization = {
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": utc_now().isoformat(),
             "nodes": [],
             "edges": [],
             "metrics": {}
@@ -1190,7 +1192,7 @@ class EventDebugger:
     ) -> None:
         """捕获事件"""
         capture_data = {
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": utc_now().isoformat(),
             "event": event.to_dict() if hasattr(event, 'to_dict') else str(event),
             "breakpoint_id": breakpoint_id,
             "stack_trace": traceback.format_stack()
@@ -1230,7 +1232,7 @@ class EventDebugger:
             # 标记为重播事件
             if hasattr(event, 'data') and isinstance(event.data, dict):
                 event.data["is_replay"] = True
-                event.data["replay_time"] = datetime.now(timezone.utc).isoformat()
+                event.data["replay_time"] = utc_now().isoformat()
             
             # 重新发布事件
             success = await self.event_bus.publish(event)
@@ -1303,7 +1305,7 @@ class AuditEvent:
     """审计事件"""
     event_id: str = field(default_factory=lambda: str(uuid.uuid4()))
     event_type: AuditEventType = AuditEventType.SYSTEM_ERROR
-    timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    timestamp: datetime = field(default_factory=lambda: utc_now())
     user_id: Optional[str] = None
     session_id: Optional[str] = None
     agent_id: Optional[str] = None
@@ -1819,7 +1821,7 @@ class EnterpriseMonitoringManager:
                 await asyncio.sleep(300)  # 每5分钟刷新一次
                 
                 # 更新统计
-                self.audit_logger.stats["last_flush_time"] = datetime.now(timezone.utc).isoformat()
+                self.audit_logger.stats["last_flush_time"] = utc_now().isoformat()
                 
                 # 这里可以添加日志轮转、压缩等逻辑
                 
@@ -1830,7 +1832,7 @@ class EnterpriseMonitoringManager:
         """执行健康检查"""
         health_status = {
             "status": "healthy",
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": utc_now().isoformat(),
             "checks": {}
         }
         
@@ -1984,7 +1986,7 @@ class EnterpriseMonitoringManager:
     async def get_monitoring_overview(self) -> Dict[str, Any]:
         """获取监控总览"""
         return {
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": utc_now().isoformat(),
             "dashboard": await self.dashboard.get_dashboard_data(),
             "health": await self._perform_health_check(),
             "audit_stats": self.audit_logger.get_audit_statistics(),

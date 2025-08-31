@@ -38,14 +38,14 @@ describe('NodeDetailPanel', () => {
 
   const defaultProps = {
     visible: true,
-    onClose: vi.fn(),
+    onClose: mockFn()fn(),
     nodeData: mockNodeData,
     executionLogs: mockExecutionLogs,
-    onNodeAction: vi.fn(),
+    onNodeAction: mockFn()fn(),
   };
 
   beforeEach(() => {
-    vi.clearAllMocks();
+    mockFn()clearAllMocks();
   });
 
   it('应该正确渲染节点详情面板', () => {

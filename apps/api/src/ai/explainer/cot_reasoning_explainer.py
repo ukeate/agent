@@ -4,13 +4,14 @@
 """
 
 import json
-from datetime import datetime, timezone
+from datetime import datetime
+from src.core.utils.timezone_utils import utc_now, utc_factory, timezone
 from typing import Any, Dict, List, Optional, Tuple, Union
 from uuid import uuid4
 
 from src.ai.openai_client import OpenAIClient
 from src.ai.explainer.decision_tracker import DecisionTracker
-from models.schemas.explanation import (
+from src.models.schemas.explanation import (
     DecisionExplanation,
     ExplanationComponent,
     ExplanationLevel,
@@ -43,7 +44,7 @@ class ReasoningStep:
         self.output_data = output_data
         self.confidence = confidence
         self.metadata = metadata or {}
-        self.timestamp = datetime.now(timezone.utc)
+        self.timestamp = utc_now()
 
 
 class ReasoningChain:
@@ -55,7 +56,7 @@ class ReasoningChain:
         self.steps: List[ReasoningStep] = []
         self.final_conclusion: Optional[str] = None
         self.overall_confidence: float = 0.0
-        self.created_at = datetime.now(timezone.utc)
+        self.created_at = utc_now()
     
     def add_step(self, step: ReasoningStep) -> None:
         """添加推理步骤"""
@@ -261,7 +262,7 @@ class CoTReasoningExplainer:
             metadata={
                 "reasoning_mode": reasoning_mode,
                 "step_number": step_number,
-                "generation_timestamp": datetime.now(timezone.utc).isoformat()
+                "generation_timestamp": utc_now().isoformat()
             }
         )
     
@@ -475,7 +476,7 @@ class CoTReasoningExplainer:
                 "reasoning_type": "chain_of_thought",
                 "reasoning_steps": len(reasoning_chain.steps),
                 "overall_confidence": reasoning_chain.overall_confidence,
-                "generation_timestamp": datetime.now(timezone.utc).isoformat()
+                "generation_timestamp": utc_now().isoformat()
             }
         )
     
@@ -513,7 +514,7 @@ class CoTReasoningExplainer:
     ) -> ConfidenceMetrics:
         """计算推理置信度指标"""
         
-        from models.schemas.explanation import ConfidenceSource
+        from src.models.schemas.explanation import ConfidenceSource
         
         # 计算不确定性分数
         uncertainty_score = 1.0 - reasoning_chain.overall_confidence

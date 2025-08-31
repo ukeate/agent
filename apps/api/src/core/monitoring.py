@@ -1,7 +1,9 @@
 """系统监控和指标收集"""
 
 from typing import Dict, Any, List, Optional
-from datetime import datetime, timedelta
+from datetime import datetime
+from datetime import timedelta
+from src.core.utils.timezone_utils import utc_now, utc_factory
 import asyncio
 import time
 from collections import deque
@@ -248,7 +250,7 @@ class AlertManager:
                         "name": rule["name"],
                         "message": rule["message"],
                         "severity": rule["severity"],
-                        "timestamp": datetime.utcnow().isoformat(),
+                        "timestamp": utc_now().isoformat(),
                         "metrics": metrics
                     }
                     
@@ -274,7 +276,7 @@ class AlertManager:
     async def get_active_alerts(self) -> List[Dict[str, Any]]:
         """获取活动告警"""
         # 只返回最近24小时的告警
-        cutoff_time = datetime.utcnow() - timedelta(hours=24)
+        cutoff_time = utc_now() - timedelta(hours=24)
         
         active_alerts = [
             alert for alert in self.alerts
@@ -392,7 +394,7 @@ class MonitoringService:
         custom_metrics = await self.metrics_collector.get_summary()
         
         return {
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": utc_now().isoformat(),
             "system": system_metrics,
             "performance": performance_metrics,
             "custom": custom_metrics

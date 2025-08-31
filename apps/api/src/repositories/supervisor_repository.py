@@ -3,7 +3,9 @@ Supervisor数据访问层实现
 提供Supervisor相关数据库操作
 """
 from typing import List, Optional, Dict, Any
-from datetime import datetime, timezone, timedelta
+from datetime import datetime
+from datetime import timedelta
+from src.core.utils.timezone_utils import utc_now, utc_factory
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import desc, and_, or_, func
 import structlog
@@ -54,7 +56,7 @@ class SupervisorRepository(BaseRepository[SupervisorAgent, str]):
                 SupervisorAgent.id == supervisor_id
             ).values(
                 status=status.value,
-                updated_at=datetime.now(timezone.utc)
+                updated_at=utc_now()
             )
             
             result = await self.session.execute(stmt)
@@ -81,7 +83,7 @@ class SupervisorRepository(BaseRepository[SupervisorAgent, str]):
                 SupervisorAgent.id == supervisor_id
             ).values(
                 performance_metrics=metrics,
-                updated_at=datetime.now(timezone.utc)
+                updated_at=utc_now()
             )
             
             result = await self.session.execute(stmt)
@@ -246,13 +248,13 @@ class SupervisorTaskRepository(BaseRepository[SupervisorTask, str]):
             from sqlalchemy import update
             update_data = {
                 "status": status.value,
-                "updated_at": datetime.now(timezone.utc)
+                "updated_at": utc_now()
             }
             
             if status == TaskStatus.RUNNING:
-                update_data["started_at"] = datetime.now(timezone.utc)
+                update_data["started_at"] = utc_now()
             elif status in [TaskStatus.COMPLETED, TaskStatus.FAILED, TaskStatus.CANCELLED]:
-                update_data["completed_at"] = datetime.now(timezone.utc)
+                update_data["completed_at"] = utc_now()
             
             if output_data is not None:
                 update_data["output_data"] = output_data
@@ -309,7 +311,7 @@ class SupervisorTaskRepository(BaseRepository[SupervisorTask, str]):
                 assigned_agent_id=agent_id,
                 assigned_agent_name=agent_name,
                 status=TaskStatus.PENDING.value,
-                updated_at=datetime.now(timezone.utc)
+                updated_at=utc_now()
             )
             
             result = await self.session.execute(stmt)
@@ -454,7 +456,7 @@ class SupervisorDecisionRepository(BaseRepository[SupervisorDecision, str]):
         """获取成功的决策记录（用于学习）"""
         try:
             from sqlalchemy import select
-            cutoff_date = datetime.now(timezone.utc) - timedelta(days=days)
+            cutoff_date = utc_now() - timedelta(days=days)
             stmt = select(SupervisorDecision).where(
                 and_(
                     SupervisorDecision.supervisor_id == supervisor_id,
@@ -613,7 +615,7 @@ class AgentLoadMetricsRepository(BaseRepository[AgentLoadMetrics, str]):
                     AgentLoadMetrics.id == latest_metric.id
                 ).values(
                     current_load=new_load,
-                    updated_at=datetime.now(timezone.utc),
+                    updated_at=utc_now(),
                     task_count=latest_metric.task_count + (1 if load_change > 0 else 0)
                 )
                 await self.session.execute(update_stmt)
@@ -624,8 +626,8 @@ class AgentLoadMetricsRepository(BaseRepository[AgentLoadMetrics, str]):
                     supervisor_id=supervisor_id,
                     current_load=max(0.0, min(1.0, load_change)),
                     task_count=1 if load_change > 0 else 0,
-                    window_start=datetime.now(timezone.utc),
-                    window_end=datetime.now(timezone.utc) + timedelta(hours=1)
+                    window_start=utc_now(),
+                    window_end=utc_now() + timedelta(hours=1)
                 )
                 self.session.add(new_metric)
             

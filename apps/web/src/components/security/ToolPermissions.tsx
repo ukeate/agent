@@ -1,12 +1,12 @@
 // 工具权限配置组件
 
 import React, { useState, useEffect } from 'react';
-import { Card } from '../ui/Card';
-import { Button } from '../ui/Button';
-import { Switch } from '../ui/Switch';
-import { Badge } from '../ui/Badge';
-import { Alert } from '../ui/Alert';
-import { Input } from '../ui/Input';
+import { Card } from '../ui/card';
+import { Button } from '../ui/button';
+import { Switch } from '../ui/switch';
+import { Badge } from '../ui/badge';
+import { Alert } from '../ui/alert';
+import { Input } from '../ui/input';
 import { securityApi } from '../../services/securityApi';
 
 interface ToolPermission {

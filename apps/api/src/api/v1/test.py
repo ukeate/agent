@@ -9,7 +9,7 @@ import structlog
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.api.exceptions import ValidationError
+from fastapi import HTTPException
 from src.core.database import get_db
 from src.core.redis import RedisCache, get_cache
 

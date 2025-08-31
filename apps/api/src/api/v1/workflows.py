@@ -15,6 +15,16 @@ from src.services.workflow_service import workflow_service
 
 router = APIRouter(prefix="/workflows", tags=["workflows"])
 
+# 健康检查端点 - 必须在路径参数路由之前定义
+@router.get("/health/check")
+async def health_check():
+    """工作流服务健康检查"""
+    return {
+        "status": "healthy",
+        "service": "workflow_service",
+        "timestamp": "2025-01-01T00:00:00Z"
+    }
+
 
 @router.post("/", response_model=WorkflowResponse)
 async def create_workflow(workflow_data: WorkflowCreate):
@@ -226,13 +236,3 @@ async def workflow_websocket_endpoint(websocket: WebSocket, workflow_id: str):
     except Exception as e:
         print(f"WebSocket error for workflow {workflow_id}: {e}")
         manager.disconnect(workflow_id)
-
-# 健康检查端点
-@router.get("/health/check")
-async def health_check():
-    """工作流服务健康检查"""
-    return {
-        "status": "healthy",
-        "service": "workflow_service",
-        "timestamp": "2025-01-01T00:00:00Z"
-    }

@@ -9,7 +9,9 @@ import time
 import psutil
 import logging
 from typing import Dict, Any, List, Optional, Callable
-from datetime import datetime, timedelta
+from datetime import datetime
+from datetime import timedelta
+from src.core.utils.timezone_utils import utc_now, utc_factory
 from dataclasses import dataclass, asdict
 from collections import defaultdict, deque
 import statistics
@@ -88,7 +90,7 @@ class PerformanceCollector:
     
     async def _collect_system_metrics(self):
         """收集系统指标"""
-        timestamp = datetime.utcnow()
+        timestamp = utc_now()
         
         # CPU使用率
         cpu_percent = psutil.cpu_percent(interval=None)
@@ -160,7 +162,7 @@ class PerformanceCollector:
     
     async def _collect_application_metrics(self):
         """收集应用程序指标"""
-        timestamp = datetime.utcnow()
+        timestamp = utc_now()
         
         # 这里可以添加具体的应用程序指标收集
         # 例如：事件处理速率、数据库查询时间、WebSocket连接数等
@@ -196,7 +198,7 @@ class PerformanceCollector:
         if metric_name not in self.metrics_history:
             return []
         
-        cutoff_time = datetime.utcnow() - duration
+        cutoff_time = utc_now() - duration
         history = self.metrics_history[metric_name]
         
         return [metric for metric in history if metric.timestamp >= cutoff_time]
@@ -265,7 +267,7 @@ class PerformanceAnalyzer:
         
         # 生成性能分析报告
         return {
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": utc_now().isoformat(),
             "overall_status": self._get_overall_status(alerts),
             "active_alerts": [asdict(alert) for alert in alerts],
             "metrics_summary": self._get_metrics_summary(latest_metrics),

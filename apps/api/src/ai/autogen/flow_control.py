@@ -11,7 +11,9 @@ from enum import Enum
 import structlog
 from abc import ABC, abstractmethod
 import statistics
-from datetime import datetime, timedelta
+from datetime import datetime
+from datetime import timedelta
+from src.core.utils.timezone_utils import utc_now, utc_factory
 from collections import deque, defaultdict
 
 from .enterprise_config import get_config_manager
@@ -39,7 +41,7 @@ class DropPolicy(str, Enum):
 @dataclass
 class FlowControlMetrics:
     """流控指标"""
-    timestamp: datetime = field(default_factory=datetime.now)
+    timestamp: datetime = field(default_factory=utc_factory)
     queue_size: int = 0
     throughput: float = 0.0  # 任务/秒
     avg_latency: float = 0.0  # 毫秒
@@ -56,7 +58,7 @@ class TaskInfo:
     """任务信息"""
     task_id: str
     priority: int = 0
-    created_at: datetime = field(default_factory=datetime.now)
+    created_at: datetime = field(default_factory=utc_factory)
     deadline: Optional[datetime] = None
     retries: int = 0
     metadata: Dict[str, Any] = field(default_factory=dict)
@@ -245,7 +247,7 @@ class FlowController:
         task_info = TaskInfo(
             task_id=task_id,
             priority=priority,
-            created_at=datetime.now(),
+            created_at=utc_now(),
             deadline=deadline,
             metadata={'data': task_data}
         )

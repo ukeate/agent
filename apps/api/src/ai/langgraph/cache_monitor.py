@@ -7,7 +7,9 @@ import time
 import asyncio
 import logging
 from typing import Dict, Any, List, Optional
-from datetime import datetime, timezone, timedelta
+from datetime import datetime
+from datetime import timedelta
+from src.core.utils.timezone_utils import utc_now, utc_factory
 from dataclasses import dataclass, field
 from contextlib import asynccontextmanager
 
@@ -236,7 +238,7 @@ class CacheHealthChecker:
         health_status = {
             "status": "healthy",
             "checks": {},
-            "timestamp": datetime.now(timezone.utc).isoformat()
+            "timestamp": utc_now().isoformat()
         }
         
         # 检查缓存连接
@@ -285,7 +287,7 @@ class CacheHealthChecker:
         """执行性能检查"""
         performance_data = {
             "latency_ms": {},
-            "timestamp": datetime.now(timezone.utc).isoformat()
+            "timestamp": utc_now().isoformat()
         }
         
         try:

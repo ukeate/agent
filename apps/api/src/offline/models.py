@@ -13,6 +13,7 @@ import json
 import gzip
 import hashlib
 from datetime import datetime
+from src.core.utils.timezone_utils import utc_now, utc_factory
 from typing import Dict, Any, List, Optional, Tuple
 from pathlib import Path
 from contextlib import contextmanager
@@ -256,7 +257,7 @@ class OfflineDatabase:
     
     def update_session(self, session: OfflineSession) -> bool:
         """更新离线会话"""
-        session.updated_at = datetime.utcnow()
+        session.updated_at = utc_now()
         with self.get_connection() as conn:
             cursor = conn.execute("""
                 UPDATE offline_sessions SET
@@ -345,7 +346,7 @@ class OfflineDatabase:
     
     def mark_operation_synced(self, operation_id: UUID, server_timestamp: Optional[datetime] = None) -> bool:
         """标记操作已同步"""
-        now = datetime.utcnow()
+        now = utc_now()
         with self.get_connection() as conn:
             cursor = conn.execute("""
                 UPDATE sync_operations SET
@@ -539,7 +540,7 @@ class OfflineDatabase:
     
     def cleanup_old_data(self, session_id: str, keep_days: int = 7) -> Dict[str, int]:
         """清理旧数据"""
-        cutoff_date = (datetime.utcnow() - datetime.timedelta(days=keep_days)).isoformat()
+        cutoff_date = (utc_now() - datetime.timedelta(days=keep_days)).isoformat()
         
         with self.get_connection() as conn:
             # 清理已同步的操作

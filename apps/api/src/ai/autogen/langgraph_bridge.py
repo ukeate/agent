@@ -3,7 +3,8 @@ AutoGen与LangGraph集成桥接器
 实现AutoGen和LangGraph的深度集成和统一上下文管理
 """
 import asyncio
-from datetime import datetime, timezone
+from datetime import datetime
+from src.core.utils.timezone_utils import utc_now, utc_factory, timezone
 from typing import Dict, List, Optional, Any, Union, Callable
 import structlog
 
@@ -99,7 +100,7 @@ class AutoGenLangGraphBridge:
 - 用户ID: {context.user_id}
 - 会话ID: {context.session_id}
 - 对话ID: {context.conversation_id or '新对话'}
-- 时间戳: {datetime.now(timezone.utc).isoformat()}
+- 时间戳: {utc_now().isoformat()}
 """
         
         # 如果有额外的上下文数据，添加到提示中
@@ -145,7 +146,7 @@ class AutoGenLangGraphBridge:
                         "user_id": context.user_id,
                         "session_id": context.session_id,
                         "conversation_id": context.conversation_id,
-                        "timestamp": datetime.now(timezone.utc).isoformat()
+                        "timestamp": utc_now().isoformat()
                     }
                 }
             else:
@@ -180,7 +181,7 @@ class AutoGenLangGraphBridge:
     ) -> str:
         """创建智能体工作流"""
         try:
-            workflow_id = f"workflow_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+            workflow_id = f"workflow_{utc_now().strftime('%Y%m%d_%H%M%S')}"
             
             # 解析工作流配置
             agents_config = workflow_config.get("agents", [])
@@ -260,7 +261,7 @@ class AutoGenLangGraphBridge:
             # 更新智能体状态管理器中的状态
             await self.agent_manager.state_manager.update_agent_state(agent_id, {
                 "langgraph_state": langgraph_state,
-                "last_sync": datetime.now(timezone.utc).isoformat()
+                "last_sync": utc_now().isoformat()
             })
             
             # 发布状态同步事件
@@ -333,7 +334,7 @@ class AutoGenLangGraphBridge:
     ) -> List[str]:
         """执行协作任务"""
         try:
-            collaboration_id = f"collab_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+            collaboration_id = f"collab_{utc_now().strftime('%Y%m%d_%H%M%S')}"
             task_ids = []
             
             if coordination_strategy == "sequential":

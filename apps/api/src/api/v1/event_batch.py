@@ -1,7 +1,9 @@
 """
 事件批处理API端点 - 管理事件批处理任务和缓冲
 """
-from datetime import datetime, timezone, timedelta
+from datetime import datetime
+from datetime import timedelta
+from src.core.utils.timezone_utils import utc_now, utc_factory
 from typing import List, Optional, Dict, Any
 from fastapi import APIRouter, HTTPException, Depends, BackgroundTasks, Query
 from pydantic import BaseModel, Field
@@ -38,7 +40,7 @@ class EventSubmissionResponse(BaseModel):
     job_id: Optional[str] = None
     status: str
     message: str
-    submitted_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    submitted_at: datetime = Field(default_factory=lambda: utc_now())
 
 
 class BatchSubmissionResponse(BaseModel):
@@ -48,7 +50,7 @@ class BatchSubmissionResponse(BaseModel):
     status: str
     message: str
     estimated_completion_time: Optional[datetime] = None
-    submitted_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    submitted_at: datetime = Field(default_factory=lambda: utc_now())
 
 
 class JobStatusResponse(BaseModel):
@@ -130,7 +132,7 @@ async def submit_batch(
         if request.job_config and request.job_config.processing_mode == ProcessingMode.IMMEDIATE:
             # 立即处理模式：基于事件数量估算
             estimated_seconds = len(request.batch.events) * 0.1  # 假设每个事件0.1秒
-            estimated_completion = datetime.now(timezone.utc).replace(microsecond=0) + \
+            estimated_completion = utc_now().replace(microsecond=0) + \
                                  timedelta(seconds=int(estimated_seconds))
         
         return BatchSubmissionResponse(
@@ -162,7 +164,7 @@ async def get_job_status(
         estimated_remaining = None
         if job_status.status == EventStatus.PROCESSED and job_status.progress_percentage < 100:
             if job_status.started_at and job_status.processed_events > 0:
-                elapsed_seconds = (datetime.now(timezone.utc) - job_status.started_at).total_seconds()
+                elapsed_seconds = (utc_now() - job_status.started_at).total_seconds()
                 processing_rate = job_status.processed_events / elapsed_seconds
                 remaining_events = job_status.total_events - job_status.processed_events
                 if processing_rate > 0:
@@ -206,7 +208,7 @@ async def list_active_jobs(
             estimated_remaining = None
             if job_status.status == EventStatus.PROCESSED and job_status.progress_percentage < 100:
                 if job_status.started_at and job_status.processed_events > 0:
-                    elapsed_seconds = (datetime.now(timezone.utc) - job_status.started_at).total_seconds()
+                    elapsed_seconds = (utc_now() - job_status.started_at).total_seconds()
                     processing_rate = job_status.processed_events / elapsed_seconds if elapsed_seconds > 0 else 0
                     remaining_events = job_status.total_events - job_status.processed_events
                     if processing_rate > 0:
@@ -348,7 +350,7 @@ async def health_check(
             "initialized": manager.is_initialized,
             "buffer_service_running": manager.buffer_service is not None and manager.buffer_service.is_running,
             "active_jobs": len(manager.active_jobs),
-            "timestamp": datetime.now(timezone.utc).isoformat()
+            "timestamp": utc_now().isoformat()
         }
         
         # 检查缓冲服务健康状态
@@ -367,5 +369,5 @@ async def health_check(
         return {
             "status": "unhealthy",
             "error": str(e),
-            "timestamp": datetime.now(timezone.utc).isoformat()
+            "timestamp": utc_now().isoformat()
         }

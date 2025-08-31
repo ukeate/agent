@@ -6,7 +6,9 @@ import pytest
 import tempfile
 import os
 import asyncio
-from datetime import datetime, timedelta
+from datetime import datetime
+from datetime import timedelta
+from src.core.utils.timezone_utils import utc_now, utc_factory
 
 from ...offline.model_cache import ModelCacheManager, ModelMetadata
 from ...offline.local_inference import (

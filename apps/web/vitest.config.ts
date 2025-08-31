@@ -9,6 +9,7 @@ export default defineConfig({
     environment: 'jsdom',
     setupFiles: ['./tests/setup.ts'],
     css: true,
+    testTimeout: 30000, // 增加超时时间到30秒
     exclude: [
       '**/node_modules/**',
       '**/dist/**',

@@ -1,7 +1,9 @@
 import numpy as np
 from typing import Dict, List, Any, Optional, Callable
 from collections import defaultdict
-from datetime import datetime, timedelta
+from datetime import datetime
+from datetime import timedelta
+from src.core.utils.timezone_utils import utc_now, utc_factory
 import logging
 
 logger = logging.getLogger(__name__)
@@ -284,7 +286,7 @@ class TemporalAggregator:
             return {}
             
         if current_time is None:
-            current_time = datetime.utcnow()
+            current_time = utc_now()
             
         aggregated_features = {}
         

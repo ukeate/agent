@@ -3,6 +3,7 @@
 """
 
 from datetime import datetime, timedelta
+from src.core.utils.timezone_utils import utc_now, utc_factory
 from typing import Any, Dict, List, Optional, Union
 
 import structlog
@@ -95,14 +96,14 @@ class JWTManager:
         to_encode = data.copy()
         
         if expires_delta:
-            expire = datetime.utcnow() + expires_delta
+            expire = utc_now() + expires_delta
         else:
-            expire = datetime.utcnow() + timedelta(minutes=self.access_token_expire_minutes)
+            expire = utc_now() + timedelta(minutes=self.access_token_expire_minutes)
         
         to_encode.update({
             "exp": expire,
             "type": "access",
-            "iat": datetime.utcnow()
+            "iat": utc_now()
         })
         
         encoded_jwt = jwt.encode(to_encode, self.secret_key, algorithm=self.algorithm)
@@ -117,14 +118,14 @@ class JWTManager:
         to_encode = data.copy()
         
         if expires_delta:
-            expire = datetime.utcnow() + expires_delta
+            expire = utc_now() + expires_delta
         else:
-            expire = datetime.utcnow() + timedelta(days=self.refresh_token_expire_days)
+            expire = utc_now() + timedelta(days=self.refresh_token_expire_days)
         
         to_encode.update({
             "exp": expire,
             "type": "refresh",
-            "iat": datetime.utcnow()
+            "iat": utc_now()
         })
         
         encoded_jwt = jwt.encode(to_encode, self.secret_key, algorithm=self.algorithm)
@@ -254,8 +255,8 @@ async def authenticate_user(
     return UserInDB(
         **user_dict,
         permissions=rbac_manager.get_user_permissions(user_dict["roles"]),
-        created_at=datetime.utcnow(),
-        updated_at=datetime.utcnow()
+        created_at=utc_now(),
+        updated_at=utc_now()
     )
 
 

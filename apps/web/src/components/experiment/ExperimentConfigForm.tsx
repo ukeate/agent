@@ -26,7 +26,7 @@ import {
   InputAdornment,
   Autocomplete,
   Stack,
-  Divider,
+  // Divider,  // 暂时注释未使用的导入
   Tooltip
 } from '@mui/material';
 import {
@@ -34,8 +34,8 @@ import {
   Delete as DeleteIcon,
   ExpandMore as ExpandMoreIcon,
   Info as InfoIcon,
-  ContentCopy as CopyIcon,
-  Settings as SettingsIcon
+  // ContentCopy as CopyIcon,  // 暂时注释未使用的导入
+  // Settings as SettingsIcon  // 暂时注释未使用的导入
 } from '@mui/icons-material';
 
 // 实验类型
@@ -293,7 +293,7 @@ const ExperimentConfigForm: React.FC<ExperimentConfigFormProps> = ({
         </AccordionSummary>
         <AccordionDetails>
           <Grid container spacing={3}>
-            <Grid item xs={12} md={6}>
+            <Grid {...{ item: true, xs: 12, md: 6 } as any}>
               <TextField
                 fullWidth
                 label="实验名称"
@@ -305,7 +305,7 @@ const ExperimentConfigForm: React.FC<ExperimentConfigFormProps> = ({
                 required
               />
             </Grid>
-            <Grid item xs={12} md={6}>
+            <Grid {...{ item: true, xs: 12, md: 6 } as any}>
               <FormControl fullWidth>
                 <InputLabel>实验类型</InputLabel>
                 <Select
@@ -320,7 +320,7 @@ const ExperimentConfigForm: React.FC<ExperimentConfigFormProps> = ({
                 </Select>
               </FormControl>
             </Grid>
-            <Grid item xs={12}>
+            <Grid {...{ item: true, xs: 12 } as any}>
               <TextField
                 fullWidth
                 multiline
@@ -331,7 +331,7 @@ const ExperimentConfigForm: React.FC<ExperimentConfigFormProps> = ({
                 disabled={isReadOnly}
               />
             </Grid>
-            <Grid item xs={12} md={6}>
+            <Grid {...{ item: true, xs: 12, md: 6 } as any}>
               <TextField
                 fullWidth
                 type="date"
@@ -342,7 +342,7 @@ const ExperimentConfigForm: React.FC<ExperimentConfigFormProps> = ({
                 disabled={isReadOnly}
               />
             </Grid>
-            <Grid item xs={12} md={6}>
+            <Grid {...{ item: true, xs: 12, md: 6 } as any}>
               <TextField
                 fullWidth
                 type="date"
@@ -353,7 +353,7 @@ const ExperimentConfigForm: React.FC<ExperimentConfigFormProps> = ({
                 disabled={isReadOnly}
               />
             </Grid>
-            <Grid item xs={12}>
+            <Grid {...{ item: true, xs: 12 } as any}>
               <Autocomplete
                 multiple
                 freeSolo
@@ -406,7 +406,7 @@ const ExperimentConfigForm: React.FC<ExperimentConfigFormProps> = ({
               <Card key={variant.id} variant="outlined">
                 <CardContent>
                   <Grid container spacing={2} alignItems="center">
-                    <Grid item xs={12} md={3}>
+                    <Grid {...{ item: true, xs: 12, md: 3 } as any}>
                       <TextField
                         fullWidth
                         label="变体名称"
@@ -422,7 +422,7 @@ const ExperimentConfigForm: React.FC<ExperimentConfigFormProps> = ({
                         }}
                       />
                     </Grid>
-                    <Grid item xs={12} md={4}>
+                    <Grid {...{ item: true, xs: 12, md: 4 } as any}>
                       <TextField
                         fullWidth
                         label="描述"
@@ -431,7 +431,7 @@ const ExperimentConfigForm: React.FC<ExperimentConfigFormProps> = ({
                         disabled={isReadOnly}
                       />
                     </Grid>
-                    <Grid item xs={12} md={3}>
+                    <Grid {...{ item: true, xs: 12, md: 3 } as any}>
                       <Box sx={{ px: 2 }}>
                         <Typography gutterBottom>流量分配: {variant.traffic}%</Typography>
                         <Slider
@@ -444,7 +444,7 @@ const ExperimentConfigForm: React.FC<ExperimentConfigFormProps> = ({
                         />
                       </Box>
                     </Grid>
-                    <Grid item xs={12} md={2}>
+                    <Grid {...{ item: true, xs: 12, md: 2 } as any}>
                       <Stack direction="row" spacing={1}>
                         {!variant.isControl && !isReadOnly && (
                           <FormControlLabel
@@ -517,7 +517,7 @@ const ExperimentConfigForm: React.FC<ExperimentConfigFormProps> = ({
               <Card key={metric.id} variant="outlined">
                 <CardContent>
                   <Grid container spacing={2} alignItems="center">
-                    <Grid item xs={12} md={3}>
+                    <Grid {...{ item: true, xs: 12, md: 3 } as any}>
                       <TextField
                         fullWidth
                         label="指标名称"
@@ -527,7 +527,7 @@ const ExperimentConfigForm: React.FC<ExperimentConfigFormProps> = ({
                         required
                       />
                     </Grid>
-                    <Grid item xs={12} md={2}>
+                    <Grid {...{ item: true, xs: 12, md: 2 } as any}>
                       <FormControl fullWidth>
                         <InputLabel>类型</InputLabel>
                         <Select
@@ -542,7 +542,7 @@ const ExperimentConfigForm: React.FC<ExperimentConfigFormProps> = ({
                         </Select>
                       </FormControl>
                     </Grid>
-                    <Grid item xs={12} md={2}>
+                    <Grid {...{ item: true, xs: 12, md: 2 } as any}>
                       <FormControl fullWidth>
                         <InputLabel>聚合方式</InputLabel>
                         <Select
@@ -558,7 +558,7 @@ const ExperimentConfigForm: React.FC<ExperimentConfigFormProps> = ({
                         </Select>
                       </FormControl>
                     </Grid>
-                    <Grid item xs={12} md={2}>
+                    <Grid {...{ item: true, xs: 12, md: 2 } as any}>
                       <TextField
                         fullWidth
                         label="单位"
@@ -568,7 +568,7 @@ const ExperimentConfigForm: React.FC<ExperimentConfigFormProps> = ({
                         placeholder="如: ms, %"
                       />
                     </Grid>
-                    <Grid item xs={12} md={2}>
+                    <Grid {...{ item: true, xs: 12, md: 2 } as any}>
                       <TextField
                         fullWidth
                         label="MDE"
@@ -585,7 +585,7 @@ const ExperimentConfigForm: React.FC<ExperimentConfigFormProps> = ({
                         }}
                       />
                     </Grid>
-                    <Grid item xs={12} md={1}>
+                    <Grid {...{ item: true, xs: 12, md: 1 } as any}>
                       {!isReadOnly && (
                         <IconButton
                           onClick={() => deleteMetric(metric.id)}
@@ -626,7 +626,7 @@ const ExperimentConfigForm: React.FC<ExperimentConfigFormProps> = ({
               <Card key={rule.id} variant="outlined">
                 <CardContent>
                   <Grid container spacing={2} alignItems="center">
-                    <Grid item xs={12} md={2}>
+                    <Grid {...{ item: true, xs: 12, md: 2 } as any}>
                       <FormControl fullWidth>
                         <InputLabel>类型</InputLabel>
                         <Select
@@ -641,7 +641,7 @@ const ExperimentConfigForm: React.FC<ExperimentConfigFormProps> = ({
                         </Select>
                       </FormControl>
                     </Grid>
-                    <Grid item xs={12} md={3}>
+                    <Grid {...{ item: true, xs: 12, md: 3 } as any}>
                       <TextField
                         fullWidth
                         label="字段"
@@ -651,7 +651,7 @@ const ExperimentConfigForm: React.FC<ExperimentConfigFormProps> = ({
                         placeholder="如: user_id, country"
                       />
                     </Grid>
-                    <Grid item xs={12} md={2}>
+                    <Grid {...{ item: true, xs: 12, md: 2 } as any}>
                       <FormControl fullWidth>
                         <InputLabel>操作符</InputLabel>
                         <Select
@@ -669,7 +669,7 @@ const ExperimentConfigForm: React.FC<ExperimentConfigFormProps> = ({
                         </Select>
                       </FormControl>
                     </Grid>
-                    <Grid item xs={12} md={4}>
+                    <Grid {...{ item: true, xs: 12, md: 4 } as any}>
                       <TextField
                         fullWidth
                         label="值"
@@ -679,7 +679,7 @@ const ExperimentConfigForm: React.FC<ExperimentConfigFormProps> = ({
                         placeholder="输入匹配值"
                       />
                     </Grid>
-                    <Grid item xs={12} md={1}>
+                    <Grid {...{ item: true, xs: 12, md: 1 } as any}>
                       {!isReadOnly && (
                         <IconButton
                           onClick={() => deleteTargetingRule(rule.id)}
@@ -716,7 +716,7 @@ const ExperimentConfigForm: React.FC<ExperimentConfigFormProps> = ({
         </AccordionSummary>
         <AccordionDetails>
           <Grid container spacing={3}>
-            <Grid item xs={12} md={6}>
+            <Grid {...{ item: true, xs: 12, md: 6 } as any}>
               <Box sx={{ px: 2 }}>
                 <Typography gutterBottom>
                   置信水平: {config.confidenceLevel}%
@@ -737,7 +737,7 @@ const ExperimentConfigForm: React.FC<ExperimentConfigFormProps> = ({
                 />
               </Box>
             </Grid>
-            <Grid item xs={12} md={6}>
+            <Grid {...{ item: true, xs: 12, md: 6 } as any}>
               <TextField
                 fullWidth
                 label="样本量"
@@ -748,7 +748,7 @@ const ExperimentConfigForm: React.FC<ExperimentConfigFormProps> = ({
                 helperText="留空表示自动计算"
               />
             </Grid>
-            <Grid item xs={12} md={6}>
+            <Grid {...{ item: true, xs: 12, md: 6 } as any}>
               <TextField
                 fullWidth
                 label="互斥组"
@@ -758,7 +758,7 @@ const ExperimentConfigForm: React.FC<ExperimentConfigFormProps> = ({
                 helperText="同一互斥组的实验不会同时运行"
               />
             </Grid>
-            <Grid item xs={12} md={6}>
+            <Grid {...{ item: true, xs: 12, md: 6 } as any}>
               <TextField
                 fullWidth
                 label="实验层"
@@ -768,7 +768,7 @@ const ExperimentConfigForm: React.FC<ExperimentConfigFormProps> = ({
                 helperText="用于分层实验"
               />
             </Grid>
-            <Grid item xs={12}>
+            <Grid {...{ item: true, xs: 12 } as any}>
               <FormControlLabel
                 control={
                   <Switch
@@ -780,7 +780,7 @@ const ExperimentConfigForm: React.FC<ExperimentConfigFormProps> = ({
                 label="启用数据质量检查"
               />
             </Grid>
-            <Grid item xs={12}>
+            <Grid {...{ item: true, xs: 12 } as any}>
               <FormControlLabel
                 control={
                   <Switch
@@ -793,7 +793,7 @@ const ExperimentConfigForm: React.FC<ExperimentConfigFormProps> = ({
               />
             </Grid>
             {config.enableAutoStop && (
-              <Grid item xs={12}>
+              <Grid {...{ item: true, xs: 12 } as any}>
                 <TextField
                   fullWidth
                   label="自动停止阈值"

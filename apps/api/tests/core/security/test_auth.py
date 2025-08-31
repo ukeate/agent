@@ -3,7 +3,8 @@ JWT认证和RBAC测试
 """
 
 import pytest
-from datetime import datetime, timedelta
+from datetime import datetime
+from src.core.utils.timezone_utils import utc_now, utc_factory, timedelta
 from unittest.mock import Mock, patch, AsyncMock
 import jwt
 
@@ -70,7 +71,7 @@ class TestJWTManager:
         )
         
         exp_time = datetime.fromtimestamp(decoded["exp"])
-        now = datetime.utcnow()
+        now = utc_now()
         
         # 验证过期时间约为1小时后
         assert 59 <= (exp_time - now).seconds // 60 <= 61

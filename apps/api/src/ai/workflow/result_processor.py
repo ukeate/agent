@@ -8,7 +8,9 @@ import json
 import logging
 from typing import Dict, List, Optional, Any, Union, Callable
 from uuid import uuid4
-from datetime import datetime, timedelta
+from datetime import datetime
+from datetime import timedelta
+from src.core.utils.timezone_utils import utc_now, utc_factory
 from enum import Enum
 from dataclasses import dataclass, asdict
 import hashlib
@@ -233,7 +235,7 @@ class ResultValidator:
                 metadata={
                     "validation_level": level,
                     "rules_applied": len(active_rules),
-                    "validation_time": datetime.utcnow().isoformat()
+                    "validation_time": utc_now().isoformat()
                 }
             )
             
@@ -480,7 +482,7 @@ class ResultAggregator:
                 "strategy": strategy.value,
                 "source_count": len(step_results),
                 "source_steps": list(step_results.keys()),
-                "aggregated_at": datetime.utcnow().isoformat()
+                "aggregated_at": utc_now().isoformat()
             }
             
             logger.info(f"结果聚合完成: 策略={strategy.value}, 源数量={len(step_results)}")
@@ -919,7 +921,7 @@ class ResultCache:
             # 序列化结果
             cached_data = {
                 "processed_result": json.dumps(processed_result.to_dict(), default=str),
-                "cached_at": datetime.utcnow().isoformat(),
+                "cached_at": utc_now().isoformat(),
                 "execution_id": execution_id,
                 "result_hash": result_hash
             }
@@ -1115,7 +1117,7 @@ class WorkflowResultProcessor:
                     "aggregation_strategy": config["aggregation_strategy"].value,
                     "output_formats": [f.value for f in output_formats]
                 },
-                created_at=datetime.utcnow()
+                created_at=utc_now()
             )
             
             # 6. 缓存结果
@@ -1148,7 +1150,7 @@ class WorkflowResultProcessor:
                     metadata={}
                 ),
                 processing_metadata={"error": str(e)},
-                created_at=datetime.utcnow()
+                created_at=utc_now()
             )
     
     def _collect_step_results(self, execution: WorkflowExecution) -> Dict[str, Any]:

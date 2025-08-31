@@ -6,7 +6,9 @@ import re
 import asyncio
 import hashlib
 import json
-from datetime import datetime, timezone, timedelta
+from datetime import datetime
+from datetime import timedelta
+from src.core.utils.timezone_utils import utc_now, utc_factory
 from typing import Dict, Any, List, Optional, Tuple, Set
 from dataclasses import dataclass
 from enum import Enum
@@ -372,7 +374,7 @@ class PromptInjectionDetector:
     def _record_detection(self, agent_id: str, detected: bool, confidence: float):
         """记录检测历史"""
         record = {
-            "timestamp": datetime.now(timezone.utc),
+            "timestamp": utc_now(),
             "agent_id": agent_id,
             "detected": detected,
             "confidence": confidence
@@ -695,7 +697,7 @@ class DataLeakageDetector:
     def _record_detection(self, agent_id: str, detected: bool, confidence: float):
         """记录检测历史"""
         record = {
-            "timestamp": datetime.now(timezone.utc),
+            "timestamp": utc_now(),
             "agent_id": agent_id,
             "detected": detected,
             "confidence": confidence
@@ -1057,7 +1059,7 @@ class ModelPoisoningDetector:
     def _record_detection(self, agent_id: str, detected: bool, confidence: float):
         """记录检测历史"""
         record = {
-            "timestamp": datetime.now(timezone.utc),
+            "timestamp": utc_now(),
             "agent_id": agent_id,
             "detected": detected,
             "confidence": confidence
@@ -1092,7 +1094,7 @@ class AttackDetectionManager:
         cache_key = self._generate_cache_key(agent_id, output)
         if cache_key in self.detection_cache:
             cached_result = self.detection_cache[cache_key]
-            if datetime.now(timezone.utc) - cached_result.details.get("timestamp", datetime.min.replace(tzinfo=timezone.utc)) < self.cache_ttl:
+            if utc_now() - cached_result.details.get("timestamp", datetime.min.replace(tzinfo=timezone.utc)) < self.cache_ttl:
                 return {cached_result.attack_type: cached_result}
         
         results = {}
@@ -1112,7 +1114,7 @@ class AttackDetectionManager:
                 results[attack_type] = result
                 
                 # 缓存结果
-                result.details["timestamp"] = datetime.now(timezone.utc)
+                result.details["timestamp"] = utc_now()
                 self.detection_cache[cache_key] = result
                 
             except Exception as e:
@@ -1168,7 +1170,7 @@ class AttackDetectionManager:
     
     def _cleanup_cache(self):
         """清理过期缓存"""
-        current_time = datetime.now(timezone.utc)
+        current_time = utc_now()
         expired_keys = []
         
         for key, result in self.detection_cache.items():

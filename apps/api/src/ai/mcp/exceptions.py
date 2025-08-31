@@ -3,6 +3,7 @@
 import logging
 from typing import Any, Dict, Optional
 from datetime import datetime
+from src.core.utils.timezone_utils import utc_now, utc_factory
 
 # 移除了对ApiError的依赖，MCPError现在直接继承自Exception
 
@@ -24,7 +25,7 @@ class MCPError(Exception):
         self.error_type = error_type
         self.details = details or {}
         self.status_code = status_code
-        self.timestamp = datetime.now().isoformat()
+        self.timestamp = utc_now().isoformat()
         
         # 记录异常（现在参数名问题已解决）
         logger.error(
@@ -235,5 +236,5 @@ def create_mcp_error_response(error: Exception) -> Dict[str, Any]:
             "error": str(error),
             "error_type": type(error).__name__,
             "details": None,
-            "timestamp": datetime.now().isoformat()
+            "timestamp": utc_now().isoformat()
         }

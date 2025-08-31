@@ -1,12 +1,14 @@
 """性能基准测试模块"""
 from typing import Dict, List, Any, Optional
-from datetime import datetime, timedelta
+from datetime import datetime
+from datetime import timedelta
+from src.core.utils.timezone_utils import utc_now, utc_factory
 import asyncio
 import time
 from dataclasses import dataclass
 import statistics
 
-from src.core.config import settings
+from ...core.config import get_settings
 from src.core.monitoring import monitor
 
 
@@ -95,7 +97,7 @@ class PerformanceBenchmarkSuite:
         monitor.log_info("开始运行性能基准测试套件...")
         
         results = {
-            'timestamp': datetime.now().isoformat(),
+            'timestamp': utc_now().isoformat(),
             'epic_version': '5.0',
             'benchmarks': {},
             'comparisons': {},
@@ -445,7 +447,7 @@ class StressTestRunner:
         }
         
         return {
-            'timestamp': datetime.now().isoformat(),
+            'timestamp': utc_now().isoformat(),
             'tests': tests,
             'system_resilience': self.evaluate_resilience(tests)
         }

@@ -4,7 +4,8 @@ AutoGen 0.7.x 多智能体对话实现
 """
 import asyncio
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime
+from src.core.utils.timezone_utils import utc_now, utc_factory, timezone
 from typing import Dict, List, Optional, Any, Union
 from enum import Enum
 
@@ -46,7 +47,7 @@ class ConversationSession:
         self.initial_topic = initial_topic
         
         self.status = ConversationStatus.CREATED
-        self.created_at = datetime.now(timezone.utc)
+        self.created_at = utc_now()
         self.updated_at = self.created_at
         self.messages: List[Dict[str, Any]] = []
         self.current_speaker_index = 0
@@ -93,7 +94,7 @@ class ConversationSession:
         
         try:
             self.status = ConversationStatus.ACTIVE
-            self.updated_at = datetime.now(timezone.utc)
+            self.updated_at = utc_now()
             
             # 记录初始消息
             self._add_message("user", "系统", initial_message)
@@ -204,7 +205,7 @@ class ConversationSession:
             
             # 如果达到最大轮数
             self.status = ConversationStatus.COMPLETED
-            self.updated_at = datetime.now(timezone.utc)
+            self.updated_at = utc_now()
             
         except Exception as e:
             logger.error(
@@ -391,7 +392,7 @@ class ConversationSession:
             
             # 如果达到最大轮数
             self.status = ConversationStatus.COMPLETED
-            self.updated_at = datetime.now(timezone.utc)
+            self.updated_at = utc_now()
             
             if websocket_callback:
                 await websocket_callback({
@@ -562,7 +563,7 @@ class ConversationSession:
             
             # 如果达到最大轮数
             self.status = ConversationStatus.COMPLETED
-            self.updated_at = datetime.now(timezone.utc)
+            self.updated_at = utc_now()
             
             if websocket_callback:
                 await websocket_callback({
@@ -593,7 +594,7 @@ class ConversationSession:
             "role": role,
             "sender": sender,
             "content": content,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": utc_now().isoformat(),
             "round": self.round_count,
         }
         self.messages.append(message)
@@ -615,7 +616,7 @@ class ConversationSession:
             "role": role,
             "sender": sender,
             "content": content,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": utc_now().isoformat(),
             "round": self.round_count,
         }
         self.messages.append(message)
@@ -650,7 +651,7 @@ class ConversationSession:
             raise ValueError(f"无法暂停非活跃状态的对话: {self.status}")
         
         self.status = ConversationStatus.PAUSED
-        self.updated_at = datetime.now(timezone.utc)
+        self.updated_at = utc_now()
         
         # 取消当前的操作
         self._cancellation_token.cancel()
@@ -677,7 +678,7 @@ class ConversationSession:
             raise ValueError(f"无法恢复非暂停状态的对话: {self.status}")
         
         self.status = ConversationStatus.ACTIVE
-        self.updated_at = datetime.now(timezone.utc)
+        self.updated_at = utc_now()
         
         # 创建新的取消令牌
         self._cancellation_token = CancellationToken()
@@ -715,7 +716,7 @@ class ConversationSession:
     async def terminate_conversation(self, reason: str = "用户终止") -> Dict[str, Any]:
         """终止对话"""
         self.status = ConversationStatus.TERMINATED
-        self.updated_at = datetime.now(timezone.utc)
+        self.updated_at = utc_now()
         
         # 取消所有操作
         self._cancellation_token.cancel()

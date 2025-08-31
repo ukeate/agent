@@ -3,23 +3,23 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import MessageInput from '../../src/components/conversation/MessageInput'
 
 // Mock antd message
-vi.mock('antd', async () => {
-  const actual = await vi.importActual('antd')
+mockFn()mock('antd', async () => {
+  const actual = await mockFn()importActual('antd')
   return {
     ...actual,
     message: {
-      error: vi.fn(),
-      success: vi.fn(),
-      info: vi.fn(),
+      error: mockFn()fn(),
+      success: mockFn()fn(),
+      info: mockFn()fn(),
     }
   }
 })
 
 describe('MessageInput Component', () => {
-  const mockOnSendMessage = vi.fn()
+  const mockOnSendMessage = mockFn()fn()
   
   beforeEach(() => {
-    vi.clearAllMocks()
+    mockFn()clearAllMocks()
   })
 
   it('renders correctly', () => {

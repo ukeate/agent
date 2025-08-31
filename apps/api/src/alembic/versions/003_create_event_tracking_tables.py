@@ -8,7 +8,8 @@ Create Date: 2024-01-15 10:00:00.000000
 from alembic import op
 import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
-from datetime import datetime, timezone
+from datetime import datetime
+from src.core.utils.timezone_utils import utc_now, utc_factory, timezone
 
 
 # revision identifiers
@@ -42,7 +43,7 @@ def upgrade() -> None:
         # 时间信息
         sa.Column('event_timestamp', sa.DateTime(timezone=True), nullable=False, index=True),
         sa.Column('server_timestamp', sa.DateTime(timezone=True), nullable=False, 
-                 default=lambda: datetime.now(timezone.utc), index=True),
+                 default=lambda: utc_now(), index=True),
         sa.Column('processed_at', sa.DateTime(timezone=True), nullable=True),
         
         # 事件属性 (使用JSONB以获得更好的性能)
@@ -70,9 +71,9 @@ def upgrade() -> None:
         
         # 审计字段
         sa.Column('created_at', sa.DateTime(timezone=True), nullable=False, 
-                 default=lambda: datetime.now(timezone.utc)),
+                 default=lambda: utc_now()),
         sa.Column('updated_at', sa.DateTime(timezone=True), nullable=False, 
-                 default=lambda: datetime.now(timezone.utc)),
+                 default=lambda: utc_now()),
     )
     
     # 为event_streams创建唯一约束
@@ -137,7 +138,7 @@ def upgrade() -> None:
         
         # 元数据
         sa.Column('aggregated_at', sa.DateTime(timezone=True), nullable=False, 
-                 default=lambda: datetime.now(timezone.utc)),
+                 default=lambda: utc_now()),
         sa.Column('source_events_count', sa.BigInteger, nullable=False),
         sa.Column('data_completeness', sa.Float, nullable=True),
     )
@@ -187,7 +188,7 @@ def upgrade() -> None:
         
         # 元数据
         sa.Column('calculated_at', sa.DateTime(timezone=True), nullable=False, 
-                 default=lambda: datetime.now(timezone.utc)),
+                 default=lambda: utc_now()),
         sa.Column('calculation_duration_ms', sa.Integer, nullable=True),
         sa.Column('data_freshness_score', sa.Float, nullable=True),
         
@@ -241,9 +242,9 @@ def upgrade() -> None:
         sa.Column('performance_metrics', postgresql.JSONB, nullable=True),
         
         sa.Column('created_at', sa.DateTime(timezone=True), nullable=False, 
-                 default=lambda: datetime.now(timezone.utc)),
+                 default=lambda: utc_now()),
         sa.Column('updated_at', sa.DateTime(timezone=True), nullable=False, 
-                 default=lambda: datetime.now(timezone.utc)),
+                 default=lambda: utc_now()),
     )
     
     # 创建批次表索引
@@ -281,9 +282,9 @@ def upgrade() -> None:
         sa.Column('last_validation_at', sa.DateTime(timezone=True), nullable=True),
         
         sa.Column('created_at', sa.DateTime(timezone=True), nullable=False, 
-                 default=lambda: datetime.now(timezone.utc)),
+                 default=lambda: utc_now()),
         sa.Column('updated_at', sa.DateTime(timezone=True), nullable=False, 
-                 default=lambda: datetime.now(timezone.utc)),
+                 default=lambda: utc_now()),
     )
     
     # 创建Schema表索引和约束
@@ -307,7 +308,7 @@ def upgrade() -> None:
         
         # 去重信息
         sa.Column('first_seen_at', sa.DateTime(timezone=True), nullable=False, 
-                 default=lambda: datetime.now(timezone.utc)),
+                 default=lambda: utc_now()),
         sa.Column('duplicate_count', sa.Integer, nullable=False, default=0),
         sa.Column('last_duplicate_at', sa.DateTime(timezone=True), nullable=True),
         
@@ -343,7 +344,7 @@ def upgrade() -> None:
         
         # 元数据
         sa.Column('occurred_at', sa.DateTime(timezone=True), nullable=False, 
-                 default=lambda: datetime.now(timezone.utc), index=True),
+                 default=lambda: utc_now(), index=True),
         sa.Column('resolved_at', sa.DateTime(timezone=True), nullable=True),
         sa.Column('resolution_method', sa.String(64), nullable=True),
     )

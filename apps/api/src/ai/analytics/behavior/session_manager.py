@@ -6,7 +6,9 @@
 
 import asyncio
 from typing import Dict, Any, List, Optional, Tuple
-from datetime import datetime, timedelta
+from datetime import datetime
+from datetime import timedelta
+from src.core.utils.timezone_utils import utc_now, utc_factory
 from collections import defaultdict
 import json
 import logging
@@ -282,7 +284,7 @@ class SessionManager:
     
     async def _cleanup_timeout_sessions(self):
         """清理超时会话"""
-        now = datetime.utcnow()
+        now = utc_now()
         timeout_sessions = []
         
         for session_id, session in self.active_sessions.items():

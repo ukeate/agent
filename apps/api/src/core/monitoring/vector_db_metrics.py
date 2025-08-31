@@ -6,7 +6,9 @@ pgvector性能监控模块
 import logging
 import asyncio
 from typing import Dict, List, Any, Optional
-from datetime import datetime, timedelta
+from datetime import datetime
+from datetime import timedelta
+from src.core.utils.timezone_utils import utc_now, utc_factory
 import asyncpg
 import json
 from dataclasses import dataclass, asdict
@@ -193,7 +195,7 @@ class VectorMetricsCollector:
             
         try:
             async with self.pool.acquire() as conn:
-                since_time = datetime.now() - timedelta(hours=time_range_hours)
+                since_time = utc_now() - timedelta(hours=time_range_hours)
                 
                 # 查询性能统计
                 query_where = "WHERE timestamp >= $1"
@@ -224,7 +226,7 @@ class VectorMetricsCollector:
                 return {
                     "report_period": {
                         "start_time": since_time.isoformat(),
-                        "end_time": datetime.now().isoformat(),
+                        "end_time": utc_now().isoformat(),
                         "collection_name": collection_name
                     },
                     "query_performance": {

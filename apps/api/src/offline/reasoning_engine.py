@@ -10,7 +10,9 @@
 
 import asyncio
 import json
-from datetime import datetime, timedelta
+from datetime import datetime
+from datetime import timedelta
+from src.core.utils.timezone_utils import utc_now, utc_factory
 from typing import Dict, Any, List, Optional, Union, Callable
 from dataclasses import dataclass, field
 from enum import Enum
@@ -273,7 +275,7 @@ class OfflineReasoningEngine:
         
         # 更新状态
         workflow.status = WorkflowStatus.RUNNING
-        workflow.started_at = datetime.utcnow()
+        workflow.started_at = utc_now()
         workflow.reasoning_chain.status = WorkflowStatus.RUNNING
         
         try:
@@ -285,9 +287,9 @@ class OfflineReasoningEngine:
             
             # 更新状态
             workflow.status = WorkflowStatus.COMPLETED
-            workflow.completed_at = datetime.utcnow()
+            workflow.completed_at = utc_now()
             workflow.reasoning_chain.status = WorkflowStatus.COMPLETED
-            workflow.reasoning_chain.completed_at = datetime.utcnow()
+            workflow.reasoning_chain.completed_at = utc_now()
             
             # 移动到已完成工作流
             self.completed_workflows[workflow_id] = workflow
@@ -407,7 +409,7 @@ class OfflineReasoningEngine:
     ) -> ReasoningStepResult:
         """执行单个推理步骤"""
         
-        start_time = datetime.utcnow()
+        start_time = utc_now()
         
         # 创建推理请求
         request = InferenceRequest(
@@ -428,7 +430,7 @@ class OfflineReasoningEngine:
         if not result:
             raise Exception(f"Failed to execute reasoning step: {step_type.value}")
         
-        execution_time = (datetime.utcnow() - start_time).total_seconds() * 1000
+        execution_time = (utc_now() - start_time).total_seconds() * 1000
         
         # 分析推理结果中的证据
         evidence = self._extract_evidence(result.response, result.reasoning_steps)
@@ -547,7 +549,7 @@ class OfflineReasoningEngine:
             "event_type": event_type,
             "status": workflow.status.value,
             "strategy": workflow.strategy.value,
-            "timestamp": datetime.utcnow().isoformat()
+            "timestamp": utc_now().isoformat()
         }
         
         if extra_data:
@@ -666,7 +668,7 @@ class OfflineReasoningEngine:
         if workflow_id in self.active_workflows:
             workflow = self.active_workflows[workflow_id]
             workflow.status = WorkflowStatus.CANCELLED
-            workflow.completed_at = datetime.utcnow()
+            workflow.completed_at = utc_now()
             
             # 移动到已完成工作流
             self.completed_workflows[workflow_id] = workflow

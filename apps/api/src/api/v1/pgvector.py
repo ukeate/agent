@@ -9,6 +9,7 @@ from fastapi import APIRouter, HTTPException, Depends, Query, Body
 from pydantic import BaseModel, Field
 import uuid
 from datetime import datetime
+from src.core.utils.timezone_utils import utc_now, utc_factory
 
 from ...ai.rag.vector_store import get_vector_store, PgVectorStore
 from ...ai.rag.quantization import get_quantization_manager
@@ -159,7 +160,7 @@ async def similarity_search(
 ):
     """向量相似性搜索"""
     query_id = str(uuid.uuid4())
-    start_time = datetime.now()
+    start_time = utc_now()
     
     try:
         results = await vector_store.similarity_search(
@@ -171,7 +172,7 @@ async def similarity_search(
             include_distances=request.include_distances
         )
         
-        execution_time = (datetime.now() - start_time).total_seconds() * 1000
+        execution_time = (utc_now() - start_time).total_seconds() * 1000
         
         return {
             "status": "success",
@@ -193,7 +194,7 @@ async def hybrid_search(
 ):
     """混合向量搜索（向量+文本）"""
     query_id = str(uuid.uuid4())
-    start_time = datetime.now()
+    start_time = utc_now()
     
     try:
         results = await vector_store.hybrid_search(
@@ -206,7 +207,7 @@ async def hybrid_search(
             filters=request.filters
         )
         
-        execution_time = (datetime.now() - start_time).total_seconds() * 1000
+        execution_time = (utc_now() - start_time).total_seconds() * 1000
         
         return {
             "status": "success", 
@@ -336,7 +337,7 @@ async def get_performance_metrics(time_range: str = Query("1h", description="时
         }
         
         num_points = data_points.get(time_range, 12)
-        now = datetime.now()
+        now = utc_now()
         
         metrics = []
         for i in range(num_points):
@@ -442,7 +443,7 @@ async def health_check(
             return {
                 "status": "healthy",
                 "pgvector_version": version or "not_installed",
-                "timestamp": datetime.now().isoformat()
+                "timestamp": utc_now().isoformat()
             }
             
     except Exception as e:

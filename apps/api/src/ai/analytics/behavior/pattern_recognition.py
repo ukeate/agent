@@ -7,7 +7,9 @@
 import asyncio
 import numpy as np
 from typing import List, Dict, Any, Optional, Tuple, Set
-from datetime import datetime, timedelta
+from datetime import datetime
+from datetime import timedelta
+from src.core.utils.timezone_utils import utc_now, utc_factory
 from collections import defaultdict, Counter
 from dataclasses import dataclass
 import json
@@ -488,7 +490,7 @@ class PatternRecognitionEngine:
                 )
             
             # 更新缓存
-            self.last_update = datetime.utcnow()
+            self.last_update = utc_now()
             self.pattern_cache = results
             
             return results
@@ -504,7 +506,7 @@ class PatternRecognitionEngine:
     ) -> Tuple[List[UserSession], List[List[Dict[str, Any]]], Dict[str, Dict[str, Any]]]:
         """准备分析数据"""
         # 时间范围
-        end_time = datetime.utcnow()
+        end_time = utc_now()
         start_time = end_time - timedelta(days=time_range_days)
         
         # 获取事件数据

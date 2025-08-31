@@ -6,7 +6,9 @@
 
 from typing import Dict, List, Any, Optional, Tuple, Union
 import numpy as np
-from datetime import datetime, timedelta
+from datetime import datetime
+from datetime import timedelta
+from src.core.utils.timezone_utils import utc_now, utc_factory
 from dataclasses import dataclass
 import json
 
@@ -380,11 +382,11 @@ class ContextFeatureProcessor:
                     except ValueError:
                         continue
                 else:
-                    dt = datetime.now()
+                    dt = utc_now()
             except:
-                dt = datetime.now()
+                dt = utc_now()
         else:
-            dt = datetime.now()
+            dt = utc_now()
         
         # 提取时间特征
         year_normalized = (dt.year - 2000) / 50.0  # 假设年份范围在2000-2050

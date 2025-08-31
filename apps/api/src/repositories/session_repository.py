@@ -6,7 +6,9 @@
 from typing import List, Optional, Dict, Any
 from sqlalchemy import select, and_, or_, desc, func
 from sqlalchemy.ext.asyncio import AsyncSession
-from datetime import datetime, timedelta
+from datetime import datetime
+from datetime import timedelta
+from src.core.utils.timezone_utils import utc_now, utc_factory
 import logging
 
 from .base import BaseRepository
@@ -84,8 +86,8 @@ class SessionRepository(BaseRepository[Session, str]):
             new_count = session_obj.message_count + increment
             await self.update(session_id, {
                 'message_count': new_count,
-                'last_activity_at': datetime.utcnow(),
-                'updated_at': datetime.utcnow()
+                'last_activity_at': utc_now(),
+                'updated_at': utc_now()
             })
             
             logger.debug(f"更新会话 {session_id} 消息计数: +{increment}")
@@ -111,8 +113,8 @@ class SessionRepository(BaseRepository[Session, str]):
             
             await self.update(session_id, {
                 'context': current_context,
-                'last_activity_at': datetime.utcnow(),
-                'updated_at': datetime.utcnow()
+                'last_activity_at': utc_now(),
+                'updated_at': utc_now()
             })
             
             logger.debug(f"更新会话 {session_id} 上下文: {list(context_updates.keys())}")
@@ -126,7 +128,7 @@ class SessionRepository(BaseRepository[Session, str]):
         try:
             updated_session = await self.update(session_id, {
                 'status': status,
-                'updated_at': datetime.utcnow()
+                'updated_at': utc_now()
             })
             
             success = updated_session is not None
@@ -143,7 +145,7 @@ class SessionRepository(BaseRepository[Session, str]):
     async def get_expired_sessions(self, expiry_hours: int = 24) -> List[Session]:
         """获取过期会话"""
         try:
-            expiry_time = datetime.utcnow() - timedelta(hours=expiry_hours)
+            expiry_time = utc_now() - timedelta(hours=expiry_hours)
             
             result = await self.session.execute(
                 select(self.model_class)

@@ -4,7 +4,9 @@
 import json
 import hashlib
 import asyncio
-from datetime import datetime, timezone, timedelta
+from datetime import datetime
+from datetime import timedelta
+from src.core.utils.timezone_utils import utc_now, utc_factory
 from typing import Dict, List, Optional, Any, Tuple, Set
 from dataclasses import dataclass, field
 from enum import Enum
@@ -75,7 +77,7 @@ class QualityProfile:
     common_issues: Dict[QualityIssue, int] = field(default_factory=dict)
     field_completeness: Dict[str, float] = field(default_factory=dict)
     value_distributions: Dict[str, Dict[str, int]] = field(default_factory=dict)
-    last_updated: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    last_updated: datetime = field(default_factory=lambda: utc_now())
 
 
 class AdvancedDeduplicationEngine:
@@ -495,7 +497,7 @@ class DataQualityChecker:
                 suggestions=["建议提供事件时间戳以便进行时效性分析"]
             )
         
-        now = datetime.now(timezone.utc)
+        now = utc_now()
         time_diff = now - event.event_timestamp
         
         # 检查是否为未来时间
@@ -730,7 +732,7 @@ class DataQualityService:
             for issue in result.issues:
                 profile.common_issues[issue] = profile.common_issues.get(issue, 0) + 1
         
-        profile.last_updated = datetime.now(timezone.utc)
+        profile.last_updated = utc_now()
     
     def get_quality_profile(self, event_type: EventType, event_name: str) -> Optional[QualityProfile]:
         """获取质量档案"""

@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Card } from '../components/ui/Card';
-import { Button } from '../components/ui/Button';
-import { Alert } from '../components/ui/Alert';
+import { Card } from '../components/ui/card';
+import { Button } from '../components/ui/button';
+import { Alert } from '../components/ui/alert';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '../components/ui/Tabs';
-import { Progress } from '../components/ui/Progress';
-import { Badge } from '../components/ui/Badge';
+import { Progress } from '../components/ui/progress';
+import { Badge } from '../components/ui/badge';
 import { BehaviorOverview } from '../components/analytics/BehaviorOverview';
 import { PatternAnalysis } from '../components/analytics/PatternAnalysis';
 import { AnomalyDetection } from '../components/analytics/AnomalyDetection';

@@ -15,6 +15,7 @@ import logging
 import time
 import uuid
 from datetime import datetime
+from src.core.utils.timezone_utils import utc_now, utc_factory
 from typing import List, Dict, Any, Optional, AsyncGenerator
 
 from src.models.schemas.agentic_rag import (
@@ -156,7 +157,7 @@ class AgenticRagService:
                 "explanation": self._convert_explanation(explanation),
                 "fallback_result": self._convert_fallback_result(fallback_result),
                 "processing_time": processing_time,
-                "timestamp": datetime.now(),
+                "timestamp": utc_now(),
                 "session_id": session_id,
             }
             
@@ -178,7 +179,7 @@ class AgenticRagService:
                 "query_id": query_id,
                 "error": str(e),
                 "processing_time": processing_time,
-                "timestamp": datetime.now(),
+                "timestamp": utc_now(),
             }
 
     async def intelligent_query_stream(
@@ -204,7 +205,7 @@ class AgenticRagService:
                 "data": {"query_id": query_id, "query": query},
                 "progress": 0.0,
                 "message": "开始查询分析",
-                "timestamp": datetime.now(),
+                "timestamp": utc_now(),
             }
             
             # 1. 查询分析
@@ -214,7 +215,7 @@ class AgenticRagService:
                 "data": {"query_analysis": self._convert_query_analysis(query_analysis)},
                 "progress": 0.15,
                 "message": "查询分析完成",
-                "timestamp": datetime.now(),
+                "timestamp": utc_now(),
             }
             
             # 2. 查询扩展
@@ -223,7 +224,7 @@ class AgenticRagService:
                 "data": {},
                 "progress": 0.2,
                 "message": "开始查询扩展",
-                "timestamp": datetime.now(),
+                "timestamp": utc_now(),
             }
             
             expanded_queries = await self._expand_query(
@@ -234,7 +235,7 @@ class AgenticRagService:
                 "data": {"expanded_queries": self._convert_expanded_queries(expanded_queries)},
                 "progress": 0.35,
                 "message": "查询扩展完成",
-                "timestamp": datetime.now(),
+                "timestamp": utc_now(),
             }
             
             # 3. 多代理检索
@@ -243,7 +244,7 @@ class AgenticRagService:
                 "data": {},
                 "progress": 0.4,
                 "message": "开始多代理检索",
-                "timestamp": datetime.now(),
+                "timestamp": utc_now(),
             }
             
             retrieval_results = await self._multi_agent_retrieve(
@@ -258,7 +259,7 @@ class AgenticRagService:
                 },
                 "progress": 0.65,
                 "message": "多代理检索完成",
-                "timestamp": datetime.now(),
+                "timestamp": utc_now(),
             }
             
             # 4. 结果验证
@@ -267,7 +268,7 @@ class AgenticRagService:
                 "data": {},
                 "progress": 0.7,
                 "message": "开始结果验证",
-                "timestamp": datetime.now(),
+                "timestamp": utc_now(),
             }
             
             validation_result = await self._validate_results(query_analysis, retrieval_results)
@@ -276,7 +277,7 @@ class AgenticRagService:
                 "data": {"overall_quality": validation_result.overall_quality},
                 "progress": 0.8,
                 "message": "结果验证完成",
-                "timestamp": datetime.now(),
+                "timestamp": utc_now(),
             }
             
             # 5. 上下文组合
@@ -285,7 +286,7 @@ class AgenticRagService:
                 "data": {},
                 "progress": 0.85,
                 "message": "开始上下文组合",
-                "timestamp": datetime.now(),
+                "timestamp": utc_now(),
             }
             
             composed_context = await self._compose_context(
@@ -296,7 +297,7 @@ class AgenticRagService:
                 "data": {"fragment_count": len(getattr(composed_context, 'selected_fragments', []))},
                 "progress": 0.9,
                 "message": "上下文组合完成",
-                "timestamp": datetime.now(),
+                "timestamp": utc_now(),
             }
             
             # 6. 检索解释
@@ -310,7 +311,7 @@ class AgenticRagService:
                     "data": {},
                     "progress": 0.95,
                     "message": "检索解释生成完成",
-                    "timestamp": datetime.now(),
+                    "timestamp": utc_now(),
                 }
             
             # 7. 完成
@@ -331,7 +332,7 @@ class AgenticRagService:
                 },
                 "progress": 1.0,
                 "message": "智能检索完成",
-                "timestamp": datetime.now(),
+                "timestamp": utc_now(),
             }
             
         except Exception as e:
@@ -341,7 +342,7 @@ class AgenticRagService:
                 "data": {"error": str(e)},
                 "progress": None,
                 "message": f"检索失败: {str(e)}",
-                "timestamp": datetime.now(),
+                "timestamp": utc_now(),
             }
 
     # ==================== 核心业务逻辑方法 ====================
@@ -645,10 +646,10 @@ class AgenticRagService:
                 for action in fallback_result.actions_taken
             ],
             "user_guidance": {
-                "message": fallback_result.user_guidance.message,
-                "suggestions": fallback_result.user_guidance.suggestions,
-                "examples": fallback_result.user_guidance.examples,
-                "severity_level": fallback_result.user_guidance.severity_level,
+                "message": fallback_result.user_guidance.message if fallback_result.user_guidance else "",
+                "suggestions": fallback_result.user_guidance.suggestions if fallback_result.user_guidance else [],
+                "examples": fallback_result.user_guidance.examples if fallback_result.user_guidance else [],
+                "severity_level": fallback_result.user_guidance.severity_level if fallback_result.user_guidance else "info",
             },
             "success": fallback_result.success,
             "improvement_metrics": fallback_result.improvement_metrics,
@@ -704,19 +705,19 @@ class AgenticRagService:
         """更新会话状态"""
         if session_id not in self.active_sessions:
             self.active_sessions[session_id] = {
-                "created_at": datetime.now(),
+                "created_at": utc_now(),
                 "query_history": [],
-                "last_active": datetime.now(),
+                "last_active": utc_now(),
             }
         
         session = self.active_sessions[session_id]
         session["query_history"].append({
             "query_id": query_id,
             "query": query,
-            "timestamp": datetime.now(),
+            "timestamp": utc_now(),
             "results_count": sum(len(result.results) for result in results),
         })
-        session["last_active"] = datetime.now()
+        session["last_active"] = utc_now()
         
         # 限制历史记录数量
         if len(session["query_history"]) > 50:
@@ -832,7 +833,7 @@ class AgenticRagService:
                         "avg_response_time": avg_response_time,
                         "avg_quality_score": avg_quality_score,
                     },
-                    "updated_at": datetime.now(),
+                    "updated_at": utc_now(),
                 }
             }
             

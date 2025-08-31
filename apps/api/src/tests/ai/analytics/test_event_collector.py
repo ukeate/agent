@@ -5,6 +5,7 @@
 import pytest
 import asyncio
 from datetime import datetime
+from src.core.utils.timezone_utils import utc_now, utc_factory
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from src.ai.analytics.models import BehaviorEvent
@@ -22,7 +23,7 @@ class TestEventCollector:
             user_id="user-123",
             session_id="session-456",
             event_type="page_view",
-            timestamp=datetime.utcnow(),
+            timestamp=utc_now(),
             properties={"page": "/dashboard", "referrer": "/login"},
             context={"user_agent": "Mozilla/5.0", "ip": "127.0.0.1"}
         )
@@ -52,7 +53,7 @@ class TestEventCollector:
                 event_id=f"test-event-{i}",
                 user_id=f"user-{i}",
                 event_type="click",
-                timestamp=datetime.utcnow()
+                timestamp=utc_now()
             ) for i in range(5)
         ]
         
@@ -79,7 +80,7 @@ class TestEventCollector:
                     event_id=f"test-event-{i}",
                     user_id="user-123",
                     event_type="click",
-                    timestamp=datetime.utcnow()
+                    timestamp=utc_now()
                 )
                 await self.collector.collect_event(event)
             
@@ -112,7 +113,7 @@ class TestEventCollector:
             event_id="",  # 空ID
             user_id="user-123",
             event_type="",  # 空类型
-            timestamp=datetime.utcnow()
+            timestamp=utc_now()
         )
         
         await self.collector.start()
@@ -136,7 +137,7 @@ class TestEventCollector:
                 event_id=f"test-event-{i}",
                 user_id="user-123",
                 event_type="page_view",
-                timestamp=datetime.utcnow(),
+                timestamp=utc_now(),
                 properties={"large_data": "x" * 1000}  # 大数据
             ) for i in range(10)
         ]
@@ -194,7 +195,7 @@ class TestEventCollector:
                 event_id=f"concurrent-event-{i}",
                 user_id="user-123",
                 event_type="click",
-                timestamp=datetime.utcnow()
+                timestamp=utc_now()
             )
             task = asyncio.create_task(self.collector.collect_event(event))
             tasks.append(task)
@@ -215,7 +216,7 @@ class TestEventCollector:
             event_id="valid-event",
             user_id="user-123",
             event_type="click",
-            timestamp=datetime.utcnow()
+            timestamp=utc_now()
         )
         
         await self.collector.collect_event(valid_event)
@@ -236,7 +237,7 @@ class TestEventCollector:
                 event_id=f"memory-test-{i}",
                 user_id="user-123",
                 event_type="click",
-                timestamp=datetime.utcnow()
+                timestamp=utc_now()
             )
             await self.collector.collect_event(event)
         

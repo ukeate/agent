@@ -4,7 +4,8 @@
 """
 from typing import Any, Dict, List, Optional, Callable, Union
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import datetime
+from src.core.utils.timezone_utils import utc_now, utc_factory, timezone
 from enum import Enum
 import asyncio
 from abc import ABC, abstractmethod
@@ -38,10 +39,10 @@ class EventType(Enum):
 @dataclass
 class WorkflowEvent:
     """工作流事件"""
-    id: str = field(default_factory=lambda: str(datetime.now(timezone.utc).timestamp()))
+    id: str = field(default_factory=lambda: str(utc_now().timestamp()))
     event_type: EventType = EventType.CUSTOM_EVENT
     workflow_id: str = ""
-    timestamp: datetime = field(default_factory=datetime.now)
+    timestamp: datetime = field(default_factory=utc_factory)
     node_name: Optional[str] = None
     data: Dict[str, Any] = field(default_factory=dict)
     metadata: Dict[str, Any] = field(default_factory=dict)

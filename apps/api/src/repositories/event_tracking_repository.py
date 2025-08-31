@@ -3,7 +3,9 @@
 """
 import hashlib
 import json
-from datetime import datetime, timezone, timedelta
+from datetime import datetime
+from datetime import timedelta
+from src.core.utils.timezone_utils import utc_now, utc_factory
 from typing import List, Dict, Any, Optional, Tuple
 from sqlalchemy.orm import Session
 from sqlalchemy import and_, or_, func, desc, asc, text, select
@@ -33,7 +35,7 @@ class EventStreamRepository:
         """创建单个事件"""
         try:
             # 生成分区键
-            partition_key = event_request.event_timestamp.strftime('%Y-%m') if event_request.event_timestamp else datetime.now(timezone.utc).strftime('%Y-%m')
+            partition_key = event_request.event_timestamp.strftime('%Y-%m') if event_request.event_timestamp else utc_now().strftime('%Y-%m')
             
             # 创建事件对象
             event = EventStream(
@@ -168,7 +170,7 @@ class EventStreamRepository:
         try:
             update_data = {
                 'status': status.value,
-                'processed_at': datetime.now(timezone.utc) if status == EventStatus.PROCESSED else None
+                'processed_at': utc_now() if status == EventStatus.PROCESSED else None
             }
             
             if processing_metadata:
@@ -254,7 +256,7 @@ class EventStreamRepository:
         """创建单个事件（异步版本）"""
         try:
             # 生成分区键
-            partition_key = event.event_timestamp.strftime('%Y-%m') if event.event_timestamp else datetime.now(timezone.utc).strftime('%Y-%m')
+            partition_key = event.event_timestamp.strftime('%Y-%m') if event.event_timestamp else utc_now().strftime('%Y-%m')
             
             # 创建事件对象
             db_event = self.model(
@@ -556,7 +558,7 @@ class EventDeduplicationRepository:
             if existing:
                 # 更新重复计数
                 existing.duplicate_count += 1
-                existing.last_duplicate_at = datetime.now(timezone.utc)
+                existing.last_duplicate_at = utc_now()
                 self.db.commit()
                 
                 return EventDeduplicationInfo(
@@ -569,7 +571,7 @@ class EventDeduplicationRepository:
                 )
             else:
                 # 创建新的去重记录
-                expires_at = datetime.now(timezone.utc) + timedelta(hours=ttl_hours)
+                expires_at = utc_now() + timedelta(hours=ttl_hours)
                 
                 dedup_record = self.model(
                     event_fingerprint=fingerprint,
@@ -588,7 +590,7 @@ class EventDeduplicationRepository:
                     is_duplicate=False,
                     original_event_id=event_request.event_id,
                     duplicate_count=0,
-                    first_seen_at=datetime.now(timezone.utc)
+                    first_seen_at=utc_now()
                 )
                 
         except Exception as e:
@@ -611,7 +613,7 @@ class EventDeduplicationRepository:
                                      event_timestamp: datetime, ttl_hours: int = 24) -> EventDeduplication:
         """记录事件指纹（异步版本）"""
         try:
-            expires_at = datetime.now(timezone.utc) + timedelta(hours=ttl_hours)
+            expires_at = utc_now() + timedelta(hours=ttl_hours)
             
             dedup_record = self.model(
                 event_fingerprint=fingerprint,
@@ -646,7 +648,7 @@ class EventDeduplicationRepository:
                 self.model.event_fingerprint == fingerprint
             ).update({
                 'duplicate_count': self.model.duplicate_count + 1,
-                'last_duplicate_at': datetime.now(timezone.utc)
+                'last_duplicate_at': utc_now()
             })
             
             self.db.commit()
@@ -660,7 +662,7 @@ class EventDeduplicationRepository:
     def cleanup_expired_records(self) -> int:
         """清理过期的去重记录"""
         try:
-            current_time = datetime.now(timezone.utc)
+            current_time = utc_now()
             result = self.db.query(self.model).filter(
                 self.model.expires_at <= current_time
             ).delete()
@@ -760,7 +762,7 @@ class EventSchemaRepository:
             schema = self.db.query(self.model).filter(self.model.id == schema_id).first()
             if schema:
                 schema.events_validated += 1
-                schema.last_validation_at = datetime.now(timezone.utc)
+                schema.last_validation_at = utc_now()
                 
                 # 计算成功率（简单移动平均）
                 if schema.validation_success_rate is None:
@@ -865,7 +867,7 @@ class EventErrorRepository:
             result = self.db.query(self.model).filter(
                 self.model.id == error_id
             ).update({
-                'resolved_at': datetime.now(timezone.utc),
+                'resolved_at': utc_now(),
                 'resolution_method': resolution_method
             })
             

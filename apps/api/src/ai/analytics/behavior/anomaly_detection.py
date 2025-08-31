@@ -7,7 +7,9 @@
 import asyncio
 import numpy as np
 from typing import List, Dict, Any, Optional, Tuple, Union
-from datetime import datetime, timedelta
+from datetime import datetime
+from datetime import timedelta
+from src.core.utils.timezone_utils import utc_now, utc_factory
 from collections import defaultdict, deque
 from dataclasses import dataclass
 from enum import Enum
@@ -512,7 +514,7 @@ class RealTimeAnomalyScorer:
         self.ml_detector = MLAnomalyDetector()
         
         # 上次模型更新时间
-        self.last_model_update = datetime.utcnow()
+        self.last_model_update = utc_now()
         self.model_update_interval = timedelta(hours=1)
     
     async def score_event(self, event: BehaviorEvent) -> AnomalyScore:
@@ -536,9 +538,9 @@ class RealTimeAnomalyScorer:
             
             # 如果有足够的数据且需要更新模型
             if (len(self.event_window) >= 100 and 
-                datetime.utcnow() - self.last_model_update > self.model_update_interval):
+                utc_now() - self.last_model_update > self.model_update_interval):
                 await self._update_ml_models()
-                self.last_model_update = datetime.utcnow()
+                self.last_model_update = utc_now()
             
             # 机器学习检测(如果模型已拟合)
             if self.ml_detector.is_fitted:
@@ -868,7 +870,7 @@ class AnomalyDetectionEngine:
         """获取用于检测的事件数据"""
         from ..models import EventQueryFilter
         
-        end_time = datetime.utcnow()
+        end_time = utc_now()
         start_time = end_time - timedelta(days=time_range_days)
         
         all_events = []

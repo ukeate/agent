@@ -3,7 +3,9 @@
 
 实现灵活的告警规则配置和触发机制
 """
-from datetime import datetime, timedelta
+from datetime import datetime
+from datetime import timedelta
+from src.core.utils.timezone_utils import utc_now, utc_factory
 from typing import Dict, List, Any, Optional, Callable
 from enum import Enum
 import asyncio
@@ -12,7 +14,7 @@ import json
 import re
 from collections import defaultdict
 
-from ..core.database import async_session_manager
+from ..core.database import get_db_session
 from ..services.anomaly_detection_service import AnomalyDetectionService, Anomaly, AnomalyType
 from ..services.realtime_metrics_service import RealtimeMetricsService
 
@@ -229,7 +231,7 @@ class AlertRulesEngine:
         for key, value in updates.items():
             if hasattr(rule, key):
                 setattr(rule, key, value)
-        rule.updated_at = datetime.utcnow()
+        rule.updated_at = utc_now()
         
         return True
         
@@ -274,7 +276,7 @@ class AlertRulesEngine:
         
     async def _create_alert(self, rule: AlertRule, data: Dict[str, Any]) -> Alert:
         """创建告警"""
-        alert_id = f"alert_{rule.id}_{datetime.utcnow().timestamp()}"
+        alert_id = f"alert_{rule.id}_{utc_now().timestamp()}"
         
         alert = Alert(
             id=alert_id,
@@ -284,7 +286,7 @@ class AlertRulesEngine:
             title=self._generate_alert_title(rule, data),
             description=self._generate_alert_description(rule, data),
             data=data,
-            triggered_at=datetime.utcnow()
+            triggered_at=utc_now()
         )
         
         self.alerts[alert_id] = alert
@@ -357,15 +359,15 @@ class AlertRulesEngine:
             return False
             
         last_alert = self.cooldown_tracker[rule_id]
-        return datetime.utcnow() < last_alert
+        return utc_now() < last_alert
         
     def _update_cooldown(self, rule_id: str, cooldown_minutes: int):
         """更新冷却时间"""
-        self.cooldown_tracker[rule_id] = datetime.utcnow() + timedelta(minutes=cooldown_minutes)
+        self.cooldown_tracker[rule_id] = utc_now() + timedelta(minutes=cooldown_minutes)
         
     def _check_rate_limit(self, rule_id: str, max_per_hour: int) -> bool:
         """检查速率限制"""
-        now = datetime.utcnow()
+        now = utc_now()
         hour_ago = now - timedelta(hours=1)
         
         # 清理过期记录
@@ -378,7 +380,7 @@ class AlertRulesEngine:
         
     def _update_rate_limit(self, rule_id: str):
         """更新速率限制"""
-        self.rate_limiter[rule_id].append(datetime.utcnow())
+        self.rate_limiter[rule_id].append(utc_now())
         
     async def acknowledge_alert(self, alert_id: str, user_id: str) -> bool:
         """确认告警"""
@@ -386,7 +388,7 @@ class AlertRulesEngine:
             return False
             
         alert = self.alerts[alert_id]
-        alert.acknowledged_at = datetime.utcnow()
+        alert.acknowledged_at = utc_now()
         alert.acknowledged_by = user_id
         
         return True
@@ -397,7 +399,7 @@ class AlertRulesEngine:
             return False
             
         alert = self.alerts[alert_id]
-        alert.resolved_at = datetime.utcnow()
+        alert.resolved_at = utc_now()
         
         return True
         
@@ -433,9 +435,9 @@ class AlertRulesEngine:
     ) -> Dict[str, Any]:
         """获取告警统计"""
         if not start_time:
-            start_time = datetime.utcnow() - timedelta(days=7)
+            start_time = utc_now() - timedelta(days=7)
         if not end_time:
-            end_time = datetime.utcnow()
+            end_time = utc_now()
             
         # 过滤时间范围内的告警
         filtered_alerts = [

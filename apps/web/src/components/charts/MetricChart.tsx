@@ -22,7 +22,7 @@ import {
   ReferenceArea,
   Brush,
   ErrorBar,
-  Cell
+  // Cell  // 暂时注释未使用的导入
 } from 'recharts';
 import { Box, Paper, Typography, Chip, Stack } from '@mui/material';
 import { format } from 'date-fns';
@@ -133,7 +133,7 @@ const MetricChart: React.FC<MetricChartProps> = ({
     yAxisLabel,
     yAxisDomain,
     dateFormat = 'MM-dd',
-    numberFormat = '.2f',
+    // numberFormat = '.2f', // 暂时注释未使用的变量
     height = 300
   } = config;
 
@@ -144,8 +144,8 @@ const MetricChart: React.FC<MetricChartProps> = ({
     // 合并所有系列的数据点
     const dataMap = new Map<string | number, any>();
     
-    series.forEach((s, index) => {
-      const color = s.color || DEFAULT_COLORS[index % DEFAULT_COLORS.length];
+    series.forEach((s, _index) => {
+      // const color = s.color || DEFAULT_COLORS[index % DEFAULT_COLORS.length]; // 暂时注释未使用的变量
       
       s.data.forEach(point => {
         const key = point.x;
@@ -266,7 +266,7 @@ const MetricChart: React.FC<MetricChartProps> = ({
                 strokeWidth={2}
                 strokeDasharray={s.strokeDasharray}
                 dot={chartData.length < 20}
-                activeDot={onDataPointClick ? { r: 8, onClick: onDataPointClick } : undefined}
+                activeDot={onDataPointClick ? { r: 8, onClick: onDataPointClick as any } : undefined}
               >
                 {confidenceInterval && (
                   <ErrorBar
@@ -531,7 +531,7 @@ const MetricChart: React.FC<MetricChartProps> = ({
         </Box>
       )}
       <ResponsiveContainer width="100%" height={height}>
-        {renderChart()}
+        {renderChart() as React.ReactElement}
       </ResponsiveContainer>
     </Box>
   );

@@ -5,6 +5,7 @@ from typing import Dict, Any, List, Optional
 from pathlib import Path
 import hashlib
 from datetime import datetime
+from src.core.utils.timezone_utils import utc_now, utc_factory
 
 
 class ParsedElement:
@@ -37,7 +38,7 @@ class ParsedDocument:
         self.file_type = file_type
         self.elements = elements
         self.metadata = metadata or {}
-        self.parsed_at = datetime.utcnow()
+        self.parsed_at = utc_now()
 
 
 class BaseParser(ABC):
@@ -82,7 +83,7 @@ class BaseParser(ABC):
             文档ID
         """
         # 基于文件路径和时间戳生成唯一ID
-        content = f"{file_path.absolute()}:{datetime.utcnow().isoformat()}"
+        content = f"{file_path.absolute()}:{utc_now().isoformat()}"
         hash_obj = hashlib.sha256(content.encode())
         return f"doc_{hash_obj.hexdigest()[:16]}"
     

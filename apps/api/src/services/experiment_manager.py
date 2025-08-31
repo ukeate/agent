@@ -2,7 +2,9 @@
 A/B测试实验管理服务 - 实验状态机和生命周期管理
 """
 from typing import Optional, Dict, Any, List
-from datetime import datetime, timedelta
+from datetime import datetime
+from datetime import timedelta
+from src.core.utils.timezone_utils import utc_now, utc_factory
 from enum import Enum
 from dataclasses import dataclass
 
@@ -413,7 +415,7 @@ class ExperimentManager:
             await self._check_layer_conflicts(experiment.experiment_id, experiment.layers)
         elif validation == "validate_start_time":
             # 验证开始时间
-            if experiment.start_date > datetime.utcnow() + timedelta(days=1):
+            if experiment.start_date > utc_now() + timedelta(days=1):
                 raise ValueError("Start date is too far in the future")
         elif validation == "validate_minimum_sample_size":
             # 验证最小样本量

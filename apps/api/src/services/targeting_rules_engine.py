@@ -5,7 +5,9 @@ import re
 import json
 from typing import Dict, List, Any, Optional, Set, Union, Callable
 from enum import Enum
-from datetime import datetime, timezone, timedelta
+from datetime import datetime
+from datetime import timedelta
+from src.core.utils.timezone_utils import utc_now, utc_factory
 from dataclasses import dataclass, field
 import operator
 from functools import reduce
@@ -115,8 +117,8 @@ class TargetingRule:
     is_active: bool = True
     experiment_ids: List[str] = field(default_factory=list)  # 适用的实验ID
     variant_ids: List[str] = field(default_factory=list)     # 强制分配的变体ID
-    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
-    updated_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = field(default_factory=lambda: utc_now())
+    updated_at: datetime = field(default_factory=lambda: utc_now())
     metadata: Dict[str, Any] = field(default_factory=dict)
     
     def to_dict(self) -> Dict[str, Any]:
@@ -169,7 +171,7 @@ class EvaluationResult:
     evaluation_reason: str
     forced_variant_id: Optional[str] = None
     experiment_ids: List[str] = field(default_factory=list)
-    evaluation_time: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    evaluation_time: datetime = field(default_factory=lambda: utc_now())
     metadata: Dict[str, Any] = field(default_factory=dict)
 
 
@@ -280,7 +282,7 @@ class TargetingRulesEngine:
                 logger.error(f"Invalid rule update {rule.rule_id}: {validation_result['errors']}")
                 return False
             
-            rule.updated_at = datetime.now(timezone.utc)
+            rule.updated_at = utc_now()
             self._rules[rule.rule_id] = rule
             logger.info(f"Updated targeting rule {rule.rule_id}")
             

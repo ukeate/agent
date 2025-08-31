@@ -3,7 +3,9 @@
 """
 import asyncio
 import pytest
-from datetime import datetime, timezone, timedelta
+from datetime import datetime
+from datetime import timedelta
+from src.core.utils.timezone_utils import utc_now, utc_factory
 from unittest.mock import Mock, AsyncMock, patch
 import uuid
 
@@ -453,7 +455,7 @@ class TestEventStore:
                 "source": "test",
                 "target": None,
                 "data": '{"message": "test"}',
-                "timestamp": datetime.now(timezone.utc),
+                "timestamp": utc_now(),
                 "correlation_id": None,
                 "conversation_id": None,
                 "session_id": None,
@@ -475,8 +477,8 @@ class TestEventStore:
         
         # 重播事件
         events = await store.replay_events(
-            start_time=datetime.now(timezone.utc) - timedelta(hours=1),
-            end_time=datetime.now(timezone.utc)
+            start_time=utc_now() - timedelta(hours=1),
+            end_time=utc_now()
         )
         
         assert len(events) == 1

@@ -10,7 +10,8 @@ from enum import Enum
 from dataclasses import dataclass
 import asyncio
 import logging
-from datetime import datetime, timezone
+from datetime import datetime
+from src.core.utils.timezone_utils import utc_now, utc_factory, timezone
 import json
 import re
 from sqlalchemy import text, select, func

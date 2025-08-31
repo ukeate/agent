@@ -6,6 +6,7 @@ import json
 import sys
 import traceback
 from datetime import datetime
+from src.core.utils.timezone_utils import utc_now, utc_factory
 from typing import Any, Dict, Optional
 from pathlib import Path
 from logging.handlers import RotatingFileHandler, TimedRotatingFileHandler
@@ -86,7 +87,7 @@ class StructuredLogger:
         """添加上下文信息"""
         context = request_context.get()
         extra_with_context = {
-            'timestamp': datetime.utcnow().isoformat(),
+            'timestamp': utc_now().isoformat(),
             **context,
             **extra
         }

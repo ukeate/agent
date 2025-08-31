@@ -6,7 +6,9 @@
 
 from typing import List, Dict, Any, Optional
 from fastapi import APIRouter, HTTPException, BackgroundTasks, Depends, Query
-from datetime import datetime, timedelta
+from datetime import datetime
+from datetime import timedelta
+from src.core.utils.timezone_utils import utc_now, utc_factory
 import asyncio
 import uuid
 
@@ -142,7 +144,7 @@ async def submit_feedback(
             "status": "success",
             "message": "反馈已提交并将异步处理",
             "feedback_id": str(uuid.uuid4()),
-            "timestamp": datetime.now().isoformat()
+            "timestamp": utc_now().isoformat()
         }
         
     except Exception as e:
@@ -159,7 +161,7 @@ async def get_engine_statistics(
         return {
             "status": "success",
             "statistics": stats,
-            "timestamp": datetime.now().isoformat()
+            "timestamp": utc_now().isoformat()
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"获取统计信息失败: {str(e)}")
@@ -179,7 +181,7 @@ async def update_user_context(
         return {
             "status": "success",
             "message": f"用户 {user_id} 的上下文已更新",
-            "timestamp": datetime.now().isoformat()
+            "timestamp": utc_now().isoformat()
         }
     except HTTPException:
         raise
@@ -201,7 +203,7 @@ async def update_item_features(
         return {
             "status": "success",
             "message": f"物品 {item_id} 的特征已更新",
-            "timestamp": datetime.now().isoformat()
+            "timestamp": utc_now().isoformat()
         }
     except HTTPException:
         raise
@@ -226,7 +228,7 @@ async def create_experiment(
             if algo_config.algorithm_type.value in service.engine.algorithms:
                 bandits[variant_name] = service.engine.algorithms[algo_config.algorithm_type.value]
         
-        start_time = datetime.now()
+        start_time = utc_now()
         end_time = start_time + timedelta(hours=experiment.duration_hours)
         
         experiment_id = service.engine.ab_test_manager.create_experiment(
@@ -266,7 +268,7 @@ async def list_experiments(
             "status": "success",
             "experiments": experiments,
             "count": len(experiments),
-            "timestamp": datetime.now().isoformat()
+            "timestamp": utc_now().isoformat()
         }
         
     except Exception as e:
@@ -315,7 +317,7 @@ async def end_experiment(
         return {
             "status": "success",
             "message": f"实验 {experiment_id} 已结束",
-            "timestamp": datetime.now().isoformat()
+            "timestamp": utc_now().isoformat()
         }
         
     except HTTPException:

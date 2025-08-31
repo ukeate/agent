@@ -5,7 +5,9 @@
 """
 
 import json
-from datetime import datetime, timedelta
+from datetime import datetime
+from datetime import timedelta
+from src.core.utils.timezone_utils import utc_now, utc_factory
 from typing import Dict, Any, List, Optional, Tuple, Callable
 from dataclasses import dataclass, field
 from enum import Enum
@@ -115,7 +117,7 @@ class ConflictResolver:
         user_context: Optional[Dict[str, Any]] = None
     ) -> ResolutionResult:
         """解决冲突"""
-        start_time = datetime.utcnow()
+        start_time = utc_now()
         conflict_id = str(uuid4())
         
         try:
@@ -157,7 +159,7 @@ class ConflictResolver:
         
         finally:
             # 更新统计
-            end_time = datetime.utcnow()
+            end_time = utc_now()
             resolution_time = (end_time - start_time).total_seconds() * 1000
             self._update_resolution_stats(method, resolution_time)
     
@@ -346,7 +348,7 @@ class ConflictResolver:
             request_id=str(uuid4()),
             conflict_context=conflict_context,
             suggested_resolutions=suggested_resolutions,
-            deadline=datetime.utcnow() + timedelta(
+            deadline=utc_now() + timedelta(
                 minutes=self.resolution_config["interaction_timeout_minutes"]
             ),
             context_info={

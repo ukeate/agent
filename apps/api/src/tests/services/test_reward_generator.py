@@ -7,7 +7,9 @@
 
 import pytest
 import asyncio
-from datetime import datetime, timedelta
+from datetime import datetime
+from datetime import timedelta
+from src.core.utils.timezone_utils import utc_now, utc_factory
 from unittest.mock import Mock, patch, AsyncMock
 from decimal import Decimal
 
@@ -100,13 +102,13 @@ class TestTimeDecayCalculator:
     
     def test_calculate_decay_factor_immediate(self, calculator):
         """测试即时反馈无衰减"""
-        now = datetime.now()
+        now = utc_now()
         factor = calculator.calculate_decay_factor(now)
         assert factor == pytest.approx(1.0, abs=0.001)
     
     def test_calculate_decay_factor_half_life(self, calculator):
         """测试半衰期衰减"""
-        now = datetime.now()
+        now = utc_now()
         half_life_ago = now - timedelta(hours=24)
         
         factor = calculator.calculate_decay_factor(half_life_ago)
@@ -114,7 +116,7 @@ class TestTimeDecayCalculator:
     
     def test_calculate_decay_factor_old_feedback(self, calculator):
         """测试旧反馈大幅衰减"""
-        now = datetime.now()
+        now = utc_now()
         week_ago = now - timedelta(days=7)
         
         factor = calculator.calculate_decay_factor(week_ago)
@@ -125,7 +127,7 @@ class TestTimeDecayCalculator:
         fast_decay = TimeDecayCalculator(half_life_hours=1.0)
         slow_decay = TimeDecayCalculator(half_life_hours=168.0)  # 一周
         
-        now = datetime.now()
+        now = utc_now()
         six_hours_ago = now - timedelta(hours=6)
         
         fast_factor = fast_decay.calculate_decay_factor(six_hours_ago)
@@ -244,7 +246,7 @@ class TestRewardSignalGenerator:
                 "position": 3,
                 "user_session_count": 10
             },
-            timestamp=datetime.now(),
+            timestamp=utc_now(),
             priority=EventPriority.LOW
         )
     
@@ -261,7 +263,7 @@ class TestRewardSignalGenerator:
                 "survey_id": "survey_1",
                 "item_category": "feature"
             },
-            timestamp=datetime.now(),
+            timestamp=utc_now(),
             priority=EventPriority.HIGH
         )
     
@@ -319,7 +321,7 @@ class TestRewardSignalGenerator:
                 quality_score=0.7,
                 context_boost=1.2,
                 time_decay_factor=0.9,
-                timestamp=datetime.now()
+                timestamp=utc_now()
             ),
             ProcessedFeedback(
                 event_id="event_2",
@@ -331,7 +333,7 @@ class TestRewardSignalGenerator:
                 quality_score=0.8,
                 context_boost=1.1,
                 time_decay_factor=0.95,
-                timestamp=datetime.now()
+                timestamp=utc_now()
             )
         ]
         
@@ -360,7 +362,7 @@ class TestRewardSignalGenerator:
             quality_score=0.8,
             context_boost=1.0,
             time_decay_factor=0.1,  # 很旧的反馈
-            timestamp=datetime.now() - timedelta(days=7)
+            timestamp=utc_now() - timedelta(days=7)
         )
         
         recent_feedback = ProcessedFeedback(
@@ -373,7 +375,7 @@ class TestRewardSignalGenerator:
             quality_score=0.8,
             context_boost=1.0,
             time_decay_factor=1.0,  # 新鲜反馈
-            timestamp=datetime.now()
+            timestamp=utc_now()
         )
         
         reward = await generator.generate_reward_signal(
@@ -399,7 +401,7 @@ class TestRewardSignalGenerator:
             quality_score=0.9,  # 高质量
             context_boost=1.0,
             time_decay_factor=1.0,
-            timestamp=datetime.now()
+            timestamp=utc_now()
         )
         
         low_quality_feedback = ProcessedFeedback(
@@ -412,7 +414,7 @@ class TestRewardSignalGenerator:
             quality_score=0.3,  # 低质量
             context_boost=1.0,
             time_decay_factor=1.0,
-            timestamp=datetime.now()
+            timestamp=utc_now()
         )
         
         reward = await generator.generate_reward_signal(
@@ -436,7 +438,7 @@ class TestRewardSignalGenerator:
             quality_score=0.8,
             context_boost=1.5,  # 高上下文增强
             time_decay_factor=1.0,
-            timestamp=datetime.now()
+            timestamp=utc_now()
         )
         
         normal_feedback = ProcessedFeedback(
@@ -449,7 +451,7 @@ class TestRewardSignalGenerator:
             quality_score=0.7,
             context_boost=1.0,  # 无增强
             time_decay_factor=1.0,
-            timestamp=datetime.now()
+            timestamp=utc_now()
         )
         
         reward = await generator.generate_reward_signal(
@@ -475,7 +477,7 @@ class TestRewardSignalGenerator:
                 "user_feedback_count": 50,
                 "user_session_count": 100
             },
-            timestamp=datetime.now(),
+            timestamp=utc_now(),
             priority=EventPriority.HIGH
         )
         
@@ -494,7 +496,7 @@ class TestRewardSignalGenerator:
                 "user_feedback_count": 0,
                 "user_session_count": 1
             },
-            timestamp=datetime.now(),
+            timestamp=utc_now(),
             priority=EventPriority.LOW
         )
         
@@ -518,7 +520,7 @@ class TestRewardSignalGenerator:
                 "user_reading_speed": "normal",
                 "scroll_depth": 85
             },
-            timestamp=datetime.now(),
+            timestamp=utc_now(),
             priority=EventPriority.MEDIUM
         )
         
@@ -534,7 +536,7 @@ class TestRewardSignalGenerator:
             feedback_type=FeedbackType.DWELL_TIME,
             raw_value=1,  # 1秒停留，可能是误触
             context={},  # 缺少上下文
-            timestamp=datetime.now(),
+            timestamp=utc_now(),
             priority=EventPriority.LOW
         )
         
@@ -553,7 +555,7 @@ class TestRewardSignalGenerator:
             feedback_type=FeedbackType.RATING,
             raw_value="invalid_rating",  # 字符串而非数值
             context={},
-            timestamp=datetime.now(),
+            timestamp=utc_now(),
             priority=EventPriority.HIGH
         )
         
@@ -581,7 +583,7 @@ class TestRewardSignalGenerator:
                 feedback_type=FeedbackType.CLICK,
                 raw_value=True,
                 context={"batch_test": True},
-                timestamp=datetime.now(),
+                timestamp=utc_now(),
                 priority=EventPriority.LOW
             )
             events.append(event)
@@ -618,7 +620,7 @@ class TestIntegrationScenarios:
                 feedback_type=FeedbackType.VIEW,
                 raw_value=True,
                 context={"entry_point": "home_page"},
-                timestamp=datetime.now() - timedelta(minutes=5),
+                timestamp=utc_now() - timedelta(minutes=5),
                 priority=EventPriority.LOW
             ),
             # 用户点击内容
@@ -630,7 +632,7 @@ class TestIntegrationScenarios:
                 feedback_type=FeedbackType.CLICK,
                 raw_value=True,
                 context={"click_position": "title"},
-                timestamp=datetime.now() - timedelta(minutes=4),
+                timestamp=utc_now() - timedelta(minutes=4),
                 priority=EventPriority.LOW
             ),
             # 用户滚动阅读
@@ -642,7 +644,7 @@ class TestIntegrationScenarios:
                 feedback_type=FeedbackType.SCROLL_DEPTH,
                 raw_value=75.0,
                 context={"content_type": "article"},
-                timestamp=datetime.now() - timedelta(minutes=3),
+                timestamp=utc_now() - timedelta(minutes=3),
                 priority=EventPriority.LOW
             ),
             # 用户停留阅读
@@ -654,7 +656,7 @@ class TestIntegrationScenarios:
                 feedback_type=FeedbackType.DWELL_TIME,
                 raw_value=180,  # 3分钟
                 context={"reading_completion": 0.8},
-                timestamp=datetime.now() - timedelta(minutes=2),
+                timestamp=utc_now() - timedelta(minutes=2),
                 priority=EventPriority.MEDIUM
             ),
             # 用户给出明确评分
@@ -666,7 +668,7 @@ class TestIntegrationScenarios:
                 feedback_type=FeedbackType.RATING,
                 raw_value=4,
                 context={"rating_context": "content_quality"},
-                timestamp=datetime.now() - timedelta(minutes=1),
+                timestamp=utc_now() - timedelta(minutes=1),
                 priority=EventPriority.HIGH
             )
         ]
@@ -713,7 +715,7 @@ class TestIntegrationScenarios:
                 "user_feedback_count": 50,
                 "user_avg_rating": 4.2
             },
-            timestamp=datetime.now(),
+            timestamp=utc_now(),
             priority=EventPriority.HIGH
         )
         
@@ -730,7 +732,7 @@ class TestIntegrationScenarios:
                 "user_feedback_count": 1,
                 "user_avg_rating": 4.0
             },
-            timestamp=datetime.now(),
+            timestamp=utc_now(),
             priority=EventPriority.HIGH
         )
         

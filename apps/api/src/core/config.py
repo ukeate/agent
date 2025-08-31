@@ -62,6 +62,22 @@ class Settings(BaseSettings):
     QDRANT_HOST: str = Field(default="localhost", description="Qdrant主机")
     QDRANT_PORT: int = Field(default=6333, description="Qdrant端口")
     
+    # Neo4j图数据库配置
+    NEO4J_URI: str = Field(default="neo4j://localhost:7687", description="Neo4j连接URI")
+    NEO4J_USERNAME: str = Field(default="neo4j", description="Neo4j用户名")
+    NEO4J_PASSWORD: str = Field(default="password", description="Neo4j密码")
+    NEO4J_DATABASE: str = Field(default="neo4j", description="Neo4j数据库名称")
+    NEO4J_MAX_POOL_SIZE: int = Field(default=50, description="Neo4j连接池最大大小")
+    NEO4J_MAX_RETRY_TIME: float = Field(default=30.0, description="Neo4j事务最大重试时间")
+    NEO4J_CONNECTION_TIMEOUT: float = Field(default=30.0, description="Neo4j连接超时时间")
+    NEO4J_ENCRYPTED: bool = Field(default=False, description="Neo4j是否启用加密")
+    NEO4J_TRUST_SYSTEM_CA: bool = Field(default=True, description="Neo4j是否信任系统CA")
+    NEO4J_QUERY_TIMEOUT: int = Field(default=60, description="Neo4j查询超时时间(秒)")
+    NEO4J_BATCH_SIZE: int = Field(default=1000, description="Neo4j批量操作大小")
+    NEO4J_CACHE_TTL: int = Field(default=3600, description="Neo4j查询缓存TTL(秒)")
+    NEO4J_MONITORING_ENABLED: bool = Field(default=True, description="启用Neo4j监控")
+    NEO4J_POOL_MAX_LIFETIME: float = Field(default=3600.0, description="连接池中连接的最大生命周期(秒)")
+    
     # pgvector配置
     PGVECTOR_ENABLED: bool = Field(default=True, description="启用pgvector支持")
     PGVECTOR_VERSION: str = Field(default="0.8.0", description="pgvector版本")

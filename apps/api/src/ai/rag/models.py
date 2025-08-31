@@ -4,6 +4,7 @@ RAG系统数据模型
 from typing import Any, Dict, List, Optional
 from dataclasses import dataclass, field
 from datetime import datetime
+from src.core.utils.timezone_utils import utc_now, utc_factory
 import uuid
 
 
@@ -16,8 +17,8 @@ class DocumentMetadata:
     language: str = "zh"
     document_type: str = "text"
     tags: List[str] = field(default_factory=list)
-    created_at: datetime = field(default_factory=datetime.now)
-    updated_at: datetime = field(default_factory=datetime.now)
+    created_at: datetime = field(default_factory=utc_factory)
+    updated_at: datetime = field(default_factory=utc_factory)
     custom_fields: Dict[str, Any] = field(default_factory=dict)
 
 
@@ -69,7 +70,7 @@ class DocumentChunk:
     end_char: int = 0
     embedding: Optional[List[float]] = None
     metadata: Dict[str, Any] = field(default_factory=dict)
-    created_at: datetime = field(default_factory=datetime.now)
+    created_at: datetime = field(default_factory=utc_factory)
     
     def set_embedding(self, embedding: List[float]):
         """设置向量嵌入"""
@@ -134,7 +135,7 @@ class IndexStats:
     average_chunk_size: float = 0.0
     languages: List[str] = field(default_factory=list)
     document_types: List[str] = field(default_factory=list)
-    last_updated: datetime = field(default_factory=datetime.now)
+    last_updated: datetime = field(default_factory=utc_factory)
     
     def to_dict(self) -> Dict[str, Any]:
         """转换为字典格式"""

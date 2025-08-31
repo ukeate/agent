@@ -9,7 +9,9 @@ import json
 import gzip
 import time
 from typing import List, Dict, Any, Optional
-from datetime import datetime, timedelta
+from datetime import datetime
+from datetime import timedelta
+from src.core.utils.timezone_utils import utc_now, utc_factory
 from collections import defaultdict, deque
 import logging
 
@@ -48,7 +50,7 @@ class EventCollector:
             'successful_batches': 0,
             'failed_batches': 0,
             'compression_ratio': 0.0,
-            'last_flush_time': datetime.utcnow(),
+            'last_flush_time': utc_now(),
             'buffer_overflows': 0
         }
         
@@ -163,7 +165,7 @@ class EventCollector:
             
             if success:
                 self.stats['successful_batches'] += 1
-                self.stats['last_flush_time'] = datetime.utcnow()
+                self.stats['last_flush_time'] = utc_now()
                 logger.debug(f"成功刷新{len(events_to_flush)}个事件")
             else:
                 self.stats['failed_batches'] += 1
@@ -201,7 +203,7 @@ class EventCollector:
                 return False
             
             # 检查时间戳合理性(不能超过未来1小时或过去24小时)
-            now = datetime.utcnow()
+            now = utc_now()
             if event.timestamp > now + timedelta(hours=1):
                 self.quality_metrics['late_events'] += 1
                 return False
@@ -234,7 +236,7 @@ class EventCollector:
             'buffer_size': buffer_size,
             'buffer_utilization': buffer_utilization,
             'is_running': self._running,
-            'last_updated': datetime.utcnow().isoformat()
+            'last_updated': utc_now().isoformat()
         }
     
     def reset_stats(self):
@@ -244,7 +246,7 @@ class EventCollector:
             'successful_batches': 0,
             'failed_batches': 0,
             'compression_ratio': 0.0,
-            'last_flush_time': datetime.utcnow(),
+            'last_flush_time': utc_now(),
             'buffer_overflows': 0
         }
         

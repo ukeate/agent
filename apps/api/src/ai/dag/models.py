@@ -5,6 +5,7 @@ from enum import Enum
 from typing import Any, Dict, List, Optional, Set
 from dataclasses import dataclass, field
 from datetime import datetime
+from src.core.utils.timezone_utils import utc_now, utc_factory
 import uuid
 
 
@@ -51,18 +52,18 @@ class DAGTask:
     def start(self):
         """开始任务执行"""
         self.status = TaskStatus.RUNNING
-        self.start_time = datetime.now()
+        self.start_time = utc_now()
     
     def complete(self, result: Any = None):
         """完成任务执行"""
         self.status = TaskStatus.COMPLETED
-        self.end_time = datetime.now()
+        self.end_time = utc_now()
         self.result = result
     
     def fail(self, error: str):
         """标记任务失败"""
         self.status = TaskStatus.FAILED
-        self.end_time = datetime.now()
+        self.end_time = utc_now()
         self.error = error
     
     def can_retry(self) -> bool:
@@ -87,7 +88,7 @@ class DAGWorkflow:
     description: str = ""
     nodes: Dict[str, DAGNode] = field(default_factory=dict)
     tasks: Dict[str, DAGTask] = field(default_factory=dict)
-    created_at: datetime = field(default_factory=datetime.now)
+    created_at: datetime = field(default_factory=utc_factory)
     
     def add_node(self, node: DAGNode) -> str:
         """添加节点到工作流"""

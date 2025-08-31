@@ -3,14 +3,16 @@
 
 实现实验流量的渐进式调整和安全发布
 """
-from datetime import datetime, timedelta
+from datetime import datetime
+from datetime import timedelta
+from src.core.utils.timezone_utils import utc_now, utc_factory
 from typing import Dict, List, Any, Optional, Tuple
 from enum import Enum
 import asyncio
 from dataclasses import dataclass, field
 import math
 
-from ..core.database import async_session_manager
+from ..core.database import get_db_session
 from ..services.anomaly_detection_service import AnomalyDetectionService
 from ..services.realtime_metrics_service import RealtimeMetricsService
 from ..services.alert_rules_service import AlertRulesEngine
@@ -169,7 +171,7 @@ class TrafficRampService:
             rollback_conditions=rollback_conditions
         )
         
-        plan_id = f"ramp_{experiment_id}_{datetime.utcnow().timestamp()}"
+        plan_id = f"ramp_{experiment_id}_{utc_now().timestamp()}"
         self.ramp_plans[plan_id] = plan
         
         return plan
@@ -271,10 +273,10 @@ class TrafficRampService:
             status=RampStatus.RUNNING,
             current_step=0,
             current_percentage=plan.start_percentage,
-            started_at=datetime.utcnow()
+            started_at=utc_now()
         )
         
-        exec_id = f"exec_{plan_id}_{datetime.utcnow().timestamp()}"
+        exec_id = f"exec_{plan_id}_{utc_now().timestamp()}"
         self.executions[exec_id] = execution
         
         # 启动异步任务
@@ -297,7 +299,7 @@ class TrafficRampService:
                     
                 # 更新当前步骤
                 execution.current_step = step.step_number
-                step.start_time = datetime.utcnow()
+                step.start_time = utc_now()
                 
                 # 调整流量
                 await self._adjust_traffic(
@@ -342,16 +344,16 @@ class TrafficRampService:
                 execution.metrics_history.append({
                     "step": step.step_number,
                     "percentage": step.target_percentage,
-                    "timestamp": datetime.utcnow().isoformat(),
+                    "timestamp": utc_now().isoformat(),
                     "metrics": metrics
                 })
                 
-                step.end_time = datetime.utcnow()
+                step.end_time = utc_now()
                 
             # 完成爬坡
             if execution.status == RampStatus.RUNNING:
                 execution.status = RampStatus.COMPLETED
-                execution.completed_at = datetime.utcnow()
+                execution.completed_at = utc_now()
                 
         except Exception as e:
             execution.status = RampStatus.FAILED
@@ -450,7 +452,7 @@ class TrafficRampService:
         
         # 更新状态
         execution.status = RampStatus.ROLLED_BACK
-        execution.rolled_back_at = datetime.utcnow()
+        execution.rolled_back_at = utc_now()
         execution.rollback_reason = reason
         
         # 恢复到初始流量
@@ -466,7 +468,7 @@ class TrafficRampService:
             "variant": plan.variant,
             "rollback_reason": reason,
             "current_percentage": execution.current_percentage,
-            "timestamp": datetime.utcnow().isoformat()
+            "timestamp": utc_now().isoformat()
         }
         
         await self.alert_engine.evaluate_rules(alert_data)
@@ -480,7 +482,7 @@ class TrafficRampService:
         
         if execution.status == RampStatus.RUNNING:
             execution.status = RampStatus.PAUSED
-            execution.paused_at = datetime.utcnow()
+            execution.paused_at = utc_now()
             
             # 取消异步任务
             if exec_id in self.active_ramps:
@@ -532,7 +534,7 @@ class TrafficRampService:
             remaining_steps = len(plan.steps) - execution.current_step
             avg_step_duration = plan.total_duration_hours * 60 / len(plan.steps)
             eta_minutes = remaining_steps * avg_step_duration
-            eta = datetime.utcnow() + timedelta(minutes=eta_minutes)
+            eta = utc_now() + timedelta(minutes=eta_minutes)
         else:
             eta = None
             

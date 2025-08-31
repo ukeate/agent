@@ -1,9 +1,9 @@
-import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '../ui/Card';
-import { Button } from '../ui/Button';
-import { Input } from '../ui/Input';
-import { Alert } from '../ui/Alert';
-import { Badge } from '../ui/Badge';
+import React, { useState } from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
+import { Button } from '../ui/button';
+import { Input } from '../ui/input';
+import { Alert } from '../ui/alert';
+import { Badge } from '../ui/badge';
 import { banditRecommendationService } from '../../services/banditRecommendationService';
 
 interface TestSession {

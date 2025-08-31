@@ -1,7 +1,9 @@
 """
 事件追踪API端点 - 提供事件收集、查询和管理功能
 """
-from datetime import datetime, timezone, timedelta
+from datetime import datetime
+from datetime import timedelta
+from src.core.utils.timezone_utils import utc_now, utc_factory
 from typing import List, Optional, Dict, Any
 from fastapi import APIRouter, HTTPException, Depends, Query, BackgroundTasks, Request
 from fastapi.responses import JSONResponse
@@ -11,7 +13,7 @@ import time
 import hashlib
 import json
 
-from core.database import get_async_db
+from core.database import get_db
 from core.logging import get_logger
 from models.schemas.event_tracking import (
     CreateEventRequest, BatchEventsRequest, EventResponse, BatchEventsResponse,
@@ -29,16 +31,16 @@ logger = get_logger(__name__)
 router = APIRouter(prefix="/event-tracking", tags=["事件追踪"])
 
 # 依赖注入
-async def get_event_stream_repo(db: AsyncSession = Depends(get_async_db)) -> EventStreamRepository:
+async def get_event_stream_repo(db: AsyncSession = Depends(get_db)) -> EventStreamRepository:
     return EventStreamRepository(db)
 
-async def get_dedup_repo(db: AsyncSession = Depends(get_async_db)) -> EventDeduplicationRepository:
+async def get_dedup_repo(db: AsyncSession = Depends(get_db)) -> EventDeduplicationRepository:
     return EventDeduplicationRepository(db)
 
-async def get_schema_repo(db: AsyncSession = Depends(get_async_db)) -> EventSchemaRepository:
+async def get_schema_repo(db: AsyncSession = Depends(get_db)) -> EventSchemaRepository:
     return EventSchemaRepository(db)
 
-async def get_error_repo(db: AsyncSession = Depends(get_async_db)) -> EventErrorRepository:
+async def get_error_repo(db: AsyncSession = Depends(get_db)) -> EventErrorRepository:
     return EventErrorRepository(db)
 
 async def get_event_processing_service(
@@ -89,7 +91,7 @@ async def create_event(
             status=result.status,
             message=result.message,
             validation_errors=result.errors,
-            processed_at=datetime.now(timezone.utc)
+            processed_at=utc_now()
         )
         
     except Exception as e:
@@ -296,7 +298,7 @@ async def get_processing_stats(
 ):
     """获取事件处理统计"""
     try:
-        start_time = datetime.now(timezone.utc) - timedelta(hours=hours)
+        start_time = utc_now() - timedelta(hours=hours)
         stats = await event_repo.get_processing_stats(
             start_time=start_time,
             experiment_id=experiment_id
@@ -347,7 +349,7 @@ async def _process_event_async_v2(event_id: str, event_repo: EventStreamReposito
         
         # 更新事件状态为已处理
         await event_repo.update_event_status(event_id, EventStatus.PROCESSED)
-        await event_repo.update_processed_at(event_id, datetime.now(timezone.utc))
+        await event_repo.update_processed_at(event_id, utc_now())
         
         logger.info(f"事件 {event_id} 后处理完成")
         

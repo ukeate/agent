@@ -16,6 +16,7 @@ from typing import List, Dict, Any, Optional, Tuple, Union
 from dataclasses import dataclass, field
 from enum import Enum
 from datetime import datetime
+from src.core.utils.timezone_utils import utc_now, utc_factory
 
 from src.ai.agentic_rag.query_analyzer import QueryAnalysis, QueryIntent
 from src.ai.agentic_rag.retrieval_agents import RetrievalResult, RetrievalStrategy, MultiAgentRetriever
@@ -114,7 +115,7 @@ class ExplanationOutput:
     improvement_suggestions: List[str] = field(default_factory=list)
     alternative_approaches: List[str] = field(default_factory=list)
     
-    generated_at: datetime = field(default_factory=datetime.now)
+    generated_at: datetime = field(default_factory=utc_factory)
     generation_time: float = 0.0
 
 

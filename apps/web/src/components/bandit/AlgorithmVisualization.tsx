@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import * as d3 from 'd3';
-import { Card, CardContent, CardHeader, CardTitle } from '../ui/Card';
-import { Badge } from '../ui/Badge';
+import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
+import { Badge } from '../ui/badge';
 
 interface AlgorithmData {
   algorithm: string;
@@ -139,11 +139,11 @@ const AlgorithmVisualization: React.FC<AlgorithmVisualizationProps> = ({
           .style('opacity', 1);
 
         tooltip.html(`
-          <strong>${d.algorithm}</strong><br/>
-          平均奖励: ${d.average_reward.toFixed(3)}<br/>
-          总选择数: ${d.total_pulls}<br/>
-          累积遗憾: ${d.regret.toFixed(3)}<br/>
-          使用次数: ${d.usage_count}
+          <strong>${(d as any).algorithm}</strong><br/>
+          平均奖励: ${(d as any).average_reward.toFixed(3)}<br/>
+          总选择数: ${(d as any).total_pulls}<br/>
+          累积遗憾: ${(d as any).regret.toFixed(3)}<br/>
+          使用次数: ${(d as any).usage_count}
         `)
           .style('left', (event.pageX + 10) + 'px')
           .style('top', (event.pageY - 28) + 'px');

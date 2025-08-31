@@ -21,6 +21,7 @@ import asyncio
 from concurrent.futures import ThreadPoolExecutor
 
 from ..core.config import get_settings
+from ..core.utils.timezone_utils import utc_now
 
 
 @dataclass
@@ -222,8 +223,8 @@ class ModelCacheManager:
                 version=version,
                 size_bytes=len(compressed_data),
                 checksum=checksum,
-                created_at=datetime.utcnow(),
-                last_used=datetime.utcnow(),
+                created_at=utc_now(),
+                last_used=utc_now(),
                 use_count=0,
                 compression_type=compression_type,
                 quantization_level=quantization_level,
@@ -239,7 +240,7 @@ class ModelCacheManager:
                 data=model_data,
                 metadata=metadata,
                 is_loaded=True,
-                load_time=datetime.utcnow()
+                load_time=utc_now()
             )
             self._memory_cache[model_id] = cache_entry
             
@@ -258,7 +259,7 @@ class ModelCacheManager:
         if model_id in self._memory_cache and self._memory_cache[model_id].is_loaded:
             cache_entry = self._memory_cache[model_id]
             # 更新使用统计
-            cache_entry.metadata.last_used = datetime.utcnow()
+            cache_entry.metadata.last_used = utc_now()
             cache_entry.metadata.use_count += 1
             self._save_metadata()
             return cache_entry.data
@@ -299,7 +300,7 @@ class ModelCacheManager:
             model_data = pickle.loads(serialized_data)
             
             # 更新使用统计
-            metadata.last_used = datetime.utcnow()
+            metadata.last_used = utc_now()
             metadata.use_count += 1
             self._save_metadata()
             
@@ -310,7 +311,7 @@ class ModelCacheManager:
                     data=model_data,
                     metadata=metadata,
                     is_loaded=True,
-                    load_time=datetime.utcnow()
+                    load_time=utc_now()
                 )
                 self._memory_cache[model_id] = cache_entry
             
@@ -411,7 +412,7 @@ class ModelCacheManager:
     
     def cleanup_old_models(self, days: int = 30) -> int:
         """清理旧模型"""
-        cutoff_date = datetime.utcnow() - timedelta(days=days)
+        cutoff_date = utc_now() - timedelta(days=days)
         removed_count = 0
         
         models_to_remove = [

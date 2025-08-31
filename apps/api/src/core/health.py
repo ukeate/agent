@@ -11,6 +11,7 @@ from fastapi import HTTPException
 from src.core.database import get_db
 from src.core.redis import get_redis
 from src.core.logging import get_logger
+from src.core.utils.timezone_utils import utc_now
 
 logger = get_logger(__name__)
 
@@ -28,7 +29,7 @@ class ComponentHealth:
         self.name = name
         self.status = status
         self.details = details or {}
-        self.checked_at = datetime.utcnow()
+        self.checked_at = utc_now()
 
 
 class SystemHealthChecker:
@@ -94,7 +95,7 @@ class SystemHealthChecker:
         
         # 记录检查时间
         check_duration = time.time() - start_time
-        self.last_check_time = datetime.utcnow()
+        self.last_check_time = utc_now()
         self.check_results = results
         
         # 构建响应

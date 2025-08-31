@@ -6,6 +6,7 @@
 
 from typing import Dict, Any, Optional, List
 from datetime import datetime
+from src.core.utils.timezone_utils import utc_now, utc_factory
 from enum import Enum
 from pydantic import BaseModel, Field
 import uuid
@@ -29,7 +30,7 @@ class BehaviorEvent(BaseModel):
     event_name: str = Field(..., description="如: click_button, send_message, view_page")
     event_data: Dict[str, Any] = Field(default_factory=dict)
     context: Dict[str, Any] = Field(default_factory=dict, description="设备、位置、渠道等上下文")
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    timestamp: datetime = Field(default_factory=utc_factory)
     duration_ms: Optional[int] = Field(None, description="事件持续时间(毫秒)")
     
     class Config:
@@ -42,7 +43,7 @@ class UserSession(BaseModel):
     """用户会话数据模型"""
     session_id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     user_id: str
-    start_time: datetime = Field(default_factory=datetime.utcnow)
+    start_time: datetime = Field(default_factory=utc_factory)
     end_time: Optional[datetime] = None
     events_count: int = 0
     interaction_quality_score: Optional[float] = Field(None, ge=0.0, le=1.0)
@@ -66,8 +67,8 @@ class BehaviorPattern(BaseModel):
     users_count: int = Field(..., ge=0)
     examples: List[str] = Field(default_factory=list, description="示例session_ids")
     
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utc_factory)
+    updated_at: datetime = Field(default_factory=utc_factory)
     
     class Config:
         json_encoders = {
@@ -101,7 +102,7 @@ class AnomalyDetection(BaseModel):
     anomaly_score: float = Field(..., description="异常分数,范围根据检测方法而定")
     detection_method: str = Field(..., description="检测方法名称")
     details: Dict[str, Any] = Field(default_factory=dict)
-    detected_at: datetime = Field(default_factory=datetime.utcnow)
+    detected_at: datetime = Field(default_factory=utc_factory)
     resolved: bool = False
     resolved_at: Optional[datetime] = None
     resolved_by: Optional[str] = None
@@ -118,7 +119,7 @@ class TrendMetric(BaseModel):
     metric_name: str
     metric_type: str = Field(..., description="count, average, sum, rate")
     value: float
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    timestamp: datetime = Field(default_factory=utc_factory)
     dimensions: Dict[str, Any] = Field(default_factory=dict)
     metadata: Dict[str, Any] = Field(default_factory=dict)
     
@@ -140,7 +141,7 @@ class ForecastResult(BaseModel):
     model_type: str = Field(..., description="预测模型类型: arima, prophet, lstm")
     model_params: Dict[str, Any] = Field(default_factory=dict)
     accuracy_metrics: Dict[str, float] = Field(default_factory=dict)
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utc_factory)
     
     class Config:
         json_encoders = {
@@ -158,8 +159,8 @@ class DashboardConfig(BaseModel):
     filters: Dict[str, Any] = Field(default_factory=dict)
     refresh_interval: int = Field(30, description="刷新间隔(秒)")
     is_public: bool = False
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utc_factory)
+    updated_at: datetime = Field(default_factory=utc_factory)
     
     class Config:
         json_encoders = {

@@ -5,7 +5,9 @@
 import asyncio
 import json
 import uuid
-from datetime import datetime, timezone, timedelta
+from datetime import datetime
+from datetime import timedelta
+from src.core.utils.timezone_utils import utc_now, utc_factory
 from typing import Dict, List, Optional, Any, Tuple
 from dataclasses import asdict
 import structlog
@@ -194,7 +196,7 @@ class EventStore:
                     uuid.UUID(event.correlation_id) if hasattr(event, 'correlation_id') and event.correlation_id else None,
                     event.priority.value if hasattr(event, 'priority') and hasattr(event.priority, 'value') else 'normal',
                     json.dumps(event.data) if hasattr(event, 'data') else '{}',
-                    event.timestamp if hasattr(event, 'timestamp') else datetime.now(timezone.utc),
+                    event.timestamp if hasattr(event, 'timestamp') else utc_now(),
                     self.event_version
                 )
                 
@@ -219,7 +221,7 @@ class EventStore:
             "correlation_id": getattr(event, 'correlation_id', None),
             "priority": event.priority.value if hasattr(event, 'priority') and hasattr(event.priority, 'value') else 'normal',
             "data": event.data if hasattr(event, 'data') else {},
-            "timestamp": event.timestamp.isoformat() if hasattr(event, 'timestamp') else datetime.now(timezone.utc).isoformat(),
+            "timestamp": event.timestamp.isoformat() if hasattr(event, 'timestamp') else utc_now().isoformat(),
             "version": self.event_version
         }
     
@@ -350,7 +352,7 @@ class EventStore:
             if isinstance(data.get('timestamp'), str):
                 timestamp = datetime.fromisoformat(data['timestamp'])
             else:
-                timestamp = data.get('timestamp', datetime.now(timezone.utc))
+                timestamp = data.get('timestamp', utc_now())
             
             # 处理事件类型
             event_type = data.get('type', 'unknown')
@@ -469,7 +471,7 @@ class EventStore:
                         json.dumps(self._serialize_event(event)),
                         error_message,
                         retry_count,
-                        datetime.now(timezone.utc)
+                        utc_now()
                     )
                     
                 logger.info("事件移至死信队列", event_id=event.id if hasattr(event, 'id') else None)
@@ -530,7 +532,7 @@ class EventReplayService:
             return {"status": "already_running"}
         
         self.replaying = True
-        to_time = to_time or datetime.now(timezone.utc)
+        to_time = to_time or utc_now()
         
         try:
             # 获取需要重播的事件
@@ -551,7 +553,7 @@ class EventReplayService:
             all_events = self._merge_and_deduplicate(events, target_events)
             
             # 按时间排序
-            all_events.sort(key=lambda e: e.timestamp if hasattr(e, 'timestamp') else datetime.now(timezone.utc))
+            all_events.sort(key=lambda e: e.timestamp if hasattr(e, 'timestamp') else utc_now())
             
             logger.info(
                 "开始事件重播",
@@ -580,7 +582,7 @@ class EventReplayService:
                 
                 self.replay_stats["total_replayed"] += 1
             
-            self.replay_stats["last_replay_time"] = datetime.now(timezone.utc)
+            self.replay_stats["last_replay_time"] = utc_now()
             
             result = {
                 "status": "completed",
@@ -623,7 +625,7 @@ class EventReplayService:
             # 获取对话相关的所有事件
             events = await self.event_store.replay_events(
                 start_time=from_time,
-                end_time=datetime.now(timezone.utc),
+                end_time=utc_now(),
                 filters={"conversation_id": conversation_id}
             )
             
@@ -634,7 +636,7 @@ class EventReplayService:
             )
             
             # 按时间顺序处理事件
-            events.sort(key=lambda e: e.timestamp if hasattr(e, 'timestamp') else datetime.now(timezone.utc))
+            events.sort(key=lambda e: e.timestamp if hasattr(e, 'timestamp') else utc_now())
             
             for event in events:
                 try:
@@ -651,7 +653,7 @@ class EventReplayService:
                 
                 self.replay_stats["total_replayed"] += 1
             
-            self.replay_stats["last_replay_time"] = datetime.now(timezone.utc)
+            self.replay_stats["last_replay_time"] = utc_now()
             
             result = {
                 "status": "completed",

@@ -1,11 +1,12 @@
 """Epic 5 集成测试管理器"""
 from typing import Dict, List, Any, Optional
 from datetime import datetime
+from src.core.utils.timezone_utils import utc_now, utc_factory
 import asyncio
 from dataclasses import dataclass
 from enum import Enum
 
-from src.core.config import settings
+from ...core.config import get_settings
 from src.core.monitoring import monitor
 
 
@@ -173,7 +174,7 @@ class Epic5IntegrationTestManager:
     async def execute_test_suite(self, suite_name: str) -> List[IntegrationTestResult]:
         """执行单个测试套件"""
         results = []
-        start_time = datetime.now()
+        start_time = utc_now()
         
         try:
             # 模拟测试执行
@@ -185,9 +186,9 @@ class Epic5IntegrationTestManager:
                 test_type=TestType.INTEGRATION,
                 epic_components=[suite_name.split('_')[0]],
                 status=TestStatus.PASSED,
-                execution_time_ms=(datetime.now() - start_time).total_seconds() * 1000,
+                execution_time_ms=(utc_now() - start_time).total_seconds() * 1000,
                 start_time=start_time,
-                end_time=datetime.now(),
+                end_time=utc_now(),
                 performance_metrics={
                     'response_time_ms': 50,
                     'throughput_qps': 1000,
@@ -212,9 +213,9 @@ class Epic5IntegrationTestManager:
                 test_type=TestType.INTEGRATION,
                 epic_components=[suite_name.split('_')[0]],
                 status=TestStatus.ERROR,
-                execution_time_ms=(datetime.now() - start_time).total_seconds() * 1000,
+                execution_time_ms=(utc_now() - start_time).total_seconds() * 1000,
                 start_time=start_time,
-                end_time=datetime.now(),
+                end_time=utc_now(),
                 error_info={
                     'error_type': type(e).__name__,
                     'error_message': str(e),
@@ -312,7 +313,7 @@ class Epic5IntegrationTestManager:
                             failed_tests += 1
         
         return {
-            'report_timestamp': datetime.now().isoformat(),
+            'report_timestamp': utc_now().isoformat(),
             'epic_version': '5.0',
             'summary': {
                 'total_tests': total_tests,
@@ -533,7 +534,7 @@ class SystemHealthMonitor:
         total_components = len(health_results)
         
         return {
-            'timestamp': datetime.now().isoformat(),
+            'timestamp': utc_now().isoformat(),
             'overall_health': 'healthy' if healthy_components == total_components else 'degraded',
             'healthy_components': healthy_components,
             'total_components': total_components,

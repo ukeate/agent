@@ -14,6 +14,7 @@ from typing import List, Dict, Any, Optional, Tuple
 from enum import Enum
 from dataclasses import dataclass
 from datetime import datetime
+from src.core.utils.timezone_utils import utc_now, utc_factory
 
 from src.ai.openai_client import get_openai_client
 
@@ -43,7 +44,7 @@ class QueryAnalysis:
 
     def __post_init__(self):
         if self.timestamp is None:
-            self.timestamp = datetime.now()
+            self.timestamp = utc_now()
 
 
 class QueryAnalyzer:
@@ -375,7 +376,7 @@ class QueryContext:
     def __init__(self, max_history: int = 10):
         self.max_history = max_history
         self.query_history: List[QueryAnalysis] = []
-        self.session_start = datetime.now()
+        self.session_start = utc_now()
     
     def add_query(self, analysis: QueryAnalysis):
         """添加查询到历史记录"""
@@ -401,7 +402,7 @@ class QueryContext:
             intent_counts[q.intent_type.value] = intent_counts.get(q.intent_type.value, 0) + 1
         
         avg_complexity = sum(q.complexity_score for q in self.query_history) / len(self.query_history)
-        session_duration = (datetime.now() - self.session_start).total_seconds()
+        session_duration = (utc_now() - self.session_start).total_seconds()
         
         return {
             "total_queries": len(self.query_history),

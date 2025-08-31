@@ -67,7 +67,15 @@ class SecurityApi {
   // 安全统计
   async getSecurityStats(): Promise<SecurityStats> {
     const response = await apiClient.get('/api/v1/security/metrics');
-    return response.data;
+    return response.data || {
+      total_requests: 0,
+      blocked_requests: 0,
+      active_threats: 0,
+      api_keys_count: 0,
+      audit_logs_count: 0,
+      permission_rules_count: 0,
+      whitelist_entries_count: 0
+    };
   }
 
   async getSecurityConfig(): Promise<any> {

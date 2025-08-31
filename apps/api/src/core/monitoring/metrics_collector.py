@@ -2,7 +2,9 @@
 指标收集器
 """
 from typing import Dict, Any, Optional, List
-from datetime import datetime, timedelta
+from datetime import datetime
+from datetime import timedelta
+from src.core.utils.timezone_utils import utc_now, utc_factory
 import time
 import asyncio
 from enum import Enum
@@ -63,21 +65,21 @@ class MetricsCollector:
         """记录计数器"""
         async with self._lock:
             label_key = self._labels_to_key(labels)
-            point = MetricPoint(datetime.now(), value, labels or {})
+            point = MetricPoint(utc_now(), value, labels or {})
             self.metrics[name][label_key].append(point)
     
     async def record_gauge(self, name: str, value: float, labels: Optional[Dict[str, str]] = None):
         """记录仪表"""
         async with self._lock:
             label_key = self._labels_to_key(labels)
-            point = MetricPoint(datetime.now(), value, labels or {})
+            point = MetricPoint(utc_now(), value, labels or {})
             self.metrics[name][label_key].append(point)
     
     async def record_histogram(self, name: str, value: float, labels: Optional[Dict[str, str]] = None):
         """记录直方图"""
         async with self._lock:
             label_key = self._labels_to_key(labels)
-            point = MetricPoint(datetime.now(), value, labels or {})
+            point = MetricPoint(utc_now(), value, labels or {})
             self.metrics[name][label_key].append(point)
     
     async def record_timing(self, name: str, duration: float, labels: Optional[Dict[str, str]] = None):
@@ -139,7 +141,7 @@ class MetricsCollector:
         while True:
             try:
                 await asyncio.sleep(3600)  # 每小时清理一次
-                cutoff_time = datetime.now() - timedelta(hours=self.retention_hours)
+                cutoff_time = utc_now() - timedelta(hours=self.retention_hours)
                 
                 async with self._lock:
                     for metric_name in list(self.metrics.keys()):

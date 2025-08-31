@@ -3,7 +3,9 @@
 import asyncio
 import json
 from typing import Dict, List, Any, Optional
-from datetime import datetime, timedelta
+from datetime import datetime
+from datetime import timedelta
+from src.core.utils.timezone_utils import utc_now, utc_factory
 import logging
 
 from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
@@ -130,7 +132,7 @@ class MonitoringDashboard:
                 # 准备广播数据
                 broadcast_data = {
                     "type": "update",
-                    "timestamp": datetime.now().isoformat(),
+                    "timestamp": utc_now().isoformat(),
                     "data": {
                         "metrics": self._serialize_metrics(metrics),
                         "alerts": alerts,
@@ -154,7 +156,7 @@ class MonitoringDashboard:
     async def _check_alerts(self, metrics) -> List[Dict[str, Any]]:
         """检查告警条件"""
         alerts = []
-        now = datetime.now()
+        now = utc_now()
         
         # 延迟告警
         if metrics.p99_latency > self.alert_config['latency_threshold']:
@@ -341,7 +343,7 @@ class MonitoringDashboard:
         current_metrics = await self.monitor.get_current_metrics()
         
         # 获取最近1小时的历史数据
-        end_time = datetime.now()
+        end_time = utc_now()
         start_time = end_time - timedelta(hours=1)
         
         latency_history = await self.get_metrics_history(

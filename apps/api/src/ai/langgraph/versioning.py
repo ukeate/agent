@@ -3,7 +3,8 @@
 处理不同版本上下文的迁移和兼容性
 """
 from typing import Dict, Any, Tuple, Callable, Optional, List
-from datetime import datetime, timezone
+from datetime import datetime
+from src.core.utils.timezone_utils import utc_now, utc_factory, timezone
 import copy
 
 from .context import ContextVersion
@@ -100,8 +101,8 @@ class ContextMigrator:
         if "session_context" not in data:
             data["session_context"] = {
                 "session_id": data.get("session_id", ""),
-                "created_at": datetime.now(timezone.utc).isoformat(),
-                "last_active": datetime.now(timezone.utc).isoformat(),
+                "created_at": utc_now().isoformat(),
+                "last_active": utc_now().isoformat(),
                 "message_count": 0
             }
         

@@ -2,6 +2,7 @@
 import json
 from typing import List, Optional, Dict, Any
 from datetime import datetime
+from src.core.utils.timezone_utils import utc_now, utc_factory
 import asyncio
 import logging
 
@@ -33,83 +34,131 @@ class MemoryStorage:
             return
             
         try:
-            # 初始化Qdrant向量存储
+            logger.info("开始初始化记忆存储层")
+            
+            # 简化初始化过程，跳过可能阻塞的操作
+            # 直接创建客户端对象，延迟实际连接到使用时
+            
+            # 1. 创建Qdrant客户端（延迟连接）
+            logger.info(f"创建Qdrant客户端: {self.config.qdrant_url}")
             self.vector_store = QdrantClient(
                 url=self.config.qdrant_url,
-                check_compatibility=False  # 跳过版本兼容性检查
+                timeout=3.0,
+                check_compatibility=False
             )
+            logger.info("Qdrant客户端创建成功")
             
-            # 创建集合(如果不存在)
-            collections = await asyncio.to_thread(
-                self.vector_store.get_collections
-            )
-            collection_names = [c.name for c in collections.collections]
-            
-            if self.config.qdrant_collection not in collection_names:
-                await asyncio.to_thread(
-                    self.vector_store.create_collection,
-                    collection_name=self.config.qdrant_collection,
-                    vectors_config=VectorParams(
-                        size=self.config.vector_dimension,
-                        distance=Distance.COSINE
-                    )
+            # 2. 创建Redis连接（使用更短超时）
+            logger.info(f"连接Redis服务器: {self.config.redis_url}")
+            try:
+                self.redis_cache = await asyncio.wait_for(
+                    redis.from_url(
+                        self.config.redis_url,
+                        encoding="utf-8",
+                        decode_responses=True,
+                        socket_connect_timeout=2,
+                        socket_timeout=2
+                    ),
+                    timeout=3.0
                 )
-                logger.info(f"创建Qdrant集合: {self.config.qdrant_collection}")
+                # 简单ping测试
+                await asyncio.wait_for(self.redis_cache.ping(), timeout=2.0)
+                logger.info("Redis连接成功")
+            except Exception as e:
+                logger.warning(f"Redis连接失败，将使用内存缓存: {e}")
+                self.redis_cache = None
             
-            # 初始化Redis缓存
-            self.redis_cache = await redis.from_url(
-                self.config.redis_url,
-                encoding="utf-8",
-                decode_responses=True
-            )
-            
-            # 初始化PostgreSQL连接池
-            self.postgres_pool = await asyncpg.create_pool(
-                self.config.db_url,
-                min_size=2,
-                max_size=10
-            )
-            
-            # 创建记忆表(如果不存在)
-            await self._create_tables()
+            # 3. 创建PostgreSQL连接池（使用更短超时）
+            logger.info(f"连接PostgreSQL数据库")
+            try:
+                self.postgres_pool = await asyncio.wait_for(
+                    asyncpg.create_pool(
+                        self.config.db_url,
+                        min_size=1,
+                        max_size=3,
+                        command_timeout=5.0
+                    ),
+                    timeout=5.0
+                )
+                logger.info("PostgreSQL连接池创建成功")
+                
+                # 4. 创建数据库表（如果需要）
+                logger.info("检查数据库表")
+                await asyncio.wait_for(
+                    self._create_tables_safe(),
+                    timeout=5.0
+                )
+                logger.info("数据库表检查完成")
+                
+            except Exception as e:
+                logger.error(f"PostgreSQL初始化失败: {e}")
+                await self._cleanup_failed_init()
+                raise Exception(f"PostgreSQL初始化失败: {e}")
             
             self._initialized = True
             logger.info("记忆存储层初始化完成")
             
         except Exception as e:
             logger.error(f"记忆存储层初始化失败: {e}")
-            raise
+            await self._cleanup_failed_init()
+            # 不抛出异常，允许系统继续运行
+            logger.warning("记忆存储层将以降级模式运行")
+            
+    async def _cleanup_failed_init(self):
+        """清理失败的初始化资源"""
+        try:
+            if self.redis_cache:
+                await self.redis_cache.close()
+                self.redis_cache = None
+            if self.postgres_pool:
+                await self.postgres_pool.close()
+                self.postgres_pool = None
+            self.vector_store = None
+        except Exception as e:
+            logger.error(f"清理初始化资源时出错: {e}")
+    
+    async def _create_tables_safe(self):
+        """安全地创建数据库表"""
+        try:
+            async with self.postgres_pool.acquire() as conn:
+                await self._create_tables_with_connection(conn)
+        except Exception as e:
+            logger.warning(f"创建数据库表时出错: {e}")
             
     async def _create_tables(self):
         """创建数据库表"""
         async with self.postgres_pool.acquire() as conn:
-            # 创建memories表
-            await conn.execute('''
-                CREATE TABLE IF NOT EXISTS memories (
-                    id VARCHAR(36) PRIMARY KEY,
-                    type VARCHAR(20) NOT NULL,
-                    content TEXT NOT NULL,
-                    metadata JSONB DEFAULT '{}',
-                    importance FLOAT DEFAULT 0.5,
-                    access_count INTEGER DEFAULT 0,
-                    created_at TIMESTAMP DEFAULT NOW(),
-                    last_accessed TIMESTAMP DEFAULT NOW(),
-                    decay_factor FLOAT DEFAULT 0.5,
-                    status VARCHAR(20) DEFAULT 'active',
-                    session_id VARCHAR(36),
-                    user_id VARCHAR(36),
-                    related_memories TEXT[] DEFAULT '{}',
-                    tags TEXT[] DEFAULT '{}',
-                    source VARCHAR(255)
-                )
-            ''')
-            
-            # 创建索引
-            await conn.execute('CREATE INDEX IF NOT EXISTS idx_memories_session ON memories (session_id)')
-            await conn.execute('CREATE INDEX IF NOT EXISTS idx_memories_user ON memories (user_id)')
-            await conn.execute('CREATE INDEX IF NOT EXISTS idx_memories_type ON memories (type)')
-            await conn.execute('CREATE INDEX IF NOT EXISTS idx_memories_status ON memories (status)')
-            await conn.execute('CREATE INDEX IF NOT EXISTS idx_memories_created ON memories (created_at DESC)')
+            await self._create_tables_with_connection(conn)
+    
+    async def _create_tables_with_connection(self, conn):
+        """使用给定连接创建数据库表"""
+        # 创建memories表
+        await conn.execute('''
+            CREATE TABLE IF NOT EXISTS memories (
+                id VARCHAR(36) PRIMARY KEY,
+                type VARCHAR(20) NOT NULL,
+                content TEXT NOT NULL,
+                metadata JSONB DEFAULT '{}',
+                importance FLOAT DEFAULT 0.5,
+                access_count INTEGER DEFAULT 0,
+                created_at TIMESTAMP DEFAULT NOW(),
+                last_accessed TIMESTAMP DEFAULT NOW(),
+                decay_factor FLOAT DEFAULT 0.5,
+                status VARCHAR(20) DEFAULT 'active',
+                session_id VARCHAR(36),
+                user_id VARCHAR(36),
+                related_memories TEXT[] DEFAULT '{}',
+                tags TEXT[] DEFAULT '{}',
+                source VARCHAR(255)
+            )
+        ''')
+        
+        # 创建索引
+        await conn.execute('CREATE INDEX IF NOT EXISTS idx_memories_session ON memories (session_id)')
+        await conn.execute('CREATE INDEX IF NOT EXISTS idx_memories_user ON memories (user_id)')
+        await conn.execute('CREATE INDEX IF NOT EXISTS idx_memories_type ON memories (type)')
+        await conn.execute('CREATE INDEX IF NOT EXISTS idx_memories_status ON memories (status)')
+        await conn.execute('CREATE INDEX IF NOT EXISTS idx_memories_created ON memories (created_at DESC)')
             
     async def store_memory(self, memory: Memory) -> Memory:
         """存储记忆"""
@@ -136,10 +185,10 @@ class MemoryStorage:
                         related_memories = EXCLUDED.related_memories,
                         tags = EXCLUDED.tags
                 ''',
-                memory.id, memory.type.value, memory.content,
+                memory.id, memory.type.value if hasattr(memory.type, 'value') else str(memory.type), memory.content,
                 json.dumps(memory.metadata), memory.importance,
                 memory.access_count, memory.created_at, memory.last_accessed,
-                memory.decay_factor, memory.status.value, memory.session_id,
+                memory.decay_factor, memory.status.value if hasattr(memory.status, 'value') else str(memory.status), memory.session_id,
                 memory.user_id, memory.related_memories, memory.tags,
                 memory.source
                 )
@@ -150,7 +199,7 @@ class MemoryStorage:
                     id=memory.id,
                     vector=memory.embedding,
                     payload={
-                        "type": memory.type.value,
+                        "type": memory.type.value if hasattr(memory.type, 'value') else str(memory.type),
                         "importance": memory.importance,
                         "session_id": memory.session_id,
                         "user_id": memory.user_id,
@@ -193,7 +242,7 @@ class MemoryStorage:
                 memory = Memory.parse_raw(cached)
                 # 更新访问信息
                 memory.access_count += 1
-                memory.last_accessed = datetime.utcnow()
+                memory.last_accessed = utc_now()
                 await self.update_memory_access(memory_id)
                 return memory
             
@@ -253,13 +302,13 @@ class MemoryStorage:
         if filters:
             if filters.memory_types:
                 param_count += 1
-                types = [t.value for t in filters.memory_types]
+                types = [t.value if hasattr(t, 'value') else str(t) for t in filters.memory_types]
                 query += f' AND type = ANY(${param_count})'
                 params.append(types)
                 
             if filters.status:
                 param_count += 1
-                statuses = [s.value for s in filters.status]
+                statuses = [s.value if hasattr(s, 'value') else str(s) for s in filters.status]
                 query += f' AND status = ANY(${param_count})'
                 params.append(statuses)
                 
@@ -325,7 +374,7 @@ class MemoryStorage:
                     UPDATE memories 
                     SET status = $1
                     WHERE id = $2
-                ''', MemoryStatus.DELETED.value, memory_id)
+                ''', MemoryStatus.DELETED.value if hasattr(MemoryStatus.DELETED, 'value') else str(MemoryStatus.DELETED), memory_id)
                 
             # 2. 从缓存删除
             cache_key = f"{self.config.cache_prefix}{memory_id}"

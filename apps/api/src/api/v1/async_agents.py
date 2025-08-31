@@ -5,7 +5,8 @@
 import asyncio
 import json
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime
+from src.core.utils.timezone_utils import utc_now, utc_factory, timezone
 from typing import Dict, List, Optional, Any, Union
 from fastapi import APIRouter, HTTPException, Depends, BackgroundTasks, status, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel, Field
@@ -527,7 +528,7 @@ async def create_workflow(
                 "workflow_id": workflow_id,
                 "name": request.name,
                 "description": request.description,
-                "created_at": datetime.now(timezone.utc).isoformat()
+                "created_at": utc_now().isoformat()
             }
         }
         
@@ -584,7 +585,7 @@ async def execute_collaborative_task(
                 "agent_ids": agent_ids,
                 "coordination_strategy": coordination_strategy,
                 "task_description": task_description,
-                "started_at": datetime.now(timezone.utc).isoformat()
+                "started_at": utc_now().isoformat()
             }
         }
         
@@ -621,7 +622,7 @@ async def get_system_stats(
                 "agent_manager": manager_stats,
                 "event_bus": event_stats,
                 "langgraph_bridge": bridge_stats,
-                "timestamp": datetime.now(timezone.utc).isoformat()
+                "timestamp": utc_now().isoformat()
             }
         }
         
@@ -664,7 +665,7 @@ async def health_check(
         
         return {
             "healthy": healthy,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": utc_now().isoformat(),
             "issues": issues,
             "stats": {
                 "agents": manager_stats["agents"],
@@ -681,7 +682,7 @@ async def health_check(
         logger.error("健康检查失败", error=str(e))
         return {
             "healthy": False,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": utc_now().isoformat(),
             "error": str(e)
         }
 
@@ -752,7 +753,7 @@ async def websocket_endpoint(
         await connection_manager.send_message(session_id, {
             "type": "connection_established",
             "session_id": session_id,
-            "timestamp": datetime.now(timezone.utc).isoformat()
+            "timestamp": utc_now().isoformat()
         })
         
         # 获取组件实例
@@ -783,14 +784,14 @@ async def websocket_endpoint(
                     await connection_manager.send_message(session_id, {
                         "type": "agent_created",
                         "data": {"agent_id": agent_id, "role": role.value},
-                        "timestamp": datetime.now(timezone.utc).isoformat()
+                        "timestamp": utc_now().isoformat()
                     })
                     
                 except Exception as e:
                     await connection_manager.send_message(session_id, {
                         "type": "error",
                         "data": {"message": f"创建智能体失败: {str(e)}"},
-                        "timestamp": datetime.now(timezone.utc).isoformat()
+                        "timestamp": utc_now().isoformat()
                     })
             
             elif message_type == "submit_task":
@@ -807,28 +808,28 @@ async def websocket_endpoint(
                     await connection_manager.send_message(session_id, {
                         "type": "task_submitted",
                         "data": {"task_id": task_id},
-                        "timestamp": datetime.now(timezone.utc).isoformat()
+                        "timestamp": utc_now().isoformat()
                     })
                     
                 except Exception as e:
                     await connection_manager.send_message(session_id, {
                         "type": "error",
                         "data": {"message": f"提交任务失败: {str(e)}"},
-                        "timestamp": datetime.now(timezone.utc).isoformat()
+                        "timestamp": utc_now().isoformat()
                     })
             
             elif message_type == "ping":
                 # 心跳检测
                 await connection_manager.send_message(session_id, {
                     "type": "pong",
-                    "timestamp": datetime.now(timezone.utc).isoformat()
+                    "timestamp": utc_now().isoformat()
                 })
             
             else:
                 await connection_manager.send_message(session_id, {
                     "type": "error",
                     "data": {"message": f"未知消息类型: {message_type}"},
-                    "timestamp": datetime.now(timezone.utc).isoformat()
+                    "timestamp": utc_now().isoformat()
                 })
     
     except WebSocketDisconnect:

@@ -7,7 +7,9 @@
 
 import pytest
 import asyncio
-from datetime import datetime, timedelta
+from datetime import datetime
+from datetime import timedelta
+from src.core.utils.timezone_utils import utc_now, utc_factory
 from unittest.mock import Mock, patch
 import time
 
@@ -41,7 +43,7 @@ class TestCollectedEvent:
             feedback_type=FeedbackType.CLICK,
             raw_value=True,
             context={"page": "home"},
-            timestamp=datetime.now(),
+            timestamp=utc_now(),
             priority=EventPriority.HIGH
         )
         
@@ -69,7 +71,7 @@ class TestFeedbackBuffer:
             feedback_type=FeedbackType.CLICK,
             raw_value=True,
             context={},
-            timestamp=datetime.now(),
+            timestamp=utc_now(),
             priority=EventPriority.MEDIUM
         )
     
@@ -95,7 +97,7 @@ class TestFeedbackBuffer:
                 feedback_type=FeedbackType.CLICK,
                 raw_value=True,
                 context={},
-                timestamp=datetime.now(),
+                timestamp=utc_now(),
                 priority=EventPriority.LOW
             )
             result = await buffer.add_event(event)
@@ -118,7 +120,7 @@ class TestFeedbackBuffer:
                 feedback_type=FeedbackType.CLICK,
                 raw_value=True,
                 context={},
-                timestamp=datetime.now(),
+                timestamp=utc_now(),
                 priority=priority
             )
             await buffer.add_event(event)
@@ -145,7 +147,7 @@ class TestFeedbackBuffer:
             feedback_type=FeedbackType.CLICK,
             raw_value=True,
             context={},
-            timestamp=datetime.now(),
+            timestamp=utc_now(),
             priority=EventPriority.LOW
         )
         await buffer.add_event(event)
@@ -167,7 +169,7 @@ class TestFeedbackBuffer:
             feedback_type=FeedbackType.RATING,
             raw_value=5,
             context={},
-            timestamp=datetime.now(),
+            timestamp=utc_now(),
             priority=EventPriority.HIGH
         )
         await buffer.add_event(event)
@@ -193,7 +195,7 @@ class TestEventDeduplicator:
             feedback_type=FeedbackType.CLICK,
             raw_value=True,
             context={},
-            timestamp=datetime.now(),
+            timestamp=utc_now(),
             priority=EventPriority.LOW
         )
     
@@ -228,7 +230,7 @@ class TestEventDeduplicator:
             feedback_type=FeedbackType.CLICK,
             raw_value=True,
             context={},
-            timestamp=datetime.now(),
+            timestamp=utc_now(),
             priority=EventPriority.LOW
         )
         
@@ -243,7 +245,7 @@ class TestEventDeduplicator:
         
         # 模拟时间过去，超过去重窗口
         with patch('services.feedback_collector.datetime') as mock_datetime:
-            future_time = datetime.now() + timedelta(seconds=120)  # 超过60秒窗口
+            future_time = utc_now() + timedelta(seconds=120)  # 超过60秒窗口
             mock_datetime.now.return_value = future_time
             
             # 再次检查，应该不是重复（因为已过期）
@@ -264,7 +266,7 @@ class TestEventValidator:
             feedback_type=FeedbackType.CLICK,
             raw_value=True,
             context={},
-            timestamp=datetime.now(),
+            timestamp=utc_now(),
             priority=EventPriority.LOW
         )
         
@@ -284,7 +286,7 @@ class TestEventValidator:
             feedback_type=FeedbackType.DWELL_TIME,
             raw_value=30.5,  # 30.5秒
             context={},
-            timestamp=datetime.now(),
+            timestamp=utc_now(),
             priority=EventPriority.LOW
         )
         
@@ -308,7 +310,7 @@ class TestEventValidator:
             feedback_type=FeedbackType.SCROLL_DEPTH,
             raw_value=75.5,  # 75.5%
             context={},
-            timestamp=datetime.now(),
+            timestamp=utc_now(),
             priority=EventPriority.LOW
         )
         
@@ -328,7 +330,7 @@ class TestEventValidator:
             feedback_type=FeedbackType.RATING,
             raw_value=4,
             context={},
-            timestamp=datetime.now(),
+            timestamp=utc_now(),
             priority=EventPriority.HIGH
         )
         
@@ -351,7 +353,7 @@ class TestEventValidator:
             feedback_type=FeedbackType.COMMENT,
             raw_value="这是一个很好的功能!",
             context={},
-            timestamp=datetime.now(),
+            timestamp=utc_now(),
             priority=EventPriority.HIGH
         )
         

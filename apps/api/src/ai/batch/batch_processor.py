@@ -11,6 +11,7 @@ from enum import Enum
 import uuid
 import time
 from datetime import datetime
+from src.core.utils.timezone_utils import utc_now, utc_factory
 import logging
 from concurrent.futures import ThreadPoolExecutor
 import json
@@ -196,7 +197,7 @@ class BatchProcessor:
         
         # 提交就绪任务到队列
         job.status = BatchStatus.RUNNING
-        job.started_at = datetime.utcnow()
+        job.started_at = utc_now()
         
         for task in ready_tasks:
             await self._enqueue_task(job.id, task)
@@ -323,7 +324,7 @@ class BatchProcessor:
             return
         
         task.status = BatchStatus.RUNNING
-        task.started_at = datetime.utcnow()
+        task.started_at = utc_now()
         start_time = time.time()
         success = False
         
@@ -350,7 +351,7 @@ class BatchProcessor:
             # 记录成功结果
             task.result = result
             task.status = BatchStatus.COMPLETED
-            task.completed_at = datetime.utcnow()
+            task.completed_at = utc_now()
             task.execution_time = time.time() - start_time
             success = True
             
@@ -362,7 +363,7 @@ class BatchProcessor:
         except asyncio.TimeoutError:
             task.error = "任务超时"
             task.status = BatchStatus.FAILED
-            task.completed_at = datetime.utcnow()
+            task.completed_at = utc_now()
             task.execution_time = time.time() - start_time
             
             logger.warning(f"任务超时: {task.id}")
@@ -376,7 +377,7 @@ class BatchProcessor:
                 "execution_time": time.time() - start_time
             }
             task.status = BatchStatus.FAILED
-            task.completed_at = datetime.utcnow()
+            task.completed_at = utc_now()
             task.execution_time = time.time() - start_time
             
             logger.error(f"任务执行失败: {task.id} - {e}")
@@ -497,7 +498,7 @@ class BatchProcessor:
             else:
                 job.status = BatchStatus.FAILED
             
-            job.completed_at = datetime.utcnow()
+            job.completed_at = utc_now()
             self._total_jobs_processed += 1
             
             logger.info(f"作业完成: {job.id} (状态: {job.status.value}, "
@@ -516,7 +517,7 @@ class BatchProcessor:
                 job.cancelled_tasks += 1
         
         job.status = BatchStatus.CANCELLED
-        job.completed_at = datetime.utcnow()
+        job.completed_at = utc_now()
         
         logger.info(f"取消作业: {job_id} (原因: {reason})")
         return True
@@ -623,7 +624,7 @@ class BatchProcessor:
     
     async def cleanup_completed_jobs(self, max_age_hours: int = 24):
         """清理完成的作业"""
-        cutoff_time = datetime.utcnow().timestamp() - (max_age_hours * 3600)
+        cutoff_time = utc_now().timestamp() - (max_age_hours * 3600)
         
         jobs_to_remove = []
         for job_id, job in self.jobs.items():

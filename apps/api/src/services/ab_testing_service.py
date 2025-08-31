@@ -3,6 +3,7 @@ A/B测试核心服务 - 提供实验管理、用户分配、事件追踪等核�
 """
 from typing import Optional, Dict, Any, List
 from datetime import datetime
+from src.core.utils.timezone_utils import utc_now, utc_factory
 
 from models.schemas.experiment import (
     ExperimentConfig, CreateExperimentRequest, ExperimentStatus,
@@ -344,7 +345,7 @@ class ABTestingService:
                 'metric_name': metric_name,
                 'variant_data': variant_data,
                 'total_events': len(events),
-                'collection_time': datetime.utcnow()
+                'collection_time': utc_now()
             }
             
         except Exception as e:

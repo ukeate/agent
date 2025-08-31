@@ -7,7 +7,9 @@
 
 import pytest
 import asyncio
-from datetime import datetime, timedelta
+from datetime import datetime
+from datetime import timedelta
+from src.core.utils.timezone_utils import utc_now, utc_factory
 from unittest.mock import Mock, patch, AsyncMock
 import json
 
@@ -508,7 +510,7 @@ class TestDatabaseIntegration:
             "processed_value": 0.75,
             "confidence_score": 0.85,
             "context": {"test": "integration"},
-            "timestamp": datetime.now(),
+            "timestamp": utc_now(),
             "session_id": "test_session"
         }
         
@@ -670,7 +672,7 @@ class TestPerformanceBenchmarks:
                     feedback_type=FeedbackType.CLICK,
                     raw_value=True,
                     context={"latency_test": True},
-                    timestamp=datetime.now(),
+                    timestamp=utc_now(),
                     priority=EventPriority.LOW
                 )
                 events.append(event)

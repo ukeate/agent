@@ -8,6 +8,7 @@ import asyncio
 import numpy as np
 from typing import List
 from datetime import datetime
+from src.core.utils.timezone_utils import utc_now, utc_factory
 
 from .tabular_qlearning_agent import TabularQLearningAgent
 from .agent_monitor import (

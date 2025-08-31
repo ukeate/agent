@@ -16,6 +16,7 @@ export const useChat = () => {
     setError,
     saveConversation,
     createNewConversation,
+    currentConversation,
   } = useConversationStore()
 
   const {
@@ -29,7 +30,6 @@ export const useChat = () => {
     if (loading) return
 
     // 如果没有当前对话，先创建一个新对话
-    const currentConversation = useConversationStore.getState().currentConversation
     if (!currentConversation) {
       createNewConversation()
     }
@@ -178,6 +178,7 @@ export const useChat = () => {
     }
   }, [
     loading,
+    currentConversation,
     addMessage,
     updateLastMessage,
     setLoading,
@@ -187,6 +188,7 @@ export const useChat = () => {
     incrementMessageCount,
     incrementToolCount,
     saveConversation,
+    createNewConversation,
   ])
 
   const clearChat = useCallback(() => {

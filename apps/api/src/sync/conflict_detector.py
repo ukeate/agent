@@ -5,7 +5,9 @@
 """
 
 import json
-from datetime import datetime, timedelta
+from datetime import datetime
+from datetime import timedelta
+from src.core.utils.timezone_utils import utc_now, utc_factory
 from typing import Dict, Any, List, Optional, Tuple, Set
 from dataclasses import dataclass, field
 from enum import Enum
@@ -96,7 +98,7 @@ class ConflictDetector:
         context: Optional[Dict[str, Any]] = None
     ) -> ConflictDetectionResult:
         """检测操作间的冲突"""
-        start_time = datetime.utcnow()
+        start_time = utc_now()
         conflicts = []
         total_operations = len(local_operations) + len(remote_operations)
         
@@ -125,7 +127,7 @@ class ConflictDetector:
         conflicts.extend(cross_object_conflicts)
         
         # 计算检测时间
-        end_time = datetime.utcnow()
+        end_time = utc_now()
         detection_duration = (end_time - start_time).total_seconds() * 1000
         
         # 更新统计
@@ -257,7 +259,7 @@ class ConflictDetector:
             auto_resolvable=auto_resolvable,
             confidence_score=confidence,
             metadata={
-                "detection_time": datetime.utcnow().isoformat(),
+                "detection_time": utc_now().isoformat(),
                 "context": context or {}
             }
         )

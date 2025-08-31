@@ -8,7 +8,9 @@ from fastapi import APIRouter, HTTPException, BackgroundTasks, WebSocket, WebSoc
 from fastapi.security import HTTPBearer
 from pydantic import BaseModel, Field, validator
 from typing import Dict, List, Any, Optional, Union
-from datetime import datetime, timedelta
+from datetime import datetime
+from datetime import timedelta
+from src.core.utils.timezone_utils import utc_now, utc_factory
 from enum import Enum
 import logging
 import json
@@ -223,7 +225,7 @@ async def submit_explicit_feedback(
         
         # 创建反馈事件
         event = FeedbackEvent(
-            event_id=f"explicit-{int(datetime.now().timestamp() * 1000)}",
+            event_id=f"explicit-{int(utc_now().timestamp() * 1000)}",
             user_id=feedback.user_id,
             session_id=feedback.session_id,
             item_id=feedback.item_id,
@@ -232,7 +234,7 @@ async def submit_explicit_feedback(
             context=FeedbackContext(
                 url=feedback.context.get('url', '') if feedback.context else '',
                 page_title=feedback.context.get('page_title', '') if feedback.context else '',
-                timestamp=int(datetime.now().timestamp() * 1000),
+                timestamp=int(utc_now().timestamp() * 1000),
                 user_agent=feedback.context.get('user_agent', '') if feedback.context else ''
             ),
             metadata=feedback.metadata
@@ -393,7 +395,7 @@ async def calculate_reward_signal(
                 "item_id": item_id,
                 "reward_signal": reward,
                 "time_window": time_window,
-                "calculated_at": datetime.now().isoformat()
+                "calculated_at": utc_now().isoformat()
             }
         )
         
@@ -748,5 +750,5 @@ async def get_realtime_metrics() -> Dict:
         "processing_latency": round(random.uniform(20, 150), 1),
         "quality_score": round(random.uniform(0.75, 0.95), 3),
         "anomaly_count": random.randint(0, 5),
-        "last_updated": datetime.now().isoformat()
+        "last_updated": utc_now().isoformat()
     }

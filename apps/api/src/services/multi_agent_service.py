@@ -3,7 +3,8 @@
 """
 import asyncio
 from typing import Dict, List, Optional, Any, AsyncGenerator
-from datetime import datetime, timezone
+from datetime import datetime
+from src.core.utils.timezone_utils import utc_now, utc_factory, timezone
 import json
 
 from src.ai.autogen import (
@@ -200,7 +201,7 @@ class MultiAgentService:
             return None
         
         # 基于当前进度估算剩余时间
-        elapsed = datetime.now(timezone.utc) - session.created_at
+        elapsed = utc_now() - session.created_at
         avg_time_per_round = elapsed.total_seconds() / session.round_count
         remaining_rounds = max(0, session.config.max_rounds - session.round_count)
         estimated_seconds = remaining_rounds * avg_time_per_round
@@ -378,5 +379,5 @@ class MultiAgentService:
         return {
             "cleaned_sessions": len(inactive_sessions) + cleaned_count,
             "remaining_active_sessions": len(self._active_sessions),
-            "cleanup_timestamp": datetime.now(timezone.utc).isoformat(),
+            "cleanup_timestamp": utc_now().isoformat(),
         }

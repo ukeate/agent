@@ -4,7 +4,9 @@
 
 import pytest
 import numpy as np
-from datetime import datetime, timedelta
+from datetime import datetime
+from datetime import timedelta
+from src.core.utils.timezone_utils import utc_now, utc_factory
 from unittest.mock import MagicMock, patch
 
 from src.ai.analytics.models import BehaviorEvent, BehaviorPattern
@@ -21,7 +23,7 @@ class TestSequencePatternMiner:
         self.miner = SequencePatternMiner()
         
         # 创建测试事件序列
-        base_time = datetime.utcnow()
+        base_time = utc_now()
         self.events = [
             BehaviorEvent(
                 event_id="e1", user_id="user1", event_type="login",
@@ -65,7 +67,7 @@ class TestSequencePatternMiner:
         """测试频繁模式挖掘"""
         # 添加更多重复模式
         repeated_events = self.events.copy()
-        base_time = datetime.utcnow() + timedelta(hours=1)
+        base_time = utc_now() + timedelta(hours=1)
         
         # 添加相似的用户行为
         for i in range(3, 6):
@@ -130,7 +132,7 @@ class TestBehaviorClustering:
         
         # 创建测试事件
         self.events = []
-        base_time = datetime.utcnow()
+        base_time = utc_now()
         
         # 创建两组不同的行为模式
         for i in range(10):
@@ -213,7 +215,7 @@ class TestPatternRecognitionEngine:
         
         # 创建复杂的测试数据
         self.complex_events = []
-        base_time = datetime.utcnow()
+        base_time = utc_now()
         
         # 模拟多个用户的复杂行为序列
         user_behaviors = [
@@ -262,7 +264,7 @@ class TestPatternRecognitionEngine:
             event_id="new_test",
             user_id="new_user",
             event_type="login",
-            timestamp=datetime.utcnow(),
+            timestamp=utc_now(),
             properties={}
         )
         
@@ -300,7 +302,7 @@ class TestPatternRecognitionEngine:
             event_id="anomaly_test",
             user_id="anomaly_user",
             event_type="unusual_action",
-            timestamp=datetime.utcnow(),
+            timestamp=utc_now(),
             properties={"duration": 10000}  # 异常长的持续时间
         )
         
@@ -317,7 +319,7 @@ class TestPatternRecognitionEngine:
         """测试大数据集性能"""
         # 创建大量测试数据
         large_dataset = []
-        base_time = datetime.utcnow()
+        base_time = utc_now()
         
         for i in range(1000):
             large_dataset.append(BehaviorEvent(

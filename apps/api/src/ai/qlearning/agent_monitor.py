@@ -6,7 +6,9 @@
 import asyncio
 import json
 import time
-from datetime import datetime, timedelta
+from datetime import datetime
+from datetime import timedelta
+from src.core.utils.timezone_utils import utc_now, utc_factory
 from typing import Dict, List, Optional, Any, Union
 from enum import Enum
 from dataclasses import dataclass, asdict
@@ -311,7 +313,7 @@ class AgentMonitor:
     def get_performance_trend(self, agent_id: str, metric_name: str, 
                             hours: int = 24) -> List[Dict[str, Any]]:
         """获取性能趋势数据"""
-        cutoff_time = datetime.now() - timedelta(hours=hours)
+        cutoff_time = utc_now() - timedelta(hours=hours)
         
         trend_data = []
         for metric in self.performance_buffer:
@@ -367,7 +369,7 @@ class AgentMonitor:
         while self.is_monitoring:
             try:
                 # 清理过期的统计信息
-                current_time = datetime.now()
+                current_time = utc_now()
                 cutoff_time = current_time - timedelta(hours=24)
                 
                 for agent_id in list(self.agent_stats.keys()):
@@ -460,7 +462,7 @@ class MonitoredQLearningAgent(QLearningAgent):
         
         # 记录决策过程
         decision_record = AgentDecision(
-            timestamp=datetime.now(),
+            timestamp=utc_now(),
             agent_id=self.agent_id,
             session_id=self.session_id,
             state=state,
@@ -481,7 +483,7 @@ class MonitoredQLearningAgent(QLearningAgent):
         """学习（带监控）"""
         # 记录动作
         action_record = AgentAction(
-            timestamp=datetime.now(),
+            timestamp=utc_now(),
             agent_id=self.agent_id,
             session_id=self.session_id,
             episode=getattr(self, 'current_episode', 0),
@@ -506,7 +508,7 @@ class MonitoredQLearningAgent(QLearningAgent):
                              additional_data: Optional[Dict[str, Any]] = None):
         """记录性能指标"""
         metric_record = PerformanceMetric(
-            timestamp=datetime.now(),
+            timestamp=utc_now(),
             agent_id=self.agent_id,
             session_id=self.session_id,
             episode=getattr(self, 'current_episode', 0),
@@ -521,7 +523,7 @@ class MonitoredQLearningAgent(QLearningAgent):
                   data: Optional[Dict[str, Any]] = None):
         """记录事件"""
         event_record = AgentEvent(
-            timestamp=datetime.now(),
+            timestamp=utc_now(),
             agent_id=self.agent_id,
             session_id=self.session_id,
             event_type=event_type,

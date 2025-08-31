@@ -6,7 +6,8 @@ import asyncio
 import json
 import uuid
 from abc import ABC, abstractmethod
-from datetime import datetime, timezone
+from datetime import datetime
+from src.core.utils.timezone_utils import utc_now, utc_factory, timezone
 from enum import Enum
 from typing import Dict, List, Optional, Any, Callable, Union
 from dataclasses import dataclass, field, asdict
@@ -58,7 +59,7 @@ class Event:
     """事件数据结构"""
     id: str = field(default_factory=lambda: str(uuid.uuid4()))
     type: EventType = field(default=EventType.MESSAGE_SENT)
-    timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    timestamp: datetime = field(default_factory=lambda: utc_now())
     source: str = ""  # 事件源（智能体名称、系统组件名等）
     target: Optional[str] = None  # 事件目标
     conversation_id: Optional[str] = None
@@ -246,7 +247,7 @@ class EventBus:
     
     async def _process_event(self, event: Event, worker_name: str) -> None:
         """处理单个事件"""
-        start_time = datetime.now(timezone.utc)
+        start_time = utc_now()
         
         try:
             # 收集所有需要处理此事件的处理器
@@ -275,7 +276,7 @@ class EventBus:
             if tasks:
                 await asyncio.gather(*tasks, return_exceptions=True)
             
-            processing_time = (datetime.now(timezone.utc) - start_time).total_seconds()
+            processing_time = (utc_now() - start_time).total_seconds()
             
             logger.debug(
                 "事件处理完成",
@@ -456,7 +457,7 @@ class StateManager:
             # 返回默认状态
             default_state = {
                 "status": "idle",
-                "last_activity": datetime.now(timezone.utc).isoformat(),
+                "last_activity": utc_now().isoformat(),
                 "current_task": None,
                 "capabilities": [],
                 "load": 0.0
@@ -487,7 +488,7 @@ class StateManager:
                 
                 # 应用更新
                 current_state.update(state_update)
-                current_state["last_updated"] = datetime.now(timezone.utc).isoformat()
+                current_state["last_updated"] = utc_now().isoformat()
                 
                 # 同时更新本地和Redis
                 self.local_state[agent_id] = current_state

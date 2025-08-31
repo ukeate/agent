@@ -8,7 +8,9 @@ import json
 import time
 import uuid
 import threading
-from datetime import datetime, timezone, timedelta
+from datetime import datetime
+from datetime import timedelta
+from src.core.utils.timezone_utils import utc_now, utc_factory
 from typing import Dict, List, Optional, Any, Callable, Union, Set
 from dataclasses import dataclass, field
 from enum import Enum
@@ -106,8 +108,8 @@ class AgentPool:
     config: AgentPoolConfig
     agents: Dict[str, EnterpriseAgentInfo] = field(default_factory=dict)
     load_balancer_index: int = 0
-    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
-    last_scaled: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = field(default_factory=lambda: utc_now())
+    last_scaled: datetime = field(default_factory=lambda: utc_now())
     
     def get_current_load(self) -> float:
         """获取当前池负载"""
@@ -302,7 +304,7 @@ class EnterpriseAgentManager(AsyncAgentManager):
             created_at=base_info.created_at,
             last_activity=base_info.last_activity,
             pool_id=pool_id,
-            last_health_check=datetime.now(timezone.utc)
+            last_health_check=utc_now()
         )
         
         # 替换智能体信息
@@ -349,7 +351,7 @@ class EnterpriseAgentManager(AsyncAgentManager):
             task_id=task_id,
             task_data=task_data,
             priority=priority,
-            deadline=datetime.now() + timedelta(seconds=timeout_seconds) if timeout_seconds > 0 else None
+            deadline=utc_now() + timedelta(seconds=timeout_seconds) if timeout_seconds > 0 else None
         )
         
         if not flow_accepted:
@@ -461,7 +463,7 @@ class EnterpriseAgentManager(AsyncAgentManager):
                 )
                 await self._create_pooled_agent(pool_id, agent_config)
             
-            pool.last_scaled = datetime.now(timezone.utc)
+            pool.last_scaled = utc_now()
             
             logger.info(
                 "智能体池扩容成功",
@@ -505,7 +507,7 @@ class EnterpriseAgentManager(AsyncAgentManager):
             await self.destroy_agent(agent_to_remove.id)
             del pool.agents[agent_to_remove.id]
             
-            pool.last_scaled = datetime.now(timezone.utc)
+            pool.last_scaled = utc_now()
             
             logger.info(
                 "智能体池缩容成功",
@@ -549,9 +551,9 @@ class EnterpriseAgentManager(AsyncAgentManager):
                 payload={
                     "status": "healthy",
                     "stats": self.get_manager_stats(),
-                    "timestamp": datetime.now(timezone.utc).isoformat()
+                    "timestamp": utc_now().isoformat()
                 },
-                timestamp=datetime.now(timezone.utc)
+                timestamp=utc_now()
             )
             await self.distributed_event_bus.publish(response_event)
     
@@ -645,7 +647,7 @@ class EnterpriseAgentManager(AsyncAgentManager):
     
     async def _check_agent_health(self, agent_info: EnterpriseAgentInfo):
         """检查智能体健康状态"""
-        current_time = datetime.now(timezone.utc)
+        current_time = utc_now()
         
         # 更新最后健康检查时间
         agent_info.last_health_check = current_time
@@ -722,7 +724,7 @@ class EnterpriseAgentManager(AsyncAgentManager):
         """发布健康状态"""
         health_data = {
             "node_id": self.node_id,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": utc_now().isoformat(),
             "stats": self.get_enterprise_stats(),
             "status": "healthy" if self.running else "stopped"
         }
@@ -734,7 +736,7 @@ class EnterpriseAgentManager(AsyncAgentManager):
             source_node=self.node_id,
             target_nodes=[],  # 广播
             payload=health_data,
-            timestamp=datetime.now(timezone.utc)
+            timestamp=utc_now()
         )
         
         await self.distributed_event_bus.publish(event)
@@ -746,7 +748,7 @@ class EnterpriseAgentManager(AsyncAgentManager):
         while self.running:
             try:
                 for pool_id, pool in self.agent_pools.items():
-                    current_time = datetime.now(timezone.utc)
+                    current_time = utc_now()
                     
                     # 检查是否需要扩容
                     if pool.needs_scaling_up():
@@ -820,7 +822,7 @@ class EnterpriseAgentManager(AsyncAgentManager):
     
     def _calculate_throughput(self) -> float:
         """计算吞吐量（每分钟完成任务数）"""
-        current_time = datetime.now(timezone.utc)
+        current_time = utc_now()
         one_minute_ago = current_time - timedelta(minutes=1)
         
         recent_tasks = [
@@ -882,14 +884,14 @@ class SecurityContext:
     security_level: SecurityLevel = SecurityLevel.PUBLIC
     ip_address: Optional[str] = None
     user_agent: Optional[str] = None
-    timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    timestamp: datetime = field(default_factory=lambda: utc_now())
 
 
 @dataclass
 class AuditLogEntry:
     """审计日志条目"""
     id: str = field(default_factory=lambda: str(uuid.uuid4()))
-    timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    timestamp: datetime = field(default_factory=lambda: utc_now())
     user_id: str = ""
     session_id: str = ""
     action: str = ""
@@ -917,7 +919,7 @@ class AuditLogEntry:
 class Alert:
     """告警"""
     id: str = field(default_factory=lambda: str(uuid.uuid4()))
-    timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    timestamp: datetime = field(default_factory=lambda: utc_now())
     severity: AlertSeverity = AlertSeverity.INFO
     title: str = ""
     message: str = ""
@@ -989,7 +991,7 @@ class EnterpriseErrorHandler:
                     "error_type": error_type,
                     "error_message": error_message,
                     "context": context,
-                    "timestamp": datetime.now(timezone.utc).isoformat()
+                    "timestamp": utc_now().isoformat()
                 }
             ))
             
@@ -1224,7 +1226,7 @@ class SecurityManager:
                 "action": action,
                 "reason": reason,
                 "ip_address": security_context.ip_address,
-                "timestamp": datetime.now(timezone.utc).isoformat()
+                "timestamp": utc_now().isoformat()
             }
         ))
         
@@ -1413,7 +1415,7 @@ class MonitoringSystem:
         
     def record_metric(self, name: str, value: float, tags: Optional[Dict[str, str]] = None) -> None:
         """记录指标"""
-        timestamp = datetime.now(timezone.utc)
+        timestamp = utc_now()
         
         if name not in self.metrics:
             self.metrics[name] = []
@@ -1475,7 +1477,7 @@ class MonitoringSystem:
         if name not in self.metrics:
             return {}
         
-        cutoff_time = datetime.now(timezone.utc) - timedelta(minutes=duration_minutes)
+        cutoff_time = utc_now() - timedelta(minutes=duration_minutes)
         recent_metrics = [
             m for m in self.metrics[name]
             if m["timestamp"] > cutoff_time
@@ -1507,7 +1509,7 @@ class MonitoringSystem:
         for alert in self.alerts:
             if alert.id == alert_id:
                 alert.resolved = True
-                alert.resolved_at = datetime.now(timezone.utc)
+                alert.resolved_at = utc_now()
                 return True
         return False
     

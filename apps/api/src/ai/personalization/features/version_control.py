@@ -2,6 +2,7 @@ import json
 import hashlib
 from typing import Dict, List, Optional, Any, Tuple
 from datetime import datetime
+from src.core.utils.timezone_utils import utc_now, utc_factory
 from dataclasses import dataclass, asdict
 from redis.asyncio import Redis
 import logging
@@ -78,7 +79,7 @@ class FeatureVersionControl:
             version = FeatureVersion(
                 version_id=version_id,
                 feature_schema=feature_schema,
-                created_at=datetime.utcnow(),
+                created_at=utc_now(),
                 description=description,
                 is_active=auto_activate,
                 parent_version=parent_version,
@@ -382,7 +383,7 @@ class FeatureVersionControl:
             export_data["created_at"] = version.created_at.isoformat()
             
             # 添加额外信息
-            export_data["export_time"] = datetime.utcnow().isoformat()
+            export_data["export_time"] = utc_now().isoformat()
             export_data["export_format"] = "1.0"
             
             return export_data
@@ -453,7 +454,7 @@ class FeatureVersionControl:
         schema_hash = hashlib.sha256(schema_str.encode()).hexdigest()[:8]
         
         # 添加时间戳
-        timestamp = datetime.utcnow().strftime("%Y%m%d%H%M%S")
+        timestamp = utc_now().strftime("%Y%m%d%H%M%S")
         
         return f"v_{timestamp}_{schema_hash}"
     
@@ -552,7 +553,7 @@ class FeatureVersionControl:
             event_key = f"{self.version_prefix}:events:{version_id}"
             event_data = {
                 "type": event_type,
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": utc_now().isoformat(),
                 "metadata": metadata or {}
             }
             

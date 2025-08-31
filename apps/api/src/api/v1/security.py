@@ -2,7 +2,9 @@
 安全管理API端点
 """
 
-from datetime import datetime, timedelta
+from datetime import datetime
+from datetime import timedelta
+from src.core.utils.timezone_utils import utc_now, utc_factory
 from typing import List, Optional
 
 import structlog
@@ -127,7 +129,7 @@ async def create_api_key(
     # 计算过期时间
     expires_at = None
     if api_key_data.expires_in_days:
-        expires_at = datetime.utcnow() + timedelta(days=api_key_data.expires_in_days)
+        expires_at = utc_now() + timedelta(days=api_key_data.expires_in_days)
     
     # TODO: 保存到数据库
     
@@ -142,7 +144,7 @@ async def create_api_key(
         id=key_id,
         name=api_key_data.name,
         key=api_key,
-        created_at=datetime.utcnow(),
+        created_at=utc_now(),
         expires_at=expires_at,
         permissions=api_key_data.permissions
     )

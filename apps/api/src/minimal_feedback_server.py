@@ -28,6 +28,7 @@ app.add_middleware(
 # 手动创建基本反馈路由
 from fastapi import APIRouter
 from datetime import datetime
+from src.core.utils.timezone_utils import utc_now, utc_factory
 from typing import Optional, Dict
 import logging
 
@@ -87,7 +88,7 @@ async def get_realtime_feedback_metrics():
             "processing_latency": round(random.uniform(20, 150), 1),
             "quality_score": round(random.uniform(0.75, 0.95), 3),
             "anomaly_count": random.randint(0, 5),
-            "last_updated": datetime.now().isoformat()
+            "last_updated": utc_now().isoformat()
         }
     }
 

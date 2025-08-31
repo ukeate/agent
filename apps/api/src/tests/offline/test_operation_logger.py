@@ -5,7 +5,9 @@
 import pytest
 import tempfile
 import json
-from datetime import datetime, timedelta
+from datetime import datetime
+from datetime import timedelta
+from src.core.utils.timezone_utils import utc_now, utc_factory
 from uuid import uuid4
 
 from ...offline.operation_logger import OperationLogger, OperationType, Operation
@@ -139,7 +141,7 @@ class TestOperationLogger:
                 entity_type="test_entity",
                 entity_id="test_123",
                 data={"test": "data"},
-                timestamp=datetime.utcnow(),
+                timestamp=utc_now(),
                 vector_clock=vector_clock
             )
             
@@ -165,7 +167,7 @@ class TestOperationLogger:
             object_id="user_456",
             object_type="user",
             data={"name": "Bob"},
-            client_timestamp=datetime.utcnow(),
+            client_timestamp=utc_now(),
             vector_clock=vector_clock,
             metadata={"user_id": "bob_user"}
         )
@@ -347,7 +349,7 @@ class TestStateManager:
                 object_id="123",
                 object_type="user",
                 data={"name": "Alice", "age": 30},
-                client_timestamp=datetime.utcnow() - timedelta(minutes=10),
+                client_timestamp=utc_now() - timedelta(minutes=10),
                 vector_clock=vector_clock
             ),
             SyncOperation(
@@ -358,7 +360,7 @@ class TestStateManager:
                 object_id="123",
                 object_type="user",
                 patch_data={"age": 31},
-                client_timestamp=datetime.utcnow() - timedelta(minutes=5),
+                client_timestamp=utc_now() - timedelta(minutes=5),
                 vector_clock=vector_clock
             ),
             SyncOperation(
@@ -369,7 +371,7 @@ class TestStateManager:
                 object_id="456",
                 object_type="user",
                 data={"name": "Bob", "age": 25},
-                client_timestamp=datetime.utcnow(),
+                client_timestamp=utc_now(),
                 vector_clock=vector_clock
             )
         ]

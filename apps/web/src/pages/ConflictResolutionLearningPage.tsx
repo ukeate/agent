@@ -1,14 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
-import { Badge } from '../components/ui/badge';
-import { Button } from '../components/ui/button';
-import { Progress } from '../components/ui/Progress';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
+import { Card, Progress, Tabs, Badge, Button } from 'antd';
 import { 
   GitMerge, AlertTriangle, CheckCircle, Clock,
   Activity, Zap, RefreshCw, Settings, Database,
   ArrowRight, GitBranch, Users, Bot, Play, Pause
 } from 'lucide-react';
+
+const { TabPane } = Tabs;
 
 // 冲突类型和解决策略的教学数据
 interface ConflictScenario {
@@ -413,11 +411,11 @@ const ConflictResolutionLearningPage: React.FC = () => {
 
   const getConflictTypeColor = (type: string) => {
     switch (type) {
-      case 'UPDATE_UPDATE': return 'bg-orange-500';
-      case 'CREATE_CREATE': return 'bg-blue-500';
-      case 'UPDATE_DELETE': return 'bg-red-500';
-      case 'DELETE_UPDATE': return 'bg-purple-500';
-      default: return 'bg-gray-500';
+      case 'UPDATE_UPDATE': return 'orange';
+      case 'CREATE_CREATE': return 'blue';
+      case 'UPDATE_DELETE': return 'red';
+      case 'DELETE_UPDATE': return 'purple';
+      default: return 'default';
     }
   };
 
@@ -451,7 +449,7 @@ const ConflictResolutionLearningPage: React.FC = () => {
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold">冲突解决策略学习</h1>
         <div className="flex space-x-2">
-          <Button onClick={() => window.location.reload()} variant="outline" size="sm">
+          <Button onClick={() => window.location.reload()} type="default" size="small">
             <RefreshCw className="h-4 w-4 mr-2" />
             重置演示
           </Button>
@@ -459,14 +457,13 @@ const ConflictResolutionLearningPage: React.FC = () => {
       </div>
 
       {/* 冲突类型概述 */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center">
-            <AlertTriangle className="h-5 w-5 mr-2" />
-            分布式系统冲突类型
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <Card title={
+        <div className="flex items-center">
+          <AlertTriangle className="h-5 w-5 mr-2" />
+          分布式系统冲突类型
+        </div>
+      }>
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <div className="bg-orange-50 border border-orange-200 rounded p-4">
             <h4 className="font-medium text-orange-800 mb-2">UPDATE-UPDATE</h4>
             <p className="text-sm text-orange-600">
@@ -491,18 +488,11 @@ const ConflictResolutionLearningPage: React.FC = () => {
               一个节点删除资源，另一个节点修改了该资源
             </p>
           </div>
-        </CardContent>
+        </div>
       </Card>
 
-      <Tabs defaultValue="scenarios" className="w-full">
-        <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="scenarios">冲突场景</TabsTrigger>
-          <TabsTrigger value="strategies">解决策略</TabsTrigger>
-          <TabsTrigger value="merge-algorithm">三路合并</TabsTrigger>
-          <TabsTrigger value="performance">性能分析</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="scenarios" className="space-y-4">
+      <Tabs defaultActiveKey="scenarios" className="w-full">
+        <TabPane tab="冲突场景" key="scenarios" className="space-y-4">
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
             {/* 场景选择 */}
             <div className="space-y-4">
@@ -514,16 +504,17 @@ const ConflictResolutionLearningPage: React.FC = () => {
                     selectedScenario?.id === scenario.id ? 'border-blue-500 bg-blue-50' : 'hover:bg-gray-50'
                   }`}
                   onClick={() => setSelectedScenario(scenario)}
+                  bodyStyle={{ padding: 16 }}
                 >
-                  <CardContent className="p-4">
+                  <div>
                     <div className="flex items-center justify-between mb-2">
-                      <Badge className={getConflictTypeColor(scenario.conflict_type)}>
+                      <Badge color={getConflictTypeColor(scenario.conflict_type)}>
                         {scenario.conflict_type}
                       </Badge>
                       {getConflictTypeIcon(scenario.conflict_type)}
                     </div>
                     <p className="text-sm font-medium">{scenario.description}</p>
-                  </CardContent>
+                  </div>
                 </Card>
               ))}
             </div>
@@ -531,14 +522,13 @@ const ConflictResolutionLearningPage: React.FC = () => {
             {/* 场景详情 */}
             {selectedScenario && (
               <div className="lg:col-span-2 space-y-4">
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center">
-                      {getConflictTypeIcon(selectedScenario.conflict_type)}
-                      <span className="ml-2">{selectedScenario.description}</span>
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
+                <Card title={
+                  <div className="flex items-center">
+                    {getConflictTypeIcon(selectedScenario.conflict_type)}
+                    <span className="ml-2">{selectedScenario.description}</span>
+                  </div>
+                }>
+                  <div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
                         <h4 className="font-medium mb-2">本地版本:</h4>
@@ -578,11 +568,11 @@ const ConflictResolutionLearningPage: React.FC = () => {
                                 <span className="font-medium">{strategy.strategy}</span>
                               </div>
                               <div className="flex items-center space-x-2">
-                                <Badge variant="outline">
+                                <Badge color="blue">
                                   信心度: {(strategy.confidence * 100).toFixed(0)}%
                                 </Badge>
                                 <Button
-                                  size="sm"
+                                  size="small"
                                   onClick={() => executeResolutionStrategy(selectedScenario, strategy.strategy)}
                                 >
                                   执行
@@ -614,7 +604,7 @@ const ConflictResolutionLearningPage: React.FC = () => {
                         ))}
                       </div>
                     </div>
-                  </CardContent>
+                  </div>
                 </Card>
               </div>
             )}
@@ -622,11 +612,8 @@ const ConflictResolutionLearningPage: React.FC = () => {
 
           {/* 解决结果 */}
           {resolutionResults.length > 0 && (
-            <Card>
-              <CardHeader>
-                <CardTitle>解决结果历史</CardTitle>
-              </CardHeader>
-              <CardContent>
+            <Card title="解决结果历史">
+              <div>
                 <div className="space-y-4">
                   {resolutionResults.map((result, index) => (
                     <div key={index} className="border rounded p-4">
@@ -636,10 +623,10 @@ const ConflictResolutionLearningPage: React.FC = () => {
                           <span className="font-medium">{result.strategy}</span>
                         </div>
                         <div className="flex items-center space-x-2">
-                          <Badge variant="secondary">
+                          <Badge color="gray">
                             {result.execution_time_ms}ms
                           </Badge>
-                          <Badge variant="outline">
+                          <Badge color="blue">
                             信心度: {(result.confidence * 100).toFixed(0)}%
                           </Badge>
                         </div>
@@ -664,18 +651,15 @@ const ConflictResolutionLearningPage: React.FC = () => {
                     </div>
                   ))}
                 </div>
-              </CardContent>
+              </div>
             </Card>
           )}
-        </TabsContent>
+        </TabPane>
 
-        <TabsContent value="strategies" className="space-y-4">
+        <TabPane tab="解决策略" key="strategies" className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>自动解决策略</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
+            <Card title="自动解决策略">
+              <div className="space-y-4">
                 <div className="border rounded p-3">
                   <h4 className="font-medium flex items-center mb-2">
                     <Clock className="h-4 w-4 mr-2" />
@@ -717,14 +701,11 @@ const ConflictResolutionLearningPage: React.FC = () => {
 }`}
                   </pre>
                 </div>
-              </CardContent>
+              </div>
             </Card>
 
-            <Card>
-              <CardHeader>
-                <CardTitle>交互式解决策略</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
+            <Card title="交互式解决策略">
+              <div className="space-y-4">
                 <div className="border rounded p-3">
                   <h4 className="font-medium flex items-center mb-2">
                     <Users className="h-4 w-4 mr-2" />
@@ -756,21 +737,20 @@ const ConflictResolutionLearningPage: React.FC = () => {
                     </p>
                   </div>
                 </div>
-              </CardContent>
+              </div>
             </Card>
           </div>
-        </TabsContent>
+        </TabPane>
 
-        <TabsContent value="merge-algorithm" className="space-y-4">
+        <TabPane tab="三路合并" key="merge-algorithm" className="space-y-4">
           {threeWayDemo && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center">
-                  <GitMerge className="h-5 w-5 mr-2" />
-                  三路合并算法演示
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
+            <Card title={
+              <div className="flex items-center">
+                <GitMerge className="h-5 w-5 mr-2" />
+                三路合并算法演示
+              </div>
+            }>
+              <div>
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
                   <div>
                     <h4 className="font-medium mb-2">基础版本 (Base)</h4>
@@ -837,25 +817,22 @@ const ConflictResolutionLearningPage: React.FC = () => {
                     </div>
                   </div>
                 </div>
-              </CardContent>
+              </div>
             </Card>
           )}
-        </TabsContent>
+        </TabPane>
 
-        <TabsContent value="performance" className="space-y-4">
+        <TabPane tab="性能分析" key="performance" className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>策略性能对比</CardTitle>
-              </CardHeader>
-              <CardContent>
+            <Card title="策略性能对比">
+              <div>
                 <div className="space-y-4">
                   <div className="border rounded p-3">
                     <div className="flex justify-between items-center mb-2">
                       <span className="font-medium">Last Writer Wins</span>
-                      <Badge variant="secondary">O(1)</Badge>
+                      <Badge color="gray">O(1)</Badge>
                     </div>
-                    <Progress value={95} className="mb-1" />
+                    <Progress percent={95} className="mb-1" />
                     <p className="text-xs text-muted-foreground">
                       执行速度: 极快 | 准确性: 中等 | 自动化: 高
                     </p>
@@ -864,9 +841,9 @@ const ConflictResolutionLearningPage: React.FC = () => {
                   <div className="border rounded p-3">
                     <div className="flex justify-between items-center mb-2">
                       <span className="font-medium">Three-way Merge</span>
-                      <Badge variant="secondary">O(n)</Badge>
+                      <Badge color="gray">O(n)</Badge>
                     </div>
-                    <Progress value={70} className="mb-1" />
+                    <Progress percent={70} className="mb-1" />
                     <p className="text-xs text-muted-foreground">
                       执行速度: 中等 | 准确性: 高 | 自动化: 中等
                     </p>
@@ -875,22 +852,19 @@ const ConflictResolutionLearningPage: React.FC = () => {
                   <div className="border rounded p-3">
                     <div className="flex justify-between items-center mb-2">
                       <span className="font-medium">Manual Resolution</span>
-                      <Badge variant="secondary">O(∞)</Badge>
+                      <Badge color="gray">O(∞)</Badge>
                     </div>
-                    <Progress value={20} className="mb-1" />
+                    <Progress percent={20} className="mb-1" />
                     <p className="text-xs text-muted-foreground">
                       执行速度: 慢 | 准确性: 最高 | 自动化: 无
                     </p>
                   </div>
                 </div>
-              </CardContent>
+              </div>
             </Card>
 
-            <Card>
-              <CardHeader>
-                <CardTitle>冲突解决统计</CardTitle>
-              </CardHeader>
-              <CardContent>
+            <Card title="冲突解决统计">
+              <div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="text-center">
                     <p className="text-2xl font-bold text-blue-600">
@@ -919,10 +893,10 @@ const ConflictResolutionLearningPage: React.FC = () => {
                     <p className="text-sm text-muted-foreground">高信心度解决</p>
                   </div>
                 </div>
-              </CardContent>
+              </div>
             </Card>
           </div>
-        </TabsContent>
+        </TabPane>
       </Tabs>
     </div>
   );

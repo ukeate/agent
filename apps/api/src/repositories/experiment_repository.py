@@ -3,6 +3,7 @@ A/B测试实验平台数据访问层
 """
 from typing import List, Optional, Dict, Any
 from datetime import datetime
+from src.core.utils.timezone_utils import utc_now, utc_factory
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import and_, or_, desc, asc, func
 from sqlalchemy.exc import IntegrityError
@@ -111,7 +112,7 @@ class ExperimentRepository(BaseRepository[Experiment, ExperimentConfig]):
                            .filter(Experiment.id == experiment_id)
                            .update({
                                Experiment.status: status,
-                               Experiment.updated_at: datetime.utcnow()
+                               Experiment.updated_at: utc_now()
                            }))
             self.db.commit()
             return rows_affected > 0
@@ -142,7 +143,7 @@ class ExperimentRepository(BaseRepository[Experiment, ExperimentConfig]):
                 if 'targeting_rules' in update_data:
                     update_data['targeting_rules'] = [rule.dict() for rule in update_data['targeting_rules']]
                 
-                update_data['updated_at'] = datetime.utcnow()
+                update_data['updated_at'] = utc_now()
                 
                 (self.db.query(Experiment)
                  .filter(Experiment.id == experiment_id)

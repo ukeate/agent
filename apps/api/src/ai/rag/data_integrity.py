@@ -8,6 +8,7 @@ import numpy as np
 from typing import Dict, Any, List, Optional, Tuple
 import logging
 from datetime import datetime
+from src.core.utils.timezone_utils import utc_now, utc_factory
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -45,7 +46,7 @@ class VectorDataIntegrityValidator:
             "zero_vectors": 0,
             "integrity_rate": 0.0,
             "issues": [],
-            "timestamp": datetime.utcnow().isoformat()
+            "timestamp": utc_now().isoformat()
         }
         
         try:
@@ -181,7 +182,7 @@ class VectorDataIntegrityValidator:
             "successful_repairs": 0,
             "failed_repairs": 0,
             "removed_records": 0,
-            "timestamp": datetime.utcnow().isoformat()
+            "timestamp": utc_now().isoformat()
         }
         
         if not integrity_report.get("issues"):
@@ -289,14 +290,14 @@ class VectorDataIntegrityValidator:
                     for idx in indexes
                 ],
                 "validation_stats": self.validation_stats.copy(),
-                "timestamp": datetime.utcnow().isoformat()
+                "timestamp": utc_now().isoformat()
             }
             
             return summary
             
         except Exception as e:
             logger.error(f"Failed to generate integrity summary: {e}")
-            return {"error": str(e), "timestamp": datetime.utcnow().isoformat()}
+            return {"error": str(e), "timestamp": utc_now().isoformat()}
     
     async def validate_quantization_integrity(
         self,
@@ -321,7 +322,7 @@ class VectorDataIntegrityValidator:
                 return {
                     "table_exists": False,
                     "message": f"Quantization table {quantization_table} does not exist",
-                    "timestamp": datetime.utcnow().isoformat()
+                    "timestamp": utc_now().isoformat()
                 }
             
             # 检查量化参数的完整性
@@ -361,11 +362,11 @@ class VectorDataIntegrityValidator:
                     for stat in quantization_stats
                 ],
                 "orphaned_params": orphaned_count,
-                "timestamp": datetime.utcnow().isoformat()
+                "timestamp": utc_now().isoformat()
             }
             
             return integrity_report
             
         except Exception as e:
             logger.error(f"Quantization integrity validation failed: {e}")
-            return {"error": str(e), "timestamp": datetime.utcnow().isoformat()}
+            return {"error": str(e), "timestamp": utc_now().isoformat()}

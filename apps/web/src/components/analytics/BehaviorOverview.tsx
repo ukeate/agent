@@ -1,7 +1,7 @@
 import React from 'react';
-import { Card } from '../ui/Card';
-import { Progress } from '../ui/Progress';
-import { Badge } from '../ui/Badge';
+import { Card } from '../ui/card';
+import { Progress } from '../ui/lprogress';
+import { Badge } from '../ui/badge';
 
 interface BehaviorOverviewProps {
   data: {

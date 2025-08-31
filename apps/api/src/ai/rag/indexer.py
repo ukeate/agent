@@ -7,6 +7,7 @@ import logging
 from typing import Any, Dict, List, Optional
 import re
 from datetime import datetime
+from src.core.utils.timezone_utils import utc_now, utc_factory
 
 from .models import Document, DocumentChunk, DocumentMetadata, IndexStats
 
@@ -138,7 +139,7 @@ class DocumentIndexer:
         """更新索引统计"""
         self.stats.total_documents = len(documents)
         self.stats.total_chunks = sum(doc.get_chunk_count() for doc in documents)
-        self.stats.last_updated = datetime.now()
+        self.stats.last_updated = utc_now()
         
         # 计算平均块大小
         if self.stats.total_chunks > 0:

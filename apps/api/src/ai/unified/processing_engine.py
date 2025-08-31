@@ -12,6 +12,7 @@ import logging
 import time
 import uuid
 from datetime import datetime
+from src.core.utils.timezone_utils import utc_now, utc_factory
 
 from ..streaming import TokenStreamer, StreamEvent, StreamType
 from ..batch import BatchProcessor, BatchJob, BatchTask, BatchStatus, TaskPriority
@@ -141,7 +142,7 @@ class UnifiedProcessingEngine:
             request_id=request_id,
             session_id=request.session_id,
             mode_used=ProcessingMode.AUTO,  # 将被实际选择的模式覆盖
-            start_time=datetime.utcnow()
+            start_time=utc_now()
         )
         
         # 存储活跃会话
@@ -175,7 +176,7 @@ class UnifiedProcessingEngine:
             
             # 完成处理
             response.status = "completed"
-            response.end_time = datetime.utcnow()
+            response.end_time = utc_now()
             response.processing_time = (response.end_time - response.start_time).total_seconds()
             response.progress = 1.0
             
@@ -187,9 +188,9 @@ class UnifiedProcessingEngine:
             response.errors.append({
                 "error": str(e),
                 "error_type": type(e).__name__,
-                "timestamp": datetime.utcnow().isoformat()
+                "timestamp": utc_now().isoformat()
             })
-            response.end_time = datetime.utcnow()
+            response.end_time = utc_now()
             response.processing_time = (response.end_time - response.start_time).total_seconds()
         
         finally:
@@ -236,7 +237,7 @@ class UnifiedProcessingEngine:
                         response.errors.append({
                             "item_id": item.id,
                             "error": event.data,
-                            "timestamp": datetime.utcnow().isoformat()
+                            "timestamp": utc_now().isoformat()
                         })
                         break
                 
@@ -250,7 +251,7 @@ class UnifiedProcessingEngine:
                     "item_id": item.id,
                     "error": str(e),
                     "error_type": type(e).__name__,
-                    "timestamp": datetime.utcnow().isoformat()
+                    "timestamp": utc_now().isoformat()
                 })
         
         # 如果需要聚合，执行最终聚合
@@ -308,7 +309,7 @@ class UnifiedProcessingEngine:
                             "item_id": task.id,
                             "error": task.error,
                             "error_details": task.error_details,
-                            "timestamp": datetime.utcnow().isoformat()
+                            "timestamp": utc_now().isoformat()
                         })
                 break
             
@@ -350,7 +351,7 @@ class UnifiedProcessingEngine:
                 response.errors.append({
                     "error": str(e),
                     "error_type": type(e).__name__,
-                    "timestamp": datetime.utcnow().isoformat()
+                    "timestamp": utc_now().isoformat()
                 })
         
         # 批量聚合所有结果
@@ -392,7 +393,7 @@ class UnifiedProcessingEngine:
                         "stage": f"stage_{stage_idx}",
                         "error": str(e),
                         "error_type": type(e).__name__,
-                        "timestamp": datetime.utcnow().isoformat()
+                        "timestamp": utc_now().isoformat()
                     })
             
             current_data = next_data
@@ -455,7 +456,7 @@ class UnifiedProcessingEngine:
                 "processed_text": data,
                 "word_count": len(data.split()),
                 "item_id": item.id,
-                "processing_time": datetime.utcnow().isoformat()
+                "processing_time": utc_now().isoformat()
             }
         return data
     
@@ -543,7 +544,7 @@ class UnifiedProcessingEngine:
     
     async def clear_history(self, max_age_hours: int = 24):
         """清理历史记录"""
-        cutoff_time = datetime.utcnow().timestamp() - (max_age_hours * 3600)
+        cutoff_time = utc_now().timestamp() - (max_age_hours * 3600)
         
         self.processing_history = [
             h for h in self.processing_history

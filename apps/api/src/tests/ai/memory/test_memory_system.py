@@ -1,7 +1,9 @@
 """记忆系统单元测试"""
 import pytest
 import asyncio
-from datetime import datetime, timedelta
+from datetime import datetime
+from datetime import timedelta
+from src.core.utils.timezone_utils import utc_now, utc_factory
 from unittest.mock import Mock, AsyncMock, patch
 import uuid
 
@@ -191,8 +193,8 @@ class TestMemoryStorage:
             'metadata': '{}',
             'importance': 0.5,
             'access_count': 0,
-            'created_at': datetime.utcnow(),
-            'last_accessed': datetime.utcnow(),
+            'created_at': utc_now(),
+            'last_accessed': utc_now(),
             'decay_factor': 0.5,
             'status': 'active',
             'session_id': None,
@@ -229,8 +231,8 @@ class TestMemoryStorage:
                 'metadata': '{}',
                 'importance': 0.6 + i * 0.1,
                 'access_count': i,
-                'created_at': datetime.utcnow(),
-                'last_accessed': datetime.utcnow(),
+                'created_at': utc_now(),
+                'last_accessed': utc_now(),
                 'decay_factor': 0.5,
                 'status': 'active',
                 'session_id': None,
@@ -348,7 +350,7 @@ class TestMemoryHierarchyManager:
             content="重要知识",
             importance=0.8,
             access_count=6,
-            created_at=datetime.utcnow() - timedelta(hours=2)
+            created_at=utc_now() - timedelta(hours=2)
         )
         assert mock_manager._should_promote_to_semantic(memory1)
         
@@ -358,7 +360,7 @@ class TestMemoryHierarchyManager:
             content="一般知识",
             importance=0.6,
             access_count=6,
-            created_at=datetime.utcnow() - timedelta(hours=2)
+            created_at=utc_now() - timedelta(hours=2)
         )
         assert not mock_manager._should_promote_to_semantic(memory2)
         
@@ -368,7 +370,7 @@ class TestMemoryHierarchyManager:
             content="新知识",
             importance=0.8,
             access_count=6,
-            created_at=datetime.utcnow() - timedelta(minutes=30)
+            created_at=utc_now() - timedelta(minutes=30)
         )
         assert not mock_manager._should_promote_to_semantic(memory3)
         

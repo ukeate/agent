@@ -10,7 +10,8 @@ from enum import Enum
 from dataclasses import dataclass, field
 import asyncio
 import logging
-from datetime import datetime, timezone
+from datetime import datetime
+from src.core.utils.timezone_utils import utc_now, utc_factory, timezone
 import json
 import base64
 from io import BytesIO
@@ -613,7 +614,7 @@ class VectorVisualizationEngine:
                     result.plot_type.value,
                     result.plot_data,
                     json.dumps(result.metadata),
-                    datetime.now(timezone.utc)
+                    utc_now()
                 )
             )
             

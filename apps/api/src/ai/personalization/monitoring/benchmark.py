@@ -6,6 +6,7 @@ import json
 from typing import Dict, List, Any, Optional
 from dataclasses import dataclass, asdict
 from datetime import datetime
+from src.core.utils.timezone_utils import utc_now, utc_factory
 import numpy as np
 import pandas as pd
 from pathlib import Path
@@ -116,7 +117,7 @@ class PerformanceBenchmark:
         
         result = BenchmarkResult(
             config=config,
-            timestamp=datetime.now(),
+            timestamp=utc_now(),
             metrics=metrics,
             latency_percentiles=latency_percentiles,
             throughput_metrics=throughput_metrics,
@@ -660,7 +661,7 @@ class PerformanceBenchmark:
 async def run_comprehensive_benchmark():
     """运行综合性能基准测试"""
     # 初始化组件
-    from core.config import settings
+    from ...core.config import get_settings
     import aioredis
     
     redis = await aioredis.create_redis_pool(settings.REDIS_URL)

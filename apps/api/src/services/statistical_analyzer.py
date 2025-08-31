@@ -4,6 +4,7 @@ A/B测试统计分析引擎 - 基于SciPy和statsmodels实现统计检验和功�
 """
 from typing import Dict, Any, Optional
 from datetime import datetime
+from src.core.utils.timezone_utils import utc_now, utc_factory
 
 from core.logging import logger
 
@@ -30,6 +31,6 @@ class StatisticalAnalyzer:
             'confidence_interval': (0.0, 0.0),
             'sample_size': 0,
             'statistical_power': 0.8,
-            'data_window_start': datetime.utcnow(),
-            'data_window_end': datetime.utcnow()
+            'data_window_start': utc_now(),
+            'data_window_end': utc_now()
         }

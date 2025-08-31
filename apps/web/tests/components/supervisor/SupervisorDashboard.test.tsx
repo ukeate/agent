@@ -41,50 +41,50 @@ const mockStore = {
   },
   autoRefresh: false,
   refreshInterval: 10000,
-  setSupervisorId: vi.fn(),
-  loadStatus: vi.fn(),
-  loadTasks: vi.fn(),
-  loadDecisions: vi.fn(),
-  loadStats: vi.fn(),
-  loadConfig: vi.fn(),
-  loadMetrics: vi.fn(),
-  refreshAll: vi.fn(),
-  setAutoRefresh: vi.fn(),
-  setRefreshInterval: vi.fn(),
-  clearError: vi.fn(),
-  submitTask: vi.fn(),
-  updateConfig: vi.fn(),
-  reset: vi.fn(),
+  setSupervisorId: mockFn()fn(),
+  loadStatus: mockFn()fn(),
+  loadTasks: mockFn()fn(),
+  loadDecisions: mockFn()fn(),
+  loadStats: mockFn()fn(),
+  loadConfig: mockFn()fn(),
+  loadMetrics: mockFn()fn(),
+  refreshAll: mockFn()fn(),
+  setAutoRefresh: mockFn()fn(),
+  setRefreshInterval: mockFn()fn(),
+  clearError: mockFn()fn(),
+  submitTask: mockFn()fn(),
+  updateConfig: mockFn()fn(),
+  reset: mockFn()fn(),
 }
 
 // Mock the store
-vi.mock('../../../src/stores/supervisorStore', () => ({
-  useSupervisorStore: vi.fn(() => mockStore)
+mockFn()mock('../../../src/stores/supervisorStore', () => ({
+  useSupervisorStore: mockFn()fn(() => mockStore)
 }))
 
 // Mock子组件
-vi.mock('../../../src/components/supervisor/SupervisorStatus', () => ({
+mockFn()mock('../../../src/components/supervisor/SupervisorStatus', () => ({
   SupervisorStatus: () => <div>SupervisorStatus Mock</div>
 }))
-vi.mock('../../../src/components/supervisor/TaskList', () => ({
+mockFn()mock('../../../src/components/supervisor/TaskList', () => ({
   TaskList: () => <div>TaskList Mock</div>
 }))
-vi.mock('../../../src/components/supervisor/DecisionHistory', () => ({
+mockFn()mock('../../../src/components/supervisor/DecisionHistory', () => ({
   DecisionHistory: () => <div>DecisionHistory Mock</div>
 }))
-vi.mock('../../../src/components/supervisor/AgentMetrics', () => ({
+mockFn()mock('../../../src/components/supervisor/AgentMetrics', () => ({
   AgentMetrics: () => <div>AgentMetrics Mock</div>
 }))
-vi.mock('../../../src/components/supervisor/SupervisorConfig', () => ({
+mockFn()mock('../../../src/components/supervisor/SupervisorConfig', () => ({
   SupervisorConfig: () => <div>SupervisorConfig Mock</div>
 }))
-vi.mock('../../../src/components/supervisor/TaskSubmissionForm', () => ({
+mockFn()mock('../../../src/components/supervisor/TaskSubmissionForm', () => ({
   TaskSubmissionForm: () => <div>TaskSubmissionForm Mock</div>
 }))
 
 describe('SupervisorDashboard', () => {
   beforeEach(() => {
-    vi.clearAllMocks()
+    mockFn()clearAllMocks()
   })
 
   it('应该渲染Supervisor监控面板标题', () => {

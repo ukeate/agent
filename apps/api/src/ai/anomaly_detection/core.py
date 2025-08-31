@@ -5,7 +5,9 @@
 
 import numpy as np
 import pandas as pd
-from datetime import datetime, timedelta
+from datetime import datetime
+from datetime import timedelta
+from src.core.utils.timezone_utils import utc_now, utc_factory
 from typing import List, Dict, Any, Tuple, Optional
 from dataclasses import dataclass
 from sklearn.ensemble import IsolationForest
@@ -57,7 +59,7 @@ class UserBehaviorFeatureExtractor:
             return self._get_empty_features()
             
         # 时间特征
-        timestamps = [e.get('timestamp', datetime.now()) for e in user_events]
+        timestamps = [e.get('timestamp', utc_now()) for e in user_events]
         if isinstance(timestamps[0], str):
             timestamps = [datetime.fromisoformat(ts.replace('Z', '+00:00')) for ts in timestamps]
             
@@ -363,10 +365,10 @@ class IntelligentAnomalyDetector:
                                          key=lambda e: self._event_importance_score(e.get('event_type', '')))
                 
                 anomaly = AnomalyResult(
-                    anomaly_id=f"anomaly_{user_id}_{int(datetime.now().timestamp())}",
+                    anomaly_id=f"anomaly_{user_id}_{int(utc_now().timestamp())}",
                     user_id=user_id,
                     event_type=representative_event.get('event_type', 'unknown'),
-                    timestamp=representative_event.get('timestamp', datetime.now()),
+                    timestamp=representative_event.get('timestamp', utc_now()),
                     severity=severity,
                     confidence=confidence,
                     description=description,
@@ -441,8 +443,8 @@ class IntelligentAnomalyDetector:
         """构建异常上下文信息"""
         return {
             'total_events': len(user_events),
-            'time_span_minutes': (max(e.get('timestamp', datetime.now()) for e in user_events) - 
-                                min(e.get('timestamp', datetime.now()) for e in user_events)).total_seconds() / 60,
+            'time_span_minutes': (max(e.get('timestamp', utc_now()) for e in user_events) - 
+                                min(e.get('timestamp', utc_now()) for e in user_events)).total_seconds() / 60,
             'most_common_event': max(set(e.get('event_type', '') for e in user_events), 
                                    key=lambda x: sum(1 for e in user_events if e.get('event_type') == x)),
             'activity_score': features.get('event_count', 0) * features.get('unique_event_types', 1),
@@ -472,7 +474,7 @@ def create_sample_events(num_users: int = 50, num_events: int = 1000) -> List[Di
     # 正常用户
     for user_id in range(1, num_users - 5):
         user_events = random.randint(10, 50)
-        base_time = datetime.now() - timedelta(hours=2)
+        base_time = utc_now() - timedelta(hours=2)
         
         for i in range(user_events):
             events.append({
@@ -486,7 +488,7 @@ def create_sample_events(num_users: int = 50, num_events: int = 1000) -> List[Di
     
     # 异常用户1: 高频用户
     user_id = num_users - 4
-    base_time = datetime.now() - timedelta(hours=1)
+    base_time = utc_now() - timedelta(hours=1)
     for i in range(200):  # 异常高的事件数
         events.append({
             'user_id': f'user_{user_id}',
@@ -497,7 +499,7 @@ def create_sample_events(num_users: int = 50, num_events: int = 1000) -> List[Di
     
     # 异常用户2: 单一行为用户
     user_id = num_users - 3
-    base_time = datetime.now() - timedelta(hours=1.5)
+    base_time = utc_now() - timedelta(hours=1.5)
     for i in range(30):
         events.append({
             'user_id': f'user_{user_id}',

@@ -8,6 +8,7 @@ from pydantic import BaseModel, Field
 import json
 import asyncio
 from datetime import datetime
+from src.core.utils.timezone_utils import utc_now, utc_factory
 
 from src.services.multi_agent_service import MultiAgentService
 from src.ai.autogen.config import AgentRole, ConversationConfig
@@ -136,7 +137,7 @@ async def create_conversation(
                         json.dumps({
                             "type": data.get("type"),
                             "data": data,
-                            "timestamp": datetime.now().isoformat()
+                            "timestamp": utc_now().isoformat()
                         }), 
                         session_id
                     )
@@ -262,7 +263,7 @@ async def resume_conversation(
                         json.dumps({
                             "type": data.get("type"),
                             "data": data,
-                            "timestamp": datetime.now().isoformat()
+                            "timestamp": utc_now().isoformat()
                         }), 
                         target_session_id
                     )
@@ -618,24 +619,40 @@ class ConnectionManager:
     
     async def send_personal_message(self, message: str, session_id: str):
         """向会话的所有连接广播消息"""
-        if session_id in self.active_connections:
-            connections = self.active_connections[session_id].copy()  # 复制列表避免并发修改
-            failed_connections = []
+        if session_id not in self.active_connections:
+            logger.warning(f"尝试向不存在的会话发送消息: {session_id}")
+            return
             
-            for websocket in connections:
-                try:
-                    await websocket.send_text(message)
-                except Exception as e:
-                    logger.error(f"向连接发送消息失败: {e}")
+        connections = self.active_connections[session_id].copy()  # 复制列表避免并发修改
+        if not connections:
+            logger.warning(f"会话没有活跃连接: {session_id}")
+            return
+            
+        failed_connections = []
+        
+        for websocket in connections:
+            try:
+                # 检查WebSocket状态
+                if websocket.client_state == 3:  # CLOSED
+                    logger.warning(f"WebSocket连接已关闭，跳过发送: {session_id}")
                     failed_connections.append(websocket)
-            
-            # 移除失败的连接
-            for failed_ws in failed_connections:
-                self.disconnect(failed_ws, session_id)
-            
-            successful_count = len(connections) - len(failed_connections)
-            if successful_count > 0:
-                logger.debug(f"消息已广播到{successful_count}个连接: {session_id}")
+                    continue
+                
+                await websocket.send_text(message)
+                logger.debug(f"消息发送成功到: {session_id}")
+            except Exception as e:
+                logger.error(f"向连接发送消息失败 (session: {session_id}): {type(e).__name__}: {e}")
+                failed_connections.append(websocket)
+        
+        # 移除失败的连接
+        for failed_ws in failed_connections:
+            self.disconnect(failed_ws, session_id)
+        
+        successful_count = len(connections) - len(failed_connections)
+        if successful_count > 0:
+            logger.debug(f"消息已广播到{successful_count}个连接: {session_id}")
+        else:
+            logger.warning(f"没有成功发送到任何连接: {session_id}")
 
 
 # 全局连接管理器
@@ -656,7 +673,7 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
             json.dumps({
                 "type": "connection_established",
                 "data": {"session_id": session_id},
-                "timestamp": datetime.now().isoformat()
+                "timestamp": utc_now().isoformat()
             }),
             session_id
         )
@@ -695,7 +712,7 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
                             json.dumps({
                                 "type": "error",
                                 "data": {"message": "初始消息不能为空"},
-                                "timestamp": datetime.now().isoformat()
+                                "timestamp": utc_now().isoformat()
                             }),
                             session_id
                         )
@@ -722,26 +739,22 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
                     
                     logger.info(f"转换后的角色: {agent_roles}")
                     
-                    # 先定义WebSocket回调函数，将会获得真实的conversation_id
+                    # WebSocket回调函数，只向原始session_id推送消息，保持连接稳定
                     async def websocket_callback(data):
                         """WebSocket回调函数，向连接的客户端推送消息"""
                         try:
-                            # 获取真实的conversation_id，如果还没有就使用session_id
-                            target_conversation_id = data.get("session_id") or session_id
-                            
                             message = json.dumps({
                                 "type": data.get("type", "message"),
                                 "data": data,
-                                "timestamp": datetime.now().isoformat()
+                                "timestamp": utc_now().isoformat()
                             })
                             
-                            # 向原始session_id发送（如果还有连接）
+                            # 只向原始session_id发送消息，保持连接稳定性
                             if session_id in manager.active_connections:
                                 await manager.send_personal_message(message, session_id)
-                            
-                            # 向conversation_id发送（如果存在且不同）
-                            if target_conversation_id != session_id and target_conversation_id in manager.active_connections:
-                                await manager.send_personal_message(message, target_conversation_id)
+                                logger.debug(f"WebSocket消息已推送到: {session_id}")
+                            else:
+                                logger.warning(f"WebSocket连接不存在: {session_id}")
                                 
                         except Exception as e:
                             logger.warning(f"WebSocket推送失败: {e}")
@@ -759,34 +772,31 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
                         websocket_callback=websocket_callback  # 立即传递回调！
                     )
                     
-                    # 关键修复：将新的conversation_id映射到现有WebSocket连接
+                    # 获取conversation_id，保持原有连接稳定
                     conversation_id = result["conversation_id"]
-                    if session_id in manager.active_connections and conversation_id != session_id:
-                        # 将现有连接复制到新的conversation_id下
-                        manager.active_connections[conversation_id] = manager.active_connections[session_id]
-                        logger.info(f"WebSocket连接已映射: {session_id} -> {conversation_id}")
+                    logger.info(f"对话创建成功，conversation_id: {conversation_id}")
                     
                     # 对话已经在create_multi_agent_conversation中启动，WebSocket回调已设置
                     logger.info(f"多智能体对话已启动，WebSocket回调已就绪: {conversation_id}")
                     
-                    # 发送创建成功消息 - 修复：发送到conversation_id而不是session_id
+                    # 发送创建成功消息到原始session_id，保持连接稳定
                     await manager.send_personal_message(
                         json.dumps({
                             "type": "conversation_created",
                             "data": result,
-                            "timestamp": "now"
+                            "timestamp": utc_now().isoformat()
                         }),
-                        conversation_id
+                        session_id
                     )
                     
-                    # 开始对话流程 - 修复：发送到conversation_id而不是session_id
+                    # 开始对话流程 - 发送到原始session_id
                     await manager.send_personal_message(
                         json.dumps({
-                            "type": "conversation_started",
-                            "data": {"session_id": result["conversation_id"]},
-                            "timestamp": "now"
+                            "type": "conversation_started", 
+                            "data": {"session_id": conversation_id},
+                            "timestamp": utc_now().isoformat()
                         }),
-                        conversation_id
+                        session_id
                     )
                     
                     logger.info(f"多智能体对话已启动: {result['conversation_id']}")
@@ -807,7 +817,7 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
                 await manager.send_personal_message(
                     json.dumps({
                         "type": "pong",
-                        "timestamp": datetime.now().isoformat()
+                        "timestamp": utc_now().isoformat()
                     }),
                     session_id
                 )
@@ -819,7 +829,7 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
                     json.dumps({
                         "type": "error",
                         "data": {"message": f"未知消息类型: {message_data.get('type')}"},
-                        "timestamp": datetime.now().isoformat()
+                        "timestamp": utc_now().isoformat()
                     }),
                     session_id
                 )
@@ -835,7 +845,7 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
                 json.dumps({
                     "type": "error",
                     "data": {"message": f"服务器错误: {str(e)}"},
-                    "timestamp": datetime.now().isoformat()
+                    "timestamp": utc_now().isoformat()
                 }),
                 session_id
             )

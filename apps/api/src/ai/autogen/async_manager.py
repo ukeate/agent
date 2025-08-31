@@ -4,7 +4,9 @@ AutoGen异步智能体管理器
 """
 import asyncio
 import uuid
-from datetime import datetime, timezone, timedelta
+from datetime import datetime
+from datetime import timedelta
+from src.core.utils.timezone_utils import utc_now, utc_factory
 from typing import Dict, List, Optional, Any, Union, Callable
 from dataclasses import dataclass
 from enum import Enum
@@ -61,7 +63,7 @@ class AgentTask:
     
     def __post_init__(self):
         if self.created_at is None:
-            self.created_at = datetime.now(timezone.utc)
+            self.created_at = utc_now()
     
     def to_dict(self) -> Dict[str, Any]:
         """转换为字典"""
@@ -174,7 +176,7 @@ class AsyncAgentManager:
         await self.event_bus.publish(Event(
             type=EventType.SYSTEM_STATUS_CHANGED,
             source="agent_manager",
-            data={"status": "started", "timestamp": datetime.now(timezone.utc).isoformat()}
+            data={"status": "started", "timestamp": utc_now().isoformat()}
         ))
         
         logger.info("异步智能体管理器启动")
@@ -219,7 +221,7 @@ class AsyncAgentManager:
         await self.event_bus.publish(Event(
             type=EventType.SYSTEM_STATUS_CHANGED,
             source="agent_manager",
-            data={"status": "stopped", "timestamp": datetime.now(timezone.utc).isoformat()}
+            data={"status": "stopped", "timestamp": utc_now().isoformat()}
         ))
         
         logger.info("异步智能体管理器停止")
@@ -245,8 +247,8 @@ class AsyncAgentManager:
                 role=config.role,
                 status=AgentStatus.INITIALIZING,
                 agent=agent,
-                created_at=datetime.now(timezone.utc),
-                last_activity=datetime.now(timezone.utc)
+                created_at=utc_now(),
+                last_activity=utc_now()
             )
             
             # 注册到管理器
@@ -403,7 +405,7 @@ class AsyncAgentManager:
             
             # 更新任务状态
             task.status = TaskStatus.CANCELLED
-            task.completed_at = datetime.now(timezone.utc)
+            task.completed_at = utc_now()
             
             # 如果智能体正在执行此任务，更新智能体状态
             agent_info = self.agents.get(task.agent_id)
@@ -520,7 +522,7 @@ class AsyncAgentManager:
             
             # 更新任务状态
             task.status = TaskStatus.RUNNING
-            task.started_at = datetime.now(timezone.utc)
+            task.started_at = utc_now()
             
             # 更新智能体状态
             agent_info.current_task_id = task_id
@@ -549,7 +551,7 @@ class AsyncAgentManager:
             
             # 任务完成
             task.status = TaskStatus.COMPLETED
-            task.completed_at = datetime.now(timezone.utc)
+            task.completed_at = utc_now()
             task.result = result
             
             # 更新智能体统计
@@ -584,7 +586,7 @@ class AsyncAgentManager:
             # 任务超时
             task.status = TaskStatus.FAILED
             task.error = "Task timeout"
-            task.completed_at = datetime.now(timezone.utc)
+            task.completed_at = utc_now()
             
             agent_info.failed_tasks += 1
             agent_info.total_tasks += 1
@@ -606,7 +608,7 @@ class AsyncAgentManager:
             # 任务失败
             task.status = TaskStatus.FAILED
             task.error = str(e)
-            task.completed_at = datetime.now(timezone.utc)
+            task.completed_at = utc_now()
             
             agent_info.failed_tasks += 1
             agent_info.total_tasks += 1
@@ -638,7 +640,7 @@ class AsyncAgentManager:
             
             # 重置智能体状态
             agent_info.current_task_id = None
-            agent_info.last_activity = datetime.now(timezone.utc)
+            agent_info.last_activity = utc_now()
             await self._update_agent_status(task.agent_id, AgentStatus.IDLE)
     
     async def _update_agent_status(self, agent_id: str, status: AgentStatus) -> None:
@@ -649,7 +651,7 @@ class AsyncAgentManager:
         agent_info = self.agents[agent_id]
         old_status = agent_info.status
         agent_info.status = status
-        agent_info.last_activity = datetime.now(timezone.utc)
+        agent_info.last_activity = utc_now()
         
         # 更新状态管理器
         await self.state_manager.update_agent_state(agent_id, {
@@ -685,7 +687,7 @@ class AsyncAgentManager:
         
         while self.running:
             try:
-                current_time = datetime.now(timezone.utc)
+                current_time = utc_now()
                 
                 # 检查智能体健康状态
                 for agent_id, agent_info in self.agents.items():

@@ -9,7 +9,9 @@ import ssl
 import socket
 from typing import Dict, List, Optional, Any, Callable, Tuple, Set
 from dataclasses import dataclass, field
-from datetime import datetime, timezone, timedelta
+from datetime import datetime
+from datetime import timedelta
+from src.core.utils.timezone_utils import utc_now, utc_factory
 from enum import Enum
 import structlog
 import subprocess
@@ -92,7 +94,7 @@ class TestResult:
     details: Dict[str, Any] = field(default_factory=dict)
     evidence: List[str] = field(default_factory=list)
     recommendations: List[str] = field(default_factory=list)
-    timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    timestamp: datetime = field(default_factory=lambda: utc_now())
     execution_time: float = 0.0
     
     def to_dict(self) -> Dict[str, Any]:
@@ -118,7 +120,7 @@ class ComplianceReport:
     status: ComplianceStatus
     test_results: List[TestResult] = field(default_factory=list)
     summary: Dict[str, Any] = field(default_factory=dict)
-    generated_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    generated_at: datetime = field(default_factory=lambda: utc_now())
     generated_by: str = "system"
     
     def to_dict(self) -> Dict[str, Any]:
@@ -779,7 +781,7 @@ class ComplianceFramework:
         if not target_standards:
             target_standards = self.standards
         
-        report_id = f"compliance-{int(datetime.now(timezone.utc).timestamp())}"
+        report_id = f"compliance-{int(utc_now().timestamp())}"
         test_results = []
         
         # 运行安全测试
@@ -942,7 +944,7 @@ class ComplianceFramework:
     
     def get_compliance_trend(self, days: int = 30) -> Dict[str, Any]:
         """获取合规趋势"""
-        cutoff_date = datetime.now(timezone.utc) - timedelta(days=days)
+        cutoff_date = utc_now() - timedelta(days=days)
         
         recent_reports = [
             r for r in self.test_history

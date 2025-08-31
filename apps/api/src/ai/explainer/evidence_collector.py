@@ -8,11 +8,12 @@
 """
 
 import hashlib
-from datetime import datetime, timezone
+from datetime import datetime
+from src.core.utils.timezone_utils import utc_now, utc_factory, timezone
 from typing import Any, Dict, List, Optional, Set, Tuple, Union
 from uuid import UUID, uuid4
 
-from models.schemas.explanation import (
+from src.models.schemas.explanation import (
     EvidenceType,
     ConfidenceSource,
     ExplanationComponent
@@ -38,7 +39,7 @@ class Evidence:
         self.source = source
         self.raw_data = raw_data
         self.confidence = confidence
-        self.timestamp = timestamp or datetime.now(timezone.utc)
+        self.timestamp = timestamp or utc_now()
         
         # 证据属性
         self.weight = 0.0  # 在决策中的权重
@@ -63,7 +64,7 @@ class Evidence:
         """设置验证状态"""
         self.validation_status = status
         self.metadata["validation_reason"] = reason
-        self.metadata["validation_timestamp"] = datetime.now(timezone.utc).isoformat()
+        self.metadata["validation_timestamp"] = utc_now().isoformat()
     
     def calculate_overall_score(self) -> float:
         """计算总体分数"""
@@ -115,7 +116,7 @@ class CausalRelationship:
         self.strength = strength
         self.confidence = confidence
         self.description = description
-        self.discovered_at = datetime.now(timezone.utc)
+        self.discovered_at = utc_now()
         self.metadata: Dict[str, Any] = {}
     
     def to_dict(self) -> Dict[str, Any]:
@@ -139,7 +140,7 @@ class EvidenceCollector:
         self.evidence_store: Dict[str, Evidence] = {}
         self.causal_relationships: List[CausalRelationship] = []
         self.evidence_chains: List[List[str]] = []  # 证据链
-        self.collection_started_at = datetime.now(timezone.utc)
+        self.collection_started_at = utc_now()
         self.collection_completed_at: Optional[datetime] = None
         
         # 统计信息
@@ -442,7 +443,7 @@ class EvidenceCollector:
     
     def finalize_collection(self):
         """完成证据收集"""
-        self.collection_completed_at = datetime.now(timezone.utc)
+        self.collection_completed_at = utc_now()
         self.calculate_evidence_weights()
         self._update_stats()
     
@@ -499,7 +500,7 @@ class EvidenceCollector:
         evidence.relevance_score = type_relevance.get(evidence.evidence_type, 0.5)
         
         # 新鲜度分数 - 基于时间
-        age_minutes = (datetime.now(timezone.utc) - evidence.timestamp).total_seconds() / 60
+        age_minutes = (utc_now() - evidence.timestamp).total_seconds() / 60
         if age_minutes < 1:
             evidence.freshness_score = 1.0
         elif age_minutes < 60:

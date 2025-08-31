@@ -163,11 +163,12 @@ const SchedulingMonitor: React.FC = () => {
     }
   };
 
-  const getResourceStatus = (usage: number) => {
-    if (usage < 60) return 'normal';
-    if (usage < 80) return 'warning';
-    return 'critical';
-  };
+  // Resource status helper function - currently unused
+  // const getResourceStatus = (usage: number) => {
+  //   if (usage < 60) return 'normal';
+  //   if (usage < 80) return 'warning';
+  //   return 'critical';
+  // };
 
   const getResourceColor = (usage: number) => {
     if (usage < 60) return '#52c41a';

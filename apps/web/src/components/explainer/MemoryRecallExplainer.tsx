@@ -2,8 +2,8 @@ import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Progress } from '@/components/ui/Progress';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Progress } from '@/components/ui/progress';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/Tabs';
 import { 
   Brain, 
   Search, 
@@ -183,19 +183,19 @@ const MemoryRecallExplainer: React.FC<MemoryRecallExplainerProps> = ({
       {/* 详细分析 */}
       <Tabs value={selectedView} onValueChange={(value: any) => setSelectedView(value)}>
         <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="overview" className="flex items-center">
+          <TabsTrigger value="overview" >
             <Eye className="h-4 w-4 mr-2" />
             概览
           </TabsTrigger>
-          <TabsTrigger value="process" className="flex items-center">
+          <TabsTrigger value="process" >
             <GitBranch className="h-4 w-4 mr-2" />
             处理流程
           </TabsTrigger>
-          <TabsTrigger value="memories" className="flex items-center">
+          <TabsTrigger value="memories" >
             <Database className="h-4 w-4 mr-2" />
             召回记忆
           </TabsTrigger>
-          <TabsTrigger value="analysis" className="flex items-center">
+          <TabsTrigger value="analysis" >
             <BarChart3 className="h-4 w-4 mr-2" />
             分析统计
           </TabsTrigger>
@@ -206,7 +206,7 @@ const MemoryRecallExplainer: React.FC<MemoryRecallExplainerProps> = ({
             {/* 搜索策略 */}
             <Card>
               <CardHeader>
-                <CardTitle className="flex items-center">
+                <CardTitle >
                   <Target className="h-5 w-5 mr-2" />
                   搜索策略配置
                 </CardTitle>
@@ -260,7 +260,7 @@ const MemoryRecallExplainer: React.FC<MemoryRecallExplainerProps> = ({
             {/* 性能指标 */}
             <Card>
               <CardHeader>
-                <CardTitle className="flex items-center">
+                <CardTitle >
                   <Cpu className="h-5 w-5 mr-2" />
                   性能指标
                 </CardTitle>
@@ -554,7 +554,7 @@ const MemoryRecallExplainer: React.FC<MemoryRecallExplainerProps> = ({
             {/* 记忆类型分布 */}
             <Card>
               <CardHeader>
-                <CardTitle className="flex items-center">
+                <CardTitle >
                   <Layers className="h-5 w-5 mr-2" />
                   记忆类型分布
                 </CardTitle>
@@ -585,7 +585,7 @@ const MemoryRecallExplainer: React.FC<MemoryRecallExplainerProps> = ({
             {/* 相关性分布 */}
             <Card>
               <CardHeader>
-                <CardTitle className="flex items-center">
+                <CardTitle >
                   <BarChart3 className="h-5 w-5 mr-2" />
                   相关性分布
                 </CardTitle>
@@ -622,7 +622,7 @@ const MemoryRecallExplainer: React.FC<MemoryRecallExplainerProps> = ({
           {/* 召回质量分析 */}
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center">
+              <CardTitle >
                 <Star className="h-5 w-5 mr-2" />
                 召回质量分析
               </CardTitle>

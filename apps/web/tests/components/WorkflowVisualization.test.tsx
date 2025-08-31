@@ -4,13 +4,13 @@ import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
 import WorkflowVisualization from '../../src/components/workflow/WorkflowVisualization';
 
 // Mock ReactFlow
-vi.mock('reactflow', () => ({
+mockFn()mock('reactflow', () => ({
   default: ({ children, onNodeClick }: any) => (
     <div data-testid="react-flow">
       <button 
         data-testid="mock-node" 
         onClick={() => onNodeClick && onNodeClick(
-          { preventDefault: vi.fn() }, 
+          { preventDefault: mockFn()fn() }, 
           { id: 'test-node', data: { id: 'test-node', name: '测试节点', status: 'running' } }
         )}
       >
@@ -19,9 +19,9 @@ vi.mock('reactflow', () => ({
       {children}
     </div>
   ),
-  useNodesState: () => [[], vi.fn(), vi.fn()],
-  useEdgesState: () => [[], vi.fn(), vi.fn()],
-  addEdge: vi.fn(),
+  useNodesState: () => [[], mockFn()fn(), mockFn()fn()],
+  useEdgesState: () => [[], mockFn()fn(), mockFn()fn()],
+  addEdge: mockFn()fn(),
   ConnectionMode: { Loose: 'loose' },
   Background: () => <div data-testid="background" />,
   Controls: () => <div data-testid="controls" />,
@@ -30,30 +30,30 @@ vi.mock('reactflow', () => ({
 }));
 
 // Mock WebSocket service
-vi.mock('../../src/services/workflowWebSocketService', () => ({
+mockFn()mock('../../src/services/workflowWebSocketService', () => ({
   workflowWebSocketService: {
-    connect: vi.fn(),
-    disconnect: vi.fn(),
+    connect: mockFn()fn(),
+    disconnect: mockFn()fn(),
   },
 }));
 
 // Mock fetch
-const mockFetch = vi.fn();
+const mockFetch = mockFn()fn();
 global.fetch = mockFetch;
 
 describe('WorkflowVisualization', () => {
   const defaultProps = {
     workflowId: 'test-workflow-123',
-    onNodeClick: vi.fn(),
+    onNodeClick: mockFn()fn(),
   };
 
   beforeEach(() => {
-    vi.clearAllMocks();
+    mockFn()clearAllMocks();
     // Mock successful API response
     mockFetch.mockResolvedValue({
       ok: true,
       status: 200,
-      json: vi.fn().mockResolvedValue({
+      json: mockFn()fn().mockResolvedValue({
         id: 'test-workflow-123',
         name: '测试工作流',
         status: 'running',
@@ -63,7 +63,7 @@ describe('WorkflowVisualization', () => {
   });
 
   afterEach(() => {
-    vi.resetAllMocks();
+    mockFn()resetAllMocks();
   });
 
   it('应该正确渲染工作流可视化组件', async () => {
@@ -189,7 +189,7 @@ describe('WorkflowVisualization', () => {
     mockFetch.mockResolvedValue({
       ok: false,
       status: 404,
-      json: vi.fn().mockResolvedValue({}),
+      json: mockFn()fn().mockResolvedValue({}),
     });
     
     render(<WorkflowVisualization {...defaultProps} />);

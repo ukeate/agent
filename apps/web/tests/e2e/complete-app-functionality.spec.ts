@@ -26,10 +26,10 @@ test.describe('完整应用功能测试', () => {
     // 验证页面标题
     await expect(page).toHaveTitle(/AI/);
     
-    // 验证主要布局元素存在 - 使用Ant Design Layout的实际类
-    await expect(page.locator('.ant-layout')).toBeVisible();
-    await expect(page.locator('.ant-layout-sider')).toBeVisible();
-    await expect(page.locator('.ant-layout-content')).toBeVisible();
+    // 验证主要布局元素存在 - 使用Ant Design Layout的实际类，指定第一个
+    await expect(page.locator('.ant-layout').first()).toBeVisible();
+    await expect(page.locator('.ant-layout-sider').first()).toBeVisible();
+    await expect(page.locator('.ant-layout-content').first()).toBeVisible();
     
     // 截图记录正常渲染状态
     await page.screenshot({ path: 'test-results/homepage-rendered.png', fullPage: true });
@@ -45,26 +45,20 @@ test.describe('完整应用功能测试', () => {
     const sidebar = page.locator('.ant-layout-sider');
     await expect(sidebar).toBeVisible();
     
-    // 验证主要功能分组
+    // 验证主要功能分组 - 使用实际的菜单分组文本（去除重复项）
     const expectedGroups = [
-      'AI智能体管理',
-      '多智能体协作',
-      'RAG检索系统', 
-      '工作流编排',
-      '智能监控',
-      '用户反馈系统',
-      'Q-Learning算法',
-      '批处理作业',
-      '企业架构',
-      '多模态处理',
-      'PgVector优化',
-      '推理引擎',
-      '内存管理',
-      '流式处理',
-      '离线能力',
-      '安全管理',
-      '统一引擎',
-      '向量处理'
+      '🤖 智能体系统',
+      '🔍 智能检索引擎',
+      '🧠 强化学习系统',
+      '📊 强化学习系统监控',
+      '💫 个性化引擎',
+      '🧪 A/B测试实验平台',
+      '📈 行为分析系统',
+      '📝 用户反馈系统',
+      '🏗️ 企业架构',
+      '⚙️ 系统组件管理',
+      '📋 测试与质量',
+      '📄 文档处理'
     ];
     
     for (const group of expectedGroups) {
@@ -245,9 +239,9 @@ test.describe('完整应用功能测试', () => {
     await page.waitForTimeout(2000);
     
     // 验证整体页面结构
-    await expect(page.locator('.ant-layout')).toBeVisible();
-    await expect(page.locator('.ant-layout-sider')).toBeVisible();
-    await expect(page.locator('.ant-layout-content')).toBeVisible();
+    await expect(page.locator('.ant-layout').first()).toBeVisible();
+    await expect(page.locator('.ant-layout-sider').first()).toBeVisible();
+    await expect(page.locator('.ant-layout-content').first()).toBeVisible();
     
     // 验证没有明显的布局问题
     const viewportSize = page.viewportSize();

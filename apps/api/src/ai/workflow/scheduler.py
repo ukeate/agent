@@ -8,7 +8,9 @@ import json
 import logging
 from typing import Dict, List, Optional, Any, Set, Callable
 from uuid import uuid4
-from datetime import datetime, timedelta
+from datetime import datetime
+from datetime import timedelta
+from src.core.utils.timezone_utils import utc_now, utc_factory
 from enum import Enum
 from dataclasses import dataclass, asdict
 
@@ -150,7 +152,7 @@ class TaskQueue:
                         # 标记任务为运行中
                         task.status = TaskStatus.RUNNING
                         task.worker_id = worker_id
-                        task.started_at = datetime.utcnow()
+                        task.started_at = utc_now()
                         
                         # 更新任务状态
                         await self.update_task(task)
@@ -181,7 +183,7 @@ class TaskQueue:
             
             # 更新任务状态
             task.status = TaskStatus.COMPLETED
-            task.completed_at = datetime.utcnow()
+            task.completed_at = utc_now()
             if result:
                 task.metadata = task.metadata or {}
                 task.metadata['result'] = result
@@ -219,7 +221,7 @@ class TaskQueue:
                 task.status = TaskStatus.RETRYING
                 # 重新入队，延迟执行
                 delay_seconds = min(2 ** task.retry_count, 300)  # 指数退避，最大5分钟
-                task.scheduled_at = datetime.utcnow() + timedelta(seconds=delay_seconds)
+                task.scheduled_at = utc_now() + timedelta(seconds=delay_seconds)
                 
                 await self.update_task(task)
                 await self.redis.lrem(self.processing_queue_name, 1, task_id)
@@ -232,7 +234,7 @@ class TaskQueue:
             else:
                 # 超过最大重试次数，标记为失败
                 task.status = TaskStatus.FAILED
-                task.completed_at = datetime.utcnow()
+                task.completed_at = utc_now()
                 
                 await self.update_task(task)
                 await self.redis.lrem(self.processing_queue_name, 1, task_id)
@@ -418,7 +420,7 @@ class WorkflowScheduler:
     ) -> List[ScheduledTask]:
         """先进先出调度"""
         scheduled_tasks = []
-        base_time = datetime.utcnow()
+        base_time = utc_now()
         
         for i, step in enumerate(steps):
             task = ScheduledTask(
@@ -445,7 +447,7 @@ class WorkflowScheduler:
     ) -> List[ScheduledTask]:
         """优先级调度"""
         scheduled_tasks = []
-        base_time = datetime.utcnow()
+        base_time = utc_now()
         
         # 根据步骤类型确定优先级
         type_priority_map = {
@@ -483,7 +485,7 @@ class WorkflowScheduler:
     ) -> List[ScheduledTask]:
         """关键路径优先调度"""
         scheduled_tasks = []
-        base_time = datetime.utcnow()
+        base_time = utc_now()
         
         critical_path_steps = set(execution_plan.critical_path)
         
@@ -518,7 +520,7 @@ class WorkflowScheduler:
     ) -> List[ScheduledTask]:
         """资源感知调度"""
         scheduled_tasks = []
-        base_time = datetime.utcnow()
+        base_time = utc_now()
         
         # 分析资源需求
         resource_heavy_steps = []
@@ -561,8 +563,8 @@ class WorkflowScheduler:
                 'capabilities': capabilities,
                 'max_concurrent': max_concurrent,
                 'current_tasks': 0,
-                'registered_at': datetime.utcnow().isoformat(),
-                'last_heartbeat': datetime.utcnow().isoformat(),
+                'registered_at': utc_now().isoformat(),
+                'last_heartbeat': utc_now().isoformat(),
                 'status': 'active'
             }
             
@@ -600,10 +602,10 @@ class WorkflowScheduler:
         """更新工作器心跳"""
         try:
             worker_key = f"{self.task_queue.worker_key_prefix}{worker_id}"
-            await self.redis.hset(worker_key, 'last_heartbeat', datetime.utcnow().isoformat())
+            await self.redis.hset(worker_key, 'last_heartbeat', utc_now().isoformat())
             
             if worker_id in self.active_workers:
-                self.active_workers[worker_id]['last_heartbeat'] = datetime.utcnow().isoformat()
+                self.active_workers[worker_id]['last_heartbeat'] = utc_now().isoformat()
             
             return True
             
@@ -621,7 +623,7 @@ class WorkflowScheduler:
                 'active_workers': len(self.active_workers),
                 'worker_details': list(self.active_workers.values()),
                 'scheduling_strategies': list(self.scheduling_strategies.keys()),
-                'timestamp': datetime.utcnow().isoformat()
+                'timestamp': utc_now().isoformat()
             }
             
             return stats
@@ -633,7 +635,7 @@ class WorkflowScheduler:
     async def cleanup_expired_tasks(self, max_age_hours: int = 24) -> int:
         """清理过期任务"""
         try:
-            cutoff_time = datetime.utcnow() - timedelta(hours=max_age_hours)
+            cutoff_time = utc_now() - timedelta(hours=max_age_hours)
             cleaned_count = 0
             
             # 清理完成和失败的任务

@@ -283,7 +283,7 @@ class ReportService {
    * 验证报告数据
    */
   async validateReportData(experimentId: string): Promise<{
-    valid: boolean;
+    valid: true;
     issues?: string[];
   }> {
     const response = await apiClient.post(`${this.baseUrl}/validate`, {

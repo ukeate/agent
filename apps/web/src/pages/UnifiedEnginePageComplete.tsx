@@ -27,7 +27,7 @@ import {
   SettingOutlined, 
   ThunderboltOutlined, 
   DatabaseOutlined, 
-  BranchesOutlined as PipelineOutlined,
+  ShareAltOutlined as PipelineOutlined,
   PlayCircleOutlined,
   ReloadOutlined,
   BarChartOutlined,
@@ -39,7 +39,7 @@ import {
 } from '@ant-design/icons';
 
 const { Title, Text } = Typography;
-const { TabPane } = Tabs;
+// const { TabPane } = Tabs; // 已废弃，直接使用Tabs.TabPane或items配置
 const { Option } = Select;
 
 // 处理模式枚举
@@ -293,7 +293,7 @@ const UnifiedEnginePageComplete: React.FC = () => {
     switch (mode) {
       case 'stream': return <ThunderboltOutlined />;
       case 'batch': return <DatabaseOutlined />;
-      case 'hybrid': return <BranchesOutlined />;
+      case 'hybrid': return <ShareAltOutlined />;
       case 'pipeline': return <PipelineOutlined />;
       default: return <SettingOutlined />;
     }
@@ -474,7 +474,7 @@ const UnifiedEnginePageComplete: React.FC = () => {
         <Tabs defaultActiveKey="processing" size="large">
           
           {/* 处理请求标签页 */}
-          <TabPane
+          <Tabs.TabPane
             tab={
               <span>
                 <PlayCircleOutlined />
@@ -513,7 +513,7 @@ const UnifiedEnginePageComplete: React.FC = () => {
                               <DatabaseOutlined /> 批处理
                             </Option>
                             <Option value="hybrid">
-                              <BranchesOutlined /> 混合处理
+                              <ShareAltOutlined /> 混合处理
                             </Option>
                             <Option value="pipeline">
                               <PipelineOutlined /> 流水线处理
@@ -633,10 +633,10 @@ const UnifiedEnginePageComplete: React.FC = () => {
                 </Card>
               </Col>
             </Row>
-          </TabPane>
+          </Tabs.TabPane>
 
           {/* 处理历史标签页 */}
-          <TabPane
+          <Tabs.TabPane
             tab={
               <span>
                 <DatabaseOutlined />
@@ -660,10 +660,10 @@ const UnifiedEnginePageComplete: React.FC = () => {
                 }}
               />
             </Card>
-          </TabPane>
+          </Tabs.TabPane>
 
           {/* 性能分析标签页 */}
-          <TabPane
+          <Tabs.TabPane
             tab={
               <span>
                 <BarChartOutlined />
@@ -740,7 +740,7 @@ const UnifiedEnginePageComplete: React.FC = () => {
                 </Card>
               </Col>
             </Row>
-          </TabPane>
+          </Tabs.TabPane>
 
         </Tabs>
       </Card>
@@ -748,7 +748,7 @@ const UnifiedEnginePageComplete: React.FC = () => {
       {/* 模式推荐模态框 */}
       <Modal
         title="处理模式推荐"
-        visible={recommendModalVisible}
+        open={recommendModalVisible}
         onCancel={() => setRecommendModalVisible(false)}
         footer={[
           <Button key="close" onClick={() => setRecommendModalVisible(false)}>

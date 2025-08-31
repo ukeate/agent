@@ -7,7 +7,9 @@ import json
 import hashlib
 import socket
 from typing import Dict, List, Optional, Any, Set, Tuple, Callable
-from datetime import datetime, timezone, timedelta
+from datetime import datetime
+from datetime import timedelta
+from src.core.utils.timezone_utils import utc_now, utc_factory
 from dataclasses import dataclass, field
 from enum import Enum
 import structlog
@@ -53,12 +55,12 @@ class NodeInfo:
     role: NodeRole
     capabilities: List[str] = field(default_factory=list)
     load: float = 0.0
-    last_heartbeat: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    last_heartbeat: datetime = field(default_factory=lambda: utc_now())
     metadata: Dict[str, Any] = field(default_factory=dict)
     
     def is_alive(self, timeout_seconds: int = 30) -> bool:
         """检查节点是否存活"""
-        time_since_heartbeat = (datetime.now(timezone.utc) - self.last_heartbeat).total_seconds()
+        time_since_heartbeat = (utc_now() - self.last_heartbeat).total_seconds()
         return time_since_heartbeat < timeout_seconds and self.status == NodeStatus.ACTIVE
     
     def to_dict(self) -> Dict[str, Any]:
@@ -342,7 +344,7 @@ class DistributedEventCoordinator:
                 await asyncio.sleep(self.heartbeat_interval)
                 
                 # 更新心跳时间
-                self.node_info.last_heartbeat = datetime.now(timezone.utc)
+                self.node_info.last_heartbeat = utc_now()
                 
                 # 更新负载信息
                 if self.processing_engine:
@@ -529,7 +531,7 @@ class DistributedEventCoordinator:
                 "source": getattr(event, 'source', None),
                 "target": getattr(event, 'target', None),
                 "data": getattr(event, 'data', {}),
-                "timestamp": event.timestamp.isoformat() if hasattr(event, 'timestamp') else datetime.now(timezone.utc).isoformat(),
+                "timestamp": event.timestamp.isoformat() if hasattr(event, 'timestamp') else utc_now().isoformat(),
                 "correlation_id": getattr(event, 'correlation_id', None),
                 "conversation_id": getattr(event, 'conversation_id', None),
                 "session_id": getattr(event, 'session_id', None),
@@ -573,7 +575,7 @@ class DistributedEventCoordinator:
                         source=event_data.get("source", ""),
                         target=event_data.get("target"),
                         data=event_data.get("data", {}),
-                        timestamp=datetime.fromisoformat(event_data["timestamp"]) if "timestamp" in event_data else datetime.now(timezone.utc),
+                        timestamp=datetime.fromisoformat(event_data["timestamp"]) if "timestamp" in event_data else utc_now(),
                         correlation_id=event_data.get("correlation_id"),
                         conversation_id=event_data.get("conversation_id"),
                         session_id=event_data.get("session_id"),

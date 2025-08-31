@@ -5,7 +5,7 @@ from typing import Any, Dict, List, Optional, TypedDict
 from uuid import uuid4
 
 from langgraph.graph import StateGraph, END
-from langgraph.checkpoint import MemorySaver
+from langgraph.checkpoint.memory import MemorySaver
 
 from models.schemas.reasoning import (
     ReasoningChain,

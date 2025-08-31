@@ -5,7 +5,8 @@ import asyncio
 import aiohttp
 import time
 from typing import List, Dict, Any
-from datetime import datetime, timedelta
+from datetime import datetime
+from src.core.utils.timezone_utils import utc_now, utc_factory, timedelta
 import psutil
 import gc
 import tracemalloc
@@ -26,7 +27,7 @@ class StressTestMetrics:
     def add_checkpoint(self, name: str, data: Dict[str, Any]):
         """添加检查点"""
         self.checkpoints.append({
-            "timestamp": datetime.utcnow(),
+            "timestamp": utc_now(),
             "name": name,
             "data": data,
             "elapsed_time": time.time() - self.start_time if self.start_time else 0
@@ -35,7 +36,7 @@ class StressTestMetrics:
     def add_error(self, error: str):
         """记录错误"""
         self.errors.append({
-            "timestamp": datetime.utcnow(),
+            "timestamp": utc_now(),
             "error": error
         })
     

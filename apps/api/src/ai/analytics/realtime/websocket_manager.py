@@ -7,7 +7,9 @@ WebSocket实时数据推送管理器
 import asyncio
 import json
 from typing import Dict, Set, List, Optional, Any, Callable
-from datetime import datetime, timedelta
+from datetime import datetime
+from datetime import timedelta
+from src.core.utils.timezone_utils import utc_now, utc_factory
 from fastapi import WebSocket, WebSocketDisconnect
 from dataclasses import dataclass, asdict
 import logging
@@ -33,9 +35,9 @@ class ConnectionInfo:
         if self.subscriptions is None:
             self.subscriptions = set()
         if self.connected_at is None:
-            self.connected_at = datetime.utcnow()
+            self.connected_at = utc_now()
         if self.last_ping is None:
-            self.last_ping = datetime.utcnow()
+            self.last_ping = utc_now()
 
 @dataclass
 class RealtimeMessage:
@@ -48,7 +50,7 @@ class RealtimeMessage:
 
     def __post_init__(self):
         if self.timestamp is None:
-            self.timestamp = datetime.utcnow()
+            self.timestamp = utc_now()
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -123,7 +125,7 @@ class WebSocketManager:
         await self._send_to_connection(connection_id, {
             "type": "connection_established",
             "connection_id": connection_id,
-            "timestamp": datetime.utcnow().isoformat()
+            "timestamp": utc_now().isoformat()
         })
     
     async def disconnect(self, connection_id: str):
@@ -165,7 +167,7 @@ class WebSocketManager:
         await self._send_to_connection(connection_id, {
             "type": "subscription_confirmed",
             "subscription_type": subscription_type,
-            "timestamp": datetime.utcnow().isoformat()
+            "timestamp": utc_now().isoformat()
         })
     
     async def unsubscribe(self, connection_id: str, subscription_type: str):
@@ -250,7 +252,7 @@ class WebSocketManager:
     
     async def _heartbeat_check(self):
         """心跳检查"""
-        now = datetime.utcnow()
+        now = utc_now()
         timeout_connections = []
         
         for connection_id, connection in self.active_connections.items():
@@ -336,7 +338,7 @@ class RealtimeAnalyticsManager:
         """执行实时分析"""
         try:
             # 获取最近的事件
-            end_time = datetime.utcnow()
+            end_time = utc_now()
             start_time = end_time - timedelta(seconds=self.recent_events_window)
             
             recent_events = await self.event_store.get_events_in_timerange(

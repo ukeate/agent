@@ -8,6 +8,7 @@ import asyncio
 import uuid
 from typing import Dict, List, Optional, Any, Tuple
 from datetime import datetime
+from src.core.utils.timezone_utils import utc_now, utc_factory
 import numpy as np
 from concurrent.futures import ThreadPoolExecutor
 import logging
@@ -40,8 +41,8 @@ class QLearningAgentSession:
         self.exploration_strategy = exploration_strategy
         self.reward_function = reward_function
         
-        self.created_at = datetime.now()
-        self.last_updated = datetime.now()
+        self.created_at = utc_now()
+        self.last_updated = utc_now()
         self.training_manager: Optional[TrainingManager] = None
         self.training_metrics: Optional[TrainingMetrics] = None
         self.is_training = False
@@ -252,7 +253,7 @@ class QLearningService:
                 session.training_manager.train
             )
             session.is_training = False
-            session.last_updated = datetime.now()
+            session.last_updated = utc_now()
             
         except Exception as e:
             logger.error(f"训练执行失败: {e}")
@@ -278,7 +279,7 @@ class QLearningService:
                     pass
             
             session.is_training = False
-            session.last_updated = datetime.now()
+            session.last_updated = utc_now()
             
             logger.info(f"停止训练会话: {session_id}")
             return True

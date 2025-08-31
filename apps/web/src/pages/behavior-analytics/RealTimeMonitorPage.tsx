@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { Card } from '../../components/ui/Card';
-import { Button } from '../../components/ui/Button';
-import { Badge } from '../../components/ui/Badge';
-import { Alert } from '../../components/ui/Alert';
-import { Progress } from '../../components/ui/Progress';
+import { Button } from '../../components/ui/button';
+import { Badge } from '../../components/ui/badge';
+import { Alert } from '../../components/ui/alert';
+import { Progress } from '../../components/ui/progress';
 import { behaviorAnalyticsService } from '../../services/behaviorAnalyticsService';
 
 interface RealtimeMetrics {

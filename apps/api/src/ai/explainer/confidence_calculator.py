@@ -5,11 +5,12 @@
 
 import math
 import statistics
-from datetime import datetime, timezone
+from datetime import datetime
+from src.core.utils.timezone_utils import utc_now, utc_factory, timezone
 from typing import Any, Dict, List, Optional, Tuple, Union
 from uuid import uuid4
 
-from models.schemas.explanation import (
+from src.models.schemas.explanation import (
     ConfidenceMetrics,
     ConfidenceSource,
     ExplanationComponent
@@ -53,7 +54,7 @@ class ConfidenceCalculator:
         """计算综合置信度指标"""
         
         calculation_id = str(uuid4())
-        calculation_start = datetime.now(timezone.utc)
+        calculation_start = utc_now()
         
         try:
             # 1. 模型概率置信度
@@ -270,7 +271,7 @@ class ConfidenceCalculator:
         if last_update:
             try:
                 last_update_dt = datetime.fromisoformat(last_update.replace("Z", "+00:00"))
-                days_ago = (datetime.now(timezone.utc) - last_update_dt).days
+                days_ago = (utc_now() - last_update_dt).days
                 time_factor = max(0.5, 1.0 - (days_ago / 365.0))  # 一年后衰减到0.5
             except:
                 time_factor = 0.8
@@ -468,7 +469,7 @@ class ConfidenceCalculator:
             "predicted_confidence": predicted_confidence,
             "actual_outcome": actual_outcome,
             "context": context or {},
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": utc_now().isoformat(),
             "calibration_id": str(uuid4())
         }
         
@@ -524,7 +525,7 @@ class ConfidenceCalculator:
             "overall_calibration_error": overall_calibration_error,
             "bin_calibration_errors": calibration_errors,
             "total_samples": len(self.calibration_data),
-            "last_updated": datetime.now(timezone.utc).isoformat()
+            "last_updated": utc_now().isoformat()
         }
     
     def _record_calculation(
@@ -540,7 +541,7 @@ class ConfidenceCalculator:
         calculation_record = {
             "calculation_id": calculation_id,
             "start_time": start_time.isoformat(),
-            "end_time": datetime.now(timezone.utc).isoformat(),
+            "end_time": utc_now().isoformat(),
             "input_summary": {
                 "model_prediction_keys": list(model_prediction.keys()),
                 "evidence_count": len(evidence_data),
@@ -548,7 +549,7 @@ class ConfidenceCalculator:
             },
             "result_metrics": result_metrics.model_dump(),
             "calculation_duration_ms": int(
-                (datetime.now(timezone.utc) - start_time).total_seconds() * 1000
+                (utc_now() - start_time).total_seconds() * 1000
             )
         }
         

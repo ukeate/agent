@@ -6,7 +6,9 @@ import asyncio
 import re
 import uuid
 from collections import defaultdict
-from datetime import datetime, timedelta
+from datetime import datetime
+from datetime import timedelta
+from src.core.utils.timezone_utils import utc_now, utc_factory
 from enum import Enum
 from typing import Any, Dict, List, Optional, Set
 
@@ -112,6 +114,17 @@ class SecurityMonitor:
         query_params = dict(request.query_params) if request.query_params else {}
         headers = dict(request.headers)
         
+        # 白名单本地IP和开发环境IP
+        trusted_ips = {"127.0.0.1", "localhost", "::1", "0.0.0.0"}
+        if client_ip in trusted_ips:
+            return SecurityAssessment(
+                risk_score=0.0,
+                threat_level=ThreatLevel.LOW,
+                detected_threats=[],
+                details={"trusted_ip": True, "client_ip": client_ip},
+                recommendations=["Request from trusted IP"]
+            )
+        
         # 1. 检查IP是否在黑名单
         if client_ip in self.blocked_ips:
             risk_score = 1.0
@@ -190,7 +203,7 @@ class SecurityMonitor:
     
     async def _check_request_rate(self, client_ip: str) -> Dict[str, Any]:
         """检查请求频率"""
-        now = datetime.utcnow()
+        now = utc_now()
         minute_ago = now - timedelta(minutes=1)
         
         # 清理旧记录
@@ -312,7 +325,7 @@ class SecurityMonitor:
             affected_resource="api",
             source_ip=client_ip,
             user_id=None,
-            timestamp=datetime.utcnow(),
+            timestamp=utc_now(),
             status="active",
             auto_blocked=True,
             action_taken=["ip_blocked", "alert_created"]
@@ -347,7 +360,7 @@ class SecurityMonitor:
     
     async def get_security_metrics(self) -> Dict[str, Any]:
         """获取安全指标"""
-        now = datetime.utcnow()
+        now = utc_now()
         hour_ago = now - timedelta(hours=1)
         day_ago = now - timedelta(days=1)
         

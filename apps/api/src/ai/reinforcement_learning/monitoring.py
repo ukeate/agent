@@ -12,7 +12,9 @@
 import time
 import asyncio
 from typing import Dict, List, Any, Optional
-from datetime import datetime, timedelta
+from datetime import datetime
+from datetime import timedelta
+from src.core.utils.timezone_utils import utc_now, utc_factory
 from dataclasses import dataclass
 from enum import Enum
 import logging
@@ -69,7 +71,7 @@ class RLSystemMonitoring:
         
         # 监控状态
         self.monitoring_active = True
-        self.last_health_check = datetime.now()
+        self.last_health_check = utc_now()
     
     def _setup_telemetry(self):
         """设置OpenTelemetry"""
@@ -360,7 +362,7 @@ class RLSystemMonitoring:
         self.active_users_gauge.set(active_users)
         self.model_accuracy_gauge.set(model_accuracy)
         
-        self.last_health_check = datetime.now()
+        self.last_health_check = utc_now()
     
     def _categorize_reward(self, reward: float) -> str:
         """分类奖励值"""
@@ -582,7 +584,7 @@ groups:
         
         health_status = {
             "status": "healthy",
-            "timestamp": datetime.now().isoformat(),
+            "timestamp": utc_now().isoformat(),
             "monitoring_active": self.monitoring_active,
             "last_health_check": self.last_health_check.isoformat(),
             "components": {
@@ -592,7 +594,7 @@ groups:
             },
             "metrics_summary": {
                 "total_alert_rules": len(self.alert_rules),
-                "monitoring_uptime_seconds": (datetime.now() - self.last_health_check).total_seconds()
+                "monitoring_uptime_seconds": (utc_now() - self.last_health_check).total_seconds()
             }
         }
         

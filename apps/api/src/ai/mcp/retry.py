@@ -4,7 +4,9 @@ import asyncio
 import logging
 from typing import Any, Callable, Dict, List, Optional, Union
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import datetime
+from datetime import timedelta
+from src.core.utils.timezone_utils import utc_now, utc_factory
 import random
 
 from .exceptions import MCPConnectionError, MCPTimeoutError, MCPToolError
@@ -72,7 +74,7 @@ class RetryManager:
         
         if success:
             stats["successful_attempts"] += 1
-            stats["last_success"] = datetime.now().isoformat()
+            stats["last_success"] = utc_now().isoformat()
             if attempt > 1:
                 stats["retry_attempts"] += 1
         else:
@@ -103,11 +105,11 @@ class RetryManager:
         
         for attempt in range(1, self.config.max_attempts + 1):
             try:
-                start_time = datetime.now()
+                start_time = utc_now()
                 result = await operation(*args, **kwargs)
                 
                 # 记录成功统计
-                execution_time = (datetime.now() - start_time).total_seconds()
+                execution_time = (utc_now() - start_time).total_seconds()
                 self._record_retry_stats(operation_key, attempt, True)
                 
                 if attempt > 1:

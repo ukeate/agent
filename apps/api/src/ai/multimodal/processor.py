@@ -5,7 +5,8 @@
 import json
 import asyncio
 from pathlib import Path
-from datetime import datetime, timezone
+from datetime import datetime
+from src.core.utils.timezone_utils import utc_now, utc_factory, timezone
 from typing import Dict, Any, List, Optional, Union
 import hashlib
 
@@ -46,7 +47,7 @@ class MultimodalProcessor:
         options: Optional[ProcessingOptions] = None
     ) -> ProcessingResult:
         """处理多模态内容"""
-        start_time = datetime.now(timezone.utc)
+        start_time = utc_now()
         options = options or ProcessingOptions()
         
         try:
@@ -71,7 +72,7 @@ class MultimodalProcessor:
                 raise ValueError(f"不支持的内容类型: {content.content_type}")
             
             # 计算处理时间
-            processing_time = (datetime.now(timezone.utc) - start_time).total_seconds()
+            processing_time = (utc_now() - start_time).total_seconds()
             
             # 创建处理结果
             result = ProcessingResult(
@@ -93,7 +94,7 @@ class MultimodalProcessor:
             
         except Exception as e:
             logger.error(f"处理内容失败 {content.content_id}: {e}")
-            processing_time = (datetime.now(timezone.utc) - start_time).total_seconds()
+            processing_time = (utc_now() - start_time).total_seconds()
             
             return ProcessingResult(
                 content_id=content.content_id,

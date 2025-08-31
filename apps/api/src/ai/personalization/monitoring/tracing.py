@@ -7,6 +7,7 @@ from functools import wraps
 from contextlib import asynccontextmanager, contextmanager
 from dataclasses import dataclass
 from datetime import datetime
+from src.core.utils.timezone_utils import utc_now, utc_factory
 import logging
 
 from opentelemetry import trace, metrics, baggage

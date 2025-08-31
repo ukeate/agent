@@ -1,8 +1,8 @@
 import React, { useState, useMemo } from 'react';
-import { Card } from '../ui/Card';
-import { Badge } from '../ui/Badge';
-import { Button } from '../ui/Button';
-import { Alert } from '../ui/Alert';
+import { Card } from '../ui/card';
+import { Badge } from '../ui/badge';
+import { Button } from '../ui/button';
+import { Alert } from '../ui/lalert';
 
 interface Anomaly {
   anomaly_id: string;

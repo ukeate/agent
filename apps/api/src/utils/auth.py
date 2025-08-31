@@ -5,7 +5,9 @@
 
 import jwt
 import bcrypt
-from datetime import datetime, timedelta
+from datetime import datetime
+from datetime import timedelta
+from src.core.utils.timezone_utils import utc_now, utc_factory
 from typing import Optional, Dict, Any
 from functools import wraps
 from fastapi import HTTPException, Request
@@ -55,9 +57,9 @@ class AuthUtils:
             to_encode = data.copy()
             
             if expires_delta:
-                expire = datetime.utcnow() + expires_delta
+                expire = utc_now() + expires_delta
             else:
-                expire = datetime.utcnow() + timedelta(minutes=JWT_EXPIRE_MINUTES)
+                expire = utc_now() + timedelta(minutes=JWT_EXPIRE_MINUTES)
             
             to_encode.update({"exp": expire})
             encoded_jwt = jwt.encode(to_encode, JWT_SECRET_KEY, algorithm=JWT_ALGORITHM)
@@ -182,8 +184,8 @@ class SessionManager:
         
         session_data = {
             "user_id": user_id,
-            "created_at": datetime.utcnow(),
-            "last_activity": datetime.utcnow(),
+            "created_at": utc_now(),
+            "last_activity": utc_now(),
             "data": additional_data or {}
         }
         
@@ -196,14 +198,14 @@ class SessionManager:
         session = self.active_sessions.get(session_id)
         if session:
             # 更新最后活动时间
-            session["last_activity"] = datetime.utcnow()
+            session["last_activity"] = utc_now()
         return session
     
     def update_session(self, session_id: str, data: Dict[str, Any]) -> bool:
         """更新会话"""
         if session_id in self.active_sessions:
             self.active_sessions[session_id]["data"].update(data)
-            self.active_sessions[session_id]["last_activity"] = datetime.utcnow()
+            self.active_sessions[session_id]["last_activity"] = utc_now()
             return True
         return False
     
@@ -218,7 +220,7 @@ class SessionManager:
     
     def cleanup_expired_sessions(self, expire_minutes: int = 60) -> int:
         """清理过期会话"""
-        current_time = datetime.utcnow()
+        current_time = utc_now()
         expired_sessions = []
         
         for session_id, session_data in self.active_sessions.items():

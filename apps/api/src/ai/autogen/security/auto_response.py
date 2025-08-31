@@ -5,7 +5,9 @@
 import asyncio
 import uuid
 import json
-from datetime import datetime, timezone, timedelta
+from datetime import datetime
+from datetime import timedelta
+from src.core.utils.timezone_utils import utc_now, utc_factory
 from typing import Dict, Any, List, Optional, Callable, Set
 from dataclasses import dataclass, field
 from enum import Enum
@@ -49,7 +51,7 @@ class ResponseRule:
     actions: List[ResponseAction]
     priority: int = 0
     enabled: bool = True
-    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = field(default_factory=lambda: utc_now())
     
     def matches(self, event: SecurityEvent) -> bool:
         """检查是否匹配条件"""
@@ -152,7 +154,7 @@ class BlockExecutor(ActionExecutor):
                 "agent_id": agent_id,
                 "blocked_output_id": blocked_output_id,
                 "reason": f"威胁级别: {event.threat_level.value}",
-                "timestamp": datetime.now(timezone.utc).isoformat()
+                "timestamp": utc_now().isoformat()
             }
             
             logger.info("执行阻止动作", agent_id=agent_id, threat_level=event.threat_level)
@@ -184,14 +186,14 @@ class QuarantineExecutor(ActionExecutor):
             self.quarantined_agents.add(agent_id)
             
             # 设置隔离到期时间
-            quarantine_until = datetime.now(timezone.utc) + self.quarantine_duration
+            quarantine_until = utc_now() + self.quarantine_duration
             
             result = {
                 "action": "quarantine",
                 "agent_id": agent_id,
                 "quarantine_until": quarantine_until.isoformat(),
                 "reason": f"安全事件: {event.event_type}",
-                "timestamp": datetime.now(timezone.utc).isoformat()
+                "timestamp": utc_now().isoformat()
             }
             
             logger.warning("执行隔离动作", agent_id=agent_id, until=quarantine_until)
@@ -235,7 +237,7 @@ class AlertExecutor(ActionExecutor):
                 "threat_level": event.threat_level.value,
                 "event_type": event.event_type,
                 "details": event.details,
-                "timestamp": datetime.now(timezone.utc).isoformat()
+                "timestamp": utc_now().isoformat()
             }
             
             # 调用所有告警处理器
@@ -253,7 +255,7 @@ class AlertExecutor(ActionExecutor):
                 "alert_id": alert_data["alert_id"],
                 "handlers_notified": len(self.alert_handlers),
                 "handler_results": handler_results,
-                "timestamp": datetime.now(timezone.utc).isoformat()
+                "timestamp": utc_now().isoformat()
             }
             
             logger.info("执行告警动作", alert_id=alert_data["alert_id"])
@@ -285,7 +287,7 @@ class RateLimitExecutor(ActionExecutor):
         """应用限流"""
         try:
             agent_id = event.source_agent
-            current_time = datetime.now(timezone.utc)
+            current_time = utc_now()
             
             # 获取或创建限流记录
             if agent_id not in self.rate_limits:
@@ -335,7 +337,7 @@ class RateLimitExecutor(ActionExecutor):
         rate_limit = self.rate_limits[agent_id]
         blocked_until = rate_limit.get("blocked_until")
         
-        if blocked_until and datetime.now(timezone.utc) < blocked_until:
+        if blocked_until and utc_now() < blocked_until:
             return True
         
         return False
@@ -362,7 +364,7 @@ class EscalateExecutor(ActionExecutor):
                 "escalation_reason": "自动安全响应升级",
                 "event_details": event.details,
                 "recommended_actions": event.mitigation_actions,
-                "timestamp": datetime.now(timezone.utc).isoformat()
+                "timestamp": utc_now().isoformat()
             }
             
             # 调用升级处理器
@@ -380,7 +382,7 @@ class EscalateExecutor(ActionExecutor):
                 "escalation_id": escalation_data["escalation_id"],
                 "handlers_notified": len(self.escalation_handlers),
                 "handler_results": handler_results,
-                "timestamp": datetime.now(timezone.utc).isoformat()
+                "timestamp": utc_now().isoformat()
             }
             
             logger.warning("执行升级动作", escalation_id=escalation_data["escalation_id"])
@@ -522,7 +524,7 @@ class SecurityResponseManager:
             rule_id=rule.id,
             event_id=event.event_id,
             actions=rule.actions,
-            started_at=datetime.now(timezone.utc)
+            started_at=utc_now()
         )
         
         self.executions[execution_id] = execution
@@ -539,14 +541,14 @@ class SecurityResponseManager:
                     execution.errors.append(f"未找到执行器: {action.value}")
             
             execution.status = ResponseStatus.COMPLETED
-            execution.completed_at = datetime.now(timezone.utc)
+            execution.completed_at = utc_now()
             
             logger.info("规则执行完成", rule_id=rule.id, execution_id=execution_id)
             
         except Exception as e:
             execution.status = ResponseStatus.FAILED
             execution.errors.append(str(e))
-            execution.completed_at = datetime.now(timezone.utc)
+            execution.completed_at = utc_now()
             
             logger.error("规则执行失败", rule_id=rule.id, error=str(e))
         
@@ -655,7 +657,7 @@ class SecurityResponseManager:
             status["is_rate_limited"] = rate_limit_executor.is_rate_limited(agent_id)
         
         # 统计最近事件
-        recent_cutoff = datetime.now(timezone.utc) - timedelta(hours=1)
+        recent_cutoff = utc_now() - timedelta(hours=1)
         recent_events = [
             e for e in self.event_history 
             if e.source_agent == agent_id and e.timestamp > recent_cutoff
@@ -692,7 +694,7 @@ class SecurityResponseManager:
             )
         
         # 最近24小时事件
-        recent_cutoff = datetime.now(timezone.utc) - timedelta(hours=24)
+        recent_cutoff = utc_now() - timedelta(hours=24)
         recent_events = [
             e for e in self.event_history 
             if e.timestamp > recent_cutoff

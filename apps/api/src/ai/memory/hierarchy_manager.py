@@ -1,7 +1,9 @@
 """记忆层级管理器"""
 import asyncio
 from typing import List, Optional, Dict, Any
-from datetime import datetime, timedelta
+from datetime import datetime
+from datetime import timedelta
+from src.core.utils.timezone_utils import utc_now, utc_factory
 import logging
 from collections import deque
 
@@ -276,7 +278,7 @@ class MemoryHierarchyManager:
     def _should_promote_to_semantic(self, memory: Memory) -> bool:
         """判断是否应提升到语义记忆"""
         # 基于重要性、访问次数和时间
-        age = datetime.utcnow() - memory.created_at
+        age = utc_now() - memory.created_at
         return (
             memory.importance > 0.7 and
             memory.access_count > self.config.consolidation_threshold and

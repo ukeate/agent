@@ -3,7 +3,8 @@
 实现基于任务类型的路由逻辑和动态路由决策
 """
 from typing import Dict, List, Optional, Any, Tuple
-from datetime import datetime, timezone
+from datetime import datetime
+from src.core.utils.timezone_utils import utc_now, utc_factory, timezone
 from dataclasses import dataclass
 import structlog
 from enum import Enum
@@ -80,7 +81,7 @@ class AgentRouter:
         constraints: Optional[Dict[str, Any]] = None
     ) -> RoutingResult:
         """根据配置的策略路由任务到最合适的智能体"""
-        start_time = datetime.now()
+        start_time = utc_now()
         
         try:
             logger.info(
@@ -100,7 +101,7 @@ class AgentRouter:
             )
             
             # 计算路由时间
-            routing_time = int((datetime.now() - start_time).total_seconds() * 1000)
+            routing_time = int((utc_now() - start_time).total_seconds() * 1000)
             
             # 准备替代选项
             alternatives = [
@@ -406,7 +407,7 @@ class LoadBalancer:
         self.agents = agents
         self.agent_loads: Dict[str, float] = {name: 0.0 for name in agents.keys()}
         self.task_counts: Dict[str, int] = {name: 0 for name in agents.keys()}
-        self.last_update = datetime.now(timezone.utc)
+        self.last_update = utc_now()
     
     def get_agent_loads(self) -> Dict[str, float]:
         """获取智能体负载情况"""
@@ -421,7 +422,7 @@ class LoadBalancer:
             if load_change > 0:
                 self.task_counts[agent_name] = self.task_counts.get(agent_name, 0) + 1
             
-            self.last_update = datetime.now(timezone.utc)
+            self.last_update = utc_now()
             
             logger.debug(
                 "智能体负载已更新",

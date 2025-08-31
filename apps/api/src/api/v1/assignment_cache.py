@@ -3,7 +3,8 @@
 """
 import asyncio
 from typing import List, Dict, Any, Optional, Tuple
-from datetime import datetime, timezone
+from datetime import datetime
+from src.core.utils.timezone_utils import utc_now, utc_factory, timezone
 from fastapi import APIRouter, Depends, HTTPException, status, Query, BackgroundTasks
 from pydantic import BaseModel
 
@@ -105,7 +106,7 @@ async def create_assignment(
             user_id=request.user_id,
             experiment_id=request.experiment_id,
             variant_id=request.variant_id,
-            assigned_at=datetime.now(timezone.utc),
+            assigned_at=utc_now(),
             assignment_context=request.assignment_context or {}
         )
         
@@ -153,7 +154,7 @@ async def create_batch_assignments(
                     user_id=assignment_req.user_id,
                     experiment_id=assignment_req.experiment_id,
                     variant_id=assignment_req.variant_id,
-                    assigned_at=datetime.now(timezone.utc),
+                    assigned_at=utc_now(),
                     assignment_context=assignment_req.assignment_context or {}
                 )
                 
@@ -392,7 +393,7 @@ async def clear_all_cache(
         if success:
             return {
                 "message": "All cache cleared successfully",
-                "timestamp": datetime.now(timezone.utc)
+                "timestamp": utc_now()
             }
         else:
             raise HTTPException(

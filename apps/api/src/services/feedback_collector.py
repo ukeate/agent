@@ -8,7 +8,9 @@
 import asyncio
 import json
 import time
-from datetime import datetime, timedelta
+from datetime import datetime
+from datetime import timedelta
+from src.core.utils.timezone_utils import utc_now, utc_factory
 from typing import Dict, List, Optional, Any, Set
 from dataclasses import dataclass, asdict
 from enum import Enum
@@ -128,7 +130,7 @@ class EventDeduplicator:
         """检查事件是否重复"""
         async with self._lock:
             event_key = self._generate_event_key(event)
-            current_time = datetime.now()
+            current_time = utc_now()
             
             # 清理过期的去重记录
             await self._cleanup_expired_entries(current_time)
@@ -296,7 +298,7 @@ class FeedbackCollector:
                 feedback_type=feedback_type,
                 raw_value=event_data.get("value"),
                 context=context or {},
-                timestamp=datetime.now(),
+                timestamp=utc_now(),
                 priority=EventPriority.LOW,  # 隐式反馈低优先级
                 client_ip=event_data.get("client_ip"),
                 user_agent=event_data.get("user_agent")
@@ -351,7 +353,7 @@ class FeedbackCollector:
                 feedback_type=fb_type,
                 raw_value=value,
                 context=context or {},
-                timestamp=datetime.now(),
+                timestamp=utc_now(),
                 priority=EventPriority.HIGH,  # 显式反馈高优先级
             )
             

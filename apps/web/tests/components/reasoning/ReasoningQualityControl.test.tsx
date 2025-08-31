@@ -43,11 +43,11 @@ const mockCurrentChain = {
 
 describe('ReasoningQualityControl组件测试', () => {
   beforeEach(() => {
-    vi.useFakeTimers();
+    mockFn()useFakeTimers();
   });
 
   afterEach(() => {
-    vi.useRealTimers();
+    mockFn()useRealTimers();
   });
 
   it('正确渲染基本组件结构', () => {
@@ -143,7 +143,7 @@ describe('ReasoningQualityControl组件测试', () => {
     expect(screen.getByText('验证中...')).toBeInTheDocument();
     
     // 快进时间以完成模拟的异步操作
-    vi.advanceTimersByTime(2000);
+    mockFn()advanceTimersByTime(2000);
     
     await waitFor(() => {
       expect(screen.getByText('验证推理链')).toBeInTheDocument();
@@ -233,7 +233,7 @@ describe('ReasoningQualityControl组件测试', () => {
     expect(screen.getByText('恢复中...')).toBeInTheDocument();
     
     // 快进时间以完成恢复操作
-    vi.advanceTimersByTime(3000);
+    mockFn()advanceTimersByTime(3000);
     
     await waitFor(() => {
       expect(screen.getByText('执行恢复')).toBeInTheDocument();

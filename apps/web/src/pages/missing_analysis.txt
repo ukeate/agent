@@ -1,0 +1,85 @@
+=== 详细缺失页面分类 ===
+
+## 1. 分布式任务协调系统 (故事10.3) - 缺失10个页面
+应添加到: 🔧 分布式任务协调引擎 菜单组
+- distributed-task-coordination
+- distributed-task-monitor
+- distributed-task-system-status
+- task-decomposer
+
+## 2. 知识图谱系统 (故事8系列) - 缺失40+个页面
+应添加到: 🗺️ 知识图谱引擎 各子菜单
+- entity-api
+- entity-linking
+- entity-recognition
+- graph-analytics
+- graph-query-engine
+- graph-r-a-g
+- graph-snapshots
+- graph-validation
+- knowledge-batch-jobs
+- knowledge-batch-monitor
+- knowledge-cache-management
+- knowledge-confidence-analysis
+- knowledge-error-analysis
+- knowledge-extraction-overview
+- knowledge-graph-analysis-simple
+- knowledge-graph-data-migration
+- knowledge-graph-entity-management
+- knowledge-graph-incremental-update
+- knowledge-graph-page-simple
+- knowledge-graph-performance-monitor-working-minimal
+... 以及其他20+个知识图谱相关页面
+
+## 3. 模型训练与评估系统 (故事9系列) - 缺失30个页面
+应添加到: 🧠 模型训练与评估平台 新菜单组
+- benchmark-mmlu
+- benchmark-superglue
+- distributed-training
+- fine-tuning-checkpoints
+- fine-tuning-config
+- fine-tuning-datasets
+- fine-tuning-jobs
+- fine-tuning-models
+- fine-tuning-monitor
+- hyperparameter-algorithms
+- hyperparameter-experiments
+- hyperparameter-monitoring
+- hyperparameter-optimization
+- hyperparameter-reports
+- hyperparameter-resources
+- hyperparameter-scheduler
+- hyperparameter-visualizations
+- k-g-embedding-training
+- lo-r-a-training
+- model-compression-evaluation
+- model-evaluation-benchmark
+- model-performance-comparison
+- q-learning-training
+- q-lo-r-a-training
+- training-data-management
+- training-monitor-dashboard
+
+## 4. 情感智能系统 (故事11系列) - 缺失15个页面
+已有部分在导航中，需补充以下页面:
+- cultural-adaptation
+- emotion-interaction
+- empathy-response-generator
+- group-emotion-analysis
+- multi-modal-emotion-fusion
+- social-context-adaptation
+
+## 5. 系统管理与监控 - 缺失15个页面
+应添加到: 🔧 系统管理 菜单组
+- api-key-management
+- audit-logs
+- component-management
+- r-l-alert-config
+- r-l-system-health
+- security-audit
+- system-health
+
+## 6. LangGraph功能扩展 - 缺失5个页面
+应添加到现有LangGraph菜单组:
+- lang-graph-features
+- lang-graph065

@@ -127,28 +127,39 @@ const RagPage: React.FC = () => {
 
   // ==================== 渲染辅助函数 ====================
   
-  const renderBreadcrumb = () => (
-    <Row align="middle" justify="space-between" style={{ margin: '16px 0' }}>
-      <Col>
-        <Breadcrumb>
-          <Breadcrumb.Item href="/">
-            <HomeOutlined />
-          </Breadcrumb.Item>
-          <Breadcrumb.Item>
+  const renderBreadcrumb = () => {
+    const breadcrumbItems = [
+      {
+        href: "/",
+        title: <HomeOutlined />
+      },
+      {
+        title: (
+          <>
             <SearchOutlined />
             <span>RAG 搜索</span>
-          </Breadcrumb.Item>
-          {currentQuery && (
-            <Breadcrumb.Item>
-              <Text ellipsis style={{ maxWidth: 200 }}>
-                "{currentQuery}"
-              </Text>
-            </Breadcrumb.Item>
-          )}
-        </Breadcrumb>
-      </Col>
-      <Col>
-<Space>
+          </>
+        )
+      }
+    ];
+    
+    if (currentQuery) {
+      breadcrumbItems.push({
+        title: (
+          <Text ellipsis style={{ maxWidth: 200 }}>
+            "{currentQuery}"
+          </Text>
+        )
+      });
+    }
+    
+    return (
+      <Row align="middle" justify="space-between" style={{ margin: '16px 0' }}>
+        <Col>
+          <Breadcrumb items={breadcrumbItems} />
+        </Col>
+        <Col>
+          <Space>
           <Button
             type="primary"
             ghost
@@ -160,6 +171,7 @@ const RagPage: React.FC = () => {
       </Col>
     </Row>
   );
+  };
 
   const renderDesktopLayout = () => (
     <Row gutter={[16, 16]}>
@@ -437,7 +449,7 @@ const RagPage: React.FC = () => {
           }
         `}</style>
       </div>
-  );
+    );
 };
 
 export default RagPage;

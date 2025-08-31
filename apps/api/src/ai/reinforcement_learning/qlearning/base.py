@@ -11,6 +11,7 @@ from dataclasses import dataclass
 from enum import Enum
 import uuid
 from datetime import datetime
+from src.core.utils.timezone_utils import utc_now, utc_factory
 
 
 class AlgorithmType(Enum):
@@ -37,7 +38,7 @@ class AgentState:
             state_id=str(uuid.uuid4()),
             features=features,
             context=context or {},
-            timestamp=datetime.now(),
+            timestamp=utc_now(),
             episode_id=episode_id
         )
 
@@ -56,7 +57,7 @@ class Experience:
 
     def __post_init__(self):
         if self.timestamp is None:
-            self.timestamp = datetime.now()
+            self.timestamp = utc_now()
 
     @classmethod
     def create(cls, state: AgentState, action: str, reward: float, next_state: AgentState, done: bool, priority: float = 1.0) -> "Experience":

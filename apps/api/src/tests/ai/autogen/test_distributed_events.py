@@ -3,7 +3,9 @@
 """
 import asyncio
 import pytest
-from datetime import datetime, timezone, timedelta
+from datetime import datetime
+from datetime import timedelta
+from src.core.utils.timezone_utils import utc_now, utc_factory
 from unittest.mock import Mock, AsyncMock, patch, MagicMock
 import uuid
 import json
@@ -150,7 +152,7 @@ class TestNodeInfo:
         # 修改心跳时间为很久以前
         node.status = NodeStatus.ACTIVE
         from datetime import timedelta
-        node.last_heartbeat = datetime.now(timezone.utc) - timedelta(seconds=60)
+        node.last_heartbeat = utc_now() - timedelta(seconds=60)
         assert node.is_alive(timeout_seconds=30) is False
     
     def test_node_serialization(self):
@@ -532,7 +534,7 @@ class TestEventReplayWithDistribution:
                 source="agent1",
                 target="agent2",
                 data={"message": f"msg_{i}"},
-                timestamp=datetime.now(timezone.utc)
+                timestamp=utc_now()
             )
             for i in range(5)
         ]
@@ -542,7 +544,7 @@ class TestEventReplayWithDistribution:
         # 执行重播
         result = await replay_service.replay_for_agent(
             agent_id="agent1",
-            from_time=datetime.now(timezone.utc) - timedelta(hours=1)
+            from_time=utc_now() - timedelta(hours=1)
         )
         
         # 验证结果

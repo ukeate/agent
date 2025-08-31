@@ -6,7 +6,9 @@
 
 import asyncio
 from typing import Dict, Any, List, Optional, Tuple, Set
-from datetime import datetime, timedelta
+from datetime import datetime
+from datetime import timedelta
+from src.core.utils.timezone_utils import utc_now, utc_factory
 from collections import defaultdict, deque
 from dataclasses import dataclass, asdict
 from enum import Enum
@@ -111,7 +113,7 @@ class QualityMonitor:
         
         # 统计信息
         self.stats = {
-            'monitoring_start_time': datetime.utcnow(),
+            'monitoring_start_time': utc_now(),
             'total_checks': 0,
             'issues_detected': 0,
             'false_positives': 0
@@ -190,7 +192,7 @@ class QualityMonitor:
                     user_id=event.user_id or "unknown",
                     session_id=event.session_id or "unknown",
                     description=f"缺少必填字段: {field}",
-                    detected_at=datetime.utcnow(),
+                    detected_at=utc_now(),
                     metadata={'field': field}
                 )
                 issues.append(issue)
@@ -205,7 +207,7 @@ class QualityMonitor:
                 user_id=event.user_id,
                 session_id=event.session_id,
                 description="用户行为事件缺少目标对象信息",
-                detected_at=datetime.utcnow(),
+                detected_at=utc_now(),
                 metadata={'expected_field': 'action_target'}
             )
             issues.append(issue)
@@ -217,7 +219,7 @@ class QualityMonitor:
         issues = []
         
         # 检查时间戳格式和合理性
-        now = datetime.utcnow()
+        now = utc_now()
         
         # 时间戳不能太久远(超过24小时)
         if event.timestamp < now - timedelta(hours=24):
@@ -229,7 +231,7 @@ class QualityMonitor:
                 user_id=event.user_id,
                 session_id=event.session_id,
                 description=f"事件时间戳过于久远: {event.timestamp}",
-                detected_at=datetime.utcnow(),
+                detected_at=utc_now(),
                 metadata={'timestamp': event.timestamp.isoformat()}
             )
             issues.append(issue)
@@ -244,7 +246,7 @@ class QualityMonitor:
                 user_id=event.user_id,
                 session_id=event.session_id,
                 description=f"事件时间戳在未来: {event.timestamp}",
-                detected_at=datetime.utcnow(),
+                detected_at=utc_now(),
                 metadata={'timestamp': event.timestamp.isoformat()}
             )
             issues.append(issue)
@@ -259,7 +261,7 @@ class QualityMonitor:
                 user_id=event.user_id,
                 session_id=event.session_id,
                 description=f"用户ID格式异常: {event.user_id}",
-                detected_at=datetime.utcnow(),
+                detected_at=utc_now(),
                 metadata={'user_id': event.user_id}
             )
             issues.append(issue)
@@ -275,7 +277,7 @@ class QualityMonitor:
                     user_id=event.user_id,
                     session_id=event.session_id,
                     description=f"事件持续时间为负数: {event.duration_ms}ms",
-                    detected_at=datetime.utcnow(),
+                    detected_at=utc_now(),
                     metadata={'duration_ms': event.duration_ms}
                 )
                 issues.append(issue)
@@ -288,7 +290,7 @@ class QualityMonitor:
                     user_id=event.user_id,
                     session_id=event.session_id,
                     description=f"事件持续时间异常长: {event.duration_ms}ms",
-                    detected_at=datetime.utcnow(),
+                    detected_at=utc_now(),
                     metadata={'duration_ms': event.duration_ms}
                 )
                 issues.append(issue)
@@ -300,7 +302,7 @@ class QualityMonitor:
         issues = []
         
         # 计算事件延迟
-        now = datetime.utcnow()
+        now = utc_now()
         latency_seconds = (now - event.timestamp).total_seconds()
         
         if latency_seconds > self.max_latency_seconds:
@@ -314,7 +316,7 @@ class QualityMonitor:
                 user_id=event.user_id,
                 session_id=event.session_id,
                 description=f"事件延迟到达: {latency_seconds:.1f}秒",
-                detected_at=datetime.utcnow(),
+                detected_at=utc_now(),
                 metadata={'latency_seconds': latency_seconds}
             )
             issues.append(issue)
@@ -329,7 +331,7 @@ class QualityMonitor:
         event_fingerprint = f"{event.user_id}_{event.session_id}_{event.event_type}_{event.event_name}_{event.timestamp.isoformat()}"
         
         # 检查重复事件
-        now = datetime.utcnow()
+        now = utc_now()
         if event_fingerprint in self.event_hashes:
             last_seen = self.event_hashes[event_fingerprint]
             if (now - last_seen).total_seconds() < self.duplicate_detection_window:
@@ -341,7 +343,7 @@ class QualityMonitor:
                     user_id=event.user_id,
                     session_id=event.session_id,
                     description="检测到重复事件",
-                    detected_at=datetime.utcnow(),
+                    detected_at=utc_now(),
                     metadata={'fingerprint': event_fingerprint, 'last_seen': last_seen.isoformat()}
                 )
                 issues.append(issue)
@@ -377,7 +379,7 @@ class QualityMonitor:
                     user_id=event.user_id,
                     session_id=event.session_id,
                     description=f"事件时间乱序: 当前{event.timestamp}, 上一个{last_timestamp}",
-                    detected_at=datetime.utcnow(),
+                    detected_at=utc_now(),
                     metadata={
                         'current_timestamp': event.timestamp.isoformat(),
                         'last_timestamp': last_timestamp.isoformat()
@@ -398,7 +400,7 @@ class QualityMonitor:
         """检查事件频率"""
         issues = []
         
-        now = datetime.utcnow()
+        now = utc_now()
         user_events = self.user_event_counts[event.user_id]
         
         # 添加当前事件时间
@@ -419,7 +421,7 @@ class QualityMonitor:
                 user_id=event.user_id,
                 session_id=event.session_id,
                 description=f"用户事件频率过高: {events_per_minute}事件/分钟",
-                detected_at=datetime.utcnow(),
+                detected_at=utc_now(),
                 metadata={'events_per_minute': events_per_minute}
             )
             issues.append(issue)
@@ -512,7 +514,7 @@ class QualityMonitor:
             'metrics': asdict(self.metrics),
             'statistics': {
                 **self.stats,
-                'monitoring_duration_hours': (datetime.utcnow() - self.stats['monitoring_start_time']).total_seconds() / 3600,
+                'monitoring_duration_hours': (utc_now() - self.stats['monitoring_start_time']).total_seconds() / 3600,
                 'avg_quality_score': self.metrics.overall_quality_score,
                 'recent_issues_count': len(recent_issues)
             },
@@ -555,7 +557,7 @@ class QualityMonitor:
         self.user_event_counts.clear()
         
         self.stats = {
-            'monitoring_start_time': datetime.utcnow(),
+            'monitoring_start_time': utc_now(),
             'total_checks': 0,
             'issues_detected': 0,
             'false_positives': 0

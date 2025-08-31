@@ -4,6 +4,7 @@ Supervisor管理API路由
 """
 from typing import List, Dict, Any, Optional
 from datetime import datetime
+from src.core.utils.timezone_utils import utc_now, utc_factory
 from fastapi import APIRouter, HTTPException, Depends, Query, Path, status
 from fastapi.responses import JSONResponse
 import structlog
@@ -580,8 +581,8 @@ async def get_supervisor_config(
             "task_timeout_minutes": 30,
             "enable_fallback": True,
             "is_active": True,
-            "created_at": datetime.now(),
-            "updated_at": datetime.now()
+            "created_at": utc_now(),
+            "updated_at": utc_now()
         }
         
         return SupervisorConfigApiResponse(

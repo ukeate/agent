@@ -2,8 +2,8 @@ import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Progress } from '@/components/ui/Progress';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Progress } from '@/components/ui/progress';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/Tabs';
 import { 
   BarChart3, 
   PieChart, 
@@ -205,19 +205,19 @@ const ConfidenceAnalysis: React.FC<ConfidenceAnalysisProps> = ({
       {/* 详细分析 */}
       <Tabs value={selectedView} onValueChange={(value: any) => setSelectedView(value)}>
         <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="overview" className="flex items-center">
+          <TabsTrigger value="overview" >
             <Target className="h-4 w-4 mr-2" />
             概览
           </TabsTrigger>
-          <TabsTrigger value="breakdown" className="flex items-center">
+          <TabsTrigger value="breakdown" >
             <BarChart3 className="h-4 w-4 mr-2" />
             置信度分解
           </TabsTrigger>
-          <TabsTrigger value="uncertainty" className="flex items-center">
+          <TabsTrigger value="uncertainty" >
             <AlertTriangle className="h-4 w-4 mr-2" />
             不确定性分析
           </TabsTrigger>
-          <TabsTrigger value="calibration" className="flex items-center">
+          <TabsTrigger value="calibration" >
             <Zap className="h-4 w-4 mr-2" />
             校准分析
           </TabsTrigger>

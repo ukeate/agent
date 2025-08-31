@@ -102,8 +102,9 @@ export class AgentApiClient extends ApiClient {
 
   // WebSocket连接辅助方法
   createWebSocketUrl(sessionId: string): string {
-    const wsProtocol = this.config.baseURL.startsWith('https') ? 'wss' : 'ws';
-    const baseUrl = this.config.baseURL.replace(/^https?:/, wsProtocol);
+    const baseURL = (this as any).config.baseURL;
+    const wsProtocol = baseURL.startsWith('https') ? 'wss' : 'ws';
+    const baseUrl = baseURL.replace(/^https?:/, wsProtocol);
     const endpoint = API_ENDPOINTS.MULTI_AGENT.WEBSOCKET.replace(':sessionId', sessionId);
     return `${baseUrl}${endpoint}`;
   }

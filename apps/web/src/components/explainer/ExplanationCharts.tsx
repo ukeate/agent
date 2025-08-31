@@ -2,8 +2,8 @@ import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Progress } from '@/components/ui/Progress';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Progress } from '@/components/ui/progress';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/Tabs';
 import { 
   BarChart3, 
   PieChart, 
@@ -269,23 +269,23 @@ const ExplanationCharts: React.FC<ExplanationChartsProps> = ({
 
       <Tabs value={selectedChart} onValueChange={(value: any) => setSelectedChart(value)}>
         <TabsList className="grid w-full grid-cols-5">
-          <TabsTrigger value="factors" className="flex items-center">
+          <TabsTrigger value="factors" >
             <BarChart3 className="h-4 w-4 mr-2" />
             因素重要性
           </TabsTrigger>
-          <TabsTrigger value="tree" className="flex items-center">
+          <TabsTrigger value="tree" >
             <GitBranch className="h-4 w-4 mr-2" />
             决策树
           </TabsTrigger>
-          <TabsTrigger value="confidence" className="flex items-center">
+          <TabsTrigger value="confidence" >
             <Target className="h-4 w-4 mr-2" />
             置信度校准
           </TabsTrigger>
-          <TabsTrigger value="timeseries" className="flex items-center">
+          <TabsTrigger value="timeseries" >
             <TrendingUp className="h-4 w-4 mr-2" />
             时间序列
           </TabsTrigger>
-          <TabsTrigger value="correlation" className="flex items-center">
+          <TabsTrigger value="correlation" >
             <Network className="h-4 w-4 mr-2" />
             因子相关性
           </TabsTrigger>

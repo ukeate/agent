@@ -1,6 +1,8 @@
 """记忆分析API端点"""
 from typing import Optional
-from datetime import datetime, timedelta
+from datetime import datetime
+from datetime import timedelta
+from src.core.utils.timezone_utils import utc_now, utc_factory
 from fastapi import APIRouter, Depends, Query, HTTPException
 from pydantic import BaseModel
 
@@ -24,7 +26,7 @@ async def get_memory_analytics(
     user_id: Optional[str] = Depends(get_current_user)
 ) -> MemoryAnalytics:
     """获取记忆统计分析"""
-    end_time = datetime.utcnow()
+    end_time = utc_now()
     start_time = end_time - timedelta(days=days_back)
     
     try:
@@ -35,7 +37,13 @@ async def get_memory_analytics(
             end_time=end_time
         )
         return analytics
+    except HTTPException:
+        # 重新抛出HTTP异常
+        raise
     except Exception as e:
+        import traceback
+        print(f"Memory analytics error: {str(e)}")
+        print(f"Traceback: {traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=f"获取分析数据失败: {str(e)}")
 
 
@@ -130,10 +138,10 @@ async def get_memory_trends(
     """获取记忆趋势分析"""
     try:
         from collections import defaultdict
-        from ai.memory.models import MemoryFilters
+        from src.ai.memory.models import MemoryFilters
         
         # 获取时间范围内的记忆
-        end_time = datetime.utcnow()
+        end_time = utc_now()
         start_time = end_time - timedelta(days=days)
         
         filters = MemoryFilters(
@@ -191,7 +199,7 @@ async def get_memory_system_health(
         working_memory_capacity = memory_service.config.working_memory_capacity
         
         # 获取存储统计
-        from ai.memory.models import MemoryFilters
+        from src.ai.memory.models import MemoryFilters
         
         filters = MemoryFilters(status=[MemoryStatus.ACTIVE])
         active_memories = await memory_service.hierarchy_manager.storage.search_memories(

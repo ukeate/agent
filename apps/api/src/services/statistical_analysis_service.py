@@ -4,7 +4,8 @@
 from typing import List, Dict, Optional, Union, Any, Tuple
 import math
 import statistics
-from datetime import datetime, timezone
+from datetime import datetime
+from src.core.utils.timezone_utils import utc_now, utc_factory, timezone
 from dataclasses import dataclass
 from enum import Enum
 
@@ -524,8 +525,50 @@ class ExperimentStatsCalculator:
             return DistributionType.UNKNOWN
 
 
+# 统计分析服务类
+class StatisticalAnalysisService:
+    """统计分析服务 - 提供完整的统计分析功能"""
+    
+    def __init__(self):
+        self.basic_calculator = BasicStatisticsCalculator()
+        self.experiment_calculator = ExperimentStatsCalculator()
+        self.logger = logger
+    
+    def analyze_experiment_data(self, experiment_data: Dict[str, Any]) -> Dict[str, Any]:
+        """分析实验数据"""
+        try:
+            groups_data = experiment_data.get('groups', {})
+            metric_type = MetricType(experiment_data.get('metric_type', MetricType.CONTINUOUS.value))
+            
+            # 计算各组统计数据
+            group_stats = self.experiment_calculator.calculate_multiple_groups_stats(
+                groups_data, metric_type
+            )
+            
+            return {
+                'group_statistics': {k: v.to_dict() for k, v in group_stats.items()},
+                'analysis_timestamp': utc_now().isoformat(),
+                'metric_type': metric_type.value
+            }
+            
+        except Exception as e:
+            self.logger.error(f"Failed to analyze experiment data: {e}")
+            raise
+    
+    def calculate_descriptive_stats(self, values: List[Union[int, float]]) -> Dict[str, Any]:
+        """计算描述性统计"""
+        try:
+            stats = self.basic_calculator.calculate_descriptive_stats(values)
+            return stats.to_dict()
+            
+        except Exception as e:
+            self.logger.error(f"Failed to calculate descriptive stats: {e}")
+            raise
+
+
 # 全局实例
 _stats_calculator = None
+_stats_service = None
 
 def get_stats_calculator() -> ExperimentStatsCalculator:
     """获取统计计算器实例（单例模式）"""
@@ -533,3 +576,10 @@ def get_stats_calculator() -> ExperimentStatsCalculator:
     if _stats_calculator is None:
         _stats_calculator = ExperimentStatsCalculator()
     return _stats_calculator
+
+def get_statistical_analysis_service() -> StatisticalAnalysisService:
+    """获取统计分析服务实例（单例模式）"""
+    global _stats_service
+    if _stats_service is None:
+        _stats_service = StatisticalAnalysisService()
+    return _stats_service

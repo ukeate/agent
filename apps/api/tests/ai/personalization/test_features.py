@@ -2,6 +2,7 @@ import pytest
 import asyncio
 from unittest.mock import AsyncMock, Mock
 from datetime import datetime
+from src.core.utils.timezone_utils import utc_now, utc_factory
 from redis.asyncio import Redis
 
 from ai.personalization.features.realtime import RealTimeFeatureEngine, FeatureConfig
@@ -98,7 +99,7 @@ class TestRealTimeFeatureEngine:
             "behavioral": {"clicks": 10.0},
             "contextual": {"device": 1.0},
             "aggregated": {"avg": 0.8},
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": utc_now().isoformat(),
             "version": "1.0"
         }
         

@@ -4,7 +4,9 @@
 """
 
 import json
-from datetime import datetime, timedelta, timezone
+from datetime import datetime
+from datetime import timedelta
+from src.core.utils.timezone_utils import utc_now, utc_factory, timezone
 from typing import Any, Dict, List, Optional
 from uuid import UUID
 
@@ -14,7 +16,7 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
 
 from src.core.config import get_settings
-from models.schemas.explanation import (
+from src.models.schemas.explanation import (
     DecisionExplanation, 
     ExplanationHistory,
     ExplanationLevel,
@@ -60,8 +62,8 @@ class ExplanationRecord(Base):
     model_metadata = Column(JSON, nullable=False, default=dict)
     
     # 时间戳
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
-    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+    created_at = Column(DateTime, default=lambda: utc_now(), nullable=False)
+    updated_at = Column(DateTime, default=lambda: utc_now(), onupdate=lambda: utc_now())
     
     # 版本控制
     version = Column(Integer, default=1, nullable=False)
@@ -123,7 +125,7 @@ class ExplanationHistoryRecord(Base):
     changes = Column(JSON, nullable=False)
     change_reason = Column(Text, nullable=False)
     changed_by = Column(String(255), nullable=True)
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+    created_at = Column(DateTime, default=lambda: utc_now(), nullable=False)
     
     def to_schema(self) -> ExplanationHistory:
         """转换为Pydantic模型"""

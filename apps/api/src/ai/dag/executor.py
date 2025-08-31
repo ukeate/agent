@@ -7,6 +7,7 @@ import logging
 from typing import Any, Callable, Dict, List, Optional, Set
 from concurrent.futures import ThreadPoolExecutor, Future
 from datetime import datetime
+from src.core.utils.timezone_utils import utc_now, utc_factory
 
 from .models import DAGWorkflow, DAGTask, TaskStatus, DAGNode
 
@@ -33,7 +34,7 @@ class DAGExecutor:
             raise ValueError("工作流包含循环依赖，无法执行")
         
         logger.info(f"开始执行工作流: {workflow.name} ({workflow.id})")
-        start_time = datetime.now()
+        start_time = utc_now()
         
         try:
             # 执行任务直到完成
@@ -68,7 +69,7 @@ class DAGExecutor:
                 if tasks_futures:
                     await asyncio.wait(tasks_futures, return_when=asyncio.FIRST_COMPLETED)
             
-            end_time = datetime.now()
+            end_time = utc_now()
             duration = (end_time - start_time).total_seconds()
             
             # 生成执行报告

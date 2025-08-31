@@ -8,6 +8,7 @@ import logging
 from typing import Dict, List, Optional, Any, Set, Tuple
 from uuid import uuid4
 from datetime import datetime
+from src.core.utils.timezone_utils import utc_now, utc_factory
 from enum import Enum
 
 import networkx as nx
@@ -205,7 +206,7 @@ class WorkflowEngine:
             workflow_definition_id=definition.id,
             session_id=session_id,
             status=ExecutionStatus.PENDING,
-            created_at=datetime.utcnow(),
+            created_at=utc_now(),
             execution_context=input_data or {},
             total_steps=len(definition.steps)
         )
@@ -253,7 +254,7 @@ class WorkflowEngine:
         try:
             # 更新执行状态
             execution.status = ExecutionStatus.RUNNING
-            execution.started_at = datetime.utcnow()
+            execution.started_at = utc_now()
             
             # 获取工作流定义
             definition = await self._get_workflow_definition(execution.workflow_definition_id)
@@ -276,7 +277,7 @@ class WorkflowEngine:
                 execution.status = ExecutionStatus.FAILED
             else:
                 execution.status = ExecutionStatus.COMPLETED
-                execution.completed_at = datetime.utcnow()
+                execution.completed_at = utc_now()
             
             logger.info(f"工作流执行完成: {execution_id}, 状态: {execution.status}")
             
@@ -287,7 +288,7 @@ class WorkflowEngine:
             if 'errors' not in execution.execution_context:
                 execution.execution_context['errors'] = []
             execution.execution_context['errors'].append({
-                'timestamp': datetime.utcnow().isoformat(),
+                'timestamp': utc_now().isoformat(),
                 'error': str(e),
                 'type': type(e).__name__
             })

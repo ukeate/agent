@@ -8,7 +8,9 @@ import json
 import time
 from typing import Dict, List, Any, Optional, Callable, Union
 from dataclasses import dataclass, field, asdict
-from datetime import datetime, timezone, timedelta
+from datetime import datetime
+from datetime import timedelta
+from src.core.utils.timezone_utils import utc_now, utc_factory
 from enum import Enum
 import structlog
 from collections import deque, defaultdict
@@ -62,7 +64,7 @@ class MetricSeries:
     def add_point(self, value: Union[int, float], labels: Optional[Dict[str, str]] = None):
         """添加数据点"""
         point = MetricPoint(
-            timestamp=datetime.now(timezone.utc),
+            timestamp=utc_now(),
             value=value,
             labels=labels or {}
         )
@@ -81,7 +83,7 @@ class MetricSeries:
     
     def get_statistics(self, duration_minutes: int = 60) -> Dict[str, float]:
         """获取统计信息"""
-        cutoff_time = datetime.now(timezone.utc) - timedelta(minutes=duration_minutes)
+        cutoff_time = utc_now() - timedelta(minutes=duration_minutes)
         recent_values = [
             point.value for point in self.points
             if point.timestamp >= cutoff_time
@@ -158,7 +160,7 @@ class AlertRule:
             return None
         
         # 检查持续时间
-        cutoff_time = datetime.now(timezone.utc) - timedelta(minutes=self.duration_minutes)
+        cutoff_time = utc_now() - timedelta(minutes=self.duration_minutes)
         recent_points = [
             point for point in metric_series.points
             if point.timestamp >= cutoff_time
@@ -189,7 +191,7 @@ class AlertRule:
             metric_name=self.metric_name,
             level=self.level,
             message=message,
-            timestamp=datetime.now(timezone.utc),
+            timestamp=utc_now(),
             threshold=self.threshold,
             actual_value=latest_value,
             labels={**self.labels, **metric_series.labels}
@@ -417,7 +419,7 @@ class MetricCollector:
         for key, alert in self.active_alerts.items():
             if alert.id == alert_id:
                 alert.resolved = True
-                alert.resolved_at = datetime.now(timezone.utc)
+                alert.resolved_at = utc_now()
                 del self.active_alerts[key]
                 logger.info(f"告警已解决: {alert_id}")
                 break
@@ -520,7 +522,7 @@ class DashboardServer:
     def _generate_dashboard_data(self) -> Dict[str, Any]:
         """生成仪表板数据"""
         dashboard = {
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": utc_now().isoformat(),
             "metrics": {},
             "alerts": {
                 "active": [alert.to_dict() for alert in self.metric_collector.get_active_alerts()],
@@ -602,7 +604,7 @@ class DashboardServer:
             return None
         
         metric_series = self.metric_collector.metrics[metric_name]
-        cutoff_time = datetime.now(timezone.utc) - timedelta(minutes=duration_minutes)
+        cutoff_time = utc_now() - timedelta(minutes=duration_minutes)
         
         recent_points = [
             point.to_dict() for point in metric_series.points

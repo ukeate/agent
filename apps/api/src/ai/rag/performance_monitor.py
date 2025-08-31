@@ -8,7 +8,9 @@ import time
 import numpy as np
 from typing import Dict, Any, List, Optional, Tuple, Callable
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime
+from datetime import timedelta
+from src.core.utils.timezone_utils import utc_now, utc_factory
 import asyncio
 from dataclasses import dataclass
 from collections import deque
@@ -79,7 +81,7 @@ class VectorPerformanceMonitor:
             result_count=result_count,
             cache_hit=kwargs.get("cache_hit", False),
             quantization_mode=quantization_mode,
-            timestamp=datetime.utcnow(),
+            timestamp=utc_now(),
             error=error
         )
         
@@ -138,7 +140,7 @@ class VectorPerformanceMonitor:
             "p99_latency_ms": np.percentile(baseline_latencies, 99),
             "average_results": statistics.mean(baseline_results),
             "total_searches": len(baseline_latencies),
-            "timestamp": datetime.utcnow().isoformat()
+            "timestamp": utc_now().isoformat()
         }
         
         logger.info(f"Baseline established: avg={self.baseline_metrics['average_latency_ms']:.2f}ms")
@@ -186,7 +188,7 @@ class VectorPerformanceMonitor:
             "index_usage": self.performance_stats["index_usage"].copy(),
             "baseline_comparison": {},
             "optimization_status": {},
-            "timestamp": datetime.utcnow().isoformat()
+            "timestamp": utc_now().isoformat()
         }
         
         # 与基准对比
@@ -254,7 +256,7 @@ class VectorPerformanceMonitor:
         
         validation_results["targets_achieved"] = achieved_targets
         validation_results["total_targets"] = total_targets
-        validation_results["timestamp"] = datetime.utcnow().isoformat()
+        validation_results["timestamp"] = utc_now().isoformat()
         
         logger.info(f"Performance validation: {achieved_targets}/{total_targets} targets achieved")
         
@@ -262,7 +264,7 @@ class VectorPerformanceMonitor:
     
     async def get_real_time_metrics(self, window_minutes: int = 5) -> Dict[str, Any]:
         """获取实时性能指标"""
-        cutoff_time = datetime.utcnow() - timedelta(minutes=window_minutes)
+        cutoff_time = utc_now() - timedelta(minutes=window_minutes)
         
         recent_metrics = [
             m for m in self.metrics_history 
@@ -273,7 +275,7 @@ class VectorPerformanceMonitor:
             return {
                 "status": "no_recent_data",
                 "window_minutes": window_minutes,
-                "timestamp": datetime.utcnow().isoformat()
+                "timestamp": utc_now().isoformat()
             }
         
         latencies = [m.latency_ms for m in recent_metrics]
@@ -287,7 +289,7 @@ class VectorPerformanceMonitor:
             "cache_hits": sum(1 for m in recent_metrics if m.cache_hit),
             "cache_hit_rate": sum(1 for m in recent_metrics if m.cache_hit) / len(recent_metrics),
             "quantized_searches": sum(1 for m in recent_metrics if m.quantization_mode != "float32"),
-            "timestamp": datetime.utcnow().isoformat()
+            "timestamp": utc_now().isoformat()
         }
     
     async def detect_performance_anomalies(self, threshold_std: float = 2.0) -> List[Dict[str, Any]]:

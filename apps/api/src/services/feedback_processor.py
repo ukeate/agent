@@ -7,7 +7,9 @@
 import math
 import logging
 import asyncio
-from datetime import datetime, timedelta
+from datetime import datetime
+from datetime import timedelta
+from src.core.utils.timezone_utils import utc_now, utc_factory
 from typing import Dict, List, Optional, Tuple, Any
 from dataclasses import dataclass, field
 from enum import Enum
@@ -304,7 +306,7 @@ class FeedbackProcessor:
         """检查时序有效性"""
         try:
             timestamp = datetime.fromisoformat(feedback_data['timestamp']) if isinstance(feedback_data['timestamp'], str) else feedback_data['timestamp']
-            now = datetime.now()
+            now = utc_now()
             
             # 检查时间是否合理
             if timestamp > now:
@@ -330,7 +332,7 @@ class FeedbackProcessor:
             user_feedbacks = self.user_history.get(user_id, [])
             recent_feedbacks = [
                 f for f in user_feedbacks
-                if (datetime.now() - f.timestamp).total_seconds() < 3600  # 1小时内
+                if (utc_now() - f.timestamp).total_seconds() < 3600  # 1小时内
             ]
             
             if len(recent_feedbacks) > 50:  # 1小时内超过50个反馈
@@ -395,7 +397,7 @@ class FeedbackProcessor:
             half_life = half_life_days or self.decay_config['half_life_days']
             min_weight = self.decay_config['min_weight']
             
-            now = datetime.now()
+            now = utc_now()
             age_hours = (now - timestamp).total_seconds() / 3600
             age_days = age_hours / 24
             
@@ -429,7 +431,7 @@ class FeedbackProcessor:
         """生成统一奖励信号"""
         try:
             # 获取时间窗口内的反馈
-            cutoff_time = datetime.now() - timedelta(hours=time_window_hours)
+            cutoff_time = utc_now() - timedelta(hours=time_window_hours)
             user_feedbacks = self.user_history.get(user_id, [])
             
             relevant_feedbacks = [
@@ -444,7 +446,7 @@ class FeedbackProcessor:
                     reward_value=0.0,
                     confidence=0.0,
                     components={},
-                    timestamp=datetime.now()
+                    timestamp=utc_now()
                 )
             
             # 按类型聚合反馈
@@ -492,7 +494,7 @@ class FeedbackProcessor:
                 reward_value=reward_value,
                 confidence=confidence,
                 components={str(k): v['value'] for k, v in type_contributions.items()},
-                timestamp=datetime.now(),
+                timestamp=utc_now(),
                 metadata={
                     'total_feedbacks': len(relevant_feedbacks),
                     'total_weight': total_weight,
@@ -509,7 +511,7 @@ class FeedbackProcessor:
                 reward_value=0.0,
                 confidence=0.0,
                 components={},
-                timestamp=datetime.now()
+                timestamp=utc_now()
             )
     
     def calculate_reward_confidence(self, feedbacks: List[ProcessedFeedback], total_weight: float) -> float:

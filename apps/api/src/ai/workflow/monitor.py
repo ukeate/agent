@@ -7,7 +7,9 @@ import asyncio
 import json
 import logging
 from typing import Dict, List, Optional, Any, Callable, Set
-from datetime import datetime, timedelta
+from datetime import datetime
+from datetime import timedelta
+from src.core.utils.timezone_utils import utc_now, utc_factory
 from enum import Enum
 from dataclasses import dataclass, asdict
 from collections import defaultdict, deque
@@ -293,7 +295,7 @@ class PerformanceAnalyzer:
     
     def get_performance_summary(self, time_range_hours: int = 24) -> Dict[str, Any]:
         """获取性能摘要"""
-        cutoff_time = datetime.utcnow() - timedelta(hours=time_range_hours)
+        cutoff_time = utc_now() - timedelta(hours=time_range_hours)
         
         summary = {
             "time_range_hours": time_range_hours,
@@ -491,7 +493,7 @@ class ExecutionMonitor:
     
     async def _collect_execution_metrics(self, execution: WorkflowExecution) -> ExecutionMetrics:
         """收集执行指标"""
-        now = datetime.utcnow()
+        now = utc_now()
         
         # 统计步骤状态
         status_counts = defaultdict(int)
@@ -555,7 +557,7 @@ class ExecutionMonitor:
     
     async def _collect_system_metrics(self) -> SystemMetrics:
         """收集系统指标"""
-        now = datetime.utcnow()
+        now = utc_now()
         
         # 获取调度器统计
         scheduler_stats = await self.scheduler.get_scheduler_stats()
@@ -600,7 +602,7 @@ class ExecutionMonitor:
                 title="执行时间过长",
                 message=f"执行时间已超过 {metrics.total_duration/60:.1f} 分钟",
                 source="execution_monitor",
-                timestamp=datetime.utcnow(),
+                timestamp=utc_now(),
                 execution_id=execution.id
             ))
         
@@ -612,7 +614,7 @@ class ExecutionMonitor:
                 title="成功率过低",
                 message=f"成功率仅为 {metrics.success_rate:.1%}",
                 source="execution_monitor",
-                timestamp=datetime.utcnow(),
+                timestamp=utc_now(),
                 execution_id=execution.id
             ))
         
@@ -624,7 +626,7 @@ class ExecutionMonitor:
                 title="性能评分低",
                 message=f"性能评分仅为 {analysis['performance_score']:.1f}",
                 source="execution_monitor",
-                timestamp=datetime.utcnow(),
+                timestamp=utc_now(),
                 execution_id=execution.id
             ))
         
@@ -644,7 +646,7 @@ class ExecutionMonitor:
                 title="系统错误率过高",
                 message=f"错误率达到 {metrics.error_rate:.1%}",
                 source="system_monitor",
-                timestamp=datetime.utcnow()
+                timestamp=utc_now()
             ))
         
         # 检查队列积压
@@ -655,7 +657,7 @@ class ExecutionMonitor:
                 title="队列积压",
                 message=f"队列中有 {metrics.total_queued_tasks} 个任务待处理",
                 source="system_monitor",
-                timestamp=datetime.utcnow()
+                timestamp=utc_now()
             ))
         
         # 检查工作器数量
@@ -666,7 +668,7 @@ class ExecutionMonitor:
                 title="无可用工作器",
                 message="没有活跃的工作器处理任务",
                 source="system_monitor",
-                timestamp=datetime.utcnow()
+                timestamp=utc_now()
             ))
         
         # 发送告警
@@ -704,7 +706,7 @@ class ExecutionMonitor:
             data = {
                 "metrics": json.dumps(metrics.to_dict()),
                 "analysis": json.dumps(analysis),
-                "timestamp": datetime.utcnow().isoformat()
+                "timestamp": utc_now().isoformat()
             }
             
             await self.redis.hset(metrics_key, mapping=data)
@@ -751,7 +753,7 @@ class ExecutionMonitor:
     async def get_system_metrics_history(self, hours: int = 24) -> List[Dict[str, Any]]:
         """获取系统指标历史"""
         try:
-            cutoff_time = datetime.utcnow() - timedelta(hours=hours)
+            cutoff_time = utc_now() - timedelta(hours=hours)
             cutoff_timestamp = int(cutoff_time.timestamp())
             
             # 扫描时间范围内的指标

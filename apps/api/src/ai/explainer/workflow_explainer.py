@@ -4,13 +4,14 @@
 """
 
 import json
-from datetime import datetime, timezone
+from datetime import datetime
+from src.core.utils.timezone_utils import utc_now, utc_factory, timezone
 from typing import Any, Dict, List, Optional, Tuple, Union
 from uuid import uuid4
 
 from src.ai.openai_client import OpenAIClient
 from src.ai.explainer.decision_tracker import DecisionTracker
-from models.schemas.explanation import (
+from src.models.schemas.explanation import (
     DecisionExplanation,
     ExplanationComponent,
     ExplanationLevel,
@@ -43,7 +44,7 @@ class WorkflowNode:
         self.execution_time = execution_time
         self.status = status
         self.metadata = metadata or {}
-        self.timestamp = datetime.now(timezone.utc)
+        self.timestamp = utc_now()
 
 
 class WorkflowExecution:
@@ -56,7 +57,7 @@ class WorkflowExecution:
         self.edges: List[Dict[str, str]] = []
         self.execution_path: List[str] = []
         self.global_state: Dict[str, Any] = {}
-        self.start_time = datetime.now(timezone.utc)
+        self.start_time = utc_now()
         self.end_time: Optional[datetime] = None
         self.status = "running"
         self.error_messages: List[str] = []
@@ -81,7 +82,7 @@ class WorkflowExecution:
     def complete_execution(self, status: str = "completed") -> None:
         """完成执行"""
         self.status = status
-        self.end_time = datetime.now(timezone.utc)
+        self.end_time = utc_now()
     
     def get_execution_summary(self) -> Dict[str, Any]:
         """获取执行摘要"""
@@ -214,7 +215,7 @@ class WorkflowExplainer:
                     "total_nodes": len(workflow_execution.nodes),
                     "execution_time": workflow_analysis.get("total_execution_time", 0),
                     "workflow_pattern": self._identify_workflow_pattern(workflow_execution),
-                    "generation_timestamp": datetime.now(timezone.utc).isoformat()
+                    "generation_timestamp": utc_now().isoformat()
                 }
             )
             
@@ -386,7 +387,7 @@ class WorkflowExplainer:
     ) -> ConfidenceMetrics:
         """计算工作流置信度"""
         
-        from models.schemas.explanation import ConfidenceSource
+        from src.models.schemas.explanation import ConfidenceSource
         
         # 基于执行成功率计算基础置信度
         success_rate = workflow_analysis["efficiency_metrics"]["success_rate"]

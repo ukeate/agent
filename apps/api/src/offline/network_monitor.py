@@ -11,7 +11,9 @@ import asyncio
 import time
 import socket
 import httpx
-from datetime import datetime, timedelta
+from datetime import datetime
+from datetime import timedelta
+from src.core.utils.timezone_utils import utc_now, utc_factory
 from typing import Dict, Any, List, Optional, Callable
 from dataclasses import dataclass, field
 from enum import Enum
@@ -415,7 +417,7 @@ class ModeSwitcher:
         self.online_threshold_seconds = 10   # 10秒连接稳定后切换到在线
         
         # 状态跟踪
-        self.last_online_time = datetime.utcnow()
+        self.last_online_time = utc_now()
         self.last_offline_time = None
         self.current_mode = "auto"
         
@@ -424,7 +426,7 @@ class ModeSwitcher:
     
     async def _handle_network_change(self, status: NetworkStatus, metrics: NetworkMetrics):
         """处理网络状态变化"""
-        now = datetime.utcnow()
+        now = utc_now()
         
         if status == NetworkStatus.DISCONNECTED:
             if self.last_offline_time is None:
@@ -485,7 +487,7 @@ class ModeSwitcher:
     
     def get_mode_statistics(self) -> Dict[str, Any]:
         """获取模式统计信息"""
-        now = datetime.utcnow()
+        now = utc_now()
         
         return {
             "current_mode": self.current_mode,

@@ -12,6 +12,7 @@ import json
 import statistics
 import logging
 from datetime import datetime
+from src.core.utils.timezone_utils import utc_now, utc_factory
 from collections import defaultdict
 
 from .batch_processor import BatchTask, BatchJob, BatchStatus
@@ -101,8 +102,8 @@ class BatchAggregator:
             "config": config,
             "results": [],
             "errors": [],
-            "start_time": datetime.utcnow(),
-            "last_update": datetime.utcnow()
+            "start_time": utc_now(),
+            "last_update": utc_now()
         }
         
         self.active_aggregations[job.id] = aggregation_info
@@ -142,7 +143,7 @@ class BatchAggregator:
                 "failed_at": task.completed_at
             })
         
-        aggregation_info["last_update"] = datetime.utcnow()
+        aggregation_info["last_update"] = utc_now()
         
         # 根据模式处理结果
         if config.mode == AggregationMode.IMMEDIATE:
@@ -173,7 +174,7 @@ class BatchAggregator:
             aggregation_info["partial_results"].append({
                 "task_id": task.id,
                 "result": partial_result,
-                "timestamp": datetime.utcnow()
+                "timestamp": utc_now()
             })
     
     async def _process_batch_aggregation(self, job_id: str):
@@ -199,7 +200,7 @@ class BatchAggregator:
                 "batch_index": len(aggregation_info["batch_results"]),
                 "result": batch_aggregated,
                 "task_count": len(batch_results),
-                "timestamp": datetime.utcnow()
+                "timestamp": utc_now()
             })
             
             logger.info(f"完成批量聚合: {job_id} (批次大小: {config.batch_size})")
@@ -210,7 +211,7 @@ class BatchAggregator:
             self.streaming_buffers[job_id].append({
                 "task_id": task.id,
                 "result": task.result,
-                "timestamp": datetime.utcnow()
+                "timestamp": utc_now()
             })
     
     async def _streaming_aggregation(self, job_id: str, config: AggregationConfig):
@@ -278,7 +279,7 @@ class BatchAggregator:
             # 计算处理时间
             processing_time = None
             if "start_time" in aggregation_info:
-                processing_time = (datetime.utcnow() - aggregation_info["start_time"]).total_seconds()
+                processing_time = (utc_now() - aggregation_info["start_time"]).total_seconds()
             
             # 创建聚合结果
             aggregation_result = AggregationResult(
@@ -297,7 +298,7 @@ class BatchAggregator:
                     "mode": config.mode.value,
                     "job_name": job.name,
                     "start_time": aggregation_info["start_time"].isoformat(),
-                    "completion_time": datetime.utcnow().isoformat(),
+                    "completion_time": utc_now().isoformat(),
                     "error_count": len(aggregation_info["errors"]),
                     "success_rate": aggregation_result.successful_tasks / aggregation_result.total_tasks
                 }
@@ -513,7 +514,7 @@ class BatchAggregator:
     
     async def cleanup_completed_aggregations(self, max_age_hours: int = 24):
         """清理已完成的聚合结果"""
-        cutoff_time = datetime.utcnow().timestamp() - (max_age_hours * 3600)
+        cutoff_time = utc_now().timestamp() - (max_age_hours * 3600)
         
         to_remove = []
         for job_id, result in self.completed_aggregations.items():

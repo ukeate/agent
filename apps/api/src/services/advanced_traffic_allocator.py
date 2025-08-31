@@ -4,7 +4,8 @@
 import hashlib
 from typing import List, Dict, Any, Optional, Tuple, Union
 from enum import Enum
-from datetime import datetime, timezone
+from datetime import datetime
+from src.core.utils.timezone_utils import utc_now, utc_factory, timezone
 from dataclasses import dataclass
 
 from models.schemas.experiment import TrafficAllocation
@@ -422,7 +423,7 @@ class AdvancedTrafficAllocator:
             }
             
             # 清理过期缓存
-            current_time = datetime.now(timezone.utc).timestamp()
+            current_time = utc_now().timestamp()
             expired_keys = [
                 key for key, value in self._allocation_cache.items()
                 if value.get('ttl', 0) < current_time

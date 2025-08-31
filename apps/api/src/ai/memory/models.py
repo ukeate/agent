@@ -1,6 +1,7 @@
 """记忆系统数据模型定义"""
 from enum import Enum
 from datetime import datetime
+from src.core.utils.timezone_utils import utc_now, utc_factory
 from typing import Optional, List, Dict, Any
 from pydantic import BaseModel, Field
 import uuid
@@ -30,8 +31,8 @@ class Memory(BaseModel):
     metadata: Dict[str, Any] = Field(default_factory=dict)
     importance: float = Field(default=0.5, ge=0.0, le=1.0)  # 重要性评分 0-1
     access_count: int = Field(default=0, ge=0)
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    last_accessed: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utc_factory)
+    last_accessed: datetime = Field(default_factory=utc_factory)
     decay_factor: float = Field(default=0.5, ge=0.0, le=1.0)  # 遗忘系数
     status: MemoryStatus = Field(default=MemoryStatus.ACTIVE)
     session_id: Optional[str] = None
@@ -145,3 +146,31 @@ class ImportResult(BaseModel):
     failed_count: int
     errors: List[str]
     imported_ids: List[str]
+
+
+class EmotionalState(BaseModel):
+    """情感状态模型"""
+    emotion_type: str
+    intensity: float = Field(ge=0.0, le=1.0)
+    valence: float = Field(ge=-1.0, le=1.0)  # 正负情感倾向
+    arousal: float = Field(ge=0.0, le=1.0)   # 激活程度
+    confidence: Optional[float] = Field(default=0.5, ge=0.0, le=1.0)
+    timestamp: datetime = Field(default_factory=utc_factory)
+
+
+class MemoryContext(BaseModel):
+    """记忆上下文模型"""
+    session_id: Optional[str] = None
+    user_id: Optional[str] = None
+    source: Optional[str] = None
+    timestamp: datetime = Field(default_factory=utc_factory)
+    
+    # 上下文标记
+    is_milestone: bool = False
+    is_learning_moment: bool = False
+    is_correction: bool = False
+    is_feedback: bool = False
+    
+    # 附加信息
+    metadata: Dict[str, Any] = Field(default_factory=dict)
+    tags: List[str] = Field(default_factory=list)

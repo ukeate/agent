@@ -5,9 +5,9 @@ import { describe, it, expect, vi } from 'vitest';
 import QLearningPage from '../../src/pages/QLearningPage';
 
 // Mock navigation
-const mockNavigate = vi.fn();
-vi.mock('react-router-dom', async () => {
-  const actual = await vi.importActual('react-router-dom');
+const mockNavigate = mockFn()fn();
+mockFn()mock('react-router-dom', async () => {
+  const actual = await mockFn()importActual('react-router-dom');
   return {
     ...actual,
     useNavigate: () => mockNavigate,
@@ -15,7 +15,7 @@ vi.mock('react-router-dom', async () => {
 });
 
 // Mock child components
-vi.mock('../../src/components/qlearning/QLearningAgentPanel', () => ({
+mockFn()mock('../../src/components/qlearning/QLearningAgentPanel', () => ({
   QLearningAgentPanel: ({ agents, loading, onCreateAgent }: any) => (
     <div data-testid="qlearning-agent-panel">
       <div>Agents: {agents.length}</div>
@@ -26,7 +26,7 @@ vi.mock('../../src/components/qlearning/QLearningAgentPanel', () => ({
   ),
 }));
 
-vi.mock('../../src/components/qlearning/QLearningTrainingPanel', () => ({
+mockFn()mock('../../src/components/qlearning/QLearningTrainingPanel', () => ({
   QLearningTrainingPanel: ({ trainingSessions }: any) => (
     <div data-testid="qlearning-training-panel">
       <div>Training Sessions: {trainingSessions.length}</div>
@@ -34,7 +34,7 @@ vi.mock('../../src/components/qlearning/QLearningTrainingPanel', () => ({
   ),
 }));
 
-vi.mock('../../src/components/qlearning/QLearningVisualization', () => ({
+mockFn()mock('../../src/components/qlearning/QLearningVisualization', () => ({
   QLearningVisualization: ({ agents }: any) => (
     <div data-testid="qlearning-visualization">
       <div>Visualization for {agents.length} agents</div>
@@ -42,7 +42,7 @@ vi.mock('../../src/components/qlearning/QLearningVisualization', () => ({
   ),
 }));
 
-vi.mock('../../src/components/qlearning/QLearningEnvironmentPanel', () => ({
+mockFn()mock('../../src/components/qlearning/QLearningEnvironmentPanel', () => ({
   QLearningEnvironmentPanel: () => (
     <div data-testid="qlearning-environment-panel">Environment Panel</div>
   ),

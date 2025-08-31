@@ -1,7 +1,9 @@
 """记忆系统集成测试"""
 import pytest
 import asyncio
-from datetime import datetime, timedelta
+from datetime import datetime
+from datetime import timedelta
+from src.core.utils.timezone_utils import utc_now, utc_factory
 from unittest.mock import AsyncMock, Mock, patch
 import json
 
@@ -86,7 +88,7 @@ class TestMemoryIntegration:
             content="经常访问的重要知识",
             importance=0.9,
             access_count=10,
-            created_at=datetime.utcnow() - timedelta(hours=2)
+            created_at=utc_now() - timedelta(hours=2)
         )
         
         # 测试是否应该提升到语义记忆
@@ -158,21 +160,21 @@ class TestMemoryIntegration:
                 content="工作记忆1",
                 importance=0.5,
                 access_count=3,
-                created_at=datetime.utcnow()
+                created_at=utc_now()
             ),
             Memory(
                 type=MemoryType.EPISODIC,
                 content="情景记忆1", 
                 importance=0.7,
                 access_count=5,
-                created_at=datetime.utcnow()
+                created_at=utc_now()
             ),
             Memory(
                 type=MemoryType.SEMANTIC,
                 content="语义记忆1",
                 importance=0.9,
                 access_count=10,
-                created_at=datetime.utcnow()
+                created_at=utc_now()
             )
         ]
         
@@ -245,7 +247,7 @@ class TestMemoryIntegration:
                 content="重要的情景记忆",
                 importance=0.8,
                 access_count=8,
-                created_at=datetime.utcnow() - timedelta(hours=3)
+                created_at=utc_now() - timedelta(hours=3)
             )
         ]
         
@@ -279,7 +281,7 @@ class TestMemoryIntegration:
                 content=f"旧记忆{i}",
                 importance=0.2,
                 access_count=0,
-                created_at=datetime.utcnow() - timedelta(days=35)
+                created_at=utc_now() - timedelta(days=35)
             ) for i in range(3)
         ]
         
@@ -473,7 +475,7 @@ class TestMemoryAssociationGraph:
         # 添加测试数据
         memory = Memory(id="test", type=MemoryType.SEMANTIC, content="测试")
         association_graph.add_memory_node(memory)
-        association_graph._access_patterns["test"] = [datetime.utcnow()]
+        association_graph._access_patterns["test"] = [utc_now()]
         
         # 保存状态
         state = association_graph.save_graph_state()

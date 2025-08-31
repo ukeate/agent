@@ -7,6 +7,7 @@ from fastapi import APIRouter, HTTPException, BackgroundTasks
 from typing import Dict, List, Optional, Any
 from pydantic import BaseModel
 from datetime import datetime
+from src.core.utils.timezone_utils import utc_now, utc_factory
 import asyncio
 from uuid import uuid4
 
@@ -204,7 +205,7 @@ async def decompose_problem(request: DecompositionRequest):
             "max_parallel_steps": request.max_depth,
             "metadata": {
                 "decomposition_strategy": request.strategy,
-                "generated_at": datetime.utcnow().isoformat(),
+                "generated_at": utc_now().isoformat(),
                 "source_problem": request.problem_statement
             }
         }
@@ -256,8 +257,8 @@ async def start_execution(request: ExecutionRequest, background_tasks: Backgroun
             "execution_mode": request.execution_mode,
             "max_parallel_steps": request.max_parallel_steps,
             "scheduling_strategy": request.scheduling_strategy,
-            "created_at": datetime.utcnow(),
-            "started_at": datetime.utcnow(),
+            "created_at": utc_now(),
+            "started_at": utc_now(),
             "input_data": request.input_data or {},
             "progress": 0.0,
             "current_step": workflow_def["steps"][0]["id"],
@@ -279,8 +280,8 @@ async def start_execution(request: ExecutionRequest, background_tasks: Backgroun
             progress=execution["progress"],
             current_step=execution["current_step"],
             start_time=execution["started_at"],
-            estimated_completion=datetime.utcnow().replace(
-                minute=datetime.utcnow().minute + 5
+            estimated_completion=utc_now().replace(
+                minute=utc_now().minute + 5
             )  # 估计5分钟后完成
         )
         
@@ -480,7 +481,7 @@ async def simulate_execution(execution_id: str):
         if execution["status"] == "running":
             execution["status"] = "completed"
             execution["progress"] = 100.0
-            execution["completed_at"] = datetime.utcnow()
+            execution["completed_at"] = utc_now()
             
         logger.info(f"执行完成: {execution_id}")
         

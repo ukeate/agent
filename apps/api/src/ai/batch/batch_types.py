@@ -8,6 +8,7 @@ from typing import List, Dict, Any, Optional
 from dataclasses import dataclass, field
 from enum import Enum
 from datetime import datetime
+from src.core.utils.timezone_utils import utc_now, utc_factory
 import hashlib
 import json
 

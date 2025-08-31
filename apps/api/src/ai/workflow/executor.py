@@ -9,6 +9,7 @@ import logging
 from abc import ABC, abstractmethod
 from typing import Dict, List, Optional, Any, Set
 from datetime import datetime
+from src.core.utils.timezone_utils import utc_now, utc_factory
 from uuid import uuid4
 
 import networkx as nx
@@ -100,7 +101,7 @@ class BaseStepExecutor:
             步骤执行结果
         """
         start_time = time.time()
-        step_execution.started_at = datetime.utcnow()
+        step_execution.started_at = utc_now()
         step_execution.status = WorkflowStepStatus.RUNNING
         
         try:
@@ -112,7 +113,7 @@ class BaseStepExecutor:
             if step.condition:
                 if not await self._evaluate_condition(step.condition, input_data, context):
                     step_execution.status = WorkflowStepStatus.SKIPPED
-                    step_execution.completed_at = datetime.utcnow()
+                    step_execution.completed_at = utc_now()
                     step_execution.duration_ms = int((time.time() - start_time) * 1000)
                     return {"status": "skipped", "reason": "condition_not_met"}
             
@@ -122,7 +123,7 @@ class BaseStepExecutor:
             # 更新执行状态
             step_execution.output_data = result
             step_execution.status = WorkflowStepStatus.COMPLETED
-            step_execution.completed_at = datetime.utcnow()
+            step_execution.completed_at = utc_now()
             step_execution.duration_ms = int((time.time() - start_time) * 1000)
             
             # 计算置信度（如果是推理步骤）
@@ -138,7 +139,7 @@ class BaseStepExecutor:
             step_execution.status = WorkflowStepStatus.FAILED
             step_execution.error_message = str(e)
             step_execution.error_code = type(e).__name__
-            step_execution.completed_at = datetime.utcnow()
+            step_execution.completed_at = utc_now()
             step_execution.duration_ms = int((time.time() - start_time) * 1000)
             
             logger.error(f"步骤执行失败: {step.id}, 错误: {e}")
@@ -476,7 +477,7 @@ class BaseStepExecutor:
         return {
             "step_type": step.step_type.value,
             "step_id": step.id,
-            "executed_at": datetime.utcnow().isoformat(),
+            "executed_at": utc_now().isoformat(),
             "input_data": input_data,
             "config": step.config
         }

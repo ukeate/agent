@@ -6,15 +6,15 @@ import { ReasoningInput } from '../../../src/components/reasoning/ReasoningInput
 import { useReasoningStore } from '../../../src/stores/reasoningStore';
 
 // Mock Zustand store
-vi.mock('../../../src/stores/reasoningStore');
+mockFn()mock('../../../src/stores/reasoningStore');
 
-const mockExecuteReasoning = vi.fn();
-const mockStreamReasoning = vi.fn();
-const mockClearStreamingSteps = vi.fn();
+const mockExecuteReasoning = mockFn()fn();
+const mockStreamReasoning = mockFn()fn();
+const mockClearStreamingSteps = mockFn()fn();
 
 describe('ReasoningInput组件测试', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    mockFn()clearAllMocks();
     
     (useReasoningStore as any).mockReturnValue({
       executeReasoning: mockExecuteReasoning,
@@ -46,8 +46,8 @@ describe('ReasoningInput组件测试', () => {
 
   it('成功提交Zero-shot推理请求', async () => {
     const user = userEvent.setup();
-    const onReasoningStart = vi.fn();
-    const onReasoningComplete = vi.fn();
+    const onReasoningStart = mockFn()fn();
+    const onReasoningComplete = mockFn()fn();
     
     mockExecuteReasoning.mockResolvedValue({ id: 'test-chain-123' });
     
@@ -222,7 +222,7 @@ describe('ReasoningInput组件测试', () => {
 
   it('错误处理正常工作', async () => {
     const user = userEvent.setup();
-    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const consoleSpy = mockFn()spyOn(console, 'error').mockImplementation(() => {});
     
     mockExecuteReasoning.mockRejectedValue(new Error('推理执行失败'));
     

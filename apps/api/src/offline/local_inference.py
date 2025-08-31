@@ -11,7 +11,9 @@
 import asyncio
 import json
 import hashlib
-from datetime import datetime, timedelta
+from datetime import datetime
+from datetime import timedelta
+from src.core.utils.timezone_utils import utc_now, utc_factory
 from typing import Dict, Any, Optional, List, Union, Callable
 from dataclasses import dataclass
 from enum import Enum
@@ -102,13 +104,13 @@ class InferenceCache:
         cached_item = self._cache[cache_key]
         
         # 检查是否过期
-        if datetime.utcnow() - cached_item.created_at > timedelta(hours=self.ttl_hours):
+        if utc_now() - cached_item.created_at > timedelta(hours=self.ttl_hours):
             del self._cache[cache_key]
             return None
         
         # 更新访问统计
         cached_item.access_count += 1
-        cached_item.last_accessed = datetime.utcnow()
+        cached_item.last_accessed = utc_now()
         
         # 标记为缓存结果
         result = cached_item.result
@@ -127,9 +129,9 @@ class InferenceCache:
         cached_item = CachedInference(
             prompt_hash=cache_key,
             result=result,
-            created_at=datetime.utcnow(),
+            created_at=utc_now(),
             access_count=0,
-            last_accessed=datetime.utcnow()
+            last_accessed=utc_now()
         )
         
         self._cache[cache_key] = cached_item
@@ -240,7 +242,7 @@ class LocalInferenceEngine:
     
     async def _local_inference(self, request: InferenceRequest) -> Optional[InferenceResult]:
         """执行本地推理"""
-        start_time = datetime.utcnow()
+        start_time = utc_now()
         
         try:
             # 加载模型
@@ -261,7 +263,7 @@ class LocalInferenceEngine:
                 return None
             
             # 计算推理时间
-            inference_time = (datetime.utcnow() - start_time).total_seconds() * 1000
+            inference_time = (utc_now() - start_time).total_seconds() * 1000
             
             result = InferenceResult(
                 request_id=request.request_id,
@@ -391,8 +393,8 @@ class LocalInferenceEngine:
         
         await asyncio.sleep(0.5)  # 模拟网络延时
         
-        start_time = datetime.utcnow()
-        inference_time = (datetime.utcnow() - start_time).total_seconds() * 1000
+        start_time = utc_now()
+        inference_time = (utc_now() - start_time).total_seconds() * 1000
         
         result = InferenceResult(
             request_id=request.request_id,

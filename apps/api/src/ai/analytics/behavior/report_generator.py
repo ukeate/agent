@@ -6,7 +6,9 @@
 
 import asyncio
 from typing import Dict, Any, List, Optional
-from datetime import datetime, timedelta
+from datetime import datetime
+from datetime import timedelta
+from src.core.utils.timezone_utils import utc_now, utc_factory
 from dataclasses import dataclass
 import json
 import logging
@@ -65,11 +67,11 @@ class ReportGenerator:
         include_forecasts: bool = True
     ) -> AnalyticsReport:
         """生成综合分析报告"""
-        report_id = f"report_{int(datetime.utcnow().timestamp())}"
+        report_id = f"report_{int(utc_now().timestamp())}"
         
         try:
             # 计算时间范围
-            end_time = datetime.utcnow()
+            end_time = utc_now()
             start_time = end_time - timedelta(days=time_range_days)
             period = {'start_time': start_time, 'end_time': end_time}
             
@@ -93,7 +95,7 @@ class ReportGenerator:
             report = AnalyticsReport(
                 report_id=report_id,
                 title=f"行为分析报告 - {start_time.strftime('%Y-%m-%d')} 至 {end_time.strftime('%Y-%m-%d')}",
-                generated_at=datetime.utcnow(),
+                generated_at=utc_now(),
                 period=period,
                 executive_summary=executive_summary,
                 sections=sections,
@@ -572,7 +574,7 @@ class ReportGenerator:
         """生成附录"""
         return {
             'generation_metadata': {
-                'generated_at': datetime.utcnow().isoformat(),
+                'generated_at': utc_now().isoformat(),
                 'period_analyzed': {
                     'start': period['start_time'].isoformat(),
                     'end': period['end_time'].isoformat(),

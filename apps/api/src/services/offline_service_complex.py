@@ -6,7 +6,9 @@
 
 import asyncio
 from typing import Dict, Any, List, Optional
-from datetime import datetime, timedelta
+from datetime import datetime
+from datetime import timedelta
+from src.core.utils.timezone_utils import utc_now, utc_factory
 from uuid import uuid4
 
 from ..models.schemas.offline import (
@@ -22,7 +24,7 @@ class SimpleNetworkMonitor:
     
     def __init__(self):
         self.current_status = "unknown"
-        self.last_check = datetime.utcnow()
+        self.last_check = utc_now()
     
     def get_current_status(self):
         return NetworkStatus.UNKNOWN
@@ -48,7 +50,7 @@ class SimpleModeSwitch:
     def __init__(self, network_monitor):
         self.network_monitor = network_monitor
         self.current_mode = "auto"
-        self.last_online_time = datetime.utcnow()
+        self.last_online_time = utc_now()
         self.last_offline_time = None
     
     def get_mode_info(self):
@@ -121,7 +123,7 @@ class OfflineService:
         current_network_status = self.network_monitor.get_current_status()
         session.network_status = current_network_status
         session.connection_quality = self.network_monitor.get_connection_quality_score()
-        session.last_heartbeat = datetime.utcnow()
+        session.last_heartbeat = utc_now()
         
         # 获取统计信息
         session_stats = self.database.get_session_stats(session.session_id)
@@ -174,7 +176,7 @@ class OfflineService:
                     if success:
                         self.database.mark_operation_synced(
                             operation.id, 
-                            datetime.utcnow()
+                            utc_now()
                         )
                         synced_count += 1
                     else:
@@ -185,7 +187,7 @@ class OfflineService:
                     failed_count += 1
             
             # 更新会话状态
-            session.last_sync_at = datetime.utcnow()
+            session.last_sync_at = utc_now()
             session.sync_in_progress = False
             self.database.update_session(session)
             
@@ -268,7 +270,7 @@ class OfflineService:
         conflict.resolution_strategy = strategy
         conflict.resolved_data = final_data
         conflict.is_resolved = True
-        conflict.resolved_at = datetime.utcnow()
+        conflict.resolved_at = utc_now()
         conflict.resolved_by = user_id
         
         # 这里应该保存冲突解决结果到数据库
@@ -305,7 +307,7 @@ class OfflineService:
             "session": {
                 "session_id": session.session_id,
                 "mode": session.mode.value,
-                "uptime_hours": (datetime.utcnow() - session.created_at).total_seconds() / 3600,
+                "uptime_hours": (utc_now() - session.created_at).total_seconds() / 3600,
                 **session_stats
             },
             "memory": memory_stats,
@@ -390,5 +392,5 @@ class OfflineService:
             "status": "healthy" if all_healthy else "degraded",
             "components": components_status,
             "network_status": self.network_monitor.get_current_status().value,
-            "timestamp": datetime.utcnow().isoformat()
+            "timestamp": utc_now().isoformat()
         }

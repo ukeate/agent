@@ -8,7 +8,9 @@ import asyncio
 import numpy as np
 from typing import Dict, List, Any, Optional, Tuple, Union
 from dataclasses import dataclass, asdict
-from datetime import datetime, timedelta
+from datetime import datetime
+from datetime import timedelta
+from src.core.utils.timezone_utils import utc_now, utc_factory
 from enum import Enum
 import json
 
@@ -207,7 +209,7 @@ class QLearningRecommendationService:
                 bandit_result=bandit_result,
                 combination_details=combination_details,
                 inference_time_ms=inference_time_ms,
-                timestamp=datetime.now()
+                timestamp=utc_now()
             )
             
             # 记录决策历史
@@ -280,7 +282,7 @@ class QLearningRecommendationService:
             # 更新决策记录
             decision_record["reward"] = reward
             decision_record["success"] = success
-            decision_record["feedback_timestamp"] = datetime.now()
+            decision_record["feedback_timestamp"] = utc_now()
             
             # 更新策略性能指标
             decision_source = decision_record.get("decision_source")
@@ -312,7 +314,7 @@ class QLearningRecommendationService:
         """获取策略性能报告"""
         try:
             report = {
-                "timestamp": datetime.now().isoformat(),
+                "timestamp": utc_now().isoformat(),
                 "strategy_metrics": {},
                 "adaptive_weights": self.adaptive_weights.copy(),
                 "decision_statistics": {},
@@ -556,7 +558,7 @@ class QLearningRecommendationService:
             ) / (old_count + 1)
             
             # 更新使用时间
-            metrics.last_used = datetime.now()
+            metrics.last_used = utc_now()
     
     def _update_adaptive_weights(self):
         """更新自适应权重"""

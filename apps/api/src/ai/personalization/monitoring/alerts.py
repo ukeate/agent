@@ -5,7 +5,9 @@
 
 import asyncio
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime
+from datetime import timedelta
+from src.core.utils.timezone_utils import utc_now, utc_factory
 from typing import Dict, List, Any, Optional, Callable
 from dataclasses import dataclass, field
 from enum import Enum
@@ -115,7 +117,7 @@ class WebhookAlertChannel(AlertChannel):
             payload = {
                 "type": "alert",
                 "alert": alert.dict(),
-                "timestamp": datetime.utcnow().isoformat()
+                "timestamp": utc_now().isoformat()
             }
             
             async with aiohttp.ClientSession() as session:
@@ -137,7 +139,7 @@ class WebhookAlertChannel(AlertChannel):
             payload = {
                 "type": "resolution",
                 "alert": alert.dict(),
-                "timestamp": datetime.utcnow().isoformat()
+                "timestamp": utc_now().isoformat()
             }
             
             async with aiohttp.ClientSession() as session:
@@ -243,7 +245,7 @@ class SlackAlertChannel(AlertChannel):
                         }
                     ],
                     "footer": "个性化引擎监控",
-                    "ts": int(alert.resolved_time.timestamp()) if alert.resolved_time else int(datetime.utcnow().timestamp())
+                    "ts": int(alert.resolved_time.timestamp()) if alert.resolved_time else int(utc_now().timestamp())
                 }]
             }
             
@@ -398,7 +400,7 @@ class AlertManager:
     
     async def update_metric(self, metric_name: str, value: float, timestamp: Optional[datetime] = None):
         """更新指标值"""
-        timestamp = timestamp or datetime.utcnow()
+        timestamp = timestamp or utc_now()
         
         # 保存到历史记录
         if metric_name not in self.metric_history:
@@ -454,8 +456,8 @@ class AlertManager:
                     current_value=current_value,
                     threshold=rule.threshold,
                     metric_name=rule.metric_name,
-                    start_time=datetime.utcnow(),
-                    last_update=datetime.utcnow(),
+                    start_time=utc_now(),
+                    last_update=utc_now(),
                     tags=rule.tags
                 )
                 
@@ -466,15 +468,15 @@ class AlertManager:
                 # 更新现有告警
                 alert = self.active_alerts[alert_id]
                 alert.current_value = current_value
-                alert.last_update = datetime.utcnow()
+                alert.last_update = utc_now()
                 
         else:
             if alert_id in self.active_alerts:
                 # 解决告警
                 alert = self.active_alerts[alert_id]
                 alert.status = AlertStatus.RESOLVED
-                alert.resolved_time = datetime.utcnow()
-                alert.last_update = datetime.utcnow()
+                alert.resolved_time = utc_now()
+                alert.last_update = utc_now()
                 
                 await self._send_resolution(alert)
                 del self.active_alerts[alert_id]
@@ -524,7 +526,7 @@ class AlertManager:
             alert = self.active_alerts[alert_id]
             alert.status = AlertStatus.ACKNOWLEDGED
             alert.acknowledged_by = acknowledged_by
-            alert.last_update = datetime.utcnow()
+            alert.last_update = utc_now()
             
             # 更新Redis
             await self.redis.hset(
@@ -545,7 +547,7 @@ class AlertManager:
             resolved_alerts_data = await self.redis.hgetall("resolved_alerts")
             alerts = []
             
-            cutoff_time = datetime.utcnow() - timedelta(hours=hours)
+            cutoff_time = utc_now() - timedelta(hours=hours)
             
             for alert_data in resolved_alerts_data.values():
                 alert = Alert.parse_raw(alert_data)
@@ -595,7 +597,7 @@ class AlertManager:
                 # 每10分钟清理一次
                 await asyncio.sleep(600)
                 
-                cutoff_time = datetime.utcnow() - timedelta(hours=2)
+                cutoff_time = utc_now() - timedelta(hours=2)
                 
                 for metric_name in list(self.metric_history.keys()):
                     self.metric_history[metric_name] = [

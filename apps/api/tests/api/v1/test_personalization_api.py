@@ -10,6 +10,7 @@ from unittest.mock import Mock, AsyncMock, patch
 from fastapi.testclient import TestClient
 from fastapi import FastAPI
 from datetime import datetime
+from src.core.utils.timezone_utils import utc_now, utc_factory
 from typing import Dict, Any
 
 from api.v1.personalization import router
@@ -84,7 +85,7 @@ def mock_service():
             {"action": "click", "item_id": "item_1", "timestamp": "2024-01-15T10:00:00"},
             {"action": "view", "item_id": "item_2", "timestamp": "2024-01-15T10:05:00"}
         ],
-        last_updated=datetime.utcnow(),
+        last_updated=utc_now(),
         embedding=[0.1, 0.2, 0.3, 0.4, 0.5]
     ))
     
@@ -106,7 +107,7 @@ def mock_service():
         "model_id": "default",
         "status": "active",
         "version": "v1.2.3",
-        "last_updated": datetime.utcnow().isoformat()
+        "last_updated": utc_now().isoformat()
     })
     service.predict = AsyncMock(return_value=[0.8, 0.7, 0.6])
     service.update_model = AsyncMock()
@@ -241,7 +242,7 @@ class TestPersonalizationAPI:
                 "features": {"age_group": 30.0, "activity_level": 0.9},
                 "preferences": {"technology": 0.95, "sports": 0.4},
                 "behavior_history": [],
-                "last_updated": datetime.utcnow().isoformat(),
+                "last_updated": utc_now().isoformat(),
                 "embedding": [0.1, 0.2, 0.3]
             }
             
@@ -265,7 +266,7 @@ class TestPersonalizationAPI:
                 "feedback_type": "click",
                 "feedback_value": 1.0,
                 "context": {"source": "homepage"},
-                "timestamp": datetime.utcnow().isoformat()
+                "timestamp": utc_now().isoformat()
             }
             
             response = client.post("/api/v1/personalization/feedback", json=feedback_data)

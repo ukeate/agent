@@ -68,155 +68,158 @@ const DataToolsPanel: React.FC = () => {
         style={{ marginBottom: 24 }}
       />
 
-      <Tabs>
-        <Tabs.TabPane 
-          tab={<span><ImportOutlined />数据导入</span>} 
-          key="import"
-        >
-          <Row gutter={[24, 24]}>
-            <Col span={8}>
-              <Card title="导入配置" size="small">
-                <Space direction="vertical" style={{ width: '100%' }}>
-                  <div>
-                    <label>数据格式</label>
-                    <Select value={importFormat} onChange={setImportFormat} style={{ width: '100%' }}>
-                      <Select.Option value="csv">CSV</Select.Option>
-                      <Select.Option value="json">JSON</Select.Option>
-                      <Select.Option value="jsonl">JSONL</Select.Option>
-                      <Select.Option value="parquet">Parquet</Select.Option>
-                      <Select.Option value="hdf5">HDF5</Select.Option>
-                      <Select.Option value="numpy">NumPy</Select.Option>
-                    </Select>
-                  </div>
+      <Tabs
+        items={[
+          {
+            key: 'import',
+            label: <span><ImportOutlined />数据导入</span>,
+            children: (
+              <Row gutter={[24, 24]}>
+                <Col span={8}>
+                  <Card title="导入配置" size="small">
+                    <Space direction="vertical" style={{ width: '100%' }}>
+                      <div>
+                        <label>数据格式</label>
+                        <Select value={importFormat} onChange={setImportFormat} style={{ width: '100%' }}>
+                          <Select.Option value="csv">CSV</Select.Option>
+                          <Select.Option value="json">JSON</Select.Option>
+                          <Select.Option value="jsonl">JSONL</Select.Option>
+                          <Select.Option value="parquet">Parquet</Select.Option>
+                          <Select.Option value="hdf5">HDF5</Select.Option>
+                          <Select.Option value="numpy">NumPy</Select.Option>
+                        </Select>
+                      </div>
 
-                  <Upload.Dragger>
-                    <p><CloudUploadOutlined style={{ fontSize: 48 }} /></p>
-                    <p>点击或拖拽文件到此区域上传</p>
-                    <p style={{ color: '#999' }}>支持多种向量数据格式</p>
-                  </Upload.Dragger>
+                      <Upload.Dragger>
+                        <p><CloudUploadOutlined style={{ fontSize: 48 }} /></p>
+                        <p>点击或拖拽文件到此区域上传</p>
+                        <p style={{ color: '#999' }}>支持多种向量数据格式</p>
+                      </Upload.Dragger>
 
-                  <Button type="primary" block>
-                    开始导入
-                  </Button>
-                </Space>
-              </Card>
-            </Col>
+                      <Button type="primary" block>
+                        开始导入
+                      </Button>
+                    </Space>
+                  </Card>
+                </Col>
 
-            <Col span={16}>
-              <Card title="导入历史" size="small">
-                <Table
-                  columns={importColumns}
-                  dataSource={importHistory}
-                  rowKey="id"
-                  size="small"
-                  pagination={false}
-                />
-              </Card>
-            </Col>
-          </Row>
-        </Tabs.TabPane>
+                <Col span={16}>
+                  <Card title="导入历史" size="small">
+                    <Table
+                      columns={importColumns}
+                      dataSource={importHistory}
+                      rowKey="id"
+                      size="small"
+                      pagination={false}
+                    />
+                  </Card>
+                </Col>
+              </Row>
+            )
+          },
+          {
+            key: 'export',
+            label: <span><ExportOutlined />数据导出</span>,
+            children: (
+              <Row gutter={[24, 24]}>
+                <Col span={8}>
+                  <Card title="导出配置" size="small">
+                    <Space direction="vertical" style={{ width: '100%' }}>
+                      <div>
+                        <label>源表</label>
+                        <Select placeholder="选择表" style={{ width: '100%' }}>
+                          <Select.Option value="documents">documents</Select.Option>
+                          <Select.Option value="images">images</Select.Option>
+                          <Select.Option value="audio">audio</Select.Option>
+                        </Select>
+                      </div>
 
-        <Tabs.TabPane 
-          tab={<span><ExportOutlined />数据导出</span>} 
-          key="export"
-        >
-          <Row gutter={[24, 24]}>
-            <Col span={8}>
-              <Card title="导出配置" size="small">
-                <Space direction="vertical" style={{ width: '100%' }}>
-                  <div>
-                    <label>源表</label>
-                    <Select placeholder="选择表" style={{ width: '100%' }}>
-                      <Select.Option value="documents">documents</Select.Option>
-                      <Select.Option value="images">images</Select.Option>
-                      <Select.Option value="audio">audio</Select.Option>
-                    </Select>
-                  </div>
+                      <div>
+                        <label>导出格式</label>
+                        <Select value={exportFormat} onChange={setExportFormat} style={{ width: '100%' }}>
+                          <Select.Option value="json">JSON</Select.Option>
+                          <Select.Option value="csv">CSV</Select.Option>
+                          <Select.Option value="parquet">Parquet</Select.Option>
+                          <Select.Option value="hdf5">HDF5</Select.Option>
+                        </Select>
+                      </div>
 
-                  <div>
-                    <label>导出格式</label>
-                    <Select value={exportFormat} onChange={setExportFormat} style={{ width: '100%' }}>
-                      <Select.Option value="json">JSON</Select.Option>
-                      <Select.Option value="csv">CSV</Select.Option>
-                      <Select.Option value="parquet">Parquet</Select.Option>
-                      <Select.Option value="hdf5">HDF5</Select.Option>
-                    </Select>
-                  </div>
+                      <div>
+                        <label>压缩方式</label>
+                        <Select placeholder="选择压缩" style={{ width: '100%' }}>
+                          <Select.Option value="none">无压缩</Select.Option>
+                          <Select.Option value="gzip">GZIP</Select.Option>
+                          <Select.Option value="bz2">BZ2</Select.Option>
+                        </Select>
+                      </div>
 
-                  <div>
-                    <label>压缩方式</label>
-                    <Select placeholder="选择压缩" style={{ width: '100%' }}>
-                      <Select.Option value="none">无压缩</Select.Option>
-                      <Select.Option value="gzip">GZIP</Select.Option>
-                      <Select.Option value="bz2">BZ2</Select.Option>
-                    </Select>
-                  </div>
+                      <Button type="primary" block>
+                        开始导出
+                      </Button>
+                    </Space>
+                  </Card>
+                </Col>
 
-                  <Button type="primary" block>
-                    开始导出
-                  </Button>
-                </Space>
-              </Card>
-            </Col>
+                <Col span={16}>
+                  <Card title="导出历史" size="small">
+                    <Table
+                      columns={exportColumns}
+                      dataSource={exportHistory}
+                      rowKey="id"
+                      size="small"
+                      pagination={false}
+                    />
+                  </Card>
+                </Col>
+              </Row>
+            )
+          },
+          {
+            key: 'migration',
+            label: <span><DatabaseOutlined />数据迁移</span>,
+            children: (
+              <Row gutter={[24, 24]}>
+                <Col span={12}>
+                  <Card title="数据库迁移" size="small">
+                    <Space direction="vertical" style={{ width: '100%' }}>
+                      <div>
+                        <label>源数据库</label>
+                        <Select placeholder="选择源数据库" style={{ width: '100%' }}>
+                          <Select.Option value="postgres1">PostgreSQL-1</Select.Option>
+                          <Select.Option value="postgres2">PostgreSQL-2</Select.Option>
+                        </Select>
+                      </div>
 
-            <Col span={16}>
-              <Card title="导出历史" size="small">
-                <Table
-                  columns={exportColumns}
-                  dataSource={exportHistory}
-                  rowKey="id"
-                  size="small"
-                  pagination={false}
-                />
-              </Card>
-            </Col>
-          </Row>
-        </Tabs.TabPane>
+                      <div>
+                        <label>目标数据库</label>
+                        <Select placeholder="选择目标数据库" style={{ width: '100%' }}>
+                          <Select.Option value="postgres3">PostgreSQL-3</Select.Option>
+                        </Select>
+                      </div>
 
-        <Tabs.TabPane 
-          tab={<span><DatabaseOutlined />数据迁移</span>} 
-          key="migration"
-        >
-          <Row gutter={[24, 24]}>
-            <Col span={12}>
-              <Card title="数据库迁移" size="small">
-                <Space direction="vertical" style={{ width: '100%' }}>
-                  <div>
-                    <label>源数据库</label>
-                    <Select placeholder="选择源数据库" style={{ width: '100%' }}>
-                      <Select.Option value="postgres1">PostgreSQL-1</Select.Option>
-                      <Select.Option value="postgres2">PostgreSQL-2</Select.Option>
-                    </Select>
-                  </div>
+                      <Button type="primary" block>
+                        开始迁移
+                      </Button>
+                    </Space>
+                  </Card>
+                </Col>
 
-                  <div>
-                    <label>目标数据库</label>
-                    <Select placeholder="选择目标数据库" style={{ width: '100%' }}>
-                      <Select.Option value="postgres3">PostgreSQL-3</Select.Option>
-                    </Select>
-                  </div>
-
-                  <Button type="primary" block>
-                    开始迁移
-                  </Button>
-                </Space>
-              </Card>
-            </Col>
-
-            <Col span={12}>
-              <Card title="备份恢复" size="small">
-                <Space direction="vertical" style={{ width: '100%' }}>
-                  <Button block>创建备份</Button>
-                  <Upload>
-                    <Button block>恢复备份</Button>
-                  </Upload>
-                  <Button block>备份列表</Button>
-                </Space>
-              </Card>
-            </Col>
-          </Row>
-        </Tabs.TabPane>
-      </Tabs>
+                <Col span={12}>
+                  <Card title="备份恢复" size="small">
+                    <Space direction="vertical" style={{ width: '100%' }}>
+                      <Button block>创建备份</Button>
+                      <Upload>
+                        <Button block>恢复备份</Button>
+                      </Upload>
+                      <Button block>备份列表</Button>
+                    </Space>
+                  </Card>
+                </Col>
+              </Row>
+            )
+          }
+        ]}
+      />
     </div>
   );
 };

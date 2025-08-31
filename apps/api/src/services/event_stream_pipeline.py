@@ -3,7 +3,9 @@
 """
 import asyncio
 import time
-from datetime import datetime, timezone, timedelta
+from datetime import datetime
+from datetime import timedelta
+from src.core.utils.timezone_utils import utc_now, utc_factory
 from typing import Dict, List, Optional, Any, Callable, Union, AsyncIterator
 from dataclasses import dataclass, field
 from enum import Enum
@@ -11,7 +13,7 @@ import uuid
 from contextlib import asynccontextmanager
 
 from core.logging import get_logger
-from core.database import get_async_db
+from core.database import get_db
 from models.schemas.event_tracking import CreateEventRequest, EventStatus, DataQuality
 from repositories.event_tracking_repository import (
     EventStreamRepository, EventDeduplicationRepository, 
@@ -66,8 +68,8 @@ class PipelineEvent:
     retry_count: int = 0
     
     # 时间追踪
-    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
-    updated_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = field(default_factory=lambda: utc_now())
+    updated_at: datetime = field(default_factory=lambda: utc_now())
     stage_timestamps: Dict[PipelineStage, datetime] = field(default_factory=dict)
     
     # 元数据
@@ -91,7 +93,7 @@ class PipelineMetrics:
     peak_throughput: float = 0.0
     avg_latency_ms: float = 0.0
     p95_latency_ms: float = 0.0
-    last_updated: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    last_updated: datetime = field(default_factory=lambda: utc_now())
 
 
 class EventStageProcessor:
@@ -106,11 +108,11 @@ class EventStageProcessor:
         """处理事件"""
         start_time = time.time()
         pipeline_event.stage = self.stage
-        pipeline_event.stage_timestamps[self.stage] = datetime.now(timezone.utc)
+        pipeline_event.stage_timestamps[self.stage] = utc_now()
         
         try:
             result = await self._process_internal(pipeline_event)
-            result.updated_at = datetime.now(timezone.utc)
+            result.updated_at = utc_now()
             
             # 记录处理时间
             processing_time = (time.time() - start_time) * 1000
@@ -122,7 +124,7 @@ class EventStageProcessor:
             logger.error(f"Error in stage {self.stage}: {e}", exc_info=True)
             pipeline_event.status = EventStatus.FAILED
             pipeline_event.error_message = str(e)
-            pipeline_event.updated_at = datetime.now(timezone.utc)
+            pipeline_event.updated_at = utc_now()
             return pipeline_event
     
     async def _process_internal(self, pipeline_event: PipelineEvent) -> PipelineEvent:
@@ -157,10 +159,10 @@ class IngestionProcessor(EventStageProcessor):
             event.event_id = str(uuid.uuid4())
         
         if not event.event_timestamp:
-            event.event_timestamp = datetime.now(timezone.utc)
+            event.event_timestamp = utc_now()
         
         # 添加摄取元数据
-        pipeline_event.processing_metadata['ingested_at'] = datetime.now(timezone.utc).isoformat()
+        pipeline_event.processing_metadata['ingested_at'] = utc_now().isoformat()
         pipeline_event.processing_metadata['pipeline_id'] = str(uuid.uuid4())
         
         logger.debug(f"Ingested event {event.event_id}")
@@ -266,7 +268,7 @@ class EnrichmentProcessor(EventStageProcessor):
             'pipeline_processed': True,
             'data_quality_score': pipeline_event.quality_score,
             'data_quality_level': pipeline_event.data_quality.value,
-            'processed_at': datetime.now(timezone.utc).isoformat()
+            'processed_at': utc_now().isoformat()
         })
         
         # 如果有质量问题，添加警告信息
@@ -586,7 +588,7 @@ class EventStreamPipeline:
             self.metrics.error_rate = (failed / total) * 100 if total > 0 else 0
             self.metrics.duplicate_rate = (duplicates / total) * 100 if total > 0 else 0
             
-            self.metrics.last_updated = datetime.now(timezone.utc)
+            self.metrics.last_updated = utc_now()
     
     async def _call_stage_callbacks(self, stage: PipelineStage, pipeline_event: PipelineEvent):
         """调用阶段回调"""

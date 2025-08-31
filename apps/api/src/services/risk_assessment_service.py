@@ -3,14 +3,16 @@
 
 评估实验风险并提供自动回滚能力
 """
-from datetime import datetime, timedelta
+from datetime import datetime
+from datetime import timedelta
+from src.core.utils.timezone_utils import utc_now, utc_factory
 from typing import Dict, List, Any, Optional, Tuple
 from enum import Enum
 import asyncio
 from dataclasses import dataclass, field
 import statistics
 
-from ..core.database import async_session_manager
+from ..core.database import get_db_session
 from ..services.realtime_metrics_service import RealtimeMetricsService
 from ..services.anomaly_detection_service import AnomalyDetectionService, AnomalyType
 from ..services.alert_rules_service import AlertRulesEngine, AlertSeverity
@@ -199,7 +201,7 @@ class RiskAssessmentService:
         
         assessment = RiskAssessment(
             experiment_id=experiment_id,
-            assessment_time=datetime.utcnow(),
+            assessment_time=utc_now(),
             overall_risk_level=overall_level,
             overall_risk_score=overall_score,
             risk_factors=risk_factors,
@@ -543,7 +545,7 @@ class RiskAssessmentService:
             approval_required=not auto_execute
         )
         
-        plan_id = f"rollback_{experiment_id}_{datetime.utcnow().timestamp()}"
+        plan_id = f"rollback_{experiment_id}_{utc_now().timestamp()}"
         self.rollback_plans[plan_id] = plan
         
         return plan
@@ -581,12 +583,12 @@ class RiskAssessmentService:
         execution = RollbackExecution(
             plan_id=plan_id,
             experiment_id=plan.experiment_id,
-            started_at=datetime.utcnow(),
+            started_at=utc_now(),
             total_steps=len(plan.steps),
             metrics_before=metrics_before
         )
         
-        exec_id = f"exec_{plan_id}_{datetime.utcnow().timestamp()}"
+        exec_id = f"exec_{plan_id}_{utc_now().timestamp()}"
         self.rollback_executions[exec_id] = execution
         
         # 执行回滚步骤
@@ -609,7 +611,7 @@ class RiskAssessmentService:
                 plan.experiment_id
             )
             execution.status = "completed"
-            execution.completed_at = datetime.utcnow()
+            execution.completed_at = utc_now()
             
         return execution
         

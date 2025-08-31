@@ -2,7 +2,9 @@ import asyncio
 import json
 import time
 from typing import Dict, Optional, Any, List
-from datetime import datetime, timedelta
+from datetime import datetime
+from datetime import timedelta
+from src.core.utils.timezone_utils import utc_now, utc_factory
 from dataclasses import dataclass
 from redis.asyncio import Redis
 import numpy as np
@@ -164,7 +166,7 @@ class RealTimeFeatureEngine:
                 behavioral=behavioral_features or {},
                 contextual=contextual_features or {},
                 aggregated=aggregated_features,
-                timestamp=datetime.utcnow()
+                timestamp=utc_now()
             )
             
             # 缓存特征
@@ -183,7 +185,7 @@ class RealTimeFeatureEngine:
             logger.error(f"特征计算失败 user_id={user_id}: {e}", exc_info=True)
             # 返回空特征而不是抛出异常
             return RealTimeFeatures(
-                timestamp=datetime.utcnow()
+                timestamp=utc_now()
             )
     
     async def get_cached_features(self, user_id: str) -> Optional[RealTimeFeatures]:
@@ -203,7 +205,7 @@ class RealTimeFeatureEngine:
                 feature_dict = json.loads(cached_data)
                 # 检查特征是否过期
                 timestamp = datetime.fromisoformat(feature_dict["timestamp"])
-                if datetime.utcnow() - timestamp < timedelta(seconds=self.config.cache_ttl):
+                if utc_now() - timestamp < timedelta(seconds=self.config.cache_ttl):
                     return RealTimeFeatures(**feature_dict)
                 else:
                     # 删除过期特征

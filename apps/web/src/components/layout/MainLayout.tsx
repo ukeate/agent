@@ -41,9 +41,7 @@ import {
   PieChartOutlined,
   DeploymentUnitOutlined,
   SyncOutlined,
-  CloudSyncOutlined,
   LockOutlined,
-  FileSyncOutlined,
   HistoryOutlined,
   RadarChartOutlined,
   PartitionOutlined,
@@ -54,14 +52,9 @@ import {
   BranchesOutlined,
   CodeOutlined,
   ConsoleSqlOutlined,
-  RiseOutlined,
-  RobotFilled,
-  InteractionOutlined,
-  NetworkOutlined,
   SaveOutlined,
   SlidersOutlined,
   AppstoreOutlined,
-  CloudOutlined,
   CalculatorOutlined,
   ImportOutlined,
   ExportOutlined,
@@ -73,16 +66,11 @@ import {
   TabletOutlined,
   FolderOpenOutlined,
   GoldOutlined,
-  DotChartOutlined,
   PercentageOutlined,
   AimOutlined,
   FlagOutlined,
-  RiseOutlined,
-  SplitCellsOutlined,
-  FunnelPlotOutlined,
   RocketOutlined,
   FunctionOutlined,
-  DataViewOutlined,
   StockOutlined,
   CarryOutOutlined,
   ProjectOutlined,
@@ -91,11 +79,25 @@ import {
   FieldTimeOutlined,
   TransactionOutlined,
   BuildOutlined,
-  RocketOutlined,
   SafetyCertificateOutlined,
-  ShieldOutlined,
   UnorderedListOutlined,
-  UndoOutlined
+  UndoOutlined,
+  TranslationOutlined,
+  SmileOutlined,
+  AudioOutlined,
+  CameraOutlined,
+  WifiOutlined,
+  CompressOutlined,
+  ScissorOutlined,
+  SolutionOutlined,
+  TestTubeOutlined,
+  AreaChartOutlined,
+  ExclamationCircleOutlined,
+  ClockCircleOutlined,
+  FileSearchOutlined,
+  DownloadOutlined,
+  SwapOutlined,
+  ReloadOutlined
 } from '@ant-design/icons'
 
 const { Header, Sider, Content } = Layout
@@ -119,13 +121,51 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
     if (path === '/multi-agent') return 'multi-agent'
     if (path === '/supervisor') return 'supervisor'
     if (path === '/async-agents') return 'async-agents'
-    if (path === '/agent-interface') return 'agent-interface'
+    
+    // 智能代理服务发现系统 (Story 10.1)
+    if (path === '/service-discovery-overview') return 'service-discovery-overview'
+    if (path === '/agent-registry') return 'agent-registry-management'
+    if (path === '/service-routing') return 'service-routing-management'
+    if (path === '/load-balancer-config') return 'load-balancer-config'
+    if (path === '/service-health-monitor') return 'service-health-monitor'
+    if (path === '/service-cluster-management') return 'service-cluster-management'
+    if (path === '/service-performance-dashboard') return 'service-performance-dashboard'
+    if (path === '/service-config-management') return 'service-config-management'
+    
+    // 分布式消息通信框架 (Story 10.2)
+    if (path === '/distributed-message-overview') return 'distributed-message-overview'
+    if (path === '/nats-cluster-management') return 'nats-cluster-management'
+    if (path === '/basic-message-communication') return 'basic-message-communication'
+    if (path === '/acl-protocol-management') return 'acl-protocol-management'
+    if (path === '/request-response-mechanism') return 'request-response-mechanism'
+    if (path === '/message-reliability-management') return 'message-reliability-management'
+    if (path === '/advanced-communication-patterns') return 'advanced-communication-patterns'
+    if (path === '/monitoring-performance-optimization') return 'monitoring-performance-optimization'
+    
+    // 故障容错和恢复系统 (Story 10.5)
+    if (path === '/fault-tolerance-overview') return 'fault-tolerance-overview'
+    if (path === '/fault-detection') return 'fault-detection'
+    if (path === '/recovery-management') return 'recovery-management'
+    if (path === '/backup-management') return 'backup-management'
+    if (path === '/consistency-management') return 'consistency-management'
+    if (path === '/system-monitoring') return 'system-monitoring'
+    if (path === '/fault-testing') return 'fault-testing'
     
     // 智能检索引擎  
     if (path === '/rag') return 'rag'
     if (path === '/agentic-rag') return 'agentic-rag'
     if (path === '/hybrid-search-advanced') return 'hybrid-search-advanced'
     if (path === '/multimodal-rag') return 'multimodal-rag'
+    
+    // 动态知识图谱存储系统 (Story 8.2)
+    if (path === '/kg-entity-management') return 'kg-entity-management'
+    if (path === '/kg-relation-management') return 'kg-relation-management'
+    if (path === '/kg-graph-query') return 'kg-graph-query'
+    if (path === '/kg-incremental-update') return 'kg-incremental-update'
+    if (path === '/kg-quality-assessment') return 'kg-quality-assessment'
+    if (path === '/kg-performance-monitor') return 'kg-performance-monitor'
+    if (path === '/kg-schema-management') return 'kg-schema-management'
+    if (path === '/kg-data-migration') return 'kg-data-migration'
     
     // 推理引擎
     if (path === '/reasoning') return 'reasoning'
@@ -144,6 +184,29 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
     if (path === '/personalization-alerts') return 'personalization-alerts'
     if (path === '/personalization-production') return 'personalization-production'
     if (path === '/personalization-websocket') return 'personalization-websocket'
+    
+    // 高级情感智能系统
+    if (path === '/emotion-recognition-overview') return 'emotion-recognition-overview'
+    if (path === '/text-emotion-analysis') return 'text-emotion-analysis'
+    if (path === '/audio-emotion-recognition') return 'audio-emotion-recognition'
+    if (path === '/visual-emotion-analysis') return 'visual-emotion-analysis'
+    if (path === '/multimodal-emotion-fusion') return 'multimodal-emotion-fusion'
+    if (path === '/emotion-modeling') return 'emotion-modeling'
+    
+    // 情感记忆管理系统 (Story 11.4)
+    if (path === '/emotional-memory-management') return 'emotional-memory-management'
+    if (path === '/emotional-event-analysis') return 'emotional-event-analysis'
+    if (path === '/emotional-preference-learning') return 'emotional-preference-learning'
+    if (path === '/emotional-trigger-patterns') return 'emotional-trigger-patterns'
+    if (path === '/emotional-memory-retrieval') return 'emotional-memory-retrieval'
+    
+    // 社交情感理解系统 (Story 11.6)
+    if (path === '/social-emotion-system') return 'social-emotion-system'
+    if (path === '/emotion-flow-analysis') return 'emotion-flow-analysis'
+    if (path === '/social-network-emotion-map') return 'social-network-emotion-map'
+    if (path === '/cultural-context-analysis') return 'cultural-context-analysis'
+    if (path === '/social-intelligence-decision') return 'social-intelligence-decision'
+    if (path === '/privacy-ethics') return 'privacy-ethics'
     
     // 强化学习系统 - 主要功能
     if (path === '/qlearning') return 'qlearning'
@@ -220,6 +283,74 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
     if (path === '/user-feedback-profiles') return 'user-feedback-profiles'
     if (path === '/item-feedback-analysis') return 'item-feedback-analysis'
     if (path === '/feedback-quality-monitor') return 'feedback-quality-monitor'
+    
+    // 模型服务部署平台 (Story 9.6)
+    if (path === '/model-registry') return 'model-registry'
+    if (path === '/model-inference') return 'model-inference'
+    if (path === '/model-deployment') return 'model-deployment'
+    if (path === '/model-monitoring') return 'model-monitoring'
+    if (path === '/online-learning') return 'online-learning'
+    
+    // 模型评估和基准测试系统 (Story 9.4)
+    if (path === '/model-evaluation-overview') return 'model-evaluation-overview'
+    if (path === '/model-performance-benchmark') return 'model-performance-benchmark'
+    if (path === '/evaluation-engine-management') return 'evaluation-engine-management'
+    if (path === '/benchmark-suite-management') return 'benchmark-suite-management'
+    if (path === '/evaluation-tasks-monitor') return 'evaluation-tasks-monitor'
+    if (path === '/evaluation-reports-center') return 'evaluation-reports-center'
+    if (path === '/evaluation-api-management') return 'evaluation-api-management'
+    if (path === '/model-comparison-dashboard') return 'model-comparison-dashboard'
+    if (path === '/benchmark-glue-management') return 'benchmark-glue-management'
+    if (path === '/benchmark-superglue-management') return 'benchmark-superglue-management'
+    if (path === '/benchmark-mmlu-management') return 'benchmark-mmlu-management'
+    if (path === '/benchmark-humaneval-management') return 'benchmark-humaneval-management'
+    if (path === '/benchmark-hellaswag-management') return 'benchmark-hellaswag-management'
+    if (path === '/benchmark-custom-management') return 'benchmark-custom-management'
+    if (path === '/evaluation-metrics-config') return 'evaluation-metrics-config'
+    if (path === '/evaluation-performance-monitor') return 'evaluation-performance-monitor'
+    if (path === '/evaluation-batch-processing') return 'evaluation-batch-processing'
+    if (path === '/evaluation-regression-detection') return 'evaluation-regression-detection'
+    if (path === '/evaluation-quality-assurance') return 'evaluation-quality-assurance'
+    if (path === '/evaluation-automation-pipeline') return 'evaluation-automation-pipeline'
+    if (path === '/evaluation-alerts-management') return 'evaluation-alerts-management'
+    if (path === '/evaluation-data-management') return 'evaluation-data-management'
+    if (path === '/evaluation-resource-monitor') return 'evaluation-resource-monitor'
+    if (path === '/evaluation-job-scheduler') return 'evaluation-job-scheduler'
+    if (path === '/evaluation-results-analysis') return 'evaluation-results-analysis'
+    if (path === '/evaluation-export-import') return 'evaluation-export-import'
+    if (path === '/evaluation-version-control') return 'evaluation-version-control'
+    if (path === '/evaluation-compliance-audit') return 'evaluation-compliance-audit'
+    if (path === '/evaluation-security-management') return 'evaluation-security-management'
+    
+    // 模型压缩和量化工具
+    if (path === '/model-compression-overview') return 'model-compression-overview'
+    if (path === '/quantization-manager') return 'quantization-manager'
+    if (path === '/quantization-ptq') return 'quantization-ptq'
+    if (path === '/quantization-qat') return 'quantization-qat'
+    if (path === '/quantization-advanced') return 'quantization-advanced'
+    if (path === '/quantization-config') return 'quantization-config'
+    if (path === '/knowledge-distillation') return 'knowledge-distillation'
+    if (path === '/distillation-trainer') return 'distillation-trainer'
+    if (path === '/distillation-strategies') return 'distillation-strategies'
+    if (path === '/distillation-monitor') return 'distillation-monitor'
+    if (path === '/model-pruning') return 'model-pruning'
+    if (path === '/pruning-structured') return 'pruning-structured'
+    if (path === '/pruning-unstructured') return 'pruning-unstructured'
+    if (path === '/pruning-strategies') return 'pruning-strategies'
+    if (path === '/compression-pipeline') return 'compression-pipeline'
+    if (path === '/compression-jobs') return 'compression-jobs'
+    if (path === '/compression-monitor') return 'compression-monitor'
+    if (path === '/compression-scheduler') return 'compression-scheduler'
+    if (path === '/compression-evaluator') return 'compression-evaluator'
+    if (path === '/model-comparison') return 'model-comparison'
+    if (path === '/performance-analysis') return 'performance-analysis'
+    if (path === '/compression-reports') return 'compression-reports'
+    if (path === '/hardware-benchmark') return 'hardware-benchmark'
+    if (path === '/inference-optimization') return 'inference-optimization'
+    if (path === '/deployment-optimization') return 'deployment-optimization'
+    if (path === '/strategy-recommendation') return 'strategy-recommendation'
+    if (path === '/compression-templates') return 'compression-templates'
+    if (path === '/model-registry-compression') return 'model-registry-compression'
     
     // 记忆管理系统
     if (path === '/memory-hierarchy') return 'memory-hierarchy'
@@ -334,7 +465,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
           label: '流控背压监控',
         },
         {
-          key: 'distributed-events',
+          key: 'distributed-events-multi-agent',
           icon: <ShareAltOutlined />,
           label: '分布式事件',
         },
@@ -345,18 +476,155 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
       icon: <ControlOutlined />,
       label: '监督者模式 (Supervisor)',
     },
+    // 🌐 智能代理服务发现系统 (Story 10.1)
     {
-      key: 'agent-interface',
-      icon: <ApiOutlined />,
-      label: 'Agent接口管理',
+      key: 'intelligent-agent-service-discovery-system',
+      icon: <GlobalOutlined />,
+      label: '🌐 智能代理服务发现系统',
+      children: [
+        {
+          key: 'service-discovery-overview',
+          icon: <GlobalOutlined />,
+          label: '服务发现总览',
+        },
+        {
+          key: 'agent-registry-management', 
+          icon: <DatabaseOutlined />,
+          label: 'Agent注册管理',
+        },
+        {
+          key: 'service-routing-management',
+          icon: <ShareAltOutlined />,
+          label: '服务路由管理',
+        },
+        {
+          key: 'load-balancer-config',
+          icon: <ClusterOutlined />,
+          label: '负载均衡配置',
+        },
+        {
+          key: 'service-health-monitor',
+          icon: <HeartOutlined />,
+          label: '服务健康监控',
+        },
+        {
+          key: 'service-cluster-management',
+          icon: <CloudServerOutlined />,
+          label: '服务集群管理',
+        },
+        {
+          key: 'service-performance-dashboard',
+          icon: <DashboardOutlined />,
+          label: '服务性能仪表板',
+        },
+        {
+          key: 'service-config-management',
+          icon: <SettingOutlined />,
+          label: '服务配置管理',
+        },
+      ],
+    },
+
+    // 📡 分布式消息通信框架 (Story 10.2)
+    {
+      key: 'distributed-message-communication-framework',
+      icon: <NetworkOutlined />,
+      label: '📡 分布式消息通信框架',
+      children: [
+        {
+          key: 'distributed-message-overview',
+          icon: <NetworkOutlined />,
+          label: '消息通信总览',
+        },
+        {
+          key: 'nats-cluster-management',
+          icon: <ClusterOutlined />,
+          label: 'NATS集群管理',
+        },
+        {
+          key: 'basic-message-communication',
+          icon: <MessageOutlined />,
+          label: '基础消息通信',
+        },
+        {
+          key: 'acl-protocol-management',
+          icon: <ApiOutlined />,
+          label: 'ACL协议管理',
+        },
+        {
+          key: 'request-response-mechanism',
+          icon: <SwapOutlined />,
+          label: '请求响应机制',
+        },
+        {
+          key: 'message-reliability-management',
+          icon: <SafetyCertificateOutlined />,
+          label: '消息可靠性管理',
+        },
+        {
+          key: 'advanced-communication-patterns',
+          icon: <ShareAltOutlined />,
+          label: '高级通信模式',
+        },
+        {
+          key: 'monitoring-performance-optimization',
+          icon: <MonitorOutlined />,
+          label: '监控和性能优化',
+        },
+      ],
+    },
+
+    // 🛡️ 故障容错和恢复系统 (Story 10.5)
+    {
+      key: 'fault-tolerance-system',
+      icon: <SafetyCertificateOutlined />,
+      label: '🛡️ 故障容错和恢复系统',
+      children: [
+        {
+          key: 'fault-tolerance-overview',
+          icon: <DashboardOutlined />,
+          label: '故障容错系统总览',
+        },
+        {
+          key: 'fault-detection',
+          icon: <MonitorOutlined />,
+          label: '故障检测监控',
+        },
+        {
+          key: 'recovery-management',
+          icon: <ReloadOutlined />,
+          label: '恢复管理中心',
+        },
+        {
+          key: 'backup-management',
+          icon: <DatabaseOutlined />,
+          label: '备份管理系统',
+        },
+        {
+          key: 'consistency-management',
+          icon: <SyncOutlined />,
+          label: '一致性管理',
+        },
+        {
+          key: 'system-monitoring',
+          icon: <MonitorOutlined />,
+          label: '系统监控平台',
+        },
+        {
+          key: 'fault-testing',
+          icon: <ExperimentOutlined />,
+          label: '故障测试平台',
+        },
+      ],
     },
 
     // 🔍 智能检索引擎
     {
-      key: 'retrieval-group',
+      key: 'rag-group',
       label: '🔍 智能检索引擎',
       type: 'group',
     },
+
     {
       key: 'rag',
       icon: <SearchOutlined />,
@@ -410,6 +678,173 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
           key: 'explainable-ai',
           icon: <EyeOutlined />,
           label: '可解释AI决策',
+        },
+      ],
+    },
+
+    // 🗺️ 知识图谱引擎
+    {
+      key: 'knowledge-graph-group',
+      label: '🗺️ 知识图谱引擎',
+      type: 'group',
+    },
+    {
+      key: 'knowledge-extraction',
+      icon: <NodeIndexOutlined />,
+      label: '知识抽取系统 (Story 8.1)',
+      children: [
+        {
+          key: 'knowledge-extraction-overview',
+          icon: <DashboardOutlined />,
+          label: '知识抽取总览',
+        },
+        {
+          key: 'entity-recognition',
+          icon: <BranchesOutlined />,
+          label: '实体识别管理',
+        },
+        {
+          key: 'relation-extraction',
+          icon: <ShareAltOutlined />,
+          label: '关系抽取管理',
+        },
+        {
+          key: 'entity-linking',
+          icon: <GlobalOutlined />,
+          label: '实体链接管理',
+        },
+        {
+          key: 'multilingual-processing',
+          icon: <TranslationOutlined />,
+          label: '多语言处理',
+        },
+      ],
+    },
+    {
+      key: 'dynamic-knowledge-graph',
+      icon: <DatabaseOutlined />,
+      label: '动态知识图谱存储 (Story 8.2)',
+      children: [
+        {
+          key: 'kg-entity-management',
+          icon: <NodeIndexOutlined />,
+          label: '实体管理',
+        },
+        {
+          key: 'kg-relation-management',
+          icon: <ShareAltOutlined />,
+          label: '关系管理',
+        },
+        {
+          key: 'kg-graph-query',
+          icon: <SearchOutlined />,
+          label: '图查询引擎',
+        },
+        {
+          key: 'kg-incremental-update',
+          icon: <SyncOutlined />,
+          label: '增量更新系统',
+        },
+        {
+          key: 'kg-quality-assessment',
+          icon: <SafetyCertificateOutlined />,
+          label: '质量评估管理',
+        },
+        {
+          key: 'kg-performance-monitor',
+          icon: <ThunderboltOutlined />,
+          label: '性能监控优化',
+        },
+        {
+          key: 'kg-schema-management',
+          icon: <SettingOutlined />,
+          label: '图模式管理',
+        },
+        {
+          key: 'kg-data-migration',
+          icon: <ExportOutlined />,
+          label: '数据迁移工具',
+        },
+      ],
+    },
+    {
+      key: 'knowledge-graph-management',
+      icon: <ClusterOutlined />,
+      label: '知识图谱管理',
+      children: [
+        {
+          key: 'knowledge-graph-visualization',
+          icon: <NodeIndexOutlined />,
+          label: '图谱可视化',
+        },
+        {
+          key: 'knowledge-graph-query',
+          icon: <SearchOutlined />,
+          label: '图谱查询引擎',
+        },
+        {
+          key: 'knowledge-graph-analytics',
+          icon: <BarChartOutlined />,
+          label: '图谱分析统计',
+        },
+        {
+          key: 'knowledge-graph-export',
+          icon: <ExportOutlined />,
+          label: '图谱数据导出',
+        },
+      ],
+    },
+    {
+      key: 'knowledge-batch-processing',
+      icon: <CloudServerOutlined />,
+      label: '批量处理引擎',
+      children: [
+        {
+          key: 'knowledge-batch-jobs',
+          icon: <DatabaseOutlined />,
+          label: '批处理作业管理',
+        },
+        {
+          key: 'knowledge-batch-monitor',
+          icon: <MonitorOutlined />,
+          label: '批处理监控',
+        },
+        {
+          key: 'knowledge-performance-optimization',
+          icon: <ThunderboltOutlined />,
+          label: '性能优化中心',
+        },
+        {
+          key: 'knowledge-cache-management',
+          icon: <SaveOutlined />,
+          label: '缓存管理',
+        },
+      ],
+    },
+    {
+      key: 'knowledge-quality-management',
+      icon: <SafetyCertificateOutlined />,
+      label: '知识质量管理',
+      children: [
+        {
+          key: 'knowledge-validation',
+          icon: <CheckCircleOutlined />,
+          label: '知识验证评估',
+        },
+        {
+          key: 'knowledge-confidence-analysis',
+          icon: <LineChartOutlined />,
+          label: '置信度分析',
+        },
+        {
+          key: 'knowledge-error-analysis',
+          icon: <ExceptionOutlined />,
+          label: '错误分析报告',
+        },
+        {
+          key: 'knowledge-model-comparison',
+          icon: <CompareOutlined />,
+          label: '模型对比评测',
         },
       ],
     },
@@ -469,6 +904,137 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
           key: 'personalization-websocket',
           icon: <WifiOutlined />,
           label: 'WebSocket实时推荐',
+        },
+      ],
+    },
+    {
+      key: 'emotion-intelligence',
+      icon: <SmileOutlined />,
+      label: '高级情感智能系统',
+      children: [
+        {
+          key: 'emotion-recognition-overview',
+          icon: <HeartOutlined />,
+          label: '情感识别引擎总览',
+        },
+        {
+          key: 'text-emotion-analysis',
+          icon: <FileTextOutlined />,
+          label: '文本情感分析',
+        },
+        {
+          key: 'audio-emotion-recognition',
+          icon: <AudioOutlined />,
+          label: '语音情感识别',
+        },
+        {
+          key: 'visual-emotion-analysis',
+          icon: <CameraOutlined />,
+          label: '视觉情感分析',
+        },
+        {
+          key: 'multimodal-emotion-fusion',
+          icon: <MergeCellsOutlined />,
+          label: '多模态情感融合',
+        },
+        {
+          key: 'emotion-modeling',
+          icon: <RadarChartOutlined />,
+          label: '情感状态建模系统',
+        },
+        {
+          type: 'divider',
+        },
+        {
+          key: 'emotional-memory-management',
+          icon: <BrainOutlined />,
+          label: '📊 情感记忆管理系统',
+        },
+        {
+          key: 'emotional-event-analysis',
+          icon: <LineChartOutlined />,
+          label: '事件分析引擎',
+        },
+        {
+          key: 'emotional-preference-learning',
+          icon: <UserOutlined />,
+          label: '个人偏好学习',
+        },
+        {
+          key: 'emotional-trigger-patterns',
+          icon: <ExperimentOutlined />,
+          label: '触发模式识别',
+        },
+        {
+          key: 'emotional-memory-retrieval',
+          icon: <SearchOutlined />,
+          label: '记忆检索系统',
+        },
+        {
+          type: 'divider',
+        },
+        {
+          key: 'emotional-intelligence-decision-engine',
+          icon: <BulbOutlined />,
+          label: '情感智能决策引擎',
+        },
+        {
+          key: 'emotional-risk-assessment-dashboard',
+          icon: <ExclamationCircleOutlined />,
+          label: '风险评估仪表盘',
+        },
+        {
+          key: 'crisis-detection-support',
+          icon: <AlertOutlined />,
+          label: '危机检测和支持',
+        },
+        {
+          key: 'intervention-strategy-management',
+          icon: <ToolOutlined />,
+          label: '干预策略管理',
+        },
+        {
+          key: 'emotional-health-monitoring-dashboard',
+          icon: <HeartOutlined />,
+          label: '健康监测仪表盘',
+        },
+        {
+          key: 'decision-history-analysis',
+          icon: <HistoryOutlined />,
+          label: '决策历史分析',
+        },
+        {
+          type: 'divider',
+        },
+        {
+          key: 'social-emotion-system',
+          icon: <DashboardOutlined />,
+          label: '🌟 社交情感理解系统',
+        },
+        {
+          key: 'emotion-flow-analysis',
+          icon: <LineChartOutlined />,
+          label: '情感流分析',
+        },
+        {
+          key: 'social-network-emotion-map',
+          icon: <TeamOutlined />,
+          label: '社交网络情感地图',
+        },
+        {
+          key: 'cultural-context-analysis',
+          icon: <GlobalOutlined />,
+          label: '文化背景分析',
+        },
+        {
+          key: 'social-intelligence-decision',
+          icon: <BulbOutlined />,
+          label: '社交智能决策',
+        },
+        {
+          key: 'privacy-ethics',
+          icon: <ShieldOutlined />,
+          label: '隐私保护与伦理',
         },
       ],
     },
@@ -642,6 +1208,435 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
           key: 'feedback-quality-monitor',
           icon: <EyeOutlined />,
           label: '反馈质量监控',
+        },
+      ],
+    },
+
+    // 📊 模型评估和基准测试系统 (Story 9.4)
+    {
+      key: 'model-evaluation-group',
+      label: '📊 模型评估和基准测试系统',
+      type: 'group',
+    },
+    {
+      key: 'model-evaluation-overview',
+      icon: <ModelOutlined />,
+      label: '模型评估总览',
+    },
+    {
+      key: 'model-performance-benchmark',
+      icon: <TrophyOutlined />,
+      label: '性能基准测试',
+    },
+    {
+      key: 'evaluation-engine-system',
+      icon: <ExperimentOutlined />,
+      label: '评估引擎管理',
+      children: [
+        {
+          key: 'evaluation-engine-management',
+          icon: <ControlOutlined />,
+          label: '引擎控制中心',
+        },
+        {
+          key: 'evaluation-tasks-monitor',
+          icon: <MonitorOutlined />,
+          label: '任务监控面板',
+        },
+        {
+          key: 'evaluation-batch-processing',
+          icon: <DatabaseOutlined />,
+          label: '批量处理管理',
+        },
+        {
+          key: 'evaluation-job-scheduler',
+          icon: <ScheduleOutlined />,
+          label: '任务调度器',
+        },
+      ],
+    },
+    {
+      key: 'benchmark-management-system',
+      icon: <BenchmarkOutlined />,
+      label: '基准测试管理',
+      children: [
+        {
+          key: 'benchmark-suite-management',
+          icon: <AppstoreOutlined />,
+          label: '测试套件管理',
+        },
+        {
+          key: 'benchmark-glue-management',
+          icon: <FileTextOutlined />,
+          label: 'GLUE基准管理',
+        },
+        {
+          key: 'benchmark-superglue-management',
+          icon: <RocketOutlined />,
+          label: 'SuperGLUE基准管理',
+        },
+        {
+          key: 'benchmark-mmlu-management',
+          icon: <BookOutlined />,
+          label: 'MMLU基准管理',
+        },
+        {
+          key: 'benchmark-humaneval-management',
+          icon: <CodeOutlined />,
+          label: 'HumanEval基准管理',
+        },
+        {
+          key: 'benchmark-hellaswag-management',
+          icon: <BulbOutlined />,
+          label: 'HellaSwag基准管理',
+        },
+        {
+          key: 'benchmark-custom-management',
+          icon: <SolutionOutlined />,
+          label: '自定义基准管理',
+        },
+      ],
+    },
+    {
+      key: 'evaluation-analysis-system',
+      icon: <AreaChartOutlined />,
+      label: '评估分析系统',
+      children: [
+        {
+          key: 'model-comparison-dashboard',
+          icon: <CompareOutlined />,
+          label: '模型对比分析',
+        },
+        {
+          key: 'evaluation-results-analysis',
+          icon: <DotChartOutlined />,
+          label: '结果深度分析',
+        },
+        {
+          key: 'evaluation-regression-detection',
+          icon: <AlertOutlined />,
+          label: '回归检测系统',
+        },
+        {
+          key: 'evaluation-quality-assurance',
+          icon: <SafetyCertificateOutlined />,
+          label: '质量保证管控',
+        },
+      ],
+    },
+    {
+      key: 'evaluation-reports-system',
+      icon: <FileTextOutlined />,
+      label: '报告生成系统',
+      children: [
+        {
+          key: 'evaluation-reports-center',
+          icon: <FolderOutlined />,
+          label: '报告生成中心',
+        },
+        {
+          key: 'evaluation-export-import',
+          icon: <ExportOutlined />,
+          label: '数据导入导出',
+        },
+        {
+          key: 'evaluation-version-control',
+          icon: <BranchesOutlined />,
+          label: '版本控制管理',
+        },
+      ],
+    },
+    {
+      key: 'evaluation-monitoring-system',
+      icon: <RadarChartOutlined />,
+      label: '监控与运维',
+      children: [
+        {
+          key: 'evaluation-performance-monitor',
+          icon: <LineChartOutlined />,
+          label: '性能监控面板',
+        },
+        {
+          key: 'evaluation-resource-monitor',
+          icon: <CloudServerOutlined />,
+          label: '资源使用监控',
+        },
+        {
+          key: 'evaluation-alerts-management',
+          icon: <BellOutlined />,
+          label: '告警管理系统',
+        },
+        {
+          key: 'evaluation-automation-pipeline',
+          icon: <DeploymentUnitOutlined />,
+          label: '自动化流水线',
+        },
+      ],
+    },
+    {
+      key: 'evaluation-configuration-system',
+      icon: <SettingOutlined />,
+      label: '配置与管理',
+      children: [
+        {
+          key: 'evaluation-metrics-config',
+          icon: <SlidersOutlined />,
+          label: '评估指标配置',
+        },
+        {
+          key: 'evaluation-data-management',
+          icon: <DatabaseOutlined />,
+          label: '数据集管理',
+        },
+        {
+          key: 'evaluation-api-management',
+          icon: <ApiOutlined />,
+          label: 'API接口管理',
+        },
+        {
+          key: 'evaluation-security-management',
+          icon: <ShieldOutlined />,
+          label: '安全权限管理',
+        },
+        {
+          key: 'evaluation-compliance-audit',
+          icon: <AuditOutlined />,
+          label: '合规审计管理',
+        },
+      ],
+    },
+
+    // 🚀 模型服务部署平台 (Story 9.6)
+    {
+      key: 'model-service-group',
+      label: '🚀 模型服务部署平台',
+      type: 'group',
+    },
+    {
+      key: 'model-service-system',
+      icon: <RocketOutlined />,
+      label: '模型服务部署平台',
+      children: [
+        {
+          key: 'model-registry',
+          icon: <DatabaseOutlined />,
+          label: '模型注册中心',
+        },
+        {
+          key: 'model-inference',
+          icon: <RocketOutlined />,
+          label: '模型推理服务',
+        },
+        {
+          key: 'model-deployment',
+          icon: <CloudServerOutlined />,
+          label: '部署管理',
+        },
+        {
+          key: 'model-monitoring',
+          icon: <RadarChartOutlined />,
+          label: '监控与告警',
+        },
+        {
+          key: 'online-learning',
+          icon: <ExperimentOutlined />,
+          label: '在线学习与A/B测试',
+        },
+      ],
+    },
+
+    // 🚀 模型压缩和量化工具 (Story 9.2)
+    {
+      key: 'model-compression-group',
+      label: '🚀 模型压缩和量化工具',
+      type: 'group',
+    },
+    {
+      key: 'model-compression-overview',
+      icon: <CompressOutlined />,
+      label: '模型压缩总览',
+    },
+    {
+      key: 'quantization-system',
+      icon: <CompressOutlined />,
+      label: '量化压缩引擎',
+      children: [
+        {
+          key: 'quantization-manager',
+          icon: <ControlOutlined />,
+          label: '量化管理中心',
+        },
+        {
+          key: 'quantization-ptq',
+          icon: <ThunderboltOutlined />,
+          label: '后训练量化 (PTQ)',
+        },
+        {
+          key: 'quantization-qat',
+          icon: <ExperimentOutlined />,
+          label: '量化感知训练 (QAT)',
+        },
+        {
+          key: 'quantization-advanced',
+          icon: <RocketOutlined />,
+          label: '高级量化算法',
+        },
+        {
+          key: 'quantization-config',
+          icon: <SettingOutlined />,
+          label: '量化配置管理',
+        },
+      ],
+    },
+    {
+      key: 'distillation-system',
+      icon: <ExperimentFilled />,
+      label: '知识蒸馏引擎',
+      children: [
+        {
+          key: 'knowledge-distillation',
+          icon: <BulbOutlined />,
+          label: '知识蒸馏管理',
+        },
+        {
+          key: 'distillation-trainer',
+          icon: <BuildOutlined />,
+          label: '蒸馏训练器',
+        },
+        {
+          key: 'distillation-strategies',
+          icon: <SolutionOutlined />,
+          label: '蒸馏策略配置',
+        },
+        {
+          key: 'distillation-monitor',
+          icon: <MonitorOutlined />,
+          label: '蒸馏监控面板',
+        },
+      ],
+    },
+    {
+      key: 'pruning-system',
+      icon: <ScissorOutlined />,
+      label: '模型剪枝引擎',
+      children: [
+        {
+          key: 'model-pruning',
+          icon: <ScissorOutlined />,
+          label: '剪枝管理中心',
+        },
+        {
+          key: 'pruning-structured',
+          icon: <PartitionOutlined />,
+          label: '结构化剪枝',
+        },
+        {
+          key: 'pruning-unstructured',
+          icon: <ClusterOutlined />,
+          label: '非结构化剪枝',
+        },
+        {
+          key: 'pruning-strategies',
+          icon: <AimOutlined />,
+          label: '剪枝策略配置',
+        },
+      ],
+    },
+    {
+      key: 'compression-pipeline-system',
+      icon: <DeploymentUnitOutlined />,
+      label: '压缩流水线管理',
+      children: [
+        {
+          key: 'compression-pipeline',
+          icon: <BranchesOutlined />,
+          label: '流水线总览',
+        },
+        {
+          key: 'compression-jobs',
+          icon: <ProjectOutlined />,
+          label: '压缩任务管理',
+        },
+        {
+          key: 'compression-monitor',
+          icon: <MonitorOutlined />,
+          label: '任务监控面板',
+        },
+        {
+          key: 'compression-scheduler',
+          icon: <ScheduleOutlined />,
+          label: '任务调度器',
+        },
+      ],
+    },
+    {
+      key: 'compression-evaluation',
+      icon: <BarChartOutlined />,
+      label: '压缩评估与对比',
+      children: [
+        {
+          key: 'compression-evaluator',
+          icon: <DotChartOutlined />,
+          label: '压缩评估器',
+        },
+        {
+          key: 'model-comparison',
+          icon: <CompareOutlined />,
+          label: '模型对比分析',
+        },
+        {
+          key: 'performance-analysis',
+          icon: <LineChartOutlined />,
+          label: '性能分析报告',
+        },
+        {
+          key: 'compression-reports',
+          icon: <FileTextOutlined />,
+          label: '压缩效果报告',
+        },
+      ],
+    },
+    {
+      key: 'hardware-optimization',
+      icon: <ThunderboltOutlined />,
+      label: '硬件性能优化',
+      children: [
+        {
+          key: 'hardware-benchmark',
+          icon: <RiseOutlined />,
+          label: '硬件基准测试',
+        },
+        {
+          key: 'inference-optimization',
+          icon: <RocketOutlined />,
+          label: '推理引擎优化',
+        },
+        {
+          key: 'deployment-optimization',
+          icon: <CloudServerOutlined />,
+          label: '部署优化配置',
+        },
+      ],
+    },
+    {
+      key: 'strategy-management',
+      icon: <BulbOutlined />,
+      label: '智能策略推荐',
+      children: [
+        {
+          key: 'strategy-recommendation',
+          icon: <SolutionOutlined />,
+          label: '策略推荐引擎',
+        },
+        {
+          key: 'compression-templates',
+          icon: <BookOutlined />,
+          label: '压缩模板库',
+        },
+        {
+          key: 'model-registry-compression',
+          icon: <DatabaseOutlined />,
+          label: '模型注册中心',
         },
       ],
     },
@@ -921,7 +1916,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
       label: '向量数据库',
       children: [
         {
-          key: 'pgvector',
+          key: 'pgvector-quantization',
           icon: <DatabaseOutlined />,
           label: 'pgvector量化 (v0.8)',
         },
@@ -1011,7 +2006,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
       label: 'LangGraph工作流',
       children: [
         {
-          key: 'workflows',
+          key: 'workflows-visualization',
           icon: <NodeIndexOutlined />,
           label: '工作流可视化',
         },
@@ -1290,6 +2285,188 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
       label: 'MCP协议工具 (v1.0)',
     },
 
+    // 🎯 LoRA/QLoRA细粒度调优框架 (Story 9.1)
+    {
+      key: 'fine-tuning-group',
+      label: '🎯 LoRA/QLoRA细粒度调优框架',
+      type: 'group',
+    },
+    {
+      key: 'fine-tuning-system',
+      icon: <ExperimentOutlined />,
+      label: '细粒度调优系统',
+      children: [
+        {
+          key: 'fine-tuning-jobs',
+          icon: <ProjectOutlined />,
+          label: '调优任务管理',
+        },
+        {
+          key: 'fine-tuning-config',
+          icon: <SettingOutlined />,
+          label: '调优配置中心',
+        },
+        {
+          key: 'fine-tuning-monitor',
+          icon: <MonitorOutlined />,
+          label: '调优监控面板',
+        },
+        {
+          key: 'fine-tuning-models',
+          icon: <DatabaseOutlined />,
+          label: '模型库管理',
+        },
+        {
+          key: 'fine-tuning-datasets',
+          icon: <FolderOutlined />,
+          label: '数据集管理',
+        },
+        {
+          key: 'fine-tuning-checkpoints',
+          icon: <SaveOutlined />,
+          label: '检查点管理',
+        },
+        {
+          key: 'lora-training',
+          icon: <RocketOutlined />,
+          label: 'LoRA训练引擎',
+        },
+        {
+          key: 'qlora-training',
+          icon: <ThunderboltOutlined />,
+          label: 'QLoRA训练引擎',
+        },
+        {
+          key: 'distributed-training',
+          icon: <ClusterOutlined />,
+          label: '分布式训练',
+        },
+        {
+          key: 'model-adapters',
+          icon: <ApiOutlined />,
+          label: '模型适配器',
+        },
+        {
+          key: 'training-monitor-dashboard',
+          icon: <DashboardOutlined />,
+          label: '训练监控大屏',
+        },
+        {
+          key: 'model-performance-comparison',
+          icon: <BarChartOutlined />,
+          label: '性能对比分析',
+        },
+      ],
+    },
+
+    // 🔄 自动超参数优化系统 (Story 9.3)
+    {
+      key: 'hyperparameter-group',
+      label: '🔄 自动超参数优化系统',
+      type: 'group',
+    },
+    {
+      key: 'hyperparameter-optimization',
+      icon: <SlidersOutlined />,
+      label: '超参数优化平台',
+      children: [
+        {
+          key: 'hyperparameter-optimization',
+          icon: <SlidersOutlined />,
+          label: '优化控制中心',
+        },
+        {
+          key: 'hyperparameter-experiments',
+          icon: <ExperimentOutlined />,
+          label: '实验管理',
+        },
+        {
+          key: 'hyperparameter-algorithms',
+          icon: <FunctionOutlined />,
+          label: '优化算法库',
+        },
+        {
+          key: 'hyperparameter-monitoring',
+          icon: <MonitorOutlined />,
+          label: '监控面板',
+        },
+        {
+          key: 'hyperparameter-reports',
+          icon: <FileTextOutlined />,
+          label: '报告中心',
+        },
+        {
+          key: 'hyperparameter-resources',
+          icon: <CloudServerOutlined />,
+          label: '资源管理',
+        },
+        {
+          key: 'hyperparameter-scheduler',
+          icon: <ScheduleOutlined />,
+          label: '任务调度器',
+        },
+        {
+          key: 'hyperparameter-visualizations',
+          icon: <AreaChartOutlined />,
+          label: '可视化分析',
+        },
+      ],
+    },
+
+    // 📚 训练数据管理系统 (Story 9.5)
+    {
+      key: 'training-data-group',
+      label: '📚 训练数据管理系统',
+      type: 'group',
+    },
+    {
+      key: 'training-data-management',
+      icon: <DatabaseOutlined />,
+      label: '训练数据管理',
+      children: [
+        {
+          key: 'training-data-management',
+          icon: <DatabaseOutlined />,
+          label: '数据管理中心',
+        },
+        {
+          key: 'data-collection',
+          icon: <ImportOutlined />,
+          label: '数据采集',
+        },
+        {
+          key: 'data-preprocessing',
+          icon: <BuildOutlined />,
+          label: '数据预处理',
+        },
+        {
+          key: 'data-annotation-management',
+          icon: <EditOutlined />,
+          label: '数据标注管理',
+        },
+        {
+          key: 'annotation-tasks',
+          icon: <ProjectOutlined />,
+          label: '标注任务',
+        },
+        {
+          key: 'annotation-quality-control',
+          icon: <SafetyCertificateOutlined />,
+          label: '标注质量控制',
+        },
+        {
+          key: 'data-version-management',
+          icon: <BranchesOutlined />,
+          label: '数据版本管理',
+        },
+        {
+          key: 'data-source-management',
+          icon: <GlobalOutlined />,
+          label: '数据源管理',
+        },
+      ],
+    },
+
     // 🔬 开发与测试
     {
       key: 'dev-test-group',
@@ -1316,13 +2493,14 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
           icon: <CodeOutlined />,
           label: '测试套件',
         },
+        {
+          key: 'structured-error',
+          icon: <ExceptionOutlined />,
+          label: '结构化错误',
+        },
       ],
     },
-    {
-      key: 'structured-error',
-      icon: <ExceptionOutlined />,
-      label: '结构化错误处理',
-    },
+
   ]
 
   const handleNavigation = ({ key }: { key: string }) => {
@@ -1332,13 +2510,53 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
       case 'multi-agent': navigate('/multi-agent'); break;
       case 'supervisor': navigate('/supervisor'); break;
       case 'async-agents': navigate('/async-agents'); break;
-      case 'agent-interface': navigate('/agent-interface'); break;
+      case 'service-discovery-test': navigate('/service-discovery-overview'); break;
+      
+      // 智能代理服务发现系统 (Story 10.1)
+      case 'service-discovery-overview': navigate('/service-discovery-overview'); break;
+      case 'agent-registry-management': navigate('/agent-registry'); break;
+      case 'service-routing-management': navigate('/service-routing'); break;
+      case 'load-balancer-config': navigate('/load-balancer-config'); break;
+      case 'service-health-monitor': navigate('/service-health-monitor'); break;
+      case 'service-cluster-management': navigate('/service-cluster-management'); break;
+      case 'service-performance-dashboard': navigate('/service-performance-dashboard'); break;
+      case 'service-config-management': navigate('/service-config-management'); break;
+      case 'intelligent-agent-service-discovery-system': navigate('/service-discovery-overview'); break;
+      
+      // 分布式消息通信框架 (Story 10.2)
+      case 'distributed-message-overview': navigate('/distributed-message-overview'); break;
+      case 'nats-cluster-management': navigate('/nats-cluster-management'); break;
+      case 'basic-message-communication': navigate('/basic-message-communication'); break;
+      case 'acl-protocol-management': navigate('/acl-protocol-management'); break;
+      case 'request-response-mechanism': navigate('/request-response-mechanism'); break;
+      case 'message-reliability-management': navigate('/message-reliability-management'); break;
+      case 'advanced-communication-patterns': navigate('/advanced-communication-patterns'); break;
+      case 'monitoring-performance-optimization': navigate('/monitoring-performance-optimization'); break;
+      
+      // 故障容错和恢复系统 (Story 10.5)
+      case 'fault-tolerance-overview': navigate('/fault-tolerance-overview'); break;
+      case 'fault-detection': navigate('/fault-detection'); break;
+      case 'recovery-management': navigate('/recovery-management'); break;
+      case 'backup-management': navigate('/backup-management'); break;
+      case 'consistency-management': navigate('/consistency-management'); break;
+      case 'system-monitoring': navigate('/system-monitoring'); break;
+      case 'fault-testing': navigate('/fault-testing'); break;
       
       // 智能检索引擎
       case 'rag': navigate('/rag'); break;
       case 'agentic-rag': navigate('/agentic-rag'); break;
       case 'hybrid-search-advanced': navigate('/hybrid-search-advanced'); break;
       case 'multimodal-rag': navigate('/multimodal-rag'); break;
+      
+      // 动态知识图谱存储系统 (Story 8.2)
+      case 'kg-entity-management': navigate('/kg-entity-management'); break;
+      case 'kg-relation-management': navigate('/kg-relation-management'); break;
+      case 'kg-graph-query': navigate('/kg-graph-query'); break;
+      case 'kg-incremental-update': navigate('/kg-incremental-update'); break;
+      case 'kg-quality-assessment': navigate('/kg-quality-assessment'); break;
+      case 'kg-performance-monitor': navigate('/kg-performance-monitor'); break;
+      case 'kg-schema-management': navigate('/kg-schema-management'); break;
+      case 'kg-data-migration': navigate('/kg-data-migration'); break;
       
       // 推理引擎
       case 'reasoning': navigate('/reasoning'); break;
@@ -1354,6 +2572,40 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
       case 'personalization-features': navigate('/personalization-features'); break;
       case 'personalization-learning': navigate('/personalization-learning'); break;
       case 'personalization-api': navigate('/personalization-api'); break;
+      case 'personalization-alerts': navigate('/personalization-alerts'); break;
+      case 'personalization-production': navigate('/personalization-production'); break;
+      case 'personalization-websocket': navigate('/personalization-websocket'); break;
+      
+      // 高级情感智能系统
+      case 'emotion-recognition-overview': navigate('/emotion-recognition-overview'); break;
+      case 'text-emotion-analysis': navigate('/text-emotion-analysis'); break;
+      case 'audio-emotion-recognition': navigate('/audio-emotion-recognition'); break;
+      case 'visual-emotion-analysis': navigate('/visual-emotion-analysis'); break;
+      case 'multimodal-emotion-fusion': navigate('/multimodal-emotion-fusion'); break;
+      case 'emotion-modeling': navigate('/emotion-modeling'); break;
+      
+      // 情感记忆管理系统
+      case 'emotional-memory-management': navigate('/emotional-memory-management'); break;
+      case 'emotional-event-analysis': navigate('/emotional-event-analysis'); break;
+      case 'emotional-preference-learning': navigate('/emotional-preference-learning'); break;
+      case 'emotional-trigger-patterns': navigate('/emotional-trigger-patterns'); break;
+      case 'emotional-memory-retrieval': navigate('/emotional-memory-retrieval'); break;
+      
+      // 社交情感理解系统 (Story 11.6)
+      case 'social-emotion-system': navigate('/social-emotion-system'); break;
+      case 'emotion-flow-analysis': navigate('/emotion-flow-analysis'); break;
+      case 'social-network-emotion-map': navigate('/social-network-emotion-map'); break;
+      case 'cultural-context-analysis': navigate('/cultural-context-analysis'); break;
+      case 'social-intelligence-decision': navigate('/social-intelligence-decision'); break;
+      case 'privacy-ethics': navigate('/privacy-ethics'); break;
+      
+      // 情感智能决策引擎 (Story 11.5)
+      case 'emotional-intelligence-decision-engine': navigate('/emotional-intelligence-decision-engine'); break;
+      case 'emotional-risk-assessment-dashboard': navigate('/emotional-risk-assessment-dashboard'); break;
+      case 'crisis-detection-support': navigate('/crisis-detection-support'); break;
+      case 'intervention-strategy-management': navigate('/intervention-strategy-management'); break;
+      case 'emotional-health-monitoring-dashboard': navigate('/emotional-health-monitoring-dashboard'); break;
+      case 'decision-history-analysis': navigate('/decision-history-analysis'); break;
       
       // 强化学习系统
       case 'qlearning': navigate('/qlearning'); break;
@@ -1434,6 +2686,74 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
       case 'item-feedback-analysis': navigate('/item-feedback-analysis'); break;
       case 'feedback-quality-monitor': navigate('/feedback-quality-monitor'); break;
       
+      // 模型服务部署平台 (Story 9.6)
+      case 'model-registry': navigate('/model-registry'); break;
+      case 'model-inference': navigate('/model-inference'); break;
+      case 'model-deployment': navigate('/model-deployment'); break;
+      case 'model-monitoring': navigate('/model-monitoring'); break;
+      case 'online-learning': navigate('/online-learning'); break;
+      
+      // 模型评估和基准测试系统 (Story 9.4)
+      case 'model-evaluation-overview': navigate('/model-evaluation-overview'); break;
+      case 'model-performance-benchmark': navigate('/model-performance-benchmark'); break;
+      case 'evaluation-engine-management': navigate('/evaluation-engine-management'); break;
+      case 'benchmark-suite-management': navigate('/benchmark-suite-management'); break;
+      case 'evaluation-tasks-monitor': navigate('/evaluation-tasks-monitor'); break;
+      case 'evaluation-reports-center': navigate('/evaluation-reports-center'); break;
+      case 'evaluation-api-management': navigate('/evaluation-api-management'); break;
+      case 'model-comparison-dashboard': navigate('/model-comparison-dashboard'); break;
+      case 'benchmark-glue-management': navigate('/benchmark-glue-management'); break;
+      case 'benchmark-superglue-management': navigate('/benchmark-superglue-management'); break;
+      case 'benchmark-mmlu-management': navigate('/benchmark-mmlu-management'); break;
+      case 'benchmark-humaneval-management': navigate('/benchmark-humaneval-management'); break;
+      case 'benchmark-hellaswag-management': navigate('/benchmark-hellaswag-management'); break;
+      case 'benchmark-custom-management': navigate('/benchmark-custom-management'); break;
+      case 'evaluation-metrics-config': navigate('/evaluation-metrics-config'); break;
+      case 'evaluation-performance-monitor': navigate('/evaluation-performance-monitor'); break;
+      case 'evaluation-batch-processing': navigate('/evaluation-batch-processing'); break;
+      case 'evaluation-regression-detection': navigate('/evaluation-regression-detection'); break;
+      case 'evaluation-quality-assurance': navigate('/evaluation-quality-assurance'); break;
+      case 'evaluation-automation-pipeline': navigate('/evaluation-automation-pipeline'); break;
+      case 'evaluation-alerts-management': navigate('/evaluation-alerts-management'); break;
+      case 'evaluation-data-management': navigate('/evaluation-data-management'); break;
+      case 'evaluation-resource-monitor': navigate('/evaluation-resource-monitor'); break;
+      case 'evaluation-job-scheduler': navigate('/evaluation-job-scheduler'); break;
+      case 'evaluation-results-analysis': navigate('/evaluation-results-analysis'); break;
+      case 'evaluation-export-import': navigate('/evaluation-export-import'); break;
+      case 'evaluation-version-control': navigate('/evaluation-version-control'); break;
+      case 'evaluation-compliance-audit': navigate('/evaluation-compliance-audit'); break;
+      case 'evaluation-security-management': navigate('/evaluation-security-management'); break;
+      
+      // 模型压缩和量化工具
+      case 'model-compression-overview': navigate('/model-compression-overview'); break;
+      case 'quantization-manager': navigate('/quantization-manager'); break;
+      case 'quantization-ptq': navigate('/quantization-ptq'); break;
+      case 'quantization-qat': navigate('/quantization-qat'); break;
+      case 'quantization-advanced': navigate('/quantization-advanced'); break;
+      case 'quantization-config': navigate('/quantization-config'); break;
+      case 'knowledge-distillation': navigate('/knowledge-distillation'); break;
+      case 'distillation-trainer': navigate('/distillation-trainer'); break;
+      case 'distillation-strategies': navigate('/distillation-strategies'); break;
+      case 'distillation-monitor': navigate('/distillation-monitor'); break;
+      case 'model-pruning': navigate('/model-pruning'); break;
+      case 'pruning-structured': navigate('/pruning-structured'); break;
+      case 'pruning-unstructured': navigate('/pruning-unstructured'); break;
+      case 'pruning-strategies': navigate('/pruning-strategies'); break;
+      case 'compression-pipeline': navigate('/compression-pipeline'); break;
+      case 'compression-jobs': navigate('/compression-jobs'); break;
+      case 'compression-monitor': navigate('/compression-monitor'); break;
+      case 'compression-scheduler': navigate('/compression-scheduler'); break;
+      case 'compression-evaluator': navigate('/compression-evaluator'); break;
+      case 'model-comparison': navigate('/model-comparison'); break;
+      case 'performance-analysis': navigate('/performance-analysis'); break;
+      case 'compression-reports': navigate('/compression-reports'); break;
+      case 'hardware-benchmark': navigate('/hardware-benchmark'); break;
+      case 'inference-optimization': navigate('/inference-optimization'); break;
+      case 'deployment-optimization': navigate('/deployment-optimization'); break;
+      case 'strategy-recommendation': navigate('/strategy-recommendation'); break;
+      case 'compression-templates': navigate('/compression-templates'); break;
+      case 'model-registry-compression': navigate('/model-registry-compression'); break;
+      
       // 记忆管理系统
       case 'memory-hierarchy': navigate('/memory-hierarchy'); break;
       case 'memory-recall': navigate('/memory-recall'); break;
@@ -1492,6 +2812,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
       
       // 数据存储
       case 'pgvector': navigate('/pgvector'); break;
+      case 'pgvector-quantization': navigate('/pgvector'); break;
       case 'vector-advanced': navigate('/vector-advanced'); break;
       case 'vector-advanced-simple': navigate('/vector-advanced-simple'); break;
       case 'vector-advanced-test': navigate('/vector-advanced-test'); break;
@@ -1509,6 +2830,40 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
       case 'test-coverage': navigate('/test-coverage'); break;
       case 'integration-test': navigate('/integration-test'); break;
       case 'testing-suite': navigate('/testing-suite'); break;
+      
+      // LoRA/QLoRA细粒度调优框架 (Story 9.1)
+      case 'fine-tuning-jobs': navigate('/fine-tuning-jobs'); break;
+      case 'fine-tuning-config': navigate('/fine-tuning-config'); break;
+      case 'fine-tuning-monitor': navigate('/fine-tuning-monitor'); break;
+      case 'fine-tuning-models': navigate('/fine-tuning-models'); break;
+      case 'fine-tuning-datasets': navigate('/fine-tuning-datasets'); break;
+      case 'fine-tuning-checkpoints': navigate('/fine-tuning-checkpoints'); break;
+      case 'lora-training': navigate('/lora-training'); break;
+      case 'qlora-training': navigate('/qlora-training'); break;
+      case 'distributed-training': navigate('/distributed-training'); break;
+      case 'model-adapters': navigate('/model-adapters'); break;
+      case 'training-monitor-dashboard': navigate('/training-monitor-dashboard'); break;
+      case 'model-performance-comparison': navigate('/model-performance-comparison'); break;
+      
+      // 自动超参数优化系统 (Story 9.3)
+      case 'hyperparameter-optimization': navigate('/hyperparameter-optimization'); break;
+      case 'hyperparameter-experiments': navigate('/hyperparameter-experiments'); break;
+      case 'hyperparameter-algorithms': navigate('/hyperparameter-algorithms'); break;
+      case 'hyperparameter-monitoring': navigate('/hyperparameter-monitoring'); break;
+      case 'hyperparameter-reports': navigate('/hyperparameter-reports'); break;
+      case 'hyperparameter-resources': navigate('/hyperparameter-resources'); break;
+      case 'hyperparameter-scheduler': navigate('/hyperparameter-scheduler'); break;
+      case 'hyperparameter-visualizations': navigate('/hyperparameter-visualizations'); break;
+      
+      // 训练数据管理系统 (Story 9.5)
+      case 'training-data-management': navigate('/training-data-management'); break;
+      case 'data-collection': navigate('/data-collection'); break;
+      case 'data-preprocessing': navigate('/data-preprocessing'); break;
+      case 'data-annotation-management': navigate('/data-annotation-management'); break;
+      case 'annotation-tasks': navigate('/annotation-tasks'); break;
+      case 'annotation-quality-control': navigate('/annotation-quality-control'); break;
+      case 'data-version-management': navigate('/data-version-management'); break;
+      case 'data-source-management': navigate('/data-source-management'); break;
     }
   }
 

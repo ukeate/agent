@@ -10,7 +10,8 @@ from enum import Enum
 from dataclasses import dataclass, field
 import asyncio
 import logging
-from datetime import datetime, timezone
+from datetime import datetime
+from src.core.utils.timezone_utils import utc_now, utc_factory, timezone
 import json
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -551,7 +552,7 @@ class VectorClusteringEngine:
                     float(result.silhouette_score),
                     float(result.davies_bouldin_score),
                     json.dumps(result.metadata),
-                    datetime.now(timezone.utc)
+                    utc_now()
                 )
             )
             
@@ -598,7 +599,7 @@ class VectorClusteringEngine:
                     float(result.contamination_rate),
                     float(result.threshold),
                     json.dumps(result.metadata),
-                    datetime.now(timezone.utc)
+                    utc_now()
                 )
             )
             

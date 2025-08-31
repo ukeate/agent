@@ -4,6 +4,7 @@
 """
 from typing import Any, Dict, List, Optional
 from datetime import datetime
+from src.core.utils.timezone_utils import utc_now, utc_factory
 import uuid
 import asyncio
 
@@ -67,7 +68,7 @@ class WorkflowService:
                 "workflow_type": workflow_data.workflow_type,
                 "definition": workflow_data.definition or {},
                 "status": "created",
-                "created_at": datetime.now()
+                "created_at": utc_now()
             })
             
             # 创建初始检查点
@@ -83,7 +84,7 @@ class WorkflowService:
                 description=workflow_data.description,
                 workflow_type=workflow_data.workflow_type,
                 status="created",
-                created_at=datetime.now()
+                created_at=utc_now()
             )
             
         except Exception as e:
@@ -121,12 +122,12 @@ class WorkflowService:
                 initial_state["messages"].append({
                     "role": "user",
                     "content": f"工作流输入: {input_data}",
-                    "timestamp": datetime.now().isoformat()
+                    "timestamp": utc_now().isoformat()
                 })
             
             # 更新状态为运行中
             initial_state["metadata"]["status"] = "running"
-            initial_state["metadata"]["started_at"] = datetime.now().isoformat()
+            initial_state["metadata"]["started_at"] = utc_now().isoformat()
             
             # 异步执行工作流
             asyncio.create_task(self._execute_workflow(workflow_id, builder, initial_state))
@@ -134,7 +135,7 @@ class WorkflowService:
             # 更新数据库状态
             await self.repository.update_workflow(workflow_id, {
                 "status": "running",
-                "started_at": datetime.now()
+                "started_at": utc_now()
             })
             
             return WorkflowResponse(
@@ -158,7 +159,7 @@ class WorkflowService:
             # 更新数据库状态
             await self.repository.update_workflow(workflow_id, {
                 "status": "completed",
-                "completed_at": datetime.now()
+                "completed_at": utc_now()
             })
             
             # 创建完成检查点
@@ -173,7 +174,7 @@ class WorkflowService:
             await self.repository.update_workflow(workflow_id, {
                 "status": "failed",
                 "error_message": str(e),
-                "failed_at": datetime.now()
+                "failed_at": utc_now()
             })
     
     async def get_workflow_status(self, workflow_id: str) -> WorkflowResponse:
@@ -215,7 +216,7 @@ class WorkflowService:
             if success:
                 await self.repository.update_workflow(workflow_id, {
                     "status": "paused",
-                    "paused_at": datetime.now()
+                    "paused_at": utc_now()
                 })
             
             return success
@@ -247,7 +248,7 @@ class WorkflowService:
             if result:
                 await self.repository.update_workflow(workflow_id, {
                     "status": "running",
-                    "resumed_at": datetime.now()
+                    "resumed_at": utc_now()
                 })
                 return True
             
@@ -269,7 +270,7 @@ class WorkflowService:
             if success:
                 await self.repository.update_workflow(workflow_id, {
                     "status": "cancelled",
-                    "cancelled_at": datetime.now()
+                    "cancelled_at": utc_now()
                 })
                 
                 # 从活跃工作流中移除

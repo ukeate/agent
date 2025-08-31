@@ -3,7 +3,9 @@
 
 实现多种异常检测算法用于实验监控
 """
-from datetime import datetime, timedelta
+from datetime import datetime
+from datetime import timedelta
+from src.core.utils.timezone_utils import utc_now, utc_factory
 from typing import Dict, List, Any, Optional, Tuple
 from enum import Enum
 import numpy as np
@@ -13,8 +15,8 @@ import asyncio
 from collections import deque
 import json
 
-from ..core.database import async_session_manager
-from ..core.config import settings
+from ..core.database import get_db_session
+from ..core.config import get_settings
 
 
 class AnomalyType(str, Enum):
@@ -199,7 +201,7 @@ class AnomalyDetectionService:
             )
             
             anomalies.append(Anomaly(
-                timestamp=timestamps[idx] if timestamps else datetime.utcnow(),
+                timestamp=timestamps[idx] if timestamps else utc_now(),
                 type=anomaly_type,
                 severity=self._calculate_severity(z_scores[idx], method=DetectionMethod.Z_SCORE),
                 metric_name=metric_name,
@@ -253,7 +255,7 @@ class AnomalyDetectionService:
                 )
                 
                 anomalies.append(Anomaly(
-                    timestamp=timestamps[idx] if timestamps else datetime.utcnow(),
+                    timestamp=timestamps[idx] if timestamps else utc_now(),
                     type=anomaly_type,
                     severity=self._calculate_severity(deviation, method=DetectionMethod.IQR),
                     metric_name=metric_name,
@@ -307,7 +309,7 @@ class AnomalyDetectionService:
                     AnomalyType.METRIC_SPIKE if value > ucl else AnomalyType.METRIC_DROP
                 )
                 anomalies.append(self._create_anomaly(
-                    timestamp=timestamps[idx] if timestamps else datetime.utcnow(),
+                    timestamp=timestamps[idx] if timestamps else utc_now(),
                     type=anomaly_type,
                     metric_name=metric_name,
                     experiment_id=experiment_id,
@@ -324,7 +326,7 @@ class AnomalyDetectionService:
                 consecutive_below_lwl = 0
                 if consecutive_above_uwl >= 2:
                     anomalies.append(self._create_anomaly(
-                        timestamp=timestamps[idx] if timestamps else datetime.utcnow(),
+                        timestamp=timestamps[idx] if timestamps else utc_now(),
                         type=AnomalyType.TREND_CHANGE,
                         metric_name=metric_name,
                         experiment_id=experiment_id,
@@ -339,7 +341,7 @@ class AnomalyDetectionService:
                 consecutive_above_uwl = 0
                 if consecutive_below_lwl >= 2:
                     anomalies.append(self._create_anomaly(
-                        timestamp=timestamps[idx] if timestamps else datetime.utcnow(),
+                        timestamp=timestamps[idx] if timestamps else utc_now(),
                         type=AnomalyType.TREND_CHANGE,
                         metric_name=metric_name,
                         experiment_id=experiment_id,
@@ -368,7 +370,7 @@ class AnomalyDetectionService:
                         
                 if abs(consecutive_trend) >= 7:
                     anomalies.append(self._create_anomaly(
-                        timestamp=timestamps[idx] if timestamps else datetime.utcnow(),
+                        timestamp=timestamps[idx] if timestamps else utc_now(),
                         type=AnomalyType.TREND_CHANGE,
                         metric_name=metric_name,
                         experiment_id=experiment_id,
@@ -415,7 +417,7 @@ class AnomalyDetectionService:
             # 检测异常
             if cusum_pos[i] > h:
                 anomalies.append(Anomaly(
-                    timestamp=timestamps[i] if timestamps else datetime.utcnow(),
+                    timestamp=timestamps[i] if timestamps else utc_now(),
                     type=AnomalyType.METRIC_SPIKE,
                     severity="high",
                     metric_name=metric_name,
@@ -433,7 +435,7 @@ class AnomalyDetectionService:
                 
             if cusum_neg[i] > h:
                 anomalies.append(Anomaly(
-                    timestamp=timestamps[i] if timestamps else datetime.utcnow(),
+                    timestamp=timestamps[i] if timestamps else utc_now(),
                     type=AnomalyType.METRIC_DROP,
                     severity="high",
                     metric_name=metric_name,
@@ -494,7 +496,7 @@ class AnomalyDetectionService:
                 )
                 
                 anomalies.append(Anomaly(
-                    timestamp=timestamps[i] if timestamps else datetime.utcnow(),
+                    timestamp=timestamps[i] if timestamps else utc_now(),
                     type=anomaly_type,
                     severity="medium",
                     metric_name=metric_name,
@@ -599,7 +601,7 @@ class AnomalyDetectionService:
                 
                 if abs(change_rate) > 0.2:  # 20%的变化
                     anomalies.append(Anomaly(
-                        timestamp=timestamps[i] if timestamps else datetime.utcnow(),
+                        timestamp=timestamps[i] if timestamps else utc_now(),
                         type=AnomalyType.TREND_CHANGE,
                         severity="medium" if abs(change_rate) < 0.5 else "high",
                         metric_name=metric_name,
@@ -664,7 +666,7 @@ class AnomalyDetectionService:
         
         if p_value < 0.01:  # 严格的阈值
             return Anomaly(
-                timestamp=datetime.utcnow(),
+                timestamp=utc_now(),
                 type=AnomalyType.SAMPLE_RATIO_MISMATCH,
                 severity="critical",
                 metric_name="sample_ratio",
@@ -697,7 +699,7 @@ class AnomalyDetectionService:
         missing_rate = data.get("missing_rate", 0)
         if missing_rate > 0.05:  # 5%以上缺失
             anomalies.append(Anomaly(
-                timestamp=datetime.utcnow(),
+                timestamp=utc_now(),
                 type=AnomalyType.DATA_QUALITY,
                 severity="medium" if missing_rate < 0.1 else "high",
                 metric_name="data_quality",
@@ -716,7 +718,7 @@ class AnomalyDetectionService:
         duplicate_rate = data.get("duplicate_rate", 0)
         if duplicate_rate > 0.01:  # 1%以上重复
             anomalies.append(Anomaly(
-                timestamp=datetime.utcnow(),
+                timestamp=utc_now(),
                 type=AnomalyType.DATA_QUALITY,
                 severity="low" if duplicate_rate < 0.05 else "medium",
                 metric_name="data_quality",

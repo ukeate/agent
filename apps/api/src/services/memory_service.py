@@ -1,6 +1,7 @@
 """记忆管理服务层"""
 from typing import List, Optional, Dict, Any, Tuple
 from datetime import datetime
+from src.core.utils.timezone_utils import utc_now, utc_factory
 import logging
 
 from src.ai.memory.models import (
@@ -66,7 +67,7 @@ class MemoryService:
         # 添加到关联图
         self.association_graph.add_memory_node(memory)
         
-        logger.info(f"创建记忆: {memory.id} ({memory_type.value})")
+        logger.info(f"创建记忆: {memory.id} ({memory_type.value if hasattr(memory_type, 'value') else str(memory_type)})")
         return memory
         
     async def get_memory(self, memory_id: str) -> Optional[Memory]:
@@ -209,7 +210,7 @@ class MemoryService:
         avg_memory_size = 1024  # 假设平均每个记忆1KB
         storage_usage_mb = (total_memories * avg_memory_size) / (1024 * 1024)
         
-        from ai.memory.models import MemoryResponse
+        from src.ai.memory.models import MemoryResponse
         
         return MemoryAnalytics(
             total_memories=total_memories,
@@ -358,7 +359,7 @@ class MemoryService:
         """清理旧记忆"""
         await self.initialize()
         
-        cutoff_date = datetime.utcnow() - timedelta(days=days_old)
+        cutoff_date = utc_now() - timedelta(days=days_old)
         
         filters = MemoryFilters(
             created_before=cutoff_date,

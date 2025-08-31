@@ -3,7 +3,8 @@
 """
 
 import asyncio
-from datetime import datetime, timezone
+from datetime import datetime
+from src.core.utils.timezone_utils import utc_now, utc_factory, timezone
 from typing import Dict, Any, Optional, List
 from dataclasses import dataclass
 import structlog
@@ -82,7 +83,7 @@ class ProcessingPipeline:
             content=content,
             options=options,
             priority=priority,
-            submitted_at=datetime.now(timezone.utc)
+            submitted_at=utc_now()
         )
         
         # 根据优先级插入队列
@@ -239,7 +240,7 @@ class ProcessingPipeline:
         """添加任务到优先级队列"""
         # 简单的优先级队列实现
         self.priority_queue.append(task)
-        self.priority_queue.sort(key=lambda x: (-x.priority, x.submitted_at or datetime.now()))
+        self.priority_queue.sort(key=lambda x: (-x.priority, x.submitted_at or utc_now()))
         
         # 通知有新任务
         await self.processing_queue.put(None)

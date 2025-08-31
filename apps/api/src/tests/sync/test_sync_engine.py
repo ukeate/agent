@@ -5,7 +5,9 @@
 import pytest
 import tempfile
 import asyncio
-from datetime import datetime, timedelta
+from datetime import datetime
+from datetime import timedelta
+from src.core.utils.timezone_utils import utc_now, utc_factory
 from uuid import uuid4
 
 from ...sync.sync_engine import (
@@ -53,7 +55,7 @@ class TestSyncEngine:
                 object_id=f"obj_{i}",
                 object_type="test_object",
                 data={"value": i},
-                client_timestamp=datetime.utcnow(),
+                client_timestamp=utc_now(),
                 vector_clock=VectorClock(node_id=session_id)
             )
             sync_engine.database.add_operation(operation)
@@ -93,7 +95,7 @@ class TestSyncEngine:
                 object_id=f"upload_obj_{i}",
                 object_type="upload_object",
                 data={"name": f"Object {i}", "value": i * 10},
-                client_timestamp=datetime.utcnow(),
+                client_timestamp=utc_now(),
                 vector_clock=VectorClock(node_id=session_id)
             )
             sync_engine.database.add_operation(operation)
@@ -152,7 +154,7 @@ class TestSyncEngine:
             object_id="bidirectional_obj",
             object_type="bidirectional_object",
             data={"status": "local_update"},
-            client_timestamp=datetime.utcnow(),
+            client_timestamp=utc_now(),
             vector_clock=VectorClock(node_id=session_id)
         )
         sync_engine.database.add_operation(operation)
@@ -257,7 +259,7 @@ class TestSyncEngine:
                 object_id="user1",
                 object_type="user",
                 data={},
-                client_timestamp=datetime.utcnow() - timedelta(hours=2),
+                client_timestamp=utc_now() - timedelta(hours=2),
                 vector_clock=VectorClock(node_id="test")
             ),
             SyncOperation(
@@ -268,7 +270,7 @@ class TestSyncEngine:
                 object_id="post1",
                 object_type="post",
                 data={},
-                client_timestamp=datetime.utcnow() - timedelta(hours=1),
+                client_timestamp=utc_now() - timedelta(hours=1),
                 vector_clock=VectorClock(node_id="test")
             ),
             SyncOperation(
@@ -279,7 +281,7 @@ class TestSyncEngine:
                 object_id="user2",
                 object_type="user",
                 data={},
-                client_timestamp=datetime.utcnow(),
+                client_timestamp=utc_now(),
                 vector_clock=VectorClock(node_id="test")
             )
         ]
@@ -297,7 +299,7 @@ class TestSyncEngine:
         assert all(op.operation_type in [SyncOperationType.PUT, SyncOperationType.DELETE] for op in filtered)
         
         # 测试按时间过滤
-        from_time = datetime.utcnow() - timedelta(hours=1, minutes=30)
+        from_time = utc_now() - timedelta(hours=1, minutes=30)
         filter_criteria = {"from_time": from_time}
         filtered = sync_engine._filter_operations(operations, filter_criteria)
         assert len(filtered) == 2
@@ -345,7 +347,7 @@ class TestSyncEngine:
         sync_engine.total_synced_operations = 100
         sync_engine.total_failed_operations = 10
         sync_engine.total_conflicts_resolved = 5
-        sync_engine.last_sync_time = datetime.utcnow()
+        sync_engine.last_sync_time = utc_now()
         
         # 添加一些任务到队列
         for i in range(3):
@@ -686,7 +688,7 @@ class TestDeltaCalculator:
                 object_id=f"obj_{i}",
                 object_type="test_object",
                 data={"value": i, "description": f"Object {i}" * 50},
-                client_timestamp=datetime.utcnow(),
+                client_timestamp=utc_now(),
                 vector_clock=VectorClock(node_id="test")
             )
             operations.append(operation)

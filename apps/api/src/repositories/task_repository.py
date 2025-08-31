@@ -6,7 +6,9 @@
 from typing import List, Optional, Dict, Any
 from sqlalchemy import select, and_, or_, desc, asc
 from sqlalchemy.ext.asyncio import AsyncSession
-from datetime import datetime, timedelta
+from datetime import datetime
+from datetime import timedelta
+from src.core.utils.timezone_utils import utc_now, utc_factory
 import logging
 
 from .base import BaseRepository
@@ -131,7 +133,7 @@ class TaskRepository(BaseRepository[Task, str]):
         try:
             updates = {
                 'status': status,
-                'updated_at': datetime.utcnow()
+                'updated_at': utc_now()
             }
             
             if output_data is not None:
@@ -156,7 +158,7 @@ class TaskRepository(BaseRepository[Task, str]):
     async def get_overdue_tasks(self, hours: int = 24) -> List[Task]:
         """获取超时任务"""
         try:
-            cutoff_time = datetime.utcnow() - timedelta(hours=hours)
+            cutoff_time = utc_now() - timedelta(hours=hours)
             
             result = await self.session.execute(
                 select(self.model_class)
@@ -288,7 +290,7 @@ class TaskRepository(BaseRepository[Task, str]):
             updated_task = await self.update(task_id, {
                 'agent_id': agent_id,
                 'status': 'pending',
-                'updated_at': datetime.utcnow()
+                'updated_at': utc_now()
             })
             
             success = updated_task is not None

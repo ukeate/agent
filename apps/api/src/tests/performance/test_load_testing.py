@@ -8,6 +8,7 @@ import random
 import statistics
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
+from src.core.utils.timezone_utils import utc_now, utc_factory
 import aiohttp
 import numpy as np
 from typing import List, Dict, Any
@@ -194,7 +195,7 @@ class TestLoadPerformance:
                         "event_type": random.choice(["view", "click", "conversion"]),
                         "properties": {
                             "value": random.random() * 100,
-                            "timestamp": datetime.now().isoformat()
+                            "timestamp": utc_now().isoformat()
                         }
                     }
                     for _ in range(10)  # 每个批次10个事件

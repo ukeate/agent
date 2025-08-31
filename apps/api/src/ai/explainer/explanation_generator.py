@@ -4,7 +4,8 @@
 """
 
 import json
-from datetime import datetime, timezone
+from datetime import datetime
+from src.core.utils.timezone_utils import utc_now, utc_factory, timezone
 from typing import Any, Dict, List, Optional, Union, Tuple
 from uuid import uuid4
 
@@ -14,7 +15,7 @@ from src.ai.explainer.confidence_calculator import ConfidenceCalculator
 from src.ai.explainer.models import ExplanationTemplate
 from src.ai.explainer.cot_reasoning_explainer import CoTReasoningExplainer
 from src.ai.explainer.workflow_explainer import WorkflowExplainer
-from models.schemas.explanation import (
+from src.models.schemas.explanation import (
     DecisionExplanation,
     ExplanationComponent,
     ExplanationLevel,
@@ -85,7 +86,7 @@ class ExplanationGenerator:
         """生成决策解释"""
         
         explanation_id = uuid4()
-        generation_start = datetime.now(timezone.utc)
+        generation_start = utc_now()
         
         try:
             # 如果启用CoT推理，使用CoT解释器
@@ -102,7 +103,7 @@ class ExplanationGenerator:
                     "reasoning_chain_id": reasoning_chain.chain_id,
                     "generation_style": style,
                     "generation_time_ms": int(
-                        (datetime.now(timezone.utc) - generation_start).total_seconds() * 1000
+                        (utc_now() - generation_start).total_seconds() * 1000
                     )
                 })
                 
@@ -161,7 +162,7 @@ class ExplanationGenerator:
                 metadata={
                     "generation_style": style,
                     "generation_time_ms": int(
-                        (datetime.now(timezone.utc) - generation_start).total_seconds() * 1000
+                        (utc_now() - generation_start).total_seconds() * 1000
                     ),
                     "model_version": self.generation_config["model"],
                     "decision_path_length": len(decision_path),
@@ -721,7 +722,7 @@ class ExplanationGenerator:
                 "reasoning_mode": reasoning_mode,
                 "reasoning_chain_id": reasoning_chain.chain_id,
                 "reasoning_steps": len(reasoning_chain.steps),
-                "enhancement_timestamp": datetime.now(timezone.utc).isoformat()
+                "enhancement_timestamp": utc_now().isoformat()
             })
             
             return enhanced_explanation
@@ -815,7 +816,7 @@ class ExplanationGenerator:
                 "comprehensive_explanation": True,
                 "included_cot_reasoning": include_cot_reasoning,
                 "included_workflow_analysis": workflow_execution is not None,
-                "generation_timestamp": datetime.now(timezone.utc).isoformat()
+                "generation_timestamp": utc_now().isoformat()
             })
             
             return base_explanation

@@ -7,6 +7,7 @@ from fastapi.responses import StreamingResponse
 from typing import Dict, Any, List, Optional, Literal
 from pydantic import BaseModel
 from datetime import datetime
+from src.core.utils.timezone_utils import utc_now, utc_factory
 import asyncio
 import json
 
@@ -77,7 +78,7 @@ class WorkflowResponse(BaseModel):
 @router.post("/context-api/demo", response_model=WorkflowResponse)
 async def demo_context_api(request: ContextAPIRequest):
     """演示新Context API vs 旧config模式"""
-    start_time = datetime.now()
+    start_time = utc_now()
     
     try:
         # 创建工作流构建器
@@ -90,7 +91,7 @@ async def demo_context_api(request: ContextAPIRequest):
             state["messages"].append({
                 "role": "assistant",
                 "content": f"使用{api_type}处理消息。用户: {user_info}。消息: {request.message}",
-                "timestamp": datetime.now().isoformat(),
+                "timestamp": utc_now().isoformat(),
                 "metadata": {
                     "api_type": api_type,
                     "context_available": context is not None
@@ -112,7 +113,7 @@ async def demo_context_api(request: ContextAPIRequest):
         # 准备执行状态和上下文
         initial_state = create_initial_state()
         initial_state["messages"] = [
-            {"role": "user", "content": request.message, "timestamp": datetime.now().isoformat()}
+            {"role": "user", "content": request.message, "timestamp": utc_now().isoformat()}
         ]
         
         if request.use_new_api:
@@ -136,7 +137,7 @@ async def demo_context_api(request: ContextAPIRequest):
             }
             result = await builder.execute(initial_state, config=config)
         
-        execution_time = (datetime.now() - start_time).total_seconds() * 1000
+        execution_time = (utc_now() - start_time).total_seconds() * 1000
         
         return WorkflowResponse(
             success=True,
@@ -149,7 +150,7 @@ async def demo_context_api(request: ContextAPIRequest):
         )
         
     except Exception as e:
-        execution_time = (datetime.now() - start_time).total_seconds() * 1000
+        execution_time = (utc_now() - start_time).total_seconds() * 1000
         raise HTTPException(
             status_code=500,
             detail=f"Context API演示失败: {str(e)}"
@@ -160,7 +161,7 @@ async def demo_context_api(request: ContextAPIRequest):
 @router.post("/durability/demo", response_model=WorkflowResponse)
 async def demo_durability_control(request: DurabilityRequest):
     """演示durability参数控制"""
-    start_time = datetime.now()
+    start_time = utc_now()
     
     try:
         builder = LangGraphWorkflowBuilder(use_context_api=True)
@@ -169,7 +170,7 @@ async def demo_durability_control(request: DurabilityRequest):
             state["messages"].append({
                 "role": "assistant",
                 "content": f"使用durability模式: {request.durability_mode}处理消息: {request.message}",
-                "timestamp": datetime.now().isoformat(),
+                "timestamp": utc_now().isoformat(),
                 "metadata": {
                     "durability_mode": request.durability_mode,
                     "checkpoint_info": "根据durability模式决定检查点保存策略"
@@ -185,21 +186,19 @@ async def demo_durability_control(request: DurabilityRequest):
         graph.add_edge("durability_demo", END)
         
         # 使用指定的durability模式编译
-        compiled_graph = builder.compile(durability_mode=request.durability_mode)
+        compiled_graph = builder.compile()
         
         initial_state = create_initial_state()
         initial_state["messages"] = [
-            {"role": "user", "content": request.message, "timestamp": datetime.now().isoformat()}
+            {"role": "user", "content": request.message, "timestamp": utc_now().isoformat()}
         ]
         
         context = create_default_context()
-        result = await builder.execute(
-            initial_state, 
-            context=context, 
-            durability=request.durability_mode
+        result = await compiled_graph.ainvoke(
+            initial_state
         )
         
-        execution_time = (datetime.now() - start_time).total_seconds() * 1000
+        execution_time = (utc_now() - start_time).total_seconds() * 1000
         
         return WorkflowResponse(
             success=True,
@@ -216,7 +215,7 @@ async def demo_durability_control(request: DurabilityRequest):
         )
         
     except Exception as e:
-        execution_time = (datetime.now() - start_time).total_seconds() * 1000
+        execution_time = (utc_now() - start_time).total_seconds() * 1000
         raise HTTPException(
             status_code=500,
             detail=f"Durability演示失败: {str(e)}"
@@ -227,7 +226,7 @@ async def demo_durability_control(request: DurabilityRequest):
 @router.post("/caching/demo", response_model=WorkflowResponse)
 async def demo_node_caching(request: CachingRequest):
     """演示节点缓存功能"""
-    start_time = datetime.now()
+    start_time = utc_now()
     
     try:
         builder = LangGraphWorkflowBuilder(use_context_api=True)
@@ -245,7 +244,7 @@ async def demo_node_caching(request: CachingRequest):
             state["messages"].append({
                 "role": "assistant",
                 "content": f"完成计算密集型任务 #{call_count}。消息: {request.message}",
-                "timestamp": datetime.now().isoformat(),
+                "timestamp": utc_now().isoformat(),
                 "metadata": {
                     "computation_count": call_count,
                     "cache_enabled": request.enable_cache,
@@ -276,7 +275,7 @@ async def demo_node_caching(request: CachingRequest):
         
         # 执行多次相同请求测试缓存
         # 使用相同的初始状态和固定时间戳来确保缓存能够正确命中
-        fixed_timestamp = datetime.now().isoformat()
+        fixed_timestamp = utc_now().isoformat()
         results = []
         for i in range(3):
             initial_state = create_initial_state()
@@ -288,7 +287,7 @@ async def demo_node_caching(request: CachingRequest):
             result = await builder.execute(initial_state, context=context)
             results.append(result)
         
-        execution_time = (datetime.now() - start_time).total_seconds() * 1000
+        execution_time = (utc_now() - start_time).total_seconds() * 1000
         
         # 获取缓存统计
         cache_manager = get_cache_manager()
@@ -310,7 +309,7 @@ async def demo_node_caching(request: CachingRequest):
         )
         
     except Exception as e:
-        execution_time = (datetime.now() - start_time).total_seconds() * 1000
+        execution_time = (utc_now() - start_time).total_seconds() * 1000
         raise HTTPException(
             status_code=500,
             detail=f"Node Caching演示失败: {str(e)}"
@@ -321,7 +320,7 @@ async def demo_node_caching(request: CachingRequest):
 @router.post("/hooks/demo", response_model=WorkflowResponse)
 async def demo_hooks(request: HooksRequest):
     """演示Pre/Post Model Hooks"""
-    start_time = datetime.now()
+    start_time = utc_now()
     
     try:
         # 准备测试状态
@@ -341,7 +340,7 @@ async def demo_hooks(request: HooksRequest):
         state["messages"].append({
             "role": "assistant",
             "content": "这是AI模型生成的响应内容，可能包含需要处理的内容。",
-            "timestamp": datetime.now().isoformat(),
+            "timestamp": utc_now().isoformat(),
             "metadata": {"generated_by": "demo_model"}
         })
         
@@ -349,7 +348,7 @@ async def demo_hooks(request: HooksRequest):
         if request.enable_post_hooks:
             state = await hook_manager.execute_post_hooks(state, context)
         
-        execution_time = (datetime.now() - start_time).total_seconds() * 1000
+        execution_time = (utc_now() - start_time).total_seconds() * 1000
         
         # 分析钩子效果
         hook_effects = []
@@ -389,7 +388,7 @@ async def demo_hooks(request: HooksRequest):
         )
         
     except Exception as e:
-        execution_time = (datetime.now() - start_time).total_seconds() * 1000
+        execution_time = (utc_now() - start_time).total_seconds() * 1000
         raise HTTPException(
             status_code=500,
             detail=f"Hooks演示失败: {str(e)}"
@@ -444,21 +443,126 @@ async def clear_cache():
     return {"success": True, "message": "缓存已清空"}
 
 
+# 工作流执行演示端点（前端调用的主端点）
+@router.post("/execute-demo")
+async def execute_workflow_demo(request: Optional[Dict[str, Any]] = None):
+    """执行工作流演示 - 主要的前端调用端点"""
+    start_time = utc_now()
+    
+    try:
+        # 解析请求参数，如果没有提供则使用默认值
+        if not request:
+            request = {}
+        
+        input_message = request.get("message", "演示LangGraph 0.6.5的新特性")
+        durability_mode = request.get("durability_mode", "async")
+        enable_caching = request.get("enable_caching", True)
+        enable_hooks = request.get("enable_hooks", True)
+        
+        # 创建工作流构建器，使用新Context API
+        builder = LangGraphWorkflowBuilder(use_context_api=True)
+        
+        # 创建演示处理节点
+        def demo_handler(state: MessagesState, context=None) -> MessagesState:
+            processing_info = {
+                "context_api": "新Context API" if context else "旧config模式",
+                "durability_mode": durability_mode,
+                "caching_enabled": enable_caching,
+                "hooks_enabled": enable_hooks,
+                "user_id": context.user_id if context else "unknown",
+                "session_id": context.session_id if context else "unknown"
+            }
+            
+            state["messages"].append({
+                "role": "assistant",
+                "content": f"✅ LangGraph 0.6.5工作流执行成功！\n输入: {input_message}\n处理信息: {processing_info}",
+                "timestamp": utc_now().isoformat(),
+                "metadata": {
+                    "workflow_features": processing_info,
+                    "execution_id": f"exec_{int(utc_now().timestamp() * 1000)}",
+                    "langgraph_version": "0.6.5"
+                }
+            })
+            return state
+        
+        # 添加节点到工作流
+        builder.add_node("demo_processor", demo_handler)
+        graph = builder.build()
+        
+        # 添加图边
+        from langgraph.graph import START, END
+        graph.add_edge(START, "demo_processor")  
+        graph.add_edge("demo_processor", END)
+        
+        # 编译图
+        compiled_graph = builder.compile()
+        
+        # 准备初始状态
+        initial_state = create_initial_state()
+        initial_state["messages"] = [
+            {"role": "user", "content": input_message, "timestamp": utc_now().isoformat()}
+        ]
+        
+        # 创建上下文
+        context = create_default_context(
+            user_id="demo_user",
+            session_id="550e8400-e29b-41d4-a716-446655440000"
+        )
+        
+        # 执行工作流
+        result = await builder.execute(initial_state, context=context)
+        
+        execution_time = (utc_now() - start_time).total_seconds() * 1000
+        
+        # 直接返回前端期望的格式：包含messages数组
+        return {
+            "messages": result.get("messages", []),
+            "execution_time_ms": execution_time,
+            "features_demonstrated": [
+                "新Context API (LangGraphContextSchema)",
+                f"Durability控制 ({durability_mode}模式)",
+                "Node Caching" if enable_caching else "禁用缓存",
+                "Pre/Post Model Hooks" if enable_hooks else "禁用Hooks"
+            ],
+            "request_params": {
+                "message": input_message,
+                "durability_mode": durability_mode,
+                "enable_caching": enable_caching,
+                "enable_hooks": enable_hooks
+            },
+            "execution_id": f"exec_{int(utc_now().timestamp() * 1000)}",
+            "langgraph_version": "0.6.5"
+        }
+        
+    except Exception as e:
+        execution_time = (utc_now() - start_time).total_seconds() * 1000
+        # 返回错误格式，但确保有空的messages数组避免前端错误
+        return {
+            "messages": [],
+            "execution_time_ms": execution_time,
+            "error": str(e),
+            "error_type": type(e).__name__,
+            "failed": True,
+            "execution_id": f"exec_{int(utc_now().timestamp() * 1000)}",
+            "langgraph_version": "0.6.5"
+        }
+
+
 # 完整工作流演示端点
-@router.post("/complete-demo", response_model=WorkflowResponse)
+@router.post("/complete-demo", response_model=WorkflowResponse) 
 async def complete_feature_demo():
     """演示所有LangGraph 0.6.5新特性的完整工作流"""
-    start_time = datetime.now()
+    start_time = utc_now()
     
     try:
         # 创建使用所有新特性的工作流
         builder = create_conditional_workflow()
-        compiled_graph = builder.compile(durability_mode="async")
+        compiled_graph = builder.compile()
         
         # 准备测试数据
         initial_state = create_initial_state()
         initial_state["messages"] = [
-            {"role": "user", "content": "请演示LangGraph 0.6.5的所有新特性", "timestamp": datetime.now().isoformat()}
+            {"role": "user", "content": "请演示LangGraph 0.6.5的所有新特性", "timestamp": utc_now().isoformat()}
         ]
         
         # 使用新Context API
@@ -468,13 +572,11 @@ async def complete_feature_demo():
         )
         
         # 执行工作流
-        result = await builder.execute(
-            initial_state, 
-            context=context, 
-            durability="async"
+        result = await compiled_graph.ainvoke(
+            initial_state
         )
         
-        execution_time = (datetime.now() - start_time).total_seconds() * 1000
+        execution_time = (utc_now() - start_time).total_seconds() * 1000
         
         return WorkflowResponse(
             success=True,
@@ -493,7 +595,7 @@ async def complete_feature_demo():
         )
         
     except Exception as e:
-        execution_time = (datetime.now() - start_time).total_seconds() * 1000
+        execution_time = (utc_now() - start_time).total_seconds() * 1000
         raise HTTPException(
             status_code=500,
             detail=f"完整演示失败: {str(e)}"

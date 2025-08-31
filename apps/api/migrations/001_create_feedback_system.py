@@ -4,6 +4,7 @@
 """
 
 from datetime import datetime
+from src.core.utils.timezone_utils import utc_now, utc_factory
 from sqlalchemy import Column, String, Integer, Float, Boolean, DateTime, Text, JSON, Index, ForeignKey, create_engine, MetaData
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.dialects.postgresql import UUID, JSONB
@@ -32,7 +33,7 @@ class FeedbackEvent(Base):
     metadata = Column(JSONB, nullable=True)
     
     # 时间戳
-    timestamp = Column(DateTime, nullable=False, default=datetime.utcnow, index=True)
+    timestamp = Column(DateTime, nullable=False, default=utc_now, index=True)
     processed_at = Column(DateTime, nullable=True)
     
     # 状态标识
@@ -68,8 +69,8 @@ class FeedbackBatch(Base):
     end_time = Column(DateTime, nullable=True)
     processed_at = Column(DateTime, nullable=True)
     
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=utc_now, nullable=False)
+    updated_at = Column(DateTime, default=utc_now, onupdate=utc_now)
 
 class UserFeedbackProfile(Base):
     """用户反馈档案表"""
@@ -100,8 +101,8 @@ class UserFeedbackProfile(Base):
     # 时间戳
     first_feedback_at = Column(DateTime, nullable=True)
     last_feedback_at = Column(DateTime, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=utc_now, nullable=False)
+    updated_at = Column(DateTime, default=utc_now, onupdate=utc_now)
 
 class ItemFeedbackSummary(Base):
     """推荐项反馈汇总表"""
@@ -140,8 +141,8 @@ class ItemFeedbackSummary(Base):
     # 时间戳
     first_feedback_at = Column(DateTime, nullable=True)
     last_feedback_at = Column(DateTime, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=utc_now, nullable=False)
+    updated_at = Column(DateTime, default=utc_now, onupdate=utc_now)
 
 class RewardSignal(Base):
     """奖励信号表"""
@@ -167,7 +168,7 @@ class RewardSignal(Base):
     context_factors = Column(JSONB, nullable=True)      # 上下文因素
     
     # 有效性
-    calculated_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    calculated_at = Column(DateTime, default=utc_now, nullable=False)
     valid_until = Column(DateTime, nullable=True)
     is_active = Column(Boolean, default=True)
     
@@ -197,7 +198,7 @@ class FeedbackQualityLog(Base):
     assessment_method = Column(String(100), nullable=False)  # 评估方法
     assessment_config = Column(JSONB, nullable=True)
     
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=utc_now, nullable=False)
 
 class FeedbackAggregation(Base):
     """反馈聚合数据表"""
@@ -218,8 +219,8 @@ class FeedbackAggregation(Base):
     metrics = Column(JSONB, nullable=False)  # 包含各种聚合指标
     metadata = Column(JSONB, nullable=True)
     
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=utc_now, nullable=False)
+    updated_at = Column(DateTime, default=utc_now, onupdate=utc_now)
     
     # 复合索引
     __table_args__ = (

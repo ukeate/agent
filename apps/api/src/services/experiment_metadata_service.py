@@ -2,7 +2,9 @@
 A/B测试实验元数据管理服务 - 管理实验的元数据、标签、分类等信息
 """
 from typing import Dict, Any, List, Optional, Set
-from datetime import datetime, timedelta
+from datetime import datetime
+from datetime import timedelta
+from src.core.utils.timezone_utils import utc_now, utc_factory
 from dataclasses import dataclass
 import json
 import re
@@ -114,9 +116,9 @@ class ExperimentMetadataService:
                 stakeholders=metadata_request.get("stakeholders", []),
                 custom_fields=metadata_request.get("custom_fields", {}),
                 created_by=created_by,
-                created_at=datetime.utcnow(),
+                created_at=utc_now(),
                 updated_by=created_by,
-                updated_at=datetime.utcnow()
+                updated_at=utc_now()
             )
             
             # 存储元数据
@@ -167,7 +169,7 @@ class ExperimentMetadataService:
             
             # 更新时间戳
             metadata.updated_by = updated_by
-            metadata.updated_at = datetime.utcnow()
+            metadata.updated_at = utc_now()
             
             logger.info(f"Updated metadata for experiment {experiment_id}")
             return metadata
@@ -278,7 +280,7 @@ class ExperimentMetadataService:
         """创建实验模板"""
         try:
             template = ExperimentTemplate(
-                template_id=f"template_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}",
+                template_id=f"template_{utc_now().strftime('%Y%m%d_%H%M%S')}",
                 name=template_request["name"],
                 description=template_request["description"],
                 category=template_request.get("category", "feature"),
@@ -287,7 +289,7 @@ class ExperimentMetadataService:
                 default_config=template_request.get("default_config", {}),
                 tags=set(template_request.get("tags", [])),
                 created_by=created_by,
-                created_at=datetime.utcnow()
+                created_at=utc_now()
             )
             
             self.templates_store[template.template_id] = template
@@ -347,7 +349,7 @@ class ExperimentMetadataService:
         try:
             archive = ExperimentArchive(
                 experiment_id=experiment_id,
-                archived_at=datetime.utcnow(),
+                archived_at=utc_now(),
                 archived_by=archived_by,
                 archive_reason=archive_request.get("reason", "experiment_completed"),
                 final_results=archive_request.get("final_results", {}),
@@ -367,7 +369,7 @@ class ExperimentMetadataService:
     async def get_archived_experiments(self, days_back: int = 30) -> List[ExperimentArchive]:
         """获取归档的实验"""
         try:
-            cutoff_date = datetime.utcnow() - timedelta(days=days_back)
+            cutoff_date = utc_now() - timedelta(days=days_back)
             
             archives = [
                 archive for archive in self.archives_store.values()

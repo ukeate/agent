@@ -7,6 +7,7 @@ import psutil
 import logging
 from typing import Any, Dict, List, Optional
 from datetime import datetime
+from src.core.utils.timezone_utils import utc_now, utc_factory
 
 from ..client import get_mcp_client_manager
 from ..exceptions import MCPConnectionError
@@ -160,7 +161,7 @@ class SystemTool:
             # 限制超时时间
             timeout = min(timeout, 60)  # 最大60秒
             
-            start_time = datetime.now()
+            start_time = utc_now()
             
             try:
                 # 执行命令
@@ -178,7 +179,7 @@ class SystemTool:
                     timeout=timeout
                 )
                 
-                end_time = datetime.now()
+                end_time = utc_now()
                 execution_time = (end_time - start_time).total_seconds()
                 
                 # 解码输出

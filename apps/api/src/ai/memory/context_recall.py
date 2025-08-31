@@ -1,7 +1,9 @@
 """基于上下文的记忆召回系统"""
 import asyncio
 from typing import List, Optional, Dict, Any, Tuple
-from datetime import datetime, timedelta
+from datetime import datetime
+from datetime import timedelta
+from src.core.utils.timezone_utils import utc_now, utc_factory
 import numpy as np
 import logging
 
@@ -10,11 +12,11 @@ from .models import Memory, MemoryType, MemoryStatus
 from .storage import MemoryStorage
 from .config import MemoryConfig
 from src.ai.openai_client import get_openai_client
-from offline.memory_manager import (
+from src.offline.memory_manager import (
     OfflineMemoryManager, MemoryEntry, MemoryQuery, 
     MemoryType as OfflineMemoryType, MemoryPriority
 )
-from models.schemas.offline import OfflineMode, NetworkStatus
+from src.models.schemas.offline import OfflineMode, NetworkStatus
 
 logger = logging.getLogger(__name__)
 
@@ -240,7 +242,7 @@ class ContextAwareRecall:
                 )
                 
             if memory_types:
-                type_values = [t.value for t in memory_types]
+                type_values = [t.value if hasattr(t, 'value') else str(t) for t in memory_types]
                 filter_conditions.append(
                     FieldCondition(
                         key="type",
@@ -288,7 +290,7 @@ class ContextAwareRecall:
             session_id=session_id,
             user_id=user_id,
             memory_types=memory_types,
-            created_after=datetime.utcnow() - timedelta(hours=24),  # 最近24小时
+            created_after=utc_now() - timedelta(hours=24),  # 最近24小时
             status=[MemoryStatus.ACTIVE]
         )
         
@@ -296,7 +298,7 @@ class ContextAwareRecall:
         
         # 计算时间衰减评分
         results = []
-        current_time = datetime.utcnow()
+        current_time = utc_now()
         
         for memory in recent_memories:
             time_diff = (current_time - memory.last_accessed).total_seconds()

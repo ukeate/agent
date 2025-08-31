@@ -1,6 +1,7 @@
 """可解释AI API端点"""
 
 from datetime import datetime
+from src.core.utils.timezone_utils import utc_now, utc_factory
 from typing import Any, Dict, List, Optional
 from uuid import UUID
 
@@ -10,7 +11,7 @@ from pydantic import BaseModel, Field
 from src.ai.explainer.explanation_generator import ExplanationGenerator
 from src.ai.explainer.decision_tracker import DecisionTracker
 from src.ai.explainer.workflow_explainer import WorkflowExecution, WorkflowNode
-from models.schemas.explanation import (
+from src.models.schemas.explanation import (
     DecisionExplanation,
     ExplanationType,
     ExplanationLevel,
@@ -190,7 +191,7 @@ async def format_explanation(request: ExplanationFormatRequest):
     """格式化解释输出"""
     try:
         # 这里应该从数据库获取解释，目前创建一个示例
-        from models.schemas.explanation import ConfidenceSource
+        from src.models.schemas.explanation import ConfidenceSource
         
         sample_explanation = DecisionExplanation(
             decision_id="sample_001",
@@ -357,7 +358,7 @@ async def health_check():
     return {
         "status": "healthy",
         "service": "explainable-ai",
-        "timestamp": datetime.now().isoformat(),
+        "timestamp": utc_now().isoformat(),
         "version": "1.0.0",
         "components": {
             "explanation_generator": "active",

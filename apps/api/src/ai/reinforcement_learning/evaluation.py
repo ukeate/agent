@@ -7,7 +7,9 @@
 from typing import Dict, List, Any, Optional, Tuple, Callable
 import numpy as np
 import json
-from datetime import datetime, timedelta
+from datetime import datetime
+from datetime import timedelta
+from src.core.utils.timezone_utils import utc_now, utc_factory
 from dataclasses import dataclass, asdict
 from abc import ABC, abstractmethod
 import uuid
@@ -418,7 +420,7 @@ class ABTestManager:
             "min_sample_size": min_sample_size,
             "status": "active",
             "events": {variant: [] for variant in bandits.keys()},
-            "created_at": datetime.now()
+            "created_at": utc_now()
         }
         
         self.active_experiments[experiment_id] = experiment
@@ -441,7 +443,7 @@ class ABTestManager:
         experiment = self.active_experiments[experiment_id]
         
         # 检查实验是否在活动时间内
-        now = datetime.now()
+        now = utc_now()
         if now < experiment["start_time"] or now > experiment["end_time"]:
             return None
         
@@ -596,7 +598,7 @@ class ABTestManager:
             return False
         
         self.active_experiments[experiment_id]["status"] = "completed"
-        self.active_experiments[experiment_id]["end_time"] = datetime.now()
+        self.active_experiments[experiment_id]["end_time"] = utc_now()
         
         # 保存最终结果
         final_results = self.get_experiment_results(experiment_id)

@@ -3,14 +3,16 @@
 
 基于实验指标和规则自动调整流量
 """
-from datetime import datetime, timedelta
+from datetime import datetime
+from datetime import timedelta
+from src.core.utils.timezone_utils import utc_now, utc_factory
 from typing import Dict, List, Any, Optional, Tuple
 from enum import Enum
 import asyncio
 from dataclasses import dataclass, field
 import statistics
 
-from ..core.database import async_session_manager
+from ..core.database import get_db_session
 from ..services.realtime_metrics_service import RealtimeMetricsService
 from ..services.anomaly_detection_service import AnomalyDetectionService
 from ..services.statistical_analysis_service import StatisticalAnalysisService
@@ -214,7 +216,7 @@ class AutoScalingService:
         ])
         
         rule = ScalingRule(
-            id=f"rule_{experiment_id}_{datetime.utcnow().timestamp()}",
+            id=f"rule_{experiment_id}_{utc_now().timestamp()}",
             name=name,
             description=kwargs.get("description", ""),
             experiment_id=experiment_id,
@@ -292,7 +294,7 @@ class AutoScalingService:
                 # 检查是否在冷却期
                 history = self.histories.get(rule.experiment_id)
                 if history and history.last_scaled_at:
-                    time_since_last = datetime.utcnow() - history.last_scaled_at
+                    time_since_last = utc_now() - history.last_scaled_at
                     if time_since_last < timedelta(minutes=rule.cooldown_minutes):
                         await asyncio.sleep(60)  # 等待1分钟后重试
                         continue
@@ -307,7 +309,7 @@ class AutoScalingService:
                     # 记录历史
                     if history:
                         history.decisions.append(decision)
-                        history.last_scaled_at = datetime.utcnow()
+                        history.last_scaled_at = utc_now()
                         history.current_percentage = decision.target_percentage
                         
                         if decision.direction == ScalingDirection.UP:
@@ -378,7 +380,7 @@ class AutoScalingService:
         return ScalingDecision(
             rule_id=rule.id,
             experiment_id=rule.experiment_id,
-            timestamp=datetime.utcnow(),
+            timestamp=utc_now(),
             direction=direction,
             current_percentage=current_percentage,
             target_percentage=target_percentage,

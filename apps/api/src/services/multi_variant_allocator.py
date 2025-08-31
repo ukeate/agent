@@ -2,7 +2,9 @@
 多变体分配服务 - 集成高级流量分配功能到实验管理系统
 """
 from typing import List, Dict, Any, Optional, Tuple
-from datetime import datetime, timezone, timedelta
+from datetime import datetime
+from datetime import timedelta
+from src.core.utils.timezone_utils import utc_now, utc_factory
 from dataclasses import dataclass, asdict
 
 from models.schemas.experiment import TrafficAllocation, ExperimentConfig
@@ -133,7 +135,7 @@ class MultiVariantAllocator:
                 user_id=user_id,
                 user_attributes=request.user_attributes,
                 session_attributes=request.session_attributes or {},
-                timestamp=datetime.now(timezone.utc),
+                timestamp=utc_now(),
                 geo_location=request.user_attributes.get('geo_location'),
                 device_type=request.user_attributes.get('device_type'),
                 platform=request.user_attributes.get('platform')
@@ -294,7 +296,7 @@ class MultiVariantAllocator:
                 'variant_distribution': assignment_stats,
                 'allocator_analytics': allocator_analytics,
                 'allocation_stats': self._allocation_stats.get(experiment_id, {}),
-                'timestamp': datetime.now(timezone.utc).isoformat()
+                'timestamp': utc_now().isoformat()
             }
             
             return distribution
@@ -361,7 +363,7 @@ class MultiVariantAllocator:
                     user_id=request.user_id,
                     user_attributes=request.user_attributes,
                     session_attributes={},
-                    timestamp=datetime.now(timezone.utc)
+                    timestamp=utc_now()
                 )
                 
                 variant_id = self.advanced_allocator.allocate_with_strategy(
@@ -403,7 +405,7 @@ class MultiVariantAllocator:
                 'expected_distribution': {
                     v.id: v.traffic_percentage for v in variants
                 },
-                'simulation_timestamp': datetime.now(timezone.utc).isoformat()
+                'simulation_timestamp': utc_now().isoformat()
             }
             
         except Exception as e:
@@ -456,7 +458,7 @@ class MultiVariantAllocator:
             experiment_id=request.experiment_id,
             variant_id=None,
             allocation_strategy=request.allocation_strategy,
-            assignment_timestamp=datetime.now(timezone.utc),
+            assignment_timestamp=utc_now(),
             is_cached=False,
             allocation_reason=error_reason,
             allocation_metadata={'error': True}
@@ -476,7 +478,7 @@ class MultiVariantAllocator:
             'device_type': random.choice(device_types),
             'geo_location': random.choice(geo_locations),
             'platform': random.choice(platforms),
-            'signup_date': (datetime.now(timezone.utc) - 
+            'signup_date': (utc_now() - 
                           timedelta(days=random.randint(1, 365))).isoformat(),
             'session_count': random.randint(1, 100),
             'is_premium': random.choice([True, False])
@@ -493,7 +495,7 @@ class MultiVariantAllocator:
             'total_experiments': len(self._allocation_stats),
             'allocation_stats': self._allocation_stats,
             'cache_stats': self.advanced_allocator.get_allocation_analytics(''),
-            'timestamp': datetime.now(timezone.utc).isoformat()
+            'timestamp': utc_now().isoformat()
         }
     
     def clear_allocation_cache(self, experiment_id: Optional[str] = None):

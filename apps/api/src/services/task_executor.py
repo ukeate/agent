@@ -5,7 +5,8 @@
 import asyncio
 import uuid
 from typing import Dict, List, Optional, Any
-from datetime import datetime, timezone
+from datetime import datetime
+from src.core.utils.timezone_utils import utc_now, utc_factory, timezone
 import structlog
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -26,6 +27,9 @@ class TaskExecutor:
     def __init__(self):
         self._agents: Dict[str, BaseAutoGenAgent] = {}
         self._running_tasks: Dict[str, str] = {}  # task_id -> agent_name
+        self._cached_supervisors = None  # 缓存活跃的supervisors
+        self._supervisors_cache_time = None  # 缓存时间
+        self._cache_ttl = 300  # 缓存5分钟
         self._initialize_agents()
     
     def _initialize_agents(self):
@@ -39,6 +43,30 @@ class TaskExecutor:
             logger.info("任务执行器智能体池初始化完成", total_agents=len(self._agents))
         except Exception as e:
             logger.error("智能体池初始化失败", error=str(e))
+    
+    async def _get_cached_active_supervisors(self):
+        """获取缓存的活跃supervisors，减少数据库查询"""
+        now = utc_now()
+        
+        # 检查缓存是否过期
+        if (self._cached_supervisors is None or 
+            self._supervisors_cache_time is None or 
+            (now - self._supervisors_cache_time).total_seconds() > self._cache_ttl):
+            
+            # 缓存过期，重新获取
+            try:
+                async with get_db_session() as db:
+                    supervisor_repo = SupervisorRepository(db)
+                    self._cached_supervisors = await supervisor_repo.get_active_supervisors()
+                    self._supervisors_cache_time = now
+                    
+                    logger.debug("已更新活跃supervisors缓存", 
+                               supervisor_count=len(self._cached_supervisors))
+            except Exception as e:
+                logger.error("获取活跃supervisors失败", error=str(e))
+                return []
+        
+        return self._cached_supervisors or []
     
     async def execute_task(self, task_id: str) -> Dict[str, Any]:
         """执行单个任务"""
@@ -89,7 +117,7 @@ class TaskExecutor:
                 await asyncio.sleep(3)  # 增加到3秒，让running状态更容易被观察到  
                 
                 # 执行任务
-                start_time = datetime.now(timezone.utc)
+                start_time = utc_now()
                 
                 execution_result = await agent.execute_task(
                     task_description=task.description or task.name,
@@ -97,7 +125,7 @@ class TaskExecutor:
                     input_data=task.input_data or {}
                 )
                 
-                end_time = datetime.now(timezone.utc)
+                end_time = utc_now()
                 execution_duration = int((end_time - start_time).total_seconds())
                 
                 # 更新任务状态和结果
@@ -196,13 +224,15 @@ class TaskExecutor:
         """批量执行pending任务"""
         results = []
         
-        # 获取所有活跃supervisor的pending任务
+        # 获取所有活跃supervisor的pending任务（使用缓存）
         try:
-            async with get_db_session() as db:
-                supervisor_repo = SupervisorRepository(db)
-                active_supervisors = await supervisor_repo.get_active_supervisors()
+            active_supervisors = await self._get_cached_active_supervisors()
+            
+            if not active_supervisors:
+                logger.debug("没有找到活跃的supervisors")
+                return results
                 
-                for supervisor in active_supervisors:
+            for supervisor in active_supervisors:
                     pending_tasks = await self.get_pending_tasks(supervisor.id)
                     
                     # 限制同时执行的任务数量

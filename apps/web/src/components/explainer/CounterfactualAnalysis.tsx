@@ -2,8 +2,8 @@ import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Progress } from '@/components/ui/Progress';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Progress } from '@/components/ui/progress';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/Tabs';
 import { 
   HelpCircle, 
   ArrowRight, 
@@ -201,19 +201,19 @@ const CounterfactualAnalysis: React.FC<CounterfactualAnalysisProps> = ({
       {/* 分析视图切换 */}
       <Tabs value={selectedView} onValueChange={(value: any) => setSelectedView(value)}>
         <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="scenarios" className="flex items-center">
+          <TabsTrigger value="scenarios" >
             <Eye className="h-4 w-4 mr-2" />
             场景分析
           </TabsTrigger>
-          <TabsTrigger value="sensitivity" className="flex items-center">
+          <TabsTrigger value="sensitivity" >
             <BarChart3 className="h-4 w-4 mr-2" />
             敏感性分析
           </TabsTrigger>
-          <TabsTrigger value="comparison" className="flex items-center">
+          <TabsTrigger value="comparison" >
             <TrendingUp className="h-4 w-4 mr-2" />
             对比分析
           </TabsTrigger>
-          <TabsTrigger value="simulation" className="flex items-center">
+          <TabsTrigger value="simulation" >
             <Zap className="h-4 w-4 mr-2" />
             模拟实验
           </TabsTrigger>
@@ -533,7 +533,7 @@ const CounterfactualAnalysis: React.FC<CounterfactualAnalysisProps> = ({
         <TabsContent value="simulation" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center">
+              <CardTitle >
                 <Zap className="h-5 w-5 mr-2" />
                 交互式模拟实验
               </CardTitle>

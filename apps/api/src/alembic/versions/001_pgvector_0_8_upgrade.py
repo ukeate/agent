@@ -11,6 +11,7 @@ from sqlalchemy import text
 from sqlalchemy.dialects import postgresql
 import uuid
 from datetime import datetime
+from src.core.utils.timezone_utils import utc_now, utc_factory
 
 # revision identifiers
 revision = 'pgvector_0_8_upgrade'
@@ -48,8 +49,8 @@ def upgrade():
             sa.Column('centroids', sa.JSON(), nullable=True),
             sa.Column('compression_ratio', sa.Float(), nullable=False),
             sa.Column('precision_loss', sa.Float(), nullable=False),
-            sa.Column('created_at', sa.TIMESTAMP(timezone=True), nullable=False, default=datetime.utcnow),
-            sa.Column('updated_at', sa.TIMESTAMP(timezone=True), nullable=False, default=datetime.utcnow)
+            sa.Column('created_at', sa.TIMESTAMP(timezone=True), nullable=False, default=utc_now),
+            sa.Column('updated_at', sa.TIMESTAMP(timezone=True), nullable=False, default=utc_now)
         )
         
         # 4. 创建向量性能统计表
@@ -61,7 +62,7 @@ def upgrade():
             sa.Column('search_latency_ms', sa.Float(), nullable=False),
             sa.Column('result_count', sa.Integer(), nullable=False),
             sa.Column('cache_hit', sa.Boolean(), nullable=False),
-            sa.Column('timestamp', sa.TIMESTAMP(timezone=True), nullable=False, default=datetime.utcnow)
+            sa.Column('timestamp', sa.TIMESTAMP(timezone=True), nullable=False, default=utc_now)
         )
         
         # 5. 创建知识库条目表
@@ -73,8 +74,8 @@ def upgrade():
             sa.Column('embedding', sa.Text(), nullable=True),  # Will be converted to VECTOR type
             sa.Column('embedding_quantized', sa.LargeBinary(), nullable=True),
             sa.Column('quantization_params_id', postgresql.UUID(as_uuid=True), nullable=True),
-            sa.Column('created_at', sa.TIMESTAMP(timezone=True), nullable=False, default=datetime.utcnow),
-            sa.Column('updated_at', sa.TIMESTAMP(timezone=True), nullable=False, default=datetime.utcnow)
+            sa.Column('created_at', sa.TIMESTAMP(timezone=True), nullable=False, default=utc_now),
+            sa.Column('updated_at', sa.TIMESTAMP(timezone=True), nullable=False, default=utc_now)
         )
         
         # 6. 修改embedding列为VECTOR类型

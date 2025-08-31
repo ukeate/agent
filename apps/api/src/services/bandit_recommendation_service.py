@@ -7,6 +7,7 @@
 from typing import Dict, List, Any, Optional
 import asyncio
 from datetime import datetime
+from src.core.utils.timezone_utils import utc_now, utc_factory
 
 from src.ai.reinforcement_learning.recommendation_engine import (
     BanditRecommendationEngine,
@@ -174,7 +175,7 @@ class BanditRecommendationService:
                 feedback_type=feedback_type,
                 feedback_value=feedback_value,
                 context=context,
-                timestamp=datetime.now()
+                timestamp=utc_now()
             )
             
             await self.engine.process_feedback(feedback)
@@ -253,7 +254,7 @@ class BanditRecommendationService:
         status = {
             "service": "bandit_recommendation_service",
             "is_initialized": self.is_initialized,
-            "timestamp": datetime.now().isoformat()
+            "timestamp": utc_now().isoformat()
         }
         
         if self.is_initialized and self.engine:

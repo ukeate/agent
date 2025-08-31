@@ -4,7 +4,8 @@
 import asyncio
 import pytest
 import pytest_asyncio
-from datetime import datetime, timezone
+from datetime import datetime
+from src.core.utils.timezone_utils import utc_now, utc_factory, timezone
 from unittest.mock import Mock, AsyncMock
 
 from src.ai.autogen.events import EventBus, Event, EventType, MessageQueue, StateManager

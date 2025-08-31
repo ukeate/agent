@@ -4,7 +4,9 @@ import asyncio
 import time
 from collections import deque
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import datetime
+from datetime import timedelta
+from src.core.utils.timezone_utils import utc_now, utc_factory
 from typing import Dict, List, Any, Optional, Tuple, Deque
 import numpy as np
 from prometheus_client import Counter, Histogram, Gauge, Summary
@@ -132,19 +134,19 @@ class PerformanceMonitor:
         
         # 存储到Redis用于历史分析
         await self.redis.zadd(
-            f"latency:{scenario}:{datetime.now().strftime('%Y%m%d')}",
+            f"latency:{scenario}:{utc_now().strftime('%Y%m%d')}",
             {str(time.time()): latency}
         )
         
     async def record_throughput(self, count: int = 1):
         """记录吞吐量"""
-        now = datetime.now()
+        now = utc_now()
         self.throughput_buffer.append((now, count))
         recommendation_throughput.observe(count)
         
     async def record_error(self, error_type: str):
         """记录错误"""
-        now = datetime.now()
+        now = utc_now()
         self.error_buffer.append((now, error_type))
         error_rate.labels(error_type=error_type).inc()
         
@@ -160,7 +162,7 @@ class PerformanceMonitor:
             p50 = p95 = p99 = 0
             
         # 计算吞吐量
-        now = datetime.now()
+        now = utc_now()
         recent_throughput = [
             count for timestamp, count in self.throughput_buffer
             if now - timestamp < timedelta(seconds=60)
@@ -294,7 +296,7 @@ class PerformanceOptimizer:
             
         # 记录优化历史
         self.optimization_history.append({
-            'timestamp': datetime.now(),
+            'timestamp': utc_now(),
             'metrics': metrics,
             'optimizations': optimizations
         })

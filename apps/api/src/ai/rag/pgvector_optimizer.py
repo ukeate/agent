@@ -11,6 +11,7 @@ from dataclasses import dataclass
 import asyncio
 import logging
 from datetime import datetime
+from src.core.utils.timezone_utils import utc_now, utc_factory
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -339,7 +340,7 @@ class PgVectorOptimizer:
         return {
             "stats": self.performance_stats.copy(),
             "quantizer_config": self.quantizer.get_quantization_stats(),
-            "timestamp": datetime.utcnow().isoformat()
+            "timestamp": utc_now().isoformat()
         }
     
     async def create_knowledge_items_table(self) -> bool:

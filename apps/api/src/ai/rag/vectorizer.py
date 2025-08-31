@@ -4,6 +4,7 @@ import hashlib
 import logging
 import os
 from datetime import datetime
+from src.core.utils.timezone_utils import utc_now, utc_factory
 from pathlib import Path
 from typing import Dict, List, Optional
 
@@ -144,7 +145,7 @@ class FileVectorizer:
                 "file_hash": file_hash,
                 "chunk_index": i,
                 "content": chunk["content"],
-                "created_at": datetime.utcnow().isoformat(),
+                "created_at": utc_now().isoformat(),
             }
             
             # 添加额外的元数据

@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { Card } from '../../components/ui/Card';
-import { Button } from '../../components/ui/Button';
-import { Input } from '../../components/ui/Input';
-import { Badge } from '../../components/ui/Badge';
-import { Progress } from '../../components/ui/Progress';
-import { Alert } from '../../components/ui/Alert';
+import { Button } from '../../components/ui/button';
+import { Input } from '../../components/ui/input';
+import { Badge } from '../../components/ui/badge';
+import { Progress } from '../../components/ui/progress';
+import { Alert } from '../../components/ui/alert';
 import { behaviorAnalyticsService } from '../../services/behaviorAnalyticsService';
 
 interface AnalyticsReport {

@@ -6,11 +6,12 @@
 import math
 import numpy as np
 import statistics
-from datetime import datetime, timezone
+from datetime import datetime
+from src.core.utils.timezone_utils import utc_now, utc_factory, timezone
 from typing import Any, Dict, List, Optional, Tuple, Union
 from uuid import uuid4
 
-from models.schemas.explanation import ConfidenceMetrics
+from src.models.schemas.explanation import ConfidenceMetrics
 
 
 class UncertaintyQuantifier:
@@ -378,7 +379,7 @@ class UncertaintyQuantifier:
         
         # 添加元数据
         visualization_data["metadata"] = {
-            "generated_at": datetime.now(timezone.utc).isoformat(),
+            "generated_at": utc_now().isoformat(),
             "total_uncertainty": uncertainty_metrics.get("total_uncertainty", 0.5),
             "confidence_level": uncertainty_metrics.get("confidence_level", 0.95),
             "visualization_id": str(uuid4())
@@ -447,7 +448,7 @@ class UncertaintyQuantifier:
         record = {
             "calculation_id": str(uuid4()),
             "calculation_type": calculation_type,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": utc_now().isoformat(),
             "input_summary": {
                 "data_points": input_data.get("data_points", 0),
                 "method": input_data.get("method", "unknown"),

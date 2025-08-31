@@ -4,7 +4,9 @@
 import asyncio
 import math
 from typing import Dict, List, Optional, Any, Tuple, Union
-from datetime import datetime, timedelta, timezone
+from datetime import datetime
+from datetime import timedelta
+from src.core.utils.timezone_utils import utc_now, utc_factory, timezone
 from dataclasses import dataclass, field
 from enum import Enum
 from collections import defaultdict, deque
@@ -174,7 +176,7 @@ class MetricsCalculator:
             if total_users == 0:
                 return MetricSnapshot(
                     metric_name="conversion_rate",
-                    timestamp=datetime.now(timezone.utc),
+                    timestamp=utc_now(),
                     value=0.0,
                     sample_size=0
                 )
@@ -191,7 +193,7 @@ class MetricsCalculator:
             
             return MetricSnapshot(
                 metric_name="conversion_rate",
-                timestamp=datetime.now(timezone.utc),
+                timestamp=utc_now(),
                 value=rate,
                 sample_size=total_users,
                 confidence_interval=(ci_result.lower_bound, ci_result.upper_bound),
@@ -208,7 +210,7 @@ class MetricsCalculator:
             if not values:
                 return MetricSnapshot(
                     metric_name=metric_name,
-                    timestamp=datetime.now(timezone.utc),
+                    timestamp=utc_now(),
                     value=0.0,
                     sample_size=0
                 )
@@ -224,7 +226,7 @@ class MetricsCalculator:
             
             return MetricSnapshot(
                 metric_name=metric_name,
-                timestamp=datetime.now(timezone.utc),
+                timestamp=utc_now(),
                 value=stats.mean,
                 sample_size=stats.count,
                 confidence_interval=(ci_result.lower_bound, ci_result.upper_bound),
@@ -242,7 +244,7 @@ class MetricsCalculator:
             if not values:
                 return MetricSnapshot(
                     metric_name=metric_name,
-                    timestamp=datetime.now(timezone.utc),
+                    timestamp=utc_now(),
                     value=0.0,
                     sample_size=0
                 )
@@ -253,7 +255,7 @@ class MetricsCalculator:
             
             return MetricSnapshot(
                 metric_name=metric_name,
-                timestamp=datetime.now(timezone.utc),
+                timestamp=utc_now(),
                 value=percentile_value,
                 sample_size=len(values)
             )
@@ -630,7 +632,7 @@ class RealtimeMetricsService:
         # 这里应该根据粒度从数据库聚合数据
         # 暂时返回模拟数据
         trends = []
-        now = datetime.now(timezone.utc)
+        now = utc_now()
         
         for i in range(24):
             timestamp = now - timedelta(hours=23 - i)

@@ -5,7 +5,9 @@
 import pytest
 import tempfile
 import asyncio
-from datetime import datetime, timedelta
+from datetime import datetime
+from datetime import timedelta
+from src.core.utils.timezone_utils import utc_now, utc_factory
 from uuid import uuid4
 
 from offline.memory_manager import (
@@ -75,7 +77,7 @@ class TestOfflineMemoryIntegration:
             priority=MemoryPriority.HIGH,
             tags=['python', 'programming', 'question'],
             vector_clock=VectorClock(node_id="test_node"),
-            created_at=datetime.utcnow()
+            created_at=utc_now()
         )
         
         # 存储记忆
@@ -367,8 +369,8 @@ class TestOfflineMemoryIntegration:
             content="旧的记忆",
             context={},
             priority=MemoryPriority.LOW,
-            created_at=datetime.utcnow() - timedelta(days=100),
-            last_accessed=datetime.utcnow() - timedelta(days=100)
+            created_at=utc_now() - timedelta(days=100),
+            last_accessed=utc_now() - timedelta(days=100)
         )
         
         # 创建新记忆

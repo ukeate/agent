@@ -13,7 +13,9 @@ import time
 import logging
 from typing import Dict, List, Any, Optional, Union
 from dataclasses import dataclass, field, asdict
-from datetime import datetime, timedelta
+from datetime import datetime
+from datetime import timedelta
+from src.core.utils.timezone_utils import utc_now, utc_factory
 from pathlib import Path
 import sqlite3
 from contextlib import asynccontextmanager
@@ -377,7 +379,7 @@ class CheckpointManager:
             metadata = CheckpointMetadata(
                 checkpoint_id=checkpoint_id,
                 job_id=job.id,
-                created_at=datetime.utcnow(),
+                created_at=utc_now(),
                 checkpoint_type=checkpoint_type,
                 task_count=job.total_tasks,
                 completed_tasks=job.completed_tasks,
@@ -500,7 +502,7 @@ class CheckpointManager:
     
     async def cleanup_expired_checkpoints(self):
         """清理过期检查点"""
-        cutoff_date = datetime.utcnow() - timedelta(days=self.config.cleanup_older_than_days)
+        cutoff_date = utc_now() - timedelta(days=self.config.cleanup_older_than_days)
         all_checkpoints = await self.storage.list_checkpoints()
         
         deleted_count = 0

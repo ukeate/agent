@@ -5,7 +5,8 @@ LangGraph 0.6.5 Pre/Post Model Hooks Implementation
 from typing import Any, Dict, List, Optional, Callable, Union, Literal
 from dataclasses import dataclass
 from abc import ABC, abstractmethod
-from datetime import datetime, timezone
+from datetime import datetime
+from src.core.utils.timezone_utils import utc_now, utc_factory, timezone
 import asyncio
 import json
 import re
@@ -75,7 +76,7 @@ class MessageCompressionHook(PreModelHook):
             compressed_message = {
                 "role": "system",
                 "content": f"[历史消息摘要] {compressed_content}",
-                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "timestamp": utc_now().isoformat(),
                 "metadata": {
                     "type": "compressed_history",
                     "original_count": len(old_messages),
@@ -92,7 +93,7 @@ class MessageCompressionHook(PreModelHook):
             
             state["context"]["hook_logs"].append({
                 "hook": "MessageCompressionHook",
-                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "timestamp": utc_now().isoformat(),
                 "action": "compressed_messages",
                 "details": f"压缩了 {len(old_messages)} 条消息"
             })
@@ -172,8 +173,8 @@ class ContextEnrichmentHook(PreModelHook):
         if context:
             system_context = {
                 "role": "system",
-                "content": f"当前用户: {context.user_id}, 会话: {context.session_id}, 时间: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S')}",
-                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "content": f"当前用户: {context.user_id}, 会话: {context.session_id}, 时间: {utc_now().strftime('%Y-%m-%d %H:%M:%S')}",
+                "timestamp": utc_now().isoformat(),
                 "metadata": {
                     "type": "system_context",
                     "hook": "ContextEnrichmentHook"
@@ -281,7 +282,7 @@ class QualityCheckHook(PostModelHook):
             
             state["context"]["hook_logs"].append({
                 "hook": "QualityCheckHook",
-                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "timestamp": utc_now().isoformat(),
                 "quality_issues_found": len(quality_logs),
                 "details": quality_logs
             })
@@ -302,7 +303,7 @@ class ResponseEnhancementHook(PostModelHook):
         for message in messages:
             if message.get("role") == "assistant":
                 # 添加时间戳和元数据
-                message["timestamp"] = message.get("timestamp", datetime.now(timezone.utc).isoformat())
+                message["timestamp"] = message.get("timestamp", utc_now().isoformat())
                 message["metadata"] = message.get("metadata", {})
                 message["metadata"]["enhanced"] = True
                 message["metadata"]["enhancement_hook"] = "ResponseEnhancementHook"

@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { Card } from '../../components/ui/Card';
-import { Button } from '../../components/ui/Button';
-import { Input } from '../../components/ui/Input';
-import { Badge } from '../../components/ui/Badge';
-import { Alert } from '../../components/ui/Alert';
+import { Button } from '../../components/ui/button';
+import { Input } from '../../components/ui/input';
+import { Badge } from '../../components/ui/badge';
+import { Alert } from '../../components/ui/alert';
 import { Switch } from '../../components/ui/Switch';
 import { behaviorAnalyticsService } from '../../services/behaviorAnalyticsService';
 

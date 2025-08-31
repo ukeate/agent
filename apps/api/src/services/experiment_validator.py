@@ -2,7 +2,9 @@
 A/B测试实验配置验证服务 - 提供全面的实验配置验证逻辑
 """
 from typing import List, Dict, Any, Optional, Tuple
-from datetime import datetime, timedelta
+from datetime import datetime
+from datetime import timedelta
+from src.core.utils.timezone_utils import utc_now, utc_factory
 import re
 from dataclasses import dataclass
 
@@ -167,7 +169,7 @@ class ExperimentConfigValidator:
             ))
         
         # 检查开始时间
-        now = datetime.utcnow()
+        now = utc_now()
         if experiment.start_date > now + timedelta(hours=1):
             warnings.append(ValidationError(
                 field="start_date",
@@ -369,7 +371,7 @@ class ExperimentConfigValidator:
         errors = []
         warnings = []
         
-        now = datetime.utcnow()
+        now = utc_now()
         
         # 开始时间验证
         if start_date < now - timedelta(hours=1):

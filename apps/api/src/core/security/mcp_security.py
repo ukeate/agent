@@ -3,7 +3,9 @@ MCP工具安全管理系统
 """
 
 import asyncio
-from datetime import datetime, timedelta
+from datetime import datetime
+from datetime import timedelta
+from src.core.utils.timezone_utils import utc_now, utc_factory
 from enum import Enum
 from typing import Any, Dict, List, Optional, Set
 
@@ -319,14 +321,14 @@ class MCPToolSecurityManager:
     async def _check_rate_limit(self, user_id: str, tool_name: str, limit: int) -> bool:
         """检查频率限制"""
         key = f"{user_id}:{tool_name}"
-        now = datetime.utcnow()
+        now = utc_now()
         
         # 获取历史调用记录
         if key not in self.call_history:
             self.call_history[key] = []
         
         # 清理一小时前的记录
-        hour_ago = datetime.utcnow().replace(microsecond=0) - timedelta(hours=1)
+        hour_ago = utc_now().replace(microsecond=0) - timedelta(hours=1)
         self.call_history[key] = [
             call_time for call_time in self.call_history[key]
             if call_time > hour_ago
@@ -461,7 +463,7 @@ class MCPToolSecurityManager:
             request_id=request_id,
             status=ApprovalStatus.APPROVED if approved else ApprovalStatus.REJECTED,
             approved_by=approver_id,
-            approved_at=datetime.utcnow(),
+            approved_at=utc_now(),
             rejection_reason=reason if not approved else None
         )
         

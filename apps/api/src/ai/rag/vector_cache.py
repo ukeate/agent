@@ -9,6 +9,7 @@ import numpy as np
 from typing import Dict, Any, Optional, Tuple, List
 import logging
 from datetime import datetime
+from src.core.utils.timezone_utils import utc_now, utc_factory
 import asyncio
 
 logger = logging.getLogger(__name__)
@@ -77,7 +78,7 @@ class VectorCacheManager:
             cache_data = {
                 "vector": vector.tolist(),
                 "metadata": metadata,
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": utc_now().isoformat(),
                 "access_count": 1
             }
             
@@ -107,7 +108,7 @@ class VectorCacheManager:
             # 更新访问时间戳
             access_key = f"access:{vector_id}"
             try:
-                await self.redis.setex(access_key, 3600, str(int(datetime.utcnow().timestamp())))
+                await self.redis.setex(access_key, 3600, str(int(utc_now().timestamp())))
             except Exception as e:
                 logger.warning(f"Failed to update access timestamp: {e}")
         else:
@@ -192,7 +193,7 @@ class VectorCacheManager:
             "current_size": current_size,
             "max_size": self.cache_size,
             "utilization": current_size / self.cache_size if self.cache_size > 0 else 0.0,
-            "timestamp": datetime.utcnow().isoformat()
+            "timestamp": utc_now().isoformat()
         }
     
     async def clear_cache(self) -> bool:

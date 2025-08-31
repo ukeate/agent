@@ -9,6 +9,7 @@ from typing import List, Dict, Any, Optional, Tuple, Union
 import asyncpg
 import numpy as np
 from datetime import datetime
+from src.core.utils.timezone_utils import utc_now, utc_factory
 import json
 from contextlib import asynccontextmanager
 
@@ -258,7 +259,7 @@ class PgVectorStore:
         Returns:
             搜索结果列表
         """
-        start_time = datetime.now()
+        start_time = utc_now()
         
         try:
             async with self.get_connection() as conn:
@@ -328,7 +329,7 @@ class PgVectorStore:
                     search_results.append(result)
                 
                 # 更新性能指标
-                query_time = (datetime.now() - start_time).total_seconds()
+                query_time = (utc_now() - start_time).total_seconds()
                 self._update_performance_metrics(query_time)
                 
                 if settings.VECTOR_PERFORMANCE_LOGGING and query_time > settings.VECTOR_SLOW_QUERY_THRESHOLD:
@@ -463,8 +464,8 @@ class PgVectorStore:
                 # 索引统计
                 index_stats = await conn.fetch(f"""
                 SELECT 
-                    indexname,
-                    pg_size_pretty(pg_relation_size(indexname::regclass)) as index_size,
+                    indexrelname as indexname,
+                    pg_size_pretty(pg_relation_size(indexrelname::regclass)) as index_size,
                     idx_scan,
                     idx_tup_read,
                     idx_tup_fetch

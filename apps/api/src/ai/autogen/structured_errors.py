@@ -8,7 +8,8 @@ import traceback
 from typing import Dict, Any, Optional, List, Union, Type
 from dataclasses import dataclass, field
 from enum import Enum
-from datetime import datetime, timezone
+from datetime import datetime
+from src.core.utils.timezone_utils import utc_now, utc_factory, timezone
 import structlog
 
 logger = structlog.get_logger(__name__)
@@ -39,7 +40,7 @@ class ErrorSeverity(str, Enum):
 @dataclass
 class ErrorContext:
     """错误上下文信息"""
-    timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    timestamp: datetime = field(default_factory=lambda: utc_now())
     node_id: Optional[str] = None
     session_id: Optional[str] = None
     user_id: Optional[str] = None

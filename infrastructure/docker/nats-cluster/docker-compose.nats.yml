@@ -1,0 +1,148 @@
+version: '3.8'
+
+services:
+  # NATS集群节点1
+  nats-1:
+    image: nats:2.9-alpine
+    container_name: nats-1
+    hostname: nats-1
+    ports:
+      - "4222:4222"   # 客户端连接端口
+      - "8222:8222"   # HTTP监控端口
+      - "6222:6222"   # 集群路由端口
+    volumes:
+      - ./nats-1-simple.conf:/etc/nats/nats-server.conf:ro
+      - nats-1-jetstream:/data/jetstream
+      - nats-1-logs:/var/log/nats
+    command: ["-c", "/etc/nats/nats-server.conf"]
+    networks:
+      - nats-cluster
+    environment:
+      - NATS_PASSWORD=${NATS_PASSWORD:-s3cr3t}
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8222/healthz"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
+  # NATS集群节点2  
+  nats-2:
+    image: nats:2.9-alpine
+    container_name: nats-2
+    hostname: nats-2
+    ports:
+      - "4223:4222"
+      - "8223:8222"
+      - "6223:6222"
+    volumes:
+      - ./nats-2-simple.conf:/etc/nats/nats-server.conf:ro
+      - nats-2-jetstream:/data/jetstream
+      - nats-2-logs:/var/log/nats
+    command: ["-c", "/etc/nats/nats-server.conf"]
+    networks:
+      - nats-cluster
+    environment:
+      - NATS_PASSWORD=${NATS_PASSWORD:-s3cr3t}
+    depends_on:
+      - nats-1
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8222/healthz"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
+  # NATS集群节点3
+  nats-3:
+    image: nats:2.9-alpine
+    container_name: nats-3
+    hostname: nats-3
+    ports:
+      - "4224:4222"
+      - "8224:8222"
+      - "6224:6222"
+    volumes:
+      - ./nats-3-simple.conf:/etc/nats/nats-server.conf:ro
+      - nats-3-jetstream:/data/jetstream
+      - nats-3-logs:/var/log/nats
+    command: ["-c", "/etc/nats/nats-server.conf"]
+    networks:
+      - nats-cluster
+    environment:
+      - NATS_PASSWORD=${NATS_PASSWORD:-s3cr3t}
+    depends_on:
+      - nats-1
+      - nats-2
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8222/healthz"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
+  # NATS监控面板 (可选)
+  nats-surveyor:
+    image: natsio/nats-surveyor:latest
+    container_name: nats-surveyor
+    ports:
+      - "7777:7777"
+    networks:
+      - nats-cluster
+    command: 
+      - "-s"
+      - "http://nats-1:8222,http://nats-2:8222,http://nats-3:8222"
+      - "-c"
+      - "nats-1:4222,nats-2:4222,nats-3:4222"
+    depends_on:
+      - nats-1
+      - nats-2
+      - nats-3
+
+volumes:
+  nats-1-jetstream:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ./data/nats-1/jetstream
+  nats-1-logs:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind  
+      device: ./data/nats-1/logs
+      
+  nats-2-jetstream:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ./data/nats-2/jetstream
+  nats-2-logs:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ./data/nats-2/logs
+      
+  nats-3-jetstream:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ./data/nats-3/jetstream
+  nats-3-logs:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ./data/nats-3/logs
+
+networks:
+  nats-cluster:
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.20.0.0/16

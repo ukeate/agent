@@ -3,7 +3,9 @@
 """
 import asyncio
 import json
-from datetime import datetime, timezone, timedelta
+from datetime import datetime
+from datetime import timedelta
+from src.core.utils.timezone_utils import utc_now, utc_factory
 from typing import Dict, List, Optional, Any, Union, Callable
 from dataclasses import dataclass
 from enum import Enum
@@ -11,7 +13,7 @@ import uuid
 from contextlib import asynccontextmanager
 
 from core.logging import get_logger
-from core.database import get_async_db
+from core.database import get_db
 from models.schemas.event_tracking import CreateEventRequest, BatchEventsRequest, EventStatus
 from repositories.event_tracking_repository import EventStreamRepository, EventDeduplicationRepository, EventSchemaRepository, EventErrorRepository
 from services.event_processing_service import EventProcessingService
@@ -41,7 +43,7 @@ class BatchJobConfig:
     
     def __post_init__(self):
         if self.created_at is None:
-            self.created_at = datetime.now(timezone.utc)
+            self.created_at = utc_now()
 
 
 @dataclass
@@ -183,7 +185,7 @@ class EventBatchManager:
             job_id=job_id,
             status=EventStatus.PENDING,
             total_events=len(batch.events),
-            started_at=datetime.now(timezone.utc)
+            started_at=utc_now()
         )
         
         self.active_jobs[job_id] = job_status
@@ -243,7 +245,7 @@ class EventBatchManager:
             
             try:
                 job_status.status = EventStatus.PROCESSED
-                start_time = datetime.now(timezone.utc)
+                start_time = utc_now()
                 
                 # 根据配置选择处理模式
                 if config.processing_mode == ProcessingMode.IMMEDIATE:
@@ -253,7 +255,7 @@ class EventBatchManager:
                 
                 # 完成任务
                 job_status.status = EventStatus.PROCESSED
-                job_status.completed_at = datetime.now(timezone.utc)
+                job_status.completed_at = utc_now()
                 job_status.progress_percentage = 100.0
                 
                 # 更新统计信息
@@ -270,7 +272,7 @@ class EventBatchManager:
             except Exception as e:
                 job_status.status = EventStatus.FAILED
                 job_status.error_message = str(e)
-                job_status.completed_at = datetime.now(timezone.utc)
+                job_status.completed_at = utc_now()
                 self.stats['failed_jobs'] += 1
                 
                 logger.error(f"Batch job {config.job_id} failed: {e}", exc_info=True)
@@ -337,9 +339,9 @@ class EventBatchManager:
     
     async def _wait_for_active_jobs(self, timeout: int = 300):
         """等待所有活跃任务完成"""
-        start_time = datetime.now(timezone.utc)
+        start_time = utc_now()
         
-        while self.active_jobs and (datetime.now(timezone.utc) - start_time).total_seconds() < timeout:
+        while self.active_jobs and (utc_now() - start_time).total_seconds() < timeout:
             await asyncio.sleep(1)
         
         if self.active_jobs:
@@ -380,7 +382,7 @@ class EventBatchManager:
             if job_status.status == EventStatus.PENDING:
                 job_status.status = EventStatus.FAILED
                 job_status.error_message = "Job cancelled by user"
-                job_status.completed_at = datetime.now(timezone.utc)
+                job_status.completed_at = utc_now()
                 return True
         return False
     

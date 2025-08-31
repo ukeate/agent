@@ -1,4 +1,4 @@
-import React from 'react';
+// React import removed - not used in test
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import CheckpointManager from '../CheckpointManager';

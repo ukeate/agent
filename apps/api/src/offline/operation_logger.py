@@ -11,7 +11,9 @@
 import json
 import gzip
 import pickle
-from datetime import datetime, timedelta
+from datetime import datetime
+from datetime import timedelta
+from src.core.utils.timezone_utils import utc_now, utc_factory
 from typing import Dict, Any, List, Optional, Union
 from dataclasses import dataclass, asdict
 from enum import Enum
@@ -73,7 +75,7 @@ class OperationLogger:
             entity_type=entity_type,
             entity_id=entity_id,
             data=data,
-            timestamp=datetime.utcnow(),
+            timestamp=utc_now(),
             vector_clock=vector_clock,
             user_id=user_id,
             metadata=metadata or {}

@@ -7,7 +7,9 @@
 from typing import Dict, List, Any, Optional, Tuple, Union
 import numpy as np
 import asyncio
-from datetime import datetime, timedelta
+from datetime import datetime
+from datetime import timedelta
+from src.core.utils.timezone_utils import utc_now, utc_factory
 from dataclasses import dataclass, asdict
 import json
 import uuid
@@ -173,7 +175,7 @@ class BanditRecommendationEngine:
         Returns:
             推荐响应
         """
-        start_time = datetime.now()
+        start_time = utc_now()
         request_id = str(uuid.uuid4())
         
         try:
@@ -222,7 +224,7 @@ class BanditRecommendationEngine:
                 event_id=str(uuid.uuid4()),
                 user_id=feedback.user_id,
                 item_id=feedback.item_id,
-                timestamp=feedback.timestamp or datetime.now(),
+                timestamp=feedback.timestamp or utc_now(),
                 action_type=feedback.feedback_type,
                 reward=self._convert_feedback_to_reward(feedback),
                 context=feedback.context
@@ -319,7 +321,7 @@ class BanditRecommendationEngine:
             algorithm_used=algorithm_name,
             confidence_score=confidence_score,
             explanations=explanations,
-            timestamp=datetime.now()
+            timestamp=utc_now()
         )
         
         return response
@@ -353,7 +355,7 @@ class BanditRecommendationEngine:
             algorithm_used="cold_start",
             confidence_score=cold_start_result["confidence"],
             cold_start_strategy=cold_start_result["strategy"],
-            timestamp=datetime.now()
+            timestamp=utc_now()
         )
     
     async def _prepare_context(self, request: RecommendationRequest) -> Optional[Dict[str, Any]]:
@@ -510,7 +512,7 @@ class BanditRecommendationEngine:
         """获取缓存的推荐"""
         if cache_key in self.recommendation_cache:
             response, timestamp = self.recommendation_cache[cache_key]
-            if datetime.now() - timestamp < timedelta(seconds=self.cache_ttl_seconds):
+            if utc_now() - timestamp < timedelta(seconds=self.cache_ttl_seconds):
                 return response
             else:
                 # 过期，删除缓存
@@ -526,11 +528,11 @@ class BanditRecommendationEngine:
                            key=lambda k: self.recommendation_cache[k][1])
             del self.recommendation_cache[oldest_key]
         
-        self.recommendation_cache[cache_key] = (response, datetime.now())
+        self.recommendation_cache[cache_key] = (response, utc_now())
     
     def _update_statistics(self, response: RecommendationResponse, start_time: datetime):
         """更新统计信息"""
-        processing_time = (datetime.now() - start_time).total_seconds() * 1000
+        processing_time = (utc_now() - start_time).total_seconds() * 1000
         response.processing_time_ms = processing_time
         
         self.stats["total_requests"] += 1
@@ -565,7 +567,7 @@ class BanditRecommendationEngine:
             recommendations=recommendations,
             algorithm_used="fallback",
             confidence_score=0.1,
-            timestamp=datetime.now()
+            timestamp=utc_now()
         )
     
     def get_engine_statistics(self) -> Dict[str, Any]:

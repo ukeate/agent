@@ -5,7 +5,8 @@
 
 import uuid
 from typing import Dict, List, Optional, Any
-from datetime import datetime, timezone
+from datetime import datetime
+from src.core.utils.timezone_utils import utc_now, utc_factory, timezone
 import json
 import structlog
 
@@ -38,11 +39,11 @@ class ConversationService:
             conversation = Conversation(
                 id=conversation_id,
                 user_id=user_id,
-                title=title or f"ReAct对话 - {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M')}",
+                title=title or f"ReAct对话 - {utc_now().strftime('%Y-%m-%d %H:%M')}",
                 agent_type=agent_type,
                 metadata=metadata or {},
-                created_at=datetime.now(timezone.utc),
-                updated_at=datetime.now(timezone.utc)
+                created_at=utc_now(),
+                updated_at=utc_now()
             )
             
             # 这里应该保存到数据库，但由于没有数据库连接，我们先用内存存储
@@ -102,13 +103,13 @@ class ConversationService:
                 "message_type": message_type,  # text, tool_call, tool_result
                 "metadata": metadata or {},
                 "tool_calls": tool_calls or [],
-                "created_at": datetime.now(timezone.utc),
-                "timestamp": datetime.now(timezone.utc).timestamp()
+                "created_at": utc_now(),
+                "timestamp": utc_now().timestamp()
             }
             
             # 添加到会话
             session["messages"].append(message)
-            session["updated_at"] = datetime.now(timezone.utc)
+            session["updated_at"] = utc_now()
             
             # 检查上下文长度限制
             await self._manage_context_length(conversation_id)
@@ -240,7 +241,7 @@ class ConversationService:
                 raise ValueError(f"对话会话不存在: {conversation_id}")
             
             session["context"].update(context_updates)
-            session["updated_at"] = datetime.now(timezone.utc)
+            session["updated_at"] = utc_now()
             
             logger.info(
                 "更新对话上下文",
@@ -262,7 +263,7 @@ class ConversationService:
             session = self.active_sessions.get(conversation_id)
             if session:
                 session["status"] = "closed"
-                session["updated_at"] = datetime.now(timezone.utc)
+                session["updated_at"] = utc_now()
                 
                 # 保存到数据库
                 await self._save_conversation_to_db(conversation_id)
@@ -476,7 +477,7 @@ class ConversationService:
     async def cleanup_expired_sessions(self) -> int:
         """清理过期的内存会话"""
         try:
-            current_time = datetime.now(timezone.utc).timestamp()
+            current_time = utc_now().timestamp()
             expired_sessions = []
             
             for conversation_id, session in self.active_sessions.items():

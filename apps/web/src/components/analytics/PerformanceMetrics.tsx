@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import { Card } from '../ui/Card';
-import { Badge } from '../ui/Badge';
-import { Progress } from '../ui/Progress';
-import { Alert } from '../ui/Alert';
+import { Card } from '../ui/card';
+import { Badge } from '../ui/badge';
+import { Progress } from '../ui/progress';
+import { Alert } from '../ui/alert';
 
 interface PerformanceMetricsProps {
   metrics: {

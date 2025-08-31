@@ -1319,6 +1319,7 @@ async def log_agent_event(session_id: str, request: AgentEventRequest):
     try:
         from ...ai.qlearning.agent_monitor import AgentEvent, LogLevel
         from datetime import datetime
+        # from src.core.utils.timezone_utils import utc_now, utc_factory  # 暂时禁用
         
         # 验证日志级别
         try:

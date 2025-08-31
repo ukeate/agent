@@ -3,7 +3,9 @@
 """
 import pytest
 import asyncio
-from datetime import datetime, timedelta
+from datetime import datetime
+from datetime import timedelta
+from src.core.utils.timezone_utils import utc_now, utc_factory
 from httpx import AsyncClient
 import json
 import numpy as np
@@ -55,8 +57,8 @@ async def experiment_data():
         ],
         "sample_size": 1000,
         "confidence_level": 95,
-        "start_date": datetime.now().isoformat(),
-        "end_date": (datetime.now() + timedelta(days=7)).isoformat()
+        "start_date": utc_now().isoformat(),
+        "end_date": (utc_now() + timedelta(days=7)).isoformat()
     }
 
 
@@ -138,7 +140,7 @@ class TestExperimentLifecycle:
                 "event_type": "conversion" if conversion else "view",
                 "properties": {
                     "revenue": revenue,
-                    "timestamp": datetime.now().isoformat()
+                    "timestamp": utc_now().isoformat()
                 }
             }
             events.append(event)
@@ -382,13 +384,13 @@ class TestMonitoringAndAlerts:
         
         # 发送正常数据
         normal_data = [
-            {"timestamp": datetime.now().isoformat(), "value": 100 + np.random.normal(0, 5)}
+            {"timestamp": utc_now().isoformat(), "value": 100 + np.random.normal(0, 5)}
             for _ in range(50)
         ]
         
         # 添加异常点
         anomaly_data = normal_data + [
-            {"timestamp": datetime.now().isoformat(), "value": 150}  # 异常高值
+            {"timestamp": utc_now().isoformat(), "value": 150}  # 异常高值
         ]
         
         response = await async_client.post(

@@ -4,7 +4,8 @@
 """
 
 import asyncio
-from datetime import datetime, timezone
+from datetime import datetime
+from src.core.utils.timezone_utils import utc_now, utc_factory, timezone
 from typing import Any, Dict, List, Optional, Tuple, Union
 from uuid import uuid4
 
@@ -12,7 +13,7 @@ from src.ai.memory.context_recall import ContextAwareRecall
 from src.ai.memory.models import Memory, MemoryType, MemoryStatus
 from src.ai.memory.storage import MemoryStorage
 from src.ai.explainer.decision_tracker import DecisionTracker
-from models.schemas.explanation import (
+from src.models.schemas.explanation import (
     DecisionExplanation,
     ExplanationComponent,
     ExplanationLevel,
@@ -55,7 +56,7 @@ class MemoryExplainer:
             input_data={
                 "query": query_context,
                 "session_id": session_id,
-                "timestamp": datetime.now(timezone.utc).isoformat()
+                "timestamp": utc_now().isoformat()
             }
         )
         
@@ -124,7 +125,7 @@ class MemoryExplainer:
         tracker.complete_node(temporal_node, {
             "temporal_boost_applied": True,
             "recent_memories": len([m for m, _ in recalled_memories 
-                                 if (datetime.now(timezone.utc) - m.created_at).days <= 1])
+                                 if (utc_now() - m.created_at).days <= 1])
         })
         
         tracker.complete_node(entity_node, {
@@ -265,7 +266,7 @@ class MemoryExplainer:
         avg_importance = sum(importance_scores) / len(importance_scores)
         
         # 计算时间新鲜度
-        current_time = datetime.now(timezone.utc)
+        current_time = utc_now()
         freshness_scores = []
         for memory, _ in recalled_memories:
             hours_ago = (current_time - memory.last_accessed).total_seconds() / 3600
@@ -374,7 +375,7 @@ class MemoryExplainer:
         if explanation_level in [ExplanationLevel.DETAILED, ExplanationLevel.TECHNICAL]:
             memory_types = set(memory.type.value for memory, _ in recalled_memories)
             recent_count = len([m for m, _ in recalled_memories 
-                              if (datetime.now(timezone.utc) - m.created_at).days <= 1])
+                              if (utc_now() - m.created_at).days <= 1])
             
             explanations["detailed"] = (
                 f"记忆召回过程使用了混合搜索策略，结合了语义相似度、时间相关性和实体匹配。"
@@ -414,7 +415,7 @@ class MemoryExplainer:
                 "relevance": score,
                 "importance": memory.importance,
                 "type": memory.type.value,
-                "age_hours": (datetime.now(timezone.utc) - memory.created_at).total_seconds() / 3600
+                "age_hours": (utc_now() - memory.created_at).total_seconds() / 3600
             }
             for memory, score in recalled_memories
         ]
@@ -433,7 +434,7 @@ class MemoryExplainer:
         
         # 时间分布
         time_buckets = {"recent": 0, "day": 0, "week": 0, "month": 0, "older": 0}
-        current_time = datetime.now(timezone.utc)
+        current_time = utc_now()
         
         for memory, _ in recalled_memories:
             hours_ago = (current_time - memory.created_at).total_seconds() / 3600

@@ -6,6 +6,7 @@ from typing import Any, Dict, List, Optional, Protocol
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime
+from src.core.utils.timezone_utils import utc_now, utc_factory
 import json
 import uuid
 from sqlalchemy import Column, String, DateTime, Text, Integer, Boolean, JSON, select
@@ -40,7 +41,7 @@ class Checkpoint:
     workflow_id: str = ""
     state: MessagesState = field(default_factory=dict)
     metadata: Dict[str, Any] = field(default_factory=dict)
-    created_at: datetime = field(default_factory=datetime.now)
+    created_at: datetime = field(default_factory=utc_factory)
     version: int = 1
 
 

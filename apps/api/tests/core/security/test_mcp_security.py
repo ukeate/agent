@@ -5,6 +5,7 @@ MCP工具安全测试
 import pytest
 from unittest.mock import Mock, patch, AsyncMock
 from datetime import datetime
+from src.core.utils.timezone_utils import utc_now, utc_factory
 
 from src.core.security.mcp_security import (
     MCPToolSecurityManager,
@@ -178,7 +179,7 @@ class TestMCPAuditLogger:
                 id="log1",
                 user_id="user123",
                 tool_name="file_read",
-                timestamp=datetime.utcnow()
+                timestamp=utc_now()
             )
         ]
         mock_session.execute.return_value = mock_result

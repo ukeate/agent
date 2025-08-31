@@ -5,6 +5,7 @@ import networkx as nx
 import numpy as np
 import logging
 from datetime import datetime
+from src.core.utils.timezone_utils import utc_now, utc_factory
 
 from .models import Memory, MemoryType
 from .storage import MemoryStorage
@@ -25,7 +26,7 @@ class MemoryAssociationGraph:
         """添加记忆节点"""
         self.graph.add_node(
             memory.id,
-            memory_type=memory.type.value,
+            memory_type=memory.type.value if hasattr(memory.type, 'value') else str(memory.type),
             importance=memory.importance,
             created_at=memory.created_at,
             content_summary=memory.content[:100]  # 存储内容摘要
@@ -55,7 +56,7 @@ class MemoryAssociationGraph:
             memory2.id,
             weight=weight,
             type=association_type,
-            created_at=datetime.utcnow()
+            created_at=utc_now()
         )
         
         # 存储权重
@@ -85,7 +86,7 @@ class MemoryAssociationGraph:
             return []
             
         # 记录访问模式
-        self._access_patterns.setdefault(memory_id, []).append(datetime.utcnow())
+        self._access_patterns.setdefault(memory_id, []).append(utc_now())
         
         # 获取ego网络(以memory_id为中心的子图)
         try:
@@ -266,7 +267,7 @@ class MemoryAssociationGraph:
             "central_memories": []
         }
         
-        current_time = datetime.utcnow()
+        current_time = utc_now()
         
         # 频繁访问的记忆
         access_counts = {

@@ -5,7 +5,9 @@ import logging
 import time
 from typing import Any, Dict, List, Optional
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import datetime
+from datetime import timedelta
+from src.core.utils.timezone_utils import utc_now, utc_factory
 from collections import defaultdict, deque
 import threading
 
@@ -19,7 +21,7 @@ class PerformanceMetrics:
     execution_time: float
     success: bool
     error_type: Optional[str] = None
-    timestamp: datetime = field(default_factory=datetime.now)
+    timestamp: datetime = field(default_factory=utc_factory)
     server_type: Optional[str] = None
     tool_name: Optional[str] = None
 
@@ -34,7 +36,7 @@ class AggregatedMetrics:
     min_execution_time: float = float('inf')
     max_execution_time: float = 0.0
     error_counts: Dict[str, int] = field(default_factory=dict)
-    last_updated: datetime = field(default_factory=datetime.now)
+    last_updated: datetime = field(default_factory=utc_factory)
 
     @property
     def success_rate(self) -> float:
@@ -81,7 +83,7 @@ class MCPMonitor:
 
     def _cleanup_old_metrics(self):
         """清理旧的指标数据"""
-        cutoff_time = datetime.now() - timedelta(hours=24)
+        cutoff_time = utc_now() - timedelta(hours=24)
         
         with self.lock:
             # 清理历史记录中超过24小时的数据
@@ -120,7 +122,7 @@ class MCPMonitor:
             
             agg.total_calls += 1
             agg.total_execution_time += execution_time
-            agg.last_updated = datetime.now()
+            agg.last_updated = utc_now()
             
             if success:
                 agg.successful_calls += 1
@@ -156,7 +158,7 @@ class MCPMonitor:
             # 时间过滤
             filtered_metrics = list(self.metrics_history)
             if time_window_hours:
-                cutoff_time = datetime.now() - timedelta(hours=time_window_hours)
+                cutoff_time = utc_now() - timedelta(hours=time_window_hours)
                 filtered_metrics = [
                     m for m in filtered_metrics 
                     if m.timestamp >= cutoff_time
@@ -219,7 +221,7 @@ class MCPMonitor:
                 },
                 "time_window_hours": time_window_hours,
                 "operation_filter": operation_filter,
-                "generated_at": datetime.now().isoformat()
+                "generated_at": utc_now().isoformat()
             }
 
     def get_aggregated_metrics(self) -> Dict[str, Dict[str, Any]]:

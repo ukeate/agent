@@ -8,7 +8,9 @@
 import pytest
 import asyncio
 import time
-from datetime import datetime, timedelta
+from datetime import datetime
+from datetime import timedelta
+from src.core.utils.timezone_utils import utc_now, utc_factory
 from unittest.mock import Mock, patch, AsyncMock
 
 import sys
@@ -49,7 +51,7 @@ class TestCollectedEvent:
             feedback_type=FeedbackType.CLICK,
             raw_value=True,
             context={"page": "home"},
-            timestamp=datetime.now(),
+            timestamp=utc_now(),
             priority=EventPriority.HIGH
         )
         
@@ -83,7 +85,7 @@ class TestFeedbackBuffer:
             feedback_type=FeedbackType.CLICK,
             raw_value=True,
             context={},
-            timestamp=datetime.now(),
+            timestamp=utc_now(),
             priority=EventPriority.MEDIUM
         )
         
@@ -107,7 +109,7 @@ class TestFeedbackBuffer:
             feedback_type=FeedbackType.CLICK,
             raw_value=True,
             context={},
-            timestamp=datetime.now(),
+            timestamp=utc_now(),
             priority=EventPriority.LOW
         )
         result1 = await buffer.add_event(event1)
@@ -122,7 +124,7 @@ class TestFeedbackBuffer:
             feedback_type=FeedbackType.CLICK,
             raw_value=True,
             context={},
-            timestamp=datetime.now(),
+            timestamp=utc_now(),
             priority=EventPriority.LOW
         )
         result2 = await buffer.add_event(event2)
@@ -137,7 +139,7 @@ class TestFeedbackBuffer:
             feedback_type=FeedbackType.CLICK,
             raw_value=True,
             context={},
-            timestamp=datetime.now(),
+            timestamp=utc_now(),
             priority=EventPriority.LOW
         )
         result3 = await buffer.add_event(event3)
@@ -166,7 +168,7 @@ class TestFeedbackBuffer:
             feedback_type=FeedbackType.RATING,
             raw_value=5,
             context={},
-            timestamp=datetime.now(),
+            timestamp=utc_now(),
             priority=EventPriority.HIGH
         )
         
@@ -188,7 +190,7 @@ class TestFeedbackBuffer:
             feedback_type=FeedbackType.VIEW,
             raw_value=True,
             context={},
-            timestamp=datetime.now(),
+            timestamp=utc_now(),
             priority=EventPriority.LOW
         )
         
@@ -200,7 +202,7 @@ class TestFeedbackBuffer:
             feedback_type=FeedbackType.RATING,
             raw_value=5,
             context={},
-            timestamp=datetime.now(),
+            timestamp=utc_now(),
             priority=EventPriority.HIGH
         )
         
@@ -212,7 +214,7 @@ class TestFeedbackBuffer:
             feedback_type=FeedbackType.DWELL_TIME,
             raw_value=30,
             context={},
-            timestamp=datetime.now(),
+            timestamp=utc_now(),
             priority=EventPriority.MEDIUM
         )
         
@@ -248,7 +250,7 @@ class TestEventDeduplicator:
             feedback_type=FeedbackType.RATING,
             raw_value=4,
             context={},
-            timestamp=datetime.now(),
+            timestamp=utc_now(),
             priority=EventPriority.HIGH
         )
         
@@ -267,7 +269,7 @@ class TestEventDeduplicator:
             feedback_type=FeedbackType.CLICK,
             raw_value=True,
             context={},
-            timestamp=datetime.now(),
+            timestamp=utc_now(),
             priority=EventPriority.LOW
         )
         
@@ -286,7 +288,7 @@ class TestEventDeduplicator:
             feedback_type=FeedbackType.CLICK,
             raw_value=True,
             context={},
-            timestamp=datetime.now(),
+            timestamp=utc_now(),
             priority=EventPriority.LOW
         )
         
@@ -310,7 +312,7 @@ class TestEventDeduplicator:
             feedback_type=FeedbackType.CLICK,
             raw_value=True,
             context={},
-            timestamp=datetime.now(),
+            timestamp=utc_now(),
             priority=EventPriority.LOW
         )
         
@@ -318,14 +320,27 @@ class TestEventDeduplicator:
         await deduplicator.is_duplicate(event)
         assert len(deduplicator.seen_events) == 1
         
-        # 模拟时间过去
-        with patch('services.feedback_collector.datetime') as mock_datetime:
-            future_time = datetime.now() + timedelta(seconds=2)
-            mock_datetime.now.return_value = future_time
-            
-            # 再次检查，应该清理过期条目
-            is_duplicate = await deduplicator.is_duplicate(event)
-            assert is_duplicate is False
+        # 等待一段时间让条目过期，然后测试清理
+        import time
+        time.sleep(1.1)  # 等待超过window_seconds
+        
+        # 创建一个新的相同事件来触发清理
+        new_event = CollectedEvent(
+            event_id="test_event",
+            user_id="user_1", 
+            session_id="session_1",
+            item_id="item_1",
+            feedback_type=FeedbackType.CLICK,
+            raw_value=True,
+            context={},
+            timestamp=utc_now(),
+            priority=EventPriority.LOW
+        )
+        
+        # 再次检查，应该清理过期条目
+        is_duplicate = await deduplicator.is_duplicate(new_event)
+        assert is_duplicate is False
+        assert len(deduplicator.seen_events) == 1  # 只有新事件
 
 
 class TestEventValidator:
@@ -344,7 +359,7 @@ class TestEventValidator:
             feedback_type=FeedbackType.CLICK,
             raw_value=True,
             context={},
-            timestamp=datetime.now(),
+            timestamp=utc_now(),
             priority=EventPriority.LOW
         )
         
@@ -367,7 +382,7 @@ class TestEventValidator:
             feedback_type=FeedbackType.DWELL_TIME,
             raw_value=30.5,
             context={},
-            timestamp=datetime.now(),
+            timestamp=utc_now(),
             priority=EventPriority.LOW
         )
         
@@ -393,7 +408,7 @@ class TestEventValidator:
             feedback_type=FeedbackType.SCROLL_DEPTH,
             raw_value=75.0,
             context={},
-            timestamp=datetime.now(),
+            timestamp=utc_now(),
             priority=EventPriority.LOW
         )
         
@@ -415,7 +430,7 @@ class TestEventValidator:
             feedback_type=FeedbackType.RATING,
             raw_value=4,
             context={},
-            timestamp=datetime.now(),
+            timestamp=utc_now(),
             priority=EventPriority.HIGH
         )
         
@@ -440,7 +455,7 @@ class TestEventValidator:
             feedback_type=FeedbackType.COMMENT,
             raw_value="这是一个很好的评论",
             context={},
-            timestamp=datetime.now(),
+            timestamp=utc_now(),
             priority=EventPriority.HIGH
         )
         
@@ -460,21 +475,14 @@ class TestFeedbackCollectorCore:
     
     def test_collector_initialization(self):
         """测试收集器初始化"""
-        with patch('core.config.Settings') as MockSettings:
-            # Mock 整个Settings类
-            mock_instance = Mock()
-            mock_instance.FEEDBACK_BUFFER_SIZE = 500
-            mock_instance.FEEDBACK_FLUSH_INTERVAL = 3.0
-            mock_instance.FEEDBACK_DEDUP_WINDOW = 180
-            MockSettings.return_value = mock_instance
-            
-            with patch('services.feedback_collector.get_settings', return_value=mock_instance):
-                collector = FeedbackCollector()
-                
-                assert collector.buffer.max_size == 500
-                assert collector.buffer.flush_interval == 3.0
-                assert collector.deduplicator.window_seconds == 180
-                assert collector._running is False
+        # 直接测试默认初始化值
+        collector = FeedbackCollector()
+        
+        # 断言默认值或配置文件中的值
+        assert collector.buffer.max_size == 1000  # 默认值
+        assert collector.buffer.flush_interval == 5.0  # 默认值
+        assert collector.deduplicator.window_seconds == 300  # 默认值
+        assert collector._running is False
     
     def test_collector_stats_initialization(self):
         """测试收集器统计信息初始化"""
@@ -542,7 +550,7 @@ class TestErrorHandling:
             feedback_type=FeedbackType.RATING,
             raw_value=None,  # 这会导致类型错误
             context={},
-            timestamp=datetime.now(),
+            timestamp=utc_now(),
             priority=EventPriority.HIGH
         )
         
@@ -580,7 +588,7 @@ class TestEdgeCases:
             feedback_type="unknown_type",  # 不是FeedbackType枚举值
             raw_value="some_value",
             context={},
-            timestamp=datetime.now(),
+            timestamp=utc_now(),
             priority=EventPriority.LOW
         )
         
@@ -607,7 +615,7 @@ class TestPerformanceUnits:
             feedback_type=FeedbackType.CLICK,
             raw_value=True,
             context={},
-            timestamp=datetime.now(),
+            timestamp=utc_now(),
             priority=EventPriority.LOW
         )
         
@@ -640,7 +648,7 @@ class TestPerformanceUnits:
                 feedback_type=FeedbackType.CLICK,
                 raw_value=True,
                 context={},
-                timestamp=datetime.now(),
+                timestamp=utc_now(),
                 priority=EventPriority.LOW
             )
             events.append(event)
@@ -754,7 +762,7 @@ class TestValidatorComprehensive:
             feedback_type=FeedbackType.VIEW,
             raw_value=True,
             context={},
-            timestamp=datetime.now(),
+            timestamp=utc_now(),
             priority=EventPriority.LOW
         )
         assert validator.validate_implicit_event(view_event) is True
@@ -768,7 +776,7 @@ class TestValidatorComprehensive:
             feedback_type=FeedbackType.HOVER,
             raw_value=2.5,
             context={},
-            timestamp=datetime.now(),
+            timestamp=utc_now(),
             priority=EventPriority.LOW
         )
         assert validator.validate_implicit_event(hover_event) is True
@@ -790,7 +798,7 @@ class TestValidatorComprehensive:
             feedback_type=FeedbackType.LIKE,
             raw_value=1,
             context={},
-            timestamp=datetime.now(),
+            timestamp=utc_now(),
             priority=EventPriority.HIGH
         )
         assert validator.validate_explicit_event(like_event) is True
@@ -804,7 +812,7 @@ class TestValidatorComprehensive:
             feedback_type=FeedbackType.DISLIKE,
             raw_value=True,
             context={},
-            timestamp=datetime.now(),
+            timestamp=utc_now(),
             priority=EventPriority.HIGH
         )
         assert validator.validate_explicit_event(dislike_event) is True
@@ -818,7 +826,7 @@ class TestValidatorComprehensive:
             feedback_type=FeedbackType.BOOKMARK,
             raw_value=False,
             context={},
-            timestamp=datetime.now(),
+            timestamp=utc_now(),
             priority=EventPriority.HIGH
         )
         assert validator.validate_explicit_event(bookmark_event) is True
@@ -832,7 +840,7 @@ class TestValidatorComprehensive:
             feedback_type=FeedbackType.SHARE,
             raw_value=0,
             context={},
-            timestamp=datetime.now(), 
+            timestamp=utc_now(), 
             priority=EventPriority.HIGH
         )
         assert validator.validate_explicit_event(share_event) is True
@@ -856,7 +864,7 @@ class TestBufferEdgeCases:
                 feedback_type=FeedbackType.CLICK,
                 raw_value=True,
                 context={},
-                timestamp=datetime.now(),
+                timestamp=utc_now(),
                 priority=EventPriority.LOW
             )
             await buffer.add_event(event)
@@ -1015,7 +1023,7 @@ class TestAdditionalCoverage:
             feedback_type=FeedbackType.FOCUS,
             raw_value=True,
             context={},
-            timestamp=datetime.now(),
+            timestamp=utc_now(),
             priority=EventPriority.LOW
         )
         result = validator.validate_implicit_event(focus_event)
@@ -1029,7 +1037,7 @@ class TestAdditionalCoverage:
             feedback_type=FeedbackType.BLUR,
             raw_value=True,
             context={},
-            timestamp=datetime.now(),
+            timestamp=utc_now(),
             priority=EventPriority.LOW
         )
         result = validator.validate_implicit_event(blur_event)

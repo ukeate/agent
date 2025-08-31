@@ -4,7 +4,9 @@
 """
 
 import numpy as np
-from datetime import datetime, timedelta
+from datetime import datetime
+from datetime import timedelta
+from src.core.utils.timezone_utils import utc_now, utc_factory
 from typing import List, Dict, Any, Tuple
 from dataclasses import dataclass
 import random
@@ -48,7 +50,7 @@ class SimpleAnomalyDetector:
             return []
         
         anomalies = []
-        now = datetime.now()
+        now = utc_now()
         
         # 按用户分组事件
         user_events = {}
@@ -78,10 +80,10 @@ class SimpleAnomalyDetector:
         # 检测高频异常
         if events_per_minute > self.normal_thresholds['events_per_minute'][1]:
             anomaly = SimpleAnomalyResult(
-                anomaly_id=f"freq_{user_id}_{int(datetime.now().timestamp())}",
+                anomaly_id=f"freq_{user_id}_{int(utc_now().timestamp())}",
                 user_id=user_id,
                 event_type="high_frequency",
-                timestamp=datetime.now(),
+                timestamp=utc_now(),
                 severity="high",
                 confidence=min(0.9, events_per_minute / 20),
                 description=f"用户 {user_id} 事件频率异常高: {events_per_minute:.2f}/分钟",
@@ -93,10 +95,10 @@ class SimpleAnomalyDetector:
         # 检测低频异常
         elif events_per_minute < self.normal_thresholds['events_per_minute'][0]:
             anomaly = SimpleAnomalyResult(
-                anomaly_id=f"low_freq_{user_id}_{int(datetime.now().timestamp())}",
+                anomaly_id=f"low_freq_{user_id}_{int(utc_now().timestamp())}",
                 user_id=user_id,
                 event_type="low_frequency",
-                timestamp=datetime.now(),
+                timestamp=utc_now(),
                 severity="medium",
                 confidence=0.7,
                 description=f"用户 {user_id} 事件频率异常低: {events_per_minute:.2f}/分钟",
@@ -111,10 +113,10 @@ class SimpleAnomalyDetector:
         
         if unique_types > self.normal_thresholds['event_types_per_session'][1]:
             anomaly = SimpleAnomalyResult(
-                anomaly_id=f"types_{user_id}_{int(datetime.now().timestamp())}",
+                anomaly_id=f"types_{user_id}_{int(utc_now().timestamp())}",
                 user_id=user_id,
                 event_type="diverse_behavior",
-                timestamp=datetime.now(),
+                timestamp=utc_now(),
                 severity="medium",
                 confidence=min(0.8, unique_types / 20),
                 description=f"用户 {user_id} 行为模式过于多样化: {unique_types}种事件类型",
@@ -134,10 +136,10 @@ class SimpleAnomalyDetector:
             anomaly_type, description, category = random.choice(anomaly_types)
             
             anomaly = SimpleAnomalyResult(
-                anomaly_id=f"{anomaly_type}_{user_id}_{int(datetime.now().timestamp())}",
+                anomaly_id=f"{anomaly_type}_{user_id}_{int(utc_now().timestamp())}",
                 user_id=user_id,
                 event_type=anomaly_type,
-                timestamp=datetime.now(),
+                timestamp=utc_now(),
                 severity=random.choice(["low", "medium", "high"]),
                 confidence=random.uniform(0.6, 0.9),
                 description=f"用户 {user_id} {description}",
@@ -156,7 +158,7 @@ def create_sample_events(num_users: int = 50, num_events: int = 1000) -> List[Di
     ]
     
     events = []
-    now = datetime.now()
+    now = utc_now()
     
     for i in range(num_events):
         # 为前10%的事件创建一些异常模式

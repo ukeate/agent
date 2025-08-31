@@ -10,7 +10,8 @@ from enum import Enum
 from dataclasses import dataclass, asdict
 import asyncio
 import logging
-from datetime import datetime, timezone
+from datetime import datetime
+from src.core.utils.timezone_utils import utc_now, utc_factory, timezone
 import json
 import csv
 import pickle
@@ -1023,7 +1024,7 @@ class VectorBackupRestore:
         meta_file = backup_path / "backup_meta.json"
         meta_info = {
             "table_name": table_name,
-            "backup_time": datetime.now(timezone.utc).isoformat(),
+            "backup_time": utc_now().isoformat(),
             "data_file": data_file.name,
             "index_file": f"{table_name}_indexes.json" if include_indexes else None,
             "version": "1.0"

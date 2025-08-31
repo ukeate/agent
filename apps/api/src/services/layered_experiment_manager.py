@@ -4,7 +4,8 @@
 import hashlib
 from typing import List, Dict, Any, Optional, Set, Tuple
 from enum import Enum
-from datetime import datetime, timezone
+from datetime import datetime
+from src.core.utils.timezone_utils import utc_now, utc_factory, timezone
 from dataclasses import dataclass, field
 from collections import defaultdict
 
@@ -42,7 +43,7 @@ class ExperimentLayer:
     max_experiments: Optional[int] = None  # 最大实验数量
     conflict_resolution: ConflictResolution = ConflictResolution.PRIORITY_BASED
     metadata: Dict[str, Any] = field(default_factory=dict)
-    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = field(default_factory=lambda: utc_now())
 
 
 @dataclass
@@ -182,7 +183,7 @@ class LayeredExperimentManager:
         """
         try:
             user_attributes = user_attributes or {}
-            current_time = datetime.now(timezone.utc)
+            current_time = utc_now()
             
             # 检查现有分配
             if user_id in self._user_assignments:
@@ -263,7 +264,7 @@ class LayeredExperimentManager:
                     layer_id=layer.layer_id,
                     assigned_experiment=None,
                     assignment_reason="Layer assigned but no active groups",
-                    assigned_at=datetime.now(timezone.utc)
+                    assigned_at=utc_now()
                 )
                 return assignment
             
@@ -330,7 +331,7 @@ class LayeredExperimentManager:
                         layer_id=layer.layer_id,
                         assigned_experiment=assigned_experiment,
                         assignment_reason=f"Mutually exclusive assignment in group {group.group_id}",
-                        assigned_at=datetime.now(timezone.utc),
+                        assigned_at=utc_now(),
                         metadata={"group_id": group.group_id, "layer_type": layer.layer_type.value}
                     )
                     
@@ -345,7 +346,7 @@ class LayeredExperimentManager:
                 layer_id=layer.layer_id,
                 assigned_experiment=None,
                 assignment_reason="In layer but no experiment assigned",
-                assigned_at=datetime.now(timezone.utc),
+                assigned_at=utc_now(),
                 metadata={"layer_type": layer.layer_type.value}
             )
             
@@ -402,7 +403,7 @@ class LayeredExperimentManager:
                 layer_id=layer.layer_id,
                 assigned_experiment=assigned_experiments[0] if assigned_experiments else None,
                 assignment_reason=f"Orthogonal assignment in {len(group_assignments)} groups",
-                assigned_at=datetime.now(timezone.utc),
+                assigned_at=utc_now(),
                 metadata={
                     "layer_type": layer.layer_type.value,
                     "assigned_experiments": assigned_experiments,
@@ -429,7 +430,7 @@ class LayeredExperimentManager:
                 layer_id=layer.layer_id,
                 assigned_experiment=None,
                 assignment_reason="Holdback layer - control group",
-                assigned_at=datetime.now(timezone.utc),
+                assigned_at=utc_now(),
                 metadata={
                     "layer_type": layer.layer_type.value,
                     "is_holdback": True

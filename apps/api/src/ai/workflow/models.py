@@ -8,6 +8,7 @@ from sqlalchemy.dialects.postgresql import UUID, JSONB, ARRAY
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 from datetime import datetime
+from src.core.utils.timezone_utils import utc_now, utc_factory
 import uuid
 
 from src.core.database import Base
@@ -671,9 +672,9 @@ class WorkflowCacheModel(Base):
     @property
     def is_expired(self):
         """检查是否已过期"""
-        return datetime.utcnow() > self.expires_at
+        return utc_now() > self.expires_at
     
     def increment_hit_count(self):
         """增加命中次数"""
         self.hit_count += 1
-        self.last_accessed_at = datetime.utcnow()
+        self.last_accessed_at = utc_now()

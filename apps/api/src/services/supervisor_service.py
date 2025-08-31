@@ -3,7 +3,8 @@ Supervisor业务逻辑层实现
 提供Supervisor相关的业务操作和协调功能
 """
 from typing import Dict, List, Optional, Any
-from datetime import datetime, timezone
+from datetime import datetime
+from src.core.utils.timezone_utils import utc_now, utc_factory, timezone
 import uuid
 import structlog
 
@@ -542,7 +543,7 @@ class SupervisorService:
                     await decision_repo.update_decision_outcome(
                         decision_id=decision.decision_id,
                         task_success=success,
-                        actual_completion_time=datetime.now(timezone.utc),
+                        actual_completion_time=utc_now(),
                         quality_score=quality_score
                     )
                 

@@ -2,7 +2,7 @@
  * BatchProcessingDashboard 组件单元测试
  */
 
-import React from 'react';
+// React import removed - not used in test
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { BatchProcessingDashboard } from '../BatchProcessingDashboard';
@@ -265,7 +265,7 @@ describe('BatchProcessingDashboard', () => {
       vi.mocked(batchService.getJobs).mockResolvedValue({
         jobs: [{
           ...mockJobs.jobs[0],
-          status: testCase.status
+          status: testCase.status as any
         }]
       });
 

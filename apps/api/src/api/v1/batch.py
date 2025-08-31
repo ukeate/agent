@@ -6,6 +6,7 @@ from typing import List, Dict, Any, Optional
 from fastapi import APIRouter, HTTPException, BackgroundTasks
 from pydantic import BaseModel
 from datetime import datetime
+from src.core.utils.timezone_utils import utc_now, utc_factory
 import uuid
 import asyncio
 from enum import Enum
@@ -92,11 +93,11 @@ async def get_metrics() -> BatchMetrics:
     # 缓存指标5秒
     if metrics_cache and last_metrics_update:
         from datetime import timedelta
-        if datetime.utcnow() - last_metrics_update < timedelta(seconds=5):
+        if utc_now() - last_metrics_update < timedelta(seconds=5):
             return metrics_cache
     
     metrics_cache = generate_mock_metrics()
-    last_metrics_update = datetime.utcnow()
+    last_metrics_update = utc_now()
     return metrics_cache
 
 @router.post("/jobs")
@@ -115,7 +116,7 @@ async def create_job(request: CreateBatchJobRequest, background_tasks: Backgroun
             "retry_count": 0,
             "max_retries": request.max_retries,
             "status": BatchStatus.PENDING,
-            "created_at": datetime.utcnow().isoformat()
+            "created_at": utc_now().isoformat()
         }
         tasks.append(task)
     
@@ -127,7 +128,7 @@ async def create_job(request: CreateBatchJobRequest, background_tasks: Backgroun
         total_tasks=len(tasks),
         completed_tasks=0,
         failed_tasks=0,
-        created_at=datetime.utcnow().isoformat()
+        created_at=utc_now().isoformat()
     )
     
     jobs_store[job_id] = job
@@ -136,7 +137,7 @@ async def create_job(request: CreateBatchJobRequest, background_tasks: Backgroun
     async def process_job():
         await asyncio.sleep(1)
         job.status = BatchStatus.RUNNING
-        job.started_at = datetime.utcnow().isoformat()
+        job.started_at = utc_now().isoformat()
         
         # 模拟处理进度
         for i in range(min(5, len(tasks))):
@@ -168,8 +169,8 @@ async def get_jobs(status: Optional[BatchStatus] = None) -> Dict[str, List[Batch
                 total_tasks=100 + i * 50,
                 completed_tasks=60 + i * 20,
                 failed_tasks=5 * i,
-                created_at=datetime.utcnow().isoformat(),
-                started_at=datetime.utcnow().isoformat()
+                created_at=utc_now().isoformat(),
+                started_at=utc_now().isoformat()
             )
             jobs_store[job_id] = job
             jobs.append(job)
@@ -192,7 +193,7 @@ async def get_job_details(job_id: str) -> BatchJob:
                     "retry_count": 0,
                     "max_retries": 3,
                     "status": BatchStatus.COMPLETED if i < 5 else BatchStatus.PENDING,
-                    "created_at": datetime.utcnow().isoformat(),
+                    "created_at": utc_now().isoformat(),
                     "result": {"output": f"result{i}"} if i < 5 else None
                 }
                 for i in range(10)
@@ -201,8 +202,8 @@ async def get_job_details(job_id: str) -> BatchJob:
             total_tasks=10,
             completed_tasks=5,
             failed_tasks=0,
-            created_at=datetime.utcnow().isoformat(),
-            started_at=datetime.utcnow().isoformat()
+            created_at=utc_now().isoformat(),
+            started_at=utc_now().isoformat()
         )
         jobs_store[job_id] = job
         return job
@@ -216,7 +217,7 @@ async def cancel_job(job_id: str) -> Dict[str, bool]:
         job = jobs_store[job_id]
         if job.status in [BatchStatus.PENDING, BatchStatus.RUNNING]:
             job.status = BatchStatus.CANCELLED
-            job.completed_at = datetime.utcnow().isoformat()
+            job.completed_at = utc_now().isoformat()
             return {"success": True}
     
     return {"success": False}

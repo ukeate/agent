@@ -12,7 +12,9 @@ import json
 import sqlite3
 import gzip
 import pickle
-from datetime import datetime, timedelta
+from datetime import datetime
+from datetime import timedelta
+from src.core.utils.timezone_utils import utc_now, utc_factory
 from typing import Dict, Any, List, Optional, Tuple, Set
 from pathlib import Path
 from dataclasses import dataclass, asdict
@@ -20,7 +22,7 @@ from enum import Enum
 import numpy as np
 from contextlib import contextmanager
 
-from models.schemas.offline import VectorClock
+from src.models.schemas.offline import VectorClock
 from src.core.config import get_settings
 
 
@@ -72,9 +74,9 @@ class MemoryEntry:
     
     def __post_init__(self):
         if self.created_at is None:
-            self.created_at = datetime.utcnow()
+            self.created_at = utc_now()
         if self.last_accessed is None:
-            self.last_accessed = datetime.utcnow()
+            self.last_accessed = utc_now()
         if self.tags is None:
             self.tags = []
 
@@ -270,7 +272,7 @@ class OfflineMemoryManager:
         # 首先检查缓存
         if memory_id in self._cache:
             memory = self._cache[memory_id]
-            memory.last_accessed = datetime.utcnow()
+            memory.last_accessed = utc_now()
             memory.access_count += 1
             self._update_access_stats(memory)
             return memory
@@ -288,7 +290,7 @@ class OfflineMemoryManager:
             memory = self._row_to_memory(row)
             
             # 更新访问统计
-            memory.last_accessed = datetime.utcnow()
+            memory.last_accessed = utc_now()
             memory.access_count += 1
             self._update_access_stats(memory)
             
@@ -455,14 +457,14 @@ class OfflineMemoryManager:
                     UPDATE memory_entries 
                     SET priority = ?, last_accessed = ?
                     WHERE id = ?
-                """, (new_priority.value, datetime.utcnow().isoformat(), memory_id))
+                """, (new_priority.value, utc_now().isoformat(), memory_id))
                 
                 success = cursor.rowcount > 0
                 
                 # 更新缓存
                 if success and memory_id in self._cache:
                     self._cache[memory_id].priority = new_priority
-                    self._cache[memory_id].last_accessed = datetime.utcnow()
+                    self._cache[memory_id].last_accessed = utc_now()
                 
                 return success
                 
@@ -493,7 +495,7 @@ class OfflineMemoryManager:
     
     def compress_old_memories(self, days_threshold: int = 30) -> int:
         """压缩旧记忆"""
-        cutoff_date = (datetime.utcnow() - timedelta(days=days_threshold)).isoformat()
+        cutoff_date = (utc_now() - timedelta(days=days_threshold)).isoformat()
         compressed_count = 0
         
         with self.get_connection() as conn:
@@ -605,7 +607,7 @@ class OfflineMemoryManager:
     
     def cleanup_old_memories(self, days_threshold: int = 90, keep_important: bool = True) -> int:
         """清理旧记忆"""
-        cutoff_date = (datetime.utcnow() - timedelta(days=days_threshold)).isoformat()
+        cutoff_date = (utc_now() - timedelta(days=days_threshold)).isoformat()
         
         conditions = ["last_accessed < ?"]
         params = [cutoff_date]

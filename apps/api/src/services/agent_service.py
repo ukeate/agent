@@ -466,6 +466,10 @@ class AgentService:
     ) -> List[Dict[str, Any]]:
         """列出用户的对话会话"""
         try:
+            # 确保服务已初始化
+            if not self.conversation_service:
+                await self.initialize()
+                
             return await self.conversation_service.list_conversations(
                 user_id=user_id,
                 limit=limit,

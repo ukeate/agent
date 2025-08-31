@@ -4,7 +4,9 @@
 import asyncio
 import json
 import time
-from datetime import datetime, timezone, timedelta
+from datetime import datetime
+from datetime import timedelta
+from src.core.utils.timezone_utils import utc_now, utc_factory
 from typing import Dict, List, Optional, Any, Callable, Set
 from dataclasses import dataclass, field
 from collections import defaultdict, deque
@@ -65,7 +67,7 @@ class BufferedEvent:
     """缓冲事件"""
     event: CreateEventRequest
     priority: BufferPriority = BufferPriority.NORMAL
-    buffered_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    buffered_at: datetime = field(default_factory=lambda: utc_now())
     retry_count: int = 0
     last_retry_at: Optional[datetime] = None
     batch_id: Optional[str] = None
@@ -100,7 +102,7 @@ class EventBuffer:
             priority: deque() for priority in BufferPriority
         }
         self.lock = threading.RLock()
-        self.last_flush_time = datetime.now(timezone.utc)
+        self.last_flush_time = utc_now()
         self.metrics = BufferMetrics()
     
     def add_event(self, event: CreateEventRequest, priority: BufferPriority = BufferPriority.NORMAL) -> bool:
@@ -131,7 +133,7 @@ class EventBuffer:
     def should_flush(self) -> bool:
         """检查是否应该刷新缓冲区"""
         with self.lock:
-            now = datetime.now(timezone.utc)
+            now = utc_now()
             
             # 关键事件立即刷新
             if len(self.priority_queues[BufferPriority.CRITICAL]) >= self.config.critical_flush_threshold:
@@ -181,12 +183,12 @@ class EventBuffer:
             
             # 更新指标
             self.metrics.buffer_size_current = len(self.events)
-            self.metrics.last_flush_at = datetime.now(timezone.utc)
-            self.last_flush_time = datetime.now(timezone.utc)
+            self.metrics.last_flush_at = utc_now()
+            self.last_flush_time = utc_now()
             
             if batch:
                 avg_buffer_time = sum(
-                    (datetime.now(timezone.utc) - event.buffered_at).total_seconds() * 1000
+                    (utc_now() - event.buffered_at).total_seconds() * 1000
                     for event in batch
                 ) / len(batch)
                 self.metrics.avg_buffer_time_ms = avg_buffer_time
@@ -199,7 +201,7 @@ class EventBuffer:
         with self.lock:
             for event in failed_events:
                 event.retry_count += 1
-                event.last_retry_at = datetime.now(timezone.utc)
+                event.last_retry_at = utc_now()
                 
                 if event.retry_count <= self.config.max_retry_attempts:
                     # 重新加入缓冲区（降低优先级）

@@ -64,12 +64,21 @@ export const useMultiAgentWebSocket = ({
           console.log('🔥 当前会话:', currentSession)
           
           if (message.data.conversation_id && currentSession) {
-            console.log('🔥 对话创建成功，同步会话ID:', currentSession.session_id, '->', message.data.conversation_id)
-            // updateSessionId函数已经会同时设置状态为'active'
-            updateSessionId(currentSession.session_id, message.data.conversation_id)
-            console.log('🔥 会话ID映射和状态更新完成')
+            console.log('🔥 对话创建成功，保持原有会话连接')
+            // 不更新sessionId，保持原有连接稳定性
+            // 只更新会话状态为active
+            updateSessionStatus(currentSession.session_id, 'active')
+            
+            // 将conversation_id存储在会话数据中，但不改变连接ID
+            setCurrentSession({
+              ...currentSession,
+              conversation_id: message.data.conversation_id,
+              status: 'active'
+            })
+            
+            console.log('🔥 会话状态更新完成，连接保持稳定')
           } else {
-            console.log('🔥 会话ID映射失败:', { 
+            console.log('🔥 会话状态更新失败:', { 
               hasConversationId: !!message.data.conversation_id, 
               hasCurrentSession: !!currentSession,
               conversationId: message.data.conversation_id
@@ -234,6 +243,13 @@ export const useMultiAgentWebSocket = ({
       console.log('WebSocket已连接，跳过重复连接:', wsRef.current.readyState)
       return
     }
+    
+    // 如果有连接正在关闭，等待其完全关闭后再建立新连接
+    if (wsRef.current && wsRef.current.readyState === WebSocket.CLOSING) {
+      console.log('WebSocket正在关闭，等待完成后重连')
+      setTimeout(() => connect(), 500)
+      return
+    }
 
     try {
       // 构建WebSocket URL - 开发环境直接连接到后端服务器
@@ -303,16 +319,31 @@ export const useMultiAgentWebSocket = ({
         console.log('WebSocket连接已关闭:', event.code, event.reason)
         setWebsocketConnected(false)
         
-        // 自动重连
-        if (enabled && reconnectAttemptsRef.current < reconnectAttempts) {
+        // 清理当前连接引用
+        if (wsRef.current === ws) {
+          wsRef.current = null
+        }
+        
+        // 只有在非正常关闭且需要重连时才进行重连
+        // 1006: 异常关闭，1012: 服务重启，1011: 服务器错误
+        const shouldReconnect = enabled && 
+                              reconnectAttemptsRef.current < reconnectAttempts &&
+                              [1006, 1012, 1011].includes(event.code)
+        
+        if (shouldReconnect) {
           reconnectAttemptsRef.current++
-          console.log(`WebSocket重连 (${reconnectAttemptsRef.current}/${reconnectAttempts})`)
+          console.log(`WebSocket异常关闭(${event.code})，准备重连 (${reconnectAttemptsRef.current}/${reconnectAttempts})`)
+          
+          // 使用指数退避策略，避免频繁重连
+          const delay = Math.min(reconnectDelay * Math.pow(2, reconnectAttemptsRef.current - 1), 30000)
           
           reconnectTimeoutRef.current = setTimeout(() => {
             connect()
-          }, reconnectDelay)
+          }, delay)
         } else if (reconnectAttemptsRef.current >= reconnectAttempts) {
           setError('WebSocket连接失败，已达到最大重连次数')
+        } else {
+          console.log('WebSocket正常关闭或不需要重连:', event.code)
         }
       }
 

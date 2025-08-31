@@ -249,6 +249,81 @@ class RAGService:
                 "error": str(e),
             }
 
+    async def add_document(self, doc_id: str, text: str, metadata: Dict = None) -> Dict:
+        """添加文档到向量存储"""
+        try:
+            if metadata is None:
+                metadata = {}
+            
+            # 创建嵌入
+            embeddings = await embedding_service.create_embedding(text)
+            
+            # 准备点数据
+            point_data = {
+                "id": doc_id,
+                "vector": embeddings,
+                "payload": {
+                    "content": text,
+                    "metadata": metadata,
+                    "doc_id": doc_id,
+                    "type": "document"
+                }
+            }
+            
+            # 添加到Qdrant
+            client = qdrant_manager.get_client()
+            from qdrant_client.models import PointStruct
+            
+            point = PointStruct(**point_data)
+            client.upsert(
+                collection_name="documents",
+                points=[point]
+            )
+            
+            logger.info(f"Document {doc_id} added successfully")
+            return {
+                "success": True,
+                "document_id": doc_id,
+                "message": "Document added successfully"
+            }
+            
+        except Exception as e:
+            logger.error(f"Failed to add document {doc_id}: {e}")
+            return {
+                "success": False,
+                "error": str(e)
+            }
+    
+    async def search(self, query: str, top_k: int = 3) -> List[Dict]:
+        """搜索文档"""
+        try:
+            # 使用现有的query方法进行搜索
+            result = await self.query(
+                query=query,
+                search_type="semantic",
+                limit=top_k,
+                score_threshold=0.1
+            )
+            
+            if result["success"]:
+                # 转换为简化格式
+                search_results = []
+                for item in result["results"]:
+                    search_results.append({
+                        "id": item.get("id", ""),
+                        "content": item.get("content", ""),
+                        "score": item.get("score", 0.0),
+                        "metadata": item.get("metadata", {}),
+                        "file_path": item.get("file_path", ""),
+                    })
+                return search_results
+            else:
+                return []
+                
+        except Exception as e:
+            logger.error(f"Search failed: {e}")
+            return []
+
     async def get_index_stats(self) -> Dict:
         """获取索引统计信息"""
         try:

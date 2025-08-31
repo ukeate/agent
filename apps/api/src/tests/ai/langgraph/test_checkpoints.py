@@ -4,7 +4,9 @@ LangGraph检查点和状态恢复测试（修复版）
 """
 import pytest
 import asyncio
-from datetime import datetime, timedelta
+from datetime import datetime
+from datetime import timedelta
+from src.core.utils.timezone_utils import utc_now, utc_factory
 from typing import Dict, List, Any
 from unittest.mock import Mock, AsyncMock, patch, MagicMock
 import uuid
@@ -35,7 +37,7 @@ def sample_state() -> MessagesState:
             {"role": "assistant", "content": "正在处理"}
         ],
         "metadata": {
-            "created_at": datetime.now().isoformat(),
+            "created_at": utc_now().isoformat(),
             "status": "processing",
             "step_count": 2
         },
@@ -59,7 +61,7 @@ def sample_checkpoint(sample_state) -> Checkpoint:
             "trigger": "step_completion",
             "node": "process_task"
         },
-        created_at=datetime.now(),
+        created_at=utc_now(),
         version=1
     )
 
@@ -232,7 +234,7 @@ class TestCheckpointManagement:
                 model.workflow_id = "workflow-001"
                 model.state_data = {"index": i}
                 model.checkpoint_metadata = {}
-                model.created_at = datetime.now() - timedelta(hours=i)
+                model.created_at = utc_now() - timedelta(hours=i)
                 model.version = 1
                 mock_models.append(model)
             
@@ -285,7 +287,7 @@ class TestCheckpointManagement:
                 model.id = f"db-id-{i}"
                 model.checkpoint_id = f"checkpoint-{i}"
                 model.is_deleted = False
-                model.created_at = datetime.now() - timedelta(hours=i)
+                model.created_at = utc_now() - timedelta(hours=i)
                 mock_models.append(model)
             
             # 配置execute返回值

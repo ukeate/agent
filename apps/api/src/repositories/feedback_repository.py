@@ -6,7 +6,9 @@
 
 import logging
 from typing import List, Optional, Dict, Any, Tuple
-from datetime import datetime, timedelta
+from datetime import datetime
+from datetime import timedelta
+from src.core.utils.timezone_utils import utc_now, utc_factory
 from sqlalchemy.orm import Session
 from sqlalchemy import and_, or_, desc, asc, func, text
 from sqlalchemy.exc import SQLAlchemyError
@@ -113,7 +115,7 @@ class FeedbackRepository:
                 FeedbackEvent.event_id.in_(event_ids)
             ).update({
                 'processed': processed,
-                'processed_at': datetime.utcnow() if processed else None
+                'processed_at': utc_now() if processed else None
             }, synchronize_session=False)
             
             self.db.commit()
@@ -299,7 +301,7 @@ class FeedbackRepository:
             ).order_by(desc(RewardSignal.calculated_at)).first()
             
             # 如果最近计算的信号还有效，更新它；否则创建新的
-            if existing and existing.valid_until and existing.valid_until > datetime.utcnow():
+            if existing and existing.valid_until and existing.valid_until > utc_now():
                 for key, value in reward_data.items():
                     setattr(existing, key, value)
                 reward = existing
@@ -324,7 +326,7 @@ class FeedbackRepository:
                 RewardSignal.item_id == item_id,
                 or_(
                     RewardSignal.valid_until.is_(None),
-                    RewardSignal.valid_until > datetime.utcnow()
+                    RewardSignal.valid_until > utc_now()
                 )
             ).order_by(desc(RewardSignal.calculated_at)).first()
             
@@ -391,7 +393,7 @@ class FeedbackRepository:
                                   feedback_type: str = None) -> List[Dict]:
         """获取反馈趋势数据"""
         try:
-            end_date = datetime.utcnow()
+            end_date = utc_now()
             start_date = end_date - timedelta(days=days)
             
             query = self.db.query(
@@ -472,7 +474,7 @@ class FeedbackRepository:
             ).filter(FeedbackEvent.valid == True).scalar()
             
             # 最近24小时的活动
-            last_24h = datetime.utcnow() - timedelta(hours=24)
+            last_24h = utc_now() - timedelta(hours=24)
             recent_events = self.db.query(func.count(FeedbackEvent.id)).filter(
                 FeedbackEvent.timestamp >= last_24h
             ).scalar()

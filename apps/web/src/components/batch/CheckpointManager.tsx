@@ -137,7 +137,7 @@ const CheckpointManager: React.FC = () => {
     }
   };
 
-  const restoreFromCheckpoint = async (checkpointId: string, checkpointJobId: string) => {
+  const restoreFromCheckpoint = async (checkpointId: string, _checkpointJobId: string) => {
     Modal.confirm({
       title: '确认恢复',
       content: `确定要从检查点 ${checkpointId.slice(0, 8)}... 恢复作业吗？`,

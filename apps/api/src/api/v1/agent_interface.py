@@ -10,6 +10,7 @@ import time
 import uuid
 import structlog
 from datetime import datetime
+from src.core.utils.timezone_utils import utc_now, utc_factory
 from typing import AsyncIterator, Dict
 
 from src.models.schemas import (
@@ -352,7 +353,7 @@ async def execute_agent_task(
                 progress=100.0,
                 result=task_result,
                 started_at=datetime.fromtimestamp(start_time),
-                completed_at=datetime.now(),
+                completed_at=utc_now(),
                 execution_time=execution_time,
                 steps_completed=[
                     "任务解析",
@@ -506,7 +507,7 @@ async def get_agent_status(
             agent_info=agent_info,
             system_resources=system_resources,
             performance_metrics=performance_metrics,
-            last_activity=datetime.now(),
+            last_activity=utc_now(),
             diagnostics={
                 "mcp_tools_available": True,
                 "database_connected": True,
@@ -562,7 +563,7 @@ async def get_performance_metrics(
         metrics = middleware_manager.get_performance_metrics()
         
         # 添加当前时间戳
-        metrics["timestamp"] = datetime.now().isoformat()
+        metrics["timestamp"] = utc_now().isoformat()
         metrics["api_version"] = "1.0"
         
         logger.info(

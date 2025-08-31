@@ -9,9 +9,9 @@ from typing import Any, Dict, Optional
 import structlog
 from fastapi import Request, Response, HTTPException, status
 from fastapi.responses import JSONResponse
-from slowapi import Limiter, _rate_limit_exceeded_handler
-from slowapi.util import get_remote_address
-from slowapi.errors import RateLimitExceeded
+# from slowapi import Limiter, _rate_limit_exceeded_handler
+# from slowapi.util import get_remote_address
+# from slowapi.errors import RateLimitExceeded
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 from starlette.middleware.httpsredirect import HTTPSRedirectMiddleware
@@ -115,19 +115,15 @@ class RateLimitMiddleware:
     
     def __init__(self):
         self.settings = get_settings()
-        self.limiter = Limiter(
-            key_func=self._get_rate_limit_key,
-            default_limits=[self.settings.DEFAULT_RATE_LIMIT],
-            storage_uri=self.settings.REDIS_URL,
-            strategy="fixed-window"
-        )
+        # 创建一个简单的模拟限制器，直到slowapi依赖添加
+        self.limiter = None
         
     def _get_rate_limit_key(self, request: Request) -> str:
         """获取频率限制的键"""
         # 优先使用认证用户ID，否则使用IP地址
         if hasattr(request.state, "user") and request.state.user:
             return f"user:{request.state.user.id}"
-        return get_remote_address(request)
+        return request.client.host if request.client else "127.0.0.1"
     
     def get_limiter(self):
         """获取限制器实例"""
@@ -213,7 +209,7 @@ def setup_security_middleware(app):
     rate_limiter = RateLimitMiddleware()
     limiter = rate_limiter.get_limiter()
     app.state.limiter = limiter
-    app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+    # app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
     
     # 6. 统一安全中间件
     app.add_middleware(SecurityMiddleware)

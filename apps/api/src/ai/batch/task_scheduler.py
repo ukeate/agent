@@ -11,7 +11,9 @@ from enum import Enum
 import time
 import heapq
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime
+from datetime import timedelta
+from src.core.utils.timezone_utils import utc_now, utc_factory
 import statistics
 import psutil
 import gc
@@ -96,7 +98,7 @@ class WorkerMetrics:
         self.total_tasks_processed += 1
         self.total_processing_time += task_time
         self.average_task_time = self.total_processing_time / self.total_tasks_processed
-        self.last_task_completed = datetime.utcnow()
+        self.last_task_completed = utc_now()
         
         # 更新成功率（使用滑动平均）
         alpha = 0.1

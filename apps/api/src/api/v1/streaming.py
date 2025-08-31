@@ -11,6 +11,7 @@ from typing import Optional, Dict, Any
 import logging
 import uuid
 from datetime import datetime
+from src.core.utils.timezone_utils import utc_now, utc_factory
 
 from src.ai.streaming import StreamProcessor
 from src.core.dependencies import get_current_user
@@ -171,7 +172,7 @@ async def get_session_metrics(
         
         return {
             "session_metrics": metrics,
-            "timestamp": datetime.utcnow().isoformat()
+            "timestamp": utc_now().isoformat()
         }
         
     except HTTPException:
@@ -196,7 +197,7 @@ async def list_sessions(
         return {
             "sessions": all_metrics,
             "total_sessions": len(all_metrics),
-            "timestamp": datetime.utcnow().isoformat()
+            "timestamp": utc_now().isoformat()
         }
         
     except Exception as e:
@@ -218,7 +219,7 @@ async def get_system_metrics(
         
         return {
             "system_metrics": system_metrics,
-            "timestamp": datetime.utcnow().isoformat()
+            "timestamp": utc_now().isoformat()
         }
         
     except Exception as e:
@@ -242,13 +243,13 @@ async def get_backpressure_status(
             return {
                 "backpressure_enabled": False,
                 "message": "背压控制未启用",
-                "timestamp": datetime.utcnow().isoformat()
+                "timestamp": utc_now().isoformat()
             }
         
         return {
             "backpressure_enabled": True,
             "backpressure_status": backpressure_status,
-            "timestamp": datetime.utcnow().isoformat()
+            "timestamp": utc_now().isoformat()
         }
         
     except Exception as e:
@@ -270,7 +271,7 @@ async def get_flow_control_metrics(
         
         return {
             "flow_control_metrics": flow_metrics,
-            "timestamp": datetime.utcnow().isoformat()
+            "timestamp": utc_now().isoformat()
         }
         
     except Exception as e:
@@ -312,7 +313,7 @@ async def get_queue_status(
             },
             "system_summary": system_summary,
             "overloaded_queues": overloaded_queues,
-            "timestamp": datetime.utcnow().isoformat()
+            "timestamp": utc_now().isoformat()
         }
         
     except Exception as e:
@@ -399,7 +400,7 @@ async def health_check():
             "active_sessions": system_metrics.get("active_sessions", 0),
             "total_sessions": system_metrics.get("total_sessions_created", 0),
             "uptime": system_metrics.get("uptime", 0),
-            "timestamp": datetime.utcnow().isoformat()
+            "timestamp": utc_now().isoformat()
         }
         
     except Exception as e:
@@ -407,7 +408,7 @@ async def health_check():
         return {
             "status": "unhealthy",
             "error": str(e),
-            "timestamp": datetime.utcnow().isoformat()
+            "timestamp": utc_now().isoformat()
         }
 
 

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Card } from '../ui/Card';
-import { Badge } from '../ui/Badge';
-import { Alert } from '../ui/Alert';
+import { Card } from '../ui/card';
+import { Badge } from '../ui/badge';
+import { Alert } from '../ui/alert';
 
 interface RealTimeMonitorProps {
   data: {

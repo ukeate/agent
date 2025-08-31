@@ -2,6 +2,26 @@
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
+[tool.pytest.ini_options]
+minversion = "6.0"
+addopts = "-ra -q --strict-markers --disable-warnings --tb=short"
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "integration: marks tests as integration tests",
+    "unit: marks tests as unit tests", 
+    "knowledge_graph: marks tests for knowledge graph module"
+]
+asyncio_mode = "auto"
+filterwarnings = [
+    "ignore::UserWarning",
+    "ignore::DeprecationWarning", 
+    "ignore::PendingDeprecationWarning"
+]
+
 [tool.hatch.build.targets.wheel]
 packages = ["src"]
 
@@ -36,7 +56,7 @@ dependencies = [
     "sqlalchemy>=2.0.0",
     "alembic>=1.12.0",
     "asyncpg>=0.29.0", # PostgreSQL async driver
-    "redis>=5.0.0",
+    "redis[hiredis]>=5.0.0",
     # AI Frameworks
     "langgraph==0.6.5",
     "autogen-agentchat>=0.7.1", # 使用当前可用的稳定版本
@@ -48,11 +68,19 @@ dependencies = [
     "psycopg2-binary>=2.9.0", # PostgreSQL driver with binary extensions
     "numpy>=1.24.0", # For vector quantization algorithms
     "scikit-learn>=1.3.0", # For K-means clustering in quantization
+    # Service Discovery
+    # "etcd3>=0.12.0", # etcd client - disabled for now due to protobuf conflicts
+    # Will be enabled once protobuf version conflicts are resolved
     # Deep Learning & Reinforcement Learning
     "tensorflow>=2.15.0", # Deep learning framework for DQN
     "tensorflow-probability>=0.22.0", # Probabilistic programming for RL
     # Graph Processing
     "networkx>=3.2.0",
+    # Knowledge Graph & NLP
+    "spacy>=3.7.0",
+    "transformers>=4.35.0",
+    "torch>=2.1.0",
+    "stanza>=1.7.0",
     # MCP Protocol
     "mcp>=1.0.0",
     # Authentication & Security
@@ -97,6 +125,22 @@ dependencies = [
     "mmh3>=4.1.0", # MurmurHash3 for traffic splitting
     "scipy>=1.11.0", # Statistical tests and functions
     "statsmodels>=0.14.0", # Advanced statistical modeling and power analysis
+    "pytest-mock>=3.14.1",
+    "pytest-html>=4.1.1",
+    "optuna>=4.5.0",
+    # Model Evaluation
+    "evaluate>=0.4.0", # Hugging Face evaluation library
+    "lm-eval[api]>=0.4.0", # Language Model evaluation harness
+    "datasets>=2.14.0", # Dataset processing
+    "accelerate>=0.21.0", # Model acceleration
+    "peft>=0.5.0", # Parameter-efficient fine-tuning
+    "sentence-transformers>=2.2.0", # Sentence embeddings
+    "rouge-score>=0.1.2", # ROUGE metrics
+    "sacrebleu>=2.3.0", # BLEU metrics
+    "nltk>=3.8.1", # Natural language toolkit
+    "jinja2>=3.1.0",
+    "textblob>=0.19.0",
+    "aioredis>=2.0.1",
 ]
 
 [project.optional-dependencies]
@@ -201,59 +245,3 @@ ignore = [
 [tool.ruff.isort]
 known-first-party = ["src"]
 
-[tool.pytest.ini_options]
-minversion = "7.0"
-addopts = "-ra -q --strict-markers --strict-config"
-testpaths = ["tests"]
-python_files = ["test_*.py", "*_test.py"]
-python_classes = ["Test*"]
-python_functions = ["test_*"]
-markers = [
-    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
-    "integration: marks tests as integration tests",
-    "unit: marks tests as unit tests",
-    "asyncio: marks tests as async tests",
-]
-
-[tool.coverage.run]
-source = ["src"]
-omit = [
-    "*/tests/*",
-    "*/migrations/*",
-    "*/alembic/*",
-]
-
-[tool.coverage.report]
-exclude_lines = [
-    "pragma: no cover",
-    "def __repr__",
-    "if self.debug:",
-    "if settings.DEBUG",
-    "raise AssertionError",
-    "raise NotImplementedError",
-    "if 0:",
-    "if __name__ == .__main__.:",
-    "class .*\\bProtocol\\):",
-    "@(abc\\.)?abstractmethod",
-]
-
-[tool.mypy]
-python_version = "3.11"
-check_untyped_defs = true
-disallow_any_generics = true
-disallow_incomplete_defs = true
-disallow_untyped_defs = true
-no_implicit_optional = true
-warn_redundant_casts = true
-warn_unused_ignores = true
-warn_return_any = true
-strict_equality = true
-
-[[tool.mypy.overrides]]
-module = [
-    "autogen.*",
-    "langgraph.*",
-    "qdrant_client.*",
-    "networkx.*",
-]
-ignore_missing_imports = true

@@ -1,7 +1,9 @@
 import json
 import hashlib
 from typing import Dict, Optional, Any, List
-from datetime import datetime, timedelta
+from datetime import datetime
+from datetime import timedelta
+from src.core.utils.timezone_utils import utc_now, utc_factory
 from redis.asyncio import Redis
 import asyncio
 import logging

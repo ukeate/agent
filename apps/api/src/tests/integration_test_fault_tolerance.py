@@ -11,6 +11,7 @@ import json
 import tempfile
 import os
 from datetime import datetime
+from src.core.utils.timezone_utils import utc_now, utc_factory
 from unittest.mock import AsyncMock, MagicMock
 
 # 导入要测试的模块
@@ -128,7 +129,7 @@ class TestCheckpointManagerIntegration:
                 failed_tasks=5,
                 status=BatchStatus.RUNNING,
                 priority=5,
-                created_at=datetime.utcnow()
+                created_at=utc_now()
             )
             
             # 创建检查点
@@ -234,7 +235,7 @@ class TestEndToEndIntegration:
                 failed_tasks=2,
                 status=BatchStatus.RUNNING,
                 priority=5,
-                created_at=datetime.utcnow()
+                created_at=utc_now()
             )
             
             # 注册作业

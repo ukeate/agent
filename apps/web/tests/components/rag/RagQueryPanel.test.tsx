@@ -11,11 +11,11 @@ const renderWithProviders = (ui: React.ReactElement) => {
 }
 
 describe('RagQueryPanel', () => {
-  const mockOnQuery = vi.fn()
-  const mockOnClearHistory = vi.fn()
+  const mockOnQuery = mockFn()fn()
+  const mockOnClearHistory = mockFn()fn()
 
   beforeEach(() => {
-    vi.clearAllMocks()
+    mockFn()clearAllMocks()
   })
 
   it('renders basic elements', () => {

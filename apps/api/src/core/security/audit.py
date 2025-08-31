@@ -5,6 +5,7 @@
 import json
 import uuid
 from datetime import datetime
+from src.core.utils.timezone_utils import utc_now, utc_factory
 from typing import Any, Dict, List, Optional
 
 import structlog
@@ -107,7 +108,7 @@ class AuditLogger:
         
         log_entry = AuditLog(
             id=str(uuid.uuid4()),
-            timestamp=datetime.utcnow(),
+            timestamp=utc_now(),
             level=self._determine_log_level(response.status_code),
             event_type="api_call",
             user_id=user_id,
@@ -150,7 +151,7 @@ class AuditLogger:
         
         log_entry = AuditLog(
             id=str(uuid.uuid4()),
-            timestamp=datetime.utcnow(),
+            timestamp=utc_now(),
             level=level,
             event_type=f"security:{event_type}",
             user_id=user_id,
@@ -192,12 +193,12 @@ class AuditLogger:
         
         # 生成请求签名（用于防重放）
         import hashlib
-        signature_data = f"{user_id}:{tool_name}:{json.dumps(tool_params, sort_keys=True)}:{datetime.utcnow().isoformat()}"
+        signature_data = f"{user_id}:{tool_name}:{json.dumps(tool_params, sort_keys=True)}:{utc_now().isoformat()}"
         request_signature = hashlib.sha256(signature_data.encode()).hexdigest()
         
         tool_log = MCPToolAuditLog(
             id=str(uuid.uuid4()),
-            timestamp=datetime.utcnow(),
+            timestamp=utc_now(),
             user_id=user_id,
             api_key=kwargs.get("api_key"),
             tool_name=tool_name,
@@ -251,7 +252,7 @@ class AuditLogger:
         """记录认证事件"""
         log_entry = AuditLog(
             id=str(uuid.uuid4()),
-            timestamp=datetime.utcnow(),
+            timestamp=utc_now(),
             level=AuditLogLevel.INFO if success else AuditLogLevel.WARNING,
             event_type=f"auth:{event_type}",
             user_id=user_id,
@@ -284,7 +285,7 @@ class AuditLogger:
         """记录数据访问"""
         log_entry = AuditLog(
             id=str(uuid.uuid4()),
-            timestamp=datetime.utcnow(),
+            timestamp=utc_now(),
             level=AuditLogLevel.INFO,
             event_type="data:access",
             user_id=user_id,

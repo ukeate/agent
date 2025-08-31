@@ -4,7 +4,9 @@ Supervisor智能体核心实现
 """
 import asyncio
 from typing import Dict, List, Optional, Any, Union, Tuple
-from datetime import datetime, timezone, timedelta
+from datetime import datetime
+from datetime import timedelta
+from src.core.utils.timezone_utils import utc_now, utc_factory
 from dataclasses import dataclass, field
 import structlog
 from enum import Enum
@@ -434,7 +436,7 @@ class SupervisorAgent(BaseAutoGenAgent):
     ) -> TaskAssignment:
         """分析任务并分配给最合适的智能体"""
         try:
-            decision_id = f"decision_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S_%f')}"
+            decision_id = f"decision_{utc_now().strftime('%Y%m%d_%H%M%S_%f')}"
             
             logger.info(
                 "开始任务分析和分配",
@@ -463,7 +465,7 @@ class SupervisorAgent(BaseAutoGenAgent):
                 assigned_agent=best_match.agent_name,
                 assignment_reason=await self._generate_assignment_reason(best_match, complexity),
                 confidence_level=best_match.match_score,
-                estimated_completion_time=datetime.now(timezone.utc).replace(
+                estimated_completion_time=utc_now().replace(
                     second=0, microsecond=0
                 ) + timedelta(seconds=complexity.estimated_time),
                 alternative_agents=[match.agent_name for match in candidate_matches[1:3]],
@@ -478,7 +480,7 @@ class SupervisorAgent(BaseAutoGenAgent):
             # 5. 记录决策
             decision = SupervisorDecision(
                 decision_id=decision_id,
-                timestamp=datetime.now(timezone.utc),
+                timestamp=utc_now(),
                 task_description=task_description,
                 assignment=assignment,
                 reasoning=assignment.assignment_reason,

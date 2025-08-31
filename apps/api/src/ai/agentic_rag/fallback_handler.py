@@ -15,6 +15,7 @@ from typing import List, Dict, Any, Optional, Tuple, Union
 from dataclasses import dataclass, field
 from enum import Enum
 from datetime import datetime
+from src.core.utils.timezone_utils import utc_now, utc_factory
 
 from src.ai.agentic_rag.query_analyzer import QueryAnalysis, QueryIntent
 from src.ai.agentic_rag.query_expander import QueryExpander
@@ -41,7 +42,7 @@ class FailureDetection:
     confidence: float  # 检测置信度
     evidence: List[str] = field(default_factory=list)
     metrics: Dict[str, Any] = field(default_factory=dict)
-    timestamp: datetime = field(default_factory=datetime.now)
+    timestamp: datetime = field(default_factory=utc_factory)
 
 
 @dataclass

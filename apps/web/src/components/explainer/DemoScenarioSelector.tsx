@@ -18,7 +18,8 @@ import {
   Star,
   AlertTriangle,
   CheckCircle,
-  Clock
+  Clock,
+  Database
 } from 'lucide-react';
 
 interface DemoScenario {

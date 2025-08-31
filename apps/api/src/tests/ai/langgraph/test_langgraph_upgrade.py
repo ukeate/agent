@@ -5,6 +5,7 @@ LangGraph 0.6.5升级功能测试
 import pytest
 import asyncio
 from datetime import datetime
+from src.core.utils.timezone_utils import utc_now, utc_factory
 from unittest.mock import Mock, AsyncMock, patch
 
 from src.ai.langgraph.state_graph import (
@@ -87,7 +88,7 @@ class TestWorkflowBuilderUpgrade:
             state["messages"].append({
                 "role": "assistant",
                 "content": "测试响应",
-                "timestamp": datetime.now().isoformat()
+                "timestamp": utc_now().isoformat()
             })
             return state
         
@@ -106,7 +107,7 @@ class TestWorkflowBuilderUpgrade:
             state["messages"].append({
                 "role": "assistant", 
                 "content": "传统模式响应",
-                "timestamp": datetime.now().isoformat()
+                "timestamp": utc_now().isoformat()
             })
             return state
         
@@ -239,7 +240,7 @@ class TestNodeCaching:
             state["messages"].append({
                 "role": "assistant",
                 "content": f"计算结果 {call_count}",
-                "timestamp": datetime.now().isoformat()
+                "timestamp": utc_now().isoformat()
             })
             return state
         
@@ -409,7 +410,7 @@ class TestDurabilityControl:
             state["messages"].append({
                 "role": "assistant",
                 "content": "durability测试",
-                "timestamp": datetime.now().isoformat()
+                "timestamp": utc_now().isoformat()
             })
             return state
         
@@ -456,7 +457,7 @@ class TestIntegrationWorkflow:
             state["messages"].append({
                 "role": "assistant",
                 "content": f"缓存节点处理 {call_count}",
-                "timestamp": datetime.now().isoformat()
+                "timestamp": utc_now().isoformat()
             })
             return state
         

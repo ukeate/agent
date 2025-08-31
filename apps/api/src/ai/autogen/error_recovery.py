@@ -6,7 +6,9 @@ import asyncio
 import json
 from typing import Dict, List, Optional, Any, Callable, Union
 from dataclasses import dataclass, field
-from datetime import datetime, timezone, timedelta
+from datetime import datetime
+from datetime import timedelta
+from src.core.utils.timezone_utils import utc_now, utc_factory
 from enum import Enum
 import structlog
 
@@ -108,7 +110,7 @@ class CircuitBreaker:
     failure_count: int = 0
     success_count: int = 0
     last_failure_time: Optional[datetime] = None
-    last_state_change: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    last_state_change: datetime = field(default_factory=lambda: utc_now())
     
     def record_success(self) -> None:
         """记录成功"""
@@ -122,7 +124,7 @@ class CircuitBreaker:
     def record_failure(self) -> None:
         """记录失败"""
         self.failure_count += 1
-        self.last_failure_time = datetime.now(timezone.utc)
+        self.last_failure_time = utc_now()
         
         if self.state == CircuitBreakerState.CLOSED:
             if self.failure_count >= self.failure_threshold:
@@ -133,14 +135,14 @@ class CircuitBreaker:
     def open(self) -> None:
         """打开断路器"""
         self.state = CircuitBreakerState.OPEN
-        self.last_state_change = datetime.now(timezone.utc)
+        self.last_state_change = utc_now()
         self.success_count = 0
         logger.warning("断路器打开", failure_count=self.failure_count)
     
     def close(self) -> None:
         """关闭断路器"""
         self.state = CircuitBreakerState.CLOSED
-        self.last_state_change = datetime.now(timezone.utc)
+        self.last_state_change = utc_now()
         self.failure_count = 0
         self.success_count = 0
         logger.info("断路器关闭")
@@ -148,7 +150,7 @@ class CircuitBreaker:
     def half_open(self) -> None:
         """半开断路器"""
         self.state = CircuitBreakerState.HALF_OPEN
-        self.last_state_change = datetime.now(timezone.utc)
+        self.last_state_change = utc_now()
         self.success_count = 0
         logger.info("断路器半开")
     
@@ -157,7 +159,7 @@ class CircuitBreaker:
         if self.state == CircuitBreakerState.OPEN:
             # 检查是否到了恢复时间
             if self.last_failure_time:
-                time_since_failure = (datetime.now(timezone.utc) - self.last_failure_time).total_seconds() * 1000
+                time_since_failure = (utc_now() - self.last_failure_time).total_seconds() * 1000
                 if time_since_failure >= self.recovery_timeout:
                     self.half_open()
                     return False
@@ -302,7 +304,7 @@ class DeadLetterQueue:
             "error": error,
             "retry_count": retry_count,
             "processor_name": processor_name,
-            "timestamp": datetime.now(timezone.utc).isoformat()
+            "timestamp": utc_now().isoformat()
         }
         
         # 存储到持久化存储
@@ -456,7 +458,7 @@ class CompensationManager:
         self.saga_transactions[saga_id].append({
             "operation_type": operation_type,
             "operation_data": operation_data,
-            "timestamp": datetime.now(timezone.utc).isoformat()
+            "timestamp": utc_now().isoformat()
         })
     
     async def compensate_saga(

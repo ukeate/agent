@@ -5,7 +5,9 @@ LangGraph 0.6.5 Node Caching Implementation
 """
 from typing import Any, Dict, Optional, Callable, Literal, Union
 from dataclasses import dataclass
-from datetime import datetime, timezone, timedelta
+from datetime import datetime
+from datetime import timedelta
+from src.core.utils.timezone_utils import utc_now, utc_factory
 import hashlib
 import json
 import asyncio
@@ -82,12 +84,12 @@ class InMemoryCache(CacheBackend):
         expires_at = entry.get("expires_at")
         
         # 检查是否过期
-        if expires_at and datetime.now(timezone.utc) > expires_at:
+        if expires_at and utc_now() > expires_at:
             await self.delete(key)
             return None
         
         # 更新访问时间
-        self.access_times[key] = datetime.now(timezone.utc)
+        self.access_times[key] = utc_now()
         return entry["value"]
     
     async def set(self, key: str, value: Any, ttl: Optional[int] = None) -> None:
@@ -98,14 +100,14 @@ class InMemoryCache(CacheBackend):
         
         expires_at = None
         if ttl is not None:
-            expires_at = datetime.now(timezone.utc) + timedelta(seconds=ttl)
+            expires_at = utc_now() + timedelta(seconds=ttl)
         
         self.cache[key] = {
             "value": value,
             "expires_at": expires_at,
-            "created_at": datetime.now(timezone.utc)
+            "created_at": utc_now()
         }
-        self.access_times[key] = datetime.now(timezone.utc)
+        self.access_times[key] = utc_now()
     
     async def delete(self, key: str) -> None:
         """删除缓存值"""

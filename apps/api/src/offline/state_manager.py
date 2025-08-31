@@ -7,7 +7,9 @@
 import json
 import gzip
 import pickle
-from datetime import datetime, timedelta
+from datetime import datetime
+from datetime import timedelta
+from src.core.utils.timezone_utils import utc_now, utc_factory
 from typing import Dict, Any, List, Optional, Union
 from dataclasses import dataclass, asdict
 from enum import Enum
@@ -253,7 +255,7 @@ class StateManager:
             operation_type=operation_type,
             old_value=old_value,
             new_value=new_value,
-            timestamp=datetime.utcnow(),
+            timestamp=utc_now(),
             vector_clock=VectorClock(node_id=session_id)
         )
         
@@ -304,7 +306,7 @@ class StateManager:
             "replayed_state": replayed_state,
             "applied_operations_count": len(applied_operations),
             "total_operations_count": len(operations),
-            "replay_timestamp": datetime.utcnow().isoformat()
+            "replay_timestamp": utc_now().isoformat()
         }
     
     def _apply_operation_to_state(self, state: Dict[str, Any], operation: SyncOperation):
@@ -396,7 +398,7 @@ class StateManager:
         if not latest_snapshot:
             should_create = True
         else:
-            time_since_last = datetime.utcnow() - latest_snapshot.created_at
+            time_since_last = utc_now() - latest_snapshot.created_at
             should_create = time_since_last >= self.auto_snapshot_interval
         
         if should_create:
@@ -436,7 +438,7 @@ class StateManager:
         # 计算更新频率
         recent_updates = [
             u for u in state_updates
-            if (datetime.utcnow() - u.timestamp).total_seconds() < 3600  # 最近1小时
+            if (utc_now() - u.timestamp).total_seconds() < 3600  # 最近1小时
         ]
         
         return {
@@ -459,7 +461,7 @@ class StateManager:
         
         export_data = {
             "state": current_state,
-            "export_timestamp": datetime.utcnow().isoformat(),
+            "export_timestamp": utc_now().isoformat(),
             "format": format_type
         }
         

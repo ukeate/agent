@@ -228,7 +228,7 @@ describe('MemoryHierarchyPage', () => {
       .mockResolvedValueOnce(mockMemories.episodic)
       .mockResolvedValueOnce(mockMemories.semantic)
     ;(memoryService.getMemoryAnalytics as jest.Mock).mockResolvedValue(mockAnalytics)
-    ;(memoryService.updateMemory as jest.Mock).mockResolvedValue({})
+    ;(memoryService.updateMemory as jest.Mock).mockResolvedValue({ success: true, data: {} })
 
     renderWithRouter(<MemoryHierarchyPage />)
 

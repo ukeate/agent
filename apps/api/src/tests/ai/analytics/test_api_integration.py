@@ -4,7 +4,9 @@
 
 import pytest
 import json
-from datetime import datetime, timedelta
+from datetime import datetime
+from datetime import timedelta
+from src.core.utils.timezone_utils import utc_now, utc_factory
 from unittest.mock import AsyncMock, patch
 from fastapi.testclient import TestClient
 
@@ -26,7 +28,7 @@ class TestAnalyticsAPI:
                 "user_id": "user-123",
                 "session_id": "session-456",
                 "event_type": "page_view",
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": utc_now().isoformat(),
                 "properties": {"page": "/dashboard"},
                 "context": {"user_agent": "Mozilla/5.0"}
             },
@@ -35,7 +37,7 @@ class TestAnalyticsAPI:
                 "user_id": "user-123",
                 "session_id": "session-456",
                 "event_type": "click",
-                "timestamp": (datetime.utcnow() + timedelta(minutes=1)).isoformat(),
+                "timestamp": (utc_now() + timedelta(minutes=1)).isoformat(),
                 "properties": {"element": "button"},
                 "context": {"user_agent": "Mozilla/5.0"}
             }
@@ -92,7 +94,7 @@ class TestAnalyticsAPI:
                 event_id="test-1",
                 user_id="user-123",
                 event_type="click",
-                timestamp=datetime.utcnow()
+                timestamp=utc_now()
             )
         ]
         mock_get_events.return_value = mock_events
@@ -132,7 +134,7 @@ class TestAnalyticsAPI:
                 event_id="test-1",
                 user_id="user-123",
                 event_type="click",
-                timestamp=datetime.utcnow()
+                timestamp=utc_now()
             )
         ]
         
@@ -191,7 +193,7 @@ class TestAnalyticsAPI:
                     event_id="test-1",
                     user_id="user-123",
                     event_type="click",
-                    timestamp=datetime.utcnow()
+                    timestamp=utc_now()
                 )
             ]
             
@@ -251,7 +253,7 @@ class TestAnalyticsAPI:
                     event_id="test-1",
                     user_id="user-123", 
                     event_type="click",
-                    timestamp=datetime.utcnow()
+                    timestamp=utc_now()
                 )
             ]
             
@@ -269,7 +271,7 @@ class TestAnalyticsAPI:
                     event_id="test-1",
                     user_id="user-123",
                     event_type="click", 
-                    timestamp=datetime.utcnow()
+                    timestamp=utc_now()
                 )
             ]
             
@@ -367,7 +369,7 @@ class TestAnalyticsAPIValidation:
     def test_datetime_parameter_parsing(self):
         """测试日期时间参数解析"""
         # 有效的datetime
-        valid_datetime = datetime.utcnow().isoformat()
+        valid_datetime = utc_now().isoformat()
         response = self.client.get(f"/api/v1/analytics/events?start_time={valid_datetime}")
         
         # 应该能够解析有效的datetime

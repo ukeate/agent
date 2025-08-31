@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import List, Dict, Any, Optional, Union
 import asyncio
 from datetime import datetime
+from src.core.utils.timezone_utils import utc_now, utc_factory
 import hashlib
 import json
 
@@ -51,8 +52,8 @@ class ProcessedDocument:
         self.versions = versions or []
         self.embedding_vector = embedding_vector
         self.metadata = metadata or {}
-        self.created_at = created_at or datetime.utcnow()
-        self.updated_at = updated_at or datetime.utcnow()
+        self.created_at = created_at or utc_now()
+        self.updated_at = updated_at or utc_now()
     
     def to_dict(self) -> Dict[str, Any]:
         """转换为字典格式"""
@@ -295,7 +296,7 @@ class DocumentProcessor:
         metadata.update({
             "parser_used": parsed_doc.file_type,
             "elements_count": len(parsed_doc.elements),
-            "processed_at": datetime.utcnow().isoformat(),
+            "processed_at": utc_now().isoformat(),
         })
         
         # 生成向量嵌入（如果需要）

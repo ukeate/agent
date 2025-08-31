@@ -11,6 +11,7 @@ from typing import Dict, Any, List, Optional, Tuple, Set, Union
 from dataclasses import dataclass, field
 from enum import Enum
 from datetime import datetime
+from src.core.utils.timezone_utils import utc_now, utc_factory
 
 from ..models.schemas.offline import SyncOperation, SyncOperationType, VectorClock
 
@@ -278,7 +279,7 @@ class DeltaCalculator:
         
         return SyncDelta(
             session_id=session_id,
-            delta_id=str(hashlib.md5(f"{session_id}_{datetime.utcnow().isoformat()}".encode()).hexdigest()),
+            delta_id=str(hashlib.md5(f"{session_id}_{utc_now().isoformat()}".encode()).hexdigest()),
             object_deltas=object_deltas,
             vector_clock=vector_clock,
             compression_ratio=compression_ratio,

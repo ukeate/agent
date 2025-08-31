@@ -4,7 +4,7 @@ import { describe, it, expect, vi } from 'vitest';
 import ExplorationStrategiesPage from '../../src/pages/qlearning/ExplorationStrategiesPage';
 
 // Mock Ant Design Charts
-vi.mock('@ant-design/charts', () => ({
+mockFn()mock('@ant-design/charts', () => ({
   Line: ({ data, ...props }: any) => (
     <div data-testid="line-chart">
       <div>Chart with {data?.length || 0} data points</div>

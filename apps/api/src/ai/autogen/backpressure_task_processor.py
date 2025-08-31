@@ -7,6 +7,7 @@ import asyncio
 import time
 from typing import Dict, Any, Optional
 from datetime import datetime
+from src.core.utils.timezone_utils import utc_now, utc_factory
 import structlog
 
 from .flow_control import FlowController, TaskInfo
@@ -97,7 +98,7 @@ class BackpressureTaskProcessor:
             timeout_seconds = task_data.get('timeout_seconds', 300)
             
             # 检查任务是否过期
-            if task_info.deadline and datetime.now() > task_info.deadline:
+            if task_info.deadline and utc_now() > task_info.deadline:
                 logger.warning(f"Task {task_info.task_id} expired, skipping")
                 return
             
