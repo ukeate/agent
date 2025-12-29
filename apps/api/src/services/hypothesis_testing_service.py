@@ -1,18 +1,14 @@
 """
 假设检验服务 - 实现t检验、卡方检验等统计推断算法
 """
+
 import math
 from typing import List, Tuple, Optional, Dict, Any, Union
 from dataclasses import dataclass
 from enum import Enum
 from scipy import stats
 import numpy as np
-
-from core.logging import get_logger
-from services.statistical_analysis_service import DescriptiveStats, MetricType
-
-logger = get_logger(__name__)
-
+from src.services.statistical_analysis_service import DescriptiveStats, MetricType
 
 class HypothesisType(str, Enum):
     """假设检验类型"""
@@ -20,14 +16,12 @@ class HypothesisType(str, Enum):
     LESS = "less"  # 左边检验（小于）
     GREATER = "greater"  # 右边检验（大于）
 
-
 class TestStatistic(str, Enum):
     """检验统计量类型"""
     T_STATISTIC = "t_statistic"  # t统计量
     CHI_SQUARE = "chi_square"  # 卡方统计量
     Z_STATISTIC = "z_statistic"  # z统计量
     F_STATISTIC = "f_statistic"  # F统计量
-
 
 @dataclass
 class HypothesisTestResult:
@@ -46,24 +40,33 @@ class HypothesisTestResult:
     @property
     def is_significant(self) -> bool:
         """是否达到统计显著性"""
-        return self.p_value < self.alpha
+        return bool(self.p_value < self.alpha)
     
     def to_dict(self) -> Dict[str, Any]:
         """转换为字典格式"""
+        degrees_of_freedom = self.degrees_of_freedom
+        if isinstance(degrees_of_freedom, tuple):
+            degrees_of_freedom = tuple(int(x) for x in degrees_of_freedom)
+        elif degrees_of_freedom is not None:
+            degrees_of_freedom = int(degrees_of_freedom)
+
+        confidence_interval = self.confidence_interval
+        if confidence_interval is not None:
+            confidence_interval = (float(confidence_interval[0]), float(confidence_interval[1]))
+
         return {
             "test_type": self.test_type,
-            "statistic": self.statistic,
-            "p_value": self.p_value,
-            "critical_value": self.critical_value,
-            "degrees_of_freedom": self.degrees_of_freedom,
-            "confidence_interval": self.confidence_interval,
-            "effect_size": self.effect_size,
-            "power": self.power,
-            "alpha": self.alpha,
+            "statistic": float(self.statistic),
+            "p_value": float(self.p_value),
+            "critical_value": float(self.critical_value) if self.critical_value is not None else None,
+            "degrees_of_freedom": degrees_of_freedom,
+            "confidence_interval": confidence_interval,
+            "effect_size": float(self.effect_size) if self.effect_size is not None else None,
+            "power": float(self.power) if self.power is not None else None,
+            "alpha": float(self.alpha),
             "hypothesis_type": self.hypothesis_type.value,
             "is_significant": self.is_significant
         }
-
 
 class TTestCalculator:
     """t检验计算器"""
@@ -272,7 +275,6 @@ class TTestCalculator:
             self.logger.error(f"Paired t-test failed: {e}")
             raise
 
-
 class ChiSquareTestCalculator:
     """卡方检验计算器"""
     
@@ -479,7 +481,6 @@ class ChiSquareTestCalculator:
             self.logger.error(f"Two proportion chi-square test failed: {e}")
             raise
 
-
 class HypothesisTestingService:
     """假设检验服务 - 统一接口"""
     
@@ -590,7 +591,6 @@ class HypothesisTestingService:
         except Exception as e:
             self.logger.error(f"Chi-square test failed: {e}")
             raise
-
 
 # 全局实例
 _hypothesis_testing_service = None

@@ -1,6 +1,7 @@
 """
 用户分组缓存和持久化服务 - 管理用户实验分配的缓存和数据库存储
 """
+
 import json
 import hashlib
 from typing import Dict, List, Optional, Any, Tuple
@@ -11,15 +12,14 @@ from dataclasses import dataclass, asdict
 from enum import Enum
 import asyncio
 from contextlib import asynccontextmanager
-
 import redis.asyncio as redis
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, update, delete, and_
+from src.models.database.experiment import ExperimentAssignment
+from src.core.database import get_db_session
 
-from models.database.experiment import ExperimentAssignment
-from core.database import get_db
-from core.logging import logger
-
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 class CacheStrategy(Enum):
     """缓存策略"""
@@ -27,14 +27,12 @@ class CacheStrategy(Enum):
     WRITE_BEHIND = "write_behind"   # 先写入缓存，异步写入数据库
     CACHE_ASIDE = "cache_aside"     # 应用程序管理缓存
 
-
 class CacheStatus(Enum):
     """缓存状态"""
     HIT = "hit"
     MISS = "miss"
     EXPIRED = "expired"
     ERROR = "error"
-
 
 @dataclass
 class CachedAssignment:
@@ -66,7 +64,6 @@ class CachedAssignment:
             data['expires_at'] = datetime.fromisoformat(data['expires_at'])
         return cls(**data)
 
-
 @dataclass
 class CacheMetrics:
     """缓存指标"""
@@ -82,7 +79,6 @@ class CacheMetrics:
         """计算命中率"""
         total_requests = self.cache_hits + self.cache_misses
         self.hit_rate = (self.cache_hits / total_requests * 100) if total_requests > 0 else 0.0
-
 
 class UserAssignmentCache:
     """用户分配缓存管理器"""
@@ -141,9 +137,9 @@ class UserAssignmentCache:
         """关闭Redis连接"""
         try:
             if self._redis:
-                await self._redis.close()
+                await self._redis.aclose()
             if self._redis_pool:
-                await self._redis_pool.disconnect()
+                await self._redis_pool.aclose()
             logger.info("Redis connection closed")
         except Exception as e:
             logger.error(f"Error closing Redis connection: {str(e)}")
@@ -446,7 +442,7 @@ class UserAssignmentCache:
     async def _get_from_database(self, user_id: str, experiment_id: str) -> Optional[CachedAssignment]:
         """从数据库获取分配"""
         try:
-            async with get_async_db() as db:
+            async with get_db_session() as db:
                 query = select(ExperimentAssignment).where(
                     and_(
                         ExperimentAssignment.user_id == user_id,
@@ -461,8 +457,8 @@ class UserAssignmentCache:
                         user_id=assignment.user_id,
                         experiment_id=assignment.experiment_id,
                         variant_id=assignment.variant_id,
-                        assigned_at=assignment.assigned_at,
-                        assignment_context=assignment.assignment_context or {}
+                        assigned_at=assignment.timestamp,
+                        assignment_context=assignment.context or {}
                     )
                 
                 return None
@@ -474,7 +470,7 @@ class UserAssignmentCache:
     async def _get_user_assignments_from_database(self, user_id: str) -> List[CachedAssignment]:
         """从数据库获取用户的所有分配"""
         try:
-            async with get_async_db() as db:
+            async with get_db_session() as db:
                 query = select(ExperimentAssignment).where(
                     ExperimentAssignment.user_id == user_id
                 )
@@ -486,8 +482,8 @@ class UserAssignmentCache:
                         user_id=assignment.user_id,
                         experiment_id=assignment.experiment_id,
                         variant_id=assignment.variant_id,
-                        assigned_at=assignment.assigned_at,
-                        assignment_context=assignment.assignment_context or {}
+                        assigned_at=assignment.timestamp,
+                        assignment_context=assignment.context or {}
                     )
                     for assignment in assignments
                 ]
@@ -501,7 +497,7 @@ class UserAssignmentCache:
         try:
             result = {}
             
-            async with get_async_db() as db:
+            async with get_db_session() as db:
                 for user_id, experiment_id in user_experiment_pairs:
                     query = select(ExperimentAssignment).where(
                         and_(
@@ -517,8 +513,8 @@ class UserAssignmentCache:
                             user_id=assignment.user_id,
                             experiment_id=assignment.experiment_id,
                             variant_id=assignment.variant_id,
-                            assigned_at=assignment.assigned_at,
-                            assignment_context=assignment.assignment_context or {}
+                            assigned_at=assignment.timestamp,
+                            assignment_context=assignment.context or {}
                         )
                     else:
                         result[(user_id, experiment_id)] = None
@@ -532,13 +528,13 @@ class UserAssignmentCache:
     async def _write_to_database(self, assignment: CachedAssignment) -> bool:
         """写入数据库"""
         try:
-            async with get_async_db() as db:
+            async with get_db_session() as db:
                 db_assignment = ExperimentAssignment(
                     user_id=assignment.user_id,
                     experiment_id=assignment.experiment_id,
                     variant_id=assignment.variant_id,
-                    assigned_at=assignment.assigned_at,
-                    assignment_context=assignment.assignment_context
+                    timestamp=assignment.assigned_at,
+                    context=assignment.assignment_context or {}
                 )
                 
                 # 使用upsert逻辑
@@ -560,8 +556,8 @@ class UserAssignmentCache:
                         )
                     ).values(
                         variant_id=assignment.variant_id,
-                        assigned_at=assignment.assigned_at,
-                        assignment_context=assignment.assignment_context
+                        timestamp=assignment.assigned_at,
+                        context=assignment.assignment_context or {}
                     )
                     await db.execute(update_query)
                 else:
@@ -578,7 +574,7 @@ class UserAssignmentCache:
     async def _delete_from_database(self, user_id: str, experiment_id: str) -> bool:
         """从数据库删除"""
         try:
-            async with get_async_db() as db:
+            async with get_db_session() as db:
                 delete_query = delete(ExperimentAssignment).where(
                     and_(
                         ExperimentAssignment.user_id == user_id,
@@ -596,7 +592,7 @@ class UserAssignmentCache:
     async def _clear_user_assignments_from_database(self, user_id: str) -> int:
         """从数据库清除用户的所有分配"""
         try:
-            async with get_async_db() as db:
+            async with get_db_session() as db:
                 delete_query = delete(ExperimentAssignment).where(
                     ExperimentAssignment.user_id == user_id
                 )
@@ -636,14 +632,14 @@ class UserAssignmentCache:
     async def _batch_write_to_database(self, assignments: List[CachedAssignment]):
         """批量写入数据库"""
         try:
-            async with get_async_db() as db:
+            async with get_db_session() as db:
                 for assignment in assignments:
                     db_assignment = ExperimentAssignment(
                         user_id=assignment.user_id,
                         experiment_id=assignment.experiment_id,
                         variant_id=assignment.variant_id,
-                        assigned_at=assignment.assigned_at,
-                        assignment_context=assignment.assignment_context
+                        timestamp=assignment.assigned_at,
+                        context=assignment.assignment_context or {}
                     )
                     
                     # 简单插入，忽略冲突（在生产环境中可能需要更复杂的upsert逻辑）

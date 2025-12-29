@@ -343,7 +343,7 @@ const WorkingMainLayout: React.FC<WorkingMainLayoutProps> = ({ children }) => {
               case 'health': navigate('/health'); break;
               case 'performance': navigate('/performance'); break;
               case 'events': navigate('/events'); break;
-              case 'streaming': navigate('/streaming'); break;
+              case 'streaming': navigate('/streaming-monitor'); break;
               case 'monitor': navigate('/monitor'); break;
               case 'monitoring-dashboard': navigate('/monitoring-dashboard'); break;
               case 'enterprise': navigate('/enterprise'); break;

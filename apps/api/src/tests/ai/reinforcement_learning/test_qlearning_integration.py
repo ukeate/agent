@@ -8,8 +8,11 @@ import pytest
 import numpy as np
 import asyncio
 from unittest.mock import MagicMock, patch
+from src.core.logging import setup_logging
 
-# 由于TensorFlow依赖问题，我们创建模拟测试
+from src.core.logging import get_logger
+logger = get_logger(__name__)
+
 @pytest.fixture
 def mock_tensorflow():
     """模拟TensorFlow依赖"""
@@ -21,7 +24,6 @@ def mock_tensorflow():
         'tensorflow.keras.optimizers': MagicMock(),
     }):
         yield
-
 
 class TestQLearningBasicFunctionality:
     """Q-Learning基础功能测试"""
@@ -109,7 +111,6 @@ class TestQLearningBasicFunctionality:
         assert len(state) == 16
         assert 'position' in info
         assert info['position'] == [0, 1]  # 应该移动到(0,1)
-
 
 class TestQLearningIntegration:
     """Q-Learning集成测试"""
@@ -209,7 +210,6 @@ class TestQLearningIntegration:
         assert final_epsilon < initial_epsilon  # epsilon应该衰减
         assert final_epsilon >= config.final_exploration  # 不应该低于最小值
 
-
 class TestPerformanceOptimization:
     """性能优化测试"""
     
@@ -261,7 +261,6 @@ class TestPerformanceOptimization:
         batch = buffer.sample(32)
         assert len(batch['states']) == 32
 
-
 class TestErrorHandling:
     """错误处理测试"""
     
@@ -312,11 +311,10 @@ class TestErrorHandling:
         # 由于epsilon=0，应该总是选择动作1
         assert all(action == 1 for action in actions)
 
-
 # 运行测试的辅助函数
 def run_integration_tests():
     """运行集成测试"""
-    print("开始Q-Learning集成测试...")
+    logger.info("开始Q-Learning集成测试...")
     
     # 创建模拟的tensorflow模块
     import sys
@@ -335,33 +333,33 @@ def run_integration_tests():
         basic_tests.test_exploration_strategies(None)
         basic_tests.test_reward_functions(None)
         basic_tests.test_grid_world_environment(None)
-        print("✓ 基础功能测试通过")
+        logger.info("✓ 基础功能测试通过")
         
         # 集成测试
         integration_tests = TestQLearningIntegration()
         integration_tests.test_q_table_learning(None)
         integration_tests.test_epsilon_decay(None)
-        print("✓ 集成测试通过")
+        logger.info("✓ 集成测试通过")
         
         # 性能测试
         performance_tests = TestPerformanceOptimization()
         performance_tests.test_vectorized_operations(None)
         performance_tests.test_memory_efficiency(None)
-        print("✓ 性能优化测试通过")
+        logger.info("✓ 性能优化测试通过")
         
         # 错误处理测试
         error_tests = TestErrorHandling()
         error_tests.test_invalid_environment_actions(None)
         error_tests.test_exploration_strategy_bounds(None)
-        print("✓ 错误处理测试通过")
+        logger.error("✓ 错误处理测试通过")
         
-        print("\n所有集成测试通过！Q-Learning系统功能正常。")
+        logger.info("\n所有集成测试通过！Q-Learning系统功能正常。")
         return True
         
     except Exception as e:
-        print(f"✗ 测试失败: {e}")
+        logger.error(f"✗ 测试失败: {e}")
         return False
 
-
 if __name__ == "__main__":
+    setup_logging()
     run_integration_tests()

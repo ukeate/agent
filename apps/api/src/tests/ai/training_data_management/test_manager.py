@@ -7,10 +7,8 @@ import asyncio
 from datetime import datetime
 from src.core.utils.timezone_utils import utc_now, utc_factory, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
-
 from src.ai.training_data_management.models import DataSource, DataRecord
 from src.ai.training_data_management.manager import DataCollectionManager
-
 
 class TestDataCollectionManager:
     """数据收集管理器测试"""
@@ -412,9 +410,9 @@ class TestDataCollectionManager:
         with patch.object(data_manager, 'collect_data_from_source') as mock_collect_method:
             mock_collect_method.side_effect = mock_collect
             
-            start_time = asyncio.get_event_loop().time()
+            start_time = asyncio.get_running_loop().time()
             results = await data_manager.collect_data_batch(source_ids, parallel=True)
-            end_time = asyncio.get_event_loop().time()
+            end_time = asyncio.get_running_loop().time()
             
             # 并行执行应该比串行快
             assert end_time - start_time < 0.3  # 应该小于串行执行时间(0.3秒)

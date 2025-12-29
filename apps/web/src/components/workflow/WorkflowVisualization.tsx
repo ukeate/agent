@@ -1,6 +1,8 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import { buildApiUrl, apiFetch } from '../../utils/apiBase'
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Card, Spin, Alert, Tooltip, message } from 'antd';
 import ReactFlow, {
+import { logger } from '../../utils/logger'
   Node,
   Edge,
   addEdge,
@@ -131,16 +133,15 @@ const nodeTypes: NodeTypes = {
 interface WorkflowVisualizationProps {
   workflowId: string;
   onNodeClick?: (nodeId: string, nodeData?: WorkflowState) => void;
-  demoMode?: boolean; // 新增：演示模式标识
 }
 
 export const WorkflowVisualization: React.FC<WorkflowVisualizationProps> = ({
   workflowId,
   onNodeClick = () => {},
-  demoMode = false
 }) => {
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
+  const nodesRef = useRef<Node[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [workflowData, setWorkflowData] = useState<any>(null);
@@ -150,267 +151,188 @@ export const WorkflowVisualization: React.FC<WorkflowVisualizationProps> = ({
   const [stateHistory, setStateHistory] = useState<any[]>([]);
   const [executionSteps, setExecutionSteps] = useState<any[]>([]);
 
-  // 模拟从API获取工作流数据
+  useEffect(() => {
+    nodesRef.current = nodes;
+  }, [nodes]);
+  // 从API获取工作流数据
   const fetchWorkflowData = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
       
-      // 定义通用的节点和边结构
-      let nodeStatusMap: { [key: string]: string } = {
-        'start': 'pending',
-        'process': 'pending', 
-        'decision': 'pending',
-        'path_a': 'pending',
-        'path_b': 'pending',
-        'end': 'pending'
+      const response = await apiFetch(buildApiUrl(`/api/v1/workflows/${workflowId}`));
+      const data = await response.json();
+      setWorkflowData(data);
+      
+      const executionLog = data.current_state?.context?.execution_log || [];
+      const definition = data.definition || data.workflow_definition || null;
+
+      const resolveNodeType = (nodeId: string, rawType?: string) => {
+        const type = (rawType || '').toLowerCase();
+        if (nodeId === 'start' || type.includes('start')) return 'start';
+        if (nodeId === 'end' || type.includes('end') || type.includes('finish')) return 'end';
+        if (type.includes('decision') || type.includes('conditional')) return 'decision';
+        return 'process';
       };
 
-      // 演示模式：直接使用模拟数据，不调用API
-      if (demoMode) {
-        // 模拟演示数据
-        const demoData = {
-          id: workflowId,
-          name: '演示工作流',
-          status: 'running',
-          created_at: '2025-01-01T10:00:00Z'
+      const buildGraph = () => {
+        const nameMap: Record<string, string> = {};
+        let nodes: Node[] = [];
+        let edges: Edge[] = [];
+
+        const buildEdges = (rawEdges: any[]) => {
+          return rawEdges.map((edge, index) => {
+            const source = edge.source || edge.from;
+            const target = edge.target || edge.to;
+            const label = edge.label || edge.condition;
+            let sourceHandle: string | undefined;
+            if (source === 'decision' || edge.decision) {
+              const labelText = String(label || '').toLowerCase();
+              if (labelText.includes('high') || labelText.includes('path_a') || labelText.includes('a')) {
+                sourceHandle = 'high';
+              } else if (labelText.includes('low') || labelText.includes('path_b') || labelText.includes('b')) {
+                sourceHandle = 'low';
+              }
+            }
+            return {
+              id: edge.id || `e-${source}-${target}-${index}`,
+              source,
+              target,
+              label,
+              sourceHandle,
+              animated: Boolean(edge.animated),
+            };
+          });
         };
-        setWorkflowData(demoData);
-        
-        // 演示模式下的模拟状态
-        nodeStatusMap = {
-          'start': 'completed',
-          'process': 'completed', 
-          'decision': 'completed',
-          'path_a': 'pending',
-          'path_b': 'completed',
-          'end': 'completed'
-        };
-      } else {
-        // 生产模式：调用实际API
-        const response = await fetch(`http://localhost:8000/api/v1/workflows/${workflowId}`);
-        if (!response || !response.ok) {
-          throw new Error('Failed to fetch workflow data');
+
+        if (definition?.nodes && definition?.edges) {
+          nodes = definition.nodes.map((node: any, index: number) => {
+            const nodeId = String(node.id || node.node_id || `node_${index + 1}`);
+            const nodeName = node.name || node.label || nodeId;
+            nameMap[nodeId] = nodeName;
+            const position = node.position || { x: 100 + index * 200, y: 100 };
+            const nodeType = resolveNodeType(nodeId, node.type || node.step_type);
+            return {
+              id: nodeId,
+              type: 'workflowNode',
+              position,
+              data: { id: nodeId, name: nodeName, status: 'pending', type: nodeType },
+            };
+          });
+          edges = buildEdges(definition.edges);
+        } else if (definition?.steps) {
+          nodes = definition.steps.map((step: any, index: number) => {
+            const nodeId = String(step.id || `step_${index + 1}`);
+            const nodeName = step.name || nodeId;
+            nameMap[nodeId] = nodeName;
+            const nodeType = resolveNodeType(nodeId, step.step_type);
+            return {
+              id: nodeId,
+              type: 'workflowNode',
+              position: { x: 100 + index * 200, y: 100 },
+              data: { id: nodeId, name: nodeName, status: 'pending', type: nodeType },
+            };
+          });
+          const rawEdges: any[] = [];
+          definition.steps.forEach((step: any) => {
+            const deps = step.dependencies || [];
+            deps.forEach((dep: string) => rawEdges.push({ from: dep, to: step.id }));
+          });
+          edges = buildEdges(rawEdges);
         }
-        
-        const data = await response.json();
-        setWorkflowData(data);
-        
-        // 根据实际工作流状态更新节点状态
-        const isCompleted = data.status === 'completed';
-        const executionLog = data.current_state?.context?.execution_log || [];
-        
-        // 根据执行日志更新节点状态
-        executionLog.forEach((log: any) => {
-          if (log.node === 'start') nodeStatusMap['start'] = 'completed';
-          if (log.node === 'process') nodeStatusMap['process'] = 'completed';
-          if (log.node === 'decision') nodeStatusMap['decision'] = 'completed';
-          if (log.node === 'path_a') nodeStatusMap['path_a'] = 'completed';
-          if (log.node === 'path_b') nodeStatusMap['path_b'] = 'completed';
-          if (log.node === 'end') nodeStatusMap['end'] = 'completed';
-        });
-        
-        // 如果工作流正在运行，更新当前节点状态
-        if (data.status === 'running') {
-          const currentNode = data.current_state?.metadata?.current_node;
-          if (currentNode && nodeStatusMap[currentNode] === 'pending') {
-            nodeStatusMap[currentNode] = 'running';
-          }
+
+        return { nodes, edges, nameMap };
+      };
+
+      const { nodes: baseNodes, edges: baseEdges, nameMap } = buildGraph();
+      if (!baseNodes.length) {
+        setNodes([]);
+        setEdges([]);
+        throw new Error('工作流定义为空');
+      }
+
+      const nodeStatusMap: { [key: string]: string } = {};
+      baseNodes.forEach((node) => {
+        nodeStatusMap[node.id] = 'pending';
+      });
+
+      executionLog.forEach((log: any) => {
+        const nodeId = String(log?.node || '');
+        if (!nodeId || nodeStatusMap[nodeId] === undefined) return;
+        nodeStatusMap[nodeId] = log?.status === 'failed' ? 'failed' : 'completed';
+      });
+      
+      if (data.status === 'running') {
+        const currentNode = data.current_state?.metadata?.current_node;
+        if (currentNode && nodeStatusMap[currentNode] === 'pending') {
+          nodeStatusMap[currentNode] = 'running';
         }
       }
       
-      // 生成条件分支工作流节点（两种模式通用）
-      const sampleNodes: Node[] = [
-        {
-          id: 'start',
-          type: 'workflowNode',
-          position: { x: 100, y: 100 },
-          data: { id: 'start', name: '开始', status: nodeStatusMap['start'], type: 'start' },
+      const nextNodes = baseNodes.map((node) => ({
+        ...node,
+        data: {
+          ...node.data,
+          status: nodeStatusMap[node.id] || 'pending',
         },
-        {
-          id: 'process',
-          type: 'workflowNode',
-          position: { x: 300, y: 100 },
-          data: { id: 'process', name: '数据处理', status: nodeStatusMap['process'], type: 'process' },
-        },
-        {
-          id: 'decision',
-          type: 'workflowNode',
-          position: { x: 500, y: 100 },
-          data: { id: 'decision', name: '条件判断', status: nodeStatusMap['decision'], type: 'decision' },
-        },
-        {
-          id: 'path_a',
-          type: 'workflowNode',
-          position: { x: 700, y: 50 },
-          data: { id: 'path_a', name: '路径A', status: nodeStatusMap['path_a'], type: 'process' },
-        },
-        {
-          id: 'path_b',
-          type: 'workflowNode',
-          position: { x: 700, y: 150 },
-          data: { id: 'path_b', name: '路径B', status: nodeStatusMap['path_b'], type: 'process' },
-        },
-        {
-          id: 'end',
-          type: 'workflowNode',
-          position: { x: 900, y: 100 },
-          data: { id: 'end', name: '结束', status: nodeStatusMap['end'], type: 'end' },
-        },
-      ];
+      }));
 
-      // 生成条件分支工作流边（两种模式通用）
-      const sampleEdges: Edge[] = [
-        { 
-          id: 'e1-2', 
-          source: 'start', 
-          target: 'process', 
-          animated: true,
-          style: { stroke: '#1890ff', strokeWidth: 2 }
-        },
-        { 
-          id: 'e2-3', 
-          source: 'process', 
-          target: 'decision', 
-          animated: true,
-          style: { stroke: '#1890ff', strokeWidth: 2 }
-        },
-        { 
-          id: 'e3-4', 
-          source: 'decision', 
-          sourceHandle: 'high',
-          target: 'path_a', 
-          label: '高质量', 
-          style: { stroke: '#52c41a', strokeWidth: 2 },
-          labelStyle: { fill: '#52c41a', fontWeight: 'bold' }
-        },
-        { 
-          id: 'e3-5', 
-          source: 'decision', 
-          sourceHandle: 'low',
-          target: 'path_b', 
-          label: '低质量', 
-          style: { stroke: '#faad14', strokeWidth: 2 },
-          labelStyle: { fill: '#faad14', fontWeight: 'bold' }
-        },
-        { 
-          id: 'e4-6', 
-          source: 'path_a', 
-          target: 'end',
-          style: { stroke: '#52c41a', strokeWidth: 2 }
-        },
-        { 
-          id: 'e5-6', 
-          source: 'path_b', 
-          target: 'end',
-          style: { stroke: '#faad14', strokeWidth: 2 }
-        },
-      ];
+      setNodes(nextNodes);
+      setEdges(baseEdges);
 
-      setNodes(sampleNodes);
-      setEdges(sampleEdges);
-      
-      // 共同的演示数据设置（演示模式和生产模式都会用到）
-      
-      // 模拟状态历史数据
-      const mockStateHistory = [
-        {
-          timestamp: '2025-01-01 10:00:00',
-          nodeId: 'start',
-          nodeName: '开始',
-          previousStatus: 'pending',
-          newStatus: 'completed',
-          metadata: { duration: 100 }
-        },
-        {
-          timestamp: '2025-01-01 10:00:05',
-          nodeId: 'process1',
-          nodeName: '数据处理',
-          previousStatus: 'pending',
-          newStatus: 'running',
-          metadata: { input_size: 1024 }
-        },
-      ];
-      
-      // 生成真实的模拟数据处理结果
-      const generateMockData = () => {
-        const categories = ['用户行为', '交易记录', '系统日志', '设备状态', '网络流量'];
-        const recordCount = Math.floor(Math.random() * 80) + 120; // 120-200条记录
-        
-        const records = [];
-        for (let i = 0; i < recordCount; i++) {
-          records.push({
-            id: `record_${String(i + 1).padStart(4, '0')}`,
-            category: categories[Math.floor(Math.random() * categories.length)],
-            value: Math.round((Math.random() * 989.4 + 10.5) * 100) / 100,
-            status: ['success', 'warning', 'info'][Math.floor(Math.random() * 3)]
+        const history: any[] = [];
+        const steps: any[] = [];
+        const statusMap: Record<string, string> = {};
+        Object.keys(nameMap).forEach((k) => (statusMap[k] = 'pending'));
+        let prevTs: number | null = null;
+
+        for (let i = 0; i < executionLog.length; i++) {
+          const log = executionLog[i];
+          const nodeId = String(log?.node || '');
+          if (!nodeId) continue;
+          const ts = String(log?.timestamp || '');
+          const nextStatus = log?.status === 'failed' ? 'failed' : 'completed';
+          const prevStatus = statusMap[nodeId] || 'pending';
+          statusMap[nodeId] = nextStatus;
+
+          history.push({
+            timestamp: ts,
+            nodeId,
+            nodeName: nameMap[nodeId] || nodeId,
+            previousStatus: prevStatus,
+            newStatus: nextStatus,
+            metadata: log,
+          });
+
+          const t = Date.parse(ts);
+          const duration = Number.isFinite(t) && prevTs !== null ? Math.max(0, t - prevTs) : 0;
+          if (Number.isFinite(t)) prevTs = t;
+          steps.push({
+            stepId: `${workflowId}-${i + 1}`,
+            timestamp: ts,
+            nodeId,
+            nodeName: nameMap[nodeId] || nodeId,
+            action: 'execute',
+            duration,
+            status: log?.status === 'failed' ? 'error' : 'success',
+            details: log,
           });
         }
-        
-        // 统计数据
-        const stats = {
-          total_records: recordCount,
-          by_category: {},
-          by_status: {},
-          avg_value: Math.round((records.reduce((sum, r) => sum + r.value, 0) / recordCount) * 100) / 100,
-          processing_time_ms: Math.floor(Math.random() * 300) + 200
-        };
-        
-        // 计算各类别统计
-        records.forEach(record => {
-          stats.by_category[record.category] = (stats.by_category[record.category] || 0) + 1;
-          stats.by_status[record.status] = (stats.by_status[record.status] || 0) + 1;
-        });
-        
-        return { records: records.slice(0, 3), stats }; // 只返回前3条作为示例
-      };
-      
-      const mockData = generateMockData();
-      
-      // 模拟执行步骤数据
-      const mockExecutionSteps = [
-        {
-          stepId: 'step-1',
-          timestamp: '2025-01-01 10:00:00',
-          nodeId: 'start',
-          nodeName: '开始',
-          action: 'initialize',
-          duration: 100,
-          status: 'success' as const,
-          details: { version: '1.0.0' }
-        },
-        {
-          stepId: 'step-2',
-          timestamp: '2025-01-01 10:00:05',
-          nodeId: 'process1',
-          nodeName: '数据处理',
-          action: 'process_data',
-          duration: mockData.stats.processing_time_ms,
-          status: 'success' as const,
-          details: {
-            total_records: mockData.stats.total_records,
-            by_category: mockData.stats.by_category,
-            by_status: mockData.stats.by_status,
-            avg_value: mockData.stats.avg_value,
-            sample_records: mockData.records
-          }
-        },
-      ];
-      
-      setStateHistory(mockStateHistory);
-      setExecutionSteps(mockExecutionSteps);
-      
-    } catch (err) {
-      console.error('Error fetching workflow data:', err);
-      setError(err instanceof Error ? err.message : 'Unknown error');
-    } finally {
-      setLoading(false);
-    }
-  }, [workflowId]);
+
+        setStateHistory(history);
+        setExecutionSteps(steps);
+	      
+	    } catch (err) {
+	      logger.error('获取工作流数据失败:', err);
+	      setError(err instanceof Error ? err.message : '未知错误');
+	    } finally {
+	      setLoading(false);
+	    }
+	  }, [workflowId]);
 
   // 处理节点点击事件
   const handleNodeClick = useCallback((_event: React.MouseEvent, node: Node) => {
-    console.log('Node clicked:', node);
+    logger.log('节点已点击:', node);
     const nodeData = node.data as WorkflowState;
     setSelectedNode(nodeData);
     setDetailPanelVisible(true);
@@ -420,70 +342,31 @@ export const WorkflowVisualization: React.FC<WorkflowVisualizationProps> = ({
   // 处理节点操作
   const handleNodeAction = useCallback(async (action: string, nodeId: string) => {
     try {
-      console.log(`执行操作: ${action} on node: ${nodeId}`);
-      
-      // TODO: 实际的API调用
-      // await fetch(`/api/v1/workflows/${workflowId}/nodes/${nodeId}/${action}`, {
-      //   method: 'POST'
-      // });
-      
-      message.success(`${action} 操作执行成功`);
-      
-      // 更新节点状态
-      setNodes((nds) =>
-        nds.map((node) => {
-          if (node.id === nodeId) {
-            let newStatus = node.data.status;
-            switch (action) {
-              case 'pause':
-                newStatus = 'paused';
-                break;
-              case 'resume':
-                newStatus = 'running';
-                break;
-              case 'stop':
-                newStatus = 'failed';
-                break;
-              case 'retry':
-                newStatus = 'running';
-                break;
-            }
-            return {
-              ...node,
-              data: { ...node.data, status: newStatus }
-            };
-          }
-          return node;
-        })
-      );
-      
-      // 更新选中节点的状态
-      if (selectedNode && selectedNode.id === nodeId) {
-        let updatedStatus: WorkflowState['status'];
-        switch (action) {
-          case 'pause':
-            updatedStatus = 'paused';
-            break;
-          case 'resume':
-            updatedStatus = 'running';
-            break;
-          case 'stop':
-            updatedStatus = 'failed';
-            break;
-          case 'retry':
-            updatedStatus = 'running';
-            break;
-          default:
-            updatedStatus = selectedNode.status;
-        }
-        setSelectedNode(prev => prev ? { ...prev, status: updatedStatus } : null);
+      const control = async (ctrl: 'pause' | 'resume' | 'cancel') => {
+        await apiFetch(buildApiUrl(`/api/v1/workflows/${workflowId}/control`), {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: ctrl }),
+        });
+      };
+
+      if (action === 'pause' || action === 'resume') {
+        await control(action);
+      } else if (action === 'cancel') {
+        await control('cancel');
+      } else if (action === 'restart') {
+        await apiFetch(buildApiUrl(`/api/v1/workflows/${workflowId}/start`), { method: 'POST' });
+      } else {
+        throw new Error('不支持的操作');
       }
-      
+
+      await fetchWorkflowData();
+      message.success('操作成功');
     } catch (err) {
-      console.error('节点操作失败:', err);
+      logger.error('操作失败:', err);
       message.error('操作失败，请重试');
     }
-  }, [workflowId, selectedNode, setNodes]);
+  }, [workflowId, fetchWorkflowData]);
 
   // 关闭详情面板
   const handleCloseDetailPanel = useCallback(() => {
@@ -499,53 +382,96 @@ export const WorkflowVisualization: React.FC<WorkflowVisualizationProps> = ({
 
   // WebSocket更新处理
   const handleWebSocketUpdate = useCallback((message: any) => {
-    console.log('收到WebSocket更新:', message);
-    
     if (message.type === 'initial_status' || message.type === 'status_update') {
-      const workflowData = message.data;
-      if (workflowData) {
-        setWorkflowData(workflowData);
-        
-        // TODO: 根据实际API数据更新节点状态
-        // 这里应该根据workflowData.current_state来更新节点
-        // 现在使用模拟数据进行演示
-        
-        // 模拟节点状态更新
-        setNodes((nds) =>
-          nds.map((node, index) => {
-            // 模拟不同节点的状态变化
-            let newStatus = node.data.status;
-            if (workflowData.status === 'running' && index === 1) {
-              newStatus = 'running';
-            } else if (workflowData.status === 'completed' && index <= 1) {
-              newStatus = 'completed';
-            }
-            
-            return {
-              ...node,
-              data: { ...node.data, status: newStatus }
-            };
-          })
-        );
+      const data = message.data;
+      if (!data) return;
+      setWorkflowData(data);
+
+      const executionLog = data.current_state?.context?.execution_log || [];
+      const nodeStatusMap: Record<string, string> = {};
+      const nameMap: Record<string, string> = {};
+      nodesRef.current.forEach((node) => {
+        nodeStatusMap[node.id] = 'pending';
+        const data = node.data as WorkflowState | undefined;
+        nameMap[node.id] = data?.name || node.id;
+      });
+
+      executionLog.forEach((log: any) => {
+        const node = String(log?.node || '');
+        if (!node) return;
+        if (log?.status === 'failed') nodeStatusMap[node] = 'failed';
+        else nodeStatusMap[node] = 'completed';
+      });
+
+      const currentNode = data.current_state?.metadata?.current_node;
+      if (data.status === 'running' && currentNode && nodeStatusMap[currentNode] === 'pending') {
+        nodeStatusMap[currentNode] = 'running';
       }
+      if (data.status === 'paused' && currentNode && nodeStatusMap[currentNode] === 'pending') {
+        nodeStatusMap[currentNode] = 'paused';
+      }
+
+      setNodes((nds) =>
+        nds.map((node) => ({
+          ...node,
+          data: { ...node.data, status: nodeStatusMap[node.id] || node.data.status },
+        }))
+      );
+
+      const history: any[] = [];
+      const steps: any[] = [];
+      const statusMap: Record<string, string> = {};
+      Object.keys(nameMap).forEach((k) => (statusMap[k] = 'pending'));
+      let prevTs: number | null = null;
+
+      for (let i = 0; i < executionLog.length; i++) {
+        const log = executionLog[i];
+        const nodeId = String(log?.node || '');
+        if (!nodeId) continue;
+        const ts = String(log?.timestamp || '');
+        const nextStatus = log?.status === 'failed' ? 'failed' : 'completed';
+        const prevStatus = statusMap[nodeId] || 'pending';
+        statusMap[nodeId] = nextStatus;
+
+        history.push({
+          timestamp: ts,
+          nodeId,
+          nodeName: nameMap[nodeId] || nodeId,
+          previousStatus: prevStatus,
+          newStatus: nextStatus,
+          metadata: log,
+        });
+
+        const t = Date.parse(ts);
+        const duration = Number.isFinite(t) && prevTs !== null ? Math.max(0, t - prevTs) : 0;
+        if (Number.isFinite(t)) prevTs = t;
+        steps.push({
+          stepId: `${workflowId}-${i + 1}`,
+          timestamp: ts,
+          nodeId,
+          nodeName: nameMap[nodeId] || nodeId,
+          action: 'execute',
+          duration,
+          status: log?.status === 'failed' ? 'error' : 'success',
+          details: log,
+        });
+      }
+
+      setStateHistory(history);
+      setExecutionSteps(steps);
     }
-  }, [setNodes]);
+  }, [setNodes, workflowId]);
 
   useEffect(() => {
     fetchWorkflowData();
     
-    // 只在非演示模式下建立WebSocket连接
-    if (!demoMode) {
-      workflowWebSocketService.connect(workflowId, handleWebSocketUpdate);
-    }
+    workflowWebSocketService.connect(workflowId, handleWebSocketUpdate);
     
     // 清理函数
     return () => {
-      if (!demoMode) {
-        workflowWebSocketService.disconnect(workflowId, handleWebSocketUpdate);
-      }
+      workflowWebSocketService.disconnect(workflowId, handleWebSocketUpdate);
     };
-  }, [workflowId, fetchWorkflowData, handleWebSocketUpdate, demoMode]);
+  }, [workflowId, fetchWorkflowData, handleWebSocketUpdate]);
 
   if (loading) {
     return (
@@ -557,37 +483,28 @@ export const WorkflowVisualization: React.FC<WorkflowVisualizationProps> = ({
     );
   }
 
-  if (error) {
-    return (
-      <Card title="工作流可视化" className="h-96">
-        <Alert
-          message="加载工作流失败"
-          description={error}
-          variant="destructive"
-          showIcon
-        />
-      </Card>
-    );
-  }
+	  if (error) {
+	    return (
+	      <Card title="工作流可视化" className="h-96">
+	        <Alert
+	          message="加载工作流失败"
+	          description={error}
+	          type="error"
+	          showIcon
+	        />
+	      </Card>
+	    );
+	  }
 
-  // 模拟执行日志数据
-  const mockExecutionLogs = selectedNode ? [
-    {
-      timestamp: '2025-01-01 10:00:00',
-      message: '节点开始执行',
-      level: 'info' as const
-    },
-    {
-      timestamp: '2025-01-01 10:01:00',
-      message: '数据预处理完成',
-      level: 'info' as const
-    },
-    {
-      timestamp: '2025-01-01 10:02:00',
-      message: '检测到潜在问题，继续执行',
-      level: 'warning' as const
-    },
-  ] : [];
+  const executionLogs = selectedNode
+    ? (workflowData?.current_state?.context?.execution_log || [])
+        .filter((log: any) => log?.node === selectedNode.id)
+        .map((log: any) => ({
+          timestamp: String(log?.timestamp || ''),
+          message: log?.error ? `执行失败: ${log.error}` : `节点执行${log?.status || ''}`,
+          level: (log?.status === 'failed' ? 'error' : log?.error ? 'error' : 'info') as const,
+        }))
+    : [];
 
   return (
     <>
@@ -644,7 +561,7 @@ export const WorkflowVisualization: React.FC<WorkflowVisualizationProps> = ({
         visible={detailPanelVisible}
         onClose={handleCloseDetailPanel}
         nodeData={selectedNode}
-        executionLogs={mockExecutionLogs}
+        executionLogs={executionLogs}
         onNodeAction={handleNodeAction}
       />
       

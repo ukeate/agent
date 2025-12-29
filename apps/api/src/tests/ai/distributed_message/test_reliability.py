@@ -2,18 +2,17 @@
 消息可靠性保证测试
 """
 
+from src.core.utils.timezone_utils import utc_now
 import pytest
 import asyncio
 import uuid
 from unittest.mock import AsyncMock, Mock
-from datetime import datetime, timedelta
-
+from datetime import timedelta
 from src.ai.distributed_message.reliability import (
     ReliabilityManager, ReliableMessage, RetryConfig, RetryPolicy,
     MessageStatus, DeadLetterQueueConfig
 )
 from src.ai.distributed_message.models import Message, MessageHeader, MessageType, MessagePriority
-
 
 class TestRetryConfig:
     """重试配置测试"""
@@ -46,7 +45,6 @@ class TestRetryConfig:
         assert config.max_delay == 120.0
         assert config.backoff_factor == 1.5
         assert config.jitter is False
-
 
 class TestReliableMessage:
     """可靠消息测试"""
@@ -152,7 +150,7 @@ class TestReliableMessage:
         reliable_msg.record_attempt(False)
         next_retry = reliable_msg.calculate_next_retry_time()
         expected_delay = timedelta(seconds=2.0)
-        actual_delay = next_retry - datetime.now()
+        actual_delay = next_retry - utc_now()
         
         # 允许小的时间差
         assert abs(actual_delay.total_seconds() - expected_delay.total_seconds()) < 0.1
@@ -170,7 +168,7 @@ class TestReliableMessage:
         
         next_retry = reliable_msg.calculate_next_retry_time()
         expected_delay = timedelta(seconds=4.0)  # 1.0 * 2^2
-        actual_delay = next_retry - datetime.now()
+        actual_delay = next_retry - utc_now()
         
         assert abs(actual_delay.total_seconds() - expected_delay.total_seconds()) < 0.1
     
@@ -190,12 +188,11 @@ class TestReliableMessage:
         reliable_msg = ReliableMessage(
             message=message,
             message_id="expired-msg",
-            created_at=datetime.now() - timedelta(seconds=120)  # 2分钟前
+            created_at=utc_now() - timedelta(seconds=120)  # 2分钟前
         )
         
         assert reliable_msg.is_expired()
         assert not reliable_msg.is_expired(180)  # 3分钟TTL时未过期
-
 
 class TestReliabilityManager:
     """可靠性管理器测试"""
@@ -609,7 +606,7 @@ class TestReliabilityManager:
         reliability_manager.dlq_config.retention_hours = 0.001  # ~3.6秒
         
         # 添加过期的死信消息
-        old_time = datetime.now() - timedelta(hours=1)
+        old_time = utc_now() - timedelta(hours=1)
         header = MessageHeader(message_id=str(uuid.uuid4()))
         message = Message(
             header=header,

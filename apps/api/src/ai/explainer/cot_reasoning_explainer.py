@@ -8,7 +8,6 @@ from datetime import datetime
 from src.core.utils.timezone_utils import utc_now, utc_factory, timezone
 from typing import Any, Dict, List, Optional, Tuple, Union
 from uuid import uuid4
-
 from src.ai.openai_client import OpenAIClient
 from src.ai.explainer.decision_tracker import DecisionTracker
 from src.models.schemas.explanation import (
@@ -20,7 +19,6 @@ from src.models.schemas.explanation import (
     ConfidenceMetrics,
     CounterfactualScenario
 )
-
 
 class ReasoningStep:
     """推理步骤数据结构"""
@@ -45,7 +43,6 @@ class ReasoningStep:
         self.confidence = confidence
         self.metadata = metadata or {}
         self.timestamp = utc_now()
-
 
 class ReasoningChain:
     """推理链数据结构"""
@@ -87,7 +84,6 @@ class ReasoningChain:
             }
             for step in self.steps
         ]
-
 
 class CoTReasoningExplainer:
     """Chain-of-Thought推理解释器"""

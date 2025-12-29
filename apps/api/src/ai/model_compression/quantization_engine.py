@@ -1,7 +1,7 @@
 """
 量化引擎核心实现
 
-实现PTQ、QAT、GPTQ、AWQ、SmoothQuant等量化算法
+实现PTQ、QAT量化算法
 支持INT4、INT8、FP16、BF16等多种量化精度
 """
 
@@ -9,12 +9,8 @@ import torch
 import torch.nn as nn
 import torch.quantization as quant
 from typing import Dict, Any, Optional, List, Tuple, Union
-import numpy as np
-import logging
 import time
-from pathlib import Path
 import os
-
 from .models import (
     QuantizationConfig, 
     QuantizationMethod, 
@@ -23,30 +19,22 @@ from .models import (
     ModelInfo
 )
 
-logger = logging.getLogger(__name__)
-
-
+from src.core.logging import get_logger
 class QuantizationEngine:
     """量化引擎
     
     支持多种量化方法:
     - PTQ (Post-Training Quantization): 训练后量化
     - QAT (Quantization-Aware Training): 量化感知训练
-    - GPTQ: 基于二阶信息的量化
-    - AWQ: 激活感知权重量化
-    - SmoothQuant: 平滑量化
     """
     
     def __init__(self):
         self.supported_methods = {
             QuantizationMethod.PTQ: self._post_training_quantization,
             QuantizationMethod.QAT: self._quantization_aware_training,
-            QuantizationMethod.GPTQ: self._gptq_quantization,
-            QuantizationMethod.AWQ: self._awq_quantization,
-            QuantizationMethod.SMOOTHQUANT: self._smoothquant_quantization
         }
         
-        self.logger = logging.getLogger(__name__)
+        self.logger = get_logger(__name__)
         self._calibration_cache = {}
     
     def quantize_model(
@@ -197,8 +185,10 @@ class QuantizationEngine:
         """量化感知训练(QAT)"""
         
         self.logger.info("执行量化感知训练(QAT)")
-        
-        # QAT需要训练数据，如果没有提供则使用伪QAT（只设置fake quantization）
+
+        if calibration_data is None:
+            raise ValueError("QAT需要提供calibration_data")
+
         model.train()
         
         # 设置量化配置
@@ -223,184 +213,6 @@ class QuantizationEngine:
         }
         
         return quantized_model, quantization_info
-    
-    def _gptq_quantization(
-        self,
-        model: nn.Module,
-        config: QuantizationConfig,
-        calibration_data: Optional[torch.utils.data.DataLoader] = None
-    ) -> Tuple[nn.Module, Dict[str, Any]]:
-        """GPTQ量化"""
-        
-        self.logger.info("执行GPTQ量化")
-        
-        try:
-            # 尝试导入gptqmodel
-            try:
-                from gptqmodel import GPTQModel, QuantizeConfig as GPTQConfig
-                
-                # 创建GPTQ量化配置
-                bits = 4 if config.precision == PrecisionType.INT4 else 8
-                quantize_config = GPTQConfig(
-                    bits=bits,
-                    group_size=config.group_size,
-                    desc_act=config.desc_act,
-                    damp_percent=config.damp_percent
-                )
-                
-                # 如果模型是字符串路径，直接使用GPTQModel加载
-                if isinstance(model, str):
-                    gptq_model = GPTQModel.load(model, quantize_config)
-                else:
-                    # 对于已加载的模型，需要先保存再加载
-                    temp_path = "/tmp/temp_model_for_gptq"
-                    os.makedirs(temp_path, exist_ok=True)
-                    model.save_pretrained(temp_path)
-                    gptq_model = GPTQModel.load(temp_path, quantize_config)
-                
-                # 准备校准数据
-                if calibration_data:
-                    calibration_examples = self._prepare_gptq_calibration_data(
-                        calibration_data, config.calibration_dataset_size
-                    )
-                    
-                    # 执行量化
-                    gptq_model.quantize(calibration_examples, batch_size=1)
-                
-                quantization_info = {
-                    "method": "GPTQ",
-                    "bits": bits,
-                    "group_size": config.group_size,
-                    "desc_act": config.desc_act,
-                    "damp_percent": config.damp_percent
-                }
-                
-                return gptq_model.model, quantization_info
-                
-            except ImportError:
-                self.logger.warning("gptqmodel未安装，使用伪GPTQ实现")
-                return self._pseudo_gptq(model, config)
-            
-        except Exception as e:
-            self.logger.error(f"GPTQ量化失败: {e}")
-            # 降级到PTQ
-            self.logger.info("降级到PTQ量化")
-            return self._post_training_quantization(model, config, calibration_data)
-    
-    def _awq_quantization(
-        self,
-        model: nn.Module,
-        config: QuantizationConfig,
-        calibration_data: Optional[torch.utils.data.DataLoader] = None
-    ) -> Tuple[nn.Module, Dict[str, Any]]:
-        """AWQ量化"""
-        
-        self.logger.info("执行AWQ量化")
-        
-        # AWQ暂时使用伪实现
-        self.logger.warning("AWQ量化暂时使用简化实现")
-        return self._pseudo_awq(model, config, calibration_data)
-    
-    def _smoothquant_quantization(
-        self,
-        model: nn.Module,
-        config: QuantizationConfig,
-        calibration_data: Optional[torch.utils.data.DataLoader] = None
-    ) -> Tuple[nn.Module, Dict[str, Any]]:
-        """SmoothQuant量化"""
-        
-        self.logger.info("执行SmoothQuant量化")
-        
-        # SmoothQuant暂时使用伪实现
-        self.logger.warning("SmoothQuant量化暂时使用简化实现")
-        return self._pseudo_smoothquant(model, config, calibration_data)
-    
-    def _pseudo_gptq(self, model: nn.Module, config: QuantizationConfig) -> Tuple[nn.Module, Dict[str, Any]]:
-        """伪GPTQ实现（用于演示）"""
-        
-        # 简化的权重量化
-        quantized_model = self._apply_weight_quantization(model, config.precision)
-        
-        quantization_info = {
-            "method": "Pseudo-GPTQ",
-            "precision": config.precision.value,
-            "note": "这是一个简化的GPTQ实现"
-        }
-        
-        return quantized_model, quantization_info
-    
-    def _pseudo_awq(
-        self, 
-        model: nn.Module, 
-        config: QuantizationConfig,
-        calibration_data: Optional[torch.utils.data.DataLoader] = None
-    ) -> Tuple[nn.Module, Dict[str, Any]]:
-        """伪AWQ实现"""
-        
-        # 简化的激活感知量化
-        quantized_model = self._apply_weight_quantization(model, config.precision)
-        
-        quantization_info = {
-            "method": "Pseudo-AWQ",
-            "precision": config.precision.value,
-            "activation_aware": True
-        }
-        
-        return quantized_model, quantization_info
-    
-    def _pseudo_smoothquant(
-        self, 
-        model: nn.Module, 
-        config: QuantizationConfig,
-        calibration_data: Optional[torch.utils.data.DataLoader] = None
-    ) -> Tuple[nn.Module, Dict[str, Any]]:
-        """伪SmoothQuant实现"""
-        
-        # 简化的平滑量化
-        quantized_model = self._apply_weight_quantization(model, config.precision)
-        
-        quantization_info = {
-            "method": "Pseudo-SmoothQuant",
-            "precision": config.precision.value,
-            "smoothing_applied": True
-        }
-        
-        return quantized_model, quantization_info
-    
-    def _apply_weight_quantization(self, model: nn.Module, precision: PrecisionType) -> nn.Module:
-        """应用权重量化"""
-        
-        quantized_model = model.clone() if hasattr(model, 'clone') else model
-        
-        if precision == PrecisionType.FP16:
-            quantized_model = quantized_model.half()
-        elif precision == PrecisionType.BF16:
-            quantized_model = quantized_model.bfloat16()
-        elif precision in [PrecisionType.INT8, PrecisionType.INT4]:
-            # 简化的整数量化
-            for module in quantized_model.modules():
-                if isinstance(module, (nn.Linear, nn.Conv2d)):
-                    # 量化权重
-                    weight = module.weight.data
-                    if precision == PrecisionType.INT8:
-                        quantized_weight = self._quantize_tensor_int8(weight)
-                    else:  # INT4
-                        quantized_weight = self._quantize_tensor_int4(weight)
-                    module.weight.data = quantized_weight
-        
-        return quantized_model
-    
-    def _quantize_tensor_int8(self, tensor: torch.Tensor) -> torch.Tensor:
-        """INT8量化"""
-        scale = tensor.abs().max() / 127.0
-        quantized = torch.round(tensor / scale).clamp(-128, 127)
-        return (quantized * scale).to(tensor.dtype)
-    
-    def _quantize_tensor_int4(self, tensor: torch.Tensor) -> torch.Tensor:
-        """INT4量化"""
-        scale = tensor.abs().max() / 7.0
-        quantized = torch.round(tensor / scale).clamp(-8, 7)
-        return (quantized * scale).to(tensor.dtype)
     
     def _set_qconfig_recursively(self, model: nn.Module, qconfig) -> None:
         """递归设置量化配置"""

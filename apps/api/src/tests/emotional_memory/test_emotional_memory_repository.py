@@ -3,16 +3,15 @@ Test suite for Emotional Memory Repository
 Tests all database operations with proper mocking and assertions
 """
 
+from src.core.utils.timezone_utils import utc_now
 import pytest
 import asyncio
-from datetime import datetime, timedelta
+from datetime import timedelta
 from uuid import uuid4
 from unittest.mock import Mock, AsyncMock, patch, MagicMock
 import numpy as np
-
 from sqlalchemy.ext.asyncio import AsyncSession
-from redis import asyncio as aioredis
-
+from redis import asyncio as redis_async
 from src.repositories.emotional_memory_repository import (
     EmotionalMemoryRepository,
     EmotionalEventRepository,
@@ -30,7 +29,6 @@ from src.db.emotional_memory_models import (
 from src.core.security.encryption import EncryptionService
 from src.core.monitoring.metrics_collector import MetricsCollector
 
-
 @pytest.fixture
 def mock_db_session():
     """Mock database session"""
@@ -42,16 +40,14 @@ def mock_db_session():
     session.execute = AsyncMock()
     return session
 
-
 @pytest.fixture
 def mock_redis_client():
     """Mock Redis client"""
-    client = AsyncMock(spec=aioredis.Redis)
+    client = AsyncMock(spec=redis_async.Redis)
     client.setex = AsyncMock()
     client.get = AsyncMock(return_value=None)
     client.delete = AsyncMock()
     return client
-
 
 @pytest.fixture
 def mock_encryption_service():
@@ -60,7 +56,6 @@ def mock_encryption_service():
     service.encrypt_data = AsyncMock(return_value=("encrypted_data", "key_id"))
     service.decrypt_data = AsyncMock(return_value="decrypted_data")
     return service
-
 
 @pytest.fixture
 def mock_metrics_collector():
@@ -71,7 +66,6 @@ def mock_metrics_collector():
     collector.timer.return_value.__exit__ = Mock()
     collector.increment = Mock()
     return collector
-
 
 @pytest.fixture
 def memory_repository(
@@ -87,7 +81,6 @@ def memory_repository(
         encryption_service=mock_encryption_service,
         metrics_collector=mock_metrics_collector
     )
-
 
 class TestEmotionalMemoryRepository:
     """Test suite for EmotionalMemoryRepository"""
@@ -184,7 +177,7 @@ class TestEmotionalMemoryRepository:
             'emotion_type': 'joy',
             'storage_layer': 'hot',
             'min_intensity': 0.5,
-            'date_from': datetime.utcnow() - timedelta(days=7),
+            'date_from': utc_now() - timedelta(days=7),
             'tags': ['positive']
         }
         
@@ -266,7 +259,6 @@ class TestEmotionalMemoryRepository:
         assert mock_db_session.execute.called
         assert mock_db_session.commit.called
 
-
 class TestEmotionalEventRepository:
     """Test suite for EmotionalEventRepository"""
     
@@ -344,7 +336,6 @@ class TestEmotionalEventRepository:
         assert 'avg_causal_strength' in result
         assert result['total_events'] == 2
 
-
 class TestUserPreferenceRepository:
     """Test suite for UserPreferenceRepository"""
     
@@ -420,7 +411,6 @@ class TestUserPreferenceRepository:
         assert mock_db_session.execute.called
         assert mock_db_session.commit.called
 
-
 class TestTriggerPatternRepository:
     """Test suite for TriggerPatternRepository"""
     
@@ -485,7 +475,6 @@ class TestTriggerPatternRepository:
         assert len(result) == 2
         assert mock_db_session.execute.called
 
-
 # Integration tests
 class TestRepositoryIntegration:
     """Integration tests for repository interactions"""
@@ -495,21 +484,63 @@ class TestRepositoryIntegration:
     async def test_memory_event_cascade(
         self,
         memory_repository,
-        mock_db_session
+        mock_db_session,
+        mock_metrics_collector
     ):
         """Test cascading operations between memories and events"""
-        # This would test the interaction between creating a memory
-        # and automatically generating events
-        pass
+        user_id = "user123"
+        emotion_data = {
+            'session_id': 'session456',
+            'emotion_type': 'joy',
+            'intensity': 0.8,
+            'content': 'Test emotional content',
+            'tags': ['test'],
+            'context': {'location': 'home'}
+        }
+        memory = await memory_repository.create_memory(user_id, emotion_data)
+
+        event_repository = EmotionalEventRepository(
+            db_session=mock_db_session,
+            metrics_collector=mock_metrics_collector
+        )
+        event = await event_repository.create_event(
+            memory_id=memory.id,
+            user_id=user_id,
+            event_data={
+                "event_type": "memory_created",
+                "trigger_source": "memory_service",
+                "context": {"memory_id": str(memory.id)}
+            }
+        )
+
+        assert event.memory_id == memory.id
+        assert mock_db_session.add.called
+        assert mock_db_session.flush.await_count >= 2
     
     @pytest.mark.asyncio
     @pytest.mark.integration
     async def test_preference_learning_flow(
         self,
-        memory_repository,
-        preference_repository,
-        mock_db_session
+        mock_db_session,
+        mock_metrics_collector
     ):
         """Test the flow of learning preferences from memories"""
-        # This would test how memories update user preferences
-        pass
+        user_id = "user123"
+        updates = {
+            "dominant_emotions": ["joy"],
+            "emotion_weights": {"joy": 0.9},
+            "preferred_responses": {"supportive": 0.8}
+        }
+        preference_repository = UserPreferenceRepository(
+            db_session=mock_db_session,
+            metrics_collector=mock_metrics_collector
+        )
+
+        update_result = AsyncMock()
+        get_result = AsyncMock()
+        get_result.scalar_one_or_none.return_value = None
+        mock_db_session.execute.side_effect = [update_result, get_result]
+
+        result = await preference_repository.update_preferences(user_id, updates)
+        assert isinstance(result, UserEmotionalPreference)
+        assert mock_db_session.commit.await_count >= 1

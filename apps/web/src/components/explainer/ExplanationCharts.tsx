@@ -3,31 +3,16 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/Tabs';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { 
   BarChart3, 
-  PieChart, 
   TrendingUp, 
-  Activity,
   GitBranch,
   Target,
-  Layers,
   Network,
-  Eye,
-  Download,
   Settings,
   Info,
-  Maximize2,
-  RotateCcw,
-  Zap
 } from 'lucide-react';
-
-interface ChartDataPoint {
-  label: string;
-  value: number;
-  category?: string;
-  metadata?: Record<string, any>;
-}
 
 interface DecisionTreeNode {
   id: string;
@@ -77,79 +62,25 @@ const ExplanationCharts: React.FC<ExplanationChartsProps> = ({
 }) => {
   const [selectedChart, setSelectedChart] = useState<'factors' | 'tree' | 'confidence' | 'timeseries' | 'correlation'>('factors');
   const [showTechnicalDetails, setShowTechnicalDetails] = useState(false);
-  const [fullscreenChart, setFullscreenChart] = useState<string | null>(null);
-
-  // 模拟数据生成
-  const defaultFactorImportance: FactorImportanceData[] = factorImportance.length > 0 ? factorImportance : [
-    { factor_name: '信用评分', importance_score: 0.35, shap_value: 0.28, contribution: 0.32, p_value: 0.001, feature_type: 'numerical' },
-    { factor_name: '月收入', importance_score: 0.25, shap_value: 0.22, contribution: 0.24, p_value: 0.003, feature_type: 'numerical' },
-    { factor_name: '工作年限', importance_score: 0.20, shap_value: 0.18, contribution: 0.19, p_value: 0.008, feature_type: 'numerical' },
-    { factor_name: '负债比率', importance_score: 0.15, shap_value: 0.12, contribution: 0.16, p_value: 0.012, feature_type: 'numerical' },
-    { factor_name: '有房产', importance_score: 0.05, shap_value: 0.04, contribution: 0.09, p_value: 0.045, feature_type: 'binary' }
-  ];
-
-  const defaultDecisionTree: DecisionTreeNode = decisionTree || {
-    id: 'root',
-    label: '信用评分',
-    condition: '信用评分 >= 650',
-    confidence: 0.85,
-    samples: 1000,
-    isLeaf: false,
-    depth: 0,
-    children: [
-      {
-        id: 'left_1',
-        label: '月收入',
-        condition: '月收入 >= 8000',
-        confidence: 0.92,
-        samples: 800,
-        isLeaf: false,
-        depth: 1,
-        children: [
-          {
-            id: 'left_1_left',
-            label: '批准贷款',
-            outcome: '批准',
-            confidence: 0.95,
-            samples: 650,
-            isLeaf: true,
-            depth: 2
-          },
-          {
-            id: 'left_1_right',
-            label: '需要担保',
-            outcome: '条件批准',
-            confidence: 0.78,
-            samples: 150,
-            isLeaf: true,
-            depth: 2
-          }
-        ]
-      },
-      {
-        id: 'right_1',
-        label: '拒绝贷款',
-        outcome: '拒绝',
-        confidence: 0.88,
-        samples: 200,
-        isLeaf: true,
-        depth: 1
-      }
-    ]
+  const collectNodes = (node: DecisionTreeNode, nodes: DecisionTreeNode[]) => {
+    nodes.push(node);
+    node.children?.forEach(child => collectNodes(child, nodes));
   };
-
-  const defaultConfidenceDistribution: ConfidenceDistribution[] = confidenceDistribution.length > 0 ? confidenceDistribution : [
-    { bin_start: 0.0, bin_end: 0.1, count: 15, accuracy: 0.12, calibration_score: 0.08 },
-    { bin_start: 0.1, bin_end: 0.2, count: 25, accuracy: 0.18, calibration_score: 0.16 },
-    { bin_start: 0.2, bin_end: 0.3, count: 45, accuracy: 0.28, calibration_score: 0.25 },
-    { bin_start: 0.3, bin_end: 0.4, count: 65, accuracy: 0.38, calibration_score: 0.35 },
-    { bin_start: 0.4, bin_end: 0.5, count: 85, accuracy: 0.48, calibration_score: 0.45 },
-    { bin_start: 0.5, bin_end: 0.6, count: 120, accuracy: 0.58, calibration_score: 0.55 },
-    { bin_start: 0.6, bin_end: 0.7, count: 180, accuracy: 0.68, calibration_score: 0.65 },
-    { bin_start: 0.7, bin_end: 0.8, count: 220, accuracy: 0.78, calibration_score: 0.75 },
-    { bin_start: 0.8, bin_end: 0.9, count: 190, accuracy: 0.85, calibration_score: 0.82 },
-    { bin_start: 0.9, bin_end: 1.0, count: 150, accuracy: 0.92, calibration_score: 0.88 }
-  ];
+  const treeNodes: DecisionTreeNode[] = [];
+  if (decisionTree) collectNodes(decisionTree, treeNodes);
+  const treeDepth = treeNodes.length ? Math.max(...treeNodes.map(n => n.depth)) + 1 : 0;
+  const treeLeaves = treeNodes.filter(n => n.isLeaf).length;
+  const treeAvgConfidence = treeNodes.length
+    ? treeNodes.reduce((sum, node) => sum + node.confidence, 0) / treeNodes.length
+    : 0;
+  const confidenceDenom = Math.max(confidenceDistribution.length - 1, 1);
+  const confidenceAvgCalibration = confidenceDistribution.length
+    ? confidenceDistribution.reduce((sum, point) => sum + point.calibration_score, 0) / confidenceDistribution.length
+    : 0;
+  const confidenceTotalSamples = confidenceDistribution.reduce((sum, point) => sum + point.count, 0);
+  const confidenceMaxError = confidenceDistribution.length
+    ? Math.max(...confidenceDistribution.map(p => Math.abs(p.accuracy - (p.bin_start + p.bin_end) / 2)))
+    : 0;
 
   const renderDecisionTreeNode = (node: DecisionTreeNode, x: number, y: number, width: number, isRoot = false) => {
     const nodeWidth = 120;
@@ -294,20 +225,15 @@ const ExplanationCharts: React.FC<ExplanationChartsProps> = ({
         <TabsContent value="factors" className="space-y-4">
           <Card>
             <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle>因素重要性分析</CardTitle>
-                <Button variant="outline" size="sm">
-                  <Download className="h-4 w-4 mr-2" />
-                  导出图表
-                </Button>
-              </div>
+              <CardTitle>因素重要性分析</CardTitle>
               <p className="text-sm text-gray-600">
                 基于SHAP值和特征重要性分析各因素对决策结果的影响程度
               </p>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {defaultFactorImportance
+                {factorImportance.length > 0 ? factorImportance
+                  .slice()
                   .sort((a, b) => b.importance_score - a.importance_score)
                   .map((factor, index) => (
                     <div key={factor.factor_name} className="space-y-2">
@@ -368,7 +294,11 @@ const ExplanationCharts: React.FC<ExplanationChartsProps> = ({
                         </div>
                       )}
                     </div>
-                  ))}
+                  )) : (
+                    <div className="h-40 flex items-center justify-center text-sm text-gray-500">
+                      暂无数据
+                    </div>
+                  )}
               </div>
             </CardContent>
           </Card>
@@ -377,43 +307,43 @@ const ExplanationCharts: React.FC<ExplanationChartsProps> = ({
         <TabsContent value="tree" className="space-y-4">
           <Card>
             <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle>决策树可视化</CardTitle>
-                <Button variant="outline" size="sm">
-                  <Maximize2 className="h-4 w-4 mr-2" />
-                  全屏查看
-                </Button>
-              </div>
+              <CardTitle>决策树可视化</CardTitle>
               <p className="text-sm text-gray-600">
                 展示决策过程的树形结构，每个节点代表一个决策条件
               </p>
             </CardHeader>
             <CardContent>
-              <div className="w-full h-96 bg-gray-50 rounded-lg p-4 overflow-auto">
-                <svg width="100%" height="100%" viewBox="0 0 600 400">
-                  {renderDecisionTreeNode(defaultDecisionTree, 300, 60, 500, true)}
-                </svg>
-              </div>
+              {decisionTree ? (
+                <div className="w-full h-96 bg-gray-50 rounded-lg p-4 overflow-auto">
+                  <svg width="100%" height="100%" viewBox="0 0 600 400">
+                    {renderDecisionTreeNode(decisionTree, 300, 60, 500, true)}
+                  </svg>
+                </div>
+              ) : (
+                <div className="h-40 flex items-center justify-center text-sm text-gray-500">
+                  暂无数据
+                </div>
+              )}
               
-              {showTechnicalDetails && (
+              {showTechnicalDetails && decisionTree && (
                 <div className="mt-4 p-4 bg-blue-50 rounded-lg">
                   <h4 className="font-medium text-blue-800 mb-2">决策树统计</h4>
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                     <div>
                       <span className="text-blue-600">树深度:</span>
-                      <div className="font-medium">3 层</div>
+                      <div className="font-medium">{treeDepth} 层</div>
                     </div>
                     <div>
                       <span className="text-blue-600">叶子节点:</span>
-                      <div className="font-medium">3 个</div>
+                      <div className="font-medium">{treeLeaves} 个</div>
                     </div>
                     <div>
                       <span className="text-blue-600">平均置信度:</span>
-                      <div className="font-medium">87.0%</div>
+                      <div className="font-medium">{(treeAvgConfidence * 100).toFixed(1)}%</div>
                     </div>
                     <div>
                       <span className="text-blue-600">样本覆盖:</span>
-                      <div className="font-medium">1000 条</div>
+                      <div className="font-medium">{decisionTree.samples} 条</div>
                     </div>
                   </div>
                 </div>
@@ -431,6 +361,7 @@ const ExplanationCharts: React.FC<ExplanationChartsProps> = ({
               </p>
             </CardHeader>
             <CardContent>
+              {confidenceDistribution.length > 0 ? (
               <div className="space-y-4">
                 {/* 校准曲线 */}
                 <div className="h-64 bg-gray-50 rounded-lg p-4">
@@ -467,8 +398,8 @@ const ExplanationCharts: React.FC<ExplanationChartsProps> = ({
                       
                       {/* 实际校准线 */}
                       <polyline
-                        points={defaultConfidenceDistribution.map((point, i) => {
-                          const x = 50 + (i / (defaultConfidenceDistribution.length - 1)) * 300;
+                        points={confidenceDistribution.map((point, i) => {
+                          const x = 50 + (i / confidenceDenom) * 300;
                           const y = 180 - (point.accuracy * 160);
                           return `${x},${y}`;
                         }).join(' ')}
@@ -476,8 +407,8 @@ const ExplanationCharts: React.FC<ExplanationChartsProps> = ({
                       />
                       
                       {/* 数据点 */}
-                      {defaultConfidenceDistribution.map((point, i) => {
-                        const x = 50 + (i / (defaultConfidenceDistribution.length - 1)) * 300;
+                      {confidenceDistribution.map((point, i) => {
+                        const x = 50 + (i / confidenceDenom) * 300;
                         const y = 180 - (point.accuracy * 160);
                         return (
                           <circle
@@ -505,19 +436,19 @@ const ExplanationCharts: React.FC<ExplanationChartsProps> = ({
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="text-center p-4 bg-blue-50 rounded-lg">
                     <div className="text-2xl font-bold text-blue-600">
-                      {(defaultConfidenceDistribution.reduce((sum, point) => sum + point.calibration_score, 0) / defaultConfidenceDistribution.length).toFixed(3)}
+                      {confidenceAvgCalibration.toFixed(3)}
                     </div>
                     <div className="text-sm text-blue-700">平均校准分数</div>
                   </div>
                   <div className="text-center p-4 bg-green-50 rounded-lg">
                     <div className="text-2xl font-bold text-green-600">
-                      {defaultConfidenceDistribution.reduce((sum, point) => sum + point.count, 0)}
+                      {confidenceTotalSamples}
                     </div>
                     <div className="text-sm text-green-700">总样本数</div>
                   </div>
                   <div className="text-center p-4 bg-purple-50 rounded-lg">
                     <div className="text-2xl font-bold text-purple-600">
-                      {(Math.max(...defaultConfidenceDistribution.map(p => Math.abs(p.accuracy - (p.bin_start + p.bin_end) / 2))) * 100).toFixed(1)}%
+                      {(confidenceMaxError * 100).toFixed(1)}%
                     </div>
                     <div className="text-sm text-purple-700">最大校准误差</div>
                   </div>
@@ -527,7 +458,7 @@ const ExplanationCharts: React.FC<ExplanationChartsProps> = ({
                 {showTechnicalDetails && (
                   <div className="space-y-2">
                     <h4 className="font-medium">置信度区间分布</h4>
-                    {defaultConfidenceDistribution.map((bin, i) => (
+                    {confidenceDistribution.map((bin, i) => (
                       <div key={i} className="flex items-center justify-between text-sm p-2 bg-gray-50 rounded">
                         <div className="flex items-center space-x-4">
                           <span className="font-mono">
@@ -544,6 +475,11 @@ const ExplanationCharts: React.FC<ExplanationChartsProps> = ({
                   </div>
                 )}
               </div>
+              ) : (
+                <div className="h-40 flex items-center justify-center text-sm text-gray-500">
+                  暂无数据
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
@@ -557,17 +493,22 @@ const ExplanationCharts: React.FC<ExplanationChartsProps> = ({
               </p>
             </CardHeader>
             <CardContent>
-              <div className="h-64 bg-gray-50 rounded-lg p-4 flex items-center justify-center">
-                <div className="text-center">
-                  <Activity className="h-12 w-12 text-gray-400 mx-auto mb-2" />
-                  <p className="text-gray-600">时间序列图表</p>
-                  <p className="text-sm text-gray-500">展示置信度和准确率的时间趋势</p>
-                  <Button className="mt-4" variant="outline" size="sm">
-                    <Zap className="h-4 w-4 mr-2" />
-                    生成示例数据
-                  </Button>
+              {timeSeriesData.length > 0 ? (
+                <div className="space-y-2">
+                  {timeSeriesData.slice(-20).map((item, index) => (
+                    <div key={`${item.timestamp}-${index}`} className="flex items-center justify-between text-sm p-2 bg-gray-50 rounded">
+                      <span className="text-gray-700">{item.timestamp}</span>
+                      <span className="text-gray-700">
+                        置信度 {(item.confidence * 100).toFixed(1)}% · 准确率 {(item.accuracy * 100).toFixed(1)}%
+                      </span>
+                    </div>
+                  ))}
                 </div>
-              </div>
+              ) : (
+                <div className="h-40 flex items-center justify-center text-sm text-gray-500">
+                  暂无数据
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
@@ -581,17 +522,20 @@ const ExplanationCharts: React.FC<ExplanationChartsProps> = ({
               </p>
             </CardHeader>
             <CardContent>
-              <div className="h-64 bg-gray-50 rounded-lg p-4 flex items-center justify-center">
-                <div className="text-center">
-                  <Network className="h-12 w-12 text-gray-400 mx-auto mb-2" />
-                  <p className="text-gray-600">相关性热力图</p>
-                  <p className="text-sm text-gray-500">展示特征间的相关性矩阵</p>
-                  <Button className="mt-4" variant="outline" size="sm">
-                    <RotateCcw className="h-4 w-4 mr-2" />
-                    重新计算相关性
-                  </Button>
+              {correlationMatrix.length > 0 ? (
+                <div className="space-y-2">
+                  {correlationMatrix.slice(0, 50).map((item, index) => (
+                    <div key={`${item.factor1}-${item.factor2}-${index}`} className="flex items-center justify-between text-sm p-2 bg-gray-50 rounded">
+                      <span className="text-gray-700">{item.factor1} ↔ {item.factor2}</span>
+                      <span className="font-mono text-gray-700">{item.correlation.toFixed(3)}</span>
+                    </div>
+                  ))}
                 </div>
-              </div>
+              ) : (
+                <div className="h-40 flex items-center justify-center text-sm text-gray-500">
+                  暂无数据
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>

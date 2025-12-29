@@ -7,8 +7,6 @@ import uuid
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Any, Set
 from enum import Enum
-import logging
-
 from .models import (
     ConsensusState,
     RaftLogEntry,
@@ -17,7 +15,7 @@ from .models import (
     AppendEntriesRequest,
     AppendEntriesResponse,
 )
-
+from src.core.utils.timezone_utils import utc_now
 
 class RaftConsensusEngine:
     """Raft共识引擎"""
@@ -34,7 +32,7 @@ class RaftConsensusEngine:
         self.node_id = node_id
         self.cluster_nodes = cluster_nodes
         self.message_bus = message_bus
-        self.logger = logging.getLogger(__name__)
+        self.logger = get_logger(__name__)
         
         # Raft状态
         self.state = ConsensusState.FOLLOWER
@@ -80,6 +78,9 @@ class RaftConsensusEngine:
         
         # 初始化为Follower
         await self._become_follower(None)
+
+        if len(self.cluster_nodes) == 1 and self.cluster_nodes[0] == self.node_id:
+            await self._become_candidate()
         
         # 启动消息处理循环
         if self.message_bus:
@@ -100,14 +101,18 @@ class RaftConsensusEngine:
             if self.election_timer and not self.election_timer.done():
                 try:
                     await asyncio.wait_for(self.election_timer, timeout=1.0)
-                except (asyncio.TimeoutError, asyncio.CancelledError):
-                    pass
+                except asyncio.TimeoutError:
+                    self.logger.warning("Election timer cancel timed out", node_id=self.node_id)
+                except asyncio.CancelledError:
+                    raise
                     
             if self.heartbeat_timer and not self.heartbeat_timer.done():
                 try:
                     await asyncio.wait_for(self.heartbeat_timer, timeout=1.0)
-                except (asyncio.TimeoutError, asyncio.CancelledError):
-                    pass
+                except asyncio.TimeoutError:
+                    self.logger.warning("Heartbeat timer cancel timed out", node_id=self.node_id)
+                except asyncio.CancelledError:
+                    raise
                     
         except Exception as e:
             self.logger.error(f"Error stopping Raft consensus engine: {e}")
@@ -126,7 +131,7 @@ class RaftConsensusEngine:
         entry = RaftLogEntry(
             term=self.current_term,
             index=len(self.log) + 1,
-            timestamp=datetime.now(),
+            timestamp=utc_now(),
             command_type=command.get("action", "unknown"),
             command_data=command,
             client_id=command.get("client_id", "unknown"),
@@ -173,6 +178,10 @@ class RaftConsensusEngine:
         self.leader_id = None
         self.votes_received = {self.node_id}
         self.current_election_id = str(uuid.uuid4())
+
+        if len(self.votes_received) > len(self.cluster_nodes) / 2:
+            await self._become_leader()
+            return
         
         # 重置选举定时器
         self._reset_election_timer()
@@ -595,9 +604,45 @@ class RaftConsensusEngine:
     async def _handle_append_entries_message(self, message: Dict[str, Any]):
         """处理AppendEntries消息"""
         
-        # 实际实现中需要反序列化日志条目
-        # 这里简化处理
-        pass
+        request_data = message["request"]
+        entries: List[RaftLogEntry] = []
+        for entry_data in request_data.get("entries", []):
+            if isinstance(entry_data, dict):
+                entry_payload = entry_data.copy()
+                if "timestamp" in entry_payload and isinstance(entry_payload["timestamp"], str):
+                    entry_payload["timestamp"] = datetime.fromisoformat(entry_payload["timestamp"])
+                entries.append(RaftLogEntry(**entry_payload))
+            else:
+                logger.debug("AppendEntries日志条目无法反序列化，已忽略", entry=entry_data)
+        
+        request = AppendEntriesRequest(
+            term=request_data["term"],
+            leader_id=request_data["leader_id"],
+            prev_log_index=request_data["prev_log_index"],
+            prev_log_term=request_data["prev_log_term"],
+            entries=entries,
+            leader_commit=request_data["leader_commit"],
+            heartbeat=request_data.get("heartbeat", False)
+        )
+        
+        response = await self.handle_append_entries(request)
+        
+        if self.message_bus:
+            await self.message_bus.publish(
+                f"raft.append_entries_response.{message['from']}",
+                {
+                    "from": self.node_id,
+                    "to": message["from"],
+                    "response": {
+                        "term": response.term,
+                        "success": response.success,
+                        "match_index": response.match_index,
+                        "follower_id": response.follower_id,
+                        "conflict_index": response.conflict_index,
+                        "reason": response.reason,
+                    },
+                },
+            )
     
     async def _handle_append_entries_response_message(self, message: Dict[str, Any]):
         """处理AppendEntries响应消息"""
@@ -621,7 +666,7 @@ class RaftConsensusEngine:
             "index": self.last_applied,
             "term": self.log[self.last_applied - 1].term if self.last_applied > 0 else 0,
             "data": self.snapshot_data.copy(),
-            "timestamp": datetime.now().isoformat()
+            "timestamp": utc_now().isoformat()
         }
         
         # 压缩日志
@@ -647,3 +692,4 @@ class RaftConsensusEngine:
         self.log = []
         
         self.logger.info(f"Node {self.node_id} loaded snapshot at index {snapshot['index']}")
+from src.core.logging import get_logger

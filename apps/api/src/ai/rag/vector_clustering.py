@@ -9,7 +9,6 @@ from typing import Dict, Any, List, Optional, Tuple, Union
 from enum import Enum
 from dataclasses import dataclass, field
 import asyncio
-import logging
 from datetime import datetime
 from src.core.utils.timezone_utils import utc_now, utc_factory, timezone
 import json
@@ -22,10 +21,11 @@ from sklearn.neighbors import LocalOutlierFactor
 from sklearn.ensemble import IsolationForest
 from scipy.spatial.distance import cdist
 import warnings
+
+from src.core.logging import get_logger
+logger = get_logger(__name__)
+
 warnings.filterwarnings('ignore')
-
-logger = logging.getLogger(__name__)
-
 
 class ClusteringAlgorithm(str, Enum):
     """聚类算法类型"""
@@ -35,7 +35,6 @@ class ClusteringAlgorithm(str, Enum):
     GAUSSIAN_MIXTURE = "gaussian_mixture"
     MEAN_SHIFT = "mean_shift"
 
-
 class AnomalyDetectionAlgorithm(str, Enum):
     """异常检测算法类型"""
     LOF = "lof"                        # Local Outlier Factor
@@ -43,7 +42,6 @@ class AnomalyDetectionAlgorithm(str, Enum):
     ONE_CLASS_SVM = "one_class_svm"
     MAHALANOBIS = "mahalanobis"
     AUTOENCODER = "autoencoder"
-
 
 @dataclass
 class ClusteringConfig:
@@ -57,7 +55,6 @@ class ClusteringConfig:
     random_state: int = 42
     normalize: bool = True             # 是否标准化
 
-
 @dataclass
 class ClusteringResult:
     """聚类结果"""
@@ -70,7 +67,6 @@ class ClusteringResult:
     cluster_sizes: Dict[int, int]
     metadata: Dict[str, Any] = field(default_factory=dict)
 
-
 @dataclass
 class AnomalyConfig:
     """异常检测配置"""
@@ -80,7 +76,6 @@ class AnomalyConfig:
     n_estimators: int = 100            # Isolation Forest
     threshold: float = 0.95            # 阈值
     normalize: bool = True
-
 
 @dataclass
 class AnomalyResult:
@@ -92,7 +87,6 @@ class AnomalyResult:
     contamination_rate: float
     threshold: float
     metadata: Dict[str, Any] = field(default_factory=dict)
-
 
 class VectorClusteringEngine:
     """向量聚类引擎"""
@@ -111,7 +105,7 @@ class VectorClusteringEngine:
     ) -> ClusteringResult:
         """执行向量聚类"""
         try:
-            start_time = asyncio.get_event_loop().time()
+            start_time = asyncio.get_running_loop().time()
             
             # 数据预处理
             if config.normalize:
@@ -143,7 +137,7 @@ class VectorClusteringEngine:
                 await self._save_clustering_results(entity_ids, result)
             
             # 记录历史
-            end_time = asyncio.get_event_loop().time()
+            end_time = asyncio.get_running_loop().time()
             result.metadata['execution_time_ms'] = (end_time - start_time) * 1000
             result.metadata['n_vectors'] = len(vectors)
             self.clustering_history.append(result)
@@ -289,7 +283,7 @@ class VectorClusteringEngine:
     ) -> AnomalyResult:
         """检测异常向量"""
         try:
-            start_time = asyncio.get_event_loop().time()
+            start_time = asyncio.get_running_loop().time()
             
             # 数据预处理
             if config.normalize:
@@ -312,7 +306,7 @@ class VectorClusteringEngine:
                 await self._save_anomaly_results(entity_ids, result)
             
             # 记录历史
-            end_time = asyncio.get_event_loop().time()
+            end_time = asyncio.get_running_loop().time()
             result.metadata['execution_time_ms'] = (end_time - start_time) * 1000
             result.metadata['n_vectors'] = len(vectors)
             self.anomaly_history.append(result)

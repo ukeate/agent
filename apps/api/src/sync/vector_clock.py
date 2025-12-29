@@ -9,17 +9,15 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from src.core.utils.timezone_utils import utc_now, utc_factory
 from enum import Enum
-
 from ..models.schemas.offline import VectorClock
 
-
+from src.core.logging import get_logger
 class CausalRelation(str, Enum):
     """因果关系"""
     BEFORE = "before"           # A 发生在 B 之前
     AFTER = "after"             # A 发生在 B 之后
     CONCURRENT = "concurrent"   # A 和 B 并发
     EQUAL = "equal"             # A 和 B 相等
-
 
 @dataclass
 class ClockSyncResult:
@@ -28,13 +26,13 @@ class ClockSyncResult:
     remote_clock: VectorClock
     merged_clock: VectorClock
     conflicts_detected: bool
-    sync_timestamp: datetime = field(default_factory=datetime.utcnow)
-
+    sync_timestamp: datetime = field(default_factory=utc_now)
 
 class VectorClockManager:
     """向量时钟管理器"""
     
     def __init__(self):
+        self.logger = get_logger(__name__)
         # 节点时钟缓存
         self.node_clocks: Dict[str, VectorClock] = {}
         
@@ -363,5 +361,5 @@ class VectorClockManager:
             return True
             
         except Exception as e:
-            print(f"导入时钟状态失败: {e}")
+            self.logger.error("导入时钟状态失败", error=str(e))
             return False

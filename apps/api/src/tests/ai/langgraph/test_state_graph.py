@@ -1,6 +1,7 @@
 """
 LangGraph StateGraph测试
 """
+
 import pytest
 from datetime import datetime
 from src.core.utils.timezone_utils import utc_now, utc_factory
@@ -12,7 +13,6 @@ from src.ai.langgraph.state_graph import (
     create_simple_workflow,
     create_conditional_workflow
 )
-
 
 class TestMessagesState:
     """测试MessagesState数据结构"""
@@ -45,7 +45,6 @@ class TestMessagesState:
             "workflow_id": "test"
         }
         assert validate_state(invalid_state2) is False
-
 
 class TestWorkflowNode:
     """测试工作流节点"""
@@ -87,7 +86,6 @@ class TestWorkflowNode:
         assert initial_state["metadata"]["error"] == "测试错误"
         assert initial_state["metadata"]["status"] == "failed"
 
-
 class TestConditionalRouter:
     """测试条件路由器"""
     
@@ -114,7 +112,6 @@ class TestConditionalRouter:
         assert "routing_log" in state_success["context"]
         assert len(state_success["context"]["routing_log"]) == 1
         assert state_success["context"]["routing_log"][0]["decision"] == "success_path"
-
 
 class TestLangGraphWorkflowBuilder:
     """测试工作流构建器"""

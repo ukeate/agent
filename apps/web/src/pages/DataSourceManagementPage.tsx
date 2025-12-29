@@ -1,5 +1,7 @@
+import { buildApiUrl, apiFetch } from '../utils/apiBase'
 import React, { useState, useEffect } from 'react';
 import {
+import { logger } from '../utils/logger'
   Box,
   Card,
   CardContent,
@@ -72,13 +74,9 @@ export default function DataSourceManagementPage() {
   const fetchDataSources = async () => {
     try {
       setLoading(true);
-      const response = await fetch('/api/v1/training-data/sources');
-      if (response.ok) {
-        const data = await response.json();
-        setDataSources(data);
-      } else {
-        throw new Error('获取数据源失败');
-      }
+      const response = await apiFetch(buildApiUrl('/api/v1/training-data/sources'));
+      const data = await response.json();
+      setDataSources(data);
     } catch (err) {
       setError(err instanceof Error ? err.message : '获取数据源失败');
     } finally {
@@ -88,38 +86,33 @@ export default function DataSourceManagementPage() {
 
   const fetchStatistics = async () => {
     try {
-      const response = await fetch('/api/v1/training-data/stats/overview');
-      if (response.ok) {
-        const data = await response.json();
-        setStatistics(data);
-      }
+      const response = await apiFetch(buildApiUrl('/api/v1/training-data/stats/overview'));
+      const data = await response.json();
+      setStatistics(data);
     } catch (err) {
-      console.error('获取统计信息失败:', err);
+      logger.error('获取统计信息失败:', err);
     }
   };
 
   const handleCreateDataSource = async () => {
     try {
       setLoading(true);
-      const response = await fetch('/api/v1/training-data/sources', {
+      const response = await apiFetch(buildApiUrl('/api/v1/training-data/sources'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(newDataSource)
       });
       
-      if (response.ok) {
-        setCreateDialog(false);
-        setNewDataSource({
-          source_id: '',
-          source_type: 'file',
-          name: '',
-          description: '',
-          config: {}
-        });
-        await fetchDataSources();
-      } else {
-        throw new Error('创建数据源失败');
-      }
+      await response.json().catch(() => null);
+      setCreateDialog(false);
+      setNewDataSource({
+        source_id: '',
+        source_type: 'file',
+        name: '',
+        description: '',
+        config: {}
+      });
+      await fetchDataSources();
     } catch (err) {
       setError(err instanceof Error ? err.message : '创建数据源失败');
     } finally {
@@ -130,7 +123,7 @@ export default function DataSourceManagementPage() {
   const handleCollectData = async (sourceId: string) => {
     try {
       setLoading(true);
-      const response = await fetch(`/api/v1/training-data/collect/${sourceId}`, {
+      const response = await apiFetch(buildApiUrl(`/api/v1/training-data/collect/${sourceId}`), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -139,11 +132,8 @@ export default function DataSourceManagementPage() {
         })
       });
       
-      if (response.ok) {
-        alert('数据收集任务已启动');
-      } else {
-        throw new Error('启动数据收集失败');
-      }
+      await response.json().catch(() => null);
+      alert('数据收集任务已启动');
     } catch (err) {
       setError(err instanceof Error ? err.message : '启动数据收集失败');
     } finally {
@@ -158,15 +148,12 @@ export default function DataSourceManagementPage() {
 
     try {
       setLoading(true);
-      const response = await fetch(`/api/v1/training-data/sources/${sourceId}`, {
+      const response = await apiFetch(buildApiUrl(`/api/v1/training-data/sources/${sourceId}`), {
         method: 'DELETE'
       });
       
-      if (response.ok) {
-        await fetchDataSources();
-      } else {
-        throw new Error('删除数据源失败');
-      }
+      await response.json().catch(() => null);
+      await fetchDataSources();
     } catch (err) {
       setError(err instanceof Error ? err.message : '删除数据源失败');
     } finally {

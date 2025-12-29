@@ -1,14 +1,15 @@
+from src.core.utils.timezone_utils import utc_now
 import asyncio
 import hashlib
 import time
 import os
-import pickle
+from src.core.utils import secure_pickle as pickle
 from typing import Dict, List, Optional, Any
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import Enum
-import logging
 
+from src.core.logging import get_logger
 class BackupType(Enum):
     """备份类型枚举"""
     FULL_BACKUP = "full_backup"
@@ -35,7 +36,7 @@ class BackupManager:
     def __init__(self, storage_backend, config: Dict[str, Any]):
         self.storage_backend = storage_backend
         self.config = config
-        self.logger = logging.getLogger(__name__)
+        self.logger = get_logger(__name__)
         
         # 备份配置
         self.backup_interval = config.get("backup_interval", 3600)  # 1小时
@@ -50,6 +51,8 @@ class BackupManager:
     
     async def start(self):
         """启动备份管理器"""
+        if not self.storage_backend:
+            raise RuntimeError("storage backend not configured for backup manager")
         self.running = True
         
         # 启动自动备份循环
@@ -98,7 +101,7 @@ class BackupManager:
                 backup_id=backup_id,
                 backup_type=backup_type,
                 component_id=component_id,
-                created_at=datetime.now(),
+                created_at=utc_now(),
                 size=len(serialized_data),
                 checksum=checksum,
                 metadata={
@@ -177,16 +180,18 @@ class BackupManager:
     async def _collect_component_data(self, component_id: str) -> Optional[Dict[str, Any]]:
         """收集组件数据"""
         
-        # 这里应该收集组件的状态、配置、任务等数据
-        # 简化实现中返回模拟数据
         try:
+            component_state = await self._get_component_state(component_id)
+            component_config = await self._get_component_config(component_id)
+            component_tasks = await self._get_component_tasks(component_id)
+            component_metrics = await self._get_component_metrics(component_id)
             component_data = {
                 "component_id": component_id,
-                "timestamp": datetime.now().isoformat(),
-                "state": await self._get_component_state(component_id),
-                "configuration": await self._get_component_config(component_id),
-                "tasks": await self._get_component_tasks(component_id),
-                "metrics": await self._get_component_metrics(component_id)
+                "timestamp": utc_now().isoformat(),
+                "state": component_state,
+                "configuration": component_config,
+                "tasks": component_tasks,
+                "metrics": component_metrics
             }
             
             return component_data
@@ -198,50 +203,52 @@ class BackupManager:
     async def _get_component_state(self, component_id: str) -> Dict[str, Any]:
         """获取组件状态"""
         try:
-            # 这里应该从组件获取实际状态
-            return {
-                "status": "active",
-                "last_heartbeat": datetime.now().isoformat(),
-                "memory_state": "sample_memory_data"
-            }
+            fetcher = getattr(self.storage_backend, "get_component_state", None)
+            if not fetcher:
+                raise RuntimeError("storage backend missing get_component_state")
+            state = fetcher(component_id)
+            if asyncio.iscoroutine(state):
+                state = await state
+            return state or {}
         except Exception:
             return {}
     
     async def _get_component_config(self, component_id: str) -> Dict[str, Any]:
         """获取组件配置"""
         try:
-            # 这里应该从组件获取实际配置
-            return {
-                "agent_type": "default",
-                "parameters": {"param1": "value1"},
-                "capabilities": ["capability1", "capability2"]
-            }
+            fetcher = getattr(self.storage_backend, "get_component_config", None)
+            if not fetcher:
+                raise RuntimeError("storage backend missing get_component_config")
+            config = fetcher(component_id)
+            if asyncio.iscoroutine(config):
+                config = await config
+            return config or {}
         except Exception:
             return {}
     
     async def _get_component_tasks(self, component_id: str) -> List[Dict[str, Any]]:
         """获取组件任务"""
         try:
-            # 这里应该从任务系统获取实际任务
-            return [
-                {
-                    "task_id": "task_1",
-                    "status": "running",
-                    "progress": 0.5
-                }
-            ]
+            fetcher = getattr(self.storage_backend, "get_component_tasks", None)
+            if not fetcher:
+                raise RuntimeError("storage backend missing get_component_tasks")
+            tasks = fetcher(component_id)
+            if asyncio.iscoroutine(tasks):
+                tasks = await tasks
+            return tasks or []
         except Exception:
             return []
     
     async def _get_component_metrics(self, component_id: str) -> Dict[str, Any]:
         """获取组件指标"""
         try:
-            # 这里应该从监控系统获取实际指标
-            return {
-                "cpu_usage": 45.5,
-                "memory_usage": 67.2,
-                "request_count": 1234
-            }
+            fetcher = getattr(self.storage_backend, "get_component_metrics", None)
+            if not fetcher:
+                raise RuntimeError("storage backend missing get_component_metrics")
+            metrics = fetcher(component_id)
+            if asyncio.iscoroutine(metrics):
+                metrics = await metrics
+            return metrics or {}
         except Exception:
             return {}
     
@@ -316,24 +323,36 @@ class BackupManager:
     async def _restore_component_state(self, component_id: str, state_data: Dict[str, Any]):
         """恢复组件状态"""
         try:
-            # 实现状态恢复逻辑
-            self.logger.info(f"Restoring state for {component_id}: {state_data.get('status', 'unknown')}")
+            setter = getattr(self.storage_backend, "set_component_state", None)
+            if not setter:
+                raise RuntimeError("storage backend missing set_component_state")
+            result = setter(component_id, state_data)
+            if asyncio.iscoroutine(result):
+                await result
         except Exception as e:
             self.logger.error(f"State restoration failed: {e}")
     
     async def _restore_component_config(self, component_id: str, config_data: Dict[str, Any]):
         """恢复组件配置"""
         try:
-            # 实现配置恢复逻辑
-            self.logger.info(f"Restoring config for {component_id}: {config_data.get('agent_type', 'unknown')}")
+            setter = getattr(self.storage_backend, "set_component_config", None)
+            if not setter:
+                raise RuntimeError("storage backend missing set_component_config")
+            result = setter(component_id, config_data)
+            if asyncio.iscoroutine(result):
+                await result
         except Exception as e:
             self.logger.error(f"Config restoration failed: {e}")
     
     async def _restore_component_tasks(self, component_id: str, task_data: List[Dict[str, Any]]):
         """恢复组件任务"""
         try:
-            # 实现任务恢复逻辑
-            self.logger.info(f"Restoring {len(task_data)} tasks for {component_id}")
+            setter = getattr(self.storage_backend, "set_component_tasks", None)
+            if not setter:
+                raise RuntimeError("storage backend missing set_component_tasks")
+            result = setter(component_id, task_data)
+            if asyncio.iscoroutine(result):
+                await result
         except Exception as e:
             self.logger.error(f"Task restoration failed: {e}")
     
@@ -387,7 +406,7 @@ class BackupManager:
     async def _cleanup_expired_backups(self):
         """清理过期备份"""
         
-        cutoff_date = datetime.now() - timedelta(days=self.retention_days)
+        cutoff_date = utc_now() - timedelta(days=self.retention_days)
         expired_backups = []
         
         for backup_record in self.backup_records:

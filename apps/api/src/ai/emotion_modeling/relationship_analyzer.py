@@ -10,13 +10,13 @@ This module provides comprehensive relationship analysis capabilities:
 - Conflict and harmony detection
 """
 
+from src.core.utils.timezone_utils import utc_now
 import numpy as np
 from typing import Dict, List, Any, Optional, Tuple
-from datetime import datetime, timedelta
+from datetime import timedelta
 from collections import defaultdict, Counter
 import asyncio
 import statistics
-
 from .relationship_models import (
     RelationshipDynamics,
     RelationshipType,
@@ -37,7 +37,6 @@ from .relationship_models import (
     classify_power_dynamics
 )
 from .group_emotion_models import EmotionState
-
 
 class RelationshipDynamicsAnalyzer:
     """关系动态分析器"""
@@ -230,7 +229,7 @@ class RelationshipDynamicsAnalyzer:
             significant_events=self._extract_significant_events(interaction_history),
             
             # 元数据
-            analysis_timestamp=datetime.now(),
+            analysis_timestamp=utc_now(),
             data_quality_score=self._calculate_data_quality(interaction_history),
             confidence_level=self._calculate_analysis_confidence(
                 len(interaction_history), relationship_health['overall_health']
@@ -533,7 +532,7 @@ class RelationshipDynamicsAnalyzer:
                         intensity=interaction.get('emotion_intensity', 0.5),
                         reciprocity_score=0.0,  # 稍后计算
                         effectiveness_score=0.0,  # 稍后计算
-                        timestamp=interaction.get('timestamp', datetime.now()),
+                        timestamp=interaction.get('timestamp', utc_now()),
                         
                         # 支持行为特征
                         verbal_affirmation='affirm' in content or 'positive' in content,
@@ -593,7 +592,7 @@ class RelationshipDynamicsAnalyzer:
                         resolution_potential=self._calculate_resolution_potential(
                             interaction, interaction_history
                         ),
-                        timestamp=interaction.get('timestamp', datetime.now()),
+                        timestamp=interaction.get('timestamp', utc_now()),
                         
                         # 冲突表现
                         verbal_disagreement='disagree' in content or 'wrong' in content,
@@ -997,7 +996,7 @@ class RelationshipDynamicsAnalyzer:
                     significance_level=0.7,
                     emotional_impact=0.8,
                     relationship_change=0.3,
-                    timestamp=interaction.get('timestamp', datetime.now()),
+                    timestamp=interaction.get('timestamp', utc_now()),
                     description=content[:100] + "..." if len(content) > 100 else content,
                     positive_milestone=True,
                     relationship_deepening=True

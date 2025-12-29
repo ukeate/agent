@@ -8,8 +8,6 @@ import {
   Card,
   Upload,
   Button,
-  Progress,
-  List,
   Tag,
   Space,
   Typography,
@@ -29,9 +27,9 @@ import {
   CheckCircleOutlined,
   LoadingOutlined,
   ClockCircleOutlined,
-  SyncOutlined
 } from '@ant-design/icons';
 import type { UploadFile } from 'antd/es/upload/interface';
+import apiClient from '../../services/apiClient';
 
 const { Text, Title } = Typography;
 
@@ -46,8 +44,8 @@ interface DocumentMetadata {
   chunks: number;
   images: number;
   tables: number;
-  embeddingTime: number;
-  vectorDimension: number;
+  processingTimeMs: number;
+  embeddingDimension?: number;
 }
 
 interface DocumentUploaderProps {
@@ -71,78 +69,100 @@ const DocumentUploader: React.FC<DocumentUploaderProps> = ({ onUploadSuccess }) 
     return <FileTextOutlined style={{ color: '#1890ff' }} />;
   };
 
-  const simulateProcessing = async (file: File) => {
+  const processFile = async (file: File) => {
     setProcessing(true);
     setCurrentFile(file.name);
     
-    // 初始化处理步骤
     const steps: ProcessingStep[] = [
       { step: '文件验证', status: 'waiting' },
-      { step: 'Unstructured库解析', status: 'waiting' },
-      { step: '内容分类 (文本/图像/表格)', status: 'waiting' },
-      { step: '文本分块处理', status: 'waiting' },
-      { step: '生成Nomic嵌入向量', status: 'waiting' },
-      { step: '存储到Chroma向量库', status: 'waiting' },
-      { step: '更新元数据索引', status: 'waiting' }
+      { step: '上传并处理', status: 'waiting' },
+      { step: '读取向量库状态', status: 'waiting' },
     ];
     setProcessingSteps(steps);
 
-    // 模拟处理每个步骤
-    for (let i = 0; i < steps.length; i++) {
-      steps[i].status = 'processing';
+    try {
+      const t0 = performance.now();
+      steps[0].status = 'processing';
       setProcessingSteps([...steps]);
-      
-      await new Promise(resolve => setTimeout(resolve, 800 + Math.random() * 400));
-      
-      steps[i].status = 'completed';
-      steps[i].duration = Math.round(300 + Math.random() * 700);
-      
-      // 添加技术细节
-      switch (i) {
-        case 1:
-          steps[i].details = `识别格式: ${file.type}, 大小: ${(file.size / 1024).toFixed(2)}KB`;
-          break;
-        case 2:
-          steps[i].details = '提取: 15个文本块, 3张图像, 2个表格';
-          break;
-        case 3:
-          steps[i].details = 'chunk_size=512, overlap=50';
-          break;
-        case 4:
-          steps[i].details = 'nomic-embed-text-v1.5 (维度: 768)';
-          break;
-        case 5:
-          steps[i].details = 'collection: multimodal_docs';
-          break;
+      if (!file.name) {
+        throw new Error('文件名不能为空');
       }
-      
+      if (file.size <= 0) {
+        throw new Error('文件为空');
+      }
+      steps[0].status = 'completed';
+      steps[0].duration = Math.round(performance.now() - t0);
+      steps[0].details = `类型: ${file.type || 'unknown'}, 大小: ${(file.size / 1024).toFixed(2)}KB`;
       setProcessingSteps([...steps]);
+
+      const t1 = performance.now();
+      steps[1].status = 'processing';
+      setProcessingSteps([...steps]);
+      const formData = new FormData();
+      formData.append('file', file);
+      const uploadResp = await apiClient.post<{
+        doc_id: string;
+        source_file: string;
+        content_type: string;
+        num_text_chunks: number;
+        num_images: number;
+        num_tables: number;
+        processing_time: number;
+      }>('/multimodal-rag/upload-document', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      steps[1].status = 'completed';
+      steps[1].duration = Math.round(performance.now() - t1);
+      steps[1].details = `doc_id=${uploadResp.data.doc_id}, processing_time=${Math.round(uploadResp.data.processing_time * 1000)}ms`;
+      setProcessingSteps([...steps]);
+
+      const t2 = performance.now();
+      steps[2].status = 'processing';
+      setProcessingSteps([...steps]);
+      const statusResp = await apiClient.get<{ embedding_dimension: number }>('/multimodal-rag/status');
+      steps[2].status = 'completed';
+      steps[2].duration = Math.round(performance.now() - t2);
+      steps[2].details = `embedding_dimension=${statusResp.data.embedding_dimension}`;
+      setProcessingSteps([...steps]);
+
+      setDocumentMetadata({
+        chunks: uploadResp.data.num_text_chunks,
+        images: uploadResp.data.num_images,
+        tables: uploadResp.data.num_tables,
+        processingTimeMs: Math.round(uploadResp.data.processing_time * 1000),
+        embeddingDimension: statusResp.data.embedding_dimension,
+      });
+    } catch (e: any) {
+      let last = -1;
+      for (let i = steps.length - 1; i >= 0; i--) {
+        if (steps[i].status === 'processing' || steps[i].status === 'waiting') {
+          last = i;
+          break;
+        }
+      }
+      if (last >= 0) {
+        steps[last].status = 'error';
+        steps[last].details = e?.message || '处理失败';
+        setProcessingSteps([...steps]);
+      }
+      throw e;
+    } finally {
+      setProcessing(false);
+      setCurrentFile(null);
     }
 
-    // 设置文档元数据
-    setDocumentMetadata({
-      chunks: 15,
-      images: 3,
-      tables: 2,
-      embeddingTime: 1250,
-      vectorDimension: 768
-    });
-
-    setProcessing(false);
-    setCurrentFile(null);
-    
-    if (onUploadSuccess) {
-      onUploadSuccess();
-    }
+    onUploadSuccess?.();
   };
 
   const handleUpload = async () => {
-    for (const file of fileList) {
-      if (file.originFileObj) {
-        await simulateProcessing(file.originFileObj);
+    try {
+      for (const file of fileList) {
+        if (file.originFileObj) {
+          await processFile(file.originFileObj);
+        }
       }
-    }
-    setFileList([]);
+      setFileList([]);
+    } catch {}
   };
 
   const getStepIcon = (status: string) => {
@@ -162,8 +182,7 @@ const DocumentUploader: React.FC<DocumentUploaderProps> = ({ onUploadSuccess }) 
     <Card 
       title={
         <span>
-          <SyncOutlined className="mr-2" />
-          文档处理管道 - Unstructured + Nomic + Chroma
+          文档处理管道
         </span>
       }
     >
@@ -211,7 +230,7 @@ const DocumentUploader: React.FC<DocumentUploaderProps> = ({ onUploadSuccess }) 
           <Alert
             message="支持的格式"
             description="PDF, Word, Excel, Text, Markdown, HTML, 图片 (PNG/JPG)"
-            variant="default"
+            type="info"
             className="mt-3"
           />
         </Col>
@@ -222,7 +241,7 @@ const DocumentUploader: React.FC<DocumentUploaderProps> = ({ onUploadSuccess }) 
           {processing && currentFile && (
             <Alert
               message={`正在处理: ${currentFile}`}
-              variant="default"
+              type="info"
               showIcon
               className="mb-3"
             />
@@ -284,25 +303,20 @@ const DocumentUploader: React.FC<DocumentUploaderProps> = ({ onUploadSuccess }) 
             <Col span={6}>
               <Statistic
                 title="嵌入耗时"
-                value={documentMetadata.embeddingTime}
+                value={documentMetadata.processingTimeMs}
                 suffix="ms"
               />
             </Col>
           </Row>
           
-          <Alert
-            message="技术细节"
-            description={
-              <Space direction="vertical">
-                <Text>• 使用Unstructured库进行文档解析</Text>
-                <Text>• Nomic嵌入模型: nomic-embed-text-v1.5 (768维)</Text>
-                <Text>• 向量存储: Chroma数据库</Text>
-                <Text>• 分块策略: size=512, overlap=50</Text>
-              </Space>
-            }
-            type="success"
-            className="mt-3"
-          />
+          {documentMetadata.embeddingDimension != null && (
+            <Alert
+              message="向量维度"
+              description={`embedding_dimension=${documentMetadata.embeddingDimension}`}
+              type="success"
+              className="mt-3"
+            />
+          )}
         </>
       )}
     </Card>

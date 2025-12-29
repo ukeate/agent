@@ -3,6 +3,7 @@
 
 专注于理解和识别情感，提供理性的共情回应
 """
+
 import time
 import random
 from typing import Dict, Any, Optional, List
@@ -12,7 +13,6 @@ from ..models import (
 )
 from ...emotion_modeling.models import EmotionState, PersonalityProfile
 from .base_strategy import EmpathyStrategy
-
 
 class CognitiveEmpathyStrategy(EmpathyStrategy):
     """认知共情策略实现"""

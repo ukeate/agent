@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import {
+import { logger } from '../utils/logger'
   Card,
   Button,
   Input,
@@ -60,8 +61,8 @@ const AgenticRagPage: React.FC = () => {
     ExpansionStrategyType.CONTEXTUAL
   ])
   const [retrievalStrategies, setRetrievalStrategies] = useState<RetrievalStrategyType[]>([
-    RetrievalStrategyType.HYBRID_SEARCH,
-    RetrievalStrategyType.SEMANTIC_SEARCH
+    RetrievalStrategyType.HYBRID,
+    RetrievalStrategyType.KEYWORD
   ])
   
   // 查询结果
@@ -97,7 +98,7 @@ const AgenticRagPage: React.FC = () => {
       const data = await agenticRagService.getStats()
       setStats(data)
     } catch (error) {
-      console.error('加载统计信息失败:', error)
+      logger.error('加载统计信息失败:', error)
     }
   }
 
@@ -507,6 +508,7 @@ const AgenticRagPage: React.FC = () => {
                 placeholder="输入您的查询内容..."
                 value={query}
                 onChange={e => setQuery(e.target.value)}
+                name="agentic-query"
                 disabled={loading}
               />
               
@@ -519,6 +521,7 @@ const AgenticRagPage: React.FC = () => {
                     placeholder="选择查询扩展策略"
                     value={expansionStrategies}
                     onChange={setExpansionStrategies}
+                    name="agentic-expansion-strategies"
                     disabled={loading}
                   >
                     <Option value={ExpansionStrategyType.SEMANTIC}>语义扩展</Option>
@@ -536,13 +539,13 @@ const AgenticRagPage: React.FC = () => {
                     placeholder="选择检索策略"
                     value={retrievalStrategies}
                     onChange={setRetrievalStrategies}
+                    name="agentic-retrieval-strategies"
                     disabled={loading}
                   >
-                    <Option value={RetrievalStrategyType.VECTOR_SEARCH}>向量搜索</Option>
-                    <Option value={RetrievalStrategyType.KEYWORD_SEARCH}>关键词搜索</Option>
-                    <Option value={RetrievalStrategyType.HYBRID_SEARCH}>混合搜索</Option>
-                    <Option value={RetrievalStrategyType.GRAPH_TRAVERSAL}>图遍历</Option>
-                    <Option value={RetrievalStrategyType.SEMANTIC_SEARCH}>语义搜索</Option>
+                    <Option value={RetrievalStrategyType.HYBRID}>混合检索</Option>
+                    <Option value={RetrievalStrategyType.SEMANTIC}>语义检索</Option>
+                    <Option value={RetrievalStrategyType.KEYWORD}>关键词检索</Option>
+                    <Option value={RetrievalStrategyType.STRUCTURED}>结构化检索</Option>
                   </Select>
                 </Col>
               </Row>

@@ -4,10 +4,8 @@ import pytest
 import json
 from unittest.mock import Mock, AsyncMock, patch
 from uuid import uuid4
-
 from fastapi.testclient import TestClient
 from httpx import AsyncClient
-
 from main import app
 from models.schemas.reasoning import (
     ReasoningRequest,
@@ -17,7 +15,6 @@ from models.schemas.reasoning import (
     ThoughtStep,
     ThoughtStepType
 )
-
 
 class TestReasoningAPI:
     """测试推理API"""

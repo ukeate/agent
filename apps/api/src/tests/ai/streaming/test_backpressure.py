@@ -6,12 +6,10 @@ import pytest
 import asyncio
 import time
 from unittest.mock import Mock, patch
-
 from src.ai.streaming.backpressure import (
     BackpressureManager, RateLimiter, CircuitBreaker,
     ThrottleLevel, PressureSource, PressureMetrics, ThrottleAction
 )
-
 
 class TestBackpressureManager:
     """背压管理器测试"""
@@ -149,7 +147,6 @@ class TestBackpressureManager:
         assert "cpu_high" in thresholds
         assert thresholds["cpu_high"] == 0.9
 
-
 class TestRateLimiter:
     """速率限制器测试"""
     
@@ -236,7 +233,6 @@ class TestRateLimiter:
         assert rate_limiter.total_requests == 0
         assert rate_limiter.total_allowed == 0
         assert rate_limiter.total_rejected == 0
-
 
 class TestCircuitBreaker:
     """熔断器测试"""
@@ -326,7 +322,6 @@ class TestCircuitBreaker:
         assert state["failure_threshold"] == 3
         assert state["recovery_timeout"] == 1.0
 
-
 @pytest.mark.asyncio
 async def test_integration_backpressure_with_monitoring():
     """测试背压管理器与监控的集成"""
@@ -375,7 +370,6 @@ async def test_integration_backpressure_with_monitoring():
         
     finally:
         await manager.stop_monitoring()
-
 
 if __name__ == "__main__":
     pytest.main([__file__])

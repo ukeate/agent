@@ -2,13 +2,12 @@
 智能体路由和选择系统
 实现基于任务类型的路由逻辑和动态路由决策
 """
+
 from typing import Dict, List, Optional, Any, Tuple
 from datetime import datetime
 from src.core.utils.timezone_utils import utc_now, utc_factory, timezone
 from dataclasses import dataclass
-import structlog
 from enum import Enum
-
 from .supervisor_agent import (
     TaskType, TaskPriority, AgentStatus, 
     TaskComplexity, AgentCapabilityMatch, 
@@ -17,8 +16,8 @@ from .supervisor_agent import (
 from .agents import BaseAutoGenAgent
 from .config import AgentRole
 
-logger = structlog.get_logger(__name__)
-
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 class RoutingStrategy(str, Enum):
     """路由策略枚举"""
@@ -27,7 +26,6 @@ class RoutingStrategy(str, Enum):
     LOAD_BALANCED = "load_balanced"
     PRIORITY_FIRST = "priority_first"
     HYBRID = "hybrid"
-
 
 @dataclass
 class RoutingConfig:
@@ -39,7 +37,6 @@ class RoutingConfig:
     availability_weight: float = 0.2  # 可用性权重
     enable_fallback: bool = True  # 启用回退机制
     max_retries: int = 3  # 最大重试次数
-
 
 @dataclass
 class RoutingResult:
@@ -60,7 +57,6 @@ class RoutingResult:
             "alternatives": self.alternatives,
             "routing_metadata": self.routing_metadata
         }
-
 
 class AgentRouter:
     """智能体路由器核心实现"""
@@ -398,7 +394,6 @@ class AgentRouter:
         self.routing_history.clear()
         self._round_robin_index = 0
         logger.info("路由历史已清空")
-
 
 class LoadBalancer:
     """负载平衡器"""

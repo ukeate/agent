@@ -1,5 +1,7 @@
+import { buildApiUrl, apiFetch } from '../utils/apiBase'
 import React, { useState, useEffect } from 'react';
 import {
+import { logger } from '../utils/logger'
   Card,
   Table,
   Tag,
@@ -107,74 +109,39 @@ const FaultDetectionPage: React.FC = () => {
       if (filters.resolved !== '') params.append('resolved', filters.resolved);
       params.append('limit', '100');
 
-      const response = await fetch(`/api/v1/fault-tolerance/faults?${params}`);
-      if (response.ok) {
-        const data = await response.json();
-        setFaultEvents(data);
-      }
+      const response = await apiFetch(buildApiUrl(`/api/v1/fault-tolerance/faults?${params}`));
+      const data = await response.json();
+      setFaultEvents(data);
     } catch (error) {
-      console.error('获取故障事件失败:', error);
+      logger.error('获取故障事件失败:', error);
     }
   };
 
   const fetchHealthSummary = async () => {
     try {
-      const response = await fetch('/api/v1/fault-tolerance/health');
-      if (response.ok) {
-        const data = await response.json();
-        setHealthSummary(data);
-      }
+      const response = await apiFetch(buildApiUrl('/api/v1/fault-tolerance/health'));
+      const data = await response.json();
+      setHealthSummary(data);
     } catch (error) {
-      console.error('获取健康摘要失败:', error);
+      logger.error('获取健康摘要失败:', error);
     }
   };
 
   const fetchComponents = async () => {
     try {
-      // 模拟获取组件健康状态列表
-      const mockComponents: ComponentHealth[] = [
-        {
-          component_id: 'agent-1',
-          status: 'healthy',
-          last_check: new Date().toISOString(),
-          response_time: 0.5,
-          error_rate: 0.01,
-          resource_usage: { cpu: 45, memory: 60, disk: 30 }
-        },
-        {
-          component_id: 'agent-2', 
-          status: 'degraded',
-          last_check: new Date().toISOString(),
-          response_time: 1.8,
-          error_rate: 0.08,
-          resource_usage: { cpu: 75, memory: 85, disk: 40 }
-        },
-        {
-          component_id: 'agent-3',
-          status: 'unhealthy',
-          last_check: new Date().toISOString(),
-          response_time: 5.0,
-          error_rate: 0.25,
-          resource_usage: { cpu: 95, memory: 90, disk: 80 }
-        },
-        {
-          component_id: 'database-1',
-          status: 'healthy',
-          last_check: new Date().toISOString(),
-          response_time: 0.3,
-          error_rate: 0.005,
-          resource_usage: { cpu: 35, memory: 55, disk: 25 }
-        }
-      ];
-      setComponents(mockComponents);
+      const res = await apiFetch(buildApiUrl('/api/v1/fault-tolerance/health'));
+      const data = await res.json();
+      setComponents(data?.components || []);
+      setHealthSummary((prev) => prev || data);
     } catch (error) {
-      console.error('获取组件状态失败:', error);
+      logger.error('获取组件状态失败:', error);
+      setComponents([]);
     }
   };
 
   const injectTestFault = async () => {
     try {
-      const response = await fetch('/api/v1/fault-tolerance/testing/inject-fault', {
+      const response = await apiFetch(buildApiUrl('/api/v1/fault-tolerance/testing/inject-fault'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -183,16 +150,14 @@ const FaultDetectionPage: React.FC = () => {
           duration_seconds: 60
         })
       });
-      
-      if (response.ok) {
-        Modal.success({
-          title: '故障注入成功',
-          content: '测试故障已成功注入，将在60秒后自动恢复'
-        });
-        setTimeout(fetchFaultEvents, 1000);
-      }
+      await response.json().catch(() => null);
+      Modal.success({
+        title: '故障注入成功',
+        content: '测试故障已成功注入，将在60秒后自动恢复'
+      });
+      setTimeout(fetchFaultEvents, 1000);
     } catch (error) {
-      console.error('故障注入失败:', error);
+      logger.error('故障注入失败:', error);
     }
   };
 

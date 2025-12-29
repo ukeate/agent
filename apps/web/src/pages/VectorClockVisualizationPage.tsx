@@ -1,5 +1,7 @@
+import { buildApiUrl, apiFetch } from '../utils/apiBase'
 import React, { useState, useEffect } from 'react';
 import { 
+import { logger } from '../utils/logger'
   Card, 
   Tabs, 
   Typography, 
@@ -49,54 +51,14 @@ const VectorClockVisualizationPage: React.FC = () => {
 
   const fetchVectorClockData = async () => {
     try {
-      // 模拟数据
-      const mockNodes: VectorClockNode[] = [
-        {
-          node_id: 'node-a',
-          current_clock: { 'node-a': 5, 'node-b': 3, 'node-c': 2 },
-          last_updated: new Date(Date.now() - 120000).toISOString(),
-          status: 'active',
-          pending_operations: 2
-        },
-        {
-          node_id: 'node-b', 
-          current_clock: { 'node-a': 4, 'node-b': 4, 'node-c': 1 },
-          last_updated: new Date(Date.now() - 240000).toISOString(),
-          status: 'syncing',
-          pending_operations: 1
-        },
-        {
-          node_id: 'node-c',
-          current_clock: { 'node-a': 3, 'node-b': 2, 'node-c': 3 },
-          last_updated: new Date(Date.now() - 360000).toISOString(),
-          status: 'active',
-          pending_operations: 0
-        }
-      ];
-
-      const mockEvents: VectorClockEvent[] = [
-        {
-          event_id: 'event-001',
-          node_id: 'node-a',
-          timestamp: new Date(Date.now() - 60000).toISOString(),
-          event_type: 'local_update',
-          vector_clock: { 'node-a': 5, 'node-b': 3, 'node-c': 2 },
-          data: { operation: 'update', table: 'users', id: 'user-123' }
-        },
-        {
-          event_id: 'event-002',
-          node_id: 'node-b',
-          timestamp: new Date(Date.now() - 180000).toISOString(),
-          event_type: 'conflict_detected',
-          vector_clock: { 'node-a': 4, 'node-b': 4, 'node-c': 1 },
-          data: { conflict_type: 'concurrent_update', affected_record: 'user-456' }
-        }
-      ];
-
-      setNodes(mockNodes);
-      setEvents(mockEvents);
+      const res = await apiFetch(buildApiUrl('/api/v1/offline/vector-clocks'));
+      const data = await res.json();
+      setNodes(Array.isArray(data?.nodes) ? data.nodes : []);
+      setEvents(Array.isArray(data?.events) ? data.events : []);
     } catch (error) {
-      console.error('获取向量时钟数据失败:', error);
+      logger.error('获取向量时钟数据失败:', error);
+      setNodes([]);
+      setEvents([]);
     }
   };
 
@@ -197,44 +159,50 @@ const VectorClockVisualizationPage: React.FC = () => {
           key="nodes"
         >
           <Row gutter={16}>
-            {nodes.map((node) => (
-              <Col key={node.node_id} span={8}>
-                <Card
-                  title={
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <Text strong>{node.node_id}</Text>
-                      <Tag color={getNodeStatusColor(node.status)}>
-                        {node.status}
-                      </Tag>
-                    </div>
-                  }
-                  style={{ marginBottom: '16px' }}
-                >
-                  <div style={{ marginBottom: '12px' }}>
-                    <Text strong>向量时钟:</Text>
-                    <div style={{ 
-                      marginTop: '4px',
-                      fontFamily: 'monospace',
-                      backgroundColor: '#f5f5f5',
-                      padding: '8px',
-                      borderRadius: '4px'
-                    }}>
-                      {JSON.stringify(node.current_clock, null, 2)}
-                    </div>
-                  </div>
-
-                  <div style={{ marginBottom: '12px' }}>
-                    <Text strong>最后更新:</Text>
-                    <div>{new Date(node.last_updated).toLocaleString()}</div>
-                  </div>
-
-                  <div>
-                    <Text strong>待处理操作:</Text>
-                    <div>{node.pending_operations}</div>
-                  </div>
-                </Card>
+            {nodes.length === 0 ? (
+              <Col span={24}>
+                <Alert type="info" message="暂无节点数据，待离线操作产生后再查看。" />
               </Col>
-            ))}
+            ) : (
+              nodes.map((node) => (
+                <Col key={node.node_id} span={8}>
+                  <Card
+                    title={
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <Text strong>{node.node_id}</Text>
+                        <Tag color={getNodeStatusColor(node.status)}>
+                          {node.status}
+                        </Tag>
+                      </div>
+                    }
+                    style={{ marginBottom: '16px' }}
+                  >
+                    <div style={{ marginBottom: '12px' }}>
+                      <Text strong>向量时钟:</Text>
+                      <div style={{ 
+                        marginTop: '4px',
+                        fontFamily: 'monospace',
+                        backgroundColor: '#f5f5f5',
+                        padding: '8px',
+                        borderRadius: '4px'
+                      }}>
+                        {JSON.stringify(node.current_clock, null, 2)}
+                      </div>
+                    </div>
+
+                    <div style={{ marginBottom: '12px' }}>
+                      <Text strong>最后更新:</Text>
+                      <div>{new Date(node.last_updated).toLocaleString()}</div>
+                    </div>
+
+                    <div>
+                      <Text strong>待处理操作:</Text>
+                      <div>{node.pending_operations}</div>
+                    </div>
+                  </Card>
+                </Col>
+              ))
+            )}
           </Row>
         </TabPane>
 

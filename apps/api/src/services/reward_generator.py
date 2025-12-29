@@ -13,15 +13,14 @@ from src.core.utils.timezone_utils import utc_now, utc_factory
 from typing import Dict, List, Optional, Any, Tuple
 from dataclasses import dataclass
 from enum import Enum
-import logging
 from collections import defaultdict
-
-from models.schemas.feedback import FeedbackType
+from src.models.schemas.feedback import FeedbackType
 from src.core.config import get_settings
 
-logger = logging.getLogger(__name__)
-settings = get_settings()
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
+settings = get_settings()
 
 class RewardStrategy(str, Enum):
     """奖励计算策略"""
@@ -30,7 +29,6 @@ class RewardStrategy(str, Enum):
     NORMALIZED_SUM = "normalized_sum"      # 归一化求和
     EXPONENTIAL_DECAY = "exponential_decay" # 指数衰减
     CONTEXTUAL_BOOST = "contextual_boost"  # 上下文增强
-
 
 @dataclass
 class FeedbackSignal:
@@ -42,7 +40,6 @@ class FeedbackSignal:
     context: Optional[Dict[str, Any]] = None
     user_id: Optional[str] = None
     item_id: Optional[str] = None
-
 
 @dataclass
 class RewardConfig:
@@ -96,7 +93,6 @@ class RewardConfig:
                 "social_traffic": 0.8,
             }
 
-
 class FeedbackNormalizer:
     """反馈值归一化器"""
     
@@ -146,7 +142,6 @@ class FeedbackNormalizer:
             logger.error(f"Error normalizing feedback value {raw_value} for type {feedback_type}: {e}")
             return 0.0
 
-
 class TimeDecayCalculator:
     """时间衰减计算器"""
     
@@ -170,7 +165,6 @@ class TimeDecayCalculator:
         decay_factor = math.pow(0.5, time_diff / half_life_hours)
         
         return max(decay_factor, 0.01)  # 最小衰减因子为0.01
-
 
 class ContextBoostCalculator:
     """上下文增强计算器"""
@@ -206,7 +200,6 @@ class ContextBoostCalculator:
             boost_factor *= country_boost
         
         return max(boost_factor, 0.1)  # 最小增强因子为0.1
-
 
 class RewardSignalGenerator:
     """奖励信号生成器主类"""
@@ -511,10 +504,8 @@ class RewardSignalGenerator:
             "reward_distribution": dict(self.stats["reward_distribution"])
         }
 
-
 # 全局生成器实例
 _reward_generator: Optional[RewardSignalGenerator] = None
-
 
 def get_reward_generator(config: Optional[RewardConfig] = None) -> RewardSignalGenerator:
     """获取全局奖励生成器实例"""
@@ -522,7 +513,6 @@ def get_reward_generator(config: Optional[RewardConfig] = None) -> RewardSignalG
     if _reward_generator is None or config is not None:
         _reward_generator = RewardSignalGenerator(config)
     return _reward_generator
-
 
 # 便利函数
 async def generate_reward_from_feedbacks(

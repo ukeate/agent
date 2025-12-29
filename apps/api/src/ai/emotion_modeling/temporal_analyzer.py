@@ -3,18 +3,17 @@
 
 处理情感轨迹的时间序列分析、趋势检测和模式发现
 """
+
 import numpy as np
 import pandas as pd
 from typing import Dict, List, Tuple, Optional, Any
 from datetime import datetime, timedelta
 from collections import defaultdict
-import logging
-
 from .models import EmotionState, EmotionStatistics
 from .space_mapper import EmotionSpaceMapper
 
-logger = logging.getLogger(__name__)
-
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 class TemporalEmotionAnalyzer:
     """情感时间序列分析器"""

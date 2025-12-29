@@ -3,22 +3,22 @@ MCP工具安全管理系统
 """
 
 import asyncio
+import json
 from datetime import datetime
 from datetime import timedelta
 from src.core.utils.timezone_utils import utc_now, utc_factory
 from enum import Enum
 from typing import Any, Dict, List, Optional, Set
-
-import structlog
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
-
 from src.core.config import get_settings
+from src.core.redis import get_redis
 from src.core.security.audit import AuditLogger
 
-logger = structlog.get_logger(__name__)
-settings = get_settings()
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
+settings = get_settings()
 
 class ToolRiskLevel(str, Enum):
     """工具风险级别"""
@@ -27,14 +27,12 @@ class ToolRiskLevel(str, Enum):
     HIGH = "high"  # 系统级操作
     CRITICAL = "critical"  # 危险操作
 
-
 class ApprovalStatus(str, Enum):
     """审批状态"""
     APPROVED = "approved"
     REJECTED = "rejected"
     PENDING = "pending"
     AUTO_APPROVED = "auto_approved"
-
 
 class ToolPermission(BaseModel):
     """工具权限模型"""
@@ -45,7 +43,6 @@ class ToolPermission(BaseModel):
     auto_approve_for_roles: List[str] = []
     max_calls_per_hour: Optional[int] = None
     restricted_params: Dict[str, Any] = {}
-
 
 class ToolCallRequest(BaseModel):
     """工具调用请求"""
@@ -58,7 +55,6 @@ class ToolCallRequest(BaseModel):
     client_ip: str
     user_agent: str
 
-
 class ToolCallApproval(BaseModel):
     """工具调用审批"""
     request_id: str
@@ -67,7 +63,6 @@ class ToolCallApproval(BaseModel):
     approved_at: Optional[datetime] = None
     rejection_reason: Optional[str] = None
 
-
 class SecurityCheck(BaseModel):
     """安全检查结果"""
     allowed: bool
@@ -75,7 +70,6 @@ class SecurityCheck(BaseModel):
     requires_approval: bool
     denial_reason: Optional[str] = None
     warnings: List[str] = []
-
 
 class MCPToolSecurityManager:
     """MCP工具安全管理器"""
@@ -438,7 +432,18 @@ class MCPToolSecurityManager:
     
     async def _send_approval_notification(self, request: ToolCallRequest):
         """发送审批通知"""
-        # TODO: 实现实际的通知机制
+        payload = {
+            "type": "mcp_tool_approval_requested",
+            "request_id": request.id,
+            "user_id": request.user_id,
+            "tool_name": request.tool_name,
+            "risk_score": request.risk_score,
+            "request_time": request.request_time.isoformat(),
+        }
+        redis = get_redis()
+        if redis:
+            await redis.lpush("mcp:approvals:notifications", json.dumps(payload, ensure_ascii=False))
+            await redis.ltrim("mcp:approvals:notifications", 0, 999)
         logger.info(
             "Approval notification sent",
             request_id=request.id,
@@ -522,7 +527,6 @@ class MCPToolSecurityManager:
             stats["user_calls_last_hour"] = user_calls
         
         return stats
-
 
 # 全局实例
 mcp_security_manager = MCPToolSecurityManager()

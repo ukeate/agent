@@ -14,9 +14,7 @@ from src.core.utils.timezone_utils import utc_now, utc_factory, timezone
 from typing import Dict, Any, Optional, List, AsyncIterator
 from abc import ABC, abstractmethod
 from enum import Enum
-
 from .models import SourceType, DataStatus, AnnotationTaskType, AnnotationStatus
-
 
 @dataclass
 class DataSource:
@@ -32,7 +30,6 @@ class DataSource:
     def __post_init__(self):
         if self.created_at is None:
             self.created_at = utc_now()
-
 
 @dataclass
 class DataRecord:
@@ -52,7 +49,6 @@ class DataRecord:
             self.created_at = utc_now()
         if not self.metadata:
             self.metadata = {}
-
 
 @dataclass
 class AnnotationTask:
@@ -74,7 +70,6 @@ class AnnotationTask:
         if self.created_at is None:
             self.created_at = utc_now()
 
-
 @dataclass
 class Annotation:
     """标注结果实体"""
@@ -93,7 +88,6 @@ class Annotation:
         if self.created_at is None:
             self.created_at = utc_now()
 
-
 @dataclass
 class DataVersion:
     """数据版本实体"""
@@ -111,7 +105,6 @@ class DataVersion:
         if self.created_at is None:
             self.created_at = utc_now()
 
-
 # 数据收集器抽象基类
 class DataCollector(ABC):
     """数据收集器抽象基类"""
@@ -122,7 +115,7 @@ class DataCollector(ABC):
     @abstractmethod
     async def collect_data(self) -> AsyncIterator[DataRecord]:
         """收集数据的抽象方法"""
-        pass
+        raise NotImplementedError
     
     def generate_record_id(self, data: Dict[str, Any]) -> str:
         """生成唯一的记录ID"""
@@ -131,7 +124,6 @@ class DataCollector(ABC):
         content = json.dumps(data, sort_keys=True, ensure_ascii=False)
         return hashlib.md5(content.encode()).hexdigest()
 
-
 # 数据处理规则抽象基类
 class ProcessingRule(ABC):
     """数据处理规则抽象基类"""
@@ -139,8 +131,7 @@ class ProcessingRule(ABC):
     @abstractmethod
     async def apply(self, data: Dict[str, Any], metadata: Dict[str, Any]) -> Dict[str, Any]:
         """应用处理规则"""
-        pass
-
+        raise NotImplementedError
 
 # 质量评估器抽象基类
 class QualityAssessor(ABC):
@@ -149,8 +140,7 @@ class QualityAssessor(ABC):
     @abstractmethod
     def assess(self, data: Dict[str, Any]) -> float:
         """评估数据质量"""
-        pass
-
+        raise NotImplementedError
 
 # 数据导出格式枚举
 class ExportFormat(Enum):
@@ -160,7 +150,6 @@ class ExportFormat(Enum):
     CSV = "csv"
     PARQUET = "parquet"
     EXCEL = "excel"
-
 
 # 任务统计信息
 @dataclass
@@ -173,7 +162,6 @@ class TaskStatistics:
     status_counts: Dict[str, int]
     annotator_stats: List[Dict[str, Any]]
 
-
 # 版本对比结果
 @dataclass
 class VersionComparison:
@@ -184,7 +172,6 @@ class VersionComparison:
     added_records: List[Dict[str, Any]]
     removed_records: List[Dict[str, Any]]
     modified_records: List[Dict[str, Any]]
-
 
 # 收集统计信息
 @dataclass
@@ -197,7 +184,6 @@ class CollectionStats:
     start_time: Optional[datetime] = None
     end_time: Optional[datetime] = None
 
-
 # 数据过滤器
 @dataclass
 class DataFilter:
@@ -209,7 +195,6 @@ class DataFilter:
     date_to: Optional[datetime] = None
     limit: Optional[int] = 1000
     offset: int = 0
-
 
 # 标注进度信息
 @dataclass 

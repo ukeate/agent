@@ -1,25 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  Card, 
-  Button,
-  Input,
-  Badge,
-  Tabs,
-  Progress,
-  Typography,
-  Row,
-  Col,
-  Space,
-  Slider,
-  Select,
-  Switch,
-  Alert,
-  Statistic,
-  Tag,
-  Divider,
-  Form,
-  Spin
-} from 'antd';
+import { logger } from '../utils/logger'
+	  Card, 
+	  Button,
+	  Input,
+	  Badge,
+	  Tabs,
+	  Progress,
+	  Row,
+	  Col,
+	  Space,
+	  Alert,
+	  Tag,
+	  Spin,
+	  Typography
+	} from 'antd';
 import { 
   PlayCircleOutlined, 
   PauseCircleOutlined, 
@@ -42,9 +37,9 @@ import {
   type ExecutionResponse,
   type SystemMetrics,
   type DecompositionResponse
-} from '../services/multiStepReasoningApi';
+	} from '../services/multiStepReasoningApi';
 
-const { Title, Text, Paragraph } = Typography;
+const { Text } = Typography;
 const { TextArea } = Input;
 const { TabPane } = Tabs;
 
@@ -70,7 +65,25 @@ const MultiStepReasoningPage: React.FC = () => {
     execution_mode: 'parallel',
     max_parallel_steps: 3,
     scheduling_strategy: 'critical_path'
-  });
+	});
+
+	const download = (filename: string, content: string, mime: string) => {
+		const url = URL.createObjectURL(new Blob([content], { type: mime }));
+		const a = document.createElement('a');
+		a.href = url;
+		a.download = filename;
+		a.click();
+		URL.revokeObjectURL(url);
+	};
+
+	const resetWorkflow = () => {
+		setCurrentExecution(null);
+		setTaskDAG(null);
+		setWorkflowDefinition(null);
+		setExecutionStatus('idle');
+		setSelectedStep(null);
+		setError(null);
+	};
 
   // 获取系统指标
   useEffect(() => {
@@ -79,7 +92,7 @@ const MultiStepReasoningPage: React.FC = () => {
         const metrics = await multiStepReasoningApi.getSystemMetrics();
         setSystemMetrics(metrics);
       } catch (error) {
-        console.error('获取系统指标失败:', error);
+        logger.error('获取系统指标失败:', error);
       }
     };
 
@@ -141,7 +154,7 @@ const MultiStepReasoningPage: React.FC = () => {
       });
       
     } catch (error) {
-      console.error('问题分解失败:', error);
+      logger.error('问题分解失败:', error);
       setError('问题分解失败，请检查输入并重试');
       setExecutionStatus('failed');
     } finally {
@@ -159,7 +172,7 @@ const MultiStepReasoningPage: React.FC = () => {
         action
       });
     } catch (error) {
-      console.error('执行控制失败:', error);
+      logger.error('执行控制失败:', error);
       setError('执行控制失败');
     }
   };
@@ -189,13 +202,13 @@ const MultiStepReasoningPage: React.FC = () => {
   return (
     <div style={{ padding: '24px', background: '#f0f2f5', minHeight: '100vh' }}>
       <Card style={{ marginBottom: '24px' }}>
-        <Title level={2} style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '12px' }}>
+        <h1 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '12px', fontSize: 30, fontWeight: 600 }}>
           <BranchesOutlined style={{ color: '#1890ff' }} />
           多步推理工作流
-        </Title>
-        <Paragraph style={{ margin: '8px 0 0 0', color: '#666' }}>
+        </h1>
+        <p style={{ margin: '8px 0 0 0', color: '#666' }}>
           Complex Problem → CoT Decomposition → Task DAG → Distributed Execution
-        </Paragraph>
+        </p>
       </Card>
 
       <Row gutter={[24, 24]}>
@@ -210,86 +223,140 @@ const MultiStepReasoningPage: React.FC = () => {
                   value={problemStatement}
                   onChange={(e) => setProblemStatement(e.target.value)}
                   placeholder="输入需要分解的复杂问题..."
+                  name="problemStatement"
                   style={{ marginTop: '8px' }}
                 />
               </div>
 
               <Tabs defaultActiveKey="decomposition">
                 <TabPane tab="分解配置" key="decomposition">
-                  <Form layout="vertical">
-                    <Form.Item label="分解策略">
-                      <Select
+                  <Space direction="vertical" style={{ width: '100%' }} size="middle">
+                    <label>
+                      <div>分解策略</div>
+                      <select
                         value={decompositionConfig.strategy}
-                        onChange={(value) => setDecompositionConfig(prev => ({ ...prev, strategy: value }))}
+                        onChange={(e) =>
+                          setDecompositionConfig((prev) => ({ ...prev, strategy: e.target.value }))
+                        }
+                        name="decompositionStrategy"
+                        style={{ width: '100%', height: 32 }}
                       >
-                        <Select.Option value="analysis">分析型分解</Select.Option>
-                        <Select.Option value="research">研究型分解</Select.Option>
-                        <Select.Option value="optimization">优化型分解</Select.Option>
-                        <Select.Option value="development">开发型分解</Select.Option>
-                      </Select>
-                    </Form.Item>
+                        <option value="analysis">分析型分解</option>
+                        <option value="research">研究型分解</option>
+                        <option value="optimization">优化型分解</option>
+                        <option value="development">开发型分解</option>
+                      </select>
+                    </label>
 
-                    <Form.Item label={`最大深度: ${decompositionConfig.max_depth}`}>
-                      <Slider
+                    <label>
+                      <div>{`最大深度: ${decompositionConfig.max_depth}`}</div>
+                      <input
+                        type="range"
                         min={3}
                         max={10}
                         value={decompositionConfig.max_depth}
-                        onChange={(value) => setDecompositionConfig(prev => ({ ...prev, max_depth: value }))}
+                        onChange={(e) =>
+                          setDecompositionConfig((prev) => ({
+                            ...prev,
+                            max_depth: Number(e.target.value),
+                          }))
+                        }
+                        name="maxDepth"
+                        style={{ width: '100%' }}
                       />
-                    </Form.Item>
+                    </label>
 
-                    <Form.Item label={`目标复杂度: ${decompositionConfig.target_complexity}`}>
-                      <Slider
+                    <label>
+                      <div>{`${taskDAG ? '目标难度' : '目标复杂度'}: ${decompositionConfig.target_complexity}`}</div>
+                      <input
+                        type="range"
                         min={1}
                         max={10}
                         value={decompositionConfig.target_complexity}
-                        onChange={(value) => setDecompositionConfig(prev => ({ ...prev, target_complexity: value }))}
+                        onChange={(e) =>
+                          setDecompositionConfig((prev) => ({
+                            ...prev,
+                            target_complexity: Number(e.target.value),
+                          }))
+                        }
+                        name="targetComplexity"
+                        style={{ width: '100%' }}
                       />
-                    </Form.Item>
+                    </label>
 
-                    <Form.Item label="启用分支">
-                      <Switch
+                    <label style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                      <input
+                        type="checkbox"
                         checked={decompositionConfig.enable_branching}
-                        onChange={(checked) => setDecompositionConfig(prev => ({ ...prev, enable_branching: checked }))}
+                        onChange={(e) =>
+                          setDecompositionConfig((prev) => ({
+                            ...prev,
+                            enable_branching: e.target.checked,
+                          }))
+                        }
+                        name="enableBranching"
                       />
-                    </Form.Item>
-                  </Form>
+                      启用分支
+                    </label>
+                  </Space>
                 </TabPane>
 
                 <TabPane tab="执行配置" key="execution">
-                  <Form layout="vertical">
-                    <Form.Item label="执行模式">
-                      <Select
+                  <Space direction="vertical" style={{ width: '100%' }} size="middle">
+                    <label>
+                      <div>执行模式</div>
+                      <select
                         value={executionConfig.execution_mode}
-                        onChange={(value) => setExecutionConfig(prev => ({ ...prev, execution_mode: value }))}
+                        onChange={(e) =>
+                          setExecutionConfig((prev) => ({ ...prev, execution_mode: e.target.value }))
+                        }
+                        name="executionMode"
+                        style={{ width: '100%', height: 32 }}
                       >
-                        <Select.Option value="sequential">顺序执行</Select.Option>
-                        <Select.Option value="parallel">并行执行</Select.Option>
-                        <Select.Option value="hybrid">混合执行</Select.Option>
-                      </Select>
-                    </Form.Item>
+                        <option value="sequential">顺序执行</option>
+                        <option value="parallel">并行执行</option>
+                        <option value="hybrid">混合执行</option>
+                      </select>
+                    </label>
 
-                    <Form.Item label={`最大并行数: ${executionConfig.max_parallel_steps}`}>
-                      <Slider
+                    <label>
+                      <div>{`最大并行数: ${executionConfig.max_parallel_steps}`}</div>
+                      <input
+                        type="range"
                         min={1}
                         max={8}
                         value={executionConfig.max_parallel_steps}
-                        onChange={(value) => setExecutionConfig(prev => ({ ...prev, max_parallel_steps: value }))}
+                        onChange={(e) =>
+                          setExecutionConfig((prev) => ({
+                            ...prev,
+                            max_parallel_steps: Number(e.target.value),
+                          }))
+                        }
+                        name="maxParallelSteps"
+                        style={{ width: '100%' }}
                       />
-                    </Form.Item>
+                    </label>
 
-                    <Form.Item label="调度策略">
-                      <Select
+                    <label>
+                      <div>调度策略</div>
+                      <select
                         value={executionConfig.scheduling_strategy}
-                        onChange={(value) => setExecutionConfig(prev => ({ ...prev, scheduling_strategy: value }))}
+                        onChange={(e) =>
+                          setExecutionConfig((prev) => ({
+                            ...prev,
+                            scheduling_strategy: e.target.value,
+                          }))
+                        }
+                        name="schedulingStrategy"
+                        style={{ width: '100%', height: 32 }}
                       >
-                        <Select.Option value="critical_path">关键路径优先</Select.Option>
-                        <Select.Option value="priority">优先级调度</Select.Option>
-                        <Select.Option value="resource_aware">资源感知调度</Select.Option>
-                        <Select.Option value="fifo">先进先出</Select.Option>
-                      </Select>
-                    </Form.Item>
-                  </Form>
+                        <option value="critical_path">关键路径优先</option>
+                        <option value="priority">优先级调度</option>
+                        <option value="resource_aware">资源感知调度</option>
+                        <option value="fifo">先进先出</option>
+                      </select>
+                    </label>
+                  </Space>
                 </TabPane>
               </Tabs>
 
@@ -316,7 +383,7 @@ const MultiStepReasoningPage: React.FC = () => {
                   <Text code>{currentExecution.execution_id}</Text>
                 </div>
                 <div>
-                  <Text strong>状态: </Text>
+                  <Text strong>运行情况: </Text>
                   <Badge status={getStepStatusColor(currentExecution.status)} text={currentExecution.status} />
                 </div>
                 <div>
@@ -333,7 +400,7 @@ const MultiStepReasoningPage: React.FC = () => {
                   <Button icon={<StopOutlined />} danger onClick={() => handleExecutionControl('cancel')}>
                     取消
                   </Button>
-                  <Button icon={<ReloadOutlined />}>
+                  <Button icon={<ReloadOutlined />} onClick={resetWorkflow}>
                     重置
                   </Button>
                 </Space>
@@ -350,8 +417,16 @@ const MultiStepReasoningPage: React.FC = () => {
               <Space direction="vertical" style={{ width: '100%' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '16px' }}>
                   <Space>
-                    <Button size="small" icon={<EyeOutlined />}>全览</Button>
-                    <Button size="small" icon={<DownloadOutlined />}>导出</Button>
+                    <Button size="small" icon={<EyeOutlined />} onClick={() => setSelectedStep(null)}>全览</Button>
+                    <Button
+                      size="small"
+                      icon={<DownloadOutlined />}
+                      onClick={() =>
+                        download('task_dag.json', JSON.stringify(taskDAG, null, 2), 'application/json')
+                      }
+                    >
+                      导出
+                    </Button>
                   </Space>
                   <Tag color="blue">关键路径: {taskDAG.critical_path?.length || 0} 步</Tag>
                 </div>
@@ -379,7 +454,7 @@ const MultiStepReasoningPage: React.FC = () => {
                               {node.task_type}
                             </Tag>
                             <Text style={{ fontSize: '11px', color: '#666' }}>
-                              复杂度: {node.complexity_score} | 耗时: {node.estimated_duration_minutes}分钟
+                              难度: {node.complexity_score} | 耗时: {node.estimated_duration_minutes}分钟
                             </Text>
                           </Space>
                         </Card>
@@ -412,38 +487,32 @@ const MultiStepReasoningPage: React.FC = () => {
           {/* 系统监控 */}
           <Card title="系统监控">
             {systemMetrics ? (
-              <Row gutter={16}>
-                <Col span={12}>
-                  <Statistic
-                    title="活跃工作器"
-                    value={systemMetrics.active_workers}
-                    prefix={<SettingOutlined />}
-                  />
-                </Col>
-                <Col span={12}>
-                  <Statistic
-                    title="队列任务"
-                    value={systemMetrics.queue_depth}
-                    prefix={<ClockCircleOutlined />}
-                  />
-                </Col>
-                <Col span={12}>
-                  <Statistic
-                    title="平均等待"
-                    value={systemMetrics.average_wait_time}
-                    suffix="s"
-                    precision={1}
-                  />
-                </Col>
-                <Col span={12}>
-                  <Statistic
-                    title="成功率"
-                    value={systemMetrics.success_rate * 100}
-                    suffix="%"
-                    precision={0}
-                  />
-                </Col>
-              </Row>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="rounded border bg-white p-4">
+                  <div className="flex items-center gap-2 text-gray-600">
+                    <SettingOutlined />
+                    活跃工作器
+                  </div>
+                  <div className="text-2xl font-semibold">{systemMetrics.active_workers}</div>
+                </div>
+                <div className="rounded border bg-white p-4">
+                  <div className="flex items-center gap-2 text-gray-600">
+                    <ClockCircleOutlined />
+                    队列任务
+                  </div>
+                  <div className="text-2xl font-semibold">{systemMetrics.queue_depth}</div>
+                </div>
+                <div className="rounded border bg-white p-4">
+                  <div className="text-gray-600">平均等待</div>
+                  <div className="text-2xl font-semibold">{systemMetrics.average_wait_time.toFixed(1)}s</div>
+                </div>
+                <div className="rounded border bg-white p-4">
+                  <div className="text-gray-600">成功率</div>
+                  <div className="text-2xl font-semibold">
+                    {Math.round(systemMetrics.success_rate * 100)}%
+                  </div>
+                </div>
+              </div>
             ) : (
               <Spin size="large" style={{ display: 'block', textAlign: 'center' }} />
             )}
@@ -456,7 +525,7 @@ const MultiStepReasoningPage: React.FC = () => {
         <Alert
           message="错误"
           description={error}
-          variant="destructive"
+          type="error"
           showIcon
           closable
           onClose={() => setError(null)}
@@ -486,9 +555,42 @@ const MultiStepReasoningPage: React.FC = () => {
             </TabPane>
             <TabPane tab="格式化输出" key="formats">
               <Space>
-                <Button icon={<DownloadOutlined />}>下载 JSON</Button>
-                <Button icon={<DownloadOutlined />}>下载 XML</Button>
-                <Button icon={<DownloadOutlined />}>下载 Markdown</Button>
+                <Button
+                  icon={<DownloadOutlined />}
+                  onClick={() =>
+                    download(
+                      'execution.json',
+                      JSON.stringify(currentExecution, null, 2),
+                      'application/json'
+                    )
+                  }
+                >
+                  下载 JSON
+                </Button>
+                <Button
+                  icon={<DownloadOutlined />}
+                  onClick={() =>
+                    download(
+                      'execution.xml',
+                      `<execution><![CDATA[${JSON.stringify(currentExecution, null, 2)}]]></execution>`,
+                      'application/xml'
+                    )
+                  }
+                >
+                  下载 XML
+                </Button>
+                <Button
+                  icon={<DownloadOutlined />}
+                  onClick={() =>
+                    download(
+                      'execution.md',
+                      '```json\\n' + JSON.stringify(currentExecution, null, 2) + '\\n```\\n',
+                      'text/markdown'
+                    )
+                  }
+                >
+                  下载 Markdown
+                </Button>
               </Space>
             </TabPane>
           </Tabs>

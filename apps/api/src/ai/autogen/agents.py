@@ -2,6 +2,7 @@
 AutoGen 0.7.x 智能体实现
 使用新版本的autogen-agentchat API
 """
+
 import asyncio
 from typing import Dict, List, Optional, Any, Union
 from autogen_agentchat.agents import AssistantAgent, BaseChatAgent
@@ -9,14 +10,12 @@ from autogen_agentchat.messages import TextMessage
 from autogen_core.models import ChatCompletionClient
 from autogen_core import CancellationToken
 from autogen_ext.models.openai import OpenAIChatCompletionClient
-import structlog
-
 from src.ai.openai_client import get_openai_client
 from src.core.config import get_settings
 from .config import AgentConfig, AgentRole, AGENT_CONFIGS
 
-logger = structlog.get_logger(__name__)
-
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 class BaseAutoGenAgent:
     """AutoGen智能体基类封装"""
@@ -268,7 +267,9 @@ class BaseAutoGenAgent:
     
     async def execute_task(self, task_description: str, task_type: str, input_data: Dict[str, Any]) -> Dict[str, Any]:
         """执行任务的统一接口 - 基类默认实现"""
+        import time
         try:
+            start = time.perf_counter()
             # 构造执行提示
             prompt = f"""
 任务类型: {task_type}
@@ -286,7 +287,7 @@ class BaseAutoGenAgent:
                 "result": response,
                 "agent_name": self.config.name,
                 "task_type": task_type,
-                "execution_time": 0  # TODO: 实现真实的执行时间统计
+                "execution_time": round(time.perf_counter() - start, 6)
             }
             
         except Exception as e:
@@ -297,7 +298,6 @@ class BaseAutoGenAgent:
                 "agent_name": self.config.name,
                 "task_type": task_type
             }
-
 
 class CodeExpertAgent(BaseAutoGenAgent):
     """代码专家智能体"""
@@ -372,7 +372,6 @@ class CodeExpertAgent(BaseAutoGenAgent):
             "analysis": response
         }
 
-
 class ArchitectAgent(BaseAutoGenAgent):
     """架构师智能体"""
     
@@ -424,7 +423,6 @@ class ArchitectAgent(BaseAutoGenAgent):
             "design": response
         }
 
-
 class DocExpertAgent(BaseAutoGenAgent):
     """文档专家智能体"""
     
@@ -451,7 +449,6 @@ class DocExpertAgent(BaseAutoGenAgent):
             "content_length": len(content),
             "documentation": response
         }
-
 
 class SupervisorAgent(BaseAutoGenAgent):
     """任务调度器智能体"""
@@ -482,7 +479,6 @@ class SupervisorAgent(BaseAutoGenAgent):
             "task_length": len(task),
             "plan": response
         }
-
 
 class KnowledgeRetrievalExpertAgent(BaseAutoGenAgent):
     """知识检索专家智能体"""
@@ -562,7 +558,6 @@ class KnowledgeRetrievalExpertAgent(BaseAutoGenAgent):
             "answer": response
         }
 
-
 def create_agent_from_config(config: AgentConfig) -> BaseAutoGenAgent:
     """根据配置创建智能体实例"""
     agent_classes = {
@@ -571,6 +566,11 @@ def create_agent_from_config(config: AgentConfig) -> BaseAutoGenAgent:
         AgentRole.DOC_EXPERT: DocExpertAgent,
         AgentRole.SUPERVISOR: SupervisorAgent,
         AgentRole.KNOWLEDGE_RETRIEVAL: KnowledgeRetrievalExpertAgent,
+        AgentRole.ASSISTANT: BaseAutoGenAgent,
+        AgentRole.CRITIC: BaseAutoGenAgent,
+        AgentRole.CODER: BaseAutoGenAgent,
+        AgentRole.PLANNER: BaseAutoGenAgent,
+        AgentRole.EXECUTOR: BaseAutoGenAgent,
     }
     
     agent_class = agent_classes.get(config.role)
@@ -578,7 +578,6 @@ def create_agent_from_config(config: AgentConfig) -> BaseAutoGenAgent:
         raise ValueError(f"不支持的智能体角色: {config.role}")
     
     return agent_class(config)
-
 
 def create_default_agents() -> List[BaseAutoGenAgent]:
     """创建默认的智能体集合"""

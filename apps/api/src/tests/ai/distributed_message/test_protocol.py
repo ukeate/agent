@@ -4,10 +4,8 @@
 
 import pytest
 from datetime import datetime
-
 from src.ai.distributed_message.protocol import MessageProtocol
 from src.ai.distributed_message.models import MessageHeader, MessagePriority, DeliveryMode
-
 
 class TestMessageProtocol:
     """消息协议测试"""

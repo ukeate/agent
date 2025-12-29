@@ -4,12 +4,13 @@ import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Alert } from '../components/ui/alert';
 import { Badge } from '../components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/Tabs';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
 import { banditRecommendationService } from '../services/banditRecommendationService';
 import RecommendationEngineMonitor from '../components/bandit/RecommendationEngineMonitor';
 import AlgorithmVisualization from '../components/bandit/AlgorithmVisualization';
 import AlgorithmTester from '../components/bandit/AlgorithmTester';
 
+import { logger } from '../utils/logger'
 interface Recommendation {
   item_id: string;
   score: number;
@@ -193,7 +194,7 @@ const BanditRecommendationPage: React.FC = () => {
       const response = await banditRecommendationService.getAlgorithms();
       setAlgorithms(response.algorithms);
     } catch (err: any) {
-      console.error('加载算法列表失败:', err);
+      logger.error('加载算法列表失败:', err);
     }
   };
 
@@ -207,7 +208,7 @@ const BanditRecommendationPage: React.FC = () => {
           await loadAlgorithms();
         }
       } catch (err) {
-        console.error('健康检查失败:', err);
+        logger.error('健康检查失败:', err);
       }
     };
 
@@ -260,6 +261,7 @@ const BanditRecommendationPage: React.FC = () => {
                   <label className="block text-sm font-medium mb-1">物品数量</label>
                   <Input
                     type="number"
+                    name="nItems"
                     value={nItems}
                     onChange={(e) => setNItems(Number(e.target.value))}
                     min="10"
@@ -273,6 +275,7 @@ const BanditRecommendationPage: React.FC = () => {
                   <input
                     type="checkbox"
                     id="coldStart"
+                    name="coldStart"
                     checked={enableColdStart}
                     onChange={(e) => setEnableColdStart(e.target.checked)}
                     className="rounded"
@@ -286,6 +289,7 @@ const BanditRecommendationPage: React.FC = () => {
                   <input
                     type="checkbox"
                     id="evaluation"
+                    name="evaluation"
                     checked={enableEvaluation}
                     onChange={(e) => setEnableEvaluation(e.target.checked)}
                     className="rounded"
@@ -335,6 +339,7 @@ const BanditRecommendationPage: React.FC = () => {
                 <div>
                   <label className="block text-sm font-medium mb-1">用户ID</label>
                   <Input
+                    name="userId"
                     value={userId}
                     onChange={(e) => setUserId(e.target.value)}
                     placeholder="输入用户ID"
@@ -346,6 +351,7 @@ const BanditRecommendationPage: React.FC = () => {
                   <label className="block text-sm font-medium mb-1">推荐数量</label>
                   <Input
                     type="number"
+                    name="numRecommendations"
                     value={numRecommendations}
                     onChange={(e) => setNumRecommendations(Number(e.target.value))}
                     min="1"
@@ -359,6 +365,7 @@ const BanditRecommendationPage: React.FC = () => {
                     用户上下文 (JSON格式)
                   </label>
                   <textarea
+                    name="context"
                     value={context}
                     onChange={(e) => setContext(e.target.value)}
                     placeholder='{"age": 25, "location": "Beijing", "interests": ["tech", "sports"]}'
@@ -374,6 +381,7 @@ const BanditRecommendationPage: React.FC = () => {
                   <input
                     type="checkbox"
                     id="explanations"
+                    name="explanations"
                     checked={includeExplanations}
                     onChange={(e) => setIncludeExplanations(e.target.checked)}
                     className="rounded"
@@ -483,6 +491,7 @@ const BanditRecommendationPage: React.FC = () => {
                 <div>
                   <label className="block text-sm font-medium mb-1">用户ID</label>
                   <Input
+                    name="feedbackUserId"
                     value={feedbackUserId}
                     onChange={(e) => setFeedbackUserId(e.target.value)}
                     placeholder="输入用户ID"
@@ -492,6 +501,7 @@ const BanditRecommendationPage: React.FC = () => {
                 <div>
                   <label className="block text-sm font-medium mb-1">物品ID</label>
                   <Input
+                    name="feedbackItemId"
                     value={feedbackItemId}
                     onChange={(e) => setFeedbackItemId(e.target.value)}
                     placeholder="输入物品ID"
@@ -501,6 +511,7 @@ const BanditRecommendationPage: React.FC = () => {
                 <div>
                   <label className="block text-sm font-medium mb-1">反馈类型</label>
                   <select
+                    name="feedbackType"
                     value={feedbackType}
                     onChange={(e) => setFeedbackType(e.target.value)}
                     className="w-full p-2 border border-gray-300 rounded-md"
@@ -518,6 +529,7 @@ const BanditRecommendationPage: React.FC = () => {
                   <label className="block text-sm font-medium mb-1">反馈值 (0-5)</label>
                   <Input
                     type="number"
+                    name="feedbackValue"
                     value={feedbackValue}
                     onChange={(e) => setFeedbackValue(Number(e.target.value))}
                     min="0"
@@ -689,7 +701,7 @@ const BanditRecommendationPage: React.FC = () => {
                 {/* 算法测试工具 */}
                 <AlgorithmTester 
                   onTestComplete={(results) => {
-                    console.log('测试完成:', results);
+                    logger.log('测试完成:', results);
                     // 测试完成后刷新统计数据
                     handleGetStats();
                   }}

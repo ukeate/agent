@@ -1,14 +1,16 @@
 """
 告警规则API端点
 """
+
 from fastapi import APIRouter, HTTPException, Query, BackgroundTasks
 from typing import Dict, Any, List, Optional
-from pydantic import BaseModel, Field
+from pydantic import Field
 from datetime import datetime
 from src.core.utils.timezone_utils import utc_now, utc_factory
-
-from ...services.alert_rules_service import (
+from src.services.alert_rules_service import (
     AlertRulesEngine,
+    AlertRule,
+    AlertCondition,
     AlertRule,
     AlertCondition,
     Alert,
@@ -20,14 +22,12 @@ from ...services.alert_rules_service import (
     AlertRuleTemplates
 )
 
-
 router = APIRouter(prefix="/alert-rules", tags=["Alert Rules"])
 
 # 服务实例
 alert_engine = AlertRulesEngine()
 
-
-class CreateRuleRequest(BaseModel):
+class CreateRuleRequest(ApiBaseModel):
     """创建规则请求"""
     id: str = Field(..., description="规则ID")
     name: str = Field(..., description="规则名称")
@@ -42,8 +42,7 @@ class CreateRuleRequest(BaseModel):
     cooldown_minutes: int = Field(5, ge=1, description="冷却时间(分钟)")
     max_alerts_per_hour: int = Field(10, ge=1, description="每小时最大告警数")
 
-
-class UpdateRuleRequest(BaseModel):
+class UpdateRuleRequest(ApiBaseModel):
     """更新规则请求"""
     name: Optional[str] = Field(None, description="规则名称")
     description: Optional[str] = Field(None, description="规则描述")
@@ -55,26 +54,22 @@ class UpdateRuleRequest(BaseModel):
     cooldown_minutes: Optional[int] = Field(None, ge=1, description="冷却时间")
     max_alerts_per_hour: Optional[int] = Field(None, ge=1, description="每小时最大告警数")
 
-
-class EvaluateRequest(BaseModel):
+class EvaluateRequest(ApiBaseModel):
     """评估请求"""
     data: Dict[str, Any] = Field(..., description="要评估的数据")
     rule_ids: Optional[List[str]] = Field(None, description="指定规则ID列表")
 
-
-class CreateTemplateRuleRequest(BaseModel):
+class CreateTemplateRuleRequest(ApiBaseModel):
     """从模板创建规则请求"""
     template_type: str = Field(..., description="模板类型")
     metric_name: Optional[str] = Field(None, description="指标名称")
     experiment_id: Optional[str] = Field(None, description="实验ID")
     threshold: Optional[float] = Field(None, description="阈值")
 
-
-class NotificationConfigRequest(BaseModel):
+class NotificationConfigRequest(ApiBaseModel):
     """通知配置请求"""
     channel: AlertChannel = Field(..., description="通知渠道")
     config: Dict[str, Any] = Field(..., description="渠道配置")
-
 
 @router.post("/rules")
 async def create_rule(request: CreateRuleRequest) -> Dict[str, Any]:
@@ -87,6 +82,8 @@ async def create_rule(request: CreateRuleRequest) -> Dict[str, Any]:
         # 构建条件列表
         conditions = []
         for cond_dict in request.conditions:
+            if "field" not in cond_dict or "operator" not in cond_dict or "value" not in cond_dict:
+                raise HTTPException(status_code=422, detail="conditions中每项必须包含field/operator/value")
             condition = AlertCondition(
                 field=cond_dict["field"],
                 operator=RuleOperator(cond_dict["operator"]),
@@ -124,10 +121,12 @@ async def create_rule(request: CreateRuleRequest) -> Dict[str, Any]:
                 "conditions_count": len(rule.conditions)
             }
         }
-        
+    except HTTPException:
+        raise
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-
 
 @router.put("/rules/{rule_id}")
 async def update_rule(rule_id: str, request: UpdateRuleRequest) -> Dict[str, Any]:
@@ -137,12 +136,14 @@ async def update_rule(rule_id: str, request: UpdateRuleRequest) -> Dict[str, Any
     修改现有规则的配置
     """
     try:
-        updates = request.dict(exclude_unset=True)
+        updates = request.model_dump(exclude_unset=True)
         
         # 如果更新条件，需要转换格式
         if "conditions" in updates:
             conditions = []
             for cond_dict in updates["conditions"]:
+                if "field" not in cond_dict or "operator" not in cond_dict or "value" not in cond_dict:
+                    raise HTTPException(status_code=422, detail="conditions中每项必须包含field/operator/value")
                 condition = AlertCondition(
                     field=cond_dict["field"],
                     operator=RuleOperator(cond_dict["operator"]),
@@ -167,7 +168,6 @@ async def update_rule(rule_id: str, request: UpdateRuleRequest) -> Dict[str, Any
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-
 @router.delete("/rules/{rule_id}")
 async def delete_rule(rule_id: str) -> Dict[str, Any]:
     """
@@ -188,7 +188,6 @@ async def delete_rule(rule_id: str) -> Dict[str, Any]:
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-
 
 @router.get("/rules")
 async def list_rules(
@@ -232,7 +231,6 @@ async def list_rules(
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-
 
 @router.get("/rules/{rule_id}")
 async def get_rule(rule_id: str) -> Dict[str, Any]:
@@ -279,7 +277,6 @@ async def get_rule(rule_id: str) -> Dict[str, Any]:
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-
 @router.post("/evaluate")
 async def evaluate_rules(request: EvaluateRequest) -> Dict[str, Any]:
     """
@@ -309,7 +306,6 @@ async def evaluate_rules(request: EvaluateRequest) -> Dict[str, Any]:
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-
 
 @router.post("/templates")
 async def create_from_template(request: CreateTemplateRuleRequest) -> Dict[str, Any]:
@@ -359,7 +355,6 @@ async def create_from_template(request: CreateTemplateRuleRequest) -> Dict[str, 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-
 @router.get("/templates")
 async def list_templates() -> Dict[str, Any]:
     """
@@ -396,7 +391,6 @@ async def list_templates() -> Dict[str, Any]:
         "success": True,
         "templates": templates
     }
-
 
 @router.get("/alerts")
 async def list_alerts(
@@ -443,7 +437,6 @@ async def list_alerts(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-
 @router.post("/alerts/{alert_id}/acknowledge")
 async def acknowledge_alert(alert_id: str, user_id: str = Query(..., description="用户ID")) -> Dict[str, Any]:
     """
@@ -464,7 +457,6 @@ async def acknowledge_alert(alert_id: str, user_id: str = Query(..., description
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-
 
 @router.post("/alerts/{alert_id}/resolve")
 async def resolve_alert(alert_id: str) -> Dict[str, Any]:
@@ -487,7 +479,6 @@ async def resolve_alert(alert_id: str) -> Dict[str, Any]:
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-
 @router.get("/statistics")
 async def get_statistics(
     start_time: Optional[datetime] = Query(None, description="开始时间"),
@@ -506,7 +497,6 @@ async def get_statistics(
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-
 
 @router.post("/test")
 async def test_rule(rule_id: str, test_data: Dict[str, Any] = {}) -> Dict[str, Any]:
@@ -548,7 +538,6 @@ async def test_rule(rule_id: str, test_data: Dict[str, Any] = {}) -> Dict[str, A
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-
 
 @router.get("/health")
 async def health_check() -> Dict[str, Any]:

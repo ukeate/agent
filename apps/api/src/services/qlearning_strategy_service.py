@@ -13,13 +13,12 @@ from datetime import timedelta
 from src.core.utils.timezone_utils import utc_now, utc_factory
 import json
 from pathlib import Path
-
 from .qlearning_service import QLearningService, QLearningAgentSession
 from ..ai.reinforcement_learning.qlearning import QLearningAgent
 from ..core.logging import get_logger
 
+from src.core.logging import get_logger
 logger = get_logger(__name__)
-
 
 @dataclass
 class StrategyInferenceRequest:
@@ -30,7 +29,6 @@ class StrategyInferenceRequest:
     evaluation_mode: bool = True
     return_q_values: bool = True
     return_confidence: bool = True
-
 
 @dataclass
 class StrategyInferenceResponse:
@@ -44,7 +42,6 @@ class StrategyInferenceResponse:
     inference_time_ms: float = 0.0
     timestamp: datetime = None
 
-
 @dataclass
 class BatchInferenceRequest:
     """批量推理请求"""
@@ -52,7 +49,6 @@ class BatchInferenceRequest:
     states: List[List[float]]
     evaluation_mode: bool = True
     return_details: bool = False
-
 
 @dataclass
 class BatchInferenceResponse:
@@ -63,7 +59,6 @@ class BatchInferenceResponse:
     average_inference_time_ms: float
     details: Optional[List[StrategyInferenceResponse]] = None
 
-
 @dataclass
 class StrategyComparison:
     """策略比较结果"""
@@ -72,7 +67,6 @@ class StrategyComparison:
     recommendations: List[Dict[str, Any]]
     best_agent_id: str
     comparison_metrics: Dict[str, Any]
-
 
 class QLearningStrategyService:
     """Q-Learning策略推理服务"""
@@ -87,7 +81,7 @@ class QLearningStrategyService:
     
     async def single_inference(self, request: StrategyInferenceRequest) -> StrategyInferenceResponse:
         """单个状态推理"""
-        start_time = asyncio.get_event_loop().time()
+        start_time = asyncio.get_running_loop().time()
         
         try:
             # 检查智能体是否存在
@@ -112,9 +106,13 @@ class QLearningStrategyService:
             q_values = None
             if hasattr(agent, 'get_q_values'):
                 q_values = agent.get_q_values(state_array)
+                q_values = self._q_values_to_array(agent, q_values)
             elif hasattr(agent, 'q_table') and hasattr(agent, '_state_to_key'):
                 # 经典Q-Learning智能体
-                state_key = agent._state_to_key(state_array)
+                if hasattr(agent, "_normalize_state"):
+                    state_key = agent._state_to_key(agent._normalize_state(state_array))
+                else:
+                    state_key = agent._state_to_key(state_array)
                 if state_key in agent.q_table:
                     q_values = np.array([
                         agent.q_table[state_key].get(a, 0.0) 
@@ -159,7 +157,7 @@ class QLearningStrategyService:
                     action_name = action_names[action]
             
             # 计算推理时间
-            end_time = asyncio.get_event_loop().time()
+            end_time = asyncio.get_running_loop().time()
             inference_time_ms = (end_time - start_time) * 1000
             
             # 创建响应
@@ -190,7 +188,7 @@ class QLearningStrategyService:
     
     async def batch_inference(self, request: BatchInferenceRequest) -> BatchInferenceResponse:
         """批量状态推理"""
-        start_time = asyncio.get_event_loop().time()
+        start_time = asyncio.get_running_loop().time()
         
         try:
             actions = []
@@ -213,7 +211,7 @@ class QLearningStrategyService:
                     details.append(response)
             
             # 计算总时间和平均时间
-            end_time = asyncio.get_event_loop().time()
+            end_time = asyncio.get_running_loop().time()
             total_time_ms = (end_time - start_time) * 1000
             average_time_ms = total_time_ms / len(request.states) if request.states else 0.0
             
@@ -433,6 +431,14 @@ class QLearningStrategyService:
                 key=lambda k: self.inference_cache[k]["timestamp"]
             )
             del self.inference_cache[oldest_key]
+
+    def _q_values_to_array(self, agent: QLearningAgent, q_values: Any) -> np.ndarray:
+        if isinstance(q_values, dict):
+            action_space = getattr(agent, "action_space", None)
+            if action_space:
+                return np.array([q_values.get(action, 0.0) for action in action_space], dtype=float)
+            return np.array([q_values.get(str(i), 0.0) for i in range(agent.action_size)], dtype=float)
+        return np.array(q_values, dtype=float)
     
     def _record_performance_metrics(self, agent_id: str, inference_time_ms: float):
         """记录性能指标"""
@@ -562,7 +568,7 @@ class QLearningStrategyService:
             ]
             
             # 批量预热推理
-            start_time = asyncio.get_event_loop().time()
+            start_time = asyncio.get_running_loop().time()
             
             batch_request = BatchInferenceRequest(
                 agent_id=agent_id,
@@ -573,7 +579,7 @@ class QLearningStrategyService:
             
             await self.batch_inference(batch_request)
             
-            end_time = asyncio.get_event_loop().time()
+            end_time = asyncio.get_running_loop().time()
             warmup_time = (end_time - start_time) * 1000
             
             logger.info(f"智能体预热完成: {agent_id}, 用时: {warmup_time:.2f}ms")

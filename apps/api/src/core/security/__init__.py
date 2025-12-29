@@ -34,7 +34,6 @@ from src.core.security.mcp_security import (
 )
 from src.core.security.middleware import (
     CompressionMiddleware,
-    RateLimitMiddleware,
     SecureHeadersMiddleware,
     SecurityMiddleware,
     setup_security_middleware,
@@ -46,6 +45,7 @@ from src.core.security.monitoring import (
     SecurityMonitor,
     ThreatLevel,
     security_monitor,
+
 )
 
 __all__ = [
@@ -81,7 +81,6 @@ __all__ = [
     "mcp_security_manager",
     # Middleware
     "CompressionMiddleware",
-    "RateLimitMiddleware",
     "SecureHeadersMiddleware",
     "SecurityMiddleware",
     "setup_security_middleware",

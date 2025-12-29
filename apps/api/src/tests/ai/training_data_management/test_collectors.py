@@ -8,7 +8,6 @@ import json
 import asyncio
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
-
 from src.ai.training_data_management.models import DataSource
 from src.ai.training_data_management.collectors import (
     FileDataCollector, 
@@ -16,7 +15,6 @@ from src.ai.training_data_management.collectors import (
     WebDataCollector,
     CollectorFactory
 )
-
 
 class TestFileDataCollector:
     """文件数据收集器测试"""
@@ -175,8 +173,9 @@ class TestFileDataCollector:
         collector = FileDataCollector(file_source)
         
         with pytest.raises(FileNotFoundError):
+            collected = []
             async for _ in collector.collect_data():
-                pass
+                collected.append(_)
     
     @pytest.mark.asyncio
     async def test_invalid_json(self, file_source):
@@ -207,7 +206,6 @@ class TestFileDataCollector:
             
         finally:
             Path(temp_file).unlink(missing_ok=True)
-
 
 class TestAPIDataCollector:
     """API数据收集器测试"""
@@ -309,7 +307,6 @@ class TestAPIDataCollector:
             assert len(collected_records) == 3
             assert all(record.source_id == api_source.source_id for record in collected_records)
 
-
 class TestWebDataCollector:
     """网页数据收集器测试"""
     
@@ -391,7 +388,6 @@ class TestWebDataCollector:
             # 404错误应该跳过，但不应该中断其他URL的处理
             # 由于都是404，应该返回空列表
             assert len(collected_records) == 0
-
 
 class TestCollectorFactory:
     """收集器工厂测试"""

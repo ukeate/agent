@@ -1,11 +1,10 @@
 """智能任务分配器实现"""
 
-import logging
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Any, Set
-
 from .models import Task, TaskStatus, TaskPriority
-
+from src.ai.service_discovery.core import AgentStatus
+from src.core.utils.timezone_utils import utc_now
 
 class IntelligentAssigner:
     """智能分配器"""
@@ -13,7 +12,7 @@ class IntelligentAssigner:
     def __init__(self, service_registry=None, load_balancer=None):
         self.service_registry = service_registry
         self.load_balancer = load_balancer
-        self.logger = logging.getLogger(__name__)
+        self.logger = get_logger(__name__)
         
         # 分配策略
         self.assignment_strategies = {
@@ -106,7 +105,7 @@ class IntelligentAssigner:
                     failed_agent = previous_agents[-1]
                     if failed_agent not in self.agent_failures:
                         self.agent_failures[failed_agent] = []
-                    self.agent_failures[failed_agent].append(datetime.now())
+                    self.agent_failures[failed_agent].append(utc_now())
                 
                 # 使用load_balanced策略避免过载的智能体
                 return await self.assign_task(task, "load_balanced", constraints)
@@ -128,14 +127,13 @@ class IntelligentAssigner:
     ) -> List[Any]:
         """查找候选智能体"""
         
-        # 如果没有服务注册中心，使用模拟数据
         if not self.service_registry:
-            return await self._get_mock_agents(task, constraints)
+            raise RuntimeError("未接入服务注册中心，无法发现可用智能体")
         
         # 基本能力匹配
         capable_agents = await self.service_registry.discover_agents(
             capability=task.task_type,
-            status="active"
+            status=AgentStatus.ACTIVE
         )
         
         if not capable_agents:
@@ -157,42 +155,6 @@ class IntelligentAssigner:
         capable_agents = await self._filter_unreliable_agents(capable_agents)
         
         return capable_agents
-    
-    async def _get_mock_agents(self, task: Task, constraints: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
-        """获取模拟智能体（用于测试）"""
-        
-        mock_agents = [
-            {
-                "agent_id": "agent_1",
-                "capabilities": [{"name": task.task_type, "performance_metrics": {"accuracy": 0.95, "throughput": 10.0, "avg_latency": 0.5}}],
-                "resources": {"cpu_usage": 0.3, "memory_total": 8192, "memory_used": 2048, "gpu_available": True},
-                "tags": ["fast", "reliable"],
-                "version": "1.0.0",
-                "location": {"region": "us-east", "datacenter": "dc1"}
-            },
-            {
-                "agent_id": "agent_2",
-                "capabilities": [{"name": task.task_type, "performance_metrics": {"accuracy": 0.85, "throughput": 8.0, "avg_latency": 0.8}}],
-                "resources": {"cpu_usage": 0.5, "memory_total": 4096, "memory_used": 2048, "gpu_available": False},
-                "tags": ["stable"],
-                "version": "1.0.0",
-                "location": {"region": "us-west", "datacenter": "dc2"}
-            },
-            {
-                "agent_id": "agent_3",
-                "capabilities": [{"name": task.task_type, "performance_metrics": {"accuracy": 0.90, "throughput": 12.0, "avg_latency": 0.3}}],
-                "resources": {"cpu_usage": 0.2, "memory_total": 16384, "memory_used": 4096, "gpu_available": True},
-                "tags": ["high-performance", "expensive"],
-                "version": "2.0.0",
-                "location": {"region": "us-east", "datacenter": "dc1"}
-            }
-        ]
-        
-        # 应用约束
-        if constraints and "excluded_agents" in constraints:
-            mock_agents = [a for a in mock_agents if a["agent_id"] not in constraints["excluded_agents"]]
-        
-        return mock_agents
     
     async def _apply_constraints(
         self, 
@@ -341,7 +303,7 @@ class IntelligentAssigner:
             if agent_id in self.agent_failures:
                 recent_failures = [
                     f for f in self.agent_failures[agent_id]
-                    if datetime.now() - f < time_window
+                    if utc_now() - f < time_window
                 ]
                 
                 if len(recent_failures) >= failure_threshold:
@@ -435,7 +397,7 @@ class IntelligentAssigner:
             return await self._capability_based_assignment(task, candidates)
         
         deadline_dt = datetime.fromisoformat(deadline) if isinstance(deadline, str) else deadline
-        time_remaining = (deadline_dt - datetime.now()).total_seconds()
+        time_remaining = (deadline_dt - utc_now()).total_seconds()
         
         best_agent = None
         best_completion_time = float('inf')
@@ -850,3 +812,4 @@ class IntelligentAssigner:
         
         if agent_id in self.agent_load:
             self.agent_load[agent_id] = max(0, self.agent_load[agent_id] - 1)
+from src.core.logging import get_logger

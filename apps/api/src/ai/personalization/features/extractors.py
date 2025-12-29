@@ -4,11 +4,10 @@ from datetime import datetime
 from datetime import timedelta
 from src.core.utils.timezone_utils import utc_now, utc_factory
 import numpy as np
-import logging
 from collections import Counter
 
-logger = logging.getLogger(__name__)
-
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 class FeatureExtractor:
     """特征提取器基类"""
@@ -255,7 +254,6 @@ class FeatureExtractor:
         """
         setattr(self, f"_extract_{name}_features", extractor_func)
         logger.info(f"注册自定义特征提取器: {name}")
-
 
 class SequentialFeatureExtractor(FeatureExtractor):
     """序列特征提取器"""

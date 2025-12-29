@@ -9,6 +9,7 @@
  */
 
 import React, { useState } from 'react';
+import { pgvectorApi } from '../../services/pgvectorApi';
 import {
   Card,
   Row,
@@ -62,7 +63,7 @@ interface SearchStats {
 }
 
 const HybridSearchPanel: React.FC = () => {
-  const [searchMode, setSearchMode] = useState<'semantic' | 'keyword' | 'hybrid'>('hybrid');
+  const [searchMode, setSearchMode] = useState<'pg_only' | 'qdrant_only' | 'hybrid'>('hybrid');
   const [query, setQuery] = useState('');
   const [semanticWeight, setSemanticWeight] = useState(0.7);
   const [enableExpansion, setEnableExpansion] = useState(true);
@@ -81,54 +82,26 @@ const HybridSearchPanel: React.FC = () => {
 
     setSearching(true);
     try {
-      // Mock search results
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
-      const mockResults: SearchResult[] = [
-        {
-          id: '1',
-          title: '深度学习在自然语言处理中的应用',
-          content: '深度学习技术在NLP领域取得了重大突破，特别是在文本分类、语义理解等方面...',
-          semantic_score: 0.92,
-          keyword_score: 0.78,
-          final_score: 0.87,
-          rank: 1,
-          source: 'hybrid'
-        },
-        {
-          id: '2',
-          title: 'Transformer架构详解',
-          content: 'Transformer模型革命性地改变了自然语言处理领域，其自注意力机制...',
-          semantic_score: 0.89,
-          keyword_score: 0.65,
-          final_score: 0.82,
-          rank: 2,
-          source: 'semantic'
-        },
-        {
-          id: '3',
-          title: '向量数据库在AI系统中的作用',
-          content: '向量数据库为AI应用提供了高效的相似度搜索能力，支持大规模向量检索...',
-          semantic_score: 0.85,
-          keyword_score: 0.88,
-          final_score: 0.86,
-          rank: 3,
-          source: 'keyword'
-        }
-      ];
-
-      const mockStats: SearchStats = {
-        total_time_ms: 127,
-        semantic_time_ms: 45,
-        keyword_time_ms: 32,
-        fusion_time_ms: 12,
-        total_candidates: 156,
-        semantic_candidates: 89,
-        keyword_candidates: 67
-      };
-
-      setResults(mockResults);
-      setSearchStats(mockStats);
+      const { results, metrics } = await pgvectorApi.hybridSearch({
+        query,
+        top_k: 10,
+        pg_weight: semanticWeight,
+        qdrant_weight: 1 - semanticWeight,
+        use_cache: true,
+        quantize: true,
+        search_mode: searchMode
+      });
+      setResults(results.map((r: any, idx: number) => ({
+        id: r.id || String(idx + 1),
+        title: r.content?.slice(0, 50) || '无标题',
+        content: r.content || '',
+        semantic_score: r.vector_distance ? 1 / (1 + r.vector_distance) : 0,
+        keyword_score: r.text_score || 0,
+        final_score: r.combined_score || 0,
+        rank: idx + 1,
+        source: r.sources?.includes('qdrant') ? 'hybrid' : 'semantic'
+      })));
+      setSearchStats(metrics);
       message.success('搜索完成');
     } catch (error) {
       message.error('搜索失败');
@@ -157,10 +130,10 @@ const HybridSearchPanel: React.FC = () => {
             onChange={(e) => setSearchMode(e.target.value)}
             style={{ marginTop: 8 }}
           >
-            <Radio.Button value="semantic">
+            <Radio.Button value="pg_only">
               <ThunderboltOutlined /> 语义搜索
             </Radio.Button>
-            <Radio.Button value="keyword">
+            <Radio.Button value="qdrant_only">
               <FileTextOutlined /> 关键词
             </Radio.Button>
             <Radio.Button value="hybrid">

@@ -8,7 +8,6 @@ import numpy as np
 from typing import Dict, List, Any, Union
 from .base import RewardFunction, RewardConfig, RewardType
 
-
 class WeightedReward(RewardFunction):
     """加权奖励函数"""
     
@@ -78,7 +77,6 @@ class WeightedReward(RewardFunction):
         
         return dimension_rewards
 
-
 class ProductReward(RewardFunction):
     """乘积奖励函数"""
     
@@ -116,7 +114,6 @@ class ProductReward(RewardFunction):
         self.update_metrics(reward)
         
         return reward
-
 
 class PiecewiseReward(RewardFunction):
     """分段奖励函数"""
@@ -200,7 +197,6 @@ class PiecewiseReward(RewardFunction):
         
         return False
 
-
 class MultiObjectiveReward(RewardFunction):
     """多目标奖励函数"""
     
@@ -277,7 +273,6 @@ class MultiObjectiveReward(RewardFunction):
             dimension_rewards[name] = objective_func.compute_reward(state, action, next_state, done, info)
         
         return dimension_rewards
-
 
 class HierarchicalReward(RewardFunction):
     """层次化奖励函数"""

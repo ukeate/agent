@@ -2,7 +2,7 @@
 模型压缩和量化工具模块
 
 提供完整的模型压缩功能:
-- 量化引擎：支持PTQ、QAT、GPTQ、AWQ等量化算法
+- 量化引擎：支持PTQ、QAT量化算法
 - 知识蒸馏：实现Teacher-Student蒸馏和多种蒸馏策略
 - 模型剪枝：支持结构化和非结构化剪枝
 - 压缩评估：全面的性能评估和对比分析
@@ -32,7 +32,6 @@ from .models import (
     # 预定义策略
     DEFAULT_COMPRESSION_STRATEGIES,
 )
-
 from .quantization_engine import QuantizationEngine
 from .distillation_trainer import (
     DistillationTrainer,
@@ -50,9 +49,10 @@ from .compression_evaluator import (
 from .compression_pipeline import (
     CompressionPipeline,
     PipelineStatus,
-)
 
 # 版本信息
+)
+
 __version__ = "1.0.0"
 
 # 导出的主要类和函数
@@ -96,7 +96,6 @@ __all__ = [
     "get_supported_methods",
     "get_default_config",
 ]
-
 
 def create_compression_job(
     job_name: str,
@@ -153,7 +152,6 @@ def create_compression_job(
     
     return job
 
-
 def get_supported_methods() -> dict:
     """获取支持的压缩方法
     
@@ -164,7 +162,7 @@ def get_supported_methods() -> dict:
     return {
         "quantization": {
             "description": "模型量化压缩",
-            "methods": [method.value for method in QuantizationMethod],
+            "methods": [QuantizationMethod.PTQ.value, QuantizationMethod.QAT.value],
             "precisions": [precision.value for precision in PrecisionType],
         },
         "distillation": {
@@ -180,7 +178,6 @@ def get_supported_methods() -> dict:
             "combinations": ["quantization+pruning", "distillation+quantization", "all_methods"],
         }
     }
-
 
 def get_default_config(compression_method: CompressionMethod) -> dict:
     """获取默认配置
@@ -223,12 +220,10 @@ def get_default_config(compression_method: CompressionMethod) -> dict:
     else:
         return {}
 
-
 # 模块级别的便捷实例
 _quantization_engine = None
 _compression_evaluator = None
 _compression_pipeline = None
-
 
 def get_quantization_engine() -> QuantizationEngine:
     """获取全局量化引擎实例"""
@@ -237,7 +232,6 @@ def get_quantization_engine() -> QuantizationEngine:
         _quantization_engine = QuantizationEngine()
     return _quantization_engine
 
-
 def get_compression_evaluator() -> CompressionEvaluator:
     """获取全局压缩评估器实例"""
     global _compression_evaluator
@@ -245,14 +239,12 @@ def get_compression_evaluator() -> CompressionEvaluator:
         _compression_evaluator = CompressionEvaluator()
     return _compression_evaluator
 
-
 def get_compression_pipeline() -> CompressionPipeline:
     """获取全局压缩流水线实例"""
     global _compression_pipeline
     if _compression_pipeline is None:
         _compression_pipeline = CompressionPipeline()
     return _compression_pipeline
-
 
 # 模块信息
 MODEL_COMPRESSION_INFO = {

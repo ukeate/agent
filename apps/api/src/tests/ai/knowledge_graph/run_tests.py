@@ -1,16 +1,19 @@
+import sys
+import os
+import argparse
+import subprocess
+from pathlib import Path
+from src.core.logging import setup_logging
+
+from src.core.logging import get_logger
+logger = get_logger(__name__)
+
 #!/usr/bin/env python3
 """
 知识图谱测试运行脚本
 
 提供便捷的测试运行和报告生成功能
 """
-
-import sys
-import os
-import argparse
-import subprocess
-from pathlib import Path
-
 
 def run_tests(test_type="all", verbose=False, coverage=False, parallel=False):
     """运行测试"""
@@ -79,25 +82,24 @@ def run_tests(test_type="all", verbose=False, coverage=False, parallel=False):
         "--strict-config"
     ])
     
-    print(f"运行命令: {' '.join(cmd)}")
-    print(f"测试目录: {test_dir}")
-    print("=" * 60)
+    logger.info(f"运行命令: {' '.join(cmd)}")
+    logger.info(f"测试目录: {test_dir}")
+    logger.info("=" * 60)
     
     # 执行测试
     try:
         result = subprocess.run(cmd, cwd=test_dir.parent.parent.parent)
         return result.returncode
     except KeyboardInterrupt:
-        print("\n测试被用户中断")
+        logger.info("\n测试被用户中断")
         return 1
     except Exception as e:
-        print(f"运行测试时发生错误: {e}")
+        logger.error(f"运行测试时发生错误: {e}")
         return 1
-
 
 def generate_report():
     """生成测试报告"""
-    print("生成测试报告...")
+    logger.info("生成测试报告...")
     
     test_dir = Path(__file__).parent
     report_dir = test_dir / "reports"
@@ -114,8 +116,7 @@ def generate_report():
     
     subprocess.run(cmd, cwd=test_dir.parent.parent.parent)
     
-    print(f"测试报告已生成: {report_dir / 'report.html'}")
-
+    logger.info(f"测试报告已生成: {report_dir / 'report.html'}")
 
 def check_dependencies():
     """检查测试依赖"""
@@ -135,15 +136,14 @@ def check_dependencies():
             missing_packages.append(package_name)
     
     if missing_packages:
-        print("缺少以下测试依赖包:")
+        logger.info("缺少以下测试依赖包:")
         for package in missing_packages:
-            print(f"  - {package}")
-        print("\n请运行以下命令安装:")
-        print(f"uv add {' '.join(missing_packages)}")
+            logger.info(f"  - {package}")
+        logger.info("\n请运行以下命令安装:")
+        logger.info(f"uv add {' '.join(missing_packages)}")
         return False
     
     return True
-
 
 def main():
     """主函数"""
@@ -192,7 +192,7 @@ def main():
     # 检查依赖
     if args.check_deps:
         if check_dependencies():
-            print("所有测试依赖都已安装")
+            logger.info("所有测试依赖都已安装")
             return 0
         else:
             return 1
@@ -214,6 +214,6 @@ def main():
         parallel=args.parallel
     )
 
-
 if __name__ == "__main__":
+    setup_logging()
     sys.exit(main())

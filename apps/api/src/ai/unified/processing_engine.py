@@ -8,17 +8,15 @@ from typing import List, Dict, Any, Optional, AsyncIterator, Union, Callable
 from dataclasses import dataclass, field
 import asyncio
 from enum import Enum
-import logging
 import time
 import uuid
 from datetime import datetime
 from src.core.utils.timezone_utils import utc_now, utc_factory
-
 from ..streaming import TokenStreamer, StreamEvent, StreamType
 from ..batch import BatchProcessor, BatchJob, BatchTask, BatchStatus, TaskPriority
 
-logger = logging.getLogger(__name__)
-
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 class ProcessingMode(str, Enum):
     """处理模式"""
@@ -27,7 +25,6 @@ class ProcessingMode(str, Enum):
     HYBRID = "hybrid"          # 混合处理：流式输出+批量聚合
     AUTO = "auto"              # 自动选择模式
     PIPELINE = "pipeline"      # 流水线处理
-
 
 @dataclass
 class ProcessingItem:
@@ -38,15 +35,20 @@ class ProcessingItem:
     metadata: Dict[str, Any] = field(default_factory=dict)
     
     def get_llm_response(self) -> AsyncIterator[str]:
-        """获取LLM响应（需要子类实现）"""
-        # 这是一个示例实现，实际应用中需要集成真实的LLM
-        async def mock_response():
-            text = str(self.data)
-            for token in text.split():
-                yield f"{token} "
-                await asyncio.sleep(0.01)
-        return mock_response()
+        """获取LLM响应"""
+        async def openai_stream():
+            from src.ai.openai_client import get_openai_client
 
+            client = await get_openai_client()
+            async for chunk in client.create_streaming_completion(
+                messages=[{"role": "user", "content": str(self.data)}],
+                temperature=0.3,
+            ):
+                content = chunk.get("content")
+                if content:
+                    yield content
+
+        return openai_stream()
 
 @dataclass
 class ProcessingRequest:
@@ -74,7 +76,6 @@ class ProcessingRequest:
     @property
     def item_count(self) -> int:
         return len(self.items)
-
 
 @dataclass
 class ProcessingResponse:
@@ -105,7 +106,6 @@ class ProcessingResponse:
             return 0.0
         total = len(self.results) + len(self.errors)
         return len(self.results) / total if total > 0 else 0.0
-
 
 class UnifiedProcessingEngine:
     """统一处理引擎"""
@@ -432,16 +432,26 @@ class UnifiedProcessingEngine:
     
     async def _pipeline_stage_preprocess(self, data: Any, item: ProcessingItem) -> Any:
         """流水线预处理阶段"""
-        # 示例预处理：数据清洗
         if isinstance(data, str):
             return data.strip().lower()
         return data
     
     async def _pipeline_stage_process(self, data: Any, item: ProcessingItem) -> Any:
         """流水线主处理阶段"""
-        # 示例处理：模拟LLM处理
+        async def openai_stream():
+            from src.ai.openai_client import get_openai_client
+
+            client = await get_openai_client()
+            async for chunk in client.create_streaming_completion(
+                messages=[{"role": "user", "content": str(data)}],
+                temperature=0.3,
+            ):
+                content = chunk.get("content")
+                if content:
+                    yield content
+
         async for event in self.token_streamer.stream_tokens(
-            self._mock_llm_response(str(data)),
+            openai_stream(),
             session_id=item.id
         ):
             if event.type == StreamType.COMPLETE:
@@ -450,7 +460,6 @@ class UnifiedProcessingEngine:
     
     async def _pipeline_stage_postprocess(self, data: Any, item: ProcessingItem) -> Any:
         """流水线后处理阶段"""
-        # 示例后处理：格式化结果
         if isinstance(data, str):
             return {
                 "processed_text": data,
@@ -459,15 +468,6 @@ class UnifiedProcessingEngine:
                 "processing_time": utc_now().isoformat()
             }
         return data
-    
-    async def _mock_llm_response(self, text: str) -> AsyncIterator[str]:
-        """模拟LLM响应"""
-        processed_text = f"处理结果: {text}"
-        tokens = processed_text.split()
-        
-        for token in tokens:
-            yield f"{token} "
-            await asyncio.sleep(0.01)
     
     async def _aggregate_results(self, results: List[Any], strategy: str) -> Any:
         """聚合结果"""

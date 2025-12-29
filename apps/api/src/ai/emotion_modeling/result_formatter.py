@@ -14,9 +14,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, asdict
 import numpy as np
 import pandas as pd
-from pydantic import BaseModel, Field, validator
-import logging
-
+from pydantic import BaseModel, Field
 from .core_interfaces import (
     EmotionType, ModalityType, EmotionState, MultiModalEmotion,
     UnifiedEmotionalData, EmotionalIntelligenceResponse,
@@ -24,8 +22,8 @@ from .core_interfaces import (
     DecisionContext, RiskAssessment, SocialContext, GroupEmotionalState
 )
 
-logger = logging.getLogger(__name__)
-
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 class OutputFormat(str, Enum):
     """输出格式"""
@@ -38,7 +36,6 @@ class OutputFormat(str, Enum):
     NUMPY = "numpy"
     CUSTOM = "custom"
 
-
 class CompressionType(str, Enum):
     """压缩类型"""
     NONE = "none"
@@ -46,14 +43,12 @@ class CompressionType(str, Enum):
     LZ4 = "lz4"
     SNAPPY = "snappy"
 
-
 class ValidationLevel(str, Enum):
     """验证级别"""
     STRICT = "strict"        # 严格验证
     NORMAL = "normal"        # 标准验证
     LENIENT = "lenient"      # 宽松验证
     DISABLED = "disabled"    # 禁用验证
-
 
 @dataclass
 class FormattingConfig:
@@ -67,7 +62,6 @@ class FormattingConfig:
     validation_level: ValidationLevel = ValidationLevel.NORMAL
     custom_fields: Optional[Dict[str, Any]] = None
     field_mapping: Optional[Dict[str, str]] = None  # 字段重映射
-
 
 class EmotionDataNormalizer:
     """情感数据标准化器"""
@@ -190,7 +184,6 @@ class EmotionDataNormalizer:
         
         return norm_valence, norm_arousal, norm_dominance
 
-
 class BaseFormatter(ABC):
     """格式化器基类"""
     
@@ -201,12 +194,12 @@ class BaseFormatter(ABC):
     @abstractmethod
     def format_data(self, data: UnifiedEmotionalData) -> str:
         """格式化数据"""
-        pass
+        raise NotImplementedError
     
     @abstractmethod
     def format_response(self, response: EmotionalIntelligenceResponse) -> str:
         """格式化响应"""
-        pass
+        raise NotImplementedError
     
     def _prepare_data(self, data: UnifiedEmotionalData) -> Dict[str, Any]:
         """准备数据用于格式化"""
@@ -389,7 +382,6 @@ class BaseFormatter(ABC):
             result[mapped_key] = value
         return result
 
-
 class JSONFormatter(BaseFormatter):
     """JSON格式化器"""
     
@@ -411,7 +403,6 @@ class JSONFormatter(BaseFormatter):
         
         return json.dumps(result, ensure_ascii=False, indent=2)
 
-
 class YAMLFormatter(BaseFormatter):
     """YAML格式化器"""
     
@@ -432,7 +423,6 @@ class YAMLFormatter(BaseFormatter):
             result["error"] = response.error
         
         return yaml.dump(result, default_flow_style=False, allow_unicode=True)
-
 
 class CSVFormatter(BaseFormatter):
     """CSV格式化器"""
@@ -485,7 +475,6 @@ class CSVFormatter(BaseFormatter):
         
         return result
 
-
 class XMLFormatter(BaseFormatter):
     """XML格式化器"""
     
@@ -535,7 +524,6 @@ class XMLFormatter(BaseFormatter):
                    .replace('"', "&quot;")
                    .replace("'", "&#39;"))
 
-
 class PandasFormatter(BaseFormatter):
     """Pandas DataFrame格式化器"""
     
@@ -573,7 +561,6 @@ class PandasFormatter(BaseFormatter):
                 result[new_key] = value
         
         return result
-
 
 class ResultFormatterManager:
     """结果格式化管理器"""
@@ -690,7 +677,6 @@ class ResultFormatterManager:
                     errors.append(f"Invalid field mapping: {key} -> {value}")
         
         return errors
-
 
 # 全局格式化管理器实例
 result_formatter_manager = ResultFormatterManager()

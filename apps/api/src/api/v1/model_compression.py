@@ -10,15 +10,17 @@
 from fastapi import APIRouter, HTTPException, BackgroundTasks, Depends, File, UploadFile
 from fastapi.responses import FileResponse, JSONResponse
 from typing import List, Dict, Any, Optional
-from pydantic import BaseModel, Field
+from pydantic import Field
 import asyncio
-import logging
 import os
 from datetime import datetime
 from src.core.utils.timezone_utils import utc_now, utc_factory
-
-from ...ai.model_compression import (
+from src.ai.model_compression import (
     CompressionPipeline,
+    CompressionJob,
+    CompressionResult,
+    CompressionMethod,
+    QuantizationConfig,
     CompressionJob,
     CompressionResult,
     CompressionMethod,
@@ -35,7 +37,8 @@ from ...ai.model_compression import (
     DEFAULT_COMPRESSION_STRATEGIES
 )
 
-logger = logging.getLogger(__name__)
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 # 创建路由器
 router = APIRouter(prefix="/model-compression", tags=["模型压缩"])
@@ -44,9 +47,8 @@ router = APIRouter(prefix="/model-compression", tags=["模型压缩"])
 pipeline = get_compression_pipeline()
 evaluator = get_compression_evaluator()
 
-
 # Pydantic模型定义
-class CompressionJobRequest(BaseModel):
+class CompressionJobRequest(ApiBaseModel):
     """压缩任务请求"""
     job_name: str = Field(..., description="任务名称")
     model_path: str = Field(..., description="模型路径")
@@ -75,8 +77,7 @@ class CompressionJobRequest(BaseModel):
     output_dir: Optional[str] = Field("compressed_models", description="输出目录")
     save_intermediate: Optional[bool] = Field(False, description="保存中间结果")
 
-
-class CompressionJobResponse(BaseModel):
+class CompressionJobResponse(ApiBaseModel):
     """压缩任务响应"""
     job_id: str
     job_name: str
@@ -84,8 +85,7 @@ class CompressionJobResponse(BaseModel):
     created_at: str
     message: str
 
-
-class JobStatusResponse(BaseModel):
+class JobStatusResponse(ApiBaseModel):
     """任务状态响应"""
     job_id: str
     current_stage: str
@@ -94,8 +94,7 @@ class JobStatusResponse(BaseModel):
     last_update: str
     recent_logs: List[str]
 
-
-class CompressionResultResponse(BaseModel):
+class CompressionResultResponse(ApiBaseModel):
     """压缩结果响应"""
     job_id: str
     compression_ratio: float
@@ -106,16 +105,14 @@ class CompressionResultResponse(BaseModel):
     evaluation_report_path: str
     compression_time: float
 
-
-class BenchmarkRequest(BaseModel):
+class BenchmarkRequest(ApiBaseModel):
     """基准测试请求"""
     model_path: str = Field(..., description="模型路径")
     device_name: Optional[str] = Field(None, description="设备名称")
     sequence_lengths: Optional[List[int]] = Field([128, 256, 512], description="序列长度列表")
     batch_sizes: Optional[List[int]] = Field([1, 2, 4], description="批次大小列表")
 
-
-class StrategyRecommendationRequest(BaseModel):
+class StrategyRecommendationRequest(ApiBaseModel):
     """策略推荐请求"""
     model_name: str = Field(..., description="模型名称")
     model_type: str = Field(..., description="模型类型")
@@ -123,7 +120,6 @@ class StrategyRecommendationRequest(BaseModel):
     target_scenario: str = Field("cloud", description="目标场景")
     accuracy_tolerance: float = Field(0.05, description="精度容忍度")
     size_reduction_target: float = Field(0.5, description="大小减少目标")
-
 
 # API路由定义
 
@@ -139,7 +135,7 @@ async def create_compression_job_api(request: CompressionJobRequest) -> Compress
         # 构建配置对象
         quantization_config = None
         if request.compression_method in [CompressionMethod.QUANTIZATION, CompressionMethod.MIXED]:
-            from ...ai.model_compression import QuantizationMethod, PrecisionType
+            from src.ai.model_compression import QuantizationMethod, PrecisionType
             quantization_config = QuantizationConfig(
                 method=QuantizationMethod(request.quantization_method or "post_training_quantization"),
                 precision=PrecisionType(request.precision or "int8"),
@@ -161,7 +157,7 @@ async def create_compression_job_api(request: CompressionJobRequest) -> Compress
         
         pruning_config = None
         if request.compression_method in [CompressionMethod.PRUNING, CompressionMethod.MIXED]:
-            from ...ai.model_compression import PruningType
+            from src.ai.model_compression import PruningType
             pruning_config = PruningConfig(
                 pruning_type=PruningType(request.pruning_type or "unstructured"),
                 sparsity_ratio=request.sparsity_ratio or 0.5,
@@ -195,10 +191,11 @@ async def create_compression_job_api(request: CompressionJobRequest) -> Compress
             message="任务创建成功，已加入执行队列"
         )
     
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"创建压缩任务失败: {e}")
         raise HTTPException(status_code=500, detail=f"创建任务失败: {str(e)}")
-
 
 @router.get("/jobs", response_model=List[CompressionJobResponse])
 async def list_compression_jobs() -> List[CompressionJobResponse]:
@@ -225,7 +222,6 @@ async def list_compression_jobs() -> List[CompressionJobResponse]:
         logger.error(f"获取任务列表失败: {e}")
         raise HTTPException(status_code=500, detail=f"获取任务列表失败: {str(e)}")
 
-
 @router.get("/jobs/{job_id}", response_model=JobStatusResponse)
 async def get_job_status(job_id: str) -> JobStatusResponse:
     """获取指定任务的详细状态"""
@@ -251,7 +247,6 @@ async def get_job_status(job_id: str) -> JobStatusResponse:
         logger.error(f"获取任务状态失败: {e}")
         raise HTTPException(status_code=500, detail=f"获取任务状态失败: {str(e)}")
 
-
 @router.put("/jobs/{job_id}/cancel")
 async def cancel_job(job_id: str) -> Dict[str, Any]:
     """取消指定的压缩任务"""
@@ -274,7 +269,6 @@ async def cancel_job(job_id: str) -> Dict[str, Any]:
         logger.error(f"取消任务失败: {e}")
         raise HTTPException(status_code=500, detail=f"取消任务失败: {str(e)}")
 
-
 @router.delete("/jobs/{job_id}")
 async def delete_job(job_id: str, keep_result: bool = True) -> Dict[str, Any]:
     """删除指定的压缩任务"""
@@ -296,7 +290,6 @@ async def delete_job(job_id: str, keep_result: bool = True) -> Dict[str, Any]:
     except Exception as e:
         logger.error(f"删除任务失败: {e}")
         raise HTTPException(status_code=500, detail=f"删除任务失败: {str(e)}")
-
 
 @router.get("/results/{job_id}", response_model=CompressionResultResponse)
 async def get_compression_result(job_id: str) -> CompressionResultResponse:
@@ -325,7 +318,6 @@ async def get_compression_result(job_id: str) -> CompressionResultResponse:
         logger.error(f"获取压缩结果失败: {e}")
         raise HTTPException(status_code=500, detail=f"获取压缩结果失败: {str(e)}")
 
-
 @router.post("/results/{job_id}/download")
 async def download_compressed_model(job_id: str) -> FileResponse:
     """下载压缩后的模型"""
@@ -351,7 +343,6 @@ async def download_compressed_model(job_id: str) -> FileResponse:
     except Exception as e:
         logger.error(f"下载压缩模型失败: {e}")
         raise HTTPException(status_code=500, detail=f"下载失败: {str(e)}")
-
 
 @router.get("/results/{job_id}/report")
 async def get_evaluation_report(job_id: str) -> Dict[str, Any]:
@@ -379,7 +370,6 @@ async def get_evaluation_report(job_id: str) -> Dict[str, Any]:
         logger.error(f"获取评估报告失败: {e}")
         raise HTTPException(status_code=500, detail=f"获取报告失败: {str(e)}")
 
-
 @router.get("/methods")
 async def get_compression_methods() -> Dict[str, Any]:
     """获取支持的压缩方法列表"""
@@ -397,7 +387,6 @@ async def get_compression_methods() -> Dict[str, Any]:
     except Exception as e:
         logger.error(f"获取压缩方法失败: {e}")
         raise HTTPException(status_code=500, detail=f"获取方法失败: {str(e)}")
-
 
 @router.post("/methods/validate")
 async def validate_compression_config(config: Dict[str, Any]) -> Dict[str, Any]:
@@ -431,7 +420,6 @@ async def validate_compression_config(config: Dict[str, Any]) -> Dict[str, Any]:
         logger.error(f"验证配置失败: {e}")
         raise HTTPException(status_code=500, detail=f"验证失败: {str(e)}")
 
-
 @router.get("/strategies")
 async def get_compression_strategies() -> List[Dict[str, Any]]:
     """获取预定义的压缩策略模板"""
@@ -444,13 +432,12 @@ async def get_compression_strategies() -> List[Dict[str, Any]]:
         logger.error(f"获取压缩策略失败: {e}")
         raise HTTPException(status_code=500, detail=f"获取策略失败: {str(e)}")
 
-
 @router.post("/strategies/recommend")
 async def recommend_compression_strategy(request: StrategyRecommendationRequest) -> List[Dict[str, Any]]:
     """根据模型信息推荐压缩策略"""
     
     try:
-        from ...ai.model_compression import ModelInfo
+        from src.ai.model_compression import ModelInfo
         
         model_info = ModelInfo(
             model_name=request.model_name,
@@ -473,7 +460,6 @@ async def recommend_compression_strategy(request: StrategyRecommendationRequest)
     except Exception as e:
         logger.error(f"推荐压缩策略失败: {e}")
         raise HTTPException(status_code=500, detail=f"推荐失败: {str(e)}")
-
 
 @router.post("/benchmark")
 async def run_hardware_benchmark(request: BenchmarkRequest) -> List[Dict[str, Any]]:
@@ -503,7 +489,6 @@ async def run_hardware_benchmark(request: BenchmarkRequest) -> List[Dict[str, An
         logger.error(f"硬件基准测试失败: {e}")
         raise HTTPException(status_code=500, detail=f"基准测试失败: {str(e)}")
 
-
 @router.get("/status")
 async def get_pipeline_status() -> Dict[str, Any]:
     """获取压缩流水线的整体状态"""
@@ -523,7 +508,6 @@ async def get_pipeline_status() -> Dict[str, Any]:
     except Exception as e:
         logger.error(f"获取流水线状态失败: {e}")
         raise HTTPException(status_code=500, detail=f"获取状态失败: {str(e)}")
-
 
 # 健康检查端点
 @router.get("/health")

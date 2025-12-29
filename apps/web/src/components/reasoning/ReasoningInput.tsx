@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import {
+import { logger } from '../../utils/logger'
   Card,
   Form,
   Input,
@@ -70,7 +71,7 @@ export const ReasoningInput: React.FC<ReasoningInputProps> = ({
         onReasoningComplete?.(chain.id);
       }
     } catch (error) {
-      console.error('推理执行失败:', error);
+      logger.error('推理执行失败:', error);
     }
   };
 

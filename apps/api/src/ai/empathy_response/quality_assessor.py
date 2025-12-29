@@ -3,15 +3,15 @@
 
 评估生成的共情响应的质量和有效性
 """
+
 import re
-import logging
 from typing import Dict, Any, List, Optional, Tuple
 from dataclasses import dataclass
 from .models import EmpathyResponse, EmpathyRequest, DialogueContext, EmpathyType
 from ..emotion_modeling.models import EmotionState, PersonalityProfile
 
-logger = logging.getLogger(__name__)
-
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 @dataclass
 class QualityMetrics:
@@ -24,7 +24,6 @@ class QualityMetrics:
     actionability: float = 0.0             # 行动可执行性
     cultural_sensitivity: float = 0.0      # 文化敏感性
     overall_score: float = 0.0             # 综合评分
-
 
 class QualityAssessor:
     """共情响应质量评估器"""

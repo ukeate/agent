@@ -1,7 +1,6 @@
 """文档版本控制与变更跟踪系统"""
 
 import hashlib
-import logging
 import difflib
 from typing import List, Dict, Any, Optional, Tuple
 from dataclasses import dataclass, field
@@ -10,8 +9,7 @@ from src.core.utils.timezone_utils import utc_now, utc_factory
 from enum import Enum
 import json
 
-logger = logging.getLogger(__name__)
-
+logger = get_logger(__name__)
 
 class ChangeType(Enum):
     """变更类型枚举"""
@@ -20,7 +18,6 @@ class ChangeType(Enum):
     DELETED = "deleted"
     RENAMED = "renamed"
     MOVED = "moved"
-
 
 @dataclass
 class DocumentVersion:
@@ -37,7 +34,6 @@ class DocumentVersion:
     parent_version_id: Optional[str] = None
     is_current: bool = True
 
-
 @dataclass
 class DocumentChange:
     """文档变更数据类"""
@@ -51,7 +47,6 @@ class DocumentChange:
     changed_by: Optional[str] = None
     impact_analysis: Optional[Dict[str, Any]] = None
 
-
 @dataclass
 class VersionBranch:
     """版本分支数据类"""
@@ -62,7 +57,6 @@ class VersionBranch:
     created_at: datetime
     is_active: bool = True
     metadata: Dict[str, Any] = field(default_factory=dict)
-
 
 class DocumentVersionManager:
     """文档版本管理器
@@ -667,3 +661,4 @@ class DocumentVersionManager:
                 f"Cleaned up old versions for doc {doc_id}, "
                 f"kept {len(versions_to_keep)} versions"
             )
+from src.core.logging import get_logger

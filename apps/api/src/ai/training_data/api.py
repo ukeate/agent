@@ -10,16 +10,16 @@
 """
 
 from datetime import datetime
-from src.core.utils.timezone_utils import utc_now, utc_factory, timezone
+from src.core.utils.timezone_utils import utc_now, utc_factory
 from typing import Dict, Any, List, Optional
 from fastapi import APIRouter, HTTPException, Depends, BackgroundTasks, Query, UploadFile, File
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
-
 from ....core.database import get_async_session
 from .models import SourceType, DataStatus, AnnotationTaskType, AnnotationStatus
 from .core import (
+
     DataSource, DataRecord, AnnotationTask, Annotation, DataVersion,
     DataFilter, ExportFormat, AssignmentStrategy, ConflictResolution
 )
@@ -28,8 +28,10 @@ from .preprocessing import DataPreprocessor
 from .annotation import AnnotationManager, QualityController
 from .version_manager import DataVersionManager
 
-router = APIRouter(prefix="/training-data", tags=["training-data"])
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
+router = APIRouter(prefix="/training-data", tags=["training-data"])
 
 # Pydantic模型定义
 
@@ -39,7 +41,6 @@ class DataSourceCreate(BaseModel):
     description: str
     config: Dict[str, Any]
 
-
 class DataSourceResponse(BaseModel):
     source_id: str
     source_type: SourceType
@@ -48,7 +49,6 @@ class DataSourceResponse(BaseModel):
     config: Dict[str, Any]
     is_active: bool
     created_at: datetime
-
 
 class DataRecordResponse(BaseModel):
     record_id: str
@@ -61,7 +61,6 @@ class DataRecordResponse(BaseModel):
     created_at: datetime
     processed_at: Optional[datetime] = None
 
-
 class AnnotationTaskCreate(BaseModel):
     name: str
     description: str
@@ -71,7 +70,6 @@ class AnnotationTaskCreate(BaseModel):
     guidelines: str
     assignees: List[str] = []
     deadline: Optional[datetime] = None
-
 
 class AnnotationTaskResponse(BaseModel):
     task_id: str
@@ -87,14 +85,12 @@ class AnnotationTaskResponse(BaseModel):
     created_at: datetime
     deadline: Optional[datetime] = None
 
-
 class AnnotationCreate(BaseModel):
     task_id: str
     record_id: str
     annotation_data: Dict[str, Any]
     confidence: Optional[float] = None
     time_spent: Optional[int] = None
-
 
 class AnnotationResponse(BaseModel):
     annotation_id: str
@@ -107,14 +103,12 @@ class AnnotationResponse(BaseModel):
     status: str
     created_at: datetime
 
-
 class VersionCreate(BaseModel):
     dataset_name: str
     version_number: str
     description: str
     data_filter: Optional[Dict[str, Any]] = None
     parent_version: Optional[str] = None
-
 
 class VersionResponse(BaseModel):
     version_id: str
@@ -129,18 +123,15 @@ class VersionResponse(BaseModel):
     size_bytes: int
     created_at: datetime
 
-
 class CollectionJobCreate(BaseModel):
     source_id: str
     processing_rules: List[str] = []
     batch_size: int = 100
 
-
 class ExportJobCreate(BaseModel):
     version_id: str
     export_format: ExportFormat
     output_filename: Optional[str] = None
-
 
 # 数据源管理端点
 
@@ -193,7 +184,6 @@ async def create_data_source(
         created_at=source_model.created_at
     )
 
-
 @router.get("/sources", response_model=List[DataSourceResponse])
 async def list_data_sources(
     db: AsyncSession = Depends(get_async_session),
@@ -223,7 +213,6 @@ async def list_data_sources(
         for source in sources
     ]
 
-
 @router.get("/sources/{source_id}", response_model=DataSourceResponse)
 async def get_data_source(
     source_id: str,
@@ -249,7 +238,6 @@ async def get_data_source(
         is_active=source.is_active,
         created_at=source.created_at
     )
-
 
 # 数据收集端点
 
@@ -291,7 +279,6 @@ async def start_collection_job(
     )
     
     return {"message": "Collection job started", "source_id": source_id}
-
 
 async def _run_collection_job(
     db: AsyncSession,
@@ -361,9 +348,7 @@ async def _run_collection_job(
             await db.commit()
     
     except Exception as e:
-        # 记录错误日志
-        print(f"Collection job failed: {e}")
-
+        logger.error("数据采集任务失败", error=str(e), exc_info=True)
 
 @router.get("/records", response_model=List[DataRecordResponse])
 async def list_records(
@@ -408,7 +393,6 @@ async def list_records(
         )
         for record in records
     ]
-
 
 # 标注管理端点
 
@@ -455,7 +439,6 @@ async def create_annotation_task(
         deadline=task_data.deadline
     )
 
-
 @router.get("/annotation-tasks", response_model=List[AnnotationTaskResponse])
 async def list_annotation_tasks(
     db: AsyncSession = Depends(get_async_session),
@@ -499,7 +482,6 @@ async def list_annotation_tasks(
         for task in tasks
     ]
 
-
 @router.post("/annotations", response_model=AnnotationResponse)
 async def submit_annotation(
     annotation_data: AnnotationCreate,
@@ -537,7 +519,6 @@ async def submit_annotation(
         created_at=utc_now()
     )
 
-
 @router.get("/annotation-tasks/{task_id}/progress")
 async def get_task_progress(
     task_id: str,
@@ -557,7 +538,6 @@ async def get_task_progress(
         "estimated_completion": progress.estimated_completion
     }
 
-
 @router.get("/annotation-tasks/{task_id}/quality-report")
 async def get_quality_report(
     task_id: str,
@@ -575,7 +555,6 @@ async def get_quality_report(
         "annotator_performance": report.annotator_performance,
         "recommendations": report.recommendations
     }
-
 
 # 版本管理端点
 
@@ -624,7 +603,6 @@ async def create_version(
         created_at=version.created_at
     )
 
-
 @router.get("/versions", response_model=List[VersionResponse])
 async def list_versions(
     db: AsyncSession = Depends(get_async_session),
@@ -663,7 +641,6 @@ async def list_versions(
         for version in versions
     ]
 
-
 @router.get("/versions/{version1_id}/compare/{version2_id}")
 async def compare_versions(
     version1_id: str,
@@ -683,7 +660,6 @@ async def compare_versions(
         "modified_records": comparison.modified_records
     }
 
-
 @router.post("/versions/{target_version_id}/rollback")
 async def rollback_version(
     target_version_id: str,
@@ -700,7 +676,6 @@ async def rollback_version(
     )
     
     return {"new_version_id": new_version_id, "message": "Rollback completed"}
-
 
 @router.post("/versions/{version1_id}/merge/{version2_id}")
 async def merge_versions(
@@ -729,7 +704,6 @@ async def merge_versions(
         "success": merge_result.success
     }
 
-
 # 数据导出端点
 
 @router.post("/export")
@@ -752,7 +726,6 @@ async def export_version(
     
     return {"message": "Export job started", "version_id": export_data.version_id}
 
-
 async def _run_export_job(
     version_manager: DataVersionManager,
     version_id: str,
@@ -766,10 +739,9 @@ async def _run_export_job(
             export_format=export_format,
             output_path=output_filename
         )
-        print(f"Export completed: {output_path}")
+        logger.info("数据导出完成", output_path=output_path)
     except Exception as e:
-        print(f"Export failed: {e}")
-
+        logger.error("数据导出失败", error=str(e), exc_info=True)
 
 @router.get("/export/{filename}")
 async def download_export_file(filename: str):
@@ -780,7 +752,6 @@ async def download_export_file(filename: str):
         filename=filename,
         media_type="application/octet-stream"
     )
-
 
 # 统计和监控端点
 
@@ -849,7 +820,6 @@ async def get_overview_stats(
             "total": total_annotations
         }
     }
-
 
 @router.get("/health")
 async def health_check():

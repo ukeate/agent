@@ -8,13 +8,11 @@ GraphRAG知识融合处理器
 - 融合结果的可解释性支持
 """
 
-import logging
 import asyncio
 from typing import Dict, Any, List, Optional, Tuple
 from datetime import datetime
 from src.core.utils.timezone_utils import utc_now, utc_factory
 import numpy as np
-
 from .data_models import (
     KnowledgeSource, 
     GraphContext, 
@@ -22,10 +20,10 @@ from .data_models import (
     FusionResult,
     GraphRAGConfig
 )
-from ...openai_client import get_openai_client
+from ..openai_client import get_openai_client
 
-logger = logging.getLogger(__name__)
-
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 class KnowledgeFusion:
     """知识融合引擎"""

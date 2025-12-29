@@ -13,13 +13,11 @@ from datetime import datetime
 from datetime import timedelta
 from src.core.utils.timezone_utils import utc_now, utc_factory
 from collections import defaultdict, deque
-import logging
-
 from ..models import BehaviorEvent, BulkEventRequest
 from ..storage.event_store import EventStore
 
-logger = logging.getLogger(__name__)
-
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 class EventCollector:
     """行为事件采集器"""
@@ -84,7 +82,7 @@ class EventCollector:
             try:
                 await self._flush_task
             except asyncio.CancelledError:
-                pass
+                raise
         
         # 最后刷新缓冲区
         await self.flush()
@@ -211,7 +209,6 @@ class EventCollector:
             if event.timestamp < now - timedelta(hours=24):
                 self.quality_metrics['late_events'] += 1
                 # 仍然接受,但标记为迟到事件
-                pass
             
             # 检查事件数据大小(避免过大的事件)
             event_size = len(json.dumps(event.event_data, default=str))
@@ -257,7 +254,6 @@ class EventCollector:
             'out_of_order_events': 0
         }
 
-
 class CompressionUtils:
     """事件数据压缩工具"""
     
@@ -266,7 +262,7 @@ class CompressionUtils:
         """压缩事件列表"""
         try:
             # 序列化事件
-            data = json.dumps([event.dict() for event in events], default=str)
+            data = json.dumps([event.model_dump(mode="json") for event in events])
             
             if method == 'gzip':
                 return gzip.compress(data.encode('utf-8'))
@@ -297,7 +293,6 @@ class CompressionUtils:
         if original_size == 0:
             return 0.0
         return (original_size - compressed_size) / original_size
-
 
 class EventCollectorPool:
     """事件采集器池

@@ -4,19 +4,22 @@
 
 import json
 import uuid
-import pickle
+from src.core.utils import secure_pickle as pickle
 import gzip
 from datetime import datetime
-from src.core.utils.timezone_utils import utc_now, utc_factory, timezone
+from src.core.utils.timezone_utils import utc_now, utc_factory
 from typing import Dict, List, Any, Optional, Union, Set, Type, Generic, TypeVar
 from dataclasses import dataclass, field, asdict
 from enum import Enum
 from abc import ABC, abstractmethod
-import logging
+from src.core.logging import setup_logging
+
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 try:
     import pydantic
-    from pydantic import BaseModel, Field, validator
+    from pydantic import BaseModel, Field, field_validator
     HAS_PYDANTIC = True
 except ImportError:
     HAS_PYDANTIC = False
@@ -29,10 +32,7 @@ except ImportError:
     HAS_RDFLIB = False
     URIRef = Literal = BNode = None
 
-logger = logging.getLogger(__name__)
-
 T = TypeVar('T')
-
 
 class DataType(Enum):
     """数据类型枚举"""
@@ -45,14 +45,12 @@ class DataType(Enum):
     LITERAL = "literal"
     BLANK_NODE = "blank_node"
 
-
 class SerializationFormat(Enum):
     """序列化格式"""
     JSON = "json"
     PICKLE = "pickle"
     MSGPACK = "msgpack"
     PROTOBUF = "protobuf"
-
 
 @dataclass
 class BaseEntity:
@@ -69,7 +67,6 @@ class BaseEntity:
     def update_timestamp(self):
         """更新修改时间"""
         self.updated_at = utc_now()
-
 
 @dataclass
 class Triple(BaseEntity):
@@ -165,7 +162,6 @@ class Triple(BaseEntity):
             graph_uri=graph_uri
         )
 
-
 @dataclass
 class Entity(BaseEntity):
     """实体模型"""
@@ -260,7 +256,6 @@ class Entity(BaseEntity):
         
         return triples
 
-
 @dataclass
 class Relation(BaseEntity):
     """关系模型"""
@@ -334,7 +329,6 @@ class Relation(BaseEntity):
             triples.append(triple)
         
         return triples
-
 
 @dataclass
 class KnowledgeGraph(BaseEntity):
@@ -446,25 +440,23 @@ class KnowledgeGraph(BaseEntity):
         
         self.update_timestamp()
 
-
 class SerializerInterface(ABC, Generic[T]):
     """序列化器接口"""
     
     @abstractmethod
     def serialize(self, obj: T) -> bytes:
         """序列化对象"""
-        pass
+        raise NotImplementedError
     
     @abstractmethod
     def deserialize(self, data: bytes) -> T:
         """反序列化对象"""
-        pass
+        raise NotImplementedError
     
     @abstractmethod
     def get_format(self) -> SerializationFormat:
         """获取序列化格式"""
-        pass
-
+        raise NotImplementedError
 
 class JSONSerializer(SerializerInterface[T]):
     """JSON序列化器"""
@@ -613,7 +605,6 @@ class JSONSerializer(SerializerInterface[T]):
         else:
             return str(obj)
 
-
 class PickleSerializer(SerializerInterface[T]):
     """Pickle序列化器"""
     
@@ -647,7 +638,6 @@ class PickleSerializer(SerializerInterface[T]):
     def get_format(self) -> SerializationFormat:
         return SerializationFormat.PICKLE
 
-
 class ModelRegistry:
     """模型注册表"""
     
@@ -679,10 +669,8 @@ class ModelRegistry:
         serializer = self.get_serializer(format)
         return serializer.deserialize(data)
 
-
 # 全局模型注册表实例
 model_registry = ModelRegistry()
-
 
 # Pydantic模型（如果可用）
 if HAS_PYDANTIC:
@@ -703,12 +691,11 @@ if HAS_PYDANTIC:
         updated_at: datetime = Field(default_factory=lambda: utc_now())
         metadata: Optional[Dict[str, Any]] = None
         
-        @validator('confidence')
+        @field_validator('confidence')
         def validate_confidence(cls, v):
             if not 0.0 <= v <= 1.0:
                 raise ValueError('置信度必须在0.0到1.0之间')
             return v
-    
     
     class EntityModel(BaseModel):
         """实体Pydantic模型"""
@@ -724,7 +711,6 @@ if HAS_PYDANTIC:
         updated_at: datetime = Field(default_factory=lambda: utc_now())
         metadata: Optional[Dict[str, Any]] = None
 
-
 # 便捷函数
 def create_triple(subject: str, predicate: str, object: str, **kwargs) -> Triple:
     """创建三元组的便捷函数"""
@@ -736,7 +722,6 @@ def create_triple(subject: str, predicate: str, object: str, **kwargs) -> Triple
         **kwargs
     )
 
-
 def create_entity(uri: str, label: str = None, **kwargs) -> Entity:
     """创建实体的便捷函数"""
     return Entity(
@@ -745,7 +730,6 @@ def create_entity(uri: str, label: str = None, **kwargs) -> Entity:
         label=label,
         **kwargs
     )
-
 
 def create_relation(uri: str, label: str = None, **kwargs) -> Relation:
     """创建关系的便捷函数"""
@@ -756,7 +740,6 @@ def create_relation(uri: str, label: str = None, **kwargs) -> Relation:
         **kwargs
     )
 
-
 def create_knowledge_graph(name: str, description: str = None, **kwargs) -> KnowledgeGraph:
     """创建知识图谱的便捷函数"""
     return KnowledgeGraph(
@@ -766,10 +749,10 @@ def create_knowledge_graph(name: str, description: str = None, **kwargs) -> Know
         **kwargs
     )
 
-
 if __name__ == "__main__":
     # 测试数据模型
-    print("测试知识图谱数据模型...")
+    setup_logging()
+    logger.info("测试知识图谱数据模型")
     
     # 创建知识图谱
     kg = create_knowledge_graph(
@@ -830,25 +813,28 @@ if __name__ == "__main__":
     
     # 计算统计信息
     stats = kg.calculate_statistics()
-    print(f"知识图谱统计: {stats}")
+    logger.info("知识图谱统计", stats=stats)
     
     # 测试序列化
-    print("测试序列化...")
+    logger.info("测试序列化")
     
     # JSON序列化
     json_data = model_registry.serialize(kg, SerializationFormat.JSON)
-    print(f"JSON序列化大小: {len(json_data)} 字节")
+    logger.info("JSON序列化大小", bytes=len(json_data))
     
     # 反序列化
     kg_restored = model_registry.deserialize(json_data, SerializationFormat.JSON)
-    print(f"恢复的知识图谱: {kg_restored.name}, 实体数: {len(kg_restored.entities)}")
+    logger.info(
+        "恢复的知识图谱",
+        name=kg_restored.name,
+        entity_count=len(kg_restored.entities),
+    )
     
     # Pickle序列化
     pickle_data = model_registry.serialize(kg, SerializationFormat.PICKLE)
-    print(f"Pickle序列化大小: {len(pickle_data)} 字节")
+    logger.info("Pickle序列化大小", bytes=len(pickle_data))
     
     # 测试实体三元组转换
     entity_triples = john_entity.to_triples()
-    print(f"实体生成的三元组数: {len(entity_triples)}")
-    
-    print("数据模型测试完成")
+    logger.info("实体生成的三元组数", total=len(entity_triples))
+    logger.info("数据模型测试完成")

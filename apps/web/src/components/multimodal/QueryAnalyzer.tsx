@@ -4,7 +4,7 @@
  */
 
 import React from 'react';
-import { Card, Tag, Descriptions, Progress, Badge, Empty, Space } from 'antd';
+import { Card, Tag, Descriptions, Badge, Empty, Space } from 'antd';
 import {
   FileTextOutlined,
   FileImageOutlined,
@@ -15,19 +15,12 @@ import {
 } from '@ant-design/icons';
 
 interface QueryAnalysisData {
-  queryType: 'text' | 'visual' | 'document' | 'mixed';
-  confidence: number;
-  requiresImageSearch: boolean;
-  requiresTableSearch: boolean;
-  keywords: string[];
-  filters: {
-    fileTypes?: string[];
-    dates?: string[];
-    exactMatch?: string[];
-  };
-  complexity: number;
-  topK?: number;
-  similarityThreshold?: number;
+  query_type: 'text' | 'visual' | 'document' | 'mixed';
+  requires_image_search: boolean;
+  requires_table_search: boolean;
+  filters: Record<string, any>;
+  top_k: number;
+  similarity_threshold: number;
 }
 
 interface QueryAnalyzerProps {
@@ -44,7 +37,7 @@ const QueryAnalyzer: React.FC<QueryAnalyzerProps> = ({ analysis }) => {
   }
 
   const getQueryTypeIcon = () => {
-    switch (analysis.queryType) {
+    switch (analysis.query_type) {
       case 'text':
         return <FileTextOutlined />;
       case 'visual':
@@ -59,7 +52,7 @@ const QueryAnalyzer: React.FC<QueryAnalyzerProps> = ({ analysis }) => {
   };
 
   const getQueryTypeColor = () => {
-    switch (analysis.queryType) {
+    switch (analysis.query_type) {
       case 'text':
         return 'blue';
       case 'visual':
@@ -72,14 +65,6 @@ const QueryAnalyzer: React.FC<QueryAnalyzerProps> = ({ analysis }) => {
         return 'default';
     }
   };
-
-  const getComplexityLevel = (complexity: number) => {
-    if (complexity < 0.3) return { text: '简单', color: 'green' };
-    if (complexity < 0.7) return { text: '中等', color: 'orange' };
-    return { text: '复杂', color: 'red' };
-  };
-
-  const complexityLevel = getComplexityLevel(analysis.complexity);
 
   return (
     <Card 
@@ -94,72 +79,37 @@ const QueryAnalyzer: React.FC<QueryAnalyzerProps> = ({ analysis }) => {
       <Descriptions column={1} size="small">
         <Descriptions.Item label="查询类型">
           <Tag icon={getQueryTypeIcon()} color={getQueryTypeColor()}>
-            {analysis.queryType.toUpperCase()}
+            {analysis.query_type.toUpperCase()}
           </Tag>
-          <Progress
-            percent={Math.round(analysis.confidence * 100)}
-            size="small"
-            style={{ width: 80, marginLeft: 8 }}
-            format={percent => `${percent}%`}
-          />
         </Descriptions.Item>
 
         <Descriptions.Item label="搜索需求">
           <Space>
-            {analysis.requiresImageSearch && (
+            {analysis.requires_image_search && (
               <Badge status="processing" text="图像搜索" />
             )}
-            {analysis.requiresTableSearch && (
+            {analysis.requires_table_search && (
               <Badge status="processing" text="表格搜索" />
             )}
-            {!analysis.requiresImageSearch && !analysis.requiresTableSearch && (
+            {!analysis.requires_image_search && !analysis.requires_table_search && (
               <Badge status="default" text="纯文本搜索" />
             )}
           </Space>
         </Descriptions.Item>
 
-        <Descriptions.Item label="查询复杂度">
-          <Tag color={complexityLevel.color}>
-            {complexityLevel.text}
-          </Tag>
-          <Progress
-            percent={Math.round(analysis.complexity * 100)}
-            size="small"
-            strokeColor={complexityLevel.color}
-            style={{ width: 100, marginLeft: 8 }}
-          />
-        </Descriptions.Item>
-
-        <Descriptions.Item label="关键词">
-          {analysis.keywords.length > 0 ? (
-            <Space wrap>
-              {analysis.keywords.slice(0, 5).map((keyword, idx) => (
-                <Tag key={idx} color="blue">
-                  {keyword}
-                </Tag>
-              ))}
-              {analysis.keywords.length > 5 && (
-                <Tag>+{analysis.keywords.length - 5}</Tag>
-              )}
-            </Space>
-          ) : (
-            <span style={{ color: '#999' }}>未提取到关键词</span>
-          )}
-        </Descriptions.Item>
-
-        {Object.keys(analysis.filters).length > 0 && (
+        {Object.keys(analysis.filters || {}).length > 0 && (
           <Descriptions.Item label="过滤条件">
             <Space direction="vertical" size="small">
-              {analysis.filters.fileTypes && (
+              {analysis.filters.file_types && (
                 <div>
                   <FilterOutlined className="mr-1" />
-                  文件类型: {analysis.filters.fileTypes.join(', ')}
+                  文件类型: {analysis.filters.file_types.join(', ')}
                 </div>
               )}
-              {analysis.filters.exactMatch && (
+              {analysis.filters.exact_match && (
                 <div>
                   <FilterOutlined className="mr-1" />
-                  精确匹配: "{analysis.filters.exactMatch.join('", "')}"
+                  精确匹配: "{analysis.filters.exact_match.join('", "')}"
                 </div>
               )}
               {analysis.filters.dates && (
@@ -172,20 +122,12 @@ const QueryAnalyzer: React.FC<QueryAnalyzerProps> = ({ analysis }) => {
           </Descriptions.Item>
         )}
 
-        {(analysis.topK || analysis.similarityThreshold) && (
-          <Descriptions.Item label="检索参数">
-            <Space>
-              {analysis.topK && (
-                <Tag color="cyan">Top-K: {analysis.topK}</Tag>
-              )}
-              {analysis.similarityThreshold && (
-                <Tag color="cyan">
-                  相似度阈值: {analysis.similarityThreshold}
-                </Tag>
-              )}
-            </Space>
-          </Descriptions.Item>
-        )}
+        <Descriptions.Item label="检索参数">
+          <Space>
+            <Tag color="cyan">Top-K: {analysis.top_k}</Tag>
+            <Tag color="cyan">相似度阈值: {analysis.similarity_threshold}</Tag>
+          </Space>
+        </Descriptions.Item>
       </Descriptions>
     </Card>
   );

@@ -4,7 +4,6 @@ import asyncio
 import aiofiles
 import hashlib
 import json
-import logging
 import shutil
 import zipfile
 from datetime import datetime, timezone
@@ -13,13 +12,12 @@ from enum import Enum
 from pathlib import Path
 from typing import Dict, List, Optional, Any, Union
 import uuid
-
 import torch
 import onnx
 from transformers import AutoModel, AutoTokenizer, AutoConfig
 from pydantic import BaseModel, Field
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 class ModelFormat(str, Enum):
     """支持的模型格式"""
@@ -466,3 +464,4 @@ class ModelRegistry:
             "frameworks": framework_counts,
             "total_storage_mb": round(total_size_mb, 2)
         }
+from src.core.logging import get_logger

@@ -1,13 +1,13 @@
 """
 测试个性化画像构建器
 """
-import pytest
-from datetime import datetime, timedelta
-import numpy as np
 
+from src.core.utils.timezone_utils import utc_now
+import pytest
+from datetime import timedelta
+import numpy as np
 from src.ai.emotion_modeling.personality_builder import PersonalityProfileBuilder
 from src.ai.emotion_modeling.models import EmotionState, PersonalityTrait
-
 
 class TestPersonalityProfileBuilder:
     """测试PersonalityProfileBuilder类"""
@@ -36,7 +36,7 @@ class TestPersonalityProfileBuilder:
         """测试正常画像构建"""
         # 创建测试数据
         states = []
-        base_time = datetime.now()
+        base_time = utc_now()
         
         for i in range(20):
             state = EmotionState(
@@ -77,7 +77,7 @@ class TestPersonalityProfileBuilder:
         """测试正常特质计算"""
         # 创建带有不同特质倾向的测试数据
         states = []
-        base_time = datetime.now()
+        base_time = utc_now()
         
         # 创建高外向性数据（积极高唤醒）
         for i in range(10):
@@ -197,7 +197,7 @@ class TestPersonalityProfileBuilder:
     
     def test_calculate_profile_confidence_normal(self):
         """测试正常置信度计算"""
-        base_time = datetime.now() - timedelta(days=15)  # 15天前开始
+        base_time = utc_now() - timedelta(days=15)  # 15天前开始
         
         states = []
         for i in range(50):  # 50个样本
@@ -213,7 +213,6 @@ class TestPersonalityProfileBuilder:
         
         assert 0 <= confidence <= 1
         assert confidence > 0.3  # 应该有较高置信度（样本多且时间跨度长）
-
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

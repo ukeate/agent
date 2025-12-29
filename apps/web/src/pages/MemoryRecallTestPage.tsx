@@ -4,6 +4,7 @@
  */
 import React, { useState } from 'react'
 import { 
+import { logger } from '../utils/logger'
   Card, 
   Input, 
   Button, 
@@ -19,7 +20,8 @@ import {
   Badge,
   Timeline,
   Empty,
-  Spin
+  Spin,
+  message
 } from 'antd'
 import { 
   SearchOutlined, 
@@ -69,7 +71,7 @@ const MemoryRecallTestPage: React.FC = () => {
         handleMemorySelect(results[0])
       }
     } catch (error) {
-      console.error('搜索失败:', error)
+      logger.error('搜索失败:', error)
     } finally {
       setLoading(false)
     }
@@ -83,7 +85,7 @@ const MemoryRecallTestPage: React.FC = () => {
       const related = await memoryService.getRelatedMemories(memory.id, 2, 10)
       setRelatedMemories(related)
     } catch (error) {
-      console.error('获取相关记忆失败:', error)
+      logger.error('获取相关记忆失败:', error)
     }
   }
 
@@ -114,9 +116,10 @@ const MemoryRecallTestPage: React.FC = () => {
       for (const memory of testMemories) {
         await memoryService.createMemory(memory)
       }
-      alert('测试记忆创建成功')
+      message.success('测试记忆创建成功')
     } catch (error) {
-      console.error('创建测试记忆失败:', error)
+      logger.error('创建测试记忆失败:', error)
+      message.error('创建测试记忆失败')
     }
   }
 
@@ -205,9 +208,9 @@ const MemoryRecallTestPage: React.FC = () => {
             message="召回策略说明"
             description={
               <ul style={{ margin: '8px 0', paddingLeft: 20 }}>
-                <li><strong>向量搜索</strong>: 基于语义嵌入的相似度匹配</li>
-                <li><strong>时间搜索</strong>: 考虑时间衰减和最近访问</li>
-                <li><strong>实体搜索</strong>: 基于关键实体和标签匹配</li>
+                <li><strong>语义匹配</strong>: 基于语义嵌入的相似度匹配</li>
+                <li><strong>时间相关</strong>: 考虑时间衰减和最近访问</li>
+                <li><strong>实体匹配</strong>: 基于关键实体和标签匹配</li>
                 <li><strong>混合搜索</strong>: 融合多维度的智能召回</li>
               </ul>
             }
@@ -249,6 +252,7 @@ const MemoryRecallTestPage: React.FC = () => {
           </div>
 
           <TextArea
+            name="memoryRecallQuery"
             placeholder="输入查询内容，测试记忆召回..."
             value={query}
             onChange={e => setQuery(e.target.value)}
@@ -299,7 +303,7 @@ const MemoryRecallTestPage: React.FC = () => {
                 renderItem={item => renderMemoryCard(item)}
               />
             ) : (
-              <Empty description="暂无召回结果" />
+              <Empty description="暂无结果" />
             )}
           </Card>
         </Col>

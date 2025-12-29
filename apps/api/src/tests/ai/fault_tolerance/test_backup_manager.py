@@ -1,12 +1,12 @@
+from src.core.utils.timezone_utils import utc_now
 import pytest
 import asyncio
 import tempfile
 import os
-import pickle
+from src.core.utils import secure_pickle as pickle
 import hashlib
-from datetime import datetime, timedelta
+from datetime import timedelta
 from unittest.mock import Mock, AsyncMock, patch, mock_open
-
 from ....ai.fault_tolerance.backup_manager import (
     BackupManager,
     BackupType,
@@ -43,7 +43,7 @@ def backup_manager(backup_config):
 def sample_component_data():
     return {
         "component_id": "agent-1",
-        "timestamp": datetime.now().isoformat(),
+        "timestamp": utc_now().isoformat(),
         "state": {"status": "active", "memory": "test_data"},
         "configuration": {"type": "chat_agent", "params": {"max_tokens": 1000}},
         "tasks": [{"task_id": "task-1", "status": "running"}],
@@ -165,7 +165,7 @@ class TestBackupManager:
             backup_id="test_backup",
             backup_type=BackupType.FULL_BACKUP,
             component_id="agent-1",
-            created_at=datetime.now(),
+            created_at=utc_now(),
             size=len(test_data),
             checksum=checksum,
             metadata={},
@@ -214,7 +214,7 @@ class TestBackupManager:
             backup_id="restore_test",
             backup_type=BackupType.FULL_BACKUP,
             component_id="agent-1",
-            created_at=datetime.now(),
+            created_at=utc_now(),
             size=len(serialized_data),
             checksum=checksum,
             metadata={},
@@ -245,7 +245,7 @@ class TestBackupManager:
             backup_id="invalid_backup",
             backup_type=BackupType.FULL_BACKUP,
             component_id="agent-1",
-            created_at=datetime.now(),
+            created_at=utc_now(),
             size=100,
             checksum="invalid",
             metadata={},
@@ -267,7 +267,7 @@ class TestBackupManager:
             backup_id="corrupted_backup",
             backup_type=BackupType.FULL_BACKUP,
             component_id="agent-1",
-            created_at=datetime.now(),
+            created_at=utc_now(),
             size=len(test_data),
             checksum="wrong_checksum",  # 错误的校验和
             metadata={},
@@ -294,7 +294,7 @@ class TestBackupManager:
             backup_id="target_test",
             backup_type=BackupType.FULL_BACKUP,
             component_id="agent-1",
-            created_at=datetime.now(),
+            created_at=utc_now(),
             size=len(serialized_data),
             checksum=checksum,
             metadata={},
@@ -330,8 +330,8 @@ class TestBackupManager:
     async def test_cleanup_expired_backups(self, backup_manager, temp_backup_dir):
         """测试清理过期备份"""
         # 创建过期备份记录
-        old_time = datetime.now() - timedelta(days=2)  # 2天前
-        recent_time = datetime.now() - timedelta(hours=1)  # 1小时前
+        old_time = utc_now() - timedelta(days=2)  # 2天前
+        recent_time = utc_now() - timedelta(hours=1)  # 1小时前
         
         # 过期备份
         expired_backup = BackupRecord(
@@ -387,7 +387,7 @@ class TestBackupManager:
     
     async def test_get_backup_statistics_with_data(self, backup_manager):
         """测试获取有数据的备份统计信息"""
-        now = datetime.now()
+        now = utc_now()
         
         # 添加备份记录
         backup1 = BackupRecord(
@@ -450,7 +450,7 @@ class TestBackupManager:
             backup_id="backup1",
             backup_type=BackupType.FULL_BACKUP,
             component_id="agent-1",
-            created_at=datetime.now(),
+            created_at=utc_now(),
             size=1000,
             checksum="checksum1",
             metadata={},
@@ -461,7 +461,7 @@ class TestBackupManager:
             backup_id="backup2",
             backup_type=BackupType.FULL_BACKUP,
             component_id="agent-2",
-            created_at=datetime.now(),
+            created_at=utc_now(),
             size=500,
             checksum="checksum2",
             metadata={},
@@ -490,7 +490,7 @@ class TestBackupManager:
             backup_id="valid_backup",
             backup_type=BackupType.FULL_BACKUP,
             component_id="agent-1",
-            created_at=datetime.now(),
+            created_at=utc_now(),
             size=len(valid_data),
             checksum=valid_checksum,
             metadata={},
@@ -506,7 +506,7 @@ class TestBackupManager:
             backup_id="invalid_backup",
             backup_type=BackupType.FULL_BACKUP,
             component_id="agent-2",
-            created_at=datetime.now(),
+            created_at=utc_now(),
             size=100,
             checksum="wrong_checksum",
             metadata={},

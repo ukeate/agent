@@ -11,14 +11,12 @@ from unittest.mock import Mock, AsyncMock
 # 动态知识图谱存储系统不需要这些导入
 # from src.ai.knowledge_graph.data_models import Entity, Relation, EntityType, RelationType
 
-
 @pytest.fixture(scope="session")
 def event_loop():
     """创建事件循环用于异步测试"""
     loop = asyncio.get_event_loop_policy().new_event_loop()
     yield loop
     loop.close()
-
 
 # 这些夹具依赖于其他知识图谱组件，暂时注释
 # @pytest.fixture
@@ -32,7 +30,6 @@ def event_loop():
 #         Entity("北京", EntityType.CITY, 22, 24, 0.91),
 #         Entity("加州", EntityType.LOCATION, 27, 29, 0.89)
 #     ]
-
 
 # @pytest.fixture
 # def sample_relations(sample_entities):
@@ -72,24 +69,20 @@ def event_loop():
 #         )
 #     ]
 
-
 @pytest.fixture
 def sample_chinese_text():
     """提供中文测试文本"""
     return "张三在位于北京的苹果公司工作，他是一名高级软件工程师。李四在谷歌负责人工智能研发。"
-
 
 @pytest.fixture
 def sample_english_text():
     """提供英文测试文本"""
     return "John Smith works for Apple Inc. in California. He is a senior software engineer specializing in machine learning."
 
-
 @pytest.fixture
 def sample_mixed_text():
     """提供中英混合测试文本"""
     return "张三 works at Apple Inc. 他负责 AI research in 北京分公司。"
-
 
 @pytest.fixture
 def mock_entity_recognizer():
@@ -100,7 +93,6 @@ def mock_entity_recognizer():
     recognizer.is_loaded = Mock(return_value=True)
     return recognizer
 
-
 @pytest.fixture
 def mock_relation_extractor():
     """Mock关系抽取器"""
@@ -109,7 +101,6 @@ def mock_relation_extractor():
     extractor.initialize = AsyncMock()
     extractor.is_loaded = Mock(return_value=True)
     return extractor
-
 
 @pytest.fixture
 def mock_entity_linker():
@@ -120,7 +111,6 @@ def mock_entity_linker():
     linker.is_loaded = Mock(return_value=True)
     return linker
 
-
 @pytest.fixture
 def mock_multilingual_processor():
     """Mock多语言处理器"""
@@ -128,7 +118,6 @@ def mock_multilingual_processor():
     processor.process_multilingual_text = AsyncMock()
     processor.initialize = AsyncMock()
     return processor
-
 
 @pytest.fixture
 def sample_documents():
@@ -151,7 +140,6 @@ def sample_documents():
         }
     ]
 
-
 @pytest.fixture
 def sample_api_request():
     """提供示例API请求数据"""
@@ -168,7 +156,6 @@ def sample_api_request():
             "max_relations": 20
         }
     }
-
 
 @pytest.fixture
 def sample_batch_request():
@@ -192,7 +179,6 @@ def sample_batch_request():
         }
     }
 
-
 # 测试标记
 def pytest_configure(config):
     """配置pytest标记"""
@@ -201,7 +187,6 @@ def pytest_configure(config):
     config.addinivalue_line("markers", "unit: marks tests as unit tests")
     config.addinivalue_line("markers", "api: marks tests as API tests")
     config.addinivalue_line("markers", "performance: marks tests as performance tests")
-
 
 # 知识图谱存储系统测试夹具
 @pytest.fixture
@@ -225,7 +210,6 @@ def mock_neo4j_driver():
     driver.close = AsyncMock()
     
     return driver
-
 
 @pytest.fixture
 def sample_graph_entities():
@@ -255,7 +239,6 @@ def sample_graph_entities():
         }
     ]
 
-
 @pytest.fixture
 def sample_graph_relations():
     """提供图数据库测试关系"""
@@ -273,7 +256,6 @@ def sample_graph_relations():
         }
     ]
 
-
 @pytest.fixture
 async def test_neo4j_config():
     """测试用Neo4j配置"""
@@ -289,7 +271,6 @@ async def test_neo4j_config():
         max_connection_pool_size=10,
         connection_acquisition_timeout=5
     )
-
 
 # 测试跳过条件
 def pytest_collection_modifyitems(config, items):
@@ -308,14 +289,16 @@ def pytest_collection_modifyitems(config, items):
         if "neo4j_integration" in item.keywords:
             item.add_marker(skip_neo4j)
 
-
 # 异步测试支持
 @pytest.fixture(scope="function")
 async def async_test_client():
     """异步测试客户端"""
-    # 这里可以添加异步测试客户端的设置
-    pass
+    from httpx import AsyncClient, ASGITransport
+    from src.main import app
 
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        yield client
 
 # 临时文件和目录
 @pytest.fixture
@@ -324,7 +307,6 @@ def temp_cache_dir(tmp_path):
     cache_dir = tmp_path / "cache"
     cache_dir.mkdir()
     return cache_dir
-
 
 @pytest.fixture
 def temp_model_dir(tmp_path):

@@ -3,12 +3,12 @@ Task 5社交智能决策引擎完整单元测试套件
 测试SocialIntelligenceEngine的所有功能和决策逻辑
 """
 
+from src.core.utils.timezone_utils import utc_now
 import pytest
 import asyncio
-from datetime import datetime, timedelta
+from datetime import timedelta
 from typing import Dict, List, Any
 from unittest.mock import Mock, patch, AsyncMock
-
 from ai.emotion_modeling.social_intelligence_engine import (
     SocialIntelligenceEngine,
     DecisionType,
@@ -21,18 +21,15 @@ from ai.emotion_modeling.models import EmotionVector, SocialContext
 from ai.emotion_modeling.social_context_adapter import SocialEnvironment
 from ai.emotion_modeling.cultural_context_analyzer import CulturalProfile
 
-
 @pytest.fixture
 def engine():
     """创建社交智能引擎实例"""
     return SocialIntelligenceEngine()
 
-
 @pytest.fixture
 def mock_cultural_profile():
     """创建测试文化档案"""
     return Mock(spec=CulturalProfile)
-
 
 @pytest.fixture
 def sample_decision_context(mock_cultural_profile):
@@ -41,7 +38,7 @@ def sample_decision_context(mock_cultural_profile):
     
     return DecisionContext(
         session_id="test_session_001",
-        timestamp=datetime.now(),
+        timestamp=utc_now(),
         participants=[
             {"user_id": "user1", "role": "participant"},
             {"user_id": "user2", "role": "facilitator"}
@@ -81,7 +78,6 @@ def sample_decision_context(mock_cultural_profile):
         constraints={"time_limit": 60, "budget_limit": 1000}
     )
 
-
 @pytest.fixture
 def high_conflict_context(mock_cultural_profile):
     """创建高冲突测试上下文"""
@@ -89,7 +85,7 @@ def high_conflict_context(mock_cultural_profile):
     
     return DecisionContext(
         session_id="conflict_session_001",
-        timestamp=datetime.now(),
+        timestamp=utc_now(),
         participants=[
             {"user_id": "user1", "role": "manager"},
             {"user_id": "user2", "role": "employee"},
@@ -134,7 +130,6 @@ def high_conflict_context(mock_cultural_profile):
             {"event": "previous_conflict", "outcome": "unresolved"}
         ]
     )
-
 
 class TestSocialIntelligenceEngine:
     """社交智能引擎基础功能测试"""
@@ -185,7 +180,6 @@ class TestSocialIntelligenceEngine:
         with patch.object(engine, '_identify_required_decisions', side_effect=Exception("测试异常")):
             decisions = await engine.analyze_and_decide(sample_decision_context)
             assert decisions == []
-
 
 class TestDecisionTypeIdentification:
     """决策类型识别测试"""
@@ -256,7 +250,6 @@ class TestDecisionTypeIdentification:
         decisions = await engine._identify_required_decisions(sample_decision_context)
         
         assert DecisionType.RELATIONSHIP_BUILDING in decisions
-
 
 class TestSpecificDecisionGeneration:
     """具体决策生成测试"""
@@ -357,7 +350,6 @@ class TestSpecificDecisionGeneration:
             )
             assert decision is None
 
-
 class TestDecisionPriority:
     """决策优先级测试"""
     
@@ -379,7 +371,6 @@ class TestDecisionPriority:
                 next_priority = engine._priority_score(decisions[i + 1].priority)
                 assert current_priority >= next_priority
 
-
 class TestDecisionOutcomeTracking:
     """决策结果追踪测试"""
     
@@ -397,7 +388,7 @@ class TestDecisionOutcomeTracking:
             participant_feedback={"user1": 0.8, "user2": 0.9},
             effectiveness_score=0.85,
             lessons_learned=["Clear communication worked well"],
-            timestamp=datetime.now()
+            timestamp=utc_now()
         )
         
         await engine.record_decision_outcome(outcome)
@@ -420,7 +411,7 @@ class TestDecisionOutcomeTracking:
             participant_feedback={"user1": 0.3, "user2": 0.2},
             effectiveness_score=0.25,
             lessons_learned=["Approach was too direct for this cultural context"],
-            timestamp=datetime.now()
+            timestamp=utc_now()
         )
         
         await engine.record_decision_outcome(outcome)
@@ -428,7 +419,6 @@ class TestDecisionOutcomeTracking:
         stored_outcome = engine.outcome_history[test_decision.decision_id]
         assert stored_outcome.execution_success is False
         assert stored_outcome.effectiveness_score == 0.25
-
 
 class TestLearningSystem:
     """学习系统测试"""
@@ -447,7 +437,7 @@ class TestLearningSystem:
             participant_feedback={"user1": 0.9},
             effectiveness_score=0.9,
             lessons_learned=["Strategy worked well"],
-            timestamp=datetime.now()
+            timestamp=utc_now()
         )
         
         await engine.record_decision_outcome(outcome)
@@ -473,7 +463,7 @@ class TestLearningSystem:
             participant_feedback={},
             effectiveness_score=0.8,
             lessons_learned=[],
-            timestamp=datetime.now()
+            timestamp=utc_now()
         )
         
         original_patterns_count = len(engine.decision_patterns)
@@ -481,7 +471,6 @@ class TestLearningSystem:
         
         # 验证学习没有发生
         assert len(engine.decision_patterns) == original_patterns_count
-
 
 class TestHistoryManagement:
     """历史记录管理测试"""
@@ -512,7 +501,7 @@ class TestHistoryManagement:
         for i in range(5):
             context_copy = sample_decision_context
             context_copy.session_id = f"session_{i}"
-            context_copy.timestamp = datetime.now() + timedelta(minutes=i)
+            context_copy.timestamp = utc_now() + timedelta(minutes=i)
             await engine.analyze_and_decide(context_copy)
         
         await engine._cleanup_history()
@@ -529,7 +518,6 @@ class TestHistoryManagement:
         """测试获取结果历史"""
         history = engine.get_outcome_history()
         assert isinstance(history, dict)
-
 
 class TestDecisionQuality:
     """决策质量测试"""
@@ -578,7 +566,6 @@ class TestDecisionQuality:
         for decision in decisions:
             for risk, probability in decision.risk_assessment.items():
                 assert 0.0 <= probability <= 1.0
-
 
 class TestErrorHandlingAndEdgeCases:
     """错误处理和边界条件测试"""
@@ -638,7 +625,6 @@ class TestErrorHandlingAndEdgeCases:
         decision_types = [d.decision_type for d in decisions_large]
         assert DecisionType.GROUP_FACILITATION in decision_types
 
-
 class TestIntegrationScenarios:
     """集成场景测试"""
     
@@ -660,7 +646,7 @@ class TestIntegrationScenarios:
             participant_feedback={"user1": 0.8, "user2": 0.9},
             effectiveness_score=0.85,
             lessons_learned=["Strategy was effective for this context"],
-            timestamp=datetime.now()
+            timestamp=utc_now()
         )
         
         # 4. 记录结果
@@ -685,7 +671,7 @@ class TestIntegrationScenarios:
         
         complex_context = DecisionContext(
             session_id="multi_cultural_session",
-            timestamp=datetime.now(),
+            timestamp=utc_now(),
             participants=[
                 {"user_id": f"user_{i}", "role": "participant"} 
                 for i in range(8)
@@ -729,7 +715,6 @@ class TestIntegrationScenarios:
         # 验证文化适配决策的存在
         assert DecisionType.CULTURAL_ADAPTATION in decision_types
 
-
 class TestPerformanceAndOptimization:
     """性能和优化测试"""
     
@@ -741,7 +726,7 @@ class TestPerformanceAndOptimization:
         # 创建大型场景
         large_context = DecisionContext(
             session_id="performance_test",
-            timestamp=datetime.now(),
+            timestamp=utc_now(),
             participants=[{"user_id": f"user_{i}"} for i in range(50)],
             current_emotions={
                 f"user_{i}": EmotionVector(
@@ -796,7 +781,6 @@ class TestPerformanceAndOptimization:
         memory_growth = final_size - initial_size
         assert memory_growth > 0  # 应该有增长
         # 但不应该过度增长（具体阈值依据实际情况调整）
-
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

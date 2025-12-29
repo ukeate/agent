@@ -3,15 +3,14 @@
 负责协调各个情感智能模块之间的数据流转和状态同步
 """
 
+from src.core.utils.timezone_utils import utc_now
 import asyncio
 import json
 import time
 from typing import Dict, Any, Optional, List, Tuple
-from datetime import datetime, timedelta
+from datetime import timedelta
 from dataclasses import asdict
 from concurrent.futures import ThreadPoolExecutor
-import logging
-
 from .core_interfaces import (
     UnifiedEmotionalData, EmotionalIntelligenceResponse,
     EmotionalDataFlowManager, EmotionRecognitionEngine,
@@ -26,14 +25,13 @@ from .communication_protocol import (
     CommunicationProtocol, ModuleType, MessageType, Priority
 )
 
-
+from src.core.logging import get_logger
 class DataFlowState:
     """数据流状态"""
     IDLE = "idle"
     PROCESSING = "processing"
     COMPLETED = "completed"
     ERROR = "error"
-
 
 class DataFlowContext:
     """数据流上下文"""
@@ -42,18 +40,17 @@ class DataFlowContext:
         self.request_id = request_id
         self.user_id = user_id
         self.input_data = input_data
-        self.created_at = datetime.now()
+        self.created_at = utc_now()
         self.state = DataFlowState.IDLE
         self.results: Dict[str, Any] = {}
         self.errors: List[str] = []
         self.processing_times: Dict[str, float] = {}
 
-
 class EmotionalDataFlowManagerImpl(EmotionalDataFlowManager):
     """情感数据流管理器实现"""
     
     def __init__(self):
-        self._logger = logging.getLogger(__name__)
+        self._logger = get_logger(__name__)
         self._protocol = CommunicationProtocol(ModuleType.DATA_FLOW_MANAGER)
         self._executor = ThreadPoolExecutor(max_workers=20)
         
@@ -128,7 +125,7 @@ class EmotionalDataFlowManagerImpl(EmotionalDataFlowManager):
     
     async def route_data(self, data: UnifiedEmotionalData) -> Dict[str, Any]:
         """路由数据到相应模块"""
-        request_id = f"{data.user_id}_{datetime.now().timestamp()}"
+        request_id = f"{data.user_id}_{utc_now().timestamp()}"
         context = DataFlowContext(request_id, data.user_id, asdict(data))
         
         self._active_flows[request_id] = context
@@ -336,12 +333,12 @@ class EmotionalDataFlowManagerImpl(EmotionalDataFlowManager):
                 # 如果有新的情感体验，存储为记忆
                 if hasattr(data, 'content') and data.content:
                     memory = EmotionalMemory(
-                        memory_id=f"{context.user_id}_{datetime.now().timestamp()}",
+                        memory_id=f"{context.user_id}_{utc_now().timestamp()}",
                         content=data.content,
                         emotional_context=emotional_state,
                         importance=emotional_state.intensity,
-                        created_at=datetime.now(),
-                        last_accessed=datetime.now()
+                        created_at=utc_now(),
+                        last_accessed=utc_now()
                     )
                     memory_id = await self._memory_manager.store_emotional_memory(
                         context.user_id, memory
@@ -448,7 +445,7 @@ class EmotionalDataFlowManagerImpl(EmotionalDataFlowManager):
         """构建统一响应"""
         unified_data = UnifiedEmotionalData(
             user_id=context.user_id,
-            timestamp=datetime.now(),
+            timestamp=utc_now(),
             confidence=self._calculate_overall_confidence(context),
             processing_time=context.processing_times.get("total", 0.0),
             data_quality=self._calculate_data_quality(context)
@@ -498,7 +495,7 @@ class EmotionalDataFlowManagerImpl(EmotionalDataFlowManager):
             }
         )
         
-        return response.dict()
+        return response.model_dump(mode="json")
     
     async def validate_data_integrity(self, data: UnifiedEmotionalData) -> bool:
         """验证数据完整性"""
@@ -519,7 +516,8 @@ class EmotionalDataFlowManagerImpl(EmotionalDataFlowManager):
             # 模块结果一致性验证
             if data.emotional_state and data.recognition_result:
                 # 验证情感识别结果与情感状态的一致性
-                pass
+                if data.emotional_state.emotion != data.recognition_result.fused_emotion.emotion:
+                    return False
             
             return True
             
@@ -596,7 +594,7 @@ class EmotionalDataFlowManagerImpl(EmotionalDataFlowManager):
         """监控活跃数据流"""
         while self._is_running:
             try:
-                current_time = datetime.now()
+                current_time = utc_now()
                 expired_flows = []
                 
                 # 检查超时的流

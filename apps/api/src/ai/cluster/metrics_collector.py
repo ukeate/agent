@@ -6,7 +6,6 @@
 """
 
 import asyncio
-import logging
 import time
 import json
 import httpx
@@ -15,11 +14,10 @@ from dataclasses import dataclass, asdict, field
 from enum import Enum
 from datetime import datetime, timedelta
 import statistics
-
 from .topology import AgentInfo, ResourceUsage, AgentStatus
 from .state_manager import ClusterStateManager
 
-
+from src.core.logging import get_logger
 class MetricType(Enum):
     """指标类型"""
     COUNTER = "counter"              # 计数器指标
@@ -27,14 +25,12 @@ class MetricType(Enum):
     HISTOGRAM = "histogram"          # 直方图指标
     SUMMARY = "summary"              # 摘要指标
 
-
 class AlertLevel(Enum):
     """告警级别"""
     INFO = "info"
     WARNING = "warning"
     ERROR = "error"
     CRITICAL = "critical"
-
 
 @dataclass
 class MetricPoint:
@@ -53,7 +49,6 @@ class MetricPoint:
             "timestamp": self.timestamp,
             "labels": self.labels
         }
-
 
 @dataclass
 class MetricSeries:
@@ -112,7 +107,6 @@ class MetricSeries:
         values = [p.value for p in recent_points]
         return statistics.quantiles(values, n=100)[int(percentile) - 1]
 
-
 @dataclass
 class AlertRule:
     """告警规则"""
@@ -153,7 +147,6 @@ class AlertRule:
         
         return False
 
-
 @dataclass
 class AlertEvent:
     """告警事件"""
@@ -173,7 +166,6 @@ class AlertEvent:
         """解决告警"""
         self.resolved = True
         self.resolved_at = time.time()
-
 
 class MetricsCollector:
     """资源监控和指标收集器
@@ -195,7 +187,7 @@ class MetricsCollector:
         self.cluster_manager = cluster_manager
         self.storage_backend = storage_backend
         self.collection_interval = collection_interval
-        self.logger = logging.getLogger(__name__)
+        self.logger = get_logger(__name__)
         
         # HTTP客户端用于从智能体收集指标
         self.http_client = httpx.AsyncClient(timeout=10.0)
@@ -269,7 +261,7 @@ class MetricsCollector:
                 try:
                     await self.collection_task
                 except asyncio.CancelledError:
-                    pass
+                    raise
             
             # 停止告警检查任务
             if self.alert_check_task:
@@ -277,7 +269,7 @@ class MetricsCollector:
                 try:
                     await self.alert_check_task
                 except asyncio.CancelledError:
-                    pass
+                    raise
             
             # 关闭HTTP客户端
             await self.http_client.aclose()

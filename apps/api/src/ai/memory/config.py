@@ -1,16 +1,14 @@
 """记忆系统配置"""
-from typing import Optional
-from pydantic import BaseModel
-import os
 
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
-class MemoryConfig(BaseModel):
+class MemoryConfig(BaseSettings):
     """记忆系统配置类"""
     # 存储配置
-    qdrant_url: str = os.getenv("QDRANT_URL", "http://localhost:6333")
+    qdrant_url: str = "http://localhost:6333"
     qdrant_collection: str = "memories"
-    redis_url: str = os.getenv("REDIS_URL", "redis://localhost:6379")
-    db_url: str = os.getenv("DATABASE_URL", "postgresql://ai_agent_user:ai_agent_password@localhost:5433/ai_agent_db")
+    redis_url: str = "redis://localhost:6379"
+    db_url: str = "postgresql://root:asdf@localhost:5432/ai_agent_db"
     
     # 记忆系统参数
     working_memory_capacity: int = 100  # 工作记忆容量
@@ -33,11 +31,8 @@ class MemoryConfig(BaseModel):
     # 缓存配置
     cache_ttl: int = 3600  # 缓存过期时间(秒)
     cache_prefix: str = "mem:"
-    
-    class Config:
-        env_file = ".env"
-        env_file_encoding = 'utf-8'
 
+    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 
 # 全局配置实例
 memory_config = MemoryConfig()

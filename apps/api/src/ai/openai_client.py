@@ -7,17 +7,14 @@ import asyncio
 import json
 import time
 from typing import Any, Dict, List, Optional, Union
-
 import openai
 from openai import AsyncOpenAI
-import structlog
 from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
-
 from src.core.config import get_settings
 from src.core.constants import TimeoutConstants
 
-logger = structlog.get_logger(__name__)
-
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 class OpenAIClient:
     """OpenAI API客户端"""
@@ -341,10 +338,8 @@ class OpenAIClient:
             
             return result
 
-
 # 全局客户端实例
 _openai_client: Optional[OpenAIClient] = None
-
 
 async def get_openai_client() -> OpenAIClient:
     """获取全局OpenAI客户端实例"""
@@ -352,7 +347,6 @@ async def get_openai_client() -> OpenAIClient:
     if _openai_client is None:
         _openai_client = OpenAIClient()
     return _openai_client
-
 
 async def close_openai_client():
     """关闭OpenAI客户端"""

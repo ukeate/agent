@@ -9,6 +9,7 @@
  * - 智能查询建议和模板
  */
 
+import { buildApiUrl, apiFetch } from '../../utils/apiBase'
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import {
   Card,
@@ -333,18 +334,39 @@ const NLQueryInterface: React.FC<NLQueryInterfaceProps> = ({
         
         message.success(`查询完成，找到 ${result.results.length} 个结果`);
       } else {
-        // 模拟查询结果
-        const mockResult: QueryResult = {
+        const cypher = nlQuery.generatedCypher?.trim();
+        if (!cypher) throw new Error('无法生成可执行查询');
+
+        const r = await apiFetch(buildApiUrl('/api/v1/knowledge-graph/query'), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ query: cypher, parameters: {}), read_only: true }),
+        });
+        const resp = await r.json();
+        if (!resp?.success) throw new Error(resp?.error || resp?.detail || '查询执行失败');
+
+        const result: QueryResult = {
           queryId: Date.now().toString(),
           query: nlQuery,
-          results: [],
+          results: resp?.data || [],
           highlights: { nodeIds: [], edgeIds: [], paths: [] },
-          executionTime: Math.random() * 1000,
-          timestamp: new Date()
+          executionTime: Number(resp?.execution_time_ms || 0),
+          timestamp: new Date(),
         };
-        
-        setCurrentResult(mockResult);
-        message.info('查询已解析，但未连接到后端服务');
+
+        setCurrentResult(result);
+
+        const historyItem: QueryHistory = {
+          id: Date.now().toString(),
+          query: queryText,
+          type: nlQuery.type,
+          results: result.results.length,
+          timestamp: new Date(),
+          isFavorite: false,
+          confidence: nlQuery.confidence
+        };
+        setQueryHistory(prev => [historyItem, ...prev.slice(0, 19)]);
+        message.success(`查询完成，找到 ${result.results.length} 个结果`);
       }
       
     } catch (error: any) {

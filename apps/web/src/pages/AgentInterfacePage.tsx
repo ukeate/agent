@@ -1,5 +1,7 @@
+import { buildApiUrl, apiFetch } from '../utils/apiBase'
 import React, { useState, useEffect } from 'react'
 import {
+import { logger } from '../utils/logger'
   Card,
   Row,
   Col,
@@ -79,102 +81,11 @@ interface APIRequest {
 }
 
 const AgentInterfacePage: React.FC = () => {
-  const [interfaces, setInterfaces] = useState<AgentInterface[]>([
-    {
-      id: 'chat-interface',
-      name: '聊天接口',
-      type: 'chat',
-      status: 'active',
-      version: 'v1.2.3',
-      lastActive: '刚刚',
-      totalRequests: 1523,
-      avgResponseTime: 230,
-      successRate: 98.5,
-      currentTasks: 3
-    },
-    {
-      id: 'task-interface',
-      name: '任务执行接口',
-      type: 'task',
-      status: 'busy',
-      version: 'v1.2.1',
-      lastActive: '30秒前',
-      totalRequests: 856,
-      avgResponseTime: 450,
-      successRate: 95.2,
-      currentTasks: 8
-    },
-    {
-      id: 'multi-agent-interface',
-      name: '多代理协作接口',
-      type: 'multi-agent',
-      status: 'active',
-      version: 'v1.1.5',
-      lastActive: '1分钟前',
-      totalRequests: 324,
-      avgResponseTime: 680,
-      successRate: 92.1,
-      currentTasks: 2
-    },
-    {
-      id: 'supervisor-interface',
-      name: '监督者接口',
-      type: 'supervisor',
-      status: 'idle',
-      version: 'v1.0.8',
-      lastActive: '5分钟前',
-      totalRequests: 145,
-      avgResponseTime: 320,
-      successRate: 97.8,
-      currentTasks: 0
-    }
-  ])
-
-  const [metrics] = useState<InterfaceMetric[]>([
-    { name: 'QPS (每秒请求)', value: 45, unit: 'req/s', trend: 'up', status: 'good' },
-    { name: '平均响应时间', value: 285, unit: 'ms', trend: 'stable', status: 'good' },
-    { name: '错误率', value: 2.3, unit: '%', trend: 'down', status: 'good' },
-    { name: '并发连接数', value: 128, unit: '个', trend: 'up', status: 'warning' },
-    { name: '内存使用率', value: 67, unit: '%', trend: 'stable', status: 'good' },
-    { name: 'CPU使用率', value: 45, unit: '%', trend: 'up', status: 'good' }
-  ])
-
-  const [recentRequests] = useState<APIRequest[]>([
-    {
-      id: '1',
-      interface: '聊天接口',
-      method: 'POST',
-      endpoint: '/api/v1/agent-interface/chat',
-      status: 'success',
-      responseTime: 245,
-      timestamp: '14:35:22',
-      requestSize: 1.2,
-      responseSize: 3.4
-    },
-    {
-      id: '2',
-      interface: '任务执行接口',
-      method: 'POST',
-      endpoint: '/api/v1/agent-interface/task',
-      status: 'success',
-      responseTime: 456,
-      timestamp: '14:35:18',
-      requestSize: 2.1,
-      responseSize: 5.6
-    },
-    {
-      id: '3',
-      interface: '多代理协作接口',
-      method: 'GET',
-      endpoint: '/api/v1/agent-interface/status',
-      status: 'error',
-      responseTime: 0,
-      timestamp: '14:35:15',
-      requestSize: 0.5,
-      responseSize: 0.2
-    }
-  ])
-
+  const [interfaces, setInterfaces] = useState<AgentInterface[]>([])
+  const [metrics, setMetrics] = useState<InterfaceMetric[]>([])
+  const [recentRequests, setRecentRequests] = useState<APIRequest[]>([])
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
   const [showConfigModal, setShowConfigModal] = useState(false)
   const [selectedInterface, setSelectedInterface] = useState<AgentInterface | null>(null)
 
@@ -413,8 +324,112 @@ const AgentInterfacePage: React.FC = () => {
   ]
 
   const totalRequests = interfaces.reduce((sum, iface) => sum + iface.totalRequests, 0)
-  const avgSuccessRate = interfaces.reduce((sum, iface) => sum + iface.successRate, 0) / interfaces.length
+  const avgSuccessRate = interfaces.length > 0 ? interfaces.reduce((sum, iface) => sum + iface.successRate, 0) / interfaces.length : 0
   const activeInterfaces = interfaces.filter(iface => iface.status === 'active').length
+
+  const loadData = async () => {
+    setLoading(true)
+    setError('')
+    try {
+      const statusRes = await apiFetch(buildApiUrl('/api/v1/agent/status'))
+      const statusBody = await statusRes.json()
+      const statusData = statusBody.data || statusBody
+      if (statusData) {
+        const iface: AgentInterface = {
+          id: statusData.agent_info?.agent_id || 'agent-interface',
+          name: '主接口',
+          type: 'chat',
+          status: statusData.health === 'degraded' ? 'busy' : statusData.health === 'unhealthy' ? 'offline' : 'active',
+          version: statusData.agent_info?.version || 'v1.0.0',
+          lastActive: statusData.last_activity ? new Date(statusData.last_activity).toLocaleString('zh-CN') : '',
+          totalRequests: Math.round(statusData.performance_metrics?.requests_per_minute || 0),
+          avgResponseTime: Math.round(statusData.performance_metrics?.average_response_time || 0),
+          successRate: Number(statusData.performance_metrics?.success_rate || 0),
+          currentTasks: statusData.agent_info?.active_conversations || 0
+        }
+        setInterfaces([iface])
+        const metricList: InterfaceMetric[] = [
+          {
+            name: '平均响应时间',
+            value: Math.round(statusData.performance_metrics?.average_response_time || 0),
+            unit: 'ms',
+            trend: 'stable',
+            status: 'good'
+          },
+          {
+            name: '请求速率',
+            value: Number(statusData.performance_metrics?.requests_per_minute || 0),
+            unit: 'rpm',
+            trend: 'up',
+            status: 'good'
+          },
+          {
+            name: '成功率',
+            value: Number(statusData.performance_metrics?.success_rate || 0),
+            unit: '%',
+            trend: 'stable',
+            status: 'good'
+          },
+          {
+            name: 'CPU使用率',
+            value: Number(statusData.system_resources?.cpu_usage || 0),
+            unit: '%',
+            trend: 'stable',
+            status: 'warning'
+          },
+          {
+            name: '内存使用率',
+            value: Number(statusData.system_resources?.memory_usage || 0),
+            unit: '%',
+            trend: 'stable',
+            status: 'warning'
+          },
+          {
+            name: '活跃会话',
+            value: Number(statusData.agent_info?.active_conversations || 0),
+            unit: '个',
+            trend: 'stable',
+            status: 'good'
+          }
+        ]
+        setMetrics(metricList)
+      }
+      try {
+        const metricRes = await apiFetch(buildApiUrl('/api/v1/agent/metrics'))
+        const metricBody = await metricRes.json()
+        const metricData = metricBody.data || metricBody
+        if (metricData && metricData.requests) {
+          const mapped = (metricData.requests || []).slice(-50).map((req: any, idx: number) => ({
+            id: req.id || String(idx),
+            interface: req.interface || 'agent',
+            method: (req.method || 'GET').toUpperCase(),
+            endpoint: req.path || req.endpoint || '',
+            status: (req.status || 'success') as APIRequest['status'],
+            responseTime: Math.round(req.latency_ms || req.response_time || 0),
+            timestamp: req.timestamp || new Date().toLocaleTimeString('zh-CN'),
+            requestSize: Number(req.request_size_kb || 0),
+            responseSize: Number(req.response_size_kb || 0)
+          }))
+          setRecentRequests(mapped)
+        } else {
+          setRecentRequests([])
+        }
+      } catch {
+        setRecentRequests([])
+      }
+    } catch (e) {
+      setError('加载接口状态失败')
+      setInterfaces([])
+      setMetrics([])
+      setRecentRequests([])
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    loadData()
+  }, [])
 
   return (
     <div className="p-6">
@@ -424,13 +439,14 @@ const AgentInterfacePage: React.FC = () => {
           <Space>
             <Button 
               icon={<ReloadOutlined />}
-              onClick={() => console.log('刷新所有接口状态')}
+              loading={loading}
+              onClick={loadData}
             >
               刷新状态
             </Button>
             <Button 
               icon={<MonitorOutlined />}
-              onClick={() => console.log('查看详细监控')}
+              onClick={() => logger.log('查看详细监控')}
             >
               详细监控
             </Button>
@@ -498,38 +514,45 @@ const AgentInterfacePage: React.FC = () => {
               rowKey="id"
               pagination={false}
               size="small"
+              loading={loading}
             />
           </Card>
         </TabPane>
 
         <TabPane tab="性能监控" key="metrics">
           <Row gutter={16}>
-            {metrics.map((metric, index) => (
-              <Col span={8} key={index} className="mb-4">
-                <Card>
-                  <div className="flex justify-between items-start mb-2">
-                    <Text strong>{metric.name}</Text>
-                    <div className="flex items-center">
-                      <span className="text-xs mr-1">{getTrendIcon(metric.trend)}</span>
-                      <Badge 
-                        status={metric.status === 'good' ? 'success' : metric.status === 'warning' ? 'warning' : 'error'}
-                      />
-                    </div>
-                  </div>
-                  <div 
-                    className="text-2xl font-bold mb-2"
-                    style={{ color: getMetricStatusColor(metric.status) }}
-                  >
-                    {metric.value}{metric.unit}
-                  </div>
-                  <Progress 
-                    percent={metric.value > 100 ? 100 : metric.value}
-                    strokeColor={getMetricStatusColor(metric.status)}
-                    size="small"
-                  />
-                </Card>
+            {metrics.length === 0 ? (
+              <Col span={24}>
+                <Alert message="暂无实时性能数据" type="info" showIcon />
               </Col>
-            ))}
+            ) : (
+              metrics.map((metric, index) => (
+                <Col span={8} key={index} className="mb-4">
+                  <Card>
+                    <div className="flex justify-between items-start mb-2">
+                      <Text strong>{metric.name}</Text>
+                      <div className="flex items-center">
+                        <span className="text-xs mr-1">{getTrendIcon(metric.trend)}</span>
+                        <Badge 
+                          status={metric.status === 'good' ? 'success' : metric.status === 'warning' ? 'warning' : 'error'}
+                        />
+                      </div>
+                    </div>
+                    <div 
+                      className="text-2xl font-bold mb-2"
+                      style={{ color: getMetricStatusColor(metric.status) }}
+                    >
+                      {metric.value}{metric.unit}
+                    </div>
+                    <Progress 
+                      percent={metric.value > 100 ? 100 : metric.value}
+                      strokeColor={getMetricStatusColor(metric.status)}
+                      size="small"
+                    />
+                  </Card>
+                </Col>
+              ))
+            )}
           </Row>
         </TabPane>
 
@@ -541,6 +564,7 @@ const AgentInterfacePage: React.FC = () => {
               rowKey="id"
               pagination={{ pageSize: 50 }}
               size="small"
+              locale={{ emptyText: '暂无请求数据' }}
             />
           </Card>
         </TabPane>
@@ -590,50 +614,7 @@ const AgentInterfacePage: React.FC = () => {
 
         <TabPane tab="活动日志" key="logs">
           <Card title="接口活动日志">
-            <Timeline
-              items={[
-                {
-                  color: 'green',
-                  children: (
-                    <div>
-                      <Text strong>聊天接口响应正常</Text>
-                      <br />
-                      <Text type="secondary">处理用户请求，响应时间245ms - 刚刚</Text>
-                    </div>
-                  )
-                },
-                {
-                  color: 'blue',
-                  children: (
-                    <div>
-                      <Text strong>任务执行接口启动新任务</Text>
-                      <br />
-                      <Text type="secondary">开始处理数据分析任务 - 30秒前</Text>
-                    </div>
-                  )
-                },
-                {
-                  color: 'red',
-                  children: (
-                    <div>
-                      <Text strong>多代理接口连接失败</Text>
-                      <br />
-                      <Text type="secondary">网络连接超时，正在重试 - 1分钟前</Text>
-                    </div>
-                  )
-                },
-                {
-                  color: 'orange',
-                  children: (
-                    <div>
-                      <Text strong>监督者接口进入空闲状态</Text>
-                      <br />
-                      <Text type="secondary">所有监督任务已完成 - 5分钟前</Text>
-                    </div>
-                  )
-                }
-              ]}
-            />
+            <Alert message="暂无活动日志数据" type="info" showIcon />
           </Card>
         </TabPane>
       </Tabs>

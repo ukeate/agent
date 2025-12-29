@@ -9,7 +9,6 @@ from datetime import datetime
 from datetime import timedelta
 from src.core.utils.timezone_utils import utc_now, utc_factory
 from uuid import uuid4
-
 from ...sync.sync_engine import (
     SyncEngine, SyncTask, SyncPriority, SyncDirection, 
     SyncStatus, SyncResult
@@ -20,8 +19,8 @@ from ...offline.models import OfflineDatabase
 from ...models.schemas.offline import (
     SyncOperation, SyncOperationType, VectorClock, 
     NetworkStatus, ConflictType
-)
 
+)
 
 class TestSyncEngine:
     """同步引擎测试"""
@@ -371,7 +370,6 @@ class TestSyncEngine:
         assert stats["queued_tasks"] == 3
         assert stats["sync_efficiency"] == 100 / 110  # 成功率
 
-
 class TestVectorClockManager:
     """向量时钟管理器测试"""
     
@@ -506,7 +504,6 @@ class TestVectorClockManager:
         not_ready_event.clock = {"local": 3, "remote": 4}  # local超前了
         
         assert clock_manager.is_causally_ready(not_ready_event, local_clock) == False
-
 
 class TestDeltaCalculator:
     """增量计算器测试"""

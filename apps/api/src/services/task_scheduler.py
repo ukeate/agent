@@ -2,17 +2,16 @@
 后台任务调度器
 定期执行pending任务
 """
+
 import asyncio
 from datetime import datetime
 from datetime import timedelta
 from src.core.utils.timezone_utils import utc_now, utc_factory
 from typing import Optional
-import structlog
-
 from src.services.task_executor import task_executor
 
-logger = structlog.get_logger(__name__)
-
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 class TaskScheduler:
     """后台任务调度器"""
@@ -46,7 +45,7 @@ class TaskScheduler:
             try:
                 await self._task
             except asyncio.CancelledError:
-                pass
+                raise
         
         logger.info("任务调度器已停止")
     
@@ -141,7 +140,6 @@ class TaskScheduler:
             "last_execution": self._last_execution.isoformat() if self._last_execution else None,
             "executor_status": task_executor.get_status()
         }
-
 
 # 全局任务调度器实例
 task_scheduler = TaskScheduler()

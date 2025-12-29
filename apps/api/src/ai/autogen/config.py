@@ -1,12 +1,11 @@
 """
 AutoGen智能体配置管理
 """
+
 from enum import Enum
 from typing import Dict, List, Optional, Any
 from pydantic import BaseModel, Field, ConfigDict
-
 from src.core.constants import ConversationConstants
-
 
 class AgentRole(str, Enum):
     """智能体角色枚举"""
@@ -15,7 +14,11 @@ class AgentRole(str, Enum):
     DOC_EXPERT = "doc_expert"
     SUPERVISOR = "supervisor"
     KNOWLEDGE_RETRIEVAL = "knowledge_retrieval"
-
+    ASSISTANT = "assistant"
+    CRITIC = "critic"
+    CODER = "coder"
+    PLANNER = "planner"
+    EXECUTOR = "executor"
 
 class AgentConfig(BaseModel):
     """智能体配置模型"""
@@ -30,7 +33,6 @@ class AgentConfig(BaseModel):
     
     model_config = ConfigDict(use_enum_values=True)
 
-
 class ConversationConfig(BaseModel):
     """对话配置模型"""
     max_rounds: int = Field(default=ConversationConstants.DEFAULT_MAX_ROUNDS, gt=0, description="最大对话轮数")
@@ -38,7 +40,6 @@ class ConversationConfig(BaseModel):
     auto_reply: bool = Field(default=ConversationConstants.DEFAULT_AUTO_REPLY, description="是否自动回复")
     speaker_selection_method: str = Field(default=ConversationConstants.DEFAULT_SPEAKER_SELECTION_METHOD, description="发言者选择方法")
     allow_repeat_speaker: bool = Field(default=ConversationConstants.DEFAULT_ALLOW_REPEAT_SPEAKER, description="是否允许连续发言")
-
 
 # 预定义智能体配置
 AGENT_CONFIGS: Dict[AgentRole, AgentConfig] = {

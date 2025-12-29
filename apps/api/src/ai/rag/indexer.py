@@ -2,17 +2,16 @@
 RAG文档索引器
 提供文档分块和向量化能力
 """
+
 import asyncio
-import logging
 from typing import Any, Dict, List, Optional
 import re
 from datetime import datetime
 from src.core.utils.timezone_utils import utc_now, utc_factory
-
 from .models import Document, DocumentChunk, DocumentMetadata, IndexStats
 
-logger = logging.getLogger(__name__)
-
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 class TextSplitter:
     """文本分割器"""
@@ -92,7 +91,6 @@ class TextSplitter:
         
         return result
 
-
 class DocumentIndexer:
     """文档索引器基类"""
     
@@ -160,7 +158,6 @@ class DocumentIndexer:
         self.stats.languages = list(languages)
         self.stats.document_types = list(doc_types)
 
-
 class VectorIndexer(DocumentIndexer):
     """向量索引器"""
     
@@ -204,20 +201,12 @@ class VectorIndexer(DocumentIndexer):
     async def _generate_embeddings(self, texts: List[str]) -> List[List[float]]:
         """生成文本嵌入向量"""
         if not self.embedding_model:
-            # 返回模拟向量用于测试
-            return [[0.1] * 1536 for _ in texts]
+            raise RuntimeError("embedding model not configured for indexer")
         
-        # 这里应该调用实际的嵌入模型
-        # 例如 OpenAI embeddings, sentence-transformers 等
-        embeddings = []
-        
-        for text in texts:
-            # 模拟异步嵌入生成
-            await asyncio.sleep(0.01)
-            # 这里应该是实际的嵌入生成逻辑
-            embedding = [0.1] * 1536  # 模拟 1536 维向量
-            embeddings.append(embedding)
-        
+        # 调用实际嵌入模型（需实现embed接口）
+        if not hasattr(self.embedding_model, "embed"):
+            raise RuntimeError("embedding model missing embed() method")
+        embeddings = await self.embedding_model.embed(texts)
         return embeddings
     
     def get_chunk_by_id(self, chunk_id: str) -> Optional[DocumentChunk]:
@@ -239,7 +228,6 @@ class VectorIndexer(DocumentIndexer):
         
         return chunk
 
-
 # 工厂函数
 def create_document_indexer(
     chunk_size: int = 1000,
@@ -257,7 +245,6 @@ def create_document_indexer(
     else:
         return DocumentIndexer(text_splitter)
 
-
 # 预定义的文本分割配置
 SPLITTER_CONFIGS = {
     "default": {"chunk_size": 1000, "chunk_overlap": 200},
@@ -274,7 +261,6 @@ SPLITTER_CONFIGS = {
         "separators": ["\n## ", "\n### ", "\n\n", "\n", "。", ".", " ", ""]
     }
 }
-
 
 def get_text_splitter(config_name: str = "default") -> TextSplitter:
     """获取预配置的文本分割器"""

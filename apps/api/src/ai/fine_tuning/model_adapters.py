@@ -2,39 +2,41 @@
 模型适配器模块
 支持不同模型架构的自动适配和优化
 """
+
 import re
-import logging
 from typing import Dict, List, Optional, Any, Tuple
 from abc import ABC, abstractmethod
 from .models import ModelArchitecture
 
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 class BaseModelAdapter(ABC):
     """模型适配器基类"""
     
     def __init__(self, model_name: str):
         self.model_name = model_name
-        self.logger = logging.getLogger(self.__class__.__name__)
+        self.logger = get_logger(self.__class__.__name__)
     
     @abstractmethod
     def get_target_modules(self) -> List[str]:
         """获取目标模块列表"""
-        pass
+        raise NotImplementedError
     
     @abstractmethod
     def get_architecture(self) -> ModelArchitecture:
         """获取模型架构"""
-        pass
+        raise NotImplementedError
     
     @abstractmethod
     def get_max_sequence_length(self) -> int:
         """获取最大序列长度"""
-        pass
+        raise NotImplementedError
     
     @abstractmethod
     def get_optimization_config(self) -> Dict[str, Any]:
         """获取优化配置"""
-        pass
+        raise NotImplementedError
     
     def get_attention_implementation(self) -> str:
         """获取注意力实现方式"""
@@ -47,7 +49,6 @@ class BaseModelAdapter(ABC):
     def requires_special_tokenizer_config(self) -> Dict[str, Any]:
         """是否需要特殊的分词器配置"""
         return {}
-
 
 class LlamaAdapter(BaseModelAdapter):
     """LLaMA模型适配器"""
@@ -90,7 +91,6 @@ class LlamaAdapter(BaseModelAdapter):
             }
         return None
 
-
 class MistralAdapter(BaseModelAdapter):
     """Mistral模型适配器"""
     
@@ -121,7 +121,6 @@ class MistralAdapter(BaseModelAdapter):
     
     def get_attention_implementation(self) -> str:
         return "flash_attention_2"
-
 
 class QwenAdapter(BaseModelAdapter):
     """Qwen模型适配器"""
@@ -162,7 +161,6 @@ class QwenAdapter(BaseModelAdapter):
             "padding_side": "left"  # Qwen推荐左填充
         }
 
-
 class ChatGLMAdapter(BaseModelAdapter):
     """ChatGLM模型适配器"""
     
@@ -201,7 +199,6 @@ class ChatGLMAdapter(BaseModelAdapter):
             "padding_side": "left"
         }
 
-
 class BaichuanAdapter(BaseModelAdapter):
     """Baichuan模型适配器"""
     
@@ -234,7 +231,6 @@ class BaichuanAdapter(BaseModelAdapter):
             "use_fast": False  # Baichuan可能需要使用慢速分词器
         }
 
-
 class YiAdapter(BaseModelAdapter):
     """Yi模型适配器"""
     
@@ -263,7 +259,6 @@ class YiAdapter(BaseModelAdapter):
             "rope_theta": 5000000.0  # Yi使用不同的RoPE theta
         }
 
-
 class DeepSeekAdapter(BaseModelAdapter):
     """DeepSeek模型适配器"""
     
@@ -285,7 +280,6 @@ class DeepSeekAdapter(BaseModelAdapter):
             "use_gradient_checkpointing": True,
             "attention_bias": False
         }
-
 
 class InternLMAdapter(BaseModelAdapter):
     """InternLM模型适配器"""
@@ -311,7 +305,6 @@ class InternLMAdapter(BaseModelAdapter):
             "use_gradient_checkpointing": True,
             "attention_bias": False
         }
-
 
 class ModelAdapterFactory:
     """模型适配器工厂类"""
@@ -347,7 +340,7 @@ class ModelAdapterFactory:
                 return adapter_class(model_name)
         
         # 如果没有匹配的，使用默认的LLaMA适配器
-        logging.warning(f"未找到模型 {model_name} 的专用适配器，使用默认LLaMA适配器")
+        logger.warning(f"未找到模型 {model_name} 的专用适配器，使用默认LLaMA适配器")
         return LlamaAdapter(model_name)
     
     @classmethod
@@ -369,13 +362,12 @@ class ModelAdapterFactory:
         adapter = cls.create_adapter(model_name)
         return adapter.get_architecture()
 
-
 class ModelOptimizer:
     """模型优化器"""
     
     def __init__(self, adapter: BaseModelAdapter):
         self.adapter = adapter
-        self.logger = logging.getLogger(self.__class__.__name__)
+        self.logger = get_logger(self.__class__.__name__)
     
     def get_recommended_batch_size(self, gpu_memory_gb: float, sequence_length: int) -> Tuple[int, int]:
         """

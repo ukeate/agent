@@ -8,11 +8,9 @@ import time
 from pathlib import Path
 from unittest.mock import Mock, patch, MagicMock
 from datetime import datetime, timezone
-
 import torch
 import torch.nn as nn
 import numpy as np
-
 from ....ai.model_service.registry import (
     ModelRegistry,
     ModelRegistrationRequest, 
@@ -37,10 +35,13 @@ from ....ai.model_service.online_learning import (
     ABTestConfig
 )
 from ....ai.model_service.monitoring import MonitoringSystem
+from src.core.logging import setup_logging
+
+logger = get_logger(__name__)
 
 class TestModelServiceIntegration:
     """模型服务平台集成测试"""
-    
+
     @pytest.fixture
     def temp_storage(self):
         """临时存储目录"""
@@ -435,13 +436,13 @@ class TestModelServiceIntegration:
         success_rate = len(successful_results) / len(results)
         qps = len(results) / total_time
         
-        print(f"\n压力测试结果:")
-        print(f"  总请求数: {len(results)}")
-        print(f"  成功数: {len(successful_results)}")
-        print(f"  失败数: {len(failed_results)}")
-        print(f"  成功率: {success_rate:.2%}")
-        print(f"  QPS: {qps:.2f}")
-        print(f"  总耗时: {total_time:.2f}s")
+        logger.info(f"\n压力测试结果:")
+        logger.info(f"  总请求数: {len(results)}")
+        logger.info(f"  成功数: {len(successful_results)}")
+        logger.error(f"  失败数: {len(failed_results)}")
+        logger.info(f"  成功率: {success_rate:.2%}")
+        logger.info(f"  QPS: {qps:.2f}")
+        logger.info(f"  总耗时: {total_time:.2f}s")
         
         # 5. 断言性能要求
         assert success_rate >= 0.95  # 95%成功率
@@ -453,8 +454,8 @@ class TestModelServiceIntegration:
             avg_latency = sum(latencies) / len(latencies)
             p95_latency = np.percentile(latencies, 95)
             
-            print(f"  平均延迟: {avg_latency:.2f}ms")
-            print(f"  P95延迟: {p95_latency:.2f}ms")
+            logger.info(f"  平均延迟: {avg_latency:.2f}ms")
+            logger.info(f"  P95延迟: {p95_latency:.2f}ms")
             
             assert avg_latency < 1000  # 平均延迟小于1秒
             assert p95_latency < 2000  # P95延迟小于2秒
@@ -498,7 +499,7 @@ class TestModelServiceIntegration:
             assert "input_schema" in onnx_metadata
             
         except ImportError:
-            print("ONNX未安装，跳过ONNX兼容性测试")
+            logger.info("ONNX未安装，跳过ONNX兼容性测试")
         
         # 3. 测试HuggingFace模型（模拟）
         try:
@@ -518,7 +519,7 @@ class TestModelServiceIntegration:
                 assert hf_metadata["vocab_size"] == 30522
                 
         except ImportError:
-            print("Transformers未安装，跳过HuggingFace兼容性测试")
+            logger.info("Transformers未安装，跳过HuggingFace兼容性测试")
     
     @pytest.mark.asyncio
     async def test_error_handling_and_recovery(
@@ -663,4 +664,6 @@ class TestModelServiceIntegration:
         assert len(test_models) == 0
 
 if __name__ == "__main__":
+    setup_logging()
     pytest.main([__file__, "-v"])
+from src.core.logging import get_logger

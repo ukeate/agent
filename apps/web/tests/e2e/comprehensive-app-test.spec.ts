@@ -59,15 +59,15 @@ test.describe('完整应用功能验证', () => {
     await page.waitForTimeout(500);
     
     // 验证子菜单项出现
-    await expect(page.locator('text=Q-Learning页面')).toBeVisible();
-    await expect(page.locator('text=Q-Learning推荐页面')).toBeVisible();
+    await expect(page.locator('text=算法总览')).toBeVisible();
+    await expect(page.locator('text=混合推荐')).toBeVisible();
     await page.screenshot({ path: 'test-results/qlearning-submenu-expanded.png' });
     console.log('✅ Q-Learning子菜单展开正常');
     
     // 点击子菜单项
-    await page.click('text=Q-Learning页面');
+    await page.click('text=算法总览');
     await page.waitForURL('**/qlearning');
-    await expect(page.locator('h1, h2')).toContainText(/Q-Learning|学习/);
+    await expect(page.locator('text=Q-Learning 总览')).toBeVisible();
     await page.screenshot({ path: 'test-results/qlearning-page-working.png' });
     console.log('✅ Q-Learning页面访问正常');
   });
@@ -75,6 +75,7 @@ test.describe('完整应用功能验证', () => {
   test('应用无JavaScript错误', async ({ page }) => {
     const jsErrors: string[] = [];
     const pageErrors: string[] = [];
+    const badApiResponses: string[] = [];
     
     page.on('console', (msg) => {
       if (msg.type() === 'error') {
@@ -85,12 +86,21 @@ test.describe('完整应用功能验证', () => {
     page.on('pageerror', (error) => {
       pageErrors.push(error.message);
     });
+
+    page.on('response', (response) => {
+      const url = response.url();
+      if (!url.includes('/api/')) return;
+      const status = response.status();
+      if (status >= 400) {
+        badApiResponses.push(`${status} ${url}`);
+      }
+    });
     
     await page.goto('http://localhost:3000');
     await page.waitForLoadState('networkidle');
     
     // 导航到几个不同页面
-    const testRoutes = ['/chat', '/multi-agent', '/rag', '/workflow', '/supervisor'];
+    const testRoutes = ['/chat', '/multi-agent', '/rag', '/workflow', '/supervisor', '/graphrag', '/graphrag-enhanced'];
     
     for (const route of testRoutes) {
       await page.goto(`http://localhost:3000${route}`);
@@ -104,6 +114,12 @@ test.describe('完整应用功能验证', () => {
       !err.includes('PipelineOutlined') &&
       !err.includes('favicon')
     );
+
+    if (criticalErrors.length || pageErrors.length || badApiResponses.length) {
+      console.log('Critical console errors:', criticalErrors);
+      console.log('Page errors:', pageErrors);
+      console.log('Bad API responses:', Array.from(new Set(badApiResponses)));
+    }
     
     expect(criticalErrors.length).toBe(0);
     expect(pageErrors.length).toBe(0);
@@ -120,9 +136,9 @@ test.describe('完整应用功能验证', () => {
       '🤖 智能体系统',
       '🔍 智能检索引擎', 
       '🧠 强化学习系统',
-      '🎯 探索策略系统',
-      '🏆 奖励函数系统',
-      '🌍 环境建模系统'
+      '探索策略系统',
+      '奖励函数系统',
+      '环境建模系统'
     ];
     
     for (const group of groups) {

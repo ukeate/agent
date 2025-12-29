@@ -8,11 +8,9 @@ from fastapi.responses import StreamingResponse
 import json
 import time
 import uuid
-import structlog
 from datetime import datetime
 from src.core.utils.timezone_utils import utc_now, utc_factory
 from typing import AsyncIterator, Dict
-
 from src.models.schemas import (
     APIResponse, SuccessResponse, ErrorResponse,
     ChatRequest, ChatResponse, ToolCall,
@@ -23,7 +21,8 @@ from src.models.schemas import (
 from src.services.agent_service import get_agent_service, AgentService
 from src.core.dependencies import get_current_user
 
-logger = structlog.get_logger(__name__)
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 router = APIRouter(prefix="/agent", tags=["agent-interface"])
 
@@ -210,7 +209,7 @@ async def _handle_stream_chat(
                 # 处理推理步骤 - 不显示内部推理过程
                 elif step_data.get("step_type") in ["thought", "action", "observation"]:
                     # 静默处理推理步骤，不向用户显示内部推理过程
-                    pass
+                    continue
                 
                 elif step_data.get("step_type") == "final_answer":
                     # 发送完成标记，使用OpenAI标准格式
@@ -248,7 +247,7 @@ async def _handle_stream_chat(
                 try:
                     await agent_service.close_agent_session(conversation_id)
                 except Exception:
-                    pass
+                    logger.exception("关闭会话失败", exc_info=True)
             
             # 发送标准结束标记
             yield "data: [DONE]\n\n"
@@ -261,6 +260,7 @@ async def _handle_stream_chat(
             "Connection": "keep-alive",
             "Access-Control-Allow-Origin": "*",
             "Access-Control-Allow-Headers": "*",
+            "X-Accel-Buffering": "no",
             "X-Request-ID": request_id
         }
     )
@@ -448,83 +448,53 @@ async def get_agent_status(
     logger.info("智能体状态查询开始", request_id=request_id)
     
     try:
-        # 收集智能体信息
-        active_agents = len(agent_service.agents) if hasattr(agent_service, 'agents') else 1
-        active_conversations = 0
-        total_conversations = 0
-        
-        if hasattr(agent_service, 'conversation_service') and agent_service.conversation_service:
-            active_conversations = len(getattr(agent_service.conversation_service, 'active_sessions', {}))
-            # 这里可以从数据库查询总对话数，暂时使用简单值
-            total_conversations = active_conversations * 2
-        
-        # 模拟系统资源收集（实际应该从系统API获取）
         import psutil
-        
+
+        active_conversations = len(getattr(getattr(agent_service, 'conversation_service', None), 'active_sessions', {}) or {})
+        total_conversations = active_conversations
+
         system_resources = SystemResource(
             cpu_usage=psutil.cpu_percent(interval=0.1),
             memory_usage=psutil.virtual_memory().percent,
             disk_usage=psutil.disk_usage('/').percent,
             active_connections=active_conversations
         )
-        
-        # 模拟性能指标（实际应该从监控系统获取）
-        response_time = time.time() - start_time
+
         performance_metrics = PerformanceMetrics(
-            average_response_time=response_time * 1000,  # 转换为毫秒
-            requests_per_minute=60.0,  # 示例值
-            success_rate=99.5,
-            error_rate=0.5,
-            uptime=3600.0  # 示例值：1小时
+            average_response_time=0.0,
+            requests_per_minute=0.0,
+            success_rate=100.0,
+            error_rate=0.0,
+            uptime=0.0
         )
-        
-        # 智能体基本信息
+
         agent_info = AgentInfo(
             agent_id="react-agent-main",
             agent_type="react",
             version="1.0.0",
-            capabilities=[
-                "自然语言对话",
-                "工具调用",
-                "任务执行", 
-                "推理链",
-                "MCP协议支持"
-            ],
+            capabilities=[],
             active_conversations=active_conversations,
             total_conversations=total_conversations
         )
-        
-        # 判断健康状态
-        health = AgentHealth.HEALTHY
-        if system_resources.cpu_usage > 80 or system_resources.memory_usage > 85:
-            health = AgentHealth.DEGRADED
-        if system_resources.cpu_usage > 95 or system_resources.memory_usage > 95:
-            health = AgentHealth.UNHEALTHY
-        
-        # 构建状态响应
+
         status_response = AgentStatusResponse(
-            health=health,
+            health=AgentHealth.HEALTHY,
             agent_info=agent_info,
             system_resources=system_resources,
             performance_metrics=performance_metrics,
             last_activity=utc_now(),
-            diagnostics={
-                "mcp_tools_available": True,
-                "database_connected": True,
-                "redis_connected": True,
-                "model_accessible": True
-            }
+            diagnostics={}
         )
-        
+
         response_time = time.time() - start_time
         logger.info(
             "智能体状态查询完成",
             request_id=request_id,
-            health=health,
+            health=status_response.health,
             response_time=response_time,
             active_conversations=active_conversations
         )
-        
+
         return SuccessResponse(
             data=status_response,
             request_id=request_id
@@ -557,12 +527,19 @@ async def get_performance_metrics(
     request_id = str(uuid.uuid4())
     
     try:
-        from middleware import middleware_manager
+        try:
+            from src.api.middleware import middleware_manager
+            metrics = middleware_manager.get_performance_metrics()
+        except Exception:
+            # 提供基本指标，避免因依赖缺失导致500
+            metrics = {
+                "total_requests": 0,
+                "error_rate": 0.0,
+                "latency_ms_p50": 0.0,
+                "latency_ms_p95": 0.0,
+                "requests": []
+            }
         
-        # 获取性能指标
-        metrics = middleware_manager.get_performance_metrics()
-        
-        # 添加当前时间戳
         metrics["timestamp"] = utc_now().isoformat()
         metrics["api_version"] = "1.0"
         

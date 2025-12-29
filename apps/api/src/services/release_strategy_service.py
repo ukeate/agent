@@ -3,6 +3,7 @@
 
 管理实验的发布策略和流程配置
 """
+
 from datetime import datetime
 from datetime import timedelta
 from src.core.utils.timezone_utils import utc_now, utc_factory
@@ -10,9 +11,7 @@ from typing import Dict, List, Any, Optional
 from enum import Enum
 from dataclasses import dataclass, field
 import json
-
 from ..core.database import get_db_session
-
 
 class ReleaseType(str, Enum):
     """发布类型"""
@@ -23,7 +22,6 @@ class ReleaseType(str, Enum):
     GRADUAL = "gradual"  # 渐进发布
     SHADOW = "shadow"  # 影子发布
 
-
 class ApprovalLevel(str, Enum):
     """审批级别"""
     NONE = "none"  # 无需审批
@@ -31,14 +29,12 @@ class ApprovalLevel(str, Enum):
     MULTIPLE = "multiple"  # 多人审批
     TIERED = "tiered"  # 分级审批
 
-
 class Environment(str, Enum):
     """环境"""
     DEVELOPMENT = "development"
     TESTING = "testing"
     STAGING = "staging"
     PRODUCTION = "production"
-
 
 @dataclass
 class ReleaseStage:
@@ -51,7 +47,6 @@ class ReleaseStage:
     rollback_criteria: Dict[str, Any]
     approval_required: bool
     approvers: List[str] = field(default_factory=list)
-    
     
 @dataclass
 class ReleaseStrategy:
@@ -69,9 +64,8 @@ class ReleaseStrategy:
     notification_config: Dict[str, Any]
     schedule: Optional[Dict[str, Any]] = None  # 发布计划
     metadata: Dict[str, Any] = field(default_factory=dict)
-    created_at: datetime = field(default_factory=datetime.utcnow)
-    updated_at: datetime = field(default_factory=datetime.utcnow)
-
+    created_at: datetime = field(default_factory=utc_now)
+    updated_at: datetime = field(default_factory=utc_now)
 
 @dataclass
 class ReleaseExecution:
@@ -85,7 +79,6 @@ class ReleaseExecution:
     stage_history: List[Dict[str, Any]] = field(default_factory=list)
     approvals: List[Dict[str, Any]] = field(default_factory=list)
     metrics: Dict[str, Any] = field(default_factory=dict)
-
 
 class ReleaseStrategyService:
     """发布策略服务"""

@@ -1,48 +1,58 @@
-import React from 'react'
-import { Card, Table, Tag, Button, Space, Typography, Progress } from 'antd'
+import React, { useEffect, useState } from 'react'
+import { Alert, Card, Table, Typography } from 'antd'
 import { CheckCircleOutlined } from '@ant-design/icons'
+import { knowledgeManagementService } from '../services/knowledgeManagementService'
 
 const { Title, Paragraph } = Typography
 
 const KnowledgeValidationPage: React.FC = () => {
-  const data = [
-    {
-      key: '1',
-      entity: '苹果公司',
-      type: '组织',
-      confidence: 95,
-      status: '已验证'
-    }
-  ]
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [result, setResult] = useState<{
+    valid: boolean
+    violations: Array<{
+      rule_id: string
+      rule_type: string
+      message: string
+      count: number
+      details?: any[]
+    }>
+    checked_rules: number
+    execution_time_ms: number
+  } | null>(null)
 
   const columns = [
-    { title: '实体', dataIndex: 'entity', key: 'entity' },
-    { title: '类型', dataIndex: 'type', key: 'type' },
-    { 
-      title: '置信度', 
-      dataIndex: 'confidence', 
-      key: 'confidence',
-      render: (confidence: number) => <Progress percent={confidence} size="small" />
-    },
-    { 
-      title: '状态', 
-      dataIndex: 'status', 
-      key: 'status',
-      render: (status: string) => (
-        <Tag color="success">{status}</Tag>
-      )
-    },
-    {
-      title: '操作',
-      key: 'action',
-      render: () => (
-        <Space>
-          <Button size="small" type="link">验证</Button>
-          <Button size="small" type="link">编辑</Button>
-        </Space>
-      )
-    }
+    { title: '规则ID', dataIndex: 'rule_id', key: 'rule_id' },
+    { title: '规则类型', dataIndex: 'rule_type', key: 'rule_type' },
+    { title: '问题描述', dataIndex: 'message', key: 'message' },
+    { title: '影响数量', dataIndex: 'count', key: 'count' },
+    { title: '详情数', dataIndex: 'details_count', key: 'details_count' }
   ]
+
+  useEffect(() => {
+    const loadValidation = async () => {
+      setLoading(true)
+      setError(null)
+      try {
+        const data = await knowledgeManagementService.validateGraph()
+        setResult(data)
+      } catch (err) {
+        setError((err as Error).message || '加载验证数据失败')
+      } finally {
+        setLoading(false)
+      }
+    }
+    loadValidation()
+  }, [])
+
+  const dataSource = (result?.violations || []).map((item, index) => ({
+    key: `${item.rule_id}-${index}`,
+    rule_id: item.rule_id,
+    rule_type: item.rule_type,
+    message: item.message,
+    count: item.count,
+    details_count: item.details ? item.details.length : 0
+  }))
 
   return (
     <div style={{ padding: 24 }}>
@@ -57,7 +67,17 @@ const KnowledgeValidationPage: React.FC = () => {
       </div>
 
       <Card title="知识验证列表">
-        <Table columns={columns} dataSource={data} />
+        {error && <Alert type="error" message={error} showIcon style={{ marginBottom: 12 }} />}
+        {!error && result && (
+          <Alert
+            type={result.valid ? 'success' : 'warning'}
+            showIcon
+            message={result.valid ? '当前验证通过' : '存在验证问题'}
+            description={`检查规则数: ${result.checked_rules}，耗时: ${result.execution_time_ms.toFixed(2)}ms`}
+            style={{ marginBottom: 12 }}
+          />
+        )}
+        <Table columns={columns} dataSource={dataSource} loading={loading} />
       </Card>
     </div>
   )

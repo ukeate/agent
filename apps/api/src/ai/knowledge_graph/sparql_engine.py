@@ -15,22 +15,15 @@ import hashlib
 from typing import Dict, List, Any, Optional, Union
 from dataclasses import dataclass, asdict
 from enum import Enum
-import logging
+import rdflib
+from rdflib import Graph, Namespace, URIRef, Literal, BNode
+from rdflib.plugins.sparql import prepareQuery, processUpdate
+from rdflib.plugins.sparql.parser import parseUpdate
+from rdflib.plugins.sparql.evaluate import evalQuery
+from rdflib.plugins.sparql.algebra import translateQuery
 
-try:
-    import rdflib
-    from rdflib import Graph, Namespace, URIRef, Literal, BNode
-    from rdflib.plugins.sparql import prepareQuery, processUpdate
-    from rdflib.plugins.sparql.evaluate import evalQuery
-    from rdflib.plugins.sparql.algebra import translateQuery
-    RDFLIB_AVAILABLE = True
-except ImportError:
-    RDFLIB_AVAILABLE = False
-
-from ..rag.embeddings import MockEmbeddings
-
-logger = logging.getLogger(__name__)
-
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 class QueryType(str, Enum):
     """SPARQL查询类型"""
@@ -40,7 +33,6 @@ class QueryType(str, Enum):
     DESCRIBE = "describe"
     UPDATE = "update"
 
-
 class ExecutionStatus(str, Enum):
     """查询执行状态"""
     PENDING = "pending"
@@ -48,7 +40,6 @@ class ExecutionStatus(str, Enum):
     COMPLETED = "completed"
     FAILED = "failed"
     TIMEOUT = "timeout"
-
 
 @dataclass
 class SPARQLQuery:
@@ -65,7 +56,6 @@ class SPARQLQuery:
         if self.metadata is None:
             self.metadata = {}
 
-
 @dataclass
 class SPARQLResult:
     """SPARQL查询结果"""
@@ -79,7 +69,6 @@ class SPARQLResult:
     error_message: Optional[str] = None
     execution_plan: Optional[Dict[str, Any]] = None
     performance_stats: Optional[Dict[str, Any]] = None
-
 
 class QueryOptimizer:
     """查询优化器"""
@@ -96,31 +85,21 @@ class QueryOptimizer:
         """优化SPARQL查询"""
         try:
             # 解析查询
-            if RDFLIB_AVAILABLE:
-                parsed = prepareQuery(query)
-                algebra = translateQuery(parsed)
-                
-                optimized_algebra = algebra
-                
-                # 应用优化规则
-                for rule in self.optimization_rules:
-                    optimized_algebra = await rule(optimized_algebra, statistics)
-                
-                return {
-                    "original_query": query,
-                    "parsed_query": str(parsed),
-                    "original_algebra": str(algebra),
-                    "optimized_algebra": str(optimized_algebra),
-                    "optimization_applied": True
-                }
-            else:
-                # 基础优化：移除多余空格，规范化关键字
-                optimized = self._basic_optimization(query)
-                return {
-                    "original_query": query,
-                    "optimized_query": optimized,
-                    "optimization_applied": True
-                }
+            parsed = prepareQuery(query)
+            algebra = translateQuery(parsed)
+            optimized_algebra = algebra
+
+            # 应用优化规则
+            for rule in self.optimization_rules:
+                optimized_algebra = await rule(optimized_algebra, statistics)
+
+            return {
+                "original_query": query,
+                "parsed_query": str(parsed),
+                "original_algebra": str(algebra),
+                "optimized_algebra": str(optimized_algebra),
+                "optimization_applied": True,
+            }
                 
         except Exception as e:
             logger.error(f"查询优化失败: {e}")
@@ -150,20 +129,6 @@ class QueryOptimizer:
         """优化OPTIONAL模式"""
         # 优化OPTIONAL查询
         return algebra
-    
-    def _basic_optimization(self, query: str) -> str:
-        """基础查询优化"""
-        # 移除多余空格
-        optimized = " ".join(query.split())
-        
-        # 规范化关键字
-        keywords = ["SELECT", "WHERE", "FROM", "ORDER BY", "GROUP BY", "LIMIT", "OFFSET"]
-        for keyword in keywords:
-            optimized = optimized.replace(keyword.lower(), keyword)
-            optimized = optimized.replace(keyword.upper(), keyword)
-        
-        return optimized
-
 
 class QueryCache:
     """查询缓存管理器"""
@@ -173,6 +138,8 @@ class QueryCache:
         self.access_times = {}
         self.max_size = max_size
         self.ttl_seconds = ttl_seconds
+        self._hit_count = 0
+        self._total_requests = 0
     
     def _generate_cache_key(self, query_text: str, parameters: Dict[str, Any]) -> str:
         """生成缓存键"""
@@ -182,6 +149,7 @@ class QueryCache:
     async def get(self, query_text: str, parameters: Dict[str, Any]) -> Optional[SPARQLResult]:
         """获取缓存结果"""
         cache_key = self._generate_cache_key(query_text, parameters)
+        self._total_requests += 1
         
         if cache_key not in self.cache:
             return None
@@ -194,6 +162,7 @@ class QueryCache:
         
         # 更新访问时间
         self.access_times[cache_key] = time.time()
+        self._hit_count += 1
         
         # 标记为缓存结果
         result = cached_item['result']
@@ -234,10 +203,9 @@ class QueryCache:
         return {
             "size": len(self.cache),
             "max_size": self.max_size,
-            "hit_rate": getattr(self, '_hit_count', 0) / max(getattr(self, '_total_requests', 1), 1),
+            "hit_rate": self._hit_count / max(self._total_requests, 1),
             "ttl_seconds": self.ttl_seconds
         }
-
 
 class ExecutionPlanner:
     """执行计划生成器"""
@@ -366,7 +334,6 @@ class ExecutionPlanner:
         
         return False
 
-
 class SPARQLEngine:
     """SPARQL查询引擎"""
     
@@ -374,16 +341,9 @@ class SPARQLEngine:
         self.cache = QueryCache(cache_size, cache_ttl)
         self.optimizer = QueryOptimizer()
         self.planner = ExecutionPlanner()
-        
-        # 初始化RDF处理器
-        if RDFLIB_AVAILABLE:
-            self.graph = Graph()
-            self.rdflib_available = True
-            logger.info("RDFLib SPARQL引擎初始化完成")
-        else:
-            self.graph = None
-            self.rdflib_available = False
-            logger.warning("RDFLib不可用，使用模拟SPARQL引擎")
+
+        self.graph = Graph()
+        logger.info("RDFLib SPARQL引擎初始化完成")
         
         # 性能统计
         self.stats = {
@@ -401,7 +361,7 @@ class SPARQLEngine:
         
         try:
             # 1. 检查缓存
-            if sparql_query.use_cache:
+            if sparql_query.use_cache and sparql_query.query_type != QueryType.UPDATE:
                 cached_result = await self.cache.get(
                     sparql_query.query_text, 
                     sparql_query.parameters
@@ -411,7 +371,7 @@ class SPARQLEngine:
                     return cached_result
             
             # 2. 查询验证和解析
-            validation_result = await self._validate_query(sparql_query.query_text)
+            validation_result = await self._validate_query(sparql_query.query_text, sparql_query.query_type)
             if not validation_result["valid"]:
                 return self._create_error_result(
                     sparql_query.query_id,
@@ -420,7 +380,10 @@ class SPARQLEngine:
                 )
             
             # 3. 查询优化
-            optimized_query = await self.optimizer.optimize(sparql_query.query_text)
+            if sparql_query.query_type == QueryType.UPDATE:
+                optimized_query = {"original_query": sparql_query.query_text, "optimization_applied": False}
+            else:
+                optimized_query = await self.optimizer.optimize(sparql_query.query_text)
             
             # 4. 执行计划生成
             execution_plan = await self.planner.create_plan(optimized_query)
@@ -433,7 +396,12 @@ class SPARQLEngine:
             )
             
             # 6. 缓存结果
-            if sparql_query.use_cache and result.success and result.execution_time_ms < 5000:
+            if (
+                sparql_query.use_cache
+                and sparql_query.query_type != QueryType.UPDATE
+                and result.success
+                and result.execution_time_ms < 5000
+            ):
                 await self.cache.set(
                     sparql_query.query_text,
                     sparql_query.parameters,
@@ -462,41 +430,16 @@ class SPARQLEngine:
                 execution_time
             )
     
-    async def _validate_query(self, query_text: str) -> Dict[str, Any]:
+    async def _validate_query(self, query_text: str, query_type: QueryType) -> Dict[str, Any]:
         """验证SPARQL查询"""
         try:
-            if self.rdflib_available:
-                # 使用RDFLib验证
-                prepareQuery(query_text)
-                return {"valid": True}
+            if query_type == QueryType.UPDATE:
+                parseUpdate(query_text)
             else:
-                # 基础语法验证
-                return self._basic_validation(query_text)
+                prepareQuery(query_text)
+            return {"valid": True}
         except Exception as e:
             return {"valid": False, "error": str(e)}
-    
-    def _basic_validation(self, query_text: str) -> Dict[str, Any]:
-        """基础SPARQL语法验证"""
-        query_upper = query_text.upper().strip()
-        
-        # 检查基本结构
-        if not query_upper:
-            return {"valid": False, "error": "空查询"}
-        
-        # 检查支持的查询类型
-        supported_types = ["SELECT", "CONSTRUCT", "ASK", "DESCRIBE", "INSERT", "DELETE"]
-        if not any(query_upper.startswith(qtype) for qtype in supported_types):
-            return {"valid": False, "error": "不支持的查询类型"}
-        
-        # 检查基本语法
-        if "SELECT" in query_upper and "WHERE" not in query_upper:
-            return {"valid": False, "error": "SELECT查询缺少WHERE子句"}
-        
-        # 检查括号匹配
-        if query_text.count("{") != query_text.count("}"):
-            return {"valid": False, "error": "括号不匹配"}
-        
-        return {"valid": True}
     
     async def _execute_with_timeout(
         self, 
@@ -528,13 +471,8 @@ class SPARQLEngine:
     ) -> SPARQLResult:
         """内部查询执行方法"""
         start_time = time.time()
-        
-        if self.rdflib_available and self.graph:
-            # 使用RDFLib执行
-            return await self._execute_with_rdflib(sparql_query, execution_plan)
-        else:
-            # 使用模拟执行
-            return await self._execute_mock(sparql_query, execution_plan)
+
+        return await self._execute_with_rdflib(sparql_query, execution_plan)
     
     async def _execute_with_rdflib(
         self,
@@ -618,47 +556,6 @@ class SPARQLEngine:
                 execution_plan=execution_plan
             )
     
-    async def _execute_mock(
-        self,
-        sparql_query: SPARQLQuery,
-        execution_plan: Dict[str, Any]
-    ) -> SPARQLResult:
-        """模拟查询执行"""
-        start_time = time.time()
-        
-        # 模拟执行时间
-        await asyncio.sleep(0.1)
-        
-        # 生成模拟结果
-        if sparql_query.query_type == QueryType.ASK:
-            results = [{"result": True}]
-            result_type = "boolean"
-        elif sparql_query.query_type == QueryType.SELECT:
-            results = [
-                {"s": "http://example.org/subject1", "p": "http://example.org/predicate1", "o": "value1"},
-                {"s": "http://example.org/subject2", "p": "http://example.org/predicate2", "o": "value2"}
-            ]
-            result_type = "bindings"
-        elif sparql_query.query_type == QueryType.UPDATE:
-            results = [{"status": "updated"}]
-            result_type = "update"
-        else:
-            results = []
-            result_type = "graph"
-        
-        execution_time = (time.time() - start_time) * 1000
-        
-        return SPARQLResult(
-            query_id=sparql_query.query_id,
-            success=True,
-            result_type=result_type,
-            results=results,
-            execution_time_ms=execution_time,
-            row_count=len(results),
-            execution_plan=execution_plan,
-            performance_stats=self._generate_performance_stats(execution_time)
-        )
-    
     def _serialize_rdf_term(self, term) -> str:
         """序列化RDF术语"""
         if term is None:
@@ -671,12 +568,7 @@ class SPARQLEngine:
     
     def _generate_performance_stats(self, execution_time: float) -> Dict[str, Any]:
         """生成性能统计"""
-        return {
-            "execution_time_ms": execution_time,
-            "memory_used_mb": 10,  # 模拟值
-            "cache_hits": 0,
-            "index_scans": 1
-        }
+        return {"execution_time_ms": execution_time}
     
     def _create_error_result(self, query_id: str, error_msg: str, execution_time: float) -> SPARQLResult:
         """创建错误结果"""
@@ -783,27 +675,21 @@ class SPARQLEngine:
     
     def load_data(self, data: str, format: str = "turtle"):
         """加载RDF数据"""
-        if self.rdflib_available and self.graph:
-            try:
-                self.graph.parse(data=data, format=format)
-                logger.info(f"已加载RDF数据，格式: {format}")
-            except Exception as e:
-                logger.error(f"数据加载失败: {e}")
-                raise
-        else:
-            logger.warning("RDFLib不可用，无法加载数据")
+        try:
+            self.graph.parse(data=data, format=format)
+            logger.info(f"已加载RDF数据，格式: {format}")
+        except Exception as e:
+            logger.error(f"数据加载失败: {e}")
+            raise
     
     def load_from_file(self, file_path: str, format: str = None):
         """从文件加载RDF数据"""
-        if self.rdflib_available and self.graph:
-            try:
-                self.graph.parse(file_path, format=format)
-                logger.info(f"已加载文件: {file_path}")
-            except Exception as e:
-                logger.error(f"文件加载失败: {e}")
-                raise
-        else:
-            logger.warning("RDFLib不可用，无法加载文件")
+        try:
+            self.graph.parse(file_path, format=format)
+            logger.info(f"已加载文件: {file_path}")
+        except Exception as e:
+            logger.error(f"文件加载失败: {e}")
+            raise
     
     def get_statistics(self) -> Dict[str, Any]:
         """获取引擎统计信息"""
@@ -821,11 +707,7 @@ class SPARQLEngine:
             engine_stats["success_rate"] = 0.0
         
         engine_stats["cache_stats"] = self.cache.stats()
-        
-        if self.rdflib_available and self.graph:
-            engine_stats["graph_size"] = len(self.graph)
-        else:
-            engine_stats["graph_size"] = 0
+        engine_stats["graph_size"] = len(self.graph)
         
         return engine_stats
     
@@ -845,10 +727,8 @@ class SPARQLEngine:
         }
         logger.info("统计信息已重置")
 
-
 # 创建默认引擎实例
 default_sparql_engine = SPARQLEngine()
-
 
 async def execute_sparql_query(
     query_text: str,
@@ -868,7 +748,6 @@ async def execute_sparql_query(
     )
     
     return await default_sparql_engine.execute_query(query)
-
 
 async def explain_sparql_query(query_text: str) -> Dict[str, Any]:
     """分析SPARQL查询的便捷函数"""

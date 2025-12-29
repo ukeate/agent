@@ -11,13 +11,11 @@ from datetime import timedelta
 from src.core.utils.timezone_utils import utc_now, utc_factory
 from collections import defaultdict
 import json
-import logging
-
 from ..models import BehaviorEvent, UserSession, EventQueryFilter
 from ..storage.event_store import EventStore
 
-logger = logging.getLogger(__name__)
-
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 class SessionManager:
     """会话管理器"""
@@ -70,7 +68,7 @@ class SessionManager:
             try:
                 await self._cleanup_task
             except asyncio.CancelledError:
-                pass
+                raise
         
         # 关闭所有活跃会话
         await self._close_all_active_sessions()
@@ -172,7 +170,7 @@ class SessionManager:
             
             # 构建重放数据
             replay_data = {
-                'session': session.dict(),
+                'session': session.model_dump(mode="json"),
                 'total_events': total,
                 'events': events,
                 'timeline': await self._build_session_timeline(events),

@@ -1,13 +1,13 @@
 """
 情感智能决策引擎核心实现
 """
+
+from src.core.utils.timezone_utils import utc_now
 import asyncio
 from typing import Dict, List, Optional, Any, Tuple
 from datetime import datetime, timedelta
 from abc import ABC, abstractmethod
-import logging
 import numpy as np
-
 from .models import (
     DecisionContext, EmotionalDecision, RiskAssessment, InterventionPlan,
     CrisisAssessment, HealthDashboardData, RiskLevel, DecisionType,
@@ -15,9 +15,8 @@ from .models import (
 )
 from ..emotion_modeling.models import EmotionState, PersonalityProfile
 
-
-logger = logging.getLogger(__name__)
-
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 class DecisionStrategy(ABC):
     """决策策略抽象基类"""
@@ -25,19 +24,18 @@ class DecisionStrategy(ABC):
     @abstractmethod
     async def evaluate(self, context: DecisionContext) -> float:
         """评估策略适用性"""
-        pass
+        raise NotImplementedError
     
     @abstractmethod
     async def execute(self, context: DecisionContext) -> Dict[str, Any]:
         """执行策略"""
-        pass
+        raise NotImplementedError
     
     @property
     @abstractmethod
     def strategy_name(self) -> str:
         """策略名称"""
-        pass
-
+        raise NotImplementedError
 
 class EmotionalDecisionEngine:
     """情感智能决策引擎主类"""
@@ -593,7 +591,7 @@ class EmotionalDecisionEngine:
     
     def _create_intervention_timeline(self, risk_level: str, strategies: List[InterventionStrategy]) -> Dict[str, datetime]:
         """创建干预时间线"""
-        now = datetime.now()
+        now = utc_now()
         timeline = {}
         
         if risk_level == RiskLevel.CRITICAL.value:

@@ -10,16 +10,16 @@ import secrets
 import time
 from datetime import datetime
 from datetime import timedelta
-from src.core.utils.timezone_utils import utc_now, utc_factory, timezone
+from src.core.utils.timezone_utils import utc_now, utc_factory
 from typing import Dict, List, Any, Optional, Set, Tuple
 from dataclasses import dataclass, asdict
 from enum import Enum
-import logging
 from pathlib import Path
 import bcrypt
+from src.core.logging import get_logger, setup_logging
 
-logger = logging.getLogger(__name__)
-
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 class Permission(Enum):
     """权限类型"""
@@ -34,7 +34,6 @@ class Permission(Enum):
     MANAGE_USERS = "manage:users"
     ADMIN_ALL = "admin:all"
 
-
 class Role(Enum):
     """用户角色"""
     ANONYMOUS = "anonymous"
@@ -42,7 +41,6 @@ class Role(Enum):
     EDITOR = "editor"
     ADMIN = "admin"
     SUPER_ADMIN = "super_admin"
-
 
 # 角色权限映射
 ROLE_PERMISSIONS = {
@@ -75,7 +73,6 @@ ROLE_PERMISSIONS = {
     Role.SUPER_ADMIN: {Permission.ADMIN_ALL}
 }
 
-
 @dataclass
 class User:
     """用户信息"""
@@ -90,7 +87,6 @@ class User:
     is_active: bool = True
     metadata: Optional[Dict[str, Any]] = None
     api_keys: List[str] = None
-
 
 @dataclass
 class APIKey:
@@ -107,7 +103,6 @@ class APIKey:
     usage_count: int = 0
     metadata: Optional[Dict[str, Any]] = None
 
-
 @dataclass
 class Session:
     """会话信息"""
@@ -121,7 +116,6 @@ class Session:
     permissions: Set[Permission]
     metadata: Optional[Dict[str, Any]] = None
 
-
 @dataclass
 class AuthResult:
     """认证结果"""
@@ -133,7 +127,6 @@ class AuthResult:
     session_id: Optional[str] = None
     error_message: Optional[str] = None
     expires_at: Optional[datetime] = None
-
 
 class SecurityConfig:
     """安全配置"""
@@ -170,7 +163,6 @@ class SecurityConfig:
         self.ip_whitelist: Set[str] = set()
         self.ip_blacklist: Set[str] = set()
 
-
 class KnowledgeGraphAuth:
     """知识图谱认证管理器"""
     
@@ -195,7 +187,7 @@ class KnowledgeGraphAuth:
     
     def _setup_logging(self):
         """设置日志"""
-        self.logger = logging.getLogger(f"{__name__}.{self.__class__.__name__}")
+        self.logger = get_logger(f"{__name__}.{self.__class__.__name__}")
     
     def _load_data(self):
         """加载认证数据"""
@@ -704,7 +696,6 @@ class KnowledgeGraphAuth:
             }
         }
 
-
 # 装饰器
 def require_permission(permission: Permission):
     """权限检查装饰器"""
@@ -727,11 +718,11 @@ def require_permission(permission: Permission):
         return wrapper
     return decorator
 
-
 if __name__ == "__main__":
     # 测试认证模块
     async def test_auth():
-        print("测试认证模块...")
+        setup_logging()
+        logger.info("测试认证模块")
         
         # 创建认证管理器
         auth = KnowledgeGraphAuth(storage_path="/tmp/test_kg_auth")
@@ -743,11 +734,11 @@ if __name__ == "__main__":
             password="Test123!@#",
             role=Role.EDITOR
         )
-        print(f"创建用户: {user.username}")
+        logger.info("创建用户", username=user.username)
         
         # 用户登录
         auth_result = await auth.authenticate_user("testuser", "Test123!@#", "127.0.0.1")
-        print(f"用户认证: {'成功' if auth_result.success else '失败'}")
+        logger.info("用户认证结果", success=auth_result.success)
         
         if auth_result.success:
             # 创建API密钥
@@ -756,26 +747,25 @@ if __name__ == "__main__":
                 name="测试密钥",
                 permissions={Permission.READ_GRAPH, Permission.QUERY_SPARQL}
             )
-            print(f"创建API密钥: {api_key[:20]}...")
+            logger.info("创建API密钥", api_key_prefix=api_key[:20])
             
             # API密钥认证
             api_auth_result = await auth.authenticate_api_key(api_key, "127.0.0.1")
-            print(f"API密钥认证: {'成功' if api_auth_result.success else '失败'}")
+            logger.info("API密钥认证结果", success=api_auth_result.success)
             
             # 权限检查
             has_read_perm = await auth.check_permission(auth_result, Permission.READ_GRAPH)
             has_admin_perm = await auth.check_permission(auth_result, Permission.ADMIN_ALL)
-            print(f"读权限: {has_read_perm}, 管理权限: {has_admin_perm}")
+            logger.info("权限检查结果", read_permission=has_read_perm, admin_permission=has_admin_perm)
             
             # 速率限制检查
             for i in range(5):
                 allowed = await auth.check_rate_limit("test_client")
-                print(f"请求 {i+1}: {'允许' if allowed else '限制'}")
+                logger.info("限流检查结果", request_index=i + 1, allowed=allowed)
         
         # 获取统计信息
         stats = await auth.get_security_statistics()
-        print(f"安全统计: {stats}")
-        
-        print("认证模块测试完成")
+        logger.info("安全统计", stats=stats)
+        logger.info("认证模块测试完成")
     
     asyncio.run(test_auth())

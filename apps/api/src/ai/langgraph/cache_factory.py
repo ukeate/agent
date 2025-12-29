@@ -3,15 +3,13 @@
 提供统一的缓存创建和管理接口
 """
 
-import logging
 from typing import Optional
 from functools import lru_cache
-
 from src.core.config import get_settings
 from .caching import CacheConfig, NodeCache, create_node_cache
 
-logger = logging.getLogger(__name__)
-
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 class CacheFactory:
     """缓存工厂类"""
@@ -37,7 +35,6 @@ class CacheFactory:
             redis_url=settings.CACHE_REDIS_URL,
             compression=settings.CACHE_COMPRESSION,
             monitoring=settings.CACHE_MONITORING,
-            serialize_method=settings.CACHE_SERIALIZE_METHOD,
             cleanup_interval=settings.CACHE_CLEANUP_INTERVAL
         )
     
@@ -62,21 +59,17 @@ class CacheFactory:
         """重置缓存实例（用于测试）"""
         self._cache_instance = None
 
-
 # 全局缓存工厂实例
 cache_factory = CacheFactory()
-
 
 @lru_cache(maxsize=1)
 def get_cache_factory() -> CacheFactory:
     """获取缓存工厂实例"""
     return cache_factory
 
-
 def get_node_cache() -> NodeCache:
     """获取Node缓存实例（快捷函数）"""
     return cache_factory.get_cache()
-
 
 async def initialize_cache():
     """初始化缓存系统"""
@@ -87,7 +80,6 @@ async def initialize_cache():
     except Exception as e:
         logger.error(f"缓存系统初始化失败: {e}")
         return False
-
 
 async def shutdown_cache():
     """关闭缓存系统"""

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import {
+import { logger } from '../utils/logger'
   Card,
   Row,
   Col,
@@ -25,7 +26,8 @@ import {
   notification,
   Radio,
   Drawer,
-  Steps
+  Steps,
+  Upload
 } from 'antd'
 import {
   SafetyCertificateOutlined,
@@ -50,8 +52,11 @@ import {
   ShareAltOutlined,
   SecurityScanOutlined,
   AuditOutlined,
-  BranchesOutlined
+  BranchesOutlined,
+  DownloadOutlined,
+  UploadOutlined
 } from '@ant-design/icons'
+import { aclService, type ACLRule, type SecurityMetrics } from '../services/aclService'
 
 const { Title, Text, Paragraph } = Typography
 const { Option } = Select
@@ -59,26 +64,6 @@ const { TextArea } = Input
 const { TabPane } = Tabs
 const { TreeNode } = Tree
 const { Step } = Steps
-
-interface ACLRule {
-  id: string
-  name: string
-  description: string
-  principal: string
-  principalType: 'agent' | 'group' | 'role'
-  permission: 'allow' | 'deny'
-  resource: string
-  resourceType: 'subject' | 'stream' | 'queue' | 'topic'
-  actions: string[]
-  conditions?: string[]
-  priority: number
-  enabled: boolean
-  createdAt: string
-  updatedAt: string
-  createdBy: string
-  matchCount: number
-  lastMatched?: string
-}
 
 interface ACLGroup {
   id: string
@@ -117,16 +102,6 @@ interface ACLAuditLog {
   userAgent?: string
 }
 
-interface SecurityMetrics {
-  totalRules: number
-  activeRules: number
-  ruleMatches: number
-  accessGranted: number
-  accessDenied: number
-  criticalViolations: number
-  lastViolation?: string
-}
-
 const ACLProtocolManagementPage: React.FC = () => {
   const [form] = Form.useForm()
   const [activeTab, setActiveTab] = useState('rules')
@@ -139,198 +114,48 @@ const ACLProtocolManagementPage: React.FC = () => {
   const [filterPrincipal, setFilterPrincipal] = useState<string>('')
   const [filterResource, setFilterResource] = useState<string>('')
 
-  const [securityMetrics, setSecurityMetrics] = useState<SecurityMetrics>({
-    totalRules: 47,
-    activeRules: 43,
-    ruleMatches: 15642,
-    accessGranted: 14956,
-    accessDenied: 686,
-    criticalViolations: 3,
-    lastViolation: '2025-08-26 11:45:23'
-  })
+  const [securityMetrics, setSecurityMetrics] = useState<SecurityMetrics | null>(null)
+  const [aclRules, setAclRules] = useState<ACLRule[]>([])
+  const [aclGroups, setAclGroups] = useState<ACLGroup[]>([])
+  const [aclRoles, setAclRoles] = useState<ACLRole[]>([])
+  const [auditLogs, setAuditLogs] = useState<ACLAuditLog[]>([])
 
-  const [aclRules, setAclRules] = useState<ACLRule[]>([
-    {
-      id: 'rule-001',
-      name: '任务处理智能体基础权限',
-      description: '允许任务处理智能体访问任务相关主题',
-      principal: 'task-agent-group',
-      principalType: 'group',
-      permission: 'allow',
-      resource: 'agents.tasks.>',
-      resourceType: 'subject',
-      actions: ['subscribe', 'publish'],
-      conditions: ['source_ip_whitelist', 'time_window'],
-      priority: 100,
-      enabled: true,
-      createdAt: '2025-08-20 10:30:00',
-      updatedAt: '2025-08-25 14:20:00',
-      createdBy: 'admin',
-      matchCount: 2547,
-      lastMatched: '2025-08-26 12:44:30'
-    },
-    {
-      id: 'rule-002',
-      name: '系统管理权限控制',
-      description: '限制系统管理主题只允许管理员访问',
-      principal: 'admin-role',
-      principalType: 'role',
-      permission: 'allow',
-      resource: 'system.management.>',
-      resourceType: 'subject',
-      actions: ['subscribe', 'publish', 'admin'],
-      priority: 200,
-      enabled: true,
-      createdAt: '2025-08-18 09:15:00',
-      updatedAt: '2025-08-24 16:45:00',
-      createdBy: 'system',
-      matchCount: 156,
-      lastMatched: '2025-08-26 12:30:15'
-    },
-    {
-      id: 'rule-003',
-      name: '敏感数据访问拒绝',
-      description: '拒绝未授权智能体访问敏感数据主题',
-      principal: '*',
-      principalType: 'agent',
-      permission: 'deny',
-      resource: 'system.sensitive.>',
-      resourceType: 'subject',
-      actions: ['*'],
-      conditions: ['!has_sensitive_clearance'],
-      priority: 300,
-      enabled: true,
-      createdAt: '2025-08-19 14:20:00',
-      updatedAt: '2025-08-26 09:10:00',
-      createdBy: 'security-admin',
-      matchCount: 23,
-      lastMatched: '2025-08-26 11:45:23'
-    },
-    {
-      id: 'rule-004',
-      name: '客户端直接通信限制',
-      description: '限制客户端智能体只能发送直接消息',
-      principal: 'client-*',
-      principalType: 'agent',
-      permission: 'allow',
-      resource: 'agents.direct.>',
-      resourceType: 'subject',
-      actions: ['publish'],
-      conditions: ['rate_limit_100_per_minute'],
-      priority: 150,
-      enabled: true,
-      createdAt: '2025-08-21 11:40:00',
-      updatedAt: '2025-08-25 08:30:00',
-      createdBy: 'system-admin',
-      matchCount: 894,
-      lastMatched: '2025-08-26 12:45:12'
+  // 加载ACL规则
+  const loadACLRules = async () => {
+    setLoading(true)
+    try {
+      const rules = await aclService.listRules()
+      setAclRules(rules)
+    } catch (error) {
+      logger.error('加载ACL规则失败:', error)
+      setAclRules([])
+    } finally {
+      setLoading(false)
     }
-  ])
+  }
 
-  const [aclGroups, setAclGroups] = useState<ACLGroup[]>([
-    {
-      id: 'group-001',
-      name: 'task-agent-group',
-      description: '任务处理智能体组',
-      members: ['task-agent-01', 'task-agent-02', 'task-agent-03'],
-      rules: ['rule-001'],
-      enabled: true,
-      createdAt: '2025-08-20 10:00:00'
-    },
-    {
-      id: 'group-002',
-      name: 'worker-agent-group',
-      description: '工作执行智能体组',
-      members: ['worker-agent-01', 'worker-agent-02', 'worker-agent-03', 'worker-agent-04'],
-      rules: ['rule-001'],
-      enabled: true,
-      createdAt: '2025-08-20 10:15:00',
-      parentGroup: 'group-001'
-    },
-    {
-      id: 'group-003',
-      name: 'client-group',
-      description: '客户端智能体组',
-      members: ['client-agent-01', 'client-agent-02'],
-      rules: ['rule-004'],
-      enabled: true,
-      createdAt: '2025-08-21 11:30:00'
+  // 加载安全指标
+  const loadSecurityMetrics = async () => {
+    try {
+      const metrics = await aclService.getSecurityMetrics()
+      setSecurityMetrics(metrics)
+    } catch (error) {
+      logger.error('加载安全指标失败:', error)
+      setSecurityMetrics(null)
     }
-  ])
+  }
 
-  const [aclRoles, setAclRoles] = useState<ACLRole[]>([
-    {
-      id: 'role-001',
-      name: 'admin-role',
-      description: '系统管理员角色',
-      permissions: ['system.admin', 'user.manage', 'rule.manage'],
-      inheritedRoles: [],
-      assignedAgents: ['admin-agent', 'system-monitor-agent'],
-      enabled: true,
-      createdAt: '2025-08-18 09:00:00'
-    },
-    {
-      id: 'role-002',
-      name: 'operator-role',
-      description: '系统操作员角色',
-      permissions: ['system.read', 'task.manage', 'monitor.view'],
-      inheritedRoles: [],
-      assignedAgents: ['operator-agent-01', 'operator-agent-02'],
-      enabled: true,
-      createdAt: '2025-08-19 10:30:00'
-    },
-    {
-      id: 'role-003',
-      name: 'readonly-role',
-      description: '只读访问角色',
-      permissions: ['system.read', 'monitor.view'],
-      inheritedRoles: [],
-      assignedAgents: ['monitor-agent', 'audit-agent'],
-      enabled: true,
-      createdAt: '2025-08-20 14:15:00'
-    }
-  ])
+  useEffect(() => {
+    loadACLRules()
+    loadSecurityMetrics()
 
-  const [auditLogs, setAuditLogs] = useState<ACLAuditLog[]>([
-    {
-      id: 'audit-001',
-      timestamp: '2025-08-26 12:45:30',
-      event: 'access_granted',
-      principal: 'task-agent-01',
-      resource: 'agents.tasks.process',
-      action: 'publish',
-      result: 'allow',
-      ruleId: 'rule-001',
-      ruleName: '任务处理智能体基础权限',
-      details: '规则匹配成功，允许发布消息',
-      sourceIp: '192.168.1.100'
-    },
-    {
-      id: 'audit-002',
-      timestamp: '2025-08-26 11:45:23',
-      event: 'access_denied',
-      principal: 'unauthorized-agent',
-      resource: 'system.sensitive.keys',
-      action: 'subscribe',
-      result: 'deny',
-      ruleId: 'rule-003',
-      ruleName: '敏感数据访问拒绝',
-      details: '未授权访问敏感主题，拒绝请求',
-      sourceIp: '10.0.0.50'
-    },
-    {
-      id: 'audit-003',
-      timestamp: '2025-08-26 10:30:15',
-      event: 'rule_created',
-      principal: 'security-admin',
-      resource: 'rule-005',
-      action: 'create',
-      result: 'allow',
-      details: '创建新的ACL规则：临时访问控制',
-      sourceIp: '192.168.1.10',
-      userAgent: 'ACL-Manager/1.0'
-    }
-  ])
+    // 设置定时刷新
+    const interval = setInterval(() => {
+      loadSecurityMetrics()
+    }, 30000)
+
+    return () => clearInterval(interval)
+  }, [])
 
   const ruleColumns = [
     {
@@ -340,13 +165,13 @@ const ACLProtocolManagementPage: React.FC = () => {
       render: (record: ACLRule) => (
         <div>
           <div style={{ display: 'flex', alignItems: 'center', marginBottom: '4px' }}>
-            <Badge status={record.enabled ? 'success' : 'default'} />
+            <Badge status={record.status === 'active' ? 'success' : 'default'} />
             <Text strong style={{ marginLeft: '8px', fontSize: '13px' }}>{record.name}</Text>
             <Tag 
-              color={record.permission === 'allow' ? 'green' : 'red'} 
+              color={record.action === 'allow' ? 'green' : 'red'} 
               style={{ marginLeft: '8px', fontSize: '10px' }}
             >
-              {record.permission === 'allow' ? '允许' : '拒绝'}
+              {record.action === 'allow' ? '允许' : '拒绝'}
             </Tag>
           </div>
           <Text type="secondary" style={{ fontSize: '11px' }}>
@@ -356,71 +181,38 @@ const ACLProtocolManagementPage: React.FC = () => {
       )
     },
     {
-      title: '主体',
-      key: 'principal',
+      title: '源',
+      dataIndex: 'source',
+      key: 'source',
       width: 150,
-      render: (record: ACLRule) => (
-        <div>
-          <div style={{ marginBottom: '2px' }}>
-            <Tag color={
-              record.principalType === 'agent' ? 'blue' :
-              record.principalType === 'group' ? 'green' : 'orange'
-            } style={{ fontSize: '10px' }}>
-              {record.principalType === 'agent' ? '智能体' :
-               record.principalType === 'group' ? '组' : '角色'}
-            </Tag>
-          </div>
-          <Text style={{ fontSize: '12px' }}>{record.principal}</Text>
-        </div>
+      render: (source: string) => (
+        <Text style={{ fontSize: '12px' }}>{source}</Text>
       )
     },
     {
-      title: '资源',
-      key: 'resource',
+      title: '目标',
+      dataIndex: 'target',
+      key: 'target',
       width: 200,
-      render: (record: ACLRule) => (
-        <div>
-          <div style={{ marginBottom: '2px' }}>
-            <Tag color="purple" style={{ fontSize: '10px' }}>
-              {record.resourceType}
-            </Tag>
-          </div>
-          <Text code style={{ fontSize: '11px' }}>{record.resource}</Text>
-        </div>
+      render: (target: string) => (
+        <Text code style={{ fontSize: '11px' }}>{target}</Text>
       )
     },
     {
-      title: '操作',
-      dataIndex: 'actions',
-      key: 'actions',
+      title: '条件',
+      dataIndex: 'conditions',
+      key: 'conditions',
       width: 120,
-      render: (actions: string[]) => (
+      render: (conditions: string[]) => (
         <div>
-          {actions.slice(0, 2).map((action, index) => (
+          {conditions.slice(0, 2).map((condition, index) => (
             <Tag key={index} style={{ fontSize: '10px', marginBottom: '2px' }}>
-              {action}
+              {condition}
             </Tag>
           ))}
-          {actions.length > 2 && (
+          {conditions.length > 2 && (
             <Text type="secondary" style={{ fontSize: '10px' }}>
-              +{actions.length - 2}
-            </Text>
-          )}
-        </div>
-      )
-    },
-    {
-      title: '匹配统计',
-      key: 'stats',
-      width: 100,
-      render: (record: ACLRule) => (
-        <div>
-          <div style={{ marginBottom: '2px' }}>
-            <Text style={{ fontSize: '11px' }}>匹配: {record.matchCount}</Text>
-          </div>
-          {record.lastMatched && (
-            <Text type="secondary" style={{ fontSize: '10px' }}>
-              {record.lastMatched}
+              +{conditions.length - 2}
             </Text>
           )}
         </div>
@@ -664,12 +456,12 @@ const ACLProtocolManagementPage: React.FC = () => {
               <Text>{rule.description}</Text>
             </Col>
             <Col span={12}>
-              <Text strong>创建者: </Text>
-              <Text>{rule.createdBy}</Text>
+              <Text strong>创建时间: </Text>
+              <Text>{new Date(rule.created_at).toLocaleString()}</Text>
             </Col>
             <Col span={12}>
-              <Text strong>创建时间: </Text>
-              <Text>{rule.createdAt}</Text>
+              <Text strong>更新时间: </Text>
+              <Text>{new Date(rule.updated_at).toLocaleString()}</Text>
             </Col>
           </Row>
 
@@ -677,60 +469,37 @@ const ACLProtocolManagementPage: React.FC = () => {
           <Row gutter={[16, 8]}>
             <Col span={8}>
               <Text strong>权限类型: </Text>
-              <Tag color={rule.permission === 'allow' ? 'green' : 'red'}>
-                {rule.permission === 'allow' ? '允许' : '拒绝'}
+              <Tag color={rule.action === 'allow' ? 'green' : 'red'}>
+                {rule.action === 'allow' ? '允许' : '拒绝'}
               </Tag>
-            </Col>
-            <Col span={8}>
-              <Text strong>主体类型: </Text>
-              <Tag color="blue">{rule.principalType}</Tag>
             </Col>
             <Col span={8}>
               <Text strong>优先级: </Text>
               <Tag>{rule.priority}</Tag>
             </Col>
-            <Col span={12}>
-              <Text strong>主体: </Text>
-              <Text code>{rule.principal}</Text>
+            <Col span={8}>
+              <Text strong>状态: </Text>
+              <Badge status={rule.status === 'active' ? 'success' : 'default'} text={rule.status} />
             </Col>
             <Col span={12}>
-              <Text strong>资源: </Text>
-              <Text code>{rule.resource}</Text>
+              <Text strong>源: </Text>
+              <Text code>{rule.source}</Text>
+            </Col>
+            <Col span={12}>
+              <Text strong>目标: </Text>
+              <Text code>{rule.target}</Text>
             </Col>
           </Row>
 
-          <Divider>操作和条件</Divider>
+          <Divider>条件</Divider>
           <Row gutter={[16, 8]}>
-            <Col span={12}>
-              <Text strong>允许操作: </Text>
-              <div style={{ marginTop: '4px' }}>
-                {rule.actions.map((action, index) => (
-                  <Tag key={index} style={{ marginBottom: '4px' }}>{action}</Tag>
-                ))}
-              </div>
-            </Col>
-            <Col span={12}>
+            <Col span={24}>
               <Text strong>附加条件: </Text>
               <div style={{ marginTop: '4px' }}>
                 {rule.conditions?.map((condition, index) => (
                   <Tag key={index} color="orange" style={{ marginBottom: '4px' }}>{condition}</Tag>
                 )) || <Text type="secondary">无</Text>}
               </div>
-            </Col>
-          </Row>
-
-          <Divider>使用统计</Divider>
-          <Row gutter={[16, 8]}>
-            <Col span={8}>
-              <Statistic title="匹配次数" value={rule.matchCount} />
-            </Col>
-            <Col span={8}>
-              <Text strong>最后匹配: </Text>
-              <Text>{rule.lastMatched || '从未匹配'}</Text>
-            </Col>
-            <Col span={8}>
-              <Text strong>状态: </Text>
-              <Badge status={rule.enabled ? 'success' : 'default'} text={rule.enabled ? '启用' : '禁用'} />
             </Col>
           </Row>
         </div>
@@ -740,88 +509,181 @@ const ACLProtocolManagementPage: React.FC = () => {
 
   const handleEditRule = (rule: ACLRule) => {
     setSelectedRule(rule)
-    form.setFieldsValue(rule)
+    form.setFieldsValue({
+      name: rule.name,
+      description: rule.description,
+      source: rule.source,
+      target: rule.target,
+      action: rule.action,
+      conditions: rule.conditions,
+      priority: rule.priority,
+      status: rule.status
+    })
     setRuleModalVisible(true)
   }
 
-  const handleDeleteRule = (rule: ACLRule) => {
+  const handleDeleteRule = async (rule: ACLRule) => {
     Modal.confirm({
       title: '删除规则',
       content: `确定要删除规则 "${rule.name}" 吗？此操作不可撤销。`,
-      onOk: () => {
-        setAclRules(prev => prev.filter(r => r.id !== rule.id))
-        notification.success({
-          message: '删除成功',
-          description: `规则 "${rule.name}" 已被删除`
-        })
+      onOk: async () => {
+        try {
+          await aclService.deleteRule(rule.id)
+          await loadACLRules()
+          notification.success({
+            message: '删除成功',
+            description: `规则 "${rule.name}" 已被删除`
+          })
+        } catch (error) {
+          notification.error({
+            message: '删除失败',
+            description: '无法删除规则，请稍后重试'
+          })
+        }
       }
     })
   }
 
-  const handleCreateRule = (values: any) => {
-    const newRule: ACLRule = {
-      id: `rule-${Date.now()}`,
-      name: values.name,
-      description: values.description,
-      principal: values.principal,
-      principalType: values.principalType,
-      permission: values.permission,
-      resource: values.resource,
-      resourceType: values.resourceType,
-      actions: values.actions,
-      conditions: values.conditions,
-      priority: values.priority,
-      enabled: values.enabled,
-      createdAt: new Date().toLocaleString('zh-CN'),
-      updatedAt: new Date().toLocaleString('zh-CN'),
-      createdBy: 'current-user',
-      matchCount: 0
-    }
-
-    setAclRules(prev => [newRule, ...prev])
-    setRuleModalVisible(false)
-    form.resetFields()
-    notification.success({
-      message: '创建成功',
-      description: `ACL规则 "${values.name}" 已创建`
-    })
-  }
-
-  const handleTestRule = () => {
-    notification.info({
-      message: '规则测试',
-      description: '正在测试规则匹配逻辑...'
-    })
-    
-    setTimeout(() => {
-      notification.success({
-        message: '测试完成',
-        description: '规则测试通过，逻辑正确'
+  const handleCreateRule = async (values: any) => {
+    try {
+      if (selectedRule) {
+        await aclService.updateRule(selectedRule.id, values)
+        notification.success({
+          message: '更新成功',
+          description: `ACL规则 "${values.name}" 已更新`
+        })
+      } else {
+        await aclService.createRule(values)
+        notification.success({
+          message: '创建成功',
+          description: `ACL规则 "${values.name}" 已创建`
+        })
+      }
+      await loadACLRules()
+      setRuleModalVisible(false)
+      form.resetFields()
+      setSelectedRule(null)
+    } catch (error) {
+      notification.error({
+        message: selectedRule ? '更新失败' : '创建失败',
+        description: '操作失败，请稍后重试'
       })
-    }, 2000)
+    }
   }
 
-  const refreshData = () => {
+  const handleTestRule = async () => {
+    const values = form.getFieldsValue()
+    try {
+      const result = await aclService.validateRule({
+        name: values.name,
+        description: values.description,
+        source: values.source,
+        target: values.target,
+        action: values.action,
+        conditions: values.conditions,
+        priority: values.priority
+      })
+      
+      if (result.is_valid) {
+        notification.success({
+          message: '测试通过',
+          description: '规则配置有效'
+        })
+      } else {
+        notification.warning({
+          message: '测试失败',
+          description: result.errors.join(', ')
+        })
+      }
+    } catch (error) {
+      notification.error({
+        message: '测试失败',
+        description: '无法测试规则，请稍后重试'
+      })
+    }
+  }
+
+  const refreshData = async () => {
     setLoading(true)
-    setTimeout(() => {
+    try {
+      await Promise.all([loadACLRules(), loadSecurityMetrics()])
       notification.success({
         message: '刷新成功',
         description: 'ACL配置已更新'
       })
+    } catch (error) {
+      notification.error({
+        message: '刷新失败',
+        description: '无法刷新数据，请稍后重试'
+      })
+    } finally {
       setLoading(false)
-    }, 1000)
+    }
+  }
+
+  const handleExportRules = async () => {
+    try {
+      const blob = await aclService.exportRules('json')
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.style.display = 'none'
+      a.href = url
+      a.download = `acl-rules-${new Date().toISOString().split('T')[0]}.json`
+      document.body.appendChild(a)
+      a.click()
+      window.URL.revokeObjectURL(url)
+      notification.success({
+        message: '导出成功',
+        description: 'ACL规则已导出到文件'
+      })
+    } catch (error) {
+      notification.error({
+        message: '导出失败',
+        description: '无法导出ACL规则，请稍后重试'
+      })
+    }
+  }
+
+  const handleImportRules = (file: File) => {
+    const importRules = async () => {
+      try {
+        const result = await aclService.importRules(file)
+        notification.success({
+          message: '导入成功',
+          description: `成功导入 ${result.imported} 条规则，失败 ${result.failed} 条`
+        })
+        if (result.errors.length > 0) {
+          notification.warning({
+            message: '导入警告',
+            description: result.errors.join(', ')
+          })
+        }
+        await loadACLRules()
+      } catch (error) {
+        notification.error({
+          message: '导入失败',
+          description: '无法导入ACL规则，请检查文件格式'
+        })
+      }
+    }
+    importRules()
+    return false // 阻止默认上传行为
   }
 
   const filteredRules = aclRules.filter(rule => {
-    const matchesPrincipal = !filterPrincipal || rule.principal.toLowerCase().includes(filterPrincipal.toLowerCase())
-    const matchesResource = !filterResource || rule.resource.toLowerCase().includes(filterResource.toLowerCase())
+    const matchesPrincipal = !filterPrincipal || rule.source.toLowerCase().includes(filterPrincipal.toLowerCase())
+    const matchesResource = !filterResource || rule.target.toLowerCase().includes(filterResource.toLowerCase())
     return matchesPrincipal && matchesResource
   })
 
-  const securityLevel = securityMetrics.accessDenied / securityMetrics.ruleMatches
   const getSecurityStatus = () => {
-    if (securityLevel < 0.01) return { status: 'success', text: '安全', color: 'green' }
-    if (securityLevel < 0.05) return { status: 'warning', text: '警告', color: 'orange' }
+    if (!securityMetrics) return { status: 'success', text: '安全', color: 'green' }
+    
+    const totalRequests = securityMetrics.allowed_requests + securityMetrics.blocked_requests
+    const blockRate = totalRequests > 0 ? securityMetrics.blocked_requests / totalRequests : 0
+    
+    if (blockRate < 0.01) return { status: 'success', text: '安全', color: 'green' }
+    if (blockRate < 0.05) return { status: 'warning', text: '警告', color: 'orange' }
     return { status: 'error', text: '风险', color: 'red' }
   }
 
@@ -840,10 +702,10 @@ const ACLProtocolManagementPage: React.FC = () => {
       </div>
 
       {/* 安全状态告警 */}
-      {securityMetrics.criticalViolations > 0 && (
+      {securityMetrics && securityMetrics.violation_count > 0 && (
         <Alert
           message="安全警告"
-          description={`检测到 ${securityMetrics.criticalViolations} 个严重安全违规事件，最后一次违规时间: ${securityMetrics.lastViolation}`}
+          description={`检测到 ${securityMetrics.violation_count} 个严重安全违规事件，最后一次违规时间: ${securityMetrics.last_violation_time ? new Date(securityMetrics.last_violation_time).toLocaleString() : '未知'}`}
           type="error"
           showIcon
           action={
@@ -856,70 +718,71 @@ const ACLProtocolManagementPage: React.FC = () => {
       )}
 
       {/* 安全指标概览 */}
-      <Row gutter={[16, 16]} style={{ marginBottom: '24px' }}>
-        <Col xs={12} sm={6}>
-          <Card>
-            <Statistic
-              title="活跃规则"
-              value={securityMetrics.activeRules}
-              suffix={`/ ${securityMetrics.totalRules}`}
-              valueStyle={{ color: '#1890ff' }}
-              prefix={<SafetyCertificateOutlined />}
-            />
-          </Card>
-        </Col>
-        
-        <Col xs={12} sm={6}>
-          <Card>
-            <Statistic
-              title="规则匹配"
-              value={securityMetrics.ruleMatches}
-              valueStyle={{ color: '#52c41a' }}
-              prefix={<CheckCircleOutlined />}
-            />
-            <div style={{ marginTop: '8px' }}>
-              <Text type="secondary" style={{ fontSize: '12px' }}>
-                今日新增: +{Math.floor(securityMetrics.ruleMatches * 0.15)}
-              </Text>
-            </div>
-          </Card>
-        </Col>
-        
-        <Col xs={12} sm={6}>
-          <Card>
-            <Statistic
-              title="访问拒绝"
-              value={securityMetrics.accessDenied}
-              valueStyle={{ color: '#ff4d4f' }}
-              prefix={<CloseCircleOutlined />}
-            />
-            <div style={{ marginTop: '8px' }}>
-              <Text type="secondary" style={{ fontSize: '12px' }}>
-                拒绝率: {((securityMetrics.accessDenied / securityMetrics.ruleMatches) * 100).toFixed(2)}%
-              </Text>
-            </div>
-          </Card>
-        </Col>
-        
-        <Col xs={12} sm={6}>
-          <Card>
-            <Statistic
-              title="安全等级"
-              value={securityStatus.text}
-              valueStyle={{ color: securityStatus.color }}
-              prefix={<SecurityScanOutlined />}
-            />
-            <div style={{ marginTop: '8px' }}>
-              <Progress 
-                percent={Math.max(20, 100 - securityLevel * 2000)} 
-                size="small" 
-                showInfo={false}
-                status={securityStatus.status as any}
+      {securityMetrics && (
+        <Row gutter={[16, 16]} style={{ marginBottom: '24px' }}>
+          <Col xs={12} sm={6}>
+            <Card>
+              <Statistic
+                title="活跃规则"
+                value={securityMetrics.active_rules}
+                suffix={`/ ${securityMetrics.total_rules}`}
+                valueStyle={{ color: '#1890ff' }}
+                prefix={<SafetyCertificateOutlined />}
               />
-            </div>
-          </Card>
-        </Col>
-      </Row>
+            </Card>
+          </Col>
+          
+          <Col xs={12} sm={6}>
+            <Card>
+              <Statistic
+                title="允许请求"
+                value={securityMetrics.allowed_requests}
+                valueStyle={{ color: '#52c41a' }}
+                prefix={<CheckCircleOutlined />}
+              />
+            </Card>
+          </Col>
+          
+          <Col xs={12} sm={6}>
+            <Card>
+              <Statistic
+                title="拒绝请求"
+                value={securityMetrics.blocked_requests}
+                valueStyle={{ color: '#ff4d4f' }}
+                prefix={<CloseCircleOutlined />}
+              />
+              <div style={{ marginTop: '8px' }}>
+                <Text type="secondary" style={{ fontSize: '12px' }}>
+                  拒绝率: {securityMetrics.allowed_requests + securityMetrics.blocked_requests > 0 
+                    ? ((securityMetrics.blocked_requests / (securityMetrics.allowed_requests + securityMetrics.blocked_requests)) * 100).toFixed(2) 
+                    : 0}%
+                </Text>
+              </div>
+            </Card>
+          </Col>
+          
+          <Col xs={12} sm={6}>
+            <Card>
+              <Statistic
+                title="安全等级"
+                value={securityStatus.text}
+                valueStyle={{ color: securityStatus.color }}
+                prefix={<SecurityScanOutlined />}
+              />
+              <div style={{ marginTop: '8px' }}>
+                <Progress 
+                  percent={securityMetrics.allowed_requests + securityMetrics.blocked_requests > 0
+                    ? Math.max(20, 100 - (securityMetrics.blocked_requests / (securityMetrics.allowed_requests + securityMetrics.blocked_requests)) * 2000)
+                    : 100} 
+                  size="small" 
+                  showInfo={false}
+                  status={securityStatus.status as any}
+                />
+              </div>
+            </Card>
+          </Col>
+        </Row>
+      )}
 
       {/* 主管理界面 */}
       <Card>
@@ -943,22 +806,36 @@ const ACLProtocolManagementPage: React.FC = () => {
           
           <Space>
             <Input
-              placeholder="筛选主体"
+              placeholder="筛选源"
               prefix={<SearchOutlined />}
               style={{ width: 150 }}
               value={filterPrincipal}
               onChange={(e) => setFilterPrincipal(e.target.value)}
+              name="acl-filter-principal"
             />
             <Input
-              placeholder="筛选资源"
+              placeholder="筛选目标"
               prefix={<FilterOutlined />}
               style={{ width: 150 }}
               value={filterResource}
               onChange={(e) => setFilterResource(e.target.value)}
+              name="acl-filter-resource"
             />
             <Button icon={<AuditOutlined />} onClick={() => setAuditDrawerVisible(true)}>
               审计日志
             </Button>
+            <Button icon={<DownloadOutlined />} onClick={handleExportRules}>
+              导出规则
+            </Button>
+            <Upload
+              accept=".json,.yaml,.xml"
+              beforeUpload={handleImportRules}
+              showUploadList={false}
+            >
+              <Button icon={<UploadOutlined />}>
+                导入规则
+              </Button>
+            </Upload>
             <Button icon={<SettingOutlined />}>ACL设置</Button>
           </Space>
         </div>
@@ -971,7 +848,8 @@ const ACLProtocolManagementPage: React.FC = () => {
               rowKey="id"
               size="small"
               pagination={{ pageSize: 15 }}
-              scroll={{ x: 1400 }}
+              scroll={{ x: 1200 }}
+              loading={loading}
             />
           </TabPane>
           
@@ -1019,13 +897,21 @@ const ACLProtocolManagementPage: React.FC = () => {
       <Modal
         title={selectedRule ? '编辑ACL规则' : '创建ACL规则'}
         visible={ruleModalVisible}
-        onCancel={() => setRuleModalVisible(false)}
+        onCancel={() => {
+          setRuleModalVisible(false)
+          setSelectedRule(null)
+          form.resetFields()
+        }}
         width={800}
         footer={[
           <Button key="test" onClick={handleTestRule}>
             测试规则
           </Button>,
-          <Button key="cancel" onClick={() => setRuleModalVisible(false)}>
+          <Button key="cancel" onClick={() => {
+            setRuleModalVisible(false)
+            setSelectedRule(null)
+            form.resetFields()
+          }}>
             取消
           </Button>,
           <Button key="submit" type="primary" onClick={() => form.submit()}>
@@ -1041,45 +927,34 @@ const ACLProtocolManagementPage: React.FC = () => {
           <Row gutter={16}>
             <Col span={12}>
               <Form.Item name="name" label="规则名称" rules={[{ required: true }]}>
-                <Input placeholder="请输入规则名称" />
+                <Input placeholder="请输入规则名称" name="acl-rule-name" />
               </Form.Item>
             </Col>
             <Col span={12}>
               <Form.Item name="priority" label="优先级" rules={[{ required: true }]} initialValue={100}>
-                <Input type="number" placeholder="数值越大优先级越高" />
+                <Input type="number" placeholder="数值越大优先级越高" name="acl-rule-priority" />
               </Form.Item>
             </Col>
           </Row>
           
           <Form.Item name="description" label="规则描述">
-            <TextArea rows={2} placeholder="请输入规则描述" />
+            <TextArea rows={2} placeholder="请输入规则描述" name="acl-rule-description" />
           </Form.Item>
           
           <Row gutter={16}>
-            <Col span={8}>
-              <Form.Item name="permission" label="权限类型" rules={[{ required: true }]} initialValue="allow">
+            <Col span={12}>
+              <Form.Item name="action" label="权限类型" rules={[{ required: true }]} initialValue="allow">
                 <Radio.Group>
                   <Radio.Button value="allow">允许</Radio.Button>
                   <Radio.Button value="deny">拒绝</Radio.Button>
                 </Radio.Group>
               </Form.Item>
             </Col>
-            <Col span={8}>
-              <Form.Item name="principalType" label="主体类型" rules={[{ required: true }]} initialValue="agent">
-                <Select>
-                  <Option value="agent">智能体</Option>
-                  <Option value="group">用户组</Option>
-                  <Option value="role">角色</Option>
-                </Select>
-              </Form.Item>
-            </Col>
-            <Col span={8}>
-              <Form.Item name="resourceType" label="资源类型" rules={[{ required: true }]} initialValue="subject">
-                <Select>
-                  <Option value="subject">主题</Option>
-                  <Option value="stream">数据流</Option>
-                  <Option value="queue">队列</Option>
-                  <Option value="topic">话题</Option>
+            <Col span={12}>
+              <Form.Item name="status" label="状态" initialValue="active">
+                <Select name="acl-rule-status">
+                  <Option value="active">激活</Option>
+                  <Option value="inactive">未激活</Option>
                 </Select>
               </Form.Item>
             </Col>
@@ -1087,39 +962,24 @@ const ACLProtocolManagementPage: React.FC = () => {
           
           <Row gutter={16}>
             <Col span={12}>
-              <Form.Item name="principal" label="主体" rules={[{ required: true }]}>
-                <Input placeholder="例如: task-agent-*, admin-group" />
+              <Form.Item name="source" label="源" rules={[{ required: true }]}>
+                <Input placeholder="例如: task-agent-*, admin-group" name="acl-rule-source" />
               </Form.Item>
             </Col>
             <Col span={12}>
-              <Form.Item name="resource" label="资源" rules={[{ required: true }]}>
-                <Input placeholder="例如: agents.tasks.>, system.admin.*" />
+              <Form.Item name="target" label="目标" rules={[{ required: true }]}>
+                <Input placeholder="例如: agents.tasks.>, system.admin.*" name="acl-rule-target" />
               </Form.Item>
             </Col>
           </Row>
           
-          <Form.Item name="actions" label="允许的操作" rules={[{ required: true }]}>
-            <Select mode="multiple" placeholder="选择操作类型">
-              <Option value="subscribe">订阅</Option>
-              <Option value="publish">发布</Option>
-              <Option value="admin">管理</Option>
-              <Option value="read">读取</Option>
-              <Option value="write">写入</Option>
-              <Option value="delete">删除</Option>
-            </Select>
-          </Form.Item>
-          
           <Form.Item name="conditions" label="附加条件">
-            <Select mode="tags" placeholder="输入条件表达式">
+            <Select mode="tags" placeholder="输入条件表达式" name="acl-rule-conditions">
               <Option value="source_ip_whitelist">IP白名单</Option>
               <Option value="time_window">时间窗口</Option>
               <Option value="rate_limit">速率限制</Option>
               <Option value="has_clearance">权限许可</Option>
             </Select>
-          </Form.Item>
-          
-          <Form.Item name="enabled" label="启用规则" valuePropName="checked" initialValue={true}>
-            <Switch />
           </Form.Item>
         </Form>
       </Modal>

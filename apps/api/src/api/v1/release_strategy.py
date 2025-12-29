@@ -1,28 +1,28 @@
 """
 发布策略API端点
 """
+
 from fastapi import APIRouter, HTTPException, Query
 from typing import Dict, Any, List, Optional
-from pydantic import BaseModel, Field
+from pydantic import Field
 from datetime import datetime
 from src.core.utils.timezone_utils import utc_now, utc_factory
-
-from ...services.release_strategy_service import (
+from src.services.release_strategy_service import (
     ReleaseStrategyService,
+    ReleaseType,
+    ApprovalLevel,
     ReleaseType,
     ApprovalLevel,
     Environment,
     ReleaseStage
 )
 
-
 router = APIRouter(prefix="/release-strategy", tags=["Release Strategy"])
 
 # 服务实例
 strategy_service = ReleaseStrategyService()
 
-
-class CreateStageRequest(BaseModel):
+class CreateStageRequest(ApiBaseModel):
     """创建阶段请求"""
     name: str = Field(..., description="阶段名称")
     environment: Environment = Field(..., description="环境")
@@ -33,8 +33,7 @@ class CreateStageRequest(BaseModel):
     approval_required: bool = Field(False, description="是否需要审批")
     approvers: List[str] = Field([], description="审批人列表")
 
-
-class CreateStrategyRequest(BaseModel):
+class CreateStrategyRequest(ApiBaseModel):
     """创建策略请求"""
     experiment_id: str = Field(..., description="实验ID")
     name: str = Field(..., description="策略名称")
@@ -47,22 +46,19 @@ class CreateStrategyRequest(BaseModel):
     monitoring_config: Dict[str, Any] = Field({}, description="监控配置")
     notification_config: Dict[str, Any] = Field({}, description="通知配置")
 
-
-class CreateFromTemplateRequest(BaseModel):
+class CreateFromTemplateRequest(ApiBaseModel):
     """从模板创建请求"""
     experiment_id: str = Field(..., description="实验ID")
     template_name: str = Field(..., description="模板名称")
     customizations: Optional[Dict[str, Any]] = Field(None, description="自定义配置")
 
-
-class ApproveStageRequest(BaseModel):
+class ApproveStageRequest(ApiBaseModel):
     """审批阶段请求"""
     exec_id: str = Field(..., description="执行ID")
     stage_index: int = Field(..., ge=0, description="阶段索引")
     approver: str = Field(..., description="审批人")
     approved: bool = Field(..., description="是否批准")
     comments: Optional[str] = Field(None, description="审批意见")
-
 
 @router.post("/strategies")
 async def create_strategy(request: CreateStrategyRequest) -> Dict[str, Any]:
@@ -121,7 +117,6 @@ async def create_strategy(request: CreateStrategyRequest) -> Dict[str, Any]:
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-
 @router.post("/strategies/from-template")
 async def create_from_template(request: CreateFromTemplateRequest) -> Dict[str, Any]:
     """
@@ -152,7 +147,6 @@ async def create_from_template(request: CreateFromTemplateRequest) -> Dict[str, 
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-
 
 @router.get("/strategies")
 async def list_strategies(
@@ -189,7 +183,6 @@ async def list_strategies(
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-
 
 @router.get("/strategies/{strategy_id}")
 async def get_strategy(strategy_id: str) -> Dict[str, Any]:
@@ -238,7 +231,6 @@ async def get_strategy(strategy_id: str) -> Dict[str, Any]:
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-
 @router.post("/execute/{strategy_id}")
 async def execute_strategy(strategy_id: str) -> Dict[str, Any]:
     """
@@ -271,7 +263,6 @@ async def execute_strategy(strategy_id: str) -> Dict[str, Any]:
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-
 @router.post("/approve")
 async def approve_stage(request: ApproveStageRequest) -> Dict[str, Any]:
     """
@@ -295,7 +286,6 @@ async def approve_stage(request: ApproveStageRequest) -> Dict[str, Any]:
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-
 @router.get("/executions/{exec_id}")
 async def get_execution_status(exec_id: str) -> Dict[str, Any]:
     """
@@ -316,7 +306,6 @@ async def get_execution_status(exec_id: str) -> Dict[str, Any]:
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-
 
 @router.get("/templates")
 async def list_templates() -> Dict[str, Any]:
@@ -341,7 +330,6 @@ async def list_templates() -> Dict[str, Any]:
         "success": True,
         "templates": templates
     }
-
 
 @router.get("/release-types")
 async def list_release_types() -> Dict[str, Any]:
@@ -392,7 +380,6 @@ async def list_release_types() -> Dict[str, Any]:
         "release_types": types
     }
 
-
 @router.get("/approval-levels")
 async def list_approval_levels() -> Dict[str, Any]:
     """
@@ -426,7 +413,6 @@ async def list_approval_levels() -> Dict[str, Any]:
         "approval_levels": levels
     }
 
-
 @router.get("/environments")
 async def list_environments() -> Dict[str, Any]:
     """
@@ -459,7 +445,6 @@ async def list_environments() -> Dict[str, Any]:
         "success": True,
         "environments": environments
     }
-
 
 @router.get("/health")
 async def health_check() -> Dict[str, Any]:

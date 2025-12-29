@@ -141,7 +141,7 @@ const StatsDashboard: React.FC<StatsDashboardProps> = ({
   // ==================== 状态管理 ====================
   
   const [selectedTimeRange, setSelectedTimeRange] = useState<string>('7d');
-  const [refreshTimer, setRefreshTimer] = useState<NodeJS.Timeout | null>(null);
+  const [refreshTimer, setRefreshTimer] = useState<ReturnType<typeof setTimeout> | null>(null);
   const [lastRefreshTime, setLastRefreshTime] = useState<Date>(new Date());
 
   // ==================== 自动刷新 ====================

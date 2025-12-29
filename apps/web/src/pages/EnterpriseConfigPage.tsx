@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { apiClient } from '../services/apiClient';
 
 interface ConfigItem {
   key: string;
@@ -24,61 +25,84 @@ const EnterpriseConfigPage: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(true);
 
-  // 模拟配置数据
   useEffect(() => {
-    setTimeout(() => {
-      setStatus({
-        redis_connected: true,
-        config_version: '1.2.3',
-        last_sync: new Date().toISOString(),
-        total_configs: 52,
-        categories: ['security', 'performance', 'agents', 'system', 'monitoring']
-      });
+    let cancelled = false;
 
-      setConfigs([
-        {
-          key: 'SECURITY_MAX_VIOLATIONS_PER_HOUR',
-          value: 100,
-          category: 'security',
-          description: '每小时最大安全违规次数',
-          type: 'integer',
-          validation: { min: 1, max: 1000 }
-        },
-        {
-          key: 'AGENT_POOL_MIN_SIZE',
-          value: 5,
-          category: 'agents',
-          description: '智能体池最小大小',
-          type: 'integer',
-          validation: { min: 1, max: 100 }
-        },
-        {
-          key: 'FLOW_CONTROL_QUEUE_SIZE',
-          value: 10000,
-          category: 'performance',
-          description: '流控队列最大大小',
-          type: 'integer',
-          validation: { min: 100, max: 100000 }
-        },
-        {
-          key: 'MONITORING_METRICS_RETENTION_HOURS',
-          value: 168,
-          category: 'monitoring',
-          description: '指标数据保留小时数',
-          type: 'integer',
-          validation: { min: 1, max: 8760 }
-        },
-        {
-          key: 'SYSTEM_REDIS_CONNECTION_TIMEOUT',
-          value: 5.0,
-          category: 'system',
-          description: 'Redis连接超时时间（秒）',
-          type: 'float',
-          validation: { min: 0.1, max: 60.0 }
+    const hashVersion = (input: string) => {
+      let h = 0;
+      for (let i = 0; i < input.length; i += 1) {
+        h = (h << 5) - h + input.charCodeAt(i);
+        h |= 0;
+      }
+      return `v${Math.abs(h)}`;
+    };
+
+    const flatten = (obj: any, prefix: string) => {
+      const out: Array<{ key: string; value: any }> = [];
+      const walk = (value: any, path: string) => {
+        if (value && typeof value === 'object' && !Array.isArray(value)) {
+          Object.entries(value).forEach(([k, v]) => {
+            walk(v, path ? `${path}.${k}` : k);
+          });
+          return;
         }
-      ]);
-      setLoading(false);
-    }, 500);
+        out.push({ key: `${prefix}.${path}`, value });
+      };
+      walk(obj, '');
+      return out;
+    };
+
+    const load = async () => {
+      try {
+        setLoading(true);
+        const response = await apiClient.get<Record<string, any>>('/enterprise/configuration');
+        const cfg = response.data || {};
+
+        const categories = Object.keys(cfg);
+        const items: ConfigItem[] = categories.flatMap((category) =>
+          flatten(cfg[category], category).map((i) => {
+            const t =
+              i.value === null ? 'null' : Array.isArray(i.value) ? 'array' : typeof i.value;
+            return {
+              key: i.key,
+              value: i.value,
+              category,
+              description: i.key,
+              type: t,
+            };
+          })
+        );
+
+        if (!cancelled) {
+          setConfigs(items);
+          setStatus({
+            redis_connected: true,
+            config_version: hashVersion(JSON.stringify(cfg)),
+            last_sync: new Date().toISOString(),
+            total_configs: items.length,
+            categories,
+          });
+        }
+      } catch {
+        if (!cancelled) {
+          setConfigs([]);
+          setStatus({
+            redis_connected: false,
+            config_version: '-',
+            last_sync: new Date().toISOString(),
+            total_configs: 0,
+            categories: [],
+          });
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+
+    load();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const filteredConfigs = configs.filter(config => {
@@ -139,6 +163,7 @@ const EnterpriseConfigPage: React.FC = () => {
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">分类过滤</label>
               <select
+                name="categoryFilter"
                 value={selectedCategory}
                 onChange={(e) => setSelectedCategory(e.target.value)}
                 className="border border-gray-300 rounded px-3 py-2"
@@ -153,6 +178,7 @@ const EnterpriseConfigPage: React.FC = () => {
               <label className="block text-sm font-medium text-gray-700 mb-1">搜索配置</label>
               <input
                 type="text"
+                name="configSearch"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 placeholder="搜索配置键或描述..."

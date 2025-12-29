@@ -15,13 +15,13 @@ from .core import (
     LoadBalancer,
     AgentServiceDiscoverySystem
 )
-
 from .models import (
     AgentRegistrationRequest,
     AgentDiscoveryRequest,
     AgentStatusUpdate,
     LoadBalancerRequest,
     ServiceStats
+
 )
 
 __all__ = [

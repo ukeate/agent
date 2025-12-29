@@ -9,16 +9,14 @@ from typing import Dict, Any, List, Optional, Tuple, Union
 from enum import Enum
 from dataclasses import dataclass
 import asyncio
-import logging
 from datetime import datetime
 from src.core.utils.timezone_utils import utc_now, utc_factory
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
-
 from .quantization import VectorQuantizer, QuantizationConfig, QuantizationMode
 
-logger = logging.getLogger(__name__)
-
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 class IndexType(str, Enum):
     """索引类型"""
@@ -26,7 +24,6 @@ class IndexType(str, Enum):
     IVF = "ivf"             # 倒排文件索引
     FLAT = "flat"           # 暴力搜索
     HYBRID = "hybrid"       # 混合索引
-
 
 @dataclass
 class IndexConfig:
@@ -37,7 +34,6 @@ class IndexConfig:
     hnsw_ef_search: int = 100     # HNSW搜索参数
     ivf_lists: int = 1000         # IVF聚类数
     ivf_probes: int = 10          # IVF探测数
-
 
 class PgVectorOptimizer:
     """pgvector性能优化器"""
@@ -188,7 +184,7 @@ class PgVectorOptimizer:
         quantize: bool = True
     ) -> List[Dict[str, Any]]:
         """优化的向量搜索"""
-        start_time = asyncio.get_event_loop().time()
+        start_time = asyncio.get_running_loop().time()
         
         try:
             # 量化查询向量
@@ -231,7 +227,7 @@ class PgVectorOptimizer:
             ]
             
             # 更新性能统计
-            end_time = asyncio.get_event_loop().time()
+            end_time = asyncio.get_running_loop().time()
             latency_ms = (end_time - start_time) * 1000
             self._update_search_stats(latency_ms)
             

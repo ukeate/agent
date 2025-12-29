@@ -6,6 +6,7 @@ import React, { useEffect, useRef, useState } from 'react'
 import * as d3 from 'd3'
 import { Card, Select, Slider, Space, Tag, Button } from 'antd'
 import { 
+import { logger } from '../../utils/logger'
   PartitionOutlined, 
   ZoomInOutlined, 
   ZoomOutOutlined,
@@ -52,7 +53,7 @@ const MemoryGraphVisualization: React.FC<Props> = ({ memories, onNodeClick }) =>
       const stats = await memoryService.getGraphStatistics()
       setGraphStats(stats)
     } catch (error) {
-      console.error('加载图统计失败:', error)
+      logger.error('加载图统计失败:', error)
     }
   }
 
@@ -79,11 +80,23 @@ const MemoryGraphVisualization: React.FC<Props> = ({ memories, onNodeClick }) =>
 
     const links: GraphLink[] = []
     
-    // 根据相关性创建边（示例：基于相似度）
+    const similarityOf = (a?: string, b?: string) => {
+      if (!a || !b) return 0
+      const words = (s: string) =>
+        new Set(s.toLowerCase().split(/[^a-z0-9\u4e00-\u9fa5]+/i).filter(Boolean))
+      const wa = words(a)
+      const wb = words(b)
+      if (!wa.size || !wb.size) return 0
+      let inter = 0
+      for (const w of wa) if (wb.has(w)) inter++
+      const union = wa.size + wb.size - inter
+      return union ? inter / union : 0
+    }
+
+    // 根据内容相似度创建边
     for (let i = 0; i < nodes.length; i++) {
       for (let j = i + 1; j < nodes.length; j++) {
-        // 简化的相似度计算
-        const similarity = Math.random() * 0.8
+        const similarity = similarityOf(nodes[i].content, nodes[j].content)
         if (similarity > minWeight) {
           links.push({
             source: nodes[i].id,

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { 
   Card, 
   Descriptions, 
@@ -18,6 +18,7 @@ import {
   Statistic,
   Empty
 } from 'antd';
+import { multimodalService } from '../../services/multimodalService';
 import {
   FileImageOutlined,
   FileTextOutlined,
@@ -68,6 +69,13 @@ const ProcessingResult: React.FC<ProcessingResultProps> = ({ result, showDetails
   };
 
   const statusConfig = getStatusConfig(result.status);
+  const [pricingReady, setPricingReady] = useState(false);
+
+  useEffect(() => {
+    multimodalService.ensureModelPricing()
+      .then(() => setPricingReady(true))
+      .catch(() => setPricingReady(false));
+  }, []);
 
   // 格式化文件大小
   const formatFileSize = (bytes: number) => {
@@ -79,9 +87,15 @@ const ProcessingResult: React.FC<ProcessingResultProps> = ({ result, showDetails
 
   // 计算成本
   const calculateCost = () => {
-    if (!result.tokens_used) return 0;
-    // 简化的成本计算
-    return (result.tokens_used.total_tokens / 1000 * 0.002).toFixed(4);
+    if (!pricingReady || !result.tokens_used || !result.model_used) return 0;
+    const totalTokens = result.tokens_used.total_tokens || 0;
+    const inputTokens = typeof result.tokens_used.prompt_tokens === 'number'
+      ? result.tokens_used.prompt_tokens
+      : Math.floor(totalTokens / 3);
+    const outputTokens = typeof result.tokens_used.completion_tokens === 'number'
+      ? result.tokens_used.completion_tokens
+      : Math.max(0, totalTokens - inputTokens);
+    return multimodalService.calculateCost(result.model_used, inputTokens, outputTokens);
   };
 
   return (
@@ -157,7 +171,7 @@ const ProcessingResult: React.FC<ProcessingResultProps> = ({ result, showDetails
               className="mt-4"
               message="处理错误"
               description={result.error_message}
-              variant="destructive"
+              type="error"
               showIcon
             />
           )}

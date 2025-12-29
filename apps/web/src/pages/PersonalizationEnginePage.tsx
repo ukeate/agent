@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react'
-import { Card, Row, Col, Statistic, Progress, Tag, Timeline, Button, Space, Tabs, Badge, Alert, Table, Typography } from 'antd'
+import { buildWsUrl } from '../utils/apiBase'
+import { Card, Row, Col, Statistic, Progress, Tag, Timeline, Button, Space, Tabs, Badge, Alert, Table, Typography, message } from 'antd'
+import { personalizationService } from '../services/personalizationService'
 import { 
   ThunderboltOutlined, 
   RocketOutlined, 
@@ -46,52 +48,178 @@ interface RecommendationItem {
 const PersonalizationEnginePage: React.FC = () => {
   const [loading, setLoading] = useState(false)
   const [engineStatus, setEngineStatus] = useState<'running' | 'stopped' | 'error'>('running')
+  const [apiStatus, setApiStatus] = useState({
+    metrics: 'unknown',
+    features: 'unknown',
+    models: 'unknown',
+    recommend: 'unknown',
+    websocket: 'unknown'
+  })
   const [metrics, setMetrics] = useState({
-    latencyP99: 85,
-    throughput: 1250,
-    cacheHitRate: 82,
-    activeUsers: 3421,
-    totalRecommendations: 152000,
-    errorRate: 0.2
+    latencyP99: 0,
+    throughput: 0,
+    cacheHitRate: 0,
+    activeUsers: 0,
+    totalRecommendations: 0,
+    errorRate: 0
   })
 
-  const [features, setFeatures] = useState<FeatureData[]>([
-    { key: '1', name: '用户活跃度', value: 0.85, type: '实时特征', updateTime: '2秒前' },
-    { key: '2', name: '兴趣相似度', value: 0.72, type: '静态特征', updateTime: '5分钟前' },
-    { key: '3', name: '点击率预测', value: 0.68, type: '模型特征', updateTime: '刚刚' },
-    { key: '4', name: '会话时长', value: 12.5, type: '实时特征', updateTime: '1秒前' },
-    { key: '5', name: '内容新鲜度', value: 0.91, type: '动态特征', updateTime: '30秒前' }
-  ])
+  const [features, setFeatures] = useState<FeatureData[]>([])
 
-  const [models, setModels] = useState<ModelInfo[]>([
-    { name: 'DNN推荐模型', version: 'v2.3.1', status: 'online', accuracy: 92.5, latency: 23 },
-    { name: 'CF协同过滤', version: 'v1.8.0', status: 'online', accuracy: 88.2, latency: 15 },
-    { name: 'Transformer模型', version: 'v3.0.0', status: 'updating', accuracy: 94.1, latency: 45 },
-    { name: 'Bandit算法', version: 'v1.2.0', status: 'online', accuracy: 85.7, latency: 8 }
-  ])
+  const [models, setModels] = useState<ModelInfo[]>([])
 
-  const [recommendations, setRecommendations] = useState<RecommendationItem[]>([
-    { id: '1', item: '机器学习入门教程', score: 0.95, reason: '基于学习历史' },
-    { id: '2', item: 'Python高级编程', score: 0.89, reason: '相似用户推荐' },
-    { id: '3', item: '深度学习实战', score: 0.86, reason: '热门趋势' },
-    { id: '4', item: '数据结构与算法', score: 0.82, reason: '个性化匹配' },
-    { id: '5', item: 'AI系统设计', score: 0.78, reason: '协同过滤' }
-  ])
+  const [recommendations, setRecommendations] = useState<RecommendationItem[]>([])
+
+  const updateApiStatus = (key: keyof typeof apiStatus, status: string) => {
+    setApiStatus(prev => ({ ...prev, [key]: status }))
+  }
+
+  const checkWebSocket = async () => {
+    if (typeof window === 'undefined') return false
+    const userId = personalizationService.getClientId?.()
+    if (!userId) return false
+    const url = buildWsUrl('/personalization/stream')
+    if (!url) return false
+    return await new Promise<boolean>((resolve) => {
+      let settled = false
+      const ws = new WebSocket(url)
+      const timer = window.setTimeout(() => {
+        if (settled) return
+        settled = true
+        ws.close()
+        resolve(false)
+      }, 5000)
+      const finish = (result: boolean) => {
+        if (settled) return
+        settled = true
+        window.clearTimeout(timer)
+        ws.close()
+        resolve(result)
+      }
+      ws.onopen = () => {
+        ws.send(JSON.stringify({ user_id: userId }))
+      }
+      ws.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data)
+          if (data?.type === 'connected') {
+            finish(true)
+          }
+        } catch {
+          // 忽略解析错误
+        }
+      }
+      ws.onerror = () => {
+        finish(false)
+      }
+      ws.onclose = () => {
+        finish(false)
+      }
+    })
+  }
+
+  const loadData = async () => {
+    let hasError = false
+    try {
+      setLoading(true)
+      setApiStatus({
+        metrics: 'checking',
+        features: 'checking',
+        models: 'checking',
+        recommend: 'checking',
+        websocket: 'checking'
+      })
+
+      try {
+        const overview = await personalizationService.getSystemOverview()
+        if (overview) {
+          setMetrics({
+            latencyP99: overview.latency_p99 || 0,
+            throughput: overview.throughput || 0,
+            cacheHitRate: overview.cache_hit_rate || 0,
+            activeUsers: overview.active_users || 0,
+            totalRecommendations: overview.total_recommendations || 0,
+            errorRate: overview.error_rate || 0
+          })
+        }
+        updateApiStatus('metrics', 'online')
+      } catch {
+        hasError = true
+        updateApiStatus('metrics', 'error')
+      }
+
+      try {
+        const featureList = await personalizationService.getFeatureStore()
+        if (featureList && Array.isArray(featureList)) {
+          setFeatures(
+            featureList.map((f: any, idx: number) => ({
+              key: f.id || String(idx),
+              name: f.name,
+              value: f.value ?? 0,
+              type: f.type || '未知',
+              updateTime: f.updated_at || ''
+            }))
+          )
+        } else {
+          setFeatures([])
+        }
+        updateApiStatus('features', 'online')
+      } catch {
+        hasError = true
+        setFeatures([])
+        updateApiStatus('features', 'error')
+      }
+
+      try {
+        const modelList = await personalizationService.getModels()
+        setModels(modelList || [])
+        updateApiStatus('models', 'online')
+      } catch {
+        hasError = true
+        setModels([])
+        updateApiStatus('models', 'error')
+      }
+
+      try {
+        const recs = await personalizationService.getRecommendations({ limit: 5 })
+        if (recs && Array.isArray(recs)) {
+          setRecommendations(
+            recs.map((r: any, idx: number) => ({
+              id: r.id || String(idx),
+              item: r.item || '',
+              score: r.score || 0,
+              reason: r.reason || ''
+            }))
+          )
+        } else {
+          setRecommendations([])
+        }
+        updateApiStatus('recommend', 'online')
+      } catch {
+        hasError = true
+        setRecommendations([])
+        updateApiStatus('recommend', 'error')
+      }
+
+      try {
+        const wsOk = await checkWebSocket()
+        updateApiStatus('websocket', wsOk ? 'online' : 'error')
+        if (!wsOk) hasError = true
+      } catch {
+        hasError = true
+        updateApiStatus('websocket', 'error')
+      }
+    } catch (err) {
+      hasError = true
+      message.error('加载个性化引擎数据失败')
+    } finally {
+      setEngineStatus(hasError ? 'error' : 'running')
+      setLoading(false)
+    }
+  }
 
   useEffect(() => {
-    // 模拟实时数据更新
-    const interval = setInterval(() => {
-      setMetrics(prev => ({
-        ...prev,
-        latencyP99: Math.max(50, Math.min(150, prev.latencyP99 + (Math.random() - 0.5) * 10)),
-        throughput: Math.max(800, Math.min(2000, prev.throughput + (Math.random() - 0.5) * 100)),
-        cacheHitRate: Math.max(70, Math.min(95, prev.cacheHitRate + (Math.random() - 0.5) * 2)),
-        activeUsers: Math.max(2000, Math.min(5000, prev.activeUsers + Math.floor((Math.random() - 0.5) * 200))),
-        totalRecommendations: prev.totalRecommendations + Math.floor(Math.random() * 100)
-      }))
-    }, 3000)
-
-    return () => clearInterval(interval)
+    loadData()
   }, [])
 
   const featureColumns: ColumnsType<FeatureData> = [
@@ -128,12 +256,16 @@ const PersonalizationEnginePage: React.FC = () => {
     }
   ]
 
-  const handleRefreshEngine = () => {
+  const handleRefreshEngine = async () => {
     setLoading(true)
-    setTimeout(() => {
-      setLoading(false)
+    try {
+      await loadData()
       setEngineStatus('running')
-    }, 2000)
+    } catch {
+      setEngineStatus('error')
+    } finally {
+      setLoading(false)
+    }
   }
 
   const getStatusColor = (status: string) => {
@@ -142,6 +274,19 @@ const PersonalizationEnginePage: React.FC = () => {
       case 'offline': return 'default'
       case 'updating': return 'processing'
       default: return 'default'
+    }
+  }
+
+  const getApiStatusDisplay = (status: string) => {
+    switch (status) {
+      case 'online':
+        return { text: '正常', color: '#52c41a' }
+      case 'error':
+        return { text: '异常', color: '#ff4d4f' }
+      case 'checking':
+        return { text: '检测中', color: '#faad14' }
+      default:
+        return { text: '未检测', color: '#d9d9d9' }
     }
   }
 
@@ -314,8 +459,8 @@ const PersonalizationEnginePage: React.FC = () => {
                 <Card size="small">
                   <Statistic
                     title="/api/v1/personalization/recommend"
-                    value="正常"
-                    valueStyle={{ color: '#52c41a' }}
+                    value={getApiStatusDisplay(apiStatus.recommend).text}
+                    valueStyle={{ color: getApiStatusDisplay(apiStatus.recommend).color }}
                   />
                   <Text type="secondary">REST推荐接口</Text>
                 </Card>
@@ -324,8 +469,8 @@ const PersonalizationEnginePage: React.FC = () => {
                 <Card size="small">
                   <Statistic
                     title="/ws/personalization/stream"
-                    value="在线"
-                    valueStyle={{ color: '#52c41a' }}
+                    value={getApiStatusDisplay(apiStatus.websocket).text}
+                    valueStyle={{ color: getApiStatusDisplay(apiStatus.websocket).color }}
                   />
                   <Text type="secondary">WebSocket实时流</Text>
                 </Card>

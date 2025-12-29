@@ -1,13 +1,13 @@
 """
 微调相关数据模型定义
 """
+
 from typing import TypedDict, Optional, List, Dict, Any, Union
 from datetime import datetime
 from src.core.utils.timezone_utils import utc_now, utc_factory
 from enum import Enum
 from dataclasses import dataclass
 import uuid
-
 
 class ModelArchitecture(str, Enum):
     """支持的模型架构"""
@@ -20,7 +20,6 @@ class ModelArchitecture(str, Enum):
     DEEPSEEK = "deepseek"
     INTERNLM = "internlm"
     
-
 class QuantizationType(str, Enum):
     """量化类型"""
     NONE = "none"
@@ -29,7 +28,6 @@ class QuantizationType(str, Enum):
     NF4 = "nf4"
     FP4 = "fp4"
 
-
 class TrainingMode(str, Enum):
     """训练模式"""
     LORA = "lora"
@@ -37,7 +35,6 @@ class TrainingMode(str, Enum):
     FULL_FINETUNING = "full"
     PREFIX_TUNING = "prefix"
     P_TUNING = "p_tuning"
-
 
 @dataclass
 class LoRAConfig:
@@ -50,7 +47,6 @@ class LoRAConfig:
     task_type: str = "CAUSAL_LM"
     inference_mode: bool = False
     
-
 @dataclass
 class QuantizationConfig:
     """量化配置参数"""
@@ -60,7 +56,6 @@ class QuantizationConfig:
     quant_type: str = "nf4"
     compute_dtype: str = "bfloat16"
     use_nested_quant: bool = False
-
 
 @dataclass
 class TrainingConfig:
@@ -100,7 +95,6 @@ class TrainingConfig:
     save_steps: int = 500
     eval_steps: int = 500
 
-
 class TrainingJob(TypedDict):
     """训练任务"""
     job_id: str
@@ -120,7 +114,6 @@ class TrainingJob(TypedDict):
     logs: List[str]
     error_message: Optional[str]
 
-
 @dataclass
 class ModelCheckpoint:
     """模型检查点"""
@@ -134,7 +127,6 @@ class ModelCheckpoint:
     metrics: Dict[str, float]
     created_at: datetime
     size_bytes: int
-
 
 class FineTuningResult(TypedDict):
     """微调结果"""

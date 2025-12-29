@@ -3,9 +3,11 @@
  * 提供WebSocket连接管理、状态管理和上下文记忆功能
  */
 
+import { buildWsUrl } from '../utils/apiBase'
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { toast } from 'sonner';
 import {
+import { logger } from '../utils/logger'
   EmotionWebSocketService,
   ConnectionState,
   UnifiedEmotionalData,
@@ -94,7 +96,7 @@ export interface UseEmotionWebSocketResult {
 export function useEmotionWebSocket(config: UseEmotionWebSocketConfig): UseEmotionWebSocketResult {
   // 配置默认值
   const finalConfig = {
-    url: 'ws://localhost:8000/ws',
+    url: buildWsUrl('/ws'),
     userId: 'anonymous',
     maxHistoryLength: 100,
     maxMemoryLength: 1000,
@@ -122,7 +124,7 @@ export function useEmotionWebSocket(config: UseEmotionWebSocketConfig): UseEmoti
 
   // 内部状态
   const sessionIdRef = useRef<string | null>(null);
-  const memoryDecayTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const memoryDecayTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // 生成会话ID
   const generateSessionId = useCallback(() => {
@@ -334,7 +336,7 @@ export function useEmotionWebSocket(config: UseEmotionWebSocketConfig): UseEmoti
       toast.success('会话已加载');
       return true;
     } catch (error) {
-      console.error('Failed to load session:', error);
+      logger.error('加载会话失败:', error);
       toast.error('加载会话失败');
       return false;
     }
@@ -541,7 +543,7 @@ export function useEmotionWebSocket(config: UseEmotionWebSocketConfig): UseEmoti
           const { sessionId } = JSON.parse(currentSessionData);
           loadSession(sessionId);
         } catch (error) {
-          console.error('Failed to restore session:', error);
+          logger.error('恢复会话失败:', error);
         }
       }
     }

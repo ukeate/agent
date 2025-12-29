@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react'
 import { Card, Row, Col, Button, Space, Typography, message, Spin, Divider } from 'antd'
 import { PlayCircleOutlined, ReloadOutlined, PauseCircleOutlined } from '@ant-design/icons'
-import { apiClient } from '../services/apiClient'
+import { workflowService } from '../services/workflowService'
 import WorkflowVisualization from '../components/workflow/WorkflowVisualization'
 
+import { logger } from '../utils/logger'
 const { Title, Text } = Typography
 
 interface Workflow {
@@ -30,12 +31,12 @@ const WorkflowPage: React.FC = () => {
         workflow_type: 'conditional'
       }
 
-      const workflow = await apiClient.createWorkflow(workflowData)
+      const workflow = await workflowService.createWorkflow(workflowData)
       message.success('工作流创建成功')
       
       // 启动工作流
-      const result = await apiClient.startWorkflow(workflow.id, {
-        message: '启动LangGraph工作流演示'
+      await workflowService.startWorkflow(workflow.id, {
+        input_data: { message: '启动工作流' }
       })
 
       setCurrentWorkflow(workflow)
@@ -43,18 +44,8 @@ const WorkflowPage: React.FC = () => {
       message.success('工作流启动成功')
 
     } catch (error) {
-      console.error('启动工作流失败:', error)
+      logger.error('启动工作流失败:', error)
       message.error(`启动工作流失败: ${(error as Error).message}`)
-      
-      // 即使API失败，也创建一个演示工作流对象以便用户体验
-      const demoWorkflow = {
-        id: `demo-workflow-${Date.now()}`,
-        name: '演示工作流 (离线模式)',
-        status: 'running'
-      }
-      setCurrentWorkflow(demoWorkflow)
-      setIsRunning(true)
-      message.info('已切换到演示模式，您可以体验工作流可视化功能')
     } finally {
       setLoading(false)
     }
@@ -66,11 +57,11 @@ const WorkflowPage: React.FC = () => {
 
     setLoading(true)
     try {
-      await apiClient.controlWorkflow(currentWorkflow.id, 'cancel')
+      await workflowService.controlWorkflow(currentWorkflow.id, { action: 'cancel' })
       setIsRunning(false)
       message.success('工作流已停止')
     } catch (error) {
-      console.error('停止工作流失败:', error)
+      logger.error('停止工作流失败:', error)
       message.error(`停止工作流失败: ${(error as Error).message}`)
     } finally {
       setLoading(false)
@@ -146,41 +137,25 @@ const WorkflowPage: React.FC = () => {
           {currentWorkflow ? (
             <WorkflowVisualization 
               workflowId={currentWorkflow.id}
-              demoMode={currentWorkflow.name.includes('离线模式') || currentWorkflow.id.includes('demo-workflow')}
               onNodeClick={(nodeId, nodeData) => {
-                console.log('节点点击:', nodeId, nodeData)
+                logger.log('节点点击:', nodeId, nodeData)
                 message.info(`点击节点: ${nodeData?.name || nodeId}`)
               }}
             />
           ) : (
-            <div>
-              <Card style={{ marginBottom: '16px' }}>
-                <div className="flex items-center justify-center" style={{ padding: '20px' }}>
-                  <div className="text-center">
-                    <Text type="secondary" className="text-lg">
-                      🚀 启动工作流以查看实时可视化
-                    </Text>
-                    <br />
-                    <Text type="secondary">
-                      点击上方"启动工作流"按钮开始，或查看下方演示
-                    </Text>
-                  </div>
+            <Card>
+              <div className="flex items-center justify-center" style={{ padding: '20px' }}>
+                <div className="text-center">
+                  <Text type="secondary" className="text-lg">
+                    🚀 启动工作流以查看实时可视化
+                  </Text>
+                  <br />
+                  <Text type="secondary">
+                    点击上方“启动工作流”按钮开始
+                  </Text>
                 </div>
-              </Card>
-              
-              {/* 演示模式的工作流可视化 */}
-              <Card title="🎯 工作流可视化演示 (示例)" 
-                    extra={<Text type="secondary">演示模式 - 展示界面功能</Text>}>
-                <WorkflowVisualization 
-                  workflowId="demo-workflow-preview"
-                  demoMode={true}
-                  onNodeClick={(nodeId, nodeData) => {
-                    console.log('演示节点点击:', nodeId, nodeData)
-                    message.info(`演示模式 - 点击节点: ${nodeData?.name || nodeId}`)
-                  }}
-                />
-              </Card>
-            </div>
+              </div>
+            </Card>
           )}
         </Col>
       </Row>

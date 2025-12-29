@@ -8,6 +8,7 @@ import React, { useState, useEffect } from 'react';
 import { streamingService } from '../../services/streamingService';
 import { batchService } from '../../services/batchService';
 
+import { logger } from '../../utils/logger'
 interface PerformanceMetrics {
   streaming: {
     latency_p50: number;
@@ -89,7 +90,7 @@ export const PerformanceAnalyzer: React.FC = () => {
       // 分析性能
       analyzePerformance(perfMetrics);
     } catch (error) {
-      console.error('获取性能指标失败:', error);
+      logger.error('获取性能指标失败:', error);
     } finally {
       setLoading(false);
     }

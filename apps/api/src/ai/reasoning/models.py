@@ -4,16 +4,15 @@ from datetime import datetime
 from src.core.utils.timezone_utils import utc_now, utc_factory
 from typing import Optional
 from uuid import UUID
-
 from sqlalchemy import Column, DateTime, Float, Integer, JSON, String, Text, Boolean
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
-from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import DeclarativeBase
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from sqlalchemy import ForeignKey
 
-Base = declarative_base()
-
+class Base(DeclarativeBase):
+    ...
 
 class ReasoningChainModel(Base):
     """推理链持久化模型"""
@@ -37,7 +36,6 @@ class ReasoningChainModel(Base):
     steps = relationship("ThoughtStepModel", back_populates="chain", cascade="all, delete-orphan")
     branches = relationship("ReasoningBranchModel", back_populates="chain", cascade="all, delete-orphan")
 
-
 class ThoughtStepModel(Base):
     """思考步骤持久化模型"""
     __tablename__ = "thought_steps"
@@ -59,7 +57,6 @@ class ThoughtStepModel(Base):
     branch = relationship("ReasoningBranchModel", back_populates="steps")
     validations = relationship("StepValidationModel", back_populates="step", cascade="all, delete-orphan")
 
-
 class ReasoningBranchModel(Base):
     """推理分支持久化模型"""
     __tablename__ = "reasoning_branches"
@@ -76,7 +73,6 @@ class ReasoningBranchModel(Base):
     chain = relationship("ReasoningChainModel", back_populates="branches")
     steps = relationship("ThoughtStepModel", back_populates="branch")
 
-
 class StepValidationModel(Base):
     """步骤验证持久化模型"""
     __tablename__ = "step_validations"
@@ -92,7 +88,6 @@ class StepValidationModel(Base):
     # 关系
     step = relationship("ThoughtStepModel", back_populates="validations")
 
-
 class ReasoningExampleModel(Base):
     """推理示例模型（用于Few-shot）"""
     __tablename__ = "reasoning_examples"
@@ -107,7 +102,6 @@ class ReasoningExampleModel(Base):
     success_rate = Column(Float, default=0.0)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
-
 
 class ReasoningCacheModel(Base):
     """推理缓存模型"""

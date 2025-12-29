@@ -7,7 +7,6 @@
 import pytest
 import asyncio
 from unittest.mock import Mock, AsyncMock, patch
-
 from ai.knowledge_graph.entity_recognizer import (
     MultiModelEntityRecognizer,
     SpacyEntityRecognizer,
@@ -15,7 +14,6 @@ from ai.knowledge_graph.entity_recognizer import (
     StanzaEntityRecognizer
 )
 from ai.knowledge_graph.data_models import Entity, EntityType
-
 
 class TestSpacyEntityRecognizer:
     """spaCy实体识别器测试"""
@@ -116,7 +114,6 @@ class TestSpacyEntityRecognizer:
         assert recognizer._map_spacy_label("ORG") == EntityType.ORGANIZATION
         assert recognizer._map_spacy_label("GPE") == EntityType.GPE
         assert recognizer._map_spacy_label("UNKNOWN") == EntityType.MISC
-
 
 class TestTransformersEntityRecognizer:
     """Transformers实体识别器测试"""
@@ -220,7 +217,6 @@ class TestTransformersEntityRecognizer:
         assert org.end == 20
         assert org.label == EntityType.ORGANIZATION
 
-
 class TestStanzaEntityRecognizer:
     """Stanza实体识别器测试"""
     
@@ -294,7 +290,6 @@ class TestStanzaEntityRecognizer:
         assert person_entity.text == "John"
         assert person_entity.start == 15
         assert person_entity.end == 19
-
 
 class TestMultiModelEntityRecognizer:
     """多模型实体识别器测试"""
@@ -439,7 +434,6 @@ class TestMultiModelEntityRecognizer:
         
         entities_low = await recognizer.extract_entities("test", confidence_threshold=0.4)
         assert len(entities_low) == 3  # 所有实体都满足
-
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

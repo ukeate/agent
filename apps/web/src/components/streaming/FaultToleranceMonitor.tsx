@@ -1,6 +1,8 @@
+import { buildApiUrl, apiFetch } from '../../utils/apiBase'
 import React, { useState, useEffect } from 'react';
 import { Card, Table, Tag, Button, Progress, Space, Alert, Row, Col, Statistic, Timeline } from 'antd';
 import { 
+import { logger } from '../../utils/logger'
   ReloadOutlined, 
   ExclamationCircleOutlined, 
   CheckCircleOutlined,
@@ -48,14 +50,12 @@ const FaultToleranceMonitor: React.FC = () => {
   const fetchFaultToleranceStats = async () => {
     setLoading(true);
     try {
-      const response = await fetch('/api/v1/streaming/fault-tolerance/stats');
-      if (response.ok) {
-        const data = await response.json();
-        setStats(data);
-        setLastUpdate(new Date());
-      }
+      const response = await apiFetch(buildApiUrl('/api/v1/streaming/fault-tolerance/stats'));
+      const data = await response.json();
+      setStats(data);
+      setLastUpdate(new Date());
     } catch (error) {
-      console.error('获取容错统计失败:', error);
+      logger.error('获取容错统计失败:', error);
     } finally {
       setLoading(false);
     }
@@ -63,14 +63,13 @@ const FaultToleranceMonitor: React.FC = () => {
 
   const forceReconnect = async (sessionId: string) => {
     try {
-      const response = await fetch(`/api/v1/streaming/fault-tolerance/reconnect/${sessionId}`, {
+      const response = await apiFetch(buildApiUrl(`/api/v1/streaming/fault-tolerance/reconnect/${sessionId}`), {
         method: 'POST'
       });
-      if (response.ok) {
-        fetchFaultToleranceStats();
-      }
+      await response.json().catch(() => null);
+      fetchFaultToleranceStats();
     } catch (error) {
-      console.error('强制重连失败:', error);
+      logger.error('强制重连失败:', error);
     }
   };
 
@@ -111,7 +110,7 @@ const FaultToleranceMonitor: React.FC = () => {
       title: '会话ID',
       dataIndex: 'session_id',
       key: 'session_id',
-      render: (id: string) => <code>{id.slice(0, 8)}...</code>
+      render: (id: string) => <code>{id}</code>
     },
     {
       title: '连接状态',

@@ -1,14 +1,16 @@
 """
 自动扩量API端点
 """
+
 from fastapi import APIRouter, HTTPException, Query, BackgroundTasks
 from typing import Dict, Any, List, Optional
-from pydantic import BaseModel, Field
+from pydantic import Field
 from datetime import datetime
 from src.core.utils.timezone_utils import utc_now, utc_factory
-
-from ...services.auto_scaling_service import (
+from src.services.auto_scaling_service import (
     AutoScalingService,
+    ScalingMode,
+    ScalingDirection,
     ScalingMode,
     ScalingDirection,
     ScalingTrigger,
@@ -16,14 +18,12 @@ from ...services.auto_scaling_service import (
     ScalingTemplates
 )
 
-
 router = APIRouter(prefix="/auto-scaling", tags=["Auto Scaling"])
 
 # 服务实例
 scaling_service = AutoScalingService()
 
-
-class CreateScalingRuleRequest(BaseModel):
+class CreateScalingRuleRequest(ApiBaseModel):
     """创建扩量规则请求"""
     experiment_id: str = Field(..., description="实验ID")
     name: str = Field(..., description="规则名称")
@@ -37,8 +37,7 @@ class CreateScalingRuleRequest(BaseModel):
     cooldown_minutes: int = Field(30, ge=5, description="冷却时间(分钟)")
     enabled: bool = Field(True, description="是否启用")
 
-
-class CreateConditionRequest(BaseModel):
+class CreateConditionRequest(ApiBaseModel):
     """创建条件请求"""
     trigger: ScalingTrigger = Field(..., description="触发器类型")
     metric_name: Optional[str] = Field(None, description="指标名称")
@@ -47,17 +46,14 @@ class CreateConditionRequest(BaseModel):
     confidence_level: float = Field(0.95, ge=0.5, le=0.999, description="置信水平")
     min_sample_size: int = Field(1000, ge=100, description="最小样本量")
 
-
-class StartScalingRequest(BaseModel):
+class StartScalingRequest(ApiBaseModel):
     """启动扩量请求"""
     rule_id: str = Field(..., description="规则ID")
 
-
-class SimulateScalingRequest(BaseModel):
+class SimulateScalingRequest(ApiBaseModel):
     """模拟扩量请求"""
     experiment_id: str = Field(..., description="实验ID")
     days: int = Field(7, ge=1, le=30, description="模拟天数")
-
 
 @router.post("/rules")
 async def create_scaling_rule(request: CreateScalingRuleRequest) -> Dict[str, Any]:
@@ -98,7 +94,6 @@ async def create_scaling_rule(request: CreateScalingRuleRequest) -> Dict[str, An
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-
 
 @router.post("/rules/{rule_id}/conditions")
 async def add_condition(
@@ -143,7 +138,6 @@ async def add_condition(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-
 @router.post("/start")
 async def start_auto_scaling(
     request: StartScalingRequest,
@@ -171,7 +165,6 @@ async def start_auto_scaling(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-
 @router.post("/stop/{rule_id}")
 async def stop_auto_scaling(rule_id: str) -> Dict[str, Any]:
     """
@@ -192,7 +185,6 @@ async def stop_auto_scaling(rule_id: str) -> Dict[str, Any]:
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-
 
 @router.get("/rules")
 async def list_rules(
@@ -227,7 +219,6 @@ async def list_rules(
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-
 
 @router.get("/history/{experiment_id}")
 async def get_scaling_history(experiment_id: str) -> Dict[str, Any]:
@@ -269,7 +260,6 @@ async def get_scaling_history(experiment_id: str) -> Dict[str, Any]:
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-
 @router.get("/recommendations/{experiment_id}")
 async def get_recommendations(experiment_id: str) -> Dict[str, Any]:
     """
@@ -289,7 +279,6 @@ async def get_recommendations(experiment_id: str) -> Dict[str, Any]:
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-
 
 @router.post("/simulate")
 async def simulate_scaling(request: SimulateScalingRequest) -> Dict[str, Any]:
@@ -318,7 +307,6 @@ async def simulate_scaling(request: SimulateScalingRequest) -> Dict[str, Any]:
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-
 @router.post("/templates/safe")
 async def create_safe_template(experiment_id: str) -> Dict[str, Any]:
     """
@@ -345,7 +333,6 @@ async def create_safe_template(experiment_id: str) -> Dict[str, Any]:
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-
 @router.post("/templates/aggressive")
 async def create_aggressive_template(experiment_id: str) -> Dict[str, Any]:
     """
@@ -371,7 +358,6 @@ async def create_aggressive_template(experiment_id: str) -> Dict[str, Any]:
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-
 
 @router.get("/modes")
 async def list_scaling_modes() -> Dict[str, Any]:
@@ -413,7 +399,6 @@ async def list_scaling_modes() -> Dict[str, Any]:
         "success": True,
         "modes": modes
     }
-
 
 @router.get("/triggers")
 async def list_triggers() -> Dict[str, Any]:
@@ -458,7 +443,6 @@ async def list_triggers() -> Dict[str, Any]:
         "triggers": triggers
     }
 
-
 @router.get("/status")
 async def get_scaling_status() -> Dict[str, Any]:
     """
@@ -485,7 +469,6 @@ async def get_scaling_status() -> Dict[str, Any]:
             "active_experiments": active_experiments
         }
     }
-
 
 @router.get("/health")
 async def health_check() -> Dict[str, Any]:

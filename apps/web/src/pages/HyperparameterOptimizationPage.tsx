@@ -3,10 +3,12 @@ import { Button } from '../components/ui/button';
 import { Card } from '../components/ui/card';
 import { Alert } from '../components/ui/lalert';
 import { 
+import { logger } from '../utils/logger'
   ExperimentCard, 
   ExperimentForm, 
   ExperimentDetail 
 } from '../components/hyperparameter';
+import { hyperparameterService } from '../services/hyperparameterService';
 
 interface Experiment {
   id: string;
@@ -41,20 +43,16 @@ const HyperparameterOptimizationPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [presetTasks, setPresetTasks] = useState<string[]>([]);
 
-  // API基础URL
-  const API_BASE = '/api/v1/hyperparameter-optimization';
-
   // 加载实验列表
   const loadExperiments = async () => {
     try {
       setLoading(true);
-      const response = await fetch(`${API_BASE}/experiments`);
-      if (!response.ok) throw new Error('Failed to load experiments');
-      
-      const data = await response.json();
+      const data = await hyperparameterService.listExperiments();
       setExperiments(data);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unknown error');
+      setError(err instanceof Error ? err.message : '未知错误');
+      // 使用空数组作为后备
+      setExperiments([]);
     } finally {
       setLoading(false);
     }
@@ -63,13 +61,11 @@ const HyperparameterOptimizationPage: React.FC = () => {
   // 加载预设任务
   const loadPresetTasks = async () => {
     try {
-      const response = await fetch(`${API_BASE}/tasks`);
-      if (!response.ok) throw new Error('Failed to load preset tasks');
-      
-      const data = await response.json();
+      const data = await hyperparameterService.listPresetTasks();
       setPresetTasks(data);
     } catch (err) {
-      console.error('Failed to load preset tasks:', err);
+      logger.error('加载预设任务失败:', err);
+      setPresetTasks([]);
     }
   };
 
@@ -79,22 +75,15 @@ const HyperparameterOptimizationPage: React.FC = () => {
       setLoading(true);
       
       // 获取实验详情
-      const [experimentResponse, trialsResponse] = await Promise.all([
-        fetch(`${API_BASE}/experiments/${experimentId}`),
-        fetch(`${API_BASE}/experiments/${experimentId}/trials`)
+      const [experimentData, trialsData] = await Promise.all([
+        hyperparameterService.getExperiment(experimentId),
+        hyperparameterService.listTrials(experimentId)
       ]);
-      
-      if (!experimentResponse.ok || !trialsResponse.ok) {
-        throw new Error('Failed to load experiment details');
-      }
-      
-      const experimentData = await experimentResponse.json();
-      const trialsData = await trialsResponse.json();
       
       setSelectedExperiment(experimentData);
       setTrials(trialsData);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unknown error');
+      setError(err instanceof Error ? err.message : '未知错误');
     } finally {
       setLoading(false);
     }
@@ -103,12 +92,9 @@ const HyperparameterOptimizationPage: React.FC = () => {
   // 加载预设配置
   const loadPresetConfig = async (taskName: string) => {
     try {
-      const response = await fetch(`${API_BASE}/tasks/${taskName}`);
-      if (!response.ok) throw new Error('Failed to load preset config');
-      
-      return await response.json();
+      return await hyperparameterService.getPresetTaskConfig(taskName);
     } catch (err) {
-      console.error('Failed to load preset config:', err);
+      logger.error('加载预设配置失败:', err);
       throw err;
     }
   };
@@ -118,23 +104,12 @@ const HyperparameterOptimizationPage: React.FC = () => {
     try {
       setLoading(true);
       
-      const response = await fetch(`${API_BASE}/experiments`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(experimentData),
-      });
-      
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.detail || 'Failed to create experiment');
-      }
+      await hyperparameterService.createExperiment(experimentData);
       
       await loadExperiments();
       setError(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unknown error');
+      setError(err instanceof Error ? err.message : '未知错误');
     } finally {
       setLoading(false);
     }
@@ -145,14 +120,7 @@ const HyperparameterOptimizationPage: React.FC = () => {
     try {
       setLoading(true);
       
-      const response = await fetch(`${API_BASE}/experiments/${experimentId}/start`, {
-        method: 'POST',
-      });
-      
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.detail || 'Failed to start experiment');
-      }
+      await hyperparameterService.resumeExperiment(experimentId);
       
       await loadExperiments();
       if (selectedExperiment?.id === experimentId) {
@@ -160,7 +128,7 @@ const HyperparameterOptimizationPage: React.FC = () => {
       }
       setError(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unknown error');
+      setError(err instanceof Error ? err.message : '未知错误');
     } finally {
       setLoading(false);
     }
@@ -171,14 +139,7 @@ const HyperparameterOptimizationPage: React.FC = () => {
     try {
       setLoading(true);
       
-      const response = await fetch(`${API_BASE}/experiments/${experimentId}/stop`, {
-        method: 'POST',
-      });
-      
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.detail || 'Failed to stop experiment');
-      }
+      await hyperparameterService.stopExperiment(experimentId);
       
       await loadExperiments();
       if (selectedExperiment?.id === experimentId) {
@@ -186,7 +147,7 @@ const HyperparameterOptimizationPage: React.FC = () => {
       }
       setError(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unknown error');
+      setError(err instanceof Error ? err.message : '未知错误');
     } finally {
       setLoading(false);
     }
@@ -201,14 +162,7 @@ const HyperparameterOptimizationPage: React.FC = () => {
     try {
       setLoading(true);
       
-      const response = await fetch(`${API_BASE}/experiments/${experimentId}`, {
-        method: 'DELETE',
-      });
-      
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.detail || 'Failed to delete experiment');
-      }
+      await hyperparameterService.deleteExperiment(experimentId);
       
       if (selectedExperiment?.id === experimentId) {
         setSelectedExperiment(null);
@@ -218,7 +172,7 @@ const HyperparameterOptimizationPage: React.FC = () => {
       await loadExperiments();
       setError(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unknown error');
+      setError(err instanceof Error ? err.message : '未知错误');
     } finally {
       setLoading(false);
     }

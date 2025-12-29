@@ -1,5 +1,7 @@
+import { buildApiUrl, apiFetch } from '../utils/apiBase'
 import React, { useState, useEffect } from 'react';
 import { 
+import { logger } from '../utils/logger'
   Card, 
   Tabs, 
   Typography, 
@@ -132,45 +134,38 @@ const UnifiedEnginePageComplete: React.FC = () => {
   // 获取系统指标
   const fetchSystemMetrics = async () => {
     try {
-      const response = await fetch('/api/v1/unified/metrics');
-      if (response.ok) {
-        const data = await response.json();
-        setSystemMetrics(data);
-      }
+      const response = await apiFetch(buildApiUrl('/api/v1/unified/metrics'));
+      const data = await response.json();
+      setSystemMetrics(data);
     } catch (error) {
-      console.error('获取系统指标失败:', error);
+      logger.error('获取系统指标失败:', error);
     }
   };
 
   // 获取处理历史
   const fetchProcessingHistory = async () => {
     try {
-      const response = await fetch('/api/v1/unified/history?limit=20');
-      if (response.ok) {
-        const data = await response.json();
-        setProcessingHistory(data);
-      }
+      const response = await apiFetch(buildApiUrl('/api/v1/unified/history?limit=20'));
+      const data = await response.json();
+      setProcessingHistory(data);
     } catch (error) {
-      console.error('获取处理历史失败:', error);
+      logger.error('获取处理历史失败:', error);
     }
   };
 
   // 获取模式推荐
   const fetchModeRecommendations = async (request: ProcessingRequest) => {
     try {
-      const response = await fetch('/api/v1/unified/mode/recommendations', {
+      const response = await apiFetch(buildApiUrl('/api/v1/unified/mode/recommendations'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(request)
       });
-      
-      if (response.ok) {
-        const data = await response.json();
-        setModeRecommendations(data);
-        setRecommendModalVisible(true);
-      }
+      const data = await response.json();
+      setModeRecommendations(data);
+      setRecommendModalVisible(true);
     } catch (error) {
-      console.error('获取模式推荐失败:', error);
+      logger.error('获取模式推荐失败:', error);
       message.error('获取模式推荐失败');
     }
   };
@@ -209,35 +204,29 @@ const UnifiedEnginePageComplete: React.FC = () => {
         timeout: values.timeout
       };
       
-      const response = await fetch('/api/v1/unified/process', {
+      const response = await apiFetch(buildApiUrl('/api/v1/unified/process'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(request)
       });
+      const result = await response.json();
+      setActiveRequests(prev => ({
+        ...prev,
+        [currentSessionId]: result
+      }));
       
-      if (response.ok) {
-        const result = await response.json();
-        setActiveRequests(prev => ({
-          ...prev,
-          [currentSessionId]: result
-        }));
-        
-        message.success('处理请求已提交');
-        
-        // 生成新的会话ID用于下次请求
-        setCurrentSessionId(`session_${Date.now()}`);
-        
-        // 刷新数据
-        await Promise.all([
-          fetchSystemMetrics(),
-          fetchProcessingHistory()
-        ]);
-      } else {
-        const error = await response.json();
-        message.error(`提交失败: ${error.detail || '未知错误'}`);
-      }
+      message.success('处理请求已提交');
+      
+      // 生成新的会话ID用于下次请求
+      setCurrentSessionId(`session_${Date.now()}`);
+      
+      // 刷新数据
+      await Promise.all([
+        fetchSystemMetrics(),
+        fetchProcessingHistory()
+      ]);
     } catch (error) {
-      console.error('提交处理请求失败:', error);
+      logger.error('提交处理请求失败:', error);
       message.error('提交处理请求失败');
     } finally {
       setLoading(false);

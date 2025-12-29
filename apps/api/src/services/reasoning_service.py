@@ -5,11 +5,8 @@ from typing import List, Optional, Dict, Any, AsyncGenerator
 from uuid import UUID, uuid4
 from datetime import datetime
 from src.core.utils.timezone_utils import utc_now, utc_factory
-
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_
-
-from models.schemas.reasoning import (
+from src.models.schemas.reasoning import (
     ReasoningRequest,
     ReasoningResponse,
     ReasoningChain,
@@ -26,11 +23,8 @@ from src.ai.reasoning.state_integration import ReasoningStateMachine
 from src.ai.reasoning.validation import CompositeValidator, calculate_chain_quality_score
 from src.ai.reasoning.recovery import RecoveryManager, RecoveryStrategy
 from src.ai.reasoning.models import ReasoningChainModel, ThoughtStepModel
-from src.core.database import get_session
-from src.core.redis import get_redis_client
-from src.core.logging import get_logger
-
-# 离线推理支持
+from src.core.database import get_db_session
+from src.core.redis import get_redis
 from ..offline.reasoning_engine import (
     OfflineReasoningEngine, ReasoningStrategy as OfflineReasoningStrategy
 )
@@ -39,12 +33,15 @@ from ..offline.memory_manager import OfflineMemoryManager
 from ..offline.model_cache import ModelCacheManager
 from ..models.schemas.offline import OfflineMode, NetworkStatus
 
+from src.core.logging import get_logger
+
 logger = get_logger(__name__)
 
+# 离线推理支持
 
 class ReasoningService:
     """推理服务"""
-    
+
     def __init__(self):
         self.engines = {
             ReasoningStrategy.ZERO_SHOT: ZeroShotCoTEngine(),
@@ -82,7 +79,7 @@ class ReasoningService:
     async def _get_redis(self):
         """获取Redis客户端"""
         if not self.redis_client:
-            self.redis_client = await get_redis_client()
+            self.redis_client = get_redis()
         return self.redis_client
     
     async def execute_reasoning(
@@ -268,7 +265,7 @@ class ReasoningService:
         user_id: Optional[str] = None
     ) -> Optional[ReasoningChain]:
         """获取推理链"""
-        async with get_session() as session:
+        async with get_db_session() as session:
             query = select(ReasoningChainModel).where(
                 ReasoningChainModel.id == chain_id
             )
@@ -293,7 +290,7 @@ class ReasoningService:
         offset: int = 0
     ) -> List[ReasoningChain]:
         """获取用户推理历史"""
-        async with get_session() as session:
+        async with get_db_session() as session:
             query = (
                 select(ReasoningChainModel)
                 .where(ReasoningChainModel.session_id == user_id)
@@ -399,7 +396,7 @@ class ReasoningService:
         user_id: Optional[str] = None
     ) -> bool:
         """删除推理链"""
-        async with get_session() as session:
+        async with get_db_session() as session:
             query = select(ReasoningChainModel).where(
                 ReasoningChainModel.id == chain_id
             )
@@ -425,7 +422,7 @@ class ReasoningService:
     
     async def get_user_stats(self, user_id: str) -> Dict[str, Any]:
         """获取用户统计信息"""
-        async with get_session() as session:
+        async with get_db_session() as session:
             # 统计总数
             count_query = (
                 select(ReasoningChainModel)
@@ -544,7 +541,7 @@ class ReasoningService:
             redis = await self._get_redis()
             if redis:
                 import json
-                data = json.dumps(response.dict(), default=str)
+                data = json.dumps(response.model_dump(), default=str)
                 await redis.setex(
                     f"reasoning:{cache_key}",
                     3600,  # 1小时TTL
@@ -654,3 +651,4 @@ class ReasoningService:
             "network_status": self.network_status.value,
             "offline_engine_initialized": False
         }
+from src.core.logging import get_logger

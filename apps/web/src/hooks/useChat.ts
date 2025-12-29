@@ -1,9 +1,9 @@
 import { useCallback } from 'react'
-import { useConversationStore } from '../stores/conversationStore'
+import { createAgentChat, useConversationStore } from '../stores/conversationStore'
 import { useAgentStore } from '../stores/agentStore'
-import { apiClient } from '../services/apiClient'
 import { Message } from '../types'
 
+import { logger } from '../utils/logger'
 export const useChat = () => {
   const {
     messages,
@@ -14,8 +14,9 @@ export const useChat = () => {
     clearMessages,
     setLoading,
     setError,
-    saveConversation,
     createNewConversation,
+    refreshConversations,
+    closeCurrentConversation,
     currentConversation,
   } = useConversationStore()
 
@@ -29,9 +30,9 @@ export const useChat = () => {
   const sendMessage = useCallback(async (content: string) => {
     if (loading) return
 
-    // 如果没有当前对话，先创建一个新对话
-    if (!currentConversation) {
-      createNewConversation()
+    let conversationId = currentConversation?.id
+    if (!conversationId) {
+      conversationId = await createNewConversation()
     }
 
     // 创建用户消息
@@ -56,7 +57,6 @@ export const useChat = () => {
     })
 
     try {
-      // 使用流式API
       const agentMessage: Message = {
         id: `agent-${Date.now()}`,
         content: '',
@@ -68,76 +68,19 @@ export const useChat = () => {
 
       addMessage(agentMessage)
 
-      await apiClient.sendMessageStream(
-        {
-          message: content,
-          stream: true,
-        },
-        // onMessage callback - 处理OpenAI标准格式
-        (data) => {
-          // 处理OpenAI标准格式的流式响应
-          if (data.object === 'chat.completion.chunk') {
-            const choice = data.choices?.[0]
-            if (choice?.delta?.content) {
-              // 追加内容到最后一条消息
-              updateLastMessage(choice.delta.content)
-            }
-            
-            // 检查是否完成
-            if (choice?.finish_reason === 'stop') {
-              // 流式传输已完成
-              setLoading(false)
-              setStatus({
-                id: 'agent-1',
-                name: 'AI助手',
-                status: 'idle',
-              })
-              incrementMessageCount()
-              saveConversation()
-            }
-          }
-          // 错误处理
-          else if (data.error) {
-            console.error('Stream error:', data.error)
-            setError(data.error.message || '发生未知错误')
-            setAgentError(data.error.message || '发生未知错误')
-            setLoading(false)
-            setStatus({
-              id: 'agent-1',
-              name: 'AI助手',
-              status: 'error', 
-            })
-          }
-        },
-        // onError callback
-        (error) => {
-          console.error('Chat stream error:', error)
-          setError(error.message)
-          setAgentError(error.message)
-          setLoading(false)
-          setStatus({
-            id: 'agent-1',
-            name: 'AI助手',
-            status: 'error',
-          })
-        },
-        // onComplete callback - 仅处理流结束清理
-        () => {
-          // 如果还在加载状态，说明可能没有正常收到完成信号
-          if (loading) {
-            setLoading(false)
-            setStatus({
-              id: 'agent-1',
-              name: 'AI助手', 
-              status: 'idle',
-            })
-            incrementMessageCount()
-            saveConversation()
-          }
-        }
-      )
+      const response = await createAgentChat(conversationId, content)
+      updateLastMessage(response.response)
+
+      setLoading(false)
+      setStatus({
+        id: 'agent-1',
+        name: 'AI助手',
+        status: 'idle',
+      })
+      incrementMessageCount()
+      refreshConversations()
     } catch (error) {
-      console.error('Failed to send message:', error)
+      logger.error('发送消息失败:', error)
       
       let errorMessage = '发送消息失败'
       if (error instanceof Error) {
@@ -187,19 +130,22 @@ export const useChat = () => {
     setStatus,
     incrementMessageCount,
     incrementToolCount,
-    saveConversation,
     createNewConversation,
+    refreshConversations,
   ])
 
-  const clearChat = useCallback(() => {
+  const clearChat = useCallback(async () => {
+    try {
+      await closeCurrentConversation()
+    } catch {}
     clearMessages()
     setError(null)
     setAgentError(null)
     setStatus(null)
-  }, [clearMessages, setError, setAgentError, setStatus])
+  }, [closeCurrentConversation, clearMessages, setError, setAgentError, setStatus])
 
-  const startNewConversation = useCallback(() => {
-    createNewConversation()
+  const startNewConversation = useCallback(async () => {
+    await createNewConversation()
     setError(null)
     setAgentError(null)
     setStatus(null)

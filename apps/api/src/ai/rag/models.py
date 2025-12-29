@@ -1,12 +1,12 @@
 """
 RAG系统数据模型
 """
+
 from typing import Any, Dict, List, Optional
 from dataclasses import dataclass, field
 from datetime import datetime
 from src.core.utils.timezone_utils import utc_now, utc_factory
 import uuid
-
 
 @dataclass
 class DocumentMetadata:
@@ -20,7 +20,6 @@ class DocumentMetadata:
     created_at: datetime = field(default_factory=utc_factory)
     updated_at: datetime = field(default_factory=utc_factory)
     custom_fields: Dict[str, Any] = field(default_factory=dict)
-
 
 @dataclass
 class Document:
@@ -58,7 +57,6 @@ class Document:
             "chunk_count": self.get_chunk_count()
         }
 
-
 @dataclass
 class DocumentChunk:
     """文档块模型"""
@@ -94,7 +92,6 @@ class DocumentChunk:
             "created_at": self.created_at.isoformat()
         }
 
-
 @dataclass
 class RetrievalResult:
     """检索结果模型"""
@@ -112,7 +109,6 @@ class RetrievalResult:
             "explanation": self.explanation
         }
 
-
 @dataclass
 class QueryContext:
     """查询上下文"""
@@ -124,7 +120,6 @@ class QueryContext:
     language: str = "zh"
     session_id: Optional[str] = None
     user_context: Dict[str, Any] = field(default_factory=dict)
-
 
 @dataclass
 class IndexStats:
@@ -149,7 +144,6 @@ class IndexStats:
             "document_types": self.document_types,
             "last_updated": self.last_updated.isoformat()
         }
-
 
 @dataclass
 class RAGResponse:

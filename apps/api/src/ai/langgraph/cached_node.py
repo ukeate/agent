@@ -4,16 +4,14 @@
 """
 
 import inspect
-import logging
 from functools import wraps
 from typing import Any, Callable, Optional, Dict, Union, Awaitable
-
 from .context import AgentContext
 from .cache_factory import get_node_cache
 from .caching import NodeCache
 
-logger = logging.getLogger(__name__)
-
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 class CachedNodeWrapper:
     """缓存节点包装器"""
@@ -143,7 +141,6 @@ class CachedNodeWrapper:
             else:
                 return self.node_func(*args, **kwargs)
 
-
 def cached_node(
     name: Optional[str] = None,
     ttl: Optional[int] = None,
@@ -178,7 +175,6 @@ def cached_node(
         )
     
     return decorator
-
 
 def invalidate_node_cache(
     node_name: str,
@@ -226,7 +222,6 @@ def invalidate_node_cache(
             return False
     
     return _invalidate()
-
 
 def cache_warmup(
     node_func: Callable,

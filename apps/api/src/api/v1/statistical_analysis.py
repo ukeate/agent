@@ -1,30 +1,32 @@
 """
 统计分析API端点 - 提供基础统计计算功能
 """
-from typing import List, Dict, Any, Optional, Union
-from fastapi import APIRouter, HTTPException, Query
-from pydantic import BaseModel, Field, validator
 
-from core.logging import get_logger
-from services.statistical_analysis_service import (
-    get_stats_calculator,
-    MetricType,
-    DistributionType,
+from typing import Any, Dict, List, Optional, Union
+
+from fastapi import APIRouter, HTTPException, Query
+from pydantic import Field, field_validator, model_validator
+from src.api.base_model import ApiBaseModel
+from src.services.statistical_analysis_service import (
     DescriptiveStats,
-    GroupStats
+    DistributionType,
+    GroupStats,
+    MetricType,
+    get_stats_calculator,
 )
 
+from src.core.logging import get_logger
 logger = get_logger(__name__)
+
 router = APIRouter(prefix="/statistical-analysis", tags=["统计分析"])
 
-
 # 请求模型
-class BasicStatsRequest(BaseModel):
+class BasicStatsRequest(ApiBaseModel):
     """基础统计计算请求"""
     values: List[Union[int, float]] = Field(..., min_items=1, description="数值列表")
     calculate_advanced: bool = Field(True, description="是否计算高级统计指标（偏度、峰度）")
     
-    @validator('values')
+    @field_validator('values')
     def validate_values(cls, v):
         if not v:
             raise ValueError("Values list cannot be empty")
@@ -33,97 +35,83 @@ class BasicStatsRequest(BaseModel):
                 raise ValueError("All values must be numbers")
         return v
 
-
-class ConversionStatsRequest(BaseModel):
+class ConversionStatsRequest(ApiBaseModel):
     """转化率统计计算请求"""
     conversions: int = Field(..., ge=0, description="转化用户数")
     total_users: int = Field(..., gt=0, description="总用户数")
     
-    @validator('conversions')
-    def validate_conversions(cls, v, values):
-        total_users = values.get('total_users', 0)
-        if v > total_users:
+    @model_validator(mode="after")
+    def validate_conversions(self):
+        if self.conversions > self.total_users:
             raise ValueError("Conversions cannot exceed total_users")
-        return v
+        return self
 
-
-class GroupData(BaseModel):
+class GroupData(ApiBaseModel):
     """分组数据"""
     name: str = Field(..., description="分组名称")
     values: Optional[List[Union[int, float]]] = Field(None, description="数值列表")
     conversions: Optional[int] = Field(None, ge=0, description="转化用户数")
     total_users: Optional[int] = Field(None, gt=0, description="总用户数")
     
-    @validator('conversions')
-    def validate_conversions_with_total(cls, v, values):
-        if v is not None:
-            total_users = values.get('total_users')
-            if total_users is None:
+    @model_validator(mode="after")
+    def validate_conversions_with_total(self):
+        if self.conversions is not None:
+            if self.total_users is None:
                 raise ValueError("total_users is required when conversions is provided")
-            if v > total_users:
+            if self.conversions > self.total_users:
                 raise ValueError("Conversions cannot exceed total_users")
-        return v
+        return self
 
-
-class MultipleGroupsStatsRequest(BaseModel):
+class MultipleGroupsStatsRequest(ApiBaseModel):
     """多分组统计计算请求"""
     groups: Dict[str, GroupData] = Field(..., min_items=2, description="分组数据字典")
     metric_type: MetricType = Field(..., description="指标类型")
     
-    @validator('groups')
-    def validate_groups_data(cls, v, values):
-        metric_type = values.get('metric_type')
-        
-        for group_id, group_data in v.items():
-            if metric_type == MetricType.CONVERSION:
+    @model_validator(mode="after")
+    def validate_groups_data(self):
+        for group_id, group_data in self.groups.items():
+            if self.metric_type == MetricType.CONVERSION:
                 if group_data.conversions is None or group_data.total_users is None:
                     raise ValueError(f"Conversion metric requires 'conversions' and 'total_users' for group {group_id}")
             else:
                 if not group_data.values:
                     raise ValueError(f"Non-conversion metrics require 'values' list for group {group_id}")
-        
-        return v
+        return self
 
-
-class PercentileRequest(BaseModel):
+class PercentileRequest(ApiBaseModel):
     """分位数计算请求"""
     values: List[Union[int, float]] = Field(..., min_items=1, description="数值列表")
     percentiles: List[float] = Field(..., min_items=1, description="分位数列表（0-100）")
     
-    @validator('percentiles')
+    @field_validator('percentiles')
     def validate_percentiles(cls, v):
         for p in v:
             if not (0 <= p <= 100):
                 raise ValueError(f"Percentile must be between 0 and 100, got {p}")
         return v
 
-
 # 响应模型
-class BasicStatsResponse(BaseModel):
+class BasicStatsResponse(ApiBaseModel):
     """基础统计响应"""
     stats: Dict[str, Any] = Field(..., description="描述性统计结果")
     message: str = Field(default="Statistics calculated successfully")
 
-
-class ConversionStatsResponse(BaseModel):
+class ConversionStatsResponse(ApiBaseModel):
     """转化率统计响应"""
     conversion_rate: float = Field(..., description="转化率")
     stats: Dict[str, Any] = Field(..., description="转化率统计结果")
     message: str = Field(default="Conversion statistics calculated successfully")
 
-
-class MultipleGroupsStatsResponse(BaseModel):
+class MultipleGroupsStatsResponse(ApiBaseModel):
     """多分组统计响应"""
     groups_stats: Dict[str, Dict[str, Any]] = Field(..., description="各分组统计结果")
     summary: Dict[str, Any] = Field(..., description="汇总信息")
     message: str = Field(default="Multiple groups statistics calculated successfully")
 
-
-class PercentileResponse(BaseModel):
+class PercentileResponse(ApiBaseModel):
     """分位数响应"""
     percentiles: Dict[str, float] = Field(..., description="分位数结果")
     message: str = Field(default="Percentiles calculated successfully")
-
 
 # API端点
 @router.post("/basic-stats", response_model=BasicStatsResponse)
@@ -145,7 +133,6 @@ async def calculate_basic_statistics(request: BasicStatsRequest):
     except Exception as e:
         logger.error(f"Failed to calculate basic statistics: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Statistics calculation failed: {str(e)}")
-
 
 @router.post("/conversion-stats", response_model=ConversionStatsResponse)
 async def calculate_conversion_statistics(request: ConversionStatsRequest):
@@ -169,7 +156,6 @@ async def calculate_conversion_statistics(request: ConversionStatsRequest):
     except Exception as e:
         logger.error(f"Failed to calculate conversion statistics: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Conversion statistics calculation failed: {str(e)}")
-
 
 @router.post("/percentiles", response_model=PercentileResponse)
 async def calculate_percentiles(request: PercentileRequest):
@@ -195,7 +181,6 @@ async def calculate_percentiles(request: PercentileRequest):
     except Exception as e:
         logger.error(f"Failed to calculate percentiles: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Percentiles calculation failed: {str(e)}")
-
 
 @router.post("/multiple-groups-stats", response_model=MultipleGroupsStatsResponse)
 async def calculate_multiple_groups_statistics(request: MultipleGroupsStatsRequest):
@@ -250,7 +235,6 @@ async def calculate_multiple_groups_statistics(request: MultipleGroupsStatsReque
         logger.error(f"Failed to calculate multiple groups statistics: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Multiple groups statistics calculation failed: {str(e)}")
 
-
 @router.get("/mean")
 async def calculate_mean(values: List[float] = Query(..., description="数值列表")):
     """快速计算均值"""
@@ -270,7 +254,6 @@ async def calculate_mean(values: List[float] = Query(..., description="数值列
     except Exception as e:
         logger.error(f"Failed to calculate mean: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Mean calculation failed: {str(e)}")
-
 
 @router.get("/variance")
 async def calculate_variance(
@@ -297,7 +280,6 @@ async def calculate_variance(
     except Exception as e:
         logger.error(f"Failed to calculate variance: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Variance calculation failed: {str(e)}")
-
 
 @router.get("/summary")
 async def get_quick_summary(values: List[float] = Query(..., description="数值列表")):
@@ -329,7 +311,6 @@ async def get_quick_summary(values: List[float] = Query(..., description="数值
     except Exception as e:
         logger.error(f"Failed to generate quick summary: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Quick summary failed: {str(e)}")
-
 
 @router.get("/health")
 async def health_check():

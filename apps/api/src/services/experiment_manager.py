@@ -1,17 +1,18 @@
 """
 A/B测试实验管理服务 - 实验状态机和生命周期管理
 """
+
 from typing import Optional, Dict, Any, List
 from datetime import datetime
 from datetime import timedelta
 from src.core.utils.timezone_utils import utc_now, utc_factory
 from enum import Enum
 from dataclasses import dataclass
+from src.models.schemas.experiment import ExperimentStatus, CreateExperimentRequest, ExperimentConfig
+from src.services.ab_testing_service import ABTestingService
 
-from models.schemas.experiment import ExperimentStatus, CreateExperimentRequest, ExperimentConfig
-from services.ab_testing_service import ABTestingService
-from core.logging import logger
-
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 class ExperimentTransition(Enum):
     """实验状态转换"""
@@ -33,7 +34,6 @@ class ExperimentTransition(Enum):
     # COMPLETED - 不允许转换
     # TERMINATED - 不允许转换
 
-
 @dataclass
 class StateTransitionRule:
     """状态转换规则"""
@@ -42,7 +42,6 @@ class StateTransitionRule:
     transition: ExperimentTransition
     preconditions: List[str]  # 前置条件描述
     validations: List[str]    # 需要验证的条件
-
 
 class ExperimentStateMachine:
     """实验状态机"""
@@ -153,7 +152,6 @@ class ExperimentStateMachine:
             if from_state == from_status:
                 valid_transitions.append(to_state)
         return valid_transitions
-
 
 class ExperimentManager:
     """实验管理器 - 负责实验的生命周期管理"""
@@ -389,9 +387,14 @@ class ExperimentManager:
         """检查层冲突"""
         if not layers:
             return
-        
-        # TODO: 实现层冲突检查逻辑
-        logger.debug(f"Checking layer conflicts for layers: {layers}")
+
+        conflicts = self.ab_service.experiment_repo.check_layer_conflicts(experiment_id or "", layers)
+        if conflicts:
+            detail = "; ".join(
+                f"layer={c.get('layer')} conflict_experiment={c.get('conflicting_experiment_id')}"
+                for c in conflicts
+            )
+            raise ValueError(f"检测到实验层冲突: {detail}")
     
     async def _validate_transition(self, experiment: ExperimentConfig, target_status: ExperimentStatus):
         """验证状态转换条件"""
@@ -407,26 +410,46 @@ class ExperimentManager:
         """执行具体的验证逻辑"""
         if validation == "validate_experiment_config":
             # 验证实验配置完整性
-            pass
+            if len(experiment.variants) < 2:
+                raise ValueError("实验至少需要2个变体")
+            if len([v for v in experiment.variants if v.is_control]) != 1:
+                raise ValueError("实验必须且只能有一个对照组")
+            if not experiment.success_metrics:
+                raise ValueError("实验至少需要一个成功指标")
         elif validation == "validate_traffic_allocation":
             # 验证流量分配
-            pass
+            total_allocation = sum(a.percentage for a in experiment.traffic_allocation)
+            if abs(total_allocation - 100.0) > 0.01:
+                raise ValueError(f"流量分配总和必须为100%，当前为 {total_allocation}%")
         elif validation == "validate_layer_conflicts":
             await self._check_layer_conflicts(experiment.experiment_id, experiment.layers)
         elif validation == "validate_start_time":
             # 验证开始时间
             if experiment.start_date > utc_now() + timedelta(days=1):
                 raise ValueError("Start date is too far in the future")
+        elif validation == "validate_running_experiment":
+            if experiment.status != ExperimentStatus.RUNNING:
+                raise ValueError("实验未处于运行状态")
         elif validation == "validate_minimum_sample_size":
             # 验证最小样本量
             current_sample_size = await self.ab_service.get_experiment_sample_size(experiment.experiment_id)
             if current_sample_size < experiment.minimum_sample_size:
                 raise ValueError(f"Sample size {current_sample_size} is below minimum {experiment.minimum_sample_size}")
+        elif validation == "validate_experiment_duration":
+            if experiment.end_date and utc_now() < experiment.end_date:
+                raise ValueError("实验尚未到达结束时间，无法完成")
         elif validation == "validate_statistical_significance":
             # 验证统计显著性
             results = await self.ab_service.get_experiment_results(experiment.experiment_id)
             if results and not any(metric.is_significant for metric in results.metrics):
                 logger.warning(f"No statistically significant results found for experiment {experiment.experiment_id}")
+        elif validation == "validate_resume_conditions":
+            if experiment.end_date and utc_now() > experiment.end_date:
+                raise ValueError("实验已超过结束时间，无法恢复")
+        elif validation == "validate_termination_reason":
+            return
+        else:
+            raise ValueError(f"未知的验证项: {validation}")
         # 添加其他验证逻辑...
     
     async def _can_perform_transition(self, experiment: ExperimentConfig, target_status: ExperimentStatus) -> bool:
@@ -441,37 +464,33 @@ class ExperimentManager:
     async def _on_experiment_started(self, experiment_id: str):
         """实验启动后的处理"""
         logger.info(f"Processing experiment start event for {experiment_id}")
-        # TODO: 
-        # - 发送启动通知
-        # - 初始化监控
-        # - 记录审计日志
     
     async def _on_experiment_paused(self, experiment_id: str):
         """实验暂停后的处理"""
         logger.info(f"Processing experiment pause event for {experiment_id}")
-        # TODO: 停止流量分配，保留数据
     
     async def _on_experiment_resumed(self, experiment_id: str):
         """实验恢复后的处理"""
         logger.info(f"Processing experiment resume event for {experiment_id}")
-        # TODO: 恢复流量分配
     
     async def _on_experiment_completing(self, experiment_id: str):
         """实验完成前的处理"""
         logger.info(f"Processing experiment completing event for {experiment_id}")
-        # TODO: 生成最终分析报告
+        experiment = await self.ab_service.get_experiment(experiment_id)
+        if not experiment:
+            return
+        metrics = list(dict.fromkeys(experiment.success_metrics + experiment.guardrail_metrics))
+        for metric_name in metrics:
+            await self.ab_service.analyze_metric(experiment_id, metric_name)
     
     async def _on_experiment_completed(self, experiment_id: str):
         """实验完成后的处理"""
         logger.info(f"Processing experiment completed event for {experiment_id}")
-        # TODO: 发送完成通知，归档数据
     
     async def _on_experiment_terminating(self, experiment_id: str, reason: str):
         """实验终止前的处理"""
         logger.info(f"Processing experiment terminating event for {experiment_id}, reason: {reason}")
-        # TODO: 记录终止原因
     
     async def _on_experiment_terminated(self, experiment_id: str, reason: str):
         """实验终止后的处理"""
         logger.info(f"Processing experiment terminated event for {experiment_id}, reason: {reason}")
-        # TODO: 清理资源，发送通知

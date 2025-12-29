@@ -45,25 +45,25 @@ test.describe('完整应用功能测试', () => {
     const sidebar = page.locator('.ant-layout-sider');
     await expect(sidebar).toBeVisible();
     
-    // 验证主要功能分组 - 使用实际的菜单分组文本（去除重复项）
+    // 验证主要功能分组 - 与当前 App.tsx 菜单分组保持一致
     const expectedGroups = [
       '🤖 智能体系统',
+      '🚀 增强版功能展示',
+      '🌐 智能代理服务发现系统',
       '🔍 智能检索引擎',
       '🧠 强化学习系统',
+      '❤️ 用户反馈学习系统',
+      '📈 智能行为分析系统',
       '📊 强化学习系统监控',
-      '💫 个性化引擎',
-      '🧪 A/B测试实验平台',
-      '📈 行为分析系统',
-      '📝 用户反馈系统',
-      '🏗️ 企业架构',
-      '⚙️ 系统组件管理',
-      '📋 测试与质量',
-      '📄 文档处理'
+      '🧠 推理引擎',
+      '🧠 知识图推理引擎 (Story 8.3)',
+      '📊 系统监控运维',
+      '🏢 企业架构',
+      '🔬 开发测试',
     ];
     
     for (const group of expectedGroups) {
-      const groupElement = page.locator(`text="${group}"`);
-      await expect(groupElement).toBeVisible({ timeout: 5000 });
+      await expect(sidebar).toContainText(group);
     }
     
     // 截图记录菜单结构
@@ -77,34 +77,31 @@ test.describe('完整应用功能测试', () => {
     await page.waitForLoadState('networkidle');
     
     // 测试用户反馈系统页面
-    await page.click('text="用户反馈系统"');
-    await page.click('text="反馈系统"');
+    await page.click('text="反馈系统总览"');
     await page.waitForURL('**/feedback-system');
     await expect(page.locator('h1, h2')).toContainText(/反馈|Feedback/);
     await page.screenshot({ path: 'test-results/feedback-system-page.png' });
     console.log('✅ 用户反馈系统页面导航成功');
     
     // 测试Q-Learning页面
-    await page.click('text="Q-Learning算法"');
-    await page.click('text="Q-Learning页面"');
+    await page.click('text="Q-Learning算法家族"');
+    await page.click('text="算法总览"');
     await page.waitForURL('**/qlearning');
-    await expect(page.locator('h1, h2')).toContainText(/Q-Learning|学习/);
+    await expect(page.locator('h1, h2, h3')).toContainText(/Q-Learning|学习/);
     await page.screenshot({ path: 'test-results/qlearning-page.png' });
     console.log('✅ Q-Learning页面导航成功');
     
     // 测试多代理协作页面
-    await page.click('text="多智能体协作"');
-    await page.click('text="多代理协作"');
+    await page.click('text="多代理协作 (AutoGen v0.4)"');
     await page.waitForURL('**/multi-agent');
-    await expect(page.locator('h1, h2')).toContainText(/多代理|Multi.*Agent/);
+    await expect(page.locator('h1, h2')).toContainText(/多(代理|智能体)|Multi.*Agent/);
     await page.screenshot({ path: 'test-results/multi-agent-page.png' });
     console.log('✅ 多代理协作页面导航成功');
     
     // 测试基础RAG检索页面
-    await page.click('text="RAG检索系统"');
-    await page.click('text="基础RAG检索"');
+    await page.click('text="基础RAG检索 (Vector Search)"');
     await page.waitForURL('**/rag');
-    await expect(page.locator('h1, h2')).toContainText(/RAG|检索/);
+    await expect(page.locator('text=RAG 搜索').first()).toBeVisible();
     await page.screenshot({ path: 'test-results/rag-page.png' });
     console.log('✅ 基础RAG检索页面导航成功');
   });
@@ -114,8 +111,7 @@ test.describe('完整应用功能测试', () => {
     await page.waitForLoadState('networkidle');
     
     // 点击一个页面并验证加载状态
-    await page.click('text="企业架构"');
-    await page.click('text="企业架构页面"');
+    await page.click('text="架构管理总览 (Overview)"');
     
     // 检查是否有加载指示器（Suspense fallback）
     const loadingIndicator = page.locator('text="加载中..." , text="Loading..."');
@@ -147,16 +143,11 @@ test.describe('完整应用功能测试', () => {
     await page.goto('http://localhost:3000');
     await page.waitForLoadState('networkidle');
     
-    // 导航到几个不同页面检查错误
-    const testPages = [
-      { group: '用户反馈系统', page: '反馈系统' },
-      { group: 'Q-Learning算法', page: 'Q-Learning页面' },
-      { group: '多智能体协作', page: '多代理协作' }
-    ];
+    // 直接访问关键路由检查错误（避免菜单文案变更导致误报）
+    const testRoutes = ['/feedback-system', '/qlearning', '/multi-agent'];
     
-    for (const testPage of testPages) {
-      await page.click(`text="${testPage.group}"`);
-      await page.click(`text="${testPage.page}"`);
+    for (const route of testRoutes) {
+      await page.goto(`http://localhost:3000${route}`);
       await page.waitForLoadState('networkidle');
       await page.waitForTimeout(1000); // 等待可能的异步错误
     }

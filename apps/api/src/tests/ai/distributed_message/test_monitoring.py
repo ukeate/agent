@@ -8,12 +8,10 @@ import asyncio
 import time
 from unittest.mock import Mock, patch
 from datetime import datetime, timedelta
-
 from src.ai.distributed_message.monitoring import (
     MonitoringManager, MetricCollector, HealthChecker, AlertManager, PerformanceOptimizer,
     PerformanceMetric, Alert, HealthStatus, AlertLevel, MetricType
 )
-
 
 class TestMetricCollector:
     """指标收集器测试"""
@@ -87,7 +85,6 @@ class TestMetricCollector:
         assert len(history) == 1
         assert history[0].value == 2.0
 
-
 class TestHealthChecker:
     """健康检查器测试"""
     
@@ -159,7 +156,6 @@ class TestHealthChecker:
         overall = health_checker.get_overall_health()
         assert overall.healthy is False
         assert "comp2" in overall.message
-
 
 class TestAlertManager:
     """告警管理器测试"""
@@ -269,7 +265,6 @@ class TestAlertManager:
         alert_manager.create_alert("alert3", AlertLevel.INFO, "消息3")
         assert len(alert_manager.alerts) == 3
 
-
 class TestPerformanceOptimizer:
     """性能优化器测试"""
     
@@ -348,7 +343,6 @@ class TestPerformanceOptimizer:
         assert perf["memory"]["percent"] == 50.0
         assert perf["disk"]["total"] == 1000000000000
         assert perf["network"]["bytes_sent"] == 1000000
-
 
 class TestMonitoringManager:
     """监控管理器测试"""

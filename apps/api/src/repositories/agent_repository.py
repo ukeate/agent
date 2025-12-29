@@ -4,10 +4,6 @@
 """
 
 from typing import List, Optional, Dict, Any
-import logging
-
-logger = logging.getLogger(__name__)
-
 
 class AgentRepository:
     """智能体仓储"""

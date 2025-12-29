@@ -1,18 +1,14 @@
 """
 统计功效和样本量计算服务 - 实验设计的核心工具
 """
+
 import math
 from typing import List, Tuple, Optional, Dict, Any, Union
 from dataclasses import dataclass
 from enum import Enum
 from scipy import stats
 import numpy as np
-
-from core.logging import get_logger
-from services.statistical_analysis_service import MetricType
-
-logger = get_logger(__name__)
-
+from src.services.statistical_analysis_service import MetricType
 
 class PowerAnalysisType(str, Enum):
     """功效分析类型"""
@@ -20,7 +16,6 @@ class PowerAnalysisType(str, Enum):
     POWER = "power"  # 计算统计功效
     EFFECT_SIZE = "effect_size"  # 计算可检测效应量
     ALPHA = "alpha"  # 计算显著性水平
-
 
 class TestType(str, Enum):
     """检验类型"""
@@ -31,13 +26,11 @@ class TestType(str, Enum):
     TWO_PROPORTIONS = "two_proportions"  # 双比例检验
     CHI_SQUARE = "chi_square"  # 卡方检验
 
-
 class AlternativeHypothesis(str, Enum):
     """备择假设类型"""
     TWO_SIDED = "two-sided"  # 双边
     GREATER = "greater"  # 大于
     LESS = "less"  # 小于
-
 
 @dataclass
 class PowerAnalysisResult:
@@ -61,7 +54,6 @@ class PowerAnalysisResult:
             "sample_size": self.sample_size,
             "alternative": self.alternative.value
         }
-
 
 class TTestPowerCalculator:
     """t检验功效计算器"""
@@ -235,7 +227,6 @@ class TTestPowerCalculator:
         except Exception as e:
             self.logger.error(f"Detectable effect size calculation failed: {e}")
             raise
-
 
 class ProportionPowerCalculator:
     """比例检验功效计算器"""
@@ -431,7 +422,6 @@ class ProportionPowerCalculator:
         except Exception as e:
             self.logger.error(f"Detectable proportion difference calculation failed: {e}")
             raise
-
 
 class PowerAnalysisService:
     """统计功效分析服务 - 统一接口"""
@@ -681,7 +671,6 @@ class PowerAnalysisService:
         recommendations.append("建议在实验期间监控指标变化，必要时调整样本量")
         
         return recommendations
-
 
 # 全局实例
 _power_analysis_service = None

@@ -1,12 +1,10 @@
 import React from 'react';
-import { Card, Row, Col, Statistic, Progress, Tag, Alert, Badge, Space } from 'antd';
+import { Card, Row, Col, Statistic, Progress, Alert, Badge } from 'antd';
 import {
   ClockCircleOutlined,
   CheckCircleOutlined,
   SyncOutlined,
   ExclamationCircleOutlined,
-  TeamOutlined,
-  ThunderboltOutlined
 } from '@ant-design/icons';
 
 interface ProcessingQueueProps {
@@ -93,7 +91,7 @@ const ProcessingQueue: React.FC<ProcessingQueueProps> = ({ status }) => {
         <Alert
           className="mt-4"
           message={`正在处理 ${status.active_tasks} 个任务`}
-          variant="default"
+          type="info"
           icon={<SyncOutlined spin />}
           showIcon
         />
@@ -103,21 +101,10 @@ const ProcessingQueue: React.FC<ProcessingQueueProps> = ({ status }) => {
         <Alert
           className="mt-4"
           message={`有 ${status.failed_tasks} 个任务处理失败`}
-          variant="destructive"
+          type="error"
           showIcon
         />
       )}
-
-      <div className="mt-4">
-        <Space>
-          <Tag icon={<TeamOutlined />} color="blue">
-            并发数: 5
-          </Tag>
-          <Tag icon={<ThunderboltOutlined />} color="green">
-            自动重试: 启用
-          </Tag>
-        </Space>
-      </div>
     </Card>
   );
 };

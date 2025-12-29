@@ -3,7 +3,6 @@
 实现查询缓存、索引优化、并发控制和性能监控
 """
 
-import logging
 from typing import Any, Dict, List, Optional, Tuple
 from datetime import datetime
 from datetime import timedelta
@@ -13,13 +12,13 @@ import asyncio
 import hashlib
 import time
 import redis.asyncio as redis
-
 from .graph_database import Neo4jGraphDatabase
-from core.config import get_settings
+from src.core.config import get_settings
 
-logger = logging.getLogger(__name__)
+from src.core.logging import get_logger
+logger = get_logger(__name__)
+
 settings = get_settings()
-
 
 @dataclass
 class QueryPerformance:
@@ -41,7 +40,6 @@ class QueryPerformance:
             "timestamp": self.timestamp.isoformat()
         }
 
-
 @dataclass
 class PerformanceStats:
     """性能统计"""
@@ -61,7 +59,6 @@ class PerformanceStats:
             "peak_qps": self.peak_qps,
             "current_connections": self.current_connections
         }
-
 
 class PerformanceOptimizer:
     """性能优化器"""
@@ -104,7 +101,7 @@ class PerformanceOptimizer:
     async def close(self):
         """关闭性能优化器"""
         if self.redis_client:
-            await self.redis_client.close()
+            await self.redis_client.aclose()
     
     async def execute_cached_query(self,
                                  query: str,

@@ -11,12 +11,13 @@ from datetime import datetime
 from src.core.utils.timezone_utils import utc_now, utc_factory
 import numpy as np
 from concurrent.futures import ThreadPoolExecutor
-import logging
-
 from src.ai.reinforcement_learning.qlearning.base import QLearningAgent, QLearningConfig, AlgorithmType
 from src.ai.reinforcement_learning.qlearning.q_learning import ClassicQLearningAgent
-from src.ai.reinforcement_learning.qlearning.dqn import DQNAgent, DoubleDQNAgent, DuelingDQNAgent
-from src.ai.reinforcement_learning.environment.state_space import StateSpace, ActionSpace, DiscreteStateSpace, ContinuousStateSpace
+from src.ai.reinforcement_learning.qlearning.dqn import DQNAgent
+from src.ai.reinforcement_learning.qlearning.double_dqn import DoubleDQNAgent
+from src.ai.reinforcement_learning.qlearning.dueling_dqn import DuelingDQNAgent
+from src.ai.reinforcement_learning.environment.state_space import StateFeature, DiscreteStateSpace, ContinuousStateSpace
+from src.ai.reinforcement_learning.environment.action_space import DiscreteActionSpace
 from src.ai.reinforcement_learning.environment.simulator import AgentEnvironmentSimulator
 from src.ai.reinforcement_learning.environment.grid_world import GridWorldEnvironment
 from src.ai.reinforcement_learning.strategies.exploration import (
@@ -27,8 +28,8 @@ from src.ai.reinforcement_learning.strategies.training_manager import TrainingMa
 from src.ai.reinforcement_learning.rewards.base import RewardFunction
 from src.ai.reinforcement_learning.rewards.basic_rewards import LinearReward, StepReward, ThresholdReward, GaussianReward
 
-logger = logging.getLogger(__name__)
-
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 class QLearningAgentSession:
     """Q-Learning智能体会话"""
@@ -48,7 +49,6 @@ class QLearningAgentSession:
         self.is_training = False
         self.training_task: Optional[asyncio.Task] = None
 
-
 class QLearningService:
     """Q-Learning服务"""
     
@@ -62,16 +62,28 @@ class QLearningService:
     def _setup_predefined_components(self):
         """设置预定义组件"""
         # 预定义状态空间
+        grid_4x4_features = [
+            StateFeature("x", "discrete", low=0, high=3),
+            StateFeature("y", "discrete", low=0, high=3)
+        ]
+        grid_8x8_features = [
+            StateFeature("x", "discrete", low=0, high=7),
+            StateFeature("y", "discrete", low=0, high=7)
+        ]
+        continuous_2d_features = [
+            StateFeature("x", "continuous", low=-10, high=10),
+            StateFeature("y", "continuous", low=-10, high=10)
+        ]
         self.predefined_state_spaces = {
-            "grid_4x4": DiscreteStateSpace("grid_4x4", dimensions=[4, 4]),
-            "grid_8x8": DiscreteStateSpace("grid_8x8", dimensions=[8, 8]),
-            "continuous_2d": ContinuousStateSpace("continuous_2d", dimensions=2, bounds=[(-10, 10), (-10, 10)])
+            "grid_4x4": DiscreteStateSpace(grid_4x4_features),
+            "grid_8x8": DiscreteStateSpace(grid_8x8_features),
+            "continuous_2d": ContinuousStateSpace(continuous_2d_features)
         }
         
         # 预定义动作空间
         self.predefined_action_spaces = {
-            "discrete_4": ActionSpace("discrete_4", action_type="discrete", num_actions=4),
-            "discrete_8": ActionSpace("discrete_8", action_type="discrete", num_actions=8)
+            "discrete_4": DiscreteActionSpace(4, ["up", "right", "down", "left"]),
+            "discrete_8": DiscreteActionSpace(8, [f"action_{i}" for i in range(8)])
         }
     
     async def create_agent_session(self, agent_config: Dict[str, Any]) -> str:
@@ -80,26 +92,51 @@ class QLearningService:
             session_id = str(uuid.uuid4())
             
             # 解析配置
-            agent_type = AlgorithmType(agent_config.get("agent_type", "q_learning"))
-            state_size = agent_config.get("state_size", 16)
-            action_size = agent_config.get("action_size", 4)
-            
+            agent_type_raw = agent_config.get("agent_type", "q_learning")
+            if agent_type_raw in ["tabular", "classic"]:
+                agent_type_raw = "q_learning"
+            agent_type = AlgorithmType(agent_type_raw)
+            state_size = agent_config.get("state_size")
+            action_size = agent_config.get("action_size")
+
+            environment_config = dict(agent_config.get("environment", {}))
+            if state_size is not None:
+                environment_config.setdefault("state_size", state_size)
+            if action_size is not None:
+                environment_config.setdefault("action_size", action_size)
+
+            # 创建环境
+            environment = self._create_environment(environment_config)
+
+            if hasattr(environment, "get_state_size"):
+                env_state_size = environment.get_state_size()
+                if state_size is None or state_size != env_state_size:
+                    state_size = env_state_size
+            if hasattr(environment, "get_action_size"):
+                env_action_size = environment.get_action_size()
+                if action_size is None or action_size != env_action_size:
+                    action_size = env_action_size
+
+            if state_size is None:
+                state_size = 16
+            if action_size is None:
+                action_size = 4
+
+            action_space = self._resolve_action_space(environment, action_size)
+            action_size = len(action_space)
+
             # 创建Q-Learning配置
             qlearning_config = QLearningConfig(
-                agent_type=agent_type,
+                algorithm_type=agent_type,
                 learning_rate=agent_config.get("learning_rate", 0.1),
-                gamma=agent_config.get("gamma", 0.99),
-                epsilon=agent_config.get("epsilon", 0.1),
-                epsilon_decay=agent_config.get("epsilon_decay", 0.995),
-                epsilon_min=agent_config.get("epsilon_min", 0.01)
+                discount_factor=agent_config.get("gamma", agent_config.get("discount_factor", 0.99)),
+                epsilon_start=agent_config.get("epsilon_start", agent_config.get("epsilon", 1.0)),
+                epsilon_end=agent_config.get("epsilon_end", agent_config.get("epsilon_min", 0.01)),
+                epsilon_decay=agent_config.get("epsilon_decay", 0.995)
             )
-            
+
             # 创建智能体
-            agent = self._create_agent(agent_type, state_size, action_size, qlearning_config)
-            
-            # 创建环境
-            environment_config = agent_config.get("environment", {})
-            environment = self._create_environment(environment_config)
+            agent = self._create_agent(agent_type, state_size, action_size, qlearning_config, action_space)
             
             # 创建探索策略
             exploration_config = agent_config.get("exploration", {})
@@ -128,16 +165,16 @@ class QLearningService:
             raise
     
     def _create_agent(self, agent_type: AlgorithmType, state_size: int, action_size: int, 
-                     config: QLearningConfig) -> QLearningAgent:
+                     config: QLearningConfig, action_space: List[str]) -> QLearningAgent:
         """创建智能体"""
         if agent_type == AlgorithmType.Q_LEARNING:
-            return ClassicQLearningAgent("classic_agent", state_size, action_size, config)
+            return ClassicQLearningAgent("classic_agent", state_size, action_size, config, action_space)
         elif agent_type == AlgorithmType.DQN:
-            return DQNAgent("dqn_agent", state_size, action_size, config)
+            return DQNAgent("dqn_agent", state_size, action_size, config, action_space)
         elif agent_type == AlgorithmType.DOUBLE_DQN:
-            return DoubleDQNAgent("double_dqn_agent", state_size, action_size, config)
+            return DoubleDQNAgent("double_dqn_agent", state_size, action_size, config, action_space)
         elif agent_type == AlgorithmType.DUELING_DQN:
-            return DuelingDQNAgent("dueling_dqn_agent", state_size, action_size, config)
+            return DuelingDQNAgent("dueling_dqn_agent", state_size, action_size, config, action_space)
         else:
             raise ValueError(f"不支持的智能体类型: {agent_type}")
     
@@ -158,10 +195,56 @@ class QLearningService:
                 obstacles=obstacles
             )
         else:
-            # 默认简单环境
-            state_space = self.predefined_state_spaces.get("grid_4x4")
-            action_space = self.predefined_action_spaces.get("discrete_4")
-            return AgentEnvironmentSimulator("default", state_space, action_space)
+            state_size = config.get("state_size", 2)
+            action_size = config.get("action_size", 4)
+            state_space_config = config.get("state_space")
+            state_bounds = config.get("state_bounds")
+            action_space_config = config.get("action_space")
+            if not state_space_config:
+                if state_bounds:
+                    state_size = len(state_bounds)
+                    state_space_config = {
+                        "space_type": "continuous",
+                        "features": [
+                            {"name": f"f{i}", "type": "continuous", "low": bound[0], "high": bound[1]}
+                            for i, bound in enumerate(state_bounds)
+                        ]
+                    }
+                else:
+                    state_space_config = {
+                        "space_type": "continuous",
+                        "features": [
+                            {"name": f"f{i}", "type": "continuous", "low": -1.0, "high": 1.0}
+                            for i in range(state_size)
+                        ]
+                    }
+            if not action_space_config:
+                action_space_config = {
+                    "space_type": "discrete",
+                    "n": action_size,
+                    "action_names": [f"action_{i}" for i in range(action_size)]
+                }
+            environment_config = {
+                **config,
+                "state_space": state_space_config,
+                "action_space": action_space_config
+            }
+            return AgentEnvironmentSimulator(environment_config)
+
+    def _resolve_action_space(self, environment: AgentEnvironmentSimulator, action_size: int) -> List[str]:
+        if hasattr(environment, "action_space") and hasattr(environment.action_space, "action_names"):
+            action_names = environment.action_space.action_names
+            if action_names:
+                return list(action_names)
+        return [f"action_{i}" for i in range(action_size)]
+
+    def _q_values_to_array(self, agent: QLearningAgent, q_values: Any) -> np.ndarray:
+        if isinstance(q_values, dict):
+            action_space = getattr(agent, "action_space", None)
+            if action_space:
+                return np.array([q_values.get(action, 0.0) for action in action_space], dtype=float)
+            return np.array([q_values.get(str(i), 0.0) for i in range(agent.action_size)], dtype=float)
+        return np.array(q_values, dtype=float)
     
     def _create_exploration_strategy(self, config: Dict[str, Any], action_size: int) -> ExplorationStrategy:
         """创建探索策略"""
@@ -185,7 +268,7 @@ class QLearningService:
     
     def _create_reward_function(self, config: Dict[str, Any]) -> RewardFunction:
         """创建奖励函数"""
-        from ai.reinforcement_learning.rewards.base import RewardConfig, RewardType
+        from src.ai.reinforcement_learning.rewards.base import RewardConfig, RewardType
         
         reward_type = RewardType(config.get("type", "step"))
         
@@ -246,7 +329,7 @@ class QLearningService:
     async def _run_training(self, session: QLearningAgentSession):
         """运行训练（异步）"""
         try:
-            loop = asyncio.get_event_loop()
+            loop = asyncio.get_running_loop()
             # 在线程池中运行训练
             session.training_metrics = await loop.run_in_executor(
                 self.executor, 
@@ -276,7 +359,7 @@ class QLearningService:
                 try:
                     await session.training_task
                 except asyncio.CancelledError:
-                    pass
+                    raise
             
             session.is_training = False
             session.last_updated = utc_now()
@@ -301,7 +384,7 @@ class QLearningService:
             "created_at": session.created_at.isoformat(),
             "last_updated": session.last_updated.isoformat(),
             "is_training": session.is_training,
-            "agent_type": session.agent.config.agent_type.value,
+            "agent_type": session.agent.config.algorithm_type.value,
             "state_size": session.agent.state_size,
             "action_size": session.agent.action_size
         }
@@ -388,6 +471,7 @@ class QLearningService:
             # 获取Q值
             if hasattr(session.agent, 'get_q_values'):
                 q_values = session.agent.get_q_values(state_array)
+                q_values = self._q_values_to_array(session.agent, q_values)
             else:
                 # 对于不支持直接获取Q值的智能体，使用act方法
                 action = session.agent.act(state_array, evaluation=True)
@@ -401,7 +485,7 @@ class QLearningService:
                 "action": int(action),
                 "q_values": q_values.tolist(),
                 "exploration_rate": session.exploration_strategy.get_exploration_rate(),
-                "confidence": float(np.max(q_values))
+                "confidence": float(np.max(q_values)) if q_values.size else 0.0
             }
             
         except Exception as e:
@@ -417,7 +501,7 @@ class QLearningService:
         
         try:
             # 在线程池中运行评估
-            loop = asyncio.get_event_loop()
+            loop = asyncio.get_running_loop()
             evaluation_results = await loop.run_in_executor(
                 self.executor,
                 self._run_policy_evaluation,
@@ -445,7 +529,14 @@ class QLearningService:
             
             while steps < 1000:  # 最大步数限制
                 action = session.agent.act(state, evaluation=True)
-                next_state, reward, done, info = session.environment.step(action)
+                step_result = session.environment.step(action)
+                if hasattr(step_result, "next_state"):
+                    next_state = step_result.next_state
+                    reward = step_result.reward
+                    done = step_result.done
+                    info = step_result.info
+                else:
+                    next_state, reward, done, info = step_result
                 
                 total_reward += reward
                 steps += 1
@@ -500,7 +591,7 @@ class QLearningService:
                 "created_at": session.created_at.isoformat(),
                 "last_updated": session.last_updated.isoformat(),
                 "is_training": session.is_training,
-                "agent_type": session.agent.config.agent_type.value
+                "agent_type": session.agent.config.algorithm_type.value
             })
         
         return sessions

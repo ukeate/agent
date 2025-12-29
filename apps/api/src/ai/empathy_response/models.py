@@ -1,22 +1,21 @@
 """
 共情响应生成系统的核心数据模型
 """
+
+from src.core.utils.timezone_utils import utc_now
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Any, Tuple
 from datetime import datetime, timedelta
 from enum import Enum
 import uuid
-
 from ..emotion_recognition.models.emotion_models import MultiModalEmotion, EmotionDimension
 from ..emotion_modeling.models import EmotionState, PersonalityProfile
-
 
 class EmpathyType(Enum):
     """共情类型枚举"""
     COGNITIVE = "cognitive"      # 认知共情 - 理解情感
     AFFECTIVE = "affective"      # 情感共情 - 分享情感
     COMPASSIONATE = "compassionate"  # 慈悲共情 - 提供支持
-
 
 class ResponseTone(Enum):
     """回应语调类型"""
@@ -27,14 +26,12 @@ class ResponseTone(Enum):
     SUPPORTIVE = "supportive"      # 支持性
     UNDERSTANDING = "understanding"  # 理解性
 
-
 class CulturalContext(Enum):
     """文化背景枚举"""
     COLLECTIVIST = "collectivist"      # 集体主义
     INDIVIDUALIST = "individualist"    # 个人主义
     HIGH_CONTEXT = "high_context"      # 高语境文化
     LOW_CONTEXT = "low_context"        # 低语境文化
-
 
 @dataclass
 class EmpathyResponse:
@@ -93,7 +90,6 @@ class EmpathyResponse:
             metadata=data.get("metadata", {})
         )
 
-
 @dataclass
 class DialogueContext:
     """对话上下文数据结构"""
@@ -128,14 +124,14 @@ class DialogueContext:
         """添加情感状态"""
         self.emotion_history.append(emotion_state)
         self.emotional_arc.append(emotion_state.emotion)
-        self.last_update = datetime.now()
+        self.last_update = utc_now()
         
     def add_response(self, response: EmpathyResponse):
         """添加回应记录"""
         self.response_history.append(response)
         self.last_strategy = response.empathy_type
         self.conversation_length += 1
-        self.last_update = datetime.now()
+        self.last_update = utc_now()
         
         # 更新平均响应时间
         if response.generation_time_ms > 0:
@@ -193,7 +189,6 @@ class DialogueContext:
             "average_response_time": self.average_response_time
         }
 
-
 @dataclass
 class EmpathyRequest:
     """共情响应请求数据结构"""
@@ -231,7 +226,6 @@ class EmpathyRequest:
             "timestamp": self.timestamp.isoformat()
         }
 
-
 @dataclass
 class ComfortTechnique:
     """安慰技巧数据结构"""
@@ -249,7 +243,6 @@ class ComfortTechnique:
         emotion_match = emotion in self.applicable_emotions
         intensity_match = self.intensity_range[0] <= intensity <= self.intensity_range[1]
         return emotion_match and intensity_match
-
 
 # 预定义的安慰技巧库
 COMFORT_TECHNIQUES = [

@@ -10,9 +10,7 @@ from sqlalchemy.orm import relationship
 from datetime import datetime
 from src.core.utils.timezone_utils import utc_now, utc_factory
 import uuid
-
 from src.core.database import Base
-
 
 class WorkflowDefinitionModel(Base):
     """工作流定义持久化模型"""
@@ -129,7 +127,6 @@ class WorkflowDefinitionModel(Base):
     
     def __repr__(self):
         return f"<WorkflowDefinitionModel(id='{self.id}', name='{self.name}', version='{self.version}')>"
-
 
 class WorkflowExecutionModel(Base):
     """工作流执行持久化模型"""
@@ -253,7 +250,6 @@ class WorkflowExecutionModel(Base):
             return 0
         return (self.completed_steps / self.total_steps) * 100
 
-
 class WorkflowStepExecutionModel(Base):
     """工作流步骤执行持久化模型"""
     __tablename__ = "workflow_step_executions"
@@ -375,7 +371,6 @@ class WorkflowStepExecutionModel(Base):
     def __repr__(self):
         return f"<WorkflowStepExecutionModel(id='{self.id}', step_id='{self.step_id}', status='{self.status}')>"
 
-
 class TaskDecompositionModel(Base):
     """任务分解持久化模型"""
     __tablename__ = "task_decompositions"
@@ -478,7 +473,6 @@ class TaskDecompositionModel(Base):
     
     def __repr__(self):
         return f"<TaskDecompositionModel(id='{self.id}', total_tasks={self.total_tasks})>"
-
 
 class WorkflowResultModel(Base):
     """工作流结果持久化模型"""
@@ -586,7 +580,6 @@ class WorkflowResultModel(Base):
     
     def __repr__(self):
         return f"<WorkflowResultModel(id='{self.id}', confidence_score={self.confidence_score})>"
-
 
 class WorkflowCacheModel(Base):
     """工作流缓存持久化模型"""

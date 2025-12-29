@@ -8,13 +8,11 @@ from unittest.mock import Mock, AsyncMock, patch
 from datetime import datetime
 from datetime import timedelta
 from src.core.utils.timezone_utils import utc_now, utc_factory
-
 from src.ai.knowledge_graph.performance_optimizer import (
     PerformanceOptimizer,
     QueryPerformance,
     PerformanceStats
 )
-
 
 @pytest.mark.unit
 class TestQueryPerformance:
@@ -56,7 +54,6 @@ class TestQueryPerformance:
         assert perf_dict["cache_hit"] is True
         assert "timestamp" in perf_dict
 
-
 @pytest.mark.unit
 class TestPerformanceStats:
     """性能统计测试"""
@@ -96,7 +93,6 @@ class TestPerformanceStats:
         assert stats_dict["cache_hit_rate"] == 0.75
         assert stats_dict["avg_query_time_ms"] == 120.5
 
-
 @pytest.mark.unit
 class TestPerformanceOptimizer:
     """性能优化器测试"""
@@ -119,7 +115,7 @@ class TestPerformanceOptimizer:
         redis_client.setex = AsyncMock()
         redis_client.delete = AsyncMock()
         redis_client.keys = AsyncMock(return_value=[])
-        redis_client.close = AsyncMock()
+        redis_client.aclose = AsyncMock()
         return redis_client
     
     @pytest.fixture
@@ -147,7 +143,7 @@ class TestPerformanceOptimizer:
         
         await optimizer.close()
         
-        mock_redis.close.assert_called_once()
+        mock_redis.aclose.assert_called_once()
     
     @pytest.mark.asyncio
     async def test_execute_cached_query_cache_miss(self, optimizer, mock_graph_db):
@@ -458,7 +454,6 @@ class TestPerformanceOptimizer:
         assert stats["cache_hits"] == 20
         assert stats["cache_ttl_seconds"] == 300
 
-
 @pytest.mark.integration
 class TestPerformanceOptimizerIntegration:
     """性能优化器集成测试"""
@@ -500,7 +495,6 @@ class TestPerformanceOptimizerIntegration:
         finally:
             await optimizer.close()
             await db.close()
-
 
 @pytest.mark.performance
 class TestOptimizerPerformance:

@@ -1,3 +1,4 @@
+import { buildApiUrl, apiFetch } from '../utils/apiBase'
 import React, { useState, useEffect } from 'react'
 import {
   Card,
@@ -6,10 +7,8 @@ import {
   Statistic,
   Table,
   Tag,
-  Button,
   Space,
   Progress,
-  Alert,
   Typography,
   Tabs,
   Timeline,
@@ -19,15 +18,12 @@ import {
 } from 'antd'
 import {
   RocketOutlined,
-  ThunderboltOutlined,
   MonitorOutlined,
-  FileTextOutlined,
   CheckCircleOutlined,
   ClockCircleOutlined,
   ExclamationCircleOutlined,
   ApiOutlined,
-  SettingOutlined,
-  TrendingUpOutlined
+  SettingOutlined
 } from '@ant-design/icons'
 import type { ColumnsType } from 'antd/es/table'
 
@@ -39,7 +35,7 @@ interface PlatformStatus {
   healthy_components: number
   unhealthy_components: number
   active_workflows: number
-  system_health: 'healthy' | 'degraded' | 'unhealthy'
+  system_health: 'healthy' | 'degraded' | 'unhealthy' | 'critical'
   cpu_usage: number
   memory_usage: number
   disk_usage: number
@@ -50,7 +46,7 @@ interface Component {
   name: string
   component_type: string
   version: string
-  status: 'healthy' | 'unhealthy'
+  status: 'healthy' | 'unhealthy' | 'starting' | 'stopping' | 'error'
   last_check: string
   uptime: number
 }
@@ -58,7 +54,7 @@ interface Component {
 interface Workflow {
   workflow_id: string
   name: string
-  status: 'running' | 'completed' | 'failed' | 'pending'
+  status: 'running' | 'completed' | 'failed' | 'pending' | 'cancelled' | 'error'
   progress: number
   started_at: string
   estimated_completion?: string
@@ -86,32 +82,97 @@ const PlatformIntegrationOverviewPage: React.FC = () => {
 
   const fetchOverviewData = async () => {
     try {
-      const [statusRes, componentsRes, workflowsRes, activitiesRes] = await Promise.all([
-        fetch('/api/v1/platform-integration/status'),
-        fetch('/api/v1/platform-integration/components'),
-        fetch('/api/v1/platform-integration/workflows?limit=10'),
-        fetch('/api/v1/platform-integration/activities?limit=20')
+      const [healthRes, componentsRes, workflowsRes, metricsRes] = await Promise.allSettled([
+        apiFetch(buildApiUrl('/api/v1/platform/health')),
+        apiFetch(buildApiUrl('/api/v1/platform/components')),
+        apiFetch(buildApiUrl('/api/v1/platform/workflows?limit=10')),
+        apiFetch(buildApiUrl('/api/v1/platform/optimization/metrics'))
       ])
 
-      if (statusRes.ok) {
-        const statusData = await statusRes.json()
-        setStatus(statusData)
+      let nextComponents: Component[] = []
+      let nextWorkflows: Workflow[] = []
+
+      if (componentsRes.status === 'fulfilled') {
+        const componentsData = await componentsRes.value.json()
+        nextComponents = Object.values(componentsData.components || {}).map((c: any) => ({
+          component_id: String(c.component_id || ''),
+          name: String(c.name || ''),
+          component_type: String(c.component_type || ''),
+          version: String(c.version || ''),
+          status: c.status,
+          last_check: String(c.last_heartbeat || ''),
+          uptime: c.registered_at ? Math.max(0, (Date.now() - new Date(c.registered_at).getTime()) / 1000) : 0
+        }))
+        setComponents(nextComponents)
       }
 
-      if (componentsRes.ok) {
-        const componentsData = await componentsRes.json()
-        setComponents(componentsData.components || [])
+      if (workflowsRes.status === 'fulfilled') {
+        const workflowsData = await workflowsRes.value.json()
+        const list = Array.isArray(workflowsData.workflows) ? workflowsData.workflows : []
+        nextWorkflows = list.map((w: any) => {
+          const steps = Array.isArray(w.steps) ? w.steps : []
+          const totalSteps = steps.length || Number(w.total_steps || 0)
+          const completedSteps = steps.filter((s: any) => s.status === 'completed').length
+          const progress = totalSteps > 0 ? Math.round((completedSteps / totalSteps) * 100) : 0
+          return {
+            workflow_id: String(w.workflow_id || ''),
+            name: String(w.workflow_type || ''),
+            status: w.status,
+            progress,
+            started_at: String(w.started_at || '')
+          }
+        })
+        setWorkflows(nextWorkflows)
       }
 
-      if (workflowsRes.ok) {
-        const workflowsData = await workflowsRes.json()
-        setWorkflows(workflowsData.workflows || [])
+      if (healthRes.status === 'fulfilled') {
+        const healthData = await healthRes.value.json()
+        const total = Number(healthData.total_components || 0)
+        const healthy = Number(healthData.healthy_components || 0)
+
+        let cpu = 0
+        let mem = 0
+        let disk = 0
+        if (metricsRes.status === 'fulfilled') {
+          const metricsData = await metricsRes.value.json()
+          cpu = Number(metricsData.metrics?.cpu_percent || 0)
+          mem = Number(metricsData.metrics?.memory_percent || 0)
+          disk = Number(metricsData.metrics?.disk_usage?.percent || 0)
+        }
+
+        setStatus({
+          total_components: total,
+          healthy_components: healthy,
+          unhealthy_components: Math.max(0, total - healthy),
+          active_workflows: nextWorkflows.filter((w) => w.status === 'running').length,
+          system_health: healthData.overall_status,
+          cpu_usage: cpu,
+          memory_usage: mem,
+          disk_usage: disk
+        })
       }
 
-      if (activitiesRes.ok) {
-        const activitiesData = await activitiesRes.json()
-        setActivities(activitiesData.activities || [])
-      }
+      const nextActivities: RecentActivity[] = []
+      nextComponents.forEach((c) => {
+        if (!c.last_check) return
+        nextActivities.push({
+          id: `component:${c.component_id}`,
+          type: 'component_registered',
+          message: `组件已注册: ${c.name}`,
+          timestamp: c.last_check
+        })
+      })
+      nextWorkflows.forEach((w) => {
+        if (!w.started_at) return
+        nextActivities.push({
+          id: `workflow:${w.workflow_id}`,
+          type: 'workflow_started',
+          message: `工作流启动: ${w.name || w.workflow_id}`,
+          timestamp: w.started_at
+        })
+      })
+      nextActivities.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+      setActivities(nextActivities.slice(0, 20))
     } catch (error) {
       message.error('获取平台状态失败')
     } finally {
@@ -183,9 +244,11 @@ const PlatformIntegrationOverviewPage: React.FC = () => {
           running: { color: 'processing', text: '运行中', icon: <ClockCircleOutlined /> },
           completed: { color: 'success', text: '已完成', icon: <CheckCircleOutlined /> },
           failed: { color: 'error', text: '失败', icon: <ExclamationCircleOutlined /> },
-          pending: { color: 'default', text: '待执行', icon: <ClockCircleOutlined /> }
+          pending: { color: 'default', text: '待执行', icon: <ClockCircleOutlined /> },
+          cancelled: { color: 'default', text: '已取消', icon: <ClockCircleOutlined /> },
+          error: { color: 'error', text: '错误', icon: <ExclamationCircleOutlined /> }
         }
-        const config = statusConfig[status]
+        const config = statusConfig[status] || { color: 'default', text: String(status), icon: <ClockCircleOutlined /> }
         return <Tag color={config.color} icon={config.icon}>{config.text}</Tag>
       }
     },
@@ -202,15 +265,6 @@ const PlatformIntegrationOverviewPage: React.FC = () => {
       render: (time) => new Date(time).toLocaleString()
     }
   ]
-
-  const getSystemHealthColor = (health: string) => {
-    switch (health) {
-      case 'healthy': return 'success'
-      case 'degraded': return 'warning'
-      case 'unhealthy': return 'error'
-      default: return 'default'
-    }
-  }
 
   const getActivityIcon = (type: string) => {
     switch (type) {

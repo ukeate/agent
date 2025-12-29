@@ -13,10 +13,11 @@ import re
 from typing import List, Dict, Any, Optional, Tuple
 from dataclasses import dataclass
 from enum import Enum
-
 from src.ai.openai_client import get_openai_client
 from .query_analyzer import QueryAnalysis, QueryIntent
 
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 class ExpansionStrategy(str, Enum):
     """查询扩展策略"""
@@ -25,7 +26,6 @@ class ExpansionStrategy(str, Enum):
     CONTEXTUAL = "contextual"     # 上下文改写
     DECOMPOSITION = "decomposition"  # 查询分解
     MULTILINGUAL = "multilingual"    # 多语言扩展
-
 
 @dataclass
 class ExpandedQuery:
@@ -37,7 +37,6 @@ class ExpandedQuery:
     sub_questions: Optional[List[str]] = None  # 子问题（分解策略时使用）
     language_variants: Optional[Dict[str, str]] = None  # 多语言变体
     explanation: Optional[str] = None  # 扩展解释
-
 
 class QueryExpander:
     """查询扩展器"""
@@ -138,7 +137,12 @@ class QueryExpander:
                     
             except Exception as e:
                 # 记录错误但继续其他策略
-                print(f"扩展策略 {strategy} 失败: {e}")
+                logger.error(
+                    "扩展策略失败",
+                    strategy=strategy.value if hasattr(strategy, "value") else str(strategy),
+                    error=str(e),
+                    exc_info=True,
+                )
                 continue
         
         return results

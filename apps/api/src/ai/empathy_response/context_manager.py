@@ -3,17 +3,17 @@
 
 管理多轮对话的情感上下文和共情响应历史
 """
-import logging
+
+from src.core.utils.timezone_utils import utc_now
 from typing import Dict, Optional, List, Any
-from datetime import datetime, timedelta
+from datetime import timedelta
 from collections import defaultdict
 import threading
-
 from .models import DialogueContext, EmpathyResponse, CulturalContext
 from ..emotion_modeling.models import EmotionState, PersonalityProfile
 
-logger = logging.getLogger(__name__)
-
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 class ContextManager:
     """对话上下文管理器"""
@@ -48,7 +48,7 @@ class ContextManager:
         }
         
         # 定期清理任务
-        self._last_cleanup = datetime.now()
+        self._last_cleanup = utc_now()
     
     def create_context(
         self,
@@ -83,8 +83,8 @@ class ContextManager:
                 conversation_id=conversation_id,
                 session_id=session_id,
                 cultural_context=cultural_context,
-                start_time=datetime.now(),
-                last_update=datetime.now()
+                start_time=utc_now(),
+                last_update=utc_now()
             )
             
             # 存储上下文
@@ -168,7 +168,7 @@ class ContextManager:
             return context
         
         # 创建新上下文
-        conversation_id = f"conv_{user_id}_{int(datetime.now().timestamp())}"
+        conversation_id = f"conv_{user_id}_{int(utc_now().timestamp())}"
         return self.create_context(user_id, conversation_id)
     
     def update_context(self, context: DialogueContext):
@@ -179,7 +179,7 @@ class ContextManager:
             context: 要更新的上下文
         """
         with self._lock:
-            context.last_update = datetime.now()
+            context.last_update = utc_now()
             
             # 限制历史记录长度
             self._trim_context_history(context)
@@ -311,7 +311,7 @@ class ContextManager:
     def _is_context_expired(self, context: DialogueContext) -> bool:
         """检查上下文是否过期"""
         expiry_time = context.last_update + timedelta(hours=self.config["context_ttl_hours"])
-        return datetime.now() > expiry_time
+        return utc_now() > expiry_time
     
     def _remove_context(self, conversation_id: str) -> bool:
         """移除指定的上下文"""
@@ -330,7 +330,7 @@ class ContextManager:
     
     def _maybe_cleanup(self):
         """检查是否需要清理"""
-        now = datetime.now()
+        now = utc_now()
         if (now - self._last_cleanup).total_seconds() > self.config["cleanup_interval_minutes"] * 60:
             self._cleanup_expired_contexts()
             self._last_cleanup = now
@@ -354,7 +354,7 @@ class ContextManager:
         """强制清理最旧的上下文"""
         # 找到最旧的上下文
         oldest_context = None
-        oldest_time = datetime.now()
+        oldest_time = utc_now()
         
         for conversation_id, context in self._contexts.items():
             if context.last_update < oldest_time:
@@ -390,7 +390,7 @@ class ContextManager:
             # 计算活跃度分布
             activity_distribution = defaultdict(int)
             for context in self._contexts.values():
-                hours_since_update = (datetime.now() - context.last_update).total_seconds() / 3600
+                hours_since_update = (utc_now() - context.last_update).total_seconds() / 3600
                 if hours_since_update < 1:
                     activity_distribution["very_recent"] += 1
                 elif hours_since_update < 6:

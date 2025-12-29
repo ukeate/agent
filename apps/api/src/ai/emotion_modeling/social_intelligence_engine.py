@@ -3,23 +3,22 @@
 综合群体情感、关系动态、社交场景和文化背景，做出智能社交决策
 """
 
+from src.core.utils.timezone_utils import utc_now
 import asyncio
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Dict, List, Optional, Set, Tuple, Any, Union
 from datetime import datetime, timedelta
 import json
-import logging
-
 from .models import EmotionVector, SocialContext
 from .core_interfaces import EmotionModelingInterface
 from .group_emotion_analyzer import GroupEmotionAnalyzer
-from .relationship_analyzer import RelationshipAnalyzer
+from .relationship_analyzer import RelationshipDynamicsAnalyzer
 from .social_context_adapter import SocialContextAdapter, SocialEnvironment
 from .cultural_context_analyzer import CulturalContextAnalyzer
 
-logger = logging.getLogger(__name__)
-
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 class DecisionType(Enum):
     """决策类型"""
@@ -32,14 +31,12 @@ class DecisionType(Enum):
     LEADERSHIP_GUIDANCE = "leadership_guidance"
     TEAM_OPTIMIZATION = "team_optimization"
 
-
 class DecisionPriority(Enum):
     """决策优先级"""
     CRITICAL = "critical"  # 立即执行
     HIGH = "high"  # 短期内执行
     MEDIUM = "medium"  # 适当时机执行
     LOW = "low"  # 可延迟执行
-
 
 @dataclass
 class DecisionContext:
@@ -53,7 +50,6 @@ class DecisionContext:
     cultural_profiles: List[Any]  # CulturalProfile
     historical_context: List[Dict[str, Any]] = field(default_factory=list)
     constraints: Dict[str, Any] = field(default_factory=dict)
-
 
 @dataclass
 class SocialDecision:
@@ -71,7 +67,6 @@ class SocialDecision:
     monitoring_metrics: List[str]
     risk_assessment: Dict[str, float]
 
-
 @dataclass
 class DecisionOutcome:
     """决策结果"""
@@ -83,14 +78,13 @@ class DecisionOutcome:
     lessons_learned: List[str]
     timestamp: datetime
 
-
 class SocialIntelligenceEngine:
     """社交智能决策引擎"""
     
     def __init__(self):
         # 初始化子系统
         self.group_analyzer = GroupEmotionAnalyzer()
-        self.relationship_analyzer = RelationshipAnalyzer()
+        self.relationship_analyzer = RelationshipDynamicsAnalyzer()
         self.context_adapter = SocialContextAdapter()
         self.cultural_analyzer = CulturalContextAnalyzer()
         
@@ -197,7 +191,7 @@ class SocialIntelligenceEngine:
     ) -> Optional[SocialDecision]:
         """生成具体决策"""
         try:
-            decision_id = f"{context.session_id}_{decision_type.value}_{int(datetime.now().timestamp())}"
+            decision_id = f"{context.session_id}_{decision_type.value}_{int(utc_now().timestamp())}"
             
             if decision_type == DecisionType.COMMUNICATION_STYLE:
                 return await self._decide_communication_style(decision_id, context)
@@ -866,7 +860,7 @@ class SocialIntelligenceEngine:
             "decision_patterns_count": len(self.decision_patterns),
             "recent_decisions": len([
                 d for d in self.decision_history.values()
-                if d.context.timestamp > datetime.now() - timedelta(hours=24)
+                if d.context.timestamp > utc_now() - timedelta(hours=24)
             ]),
             "average_confidence": sum(d.confidence_score for d in self.decision_history.values()) / len(self.decision_history) if self.decision_history else 0,
             "decision_type_distribution": {

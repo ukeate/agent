@@ -1,17 +1,15 @@
 """记忆关联图网络"""
+
 import asyncio
 from typing import List, Dict, Optional, Tuple, Set, Any
 import networkx as nx
 import numpy as np
-import logging
 from datetime import datetime
 from src.core.utils.timezone_utils import utc_now, utc_factory
-
 from .models import Memory, MemoryType
 from .storage import MemoryStorage
 
-logger = logging.getLogger(__name__)
-
+logger = get_logger(__name__)
 
 class MemoryAssociationGraph:
     """记忆关联网络管理器"""
@@ -360,3 +358,4 @@ class MemoryAssociationGraph:
             k: [datetime.fromisoformat(dt) for dt in v]
             for k, v in state.get("access_patterns", {}).items()
         }
+from src.core.logging import get_logger

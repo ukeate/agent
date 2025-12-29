@@ -21,14 +21,6 @@ interface BehaviorOverviewProps {
 }
 
 export const BehaviorOverview: React.FC<BehaviorOverviewProps> = ({ data, realtime }) => {
-  // 计算增长率（示例数据）
-  const getGrowthRate = (current: number, previous?: number) => {
-    const currentNum = Number(current || 0);
-    const previousNum = Number(previous || currentNum * 0.9);
-    if (previousNum === 0) return 0;
-    return ((currentNum - previousNum) / previousNum * 100).toFixed(1);
-  };
-
   // 格式化数字
   const formatNumber = (num: number) => {
     if (num >= 1000000) {
@@ -83,10 +75,6 @@ export const BehaviorOverview: React.FC<BehaviorOverviewProps> = ({ data, realti
               <p className="text-2xl font-bold text-gray-900">
                 {formatNumber(data.total_events || 0)}
               </p>
-              <p className="text-xs text-green-600 flex items-center mt-1">
-                <span className="mr-1">↗</span>
-                {getGrowthRate(data.total_events || 0)}% vs 昨天
-              </p>
             </div>
             <div className="p-3 bg-blue-50 rounded-full">
               <span className="text-2xl">📊</span>
@@ -102,10 +90,6 @@ export const BehaviorOverview: React.FC<BehaviorOverviewProps> = ({ data, realti
               <p className="text-2xl font-bold text-gray-900">
                 {formatNumber(data.unique_users || 0)}
               </p>
-              <p className="text-xs text-green-600 flex items-center mt-1">
-                <span className="mr-1">↗</span>
-                {getGrowthRate(data.unique_users || 0)}% vs 昨天
-              </p>
             </div>
             <div className="p-3 bg-green-50 rounded-full">
               <span className="text-2xl">👥</span>
@@ -120,10 +104,6 @@ export const BehaviorOverview: React.FC<BehaviorOverviewProps> = ({ data, realti
               <p className="text-sm font-medium text-gray-600">总会话数</p>
               <p className="text-2xl font-bold text-gray-900">
                 {formatNumber(data.unique_sessions || 0)}
-              </p>
-              <p className="text-xs text-green-600 flex items-center mt-1">
-                <span className="mr-1">↗</span>
-                {getGrowthRate(data.unique_sessions || 0)}% vs 昨天
               </p>
             </div>
             <div className="p-3 bg-purple-50 rounded-full">

@@ -15,12 +15,11 @@ from scipy.cluster.hierarchy import linkage, dendrogram, fcluster
 from sklearn.preprocessing import StandardScaler
 from sklearn.decomposition import PCA
 from sklearn.manifold import TSNE
-import logging
 from dataclasses import dataclass
-
 from ..models import BehaviorEvent, UserSession, DimensionFilter, CrossAnalysisResult
 
-logger = logging.getLogger(__name__)
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 @dataclass
 class DimensionMetrics:

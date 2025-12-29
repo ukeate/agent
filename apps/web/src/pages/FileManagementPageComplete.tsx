@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import {
+import { logger } from '../utils/logger'
   Card,
   Typography,
   Tabs,
@@ -18,8 +19,10 @@ import {
   Select,
   Popconfirm,
   Alert,
-  Divider,
-  Empty
+  Empty,
+  InputNumber,
+  Descriptions,
+  Spin
 } from 'antd';
 import {
   UploadOutlined,
@@ -38,7 +41,9 @@ import {
   AudioOutlined,
   InboxOutlined
 } from '@ant-design/icons';
-import type { UploadProps } from 'antd';
+import type { UploadProps, UploadFile } from 'antd';
+import { filesService } from '../services/filesService';
+import type { BatchUploadResponse } from '../services/filesService';
 
 const { Title, Text, Paragraph } = Typography;
 const { TabPane } = Tabs;
@@ -73,20 +78,32 @@ const FileManagementPageComplete: React.FC = () => {
   const [stats, setStats] = useState<FileStats | null>(null);
   const [searchText, setSearchText] = useState('');
   const [selectedFileType, setSelectedFileType] = useState<string>('all');
+  const [infoModalVisible, setInfoModalVisible] = useState(false);
+  const [infoLoading, setInfoLoading] = useState(false);
+  const [selectedFileInfo, setSelectedFileInfo] = useState<Record<string, any> | null>(null);
+  const [batchFileList, setBatchFileList] = useState<UploadFile[]>([]);
+  const [batchUploading, setBatchUploading] = useState(false);
+  const [batchUploadResult, setBatchUploadResult] = useState<BatchUploadResponse | null>(null);
+  const [cleanupDays, setCleanupDays] = useState<number>(7);
+  const [cleanupLoading, setCleanupLoading] = useState(false);
+  const [cleanupMessage, setCleanupMessage] = useState('');
 
   // 获取文件列表
   const fetchFiles = async () => {
     setLoading(true);
     try {
-      const response = await fetch('/api/v1/files/list?limit=100');
-      const result = await response.json();
+      const result = await filesService.listFiles({ limit: 100 });
       if (result.success) {
-        setFiles(result.data.files);
+        setFiles(result.data.files || []);
       } else {
+        setFiles([]);
         message.error('获取文件列表失败');
       }
     } catch (error) {
+      logger.error('获取文件列表失败:', error);
       message.error('获取文件列表失败');
+      // 使用空数组作为后备
+      setFiles([]);
     } finally {
       setLoading(false);
     }
@@ -95,13 +112,12 @@ const FileManagementPageComplete: React.FC = () => {
   // 获取文件统计
   const fetchStats = async () => {
     try {
-      const response = await fetch('/api/v1/files/stats/summary');
-      const result = await response.json();
+      const result = await filesService.getFileStats();
       if (result.success) {
         setStats(result.data);
       }
     } catch (error) {
-      console.error('获取文件统计失败:', error);
+      logger.error('获取文件统计失败:', error);
     }
   };
 
@@ -110,24 +126,54 @@ const FileManagementPageComplete: React.FC = () => {
     fetchStats();
   }, []);
 
+  const handleViewFileInfo = async (fileId: string) => {
+    setInfoLoading(true);
+    setSelectedFileInfo(null);
+    setInfoModalVisible(true);
+    try {
+      const result = await filesService.getFileInfo(fileId);
+      if (result.success) {
+        setSelectedFileInfo(result.data);
+      } else {
+        message.error('获取文件信息失败');
+      }
+    } catch (error) {
+      message.error('获取文件信息失败');
+      logger.error('获取文件信息失败:', error);
+    } finally {
+      setInfoLoading(false);
+    }
+  };
+
+  const handleCloseInfoModal = () => {
+    setInfoModalVisible(false);
+    setSelectedFileInfo(null);
+  };
+
   // 文件上传配置
   const uploadProps: UploadProps = {
     name: 'file',
     multiple: true,
-    action: '/api/v1/files/upload',
-    onChange(info) {
-      const { status } = info.file;
-      if (status === 'uploading') {
+    customRequest: async ({ file, onProgress, onSuccess, onError }) => {
+      try {
         setUploading(true);
-        setUploadProgress(info.file.percent || 0);
-      } else if (status === 'done') {
-        message.success(`${info.file.name} 上传成功`);
-        setUploading(false);
         setUploadProgress(0);
-        fetchFiles();
-        fetchStats();
-      } else if (status === 'error') {
-        message.error(`${info.file.name} 上传失败`);
+        const response = await filesService.uploadFile(file as File);
+        if (response.success) {
+          onSuccess?.(response.data);
+          setUploadProgress(100);
+          onProgress?.({ percent: 100 } as any);
+          message.success(`${file.name} 上传成功`);
+          fetchFiles();
+          fetchStats();
+        } else {
+          onError?.(new Error(response.message));
+          message.error(`${file.name} 上传失败: ${response.message}`);
+        }
+      } catch (error) {
+        onError?.(error as Error);
+        message.error(`${file.name} 上传失败`);
+      } finally {
         setUploading(false);
         setUploadProgress(0);
       }
@@ -141,13 +187,92 @@ const FileManagementPageComplete: React.FC = () => {
     },
   };
 
+  const batchUploadProps: UploadProps<UploadFile> = {
+    multiple: true,
+    fileList: batchFileList,
+    beforeUpload: (file) => {
+      setBatchFileList(prev => {
+        if (prev.some(item => item.uid === file.uid)) {
+          return prev;
+        }
+        const uploadFile: UploadFile = {
+          uid: file.uid,
+          name: file.name,
+          size: file.size,
+          type: file.type,
+          originFileObj: file,
+          status: 'done'
+        };
+        return [...prev, uploadFile];
+      });
+      return false;
+    },
+    onRemove: (file) => {
+      setBatchFileList(prev => prev.filter(item => item.uid !== file.uid));
+    }
+  };
+
+  const handleBatchUpload = async () => {
+    if (batchFileList.length === 0) {
+      message.warning('请先选择需要上传的文件');
+      return;
+    }
+
+    const filesToUpload = batchFileList
+      .map(item => item.originFileObj)
+      .filter((item): item is File => !!item);
+
+    if (filesToUpload.length === 0) {
+      message.error('文件选择无效，请重新选择');
+      return;
+    }
+
+    setBatchUploading(true);
+    setBatchUploadResult(null);
+    try {
+      const result = await filesService.uploadMultipleFiles(filesToUpload);
+      setBatchUploadResult(result);
+      if (result.success) {
+        message.success(`批量上传完成，成功 ${result.uploaded_count} 个文件`);
+      } else {
+        message.warning('批量上传部分文件失败，请查看详情');
+      }
+      setBatchFileList([]);
+      fetchFiles();
+      fetchStats();
+    } catch (error) {
+      message.error('批量上传失败');
+      logger.error('批量上传失败:', error);
+    } finally {
+      setBatchUploading(false);
+    }
+  };
+
+  const handleCleanup = async () => {
+    setCleanupLoading(true);
+    setCleanupMessage('');
+    try {
+      const result = await filesService.cleanupOldFiles(cleanupDays);
+      setCleanupMessage(result.message);
+      if (result.success) {
+        message.success(result.message);
+      } else {
+        message.warning('文件清理完成，请检查结果');
+      }
+      fetchFiles();
+      fetchStats();
+    } catch (error) {
+      message.error('文件清理失败');
+      logger.error('文件清理失败:', error);
+    } finally {
+      setCleanupLoading(false);
+    }
+  };
+
   // 删除文件
   const handleDeleteFile = async (fileId: string) => {
     try {
-      const response = await fetch(`/api/v1/files/${fileId}`, {
-        method: 'DELETE',
-      });
-      const result = await response.json();
+      const result = await filesService.deleteFile(fileId);
       if (result.success) {
         message.success('文件删除成功');
         fetchFiles();
@@ -161,13 +286,22 @@ const FileManagementPageComplete: React.FC = () => {
   };
 
   // 下载文件
-  const handleDownloadFile = (fileId: string, filename: string) => {
-    const link = document.createElement('a');
-    link.href = `/api/v1/files/${fileId}/download`;
-    link.download = filename;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+  const handleDownloadFile = async (fileId: string, filename: string) => {
+    try {
+      const blob = await filesService.downloadFile(fileId);
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      message.success('文件下载成功');
+    } catch (error) {
+      message.error('文件下载失败');
+      logger.error('下载文件失败:', error);
+    }
   };
 
   // 获取文件图标
@@ -256,6 +390,13 @@ const FileManagementPageComplete: React.FC = () => {
       key: 'actions',
       render: (_, record: FileInfo) => (
         <Space>
+          <Button
+            type="text"
+            icon={<EyeOutlined />}
+            onClick={() => handleViewFileInfo(record.file_id)}
+          >
+            详情
+          </Button>
           <Button
             type="text"
             icon={<DownloadOutlined />}
@@ -374,6 +515,71 @@ const FileManagementPageComplete: React.FC = () => {
         </TabPane>
 
         <TabPane
+          tab={<span><CloudUploadOutlined />批量上传</span>}
+          key="batch"
+        >
+          <Card>
+            <Alert
+              message="批量上传"
+              description="选择多个文件后点击开始上传，可一次性上传最大10个文件。"
+              variant="default"
+              showIcon
+              style={{ marginBottom: 16 }}
+            />
+
+            <Dragger {...batchUploadProps} multiple>
+              <p className="ant-upload-drag-icon">
+                <InboxOutlined />
+              </p>
+              <p className="ant-upload-text">拖拽或点击选择多个文件</p>
+              <p className="ant-upload-hint">支持与单文件上传相同的文件类型</p>
+            </Dragger>
+
+            <Space style={{ marginTop: 16 }}>
+              <Button
+                type="primary"
+                icon={<CloudUploadOutlined />}
+                loading={batchUploading}
+                onClick={handleBatchUpload}
+              >
+                开始上传
+              </Button>
+              <Button
+                onClick={() => {
+                  setBatchFileList([]);
+                  setBatchUploadResult(null);
+                }}
+              >
+                清空列表
+              </Button>
+            </Space>
+
+            {batchUploadResult && (
+              <Card style={{ marginTop: 24 }} title="上传结果">
+                <Space direction="vertical" style={{ width: '100%' }}>
+                  <Text>成功上传: {batchUploadResult.uploaded_count} 个</Text>
+                  <Text>失败: {batchUploadResult.error_count} 个</Text>
+                  {batchUploadResult.errors.length > 0 && (
+                    <Alert
+                      type="warning"
+                      message="失败详情"
+                      description={
+                        <Space direction="vertical">
+                          {batchUploadResult.errors.map((item) => (
+                            <Text key={item.filename}>{`${item.filename}: ${item.error}`}</Text>
+                          ))}
+                        </Space>
+                      }
+                      showIcon
+                    />
+                  )}
+                </Space>
+              </Card>
+            )}
+          </Card>
+        </TabPane>
+
+        <TabPane
           tab={<span><FileOutlined />文件管理</span>}
           key="management"
         >
@@ -479,8 +685,65 @@ const FileManagementPageComplete: React.FC = () => {
               <Empty description="暂无统计数据" />
             )}
           </Card>
+
+          <Card title="文件清理">
+            <Space direction="vertical" style={{ width: '100%' }}>
+              <Space>
+                <Text>清理早于</Text>
+                <InputNumber
+                  min={1}
+                  max={365}
+                  value={cleanupDays}
+                  onChange={(value) => {
+                    if (typeof value === 'number') {
+                      setCleanupDays(value);
+                    }
+                  }}
+                />
+                <Text>天的文件</Text>
+                <Button
+                  type="primary"
+                  loading={cleanupLoading}
+                  onClick={handleCleanup}
+                >
+                  执行清理
+                </Button>
+              </Space>
+              {cleanupMessage && (
+                <Alert
+                  type="info"
+                  message="清理结果"
+                  description={cleanupMessage}
+                  showIcon
+                />
+              )}
+            </Space>
+          </Card>
         </TabPane>
       </Tabs>
+
+      <Modal
+        title="文件详情"
+        open={infoModalVisible}
+        onCancel={handleCloseInfoModal}
+        footer={null}
+        destroyOnClose
+      >
+        {infoLoading ? (
+          <div style={{ textAlign: 'center', padding: '24px 0' }}>
+            <Spin />
+          </div>
+        ) : selectedFileInfo ? (
+          <Descriptions column={1} bordered>
+            <Descriptions.Item label="文件ID">{selectedFileInfo.file_id || 'N/A'}</Descriptions.Item>
+            <Descriptions.Item label="文件大小">{formatFileSize(selectedFileInfo.file_size || 0)}</Descriptions.Item>
+            <Descriptions.Item label="创建时间">{selectedFileInfo.created_at || 'N/A'}</Descriptions.Item>
+            <Descriptions.Item label="存储路径">{selectedFileInfo.file_path || 'N/A'}</Descriptions.Item>
+          </Descriptions>
+        ) : (
+          <Alert type="error" message="未找到文件信息" showIcon />
+        )}
+      </Modal>
     </div>
   );
 };

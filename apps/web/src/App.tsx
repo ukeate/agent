@@ -1,5 +1,5 @@
 import React, { useState, Suspense, lazy } from 'react'
-import { Routes, Route } from 'react-router-dom'
+import { Routes, Route, Navigate } from 'react-router-dom'
 import { Layout, Menu, Button, Typography, Space, Avatar, Spin } from 'antd'
 import { useNavigate, useLocation } from 'react-router-dom'
 import {
@@ -18,6 +18,7 @@ import {
   BugOutlined,
   ApiOutlined,
   MonitorOutlined,
+  WifiOutlined,
   CloudServerOutlined,
   SettingOutlined,
   ExceptionOutlined,
@@ -65,19 +66,28 @@ import {
   CrownOutlined,
   AudioOutlined,
   CompassOutlined,
+  WarningOutlined,
+  FunctionOutlined,
 } from '@ant-design/icons'
 
 // 懒加载所有页面组件
 const ChatPage = lazy(() => import('./pages/ChatPage'))
+const ConversationHistoryPage = lazy(() => import('./pages/ConversationHistoryPage'))
 const MultiAgentPage = lazy(() => import('./pages/MultiAgentPage'))
+const TensorFlowQLearningPage = lazy(() => import('./pages/TensorFlowQLearningManagementPage'))
+const TestingManagementPage = lazy(() => import('./pages/TestingManagementPage'))
+const HypothesisTestingPage = lazy(() => import('./pages/HypothesisTestingPage'))
+const EnhancedExperimentAnalysisPage = lazy(() => import('./pages/experiments/EnhancedExperimentAnalysisPage'))
 const SupervisorPage = lazy(() => import('./pages/SupervisorPage'))
 const RagPage = lazy(() => import('./pages/RagPage'))
 const WorkflowPage = lazy(() => import('./pages/WorkflowPage'))
 const AsyncAgentPage = lazy(() => import('./pages/AsyncAgentPage'))
 const AgenticRagPage = lazy(() => import('./pages/AgenticRagPage'))
 const GraphRAGPage = lazy(() => import('./pages/GraphRAGPage'))
+const GraphRAGPageEnhanced = lazy(() => import('./pages/GraphRAGPageEnhanced'))
 const MultimodalPageComplete = lazy(() => import('./pages/MultimodalPageComplete'))
 const FlowControlPage = lazy(() => import('./pages/FlowControlPage'))
+const DistributedMessageOverviewPage = lazy(() => import('./pages/DistributedMessageOverviewPage'))
 const MCPToolsPage = lazy(() => import('./pages/MCPToolsPage'))
 const PgVectorPage = lazy(() => import('./pages/PgVectorPage'))
 const CacheMonitorPage = lazy(() => import('./pages/CacheMonitorPage'))
@@ -100,15 +110,27 @@ const QLearningPerformanceOptimizationPage = lazy(() => import('./pages/QLearnin
 const AuthManagementPage = lazy(() => import('./pages/AuthManagementPage'))
 const LangGraphFeaturesPage = lazy(() => import('./pages/LangGraphFeaturesPage'))
 const AgentInterfacePage = lazy(() => import('./pages/AgentInterfacePage'))
+
+// 增强版页面
+const MultiAgentEnhancedPage = lazy(() => import('./pages/MultiAgentEnhancedPage'))
+const RAGEnhancedPage = lazy(() => import('./pages/RAGEnhancedPage'))
+const ExperimentsPlatformPage = lazy(() => import('./pages/ExperimentsPlatformPage'))
+const WorkflowManagementPage = lazy(() => import('./pages/WorkflowManagementPage'))
 const AgentClusterManagementPage = lazy(() => import('./pages/AgentClusterManagementPage'))
+const AgentClusterManagementPageEnhanced = lazy(() => import('./pages/AgentClusterManagementPageEnhanced'))
 const MemoryHierarchyPage = lazy(() => import('./pages/MemoryHierarchyPage'))
 const MemoryRecallTestPage = lazy(() => import('./pages/MemoryRecallTestPage'))
 const MemoryAnalyticsDashboard = lazy(() => import('./pages/MemoryAnalyticsDashboard'))
 const ReasoningPage = lazy(() => import('./pages/ReasoningPage'))
 const MultiStepReasoningPage = lazy(() => import('./pages/MultiStepReasoningPage'))
 const ExplainableAiPage = lazy(() => import('./pages/ExplainableAiPage'))
+const TargetingRulesManagementPage = lazy(() => import('./pages/TargetingRulesManagementPage'))
 const HybridSearchAdvancedPage = lazy(() => import('./pages/HybridSearchAdvancedPage'))
 const FileManagementPageComplete = lazy(() => import('./pages/FileManagementPageComplete'))
+const AnomalyDetectionPage = lazy(() => import('./pages/AnomalyDetectionPage'))
+const AutoScalingManagementPage = lazy(() => import('./pages/AutoScalingManagementPage'))
+const BatchOperationsPage = lazy(() => import('./pages/BatchOperationsPage'))
+const AssignmentCacheManagementPage = lazy(() => import('./pages/AssignmentCacheManagementPage'))
 
 // 智能代理服务发现系统页面 (Story 10.1)
 const ServiceDiscoveryOverviewPage = lazy(() => import('./pages/ServiceDiscoveryOverviewPage'))
@@ -133,6 +155,7 @@ const DocumentationManagementPage = lazy(() => import('./pages/DocumentationMana
 
 // 故障容错和恢复系统页面 (Story 10.5)
 const FaultToleranceSystemPage = lazy(() => import('./pages/FaultToleranceSystemPage'))
+const RealtimeCommunicationPage = lazy(() => import('./pages/RealtimeCommunicationPage'))
 const FaultDetectionPage = lazy(() => import('./pages/FaultDetectionPage'))
 const RecoveryManagementPage = lazy(() => import('./pages/RecoveryManagementPage'))
 const BackupManagementPage = lazy(() => import('./pages/BackupManagementPage'))
@@ -146,9 +169,13 @@ const FineTuningMonitorPage = lazy(() => import('./pages/FineTuningMonitorPage')
 const FineTuningModelsPage = lazy(() => import('./pages/FineTuningModelsPage'))
 const FineTuningDatasetsPage = lazy(() => import('./pages/FineTuningDatasetsPage'))
 const FineTuningCheckpointsPage = lazy(() => import('./pages/FineTuningCheckpointsPage'))
+const FineTuningPage = lazy(() => import('./pages/FineTuningPage'))
+const FineTuningPageEnhanced = lazy(() => import('./pages/FineTuningPageEnhanced'))
 const LoRATrainingPage = lazy(() => import('./pages/LoRATrainingPage'))
 const QLoRATrainingPage = lazy(() => import('./pages/QLoRATrainingPage'))
 const DistributedTrainingPage = lazy(() => import('./pages/DistributedTrainingPage'))
+const RiskAssessmentDashboard = lazy(() => import('./pages/RiskAssessmentDashboard'))
+const StatisticalAnalysisDashboard = lazy(() => import('./pages/StatisticalAnalysisDashboard'))
 const ModelAdaptersPage = lazy(() => import('./pages/ModelAdaptersPage'))
 const TrainingMonitorDashboard = lazy(() => import('./pages/TrainingMonitorDashboard'))
 const ModelPerformanceComparison = lazy(() => import('./pages/ModelPerformanceComparison'))
@@ -162,6 +189,7 @@ const DistributedStateManagerPage = lazy(() => import('./pages/DistributedStateM
 const ConflictResolverPage = lazy(() => import('./pages/ConflictResolverPage'))
 const DistributedTaskMonitorPage = lazy(() => import('./pages/DistributedTaskMonitorPage'))
 const DistributedTaskSystemStatusPage = lazy(() => import('./pages/DistributedTaskSystemStatusPage'))
+const DistributedTaskManagementPageEnhanced = lazy(() => import('./pages/DistributedTaskManagementPageEnhanced'))
 
 // 知识图谱引擎
 const KnowledgeExtractionOverviewPage = lazy(() => import('./pages/KnowledgeExtractionOverviewPage'))
@@ -170,7 +198,7 @@ const RelationExtractionPage = lazy(() => import('./pages/RelationExtractionPage
 const EntityLinkingPage = lazy(() => import('./pages/EntityLinkingPage'))
 const MultilingualProcessingPage = lazy(() => import('./pages/MultilingualProcessingPage'))
 const KnowledgeGraphVisualizationPage = lazy(() => import('./pages/KnowledgeGraphVisualizationPage'))
-const KnowledgeGraphPage = lazy(() => import('./pages/KnowledgeGraphPageSimple'))
+const KnowledgeGraphPage = lazy(() => import('./pages/KnowledgeGraphManagementPage'))
 const GraphQueryEnginePage = lazy(() => import('./pages/GraphQueryEnginePage'))
 const GraphAnalyticsPage = lazy(() => import('./pages/GraphAnalyticsPage'))
 const KnowledgeBatchJobsPage = lazy(() => import('./pages/KnowledgeBatchJobsPage'))
@@ -181,12 +209,13 @@ const KnowledgeValidationPage = lazy(() => import('./pages/KnowledgeValidationPa
 const KnowledgeConfidenceAnalysisPage = lazy(() => import('./pages/KnowledgeConfidenceAnalysisPage'))
 const KnowledgeErrorAnalysisPage = lazy(() => import('./pages/KnowledgeErrorAnalysisPage'))
 const KnowledgeModelComparisonPage = lazy(() => import('./pages/KnowledgeModelComparisonPage'))
+const ACLProtocolManagementPage = lazy(() => import('./pages/ACLProtocolManagementPage'))
 
 // 动态知识图谱存储系统 (Story 8.2)
 const KnowledgeGraphEntityManagement = lazy(() => import('./pages/KnowledgeGraphEntityManagement'))
 const KnowledgeGraphRelationManagement = lazy(() => import('./pages/KnowledgeGraphRelationManagement'))
 const KnowledgeGraphQueryEngine = lazy(() => import('./pages/KnowledgeGraphQueryEngine'))
-const KnowledgeGraphIncrementalUpdate = lazy(() => import('./pages/KnowledgeGraphAnalysisSimple'))
+const KnowledgeGraphIncrementalUpdate = lazy(() => import('./pages/KnowledgeGraphIncrementalUpdate'))
 const KnowledgeGraphQualityAssessment = lazy(() => import('./pages/KnowledgeGraphQualityAssessment'))
 const KnowledgeGraphPerformanceMonitor = lazy(() => import('./pages/KnowledgeGraphPerformanceMonitorWorkingMinimal'))
 const KnowledgeGraphSchemaManagement = lazy(() => import('./pages/KnowledgeGraphSchemaManagement'))
@@ -202,8 +231,10 @@ const SparqlCache = lazy(() => import('./pages/SparqlCache'))
 // 知识管理REST API
 const EntityApiPage = lazy(() => import('./pages/EntityApiPage'))
 const RelationApiPage = lazy(() => import('./pages/RelationApiPage'))
-const BatchOperationsPage = lazy(() => import('./pages/BatchOperationsPage'))
 const GraphValidationPage = lazy(() => import('./pages/GraphValidationPage'))
+const BasicRagManagementPage = lazy(() => import('./pages/BasicRagManagementPage'))
+const SupervisorApiManagementPage = lazy(() => import('./pages/SupervisorApiManagementPage'))
+const PlatformApiManagementPage = lazy(() => import('./pages/PlatformApiManagementPage'))
 
 // 数据导入导出
 const RdfImportExportPage = lazy(() => import('./pages/RdfImportExportPage'))
@@ -224,6 +255,7 @@ const RolePermissionsPage = lazy(() => import('./pages/RolePermissionsPage'))
 const SecurityAuditPage = lazy(() => import('./pages/SecurityAuditPage'))
 const SecurityPage = lazy(() => import('./pages/SecurityPage'))
 const SecurityManagementPage = lazy(() => import('./pages/SecurityManagementPage'))
+const SecurityManagementEnhancedPage = lazy(() => import('./pages/SecurityManagementEnhancedPage'))
 const DistributedSecurityMonitorPage = lazy(() => import('./pages/DistributedSecurityMonitorPage'))
 
 // 监控与日志
@@ -310,6 +342,9 @@ const LearningRateSchedulerPage = lazy(() => import('./pages/qlearning/LearningR
 const EarlyStoppingPage = lazy(() => import('./pages/qlearning/EarlyStoppingPage'))
 const PerformanceTrackerPage = lazy(() => import('./pages/qlearning/PerformanceTrackerPage'))
 
+// TensorFlow模型管理页面
+const TensorFlowManagementPage = lazy(() => import('./pages/TensorFlowManagementPage'))
+
 // 新增缺失页面（去重后）
 const ConflictResolutionLearningPage = lazy(() => import('./pages/ConflictResolutionLearningPage'))
 const SyncEngineLearningPage = lazy(() => import('./pages/SyncEngineLearningPage'))
@@ -327,6 +362,9 @@ const FileManagementAdvancedPage = lazy(() => import('./pages/FileManagementAdva
 const DistributedEventsPage = lazy(() => import('./pages/DistributedEventsPage'))
 const LangGraph065Page = lazy(() => import('./pages/LangGraph065Page'))
 const MultimodalRagPage = lazy(() => import('./pages/MultimodalRagPage'))
+const MultimodalRagManagementPage = lazy(() => import('./pages/MultimodalRagManagementPage'))
+const DocumentManagementPageComplete = lazy(() => import('./pages/DocumentManagementPageComplete'))
+const RealtimeMetricsManagementPage = lazy(() => import('./pages/RealtimeMetricsManagementPage'))
 
 // 个性化引擎页面
 const PersonalizationEnginePage = lazy(() => import('./pages/PersonalizationEnginePage'))
@@ -337,6 +375,7 @@ const PersonalizationApiPage = lazy(() => import('./pages/PersonalizationApiPage
 const PersonalizationAlertsPage = lazy(() => import('./pages/PersonalizationAlertsPage'))
 const PersonalizationProductionPage = lazy(() => import('./pages/PersonalizationProductionPage'))
 const PersonalizationWebSocketPage = lazy(() => import('./pages/PersonalizationWebSocketPage'))
+const WebSocketManagementPage = lazy(() => import('./pages/WebSocketManagementPage'))
 
 // 高级情感智能系统页面 (Story 11.1 & 11.2)
 const EmotionRecognitionOverviewPage = lazy(() => import('./pages/EmotionRecognitionOverviewPage'))
@@ -347,6 +386,7 @@ const MultiModalEmotionFusionPage = lazy(() => import('./pages/MultiModalEmotion
 const EmotionModelingPage = lazy(() => import('./pages/EmotionModelingPage'))
 
 // 情感记忆管理系统 (Story 11.4)
+const EmotionalMemoryPage = lazy(() => import('./pages/EmotionalMemoryPage'))
 const EmotionalMemoryManagementPage = lazy(() => import('./pages/EmotionalMemoryManagementPage'))
 const EmotionalEventAnalysisPage = lazy(() => import('./pages/EmotionalEventAnalysisPage'))
 
@@ -363,11 +403,21 @@ const EmpathyResponseGeneratorPage = lazy(() => import('./pages/EmpathyResponseG
 const GroupEmotionAnalysisPage = lazy(() => import('./pages/GroupEmotionAnalysisPage'))
 const RelationshipDynamicsPage = lazy(() => import('./pages/RelationshipDynamicsPage'))
 const SocialContextAdaptationPage = lazy(() => import('./pages/SocialContextAdaptationPage'))
+const SocialEmotionalUnderstandingPage = lazy(() => import('./pages/SocialEmotionalUnderstandingPage'))
 const CulturalAdaptationPage = lazy(() => import('./pages/CulturalAdaptationPage'))
 const SocialIntelligenceDecisionPage = lazy(() => import('./pages/SocialIntelligenceDecisionPage'))
 
 // A/B测试实验平台页面
 const ExperimentListPage = lazy(() => import('./pages/experiments/ExperimentListPage'))
+
+// 新增未使用API模块页面
+const ServiceDiscoveryManagementPage = lazy(() => import('./pages/ServiceDiscoveryManagementPage'))
+const OfflineManagementPage = lazy(() => import('./pages/OfflineManagementPage'))
+const TrafficRampManagementPage = lazy(() => import('./pages/TrafficRampManagementPage'))
+const LayeredExperimentsManagementPage = lazy(() => import('./pages/LayeredExperimentsManagementPage'))
+const PowerAnalysisPage = lazy(() => import('./pages/PowerAnalysisPage'))
+const DescriptiveStatisticsPage = lazy(() => import('./pages/DescriptiveStatisticsPage'))
+const MultipleTestingCorrectionPage = lazy(() => import('./pages/MultipleTestingCorrectionPage'))
 const ExperimentDashboardPage = lazy(() => import('./pages/experiments/ExperimentDashboardPage'))
 const StatisticalAnalysisPage = lazy(() => import('./pages/experiments/StatisticalAnalysisPage'))
 const TrafficAllocationPage = lazy(() => import('./pages/experiments/TrafficAllocationPage'))
@@ -378,6 +428,7 @@ const AdvancedAlgorithmsPage = lazy(() => import('./pages/experiments/AdvancedAl
 
 // 行为分析系统
 const BehaviorAnalyticsPage = lazy(() => import('./pages/BehaviorAnalyticsPage'))
+const BehaviorAnalyticsPageEnhanced = lazy(() => import('./pages/BehaviorAnalyticsPageEnhanced'))
 const EventDataManagePage = lazy(() => import('./pages/behavior-analytics/EventDataManagePage'))
 const SessionManagePage = lazy(() => import('./pages/behavior-analytics/SessionManagePage'))
 const ReportCenterPage = lazy(() => import('./pages/behavior-analytics/ReportCenterPage'))
@@ -395,6 +446,8 @@ const RLSystemHealthPage = lazy(() => import('./pages/RLSystemHealthPage'))
 
 // 模型评估和基准测试系统 (Story 9.4)
 const ModelEvaluationOverviewPage = lazy(() => import('./pages/ModelEvaluationOverviewPage'))
+const ModelEvaluationManagementPage = lazy(() => import('./pages/ModelEvaluationManagementPage'))
+const MemoryManagementMonitorPage = lazy(() => import('./pages/MemoryManagementMonitorPage'))
 const EvaluationEngineManagementPage = lazy(() => import('./pages/EvaluationEngineManagementPage'))
 const EvaluationTasksMonitorPage = lazy(() => import('./pages/EvaluationTasksMonitorPage'))
 const EvaluationReportsCenterPage = lazy(() => import('./pages/EvaluationReportsCenterPage'))
@@ -420,10 +473,12 @@ const ModelRegistryPage = lazy(() => import('./pages/ModelRegistryPage'))
 const ModelInferencePage = lazy(() => import('./pages/ModelInferencePage'))
 const ModelDeploymentPage = lazy(() => import('./pages/ModelDeploymentPage'))
 const ModelMonitoringPage = lazy(() => import('./pages/ModelMonitoringPage'))
+const ModelServiceManagementPage = lazy(() => import('./pages/ModelServiceManagementPage'))
 const OnlineLearningPage = lazy(() => import('./pages/OnlineLearningPage'))
 
 // 自动化超参数优化系统 (Story 9.3)
 const HyperparameterOptimizationPage = lazy(() => import('./pages/HyperparameterOptimizationPage'))
+const HyperparameterOptimizationPageEnhanced = lazy(() => import('./pages/HyperparameterOptimizationPageEnhanced'))
 const HyperparameterExperimentsPage = lazy(() => import('./pages/HyperparameterExperimentsPage'))
 const HyperparameterAlgorithmsPage = lazy(() => import('./pages/HyperparameterAlgorithmsPage'))
 const HyperparameterVisualizationsPage = lazy(() => import('./pages/HyperparameterVisualizationsPage'))
@@ -434,6 +489,7 @@ const HyperparameterReportsPage = lazy(() => import('./pages/HyperparameterRepor
 
 // 训练数据管理系统 (Story 9.5)
 const TrainingDataManagementPage = lazy(() => import('./pages/TrainingDataManagementPage'))
+const TrainingDataManagementPageEnhanced = lazy(() => import('./pages/TrainingDataManagementPageEnhanced'))
 const DataSourceManagementPage = lazy(() => import('./pages/DataSourceManagementPage'))
 const DataCollectionPage = lazy(() => import('./pages/DataCollectionPage'))
 const DataPreprocessingPage = lazy(() => import('./pages/DataPreprocessingPage'))
@@ -447,16 +503,20 @@ const { Title, Text } = Typography
 
 const App: React.FC = () => {
   const [collapsed, setCollapsed] = useState(false)
+  const [siderBroken, setSiderBroken] = useState(false)
   const navigate = useNavigate()
   const location = useLocation()
+  const hideSider = location.pathname === '/multi-step-reasoning'
 
   const getSelectedKey = () => {
     const path = location.pathname
+    if (path === '/history') return 'chat-history'
     if (path === '/multi-agent') return 'multi-agent'
     if (path === '/supervisor') return 'supervisor'
     if (path === '/async-agents') return 'async-agents'
     if (path === '/agent-interface') return 'agent-interface'
     if (path === '/agent-cluster-management') return 'agent-cluster-management'
+    if (path === '/agent-cluster-management-enhanced') return 'agent-cluster-management-enhanced'
     
     // 智能代理服务发现系统 (Story 10.1)
     if (path === '/service-discovery-overview') return 'service-discovery-overview'
@@ -485,6 +545,7 @@ const App: React.FC = () => {
     if (path === '/conflict-resolver') return 'conflict-resolver'
     if (path === '/distributed-task-monitor') return 'distributed-task-monitor'
     if (path === '/distributed-task-system-status') return 'distributed-task-system-status'
+    if (path === '/distributed-task-management-enhanced') return 'distributed-task-management-enhanced'
     
     if (path === '/dag-orchestrator') return 'dag-orchestrator'
     if (path === '/flow-control') return 'flow-control'
@@ -524,6 +585,7 @@ const App: React.FC = () => {
     if (path === '/reasoning') return 'reasoning'
     if (path === '/multi-step-reasoning') return 'multi-step-reasoning'
     if (path === '/explainable-ai') return 'explainable-ai'
+    if (path === '/targeting-rules') return 'targeting-rules'
     if (path === '/offline') return 'offline'
     if (path === '/sync') return 'sync-management'
     if (path === '/conflicts') return 'conflict-resolution'
@@ -531,6 +593,7 @@ const App: React.FC = () => {
     if (path === '/network-monitor') return 'network-monitor-detail'
     if (path === '/sync-engine') return 'sync-engine-internal'
     if (path === '/model-cache') return 'model-cache-monitor'
+    if (path === '/assignment-cache') return 'assignment-cache'
     if (path === '/bandit-recommendation') return 'bandit-recommendation'
     if (path === '/qlearning') return 'qlearning-dashboard'
     if (path === '/qlearning-training') return 'qlearning-training'
@@ -588,13 +651,25 @@ const App: React.FC = () => {
     if (path === '/distributed-events') return 'distributed-events-system'
     if (path === '/langgraph-065') return 'langgraph-065'
     if (path === '/multimodal-rag') return 'multimodal-rag-system'
+    if (path === '/multimodal-rag-management') return 'multimodal-rag-management'
+    if (path === '/document-management-complete') return 'document-management-complete'
+    if (path === '/realtime-metrics-management') return 'realtime-metrics-management'
     
     // A/B测试实验平台路径映射
     if (path === '/experiments') return 'experiment-list'
     if (path === '/experiments/dashboard') return 'experiment-dashboard'
+    if (path === '/experiments/enhanced-analysis') return 'enhanced-experiment-analysis'
     if (path === '/experiments/statistical-analysis') return 'statistical-analysis'
     if (path === '/experiments/traffic-allocation') return 'traffic-allocation'
     if (path === '/experiments/event-tracking') return 'event-tracking'
+    if (path === '/experiments/traffic-ramp') return 'traffic-ramp-management'
+    if (path === '/experiments/power-analysis') return 'power-analysis'
+    if (path === '/experiments/multiple-testing') return 'multiple-testing-correction'
+    if (path === '/experiments/layered-experiments') return 'layered-experiments-management'
+
+    // 服务发现与离线管理路径映射
+    if (path === '/service-discovery-management') return 'service-discovery-management'
+    if (path === '/offline-management') return 'offline-management'
     if (path === '/experiments/release-strategy') return 'release-strategy'
     if (path === '/experiments/monitoring-alerts') return 'monitoring-alerts'
     if (path === '/experiments/advanced-algorithms') return 'advanced-algorithms'
@@ -616,6 +691,7 @@ const App: React.FC = () => {
     if (path === '/personalization-alerts') return 'personalization-alerts'
     if (path === '/personalization-production') return 'personalization-production'
     if (path === '/personalization-websocket') return 'personalization-websocket'
+    if (path === '/websocket-management') return 'websocket-management'
     
     // 高级情感智能系统路径映射
     if (path === '/emotion-recognition-overview') return 'emotion-recognition-overview'
@@ -678,6 +754,8 @@ const App: React.FC = () => {
     
     // LoRA/QLoRA微调框架路径处理
     if (path === '/fine-tuning-jobs') return 'fine-tuning-jobs'
+    if (path === '/fine-tuning') return 'fine-tuning-management'
+    if (path === '/fine-tuning-enhanced') return 'fine-tuning-enhanced'
     if (path === '/lora-training-overview') return 'lora-training-overview'
     if (path === '/lora-config-templates') return 'lora-config-templates'
     if (path === '/lora-model-adapters') return 'lora-model-adapters'
@@ -687,12 +765,18 @@ const App: React.FC = () => {
     if (path === '/qlora-memory-optimization') return 'qlora-memory-optimization'
     if (path === '/qlora-inference-optimization') return 'qlora-inference-optimization'
     if (path === '/distributed-training-overview') return 'distributed-training-overview'
+    if (path === '/auto-scaling-management') return 'auto-scaling-management'
+    if (path === '/risk-assessment-dashboard') return 'risk-assessment-dashboard'
+    if (path === '/statistical-analysis-dashboard') return 'statistical-analysis-dashboard'
     if (path === '/deepspeed-configuration') return 'deepspeed-configuration'
     if (path === '/multi-gpu-monitoring') return 'multi-gpu-monitoring'
     if (path === '/training-synchronization') return 'training-synchronization'
     if (path === '/training-dashboard') return 'training-dashboard'
     if (path === '/training-metrics') return 'training-metrics'
     if (path === '/training-anomaly-detection') return 'training-anomaly-detection'
+    if (path === '/anomaly-detection') return 'anomaly-detection'
+    if (path === '/auto-scaling') return 'auto-scaling'
+    if (path === '/batch-operations') return 'batch-operations'  // Could also be 'batch-jobs-management' depending on context
     if (path === '/training-reports') return 'training-reports'
     if (path === '/supported-models') return 'supported-models'
     if (path === '/model-checkpoints') return 'model-checkpoints'
@@ -700,6 +784,7 @@ const App: React.FC = () => {
     if (path === '/model-deployment') return 'model-deployment'
     // 训练数据管理系统路径匹配
     if (path === '/training-data-management') return 'training-data-overview'
+    if (path === '/training-data-enhanced') return 'training-data-enhanced'
     if (path === '/data-sources') return 'data-sources'
     if (path === '/data-collection') return 'data-collection'
     if (path === '/data-preprocessing') return 'data-preprocessing'
@@ -724,6 +809,7 @@ const App: React.FC = () => {
     
     // 自动化超参数优化系统路径匹配
     if (path === '/hyperparameter-optimization') return 'hyperparameter-optimization-dashboard'
+    if (path === '/hyperparameter-optimization-enhanced') return 'hyperparameter-optimization-enhanced'
     if (path === '/hyperparameter-experiments') return 'hyperparameter-experiments'
     if (path === '/hyperparameter-algorithms') return 'hyperparameter-algorithms'
     if (path === '/hyperparameter-visualizations') return 'hyperparameter-visualizations'
@@ -731,6 +817,11 @@ const App: React.FC = () => {
     if (path === '/hyperparameter-resources') return 'hyperparameter-resources'
     if (path === '/hyperparameter-scheduler') return 'hyperparameter-scheduler'
     if (path === '/hyperparameter-reports') return 'hyperparameter-reports'
+    
+    // 新增缺失页面路径匹配
+    if (path === '/testing-management') return 'testing-management'
+    if (path === '/hypothesis-testing') return 'hypothesis-testing'
+    if (path === '/emotional-memory-management') return 'emotional-memory-management'
     
     return 'chat'
   }
@@ -748,9 +839,29 @@ const App: React.FC = () => {
       label: '单代理对话 (React Agent)',
     },
     {
+      key: 'chat-history',
+      icon: <HistoryOutlined />,
+      label: '历史记录',
+    },
+    {
       key: 'multi-agent',
       icon: <TeamOutlined />,
       label: '多代理协作 (AutoGen v0.4)',
+    },
+    {
+      key: 'tensorflow-qlearning',
+      icon: <RobotOutlined />,
+      label: 'TensorFlow Q学习管理',
+    },
+    {
+      key: 'testing-management',
+      icon: <BugOutlined />,
+      label: '测试管理系统',
+    },
+    {
+      key: 'hypothesis-testing',
+      icon: <FunctionOutlined />,
+      label: '假设检验统计',
     },
     {
       key: 'supervisor',
@@ -771,6 +882,38 @@ const App: React.FC = () => {
       key: 'agent-cluster-management',
       icon: <ClusterOutlined />,
       label: '智能体集群管理平台',
+    },
+    {
+      key: 'agent-cluster-management-enhanced',
+      icon: <ThunderboltOutlined />,
+      label: '智能集群管理平台(增强)',
+    },
+
+    // 🚀 增强版页面
+    {
+      key: 'enhanced-pages-group',
+      label: '🚀 增强版功能展示',
+      type: 'group' as const,
+    },
+    {
+      key: 'multi-agent-enhanced',
+      icon: <TeamOutlined />,
+      label: '多智能体协作系统(增强版)',
+    },
+    {
+      key: 'rag-enhanced',
+      icon: <FileTextOutlined />,
+      label: 'RAG检索增强生成(增强版)',
+    },
+    {
+      key: 'experiments-platform',
+      icon: <ExperimentOutlined />,
+      label: 'A/B测试实验平台',
+    },
+    {
+      key: 'workflow-management',
+      icon: <BranchesOutlined />,
+      label: '工作流管理系统',
     },
 
     // 🌐 智能代理服务发现系统 (Story 10.1)
@@ -823,6 +966,16 @@ const App: React.FC = () => {
           key: 'service-config-management',
           icon: <SettingOutlined />,
           label: '服务配置管理',
+        },
+        {
+          key: 'service-discovery-management',
+          icon: <ApiOutlined />,
+          label: '服务发现管理中心',
+        },
+        {
+          key: 'offline-management',
+          icon: <SyncOutlined />,
+          label: '离线管理',
         },
       ],
     },
@@ -1153,6 +1306,11 @@ const App: React.FC = () => {
       icon: <BulbOutlined />,
       label: '可解释AI决策 (XAI)',
     },
+    {
+      key: 'targeting-rules',
+      icon: <TagsOutlined />,
+      label: '定向规则管理',
+    },
 
     // 🧠 知识图推理引擎 (Story 8.3)
     {
@@ -1430,6 +1588,21 @@ const App: React.FC = () => {
           icon: <CheckCircleOutlined />,
           label: '图验证API',
         },
+        {
+          key: 'basic-rag-management',
+          icon: <DatabaseOutlined />,
+          label: '基础RAG管理',
+        },
+        {
+          key: 'supervisor-api-management',
+          icon: <ControlOutlined />,
+          label: '监督者API管理',
+        },
+        {
+          key: 'platform-api-management',
+          icon: <CloudServerOutlined />,
+          label: '平台API管理',
+        },
       ],
     },
     {
@@ -1562,6 +1735,11 @@ const App: React.FC = () => {
       icon: <DashboardOutlined />,
       label: '记忆分析仪表板 (Memory Analytics)',
     },
+    {
+      key: 'memory-management-monitor',
+      icon: <MonitorOutlined />,
+      label: '记忆管理监控 (Memory Management Monitor)',
+    },
 
     // 🌐 多模态处理
     {
@@ -1589,6 +1767,21 @@ const App: React.FC = () => {
           key: 'multimodal-rag-system',
           icon: <SearchOutlined />,
           label: '多模态RAG系统',
+        },
+        {
+          key: 'multimodal-rag-management',
+          icon: <ThunderboltOutlined />,
+          label: '多模态RAG管理',
+        },
+        {
+          key: 'document-management-complete',
+          icon: <FileTextOutlined />,
+          label: '智能文档管理',
+        },
+        {
+          key: 'realtime-metrics-management',
+          icon: <LineChartOutlined />,
+          label: '实时指标监控',
         },
       ],
     },
@@ -1662,6 +1855,11 @@ const App: React.FC = () => {
       key: 'documentation-management',
       icon: <FileTextOutlined />,
       label: '文档管理',
+    },
+    {
+      key: 'realtime-communication',
+      icon: <WifiOutlined />,
+      label: '实时通信系统',
     },
 
     // ⚡ 工作流引擎
@@ -1739,6 +1937,11 @@ const App: React.FC = () => {
       icon: <DashboardOutlined />,
       label: '系统状态',
     },
+    {
+      key: 'distributed-task-management-enhanced',
+      icon: <SettingOutlined />,
+      label: '任务管理增强',
+    },
 
     {
       key: 'dag-orchestrator',
@@ -1768,9 +1971,9 @@ const App: React.FC = () => {
       label: '批处理系统',
       children: [
         {
-          key: 'batch-jobs',
+          key: 'batch-jobs-management',
           icon: <CloudServerOutlined />,
-          label: '批处理作业',
+          label: '批处理作业管理',
         },
         {
           key: 'batch-jobs-basic',
@@ -1804,7 +2007,7 @@ const App: React.FC = () => {
     {
       key: 'offline-sync',
       icon: <CloudServerOutlined />,
-      label: '离线同步系统',
+      label: '🔄 离线能力与同步',
       children: [
         {
           key: 'offline',
@@ -1839,7 +2042,7 @@ const App: React.FC = () => {
         {
           key: 'sync-engine-internal',
           icon: <SettingOutlined />,
-          label: '同步引擎内部',
+          label: '同步引擎内部机制',
         },
         {
           key: 'sync-engine-learning',
@@ -1898,6 +2101,11 @@ const App: React.FC = () => {
           label: '监控仪表板',
         },
         {
+          key: 'websocket-management',
+          icon: <WifiOutlined />,
+          label: 'WebSocket管理',
+        },
+        {
           key: 'cache-monitor',
           icon: <ThunderboltOutlined />,
           label: '缓存监控',
@@ -1905,7 +2113,12 @@ const App: React.FC = () => {
         {
           key: 'model-cache-monitor',
           icon: <DatabaseOutlined />,
-          label: '模型缓存监控',
+          label: '本地模型缓存监控',
+        },
+        {
+          key: 'assignment-cache',
+          icon: <UserOutlined />,
+          label: '用户分配缓存',
         },
         {
           key: 'network-monitor-detail',
@@ -1940,6 +2153,16 @@ const App: React.FC = () => {
           key: 'security',
           icon: <SafetyOutlined />,
           label: '安全管理中心',
+        },
+        {
+          key: 'risk-assessment-dashboard',
+          icon: <WarningOutlined />,
+          label: '风险评估与回滚',
+        },
+        {
+          key: 'statistical-analysis-dashboard',
+          icon: <BarChartOutlined />,
+          label: '统计分析仪表板',
         },
         {
           key: 'security-audit-system',
@@ -2069,6 +2292,11 @@ const App: React.FC = () => {
           icon: <DashboardOutlined />,
           label: '实验仪表板',
         },
+        {
+          key: 'enhanced-experiment-analysis',
+          icon: <BarChartOutlined />,
+          label: '增强实验分析',
+        },
       ],
     },
     // 流量管理
@@ -2082,6 +2310,11 @@ const App: React.FC = () => {
           icon: <ShareAltOutlined />,
           label: '流量分配管理',
         },
+        {
+          key: 'traffic-ramp-management',
+          icon: <RocketOutlined />,
+          label: '流量爬坡管理',
+        },
       ],
     },
     // 数据分析
@@ -2094,6 +2327,21 @@ const App: React.FC = () => {
           key: 'statistical-analysis',
           icon: <BarChartOutlined />,
           label: '统计分析',
+        },
+        {
+          key: 'power-analysis',
+          icon: <FunctionOutlined />,
+          label: '统计功效分析',
+        },
+        {
+          key: 'multiple-testing-correction',
+          icon: <ScissorOutlined />,
+          label: '多重检验校正',
+        },
+        {
+          key: 'layered-experiments-management',
+          icon: <BranchesOutlined />,
+          label: '分层实验管理',
         },
       ],
     },
@@ -2134,6 +2382,16 @@ const App: React.FC = () => {
           icon: <MonitorOutlined />,
           label: '监控告警系统',
         },
+        {
+          key: 'anomaly-detection',
+          icon: <AlertOutlined />,
+          label: '异常检测系统',
+        },
+        {
+          key: 'auto-scaling',
+          icon: <ThunderboltOutlined />,
+          label: '自动扩量管理',
+        },
       ],
     },
     // 高级算法
@@ -2160,6 +2418,16 @@ const App: React.FC = () => {
       key: 'fine-tuning-jobs',
       icon: <UnorderedListOutlined />,
       label: '微调任务管理',
+    },
+    {
+      key: 'fine-tuning-management',
+      icon: <ExperimentOutlined />,
+      label: '模型微调中心',
+    },
+    {
+      key: 'fine-tuning-enhanced',
+      icon: <RocketOutlined />,
+      label: '高级微调管理中心',
     },
     {
       key: 'lora-training',
@@ -2224,6 +2492,11 @@ const App: React.FC = () => {
           key: 'distributed-training-overview',
           icon: <GlobalOutlined />,
           label: '分布式训练总览',
+        },
+        {
+          key: 'auto-scaling-management',
+          icon: <ThunderboltOutlined />,
+          label: '自动扩缩容管理',
         },
         {
           key: 'deepspeed-configuration',
@@ -2294,6 +2567,11 @@ const App: React.FC = () => {
           icon: <CloudServerOutlined />,
           label: '模型部署管理',
         },
+        {
+          key: 'model-service-management',
+          icon: <ApiOutlined />,
+          label: '模型服务管理',
+        },
       ],
     },
     {
@@ -2305,6 +2583,11 @@ const App: React.FC = () => {
           key: 'training-data-overview',
           icon: <DashboardOutlined />,
           label: '数据管理总览',
+        },
+        {
+          key: 'training-data-enhanced',
+          icon: <RocketOutlined />,
+          label: '增强训练数据管理',
         },
         {
           key: 'data-sources',
@@ -2426,6 +2709,11 @@ const App: React.FC = () => {
           key: 'hyperparameter-optimization-dashboard',
           icon: <DashboardOutlined />,
           label: '实验管理中心',
+        },
+        {
+          key: 'hyperparameter-optimization-enhanced',
+          icon: <ThunderboltOutlined />,
+          label: '增强管理中心',
         },
         {
           key: 'hyperparameter-experiments',
@@ -2595,6 +2883,11 @@ const App: React.FC = () => {
           label: '社交情境适应',
         },
         {
+          key: 'social-emotional-understanding-system',
+          icon: <TeamOutlined />,
+          label: '社交情感理解管理',
+        },
+        {
           key: 'cultural-adaptation',
           icon: <CompassOutlined />,
           label: '文化背景适应',
@@ -2610,76 +2903,97 @@ const App: React.FC = () => {
 
   return (
     <Layout style={{ minHeight: '100vh' }}>
-      <Sider
-        trigger={null}
-        collapsible
-        collapsed={collapsed}
-        width={280}
-        collapsedWidth={80}
-        style={{ 
-          background: '#fff', 
-          borderRight: '1px solid #e8e8e8'
-        }}
-      >
-        <div style={{ 
-          padding: '16px', 
-          borderBottom: '1px solid #e8e8e8',
-          textAlign: collapsed ? 'center' : 'left',
-          height: 'auto',
-          minHeight: 'auto'
-        }}>
-          <Space align="center" style={{ justifyContent: collapsed ? 'center' : 'flex-start' }}>
-            <Avatar 
-              size={collapsed ? 32 : 40} 
-              icon={<RobotOutlined />} 
-              style={{ backgroundColor: '#1890ff' }}
-            />
-            {!collapsed && (
-              <div>
-                <Title level={5} style={{ margin: 0 }}>AI Agent</Title>
-                <Text type="secondary" style={{ fontSize: '12px' }}>完整技术架构映射</Text>
-              </div>
-            )}
-          </Space>
-        </div>
-        
-        {/* 为E2E测试提供的反馈导航链接 */}
-        <div 
-          data-testid="nav-feedback" 
-          onClick={() => navigate('/feedback-system')}
-          style={{ 
-            position: 'fixed', 
-            top: '10px', 
-            left: '10px', 
-            width: '10px', 
-            height: '10px', 
-            opacity: 0.01,
-            pointerEvents: 'auto',
-            zIndex: 9999,
-            backgroundColor: 'transparent'
+      {!hideSider && (
+        <Sider
+          data-testid="sidebar"
+          trigger={null}
+          collapsible
+          collapsed={collapsed}
+          breakpoint="lg"
+          onBreakpoint={(broken) => {
+            setSiderBroken(broken)
+            setCollapsed(broken)
           }}
-        />
-        
+          width={280}
+          collapsedWidth={siderBroken ? 0 : 80}
+          style={{ 
+            background: '#fff', 
+            borderRight: siderBroken && collapsed ? 'none' : '1px solid #e8e8e8',
+            position: 'sticky',
+            top: 0,
+            height: '100vh',
+            overflow: 'auto',
+            display: 'flex',
+            flexDirection: 'column'
+          }}
+        >
+          <div style={{ 
+            padding: '16px', 
+            borderBottom: '1px solid #e8e8e8',
+            textAlign: collapsed ? 'center' : 'left',
+            height: 'auto',
+            minHeight: 'auto'
+          }}>
+            <Space align="center" style={{ justifyContent: collapsed ? 'center' : 'flex-start' }}>
+              <Avatar 
+                size={collapsed ? 32 : 40} 
+                icon={<RobotOutlined />} 
+                style={{ backgroundColor: '#1890ff' }}
+              />
+              {!collapsed && (
+                <div>
+                  <Title level={5} style={{ margin: 0 }}>AI Agent</Title>
+                  <Text type="secondary" style={{ fontSize: '12px' }}>完整技术架构映射</Text>
+                </div>
+              )}
+            </Space>
+          </div>
+          
+          {/* 为E2E测试提供的反馈导航链接 */}
+          <div 
+            data-testid="nav-feedback" 
+            onClick={() => navigate('/feedback-system')}
+            style={{ 
+              position: 'fixed', 
+              top: '10px', 
+              left: '10px', 
+              width: '10px', 
+              height: '10px', 
+              opacity: 0.01,
+              pointerEvents: 'auto',
+              zIndex: 9999,
+              backgroundColor: 'transparent'
+            }}
+          />
+          
         <Menu
           mode="inline"
           selectedKeys={[getSelectedKey()]}
           items={menuItems}
           style={{ 
             border: 'none',
-            height: 'calc(100vh - 76px)',
-            minHeight: 'calc(100vh - 76px)',
+            flex: 1,
+            minHeight: 0,
             overflowY: 'auto',
             background: '#fff'
           }}
           onClick={({ key }) => {
             switch (key) {
               case 'chat': navigate('/chat'); break;
+              case 'chat-history': navigate('/history'); break;
               case 'multi-agent': navigate('/multi-agent'); break;
               case 'supervisor': navigate('/supervisor'); break;
               case 'async-agents': navigate('/async-agents'); break;
               case 'agent-interface': navigate('/agent-interface'); break;
               case 'agent-cluster-management': navigate('/agent-cluster-management'); break;
-              
+              case 'agent-cluster-management-enhanced': navigate('/agent-cluster-management-enhanced'); break;
+
+              // 增强版页面导航
+              case 'multi-agent-enhanced': navigate('/multi-agent-enhanced'); break;
+              case 'rag-enhanced': navigate('/rag-enhanced'); break;
+              case 'experiments-platform': navigate('/experiments-platform'); break;
+              case 'workflow-management': navigate('/workflow-management'); break;
+
               // 智能代理服务发现系统导航
               case 'service-discovery-overview': navigate('/service-discovery-overview'); break;
               case 'agent-registry-management': navigate('/agent-registry'); break;
@@ -2721,10 +3035,11 @@ const App: React.FC = () => {
               case 'conflict-resolver': navigate('/conflict-resolver'); break;
               case 'distributed-task-monitor': navigate('/distributed-task-monitor'); break;
               case 'distributed-task-system-status': navigate('/distributed-task-system-status'); break;
+              case 'distributed-task-management-enhanced': navigate('/distributed-task-management-enhanced'); break;
               
               case 'dag-orchestrator': navigate('/dag-orchestrator'); break;
               case 'flow-control': navigate('/flow-control'); break;
-              case 'streaming': navigate('/streaming'); break;
+              case 'streaming': navigate('/streaming-monitor'); break;
               case 'batch-jobs': navigate('/batch'); break;
               case 'unified-engine': navigate('/unified-engine'); break;
               case 'ai-trism': navigate('/ai-trism'); break;
@@ -2739,6 +3054,7 @@ const App: React.FC = () => {
               case 'performance': navigate('/performance'); break;
               case 'monitor': navigate('/monitor'); break;
               case 'monitoring-dashboard': navigate('/monitoring-dashboard'); break;
+              case 'websocket-management': navigate('/websocket-management'); break;
               case 'pgvector': navigate('/pgvector'); break;
               case 'pgvector-quantization': navigate('/pgvector'); break;
               case 'cache-monitor': navigate('/cache'); break;
@@ -2754,6 +3070,7 @@ const App: React.FC = () => {
               case 'reasoning': navigate('/reasoning'); break;
               case 'multi-step-reasoning': navigate('/multi-step-reasoning'); break;
               case 'explainable-ai': navigate('/explainable-ai'); break;
+              case 'targeting-rules': navigate('/targeting-rules'); break;
               case 'memory-hierarchy': navigate('/memory-hierarchy'); break;
               case 'memory-recall': navigate('/memory-recall'); break;
               case 'memory-analytics': navigate('/memory-analytics'); break;
@@ -2764,6 +3081,7 @@ const App: React.FC = () => {
               case 'network-monitor-detail': navigate('/network-monitor'); break;
               case 'sync-engine-internal': navigate('/sync-engine'); break;
               case 'model-cache-monitor': navigate('/model-cache'); break;
+              case 'assignment-cache': navigate('/assignment-cache'); break;
               case 'bandit-recommendation': navigate('/bandit-recommendation'); break;
               // Q-Learning算法家族
               case 'qlearning': navigate('/qlearning'); break;
@@ -2776,6 +3094,15 @@ const App: React.FC = () => {
               case 'qlearning-tabular': navigate('/qlearning/tabular'); break;
               case 'qlearning-dqn': navigate('/qlearning/dqn'); break;
               case 'qlearning-variants': navigate('/qlearning/variants'); break;
+              
+              // TensorFlow Q-Learning管理
+              case 'tensorflow-qlearning': navigate('/tensorflow-qlearning'); break;
+              
+              // 测试管理系统
+              case 'testing-management': navigate('/testing-management'); break;
+              
+              // 假设检验统计
+              case 'hypothesis-testing': navigate('/hypothesis-testing'); break;
               
               // 探索策略系统
               case 'exploration-strategies': navigate('/exploration-strategies'); break;
@@ -2835,16 +3162,28 @@ const App: React.FC = () => {
               case 'distributed-events-system': navigate('/distributed-events'); break;
               case 'langgraph-065': navigate('/langgraph-065'); break;
               case 'multimodal-rag-system': navigate('/multimodal-rag'); break;
+              case 'multimodal-rag-management': navigate('/multimodal-rag-management'); break;
+              case 'document-management-complete': navigate('/document-management-complete'); break;
+              case 'realtime-metrics-management': navigate('/realtime-metrics-management'); break;
               
               // A/B测试实验平台导航
               case 'experiment-list': navigate('/experiments'); break;
               case 'experiment-dashboard': navigate('/experiments/dashboard'); break;
+              case 'enhanced-experiment-analysis': navigate('/experiments/enhanced-analysis'); break;
               case 'statistical-analysis': navigate('/experiments/statistical-analysis'); break;
               case 'traffic-allocation': navigate('/experiments/traffic-allocation'); break;
               case 'event-tracking': navigate('/experiments/event-tracking'); break;
+              case 'traffic-ramp-management': navigate('/experiments/traffic-ramp'); break;
+              case 'power-analysis': navigate('/experiments/power-analysis'); break;
+              case 'multiple-testing-correction': navigate('/experiments/multiple-testing'); break;
+              case 'layered-experiments-management': navigate('/experiments/layered-experiments'); break;
               case 'release-strategy': navigate('/experiments/release-strategy'); break;
               case 'monitoring-alerts': navigate('/experiments/monitoring-alerts'); break;
               case 'advanced-algorithms': navigate('/experiments/advanced-algorithms'); break;
+
+              // 服务发现与离线管理导航
+              case 'service-discovery-management': navigate('/service-discovery-management'); break;
+              case 'offline-management': navigate('/offline-management'); break;
               
               // 强化学习系统监控导航
               case 'rl-system-dashboard': navigate('/rl-system-dashboard'); break;
@@ -2875,7 +3214,11 @@ const App: React.FC = () => {
               case 'entity-api': navigate('/entity-api'); break;
               case 'relation-api': navigate('/relation-api'); break;
               case 'batch-operations': navigate('/batch-operations'); break;
+              case 'batch-jobs-management': navigate('/batch-operations'); break;
               case 'graph-validation': navigate('/graph-validation'); break;
+              case 'basic-rag-management': navigate('/basic-rag-management'); break;
+              case 'supervisor-api-management': navigate('/supervisor-api-management'); break;
+              case 'platform-api-management': navigate('/platform-api-management'); break;
               
               // 数据导入导出
               case 'rdf-import-export': navigate('/rdf-import-export'); break;
@@ -2935,6 +3278,8 @@ const App: React.FC = () => {
               
               // LoRA/QLoRA微调框架导航
               case 'fine-tuning-jobs': navigate('/fine-tuning-jobs'); break;
+              case 'fine-tuning-management': navigate('/fine-tuning'); break;
+              case 'fine-tuning-enhanced': navigate('/fine-tuning-enhanced'); break;
               case 'lora-training': navigate('/lora-training'); break;
               case 'lora-training-overview': navigate('/lora-training-overview'); break;
               case 'lora-config-templates': navigate('/lora-config-templates'); break;
@@ -2954,6 +3299,8 @@ const App: React.FC = () => {
               case 'training-dashboard': navigate('/training-dashboard'); break;
               case 'training-metrics': navigate('/training-metrics'); break;
               case 'training-anomaly-detection': navigate('/training-anomaly-detection'); break;
+              case 'anomaly-detection': navigate('/anomaly-detection'); break;
+              case 'auto-scaling': navigate('/auto-scaling'); break;
               case 'training-reports': navigate('/training-reports'); break;
               case 'model-management': navigate('/model-management'); break;
               case 'supported-models': navigate('/supported-models'); break;
@@ -2963,6 +3310,7 @@ const App: React.FC = () => {
               // 训练数据管理系统导航
               case 'training-data-management': navigate('/training-data-management'); break;
               case 'training-data-overview': navigate('/training-data-management'); break;
+              case 'training-data-enhanced': navigate('/training-data-enhanced'); break;
               case 'data-sources': navigate('/data-sources'); break;
               case 'data-collection': navigate('/data-collection'); break;
               case 'data-preprocessing': navigate('/data-preprocessing'); break;
@@ -2988,6 +3336,7 @@ const App: React.FC = () => {
               case 'group-emotion-analysis': navigate('/group-emotion-analysis'); break;
               case 'relationship-dynamics': navigate('/relationship-dynamics'); break;
               case 'social-context-adaptation': navigate('/social-context-adaptation'); break;
+              case 'social-emotional-understanding-system': navigate('/social-emotional-understanding'); break;
               case 'cultural-adaptation': navigate('/cultural-adaptation'); break;
               case 'social-intelligence-decision': navigate('/social-intelligence-decision'); break;
               
@@ -3003,7 +3352,7 @@ const App: React.FC = () => {
               
               // 模型优化系统导航
               // 模型压缩和量化
-              case 'model-compression': navigate('/model-compression'); break;
+              case 'model-compression': navigate('/compression-pipeline'); break;
               case 'model-compression-overview': navigate('/model-compression-overview'); break;
               case 'quantization-manager': navigate('/quantization-manager'); break;
               case 'knowledge-distillation': navigate('/knowledge-distillation'); break;
@@ -3016,6 +3365,7 @@ const App: React.FC = () => {
               // 超参数优化系统
               case 'hyperparameter-optimization': navigate('/hyperparameter-optimization'); break;
               case 'hyperparameter-optimization-dashboard': navigate('/hyperparameter-optimization'); break;
+              case 'hyperparameter-optimization-enhanced': navigate('/hyperparameter-optimization-enhanced'); break;
               case 'hyperparameter-experiments': navigate('/hyperparameter-experiments'); break;
               case 'hyperparameter-algorithms': navigate('/hyperparameter-algorithms'); break;
               case 'hyperparameter-visualizations': navigate('/hyperparameter-visualizations'); break;
@@ -3027,6 +3377,7 @@ const App: React.FC = () => {
           }}
         />
       </Sider>
+      )}
 
       <Layout>
         <Header style={{ 
@@ -3036,12 +3387,19 @@ const App: React.FC = () => {
           height: '60px',
           lineHeight: '60px'
         }}>
-          <Button
-            type="text"
-            icon={collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
-            onClick={() => setCollapsed(!collapsed)}
-            style={{ fontSize: '16px' }}
-          />
+          <Space align="center">
+            <Button
+              type="text"
+              icon={collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
+              onClick={() => setCollapsed(!collapsed)}
+              style={{ fontSize: '16px' }}
+            />
+            {siderBroken && (
+              <Title level={5} style={{ margin: 0 }}>
+                AI Agent
+              </Title>
+            )}
+          </Space>
         </Header>
 
         <Content style={{ 
@@ -3065,22 +3423,36 @@ const App: React.FC = () => {
             {/* 🤖 智能体系统 */}
             <Route path="/" element={<ChatPage />} />
             <Route path="/chat" element={<ChatPage />} />
+            <Route path="/history" element={<ConversationHistoryPage />} />
             <Route path="/multi-agent" element={<MultiAgentPage />} />
+            <Route path="/tensorflow-qlearning" element={<TensorFlowQLearningPage />} />
+            <Route path="/testing" element={<Navigate to="/testing-management" replace />} />
+            <Route path="/testing-management" element={<TestingManagementPage />} />
+            <Route path="/hypothesis-testing" element={<HypothesisTestingPage />} />
             <Route path="/supervisor" element={<SupervisorPage />} />
             <Route path="/async-agents" element={<AsyncAgentPage />} />
             <Route path="/agent-interface" element={<AgentInterfacePage />} />
             <Route path="/agent-cluster-management" element={<AgentClusterManagementPage />} />
-            
+            <Route path="/agent-cluster-management-enhanced" element={<AgentClusterManagementPageEnhanced />} />
+
+            {/* 增强版页面 */}
+            <Route path="/multi-agent-enhanced" element={<MultiAgentEnhancedPage />} />
+            <Route path="/rag-enhanced" element={<RAGEnhancedPage />} />
+            <Route path="/experiments-platform" element={<ExperimentsPlatformPage />} />
+            <Route path="/workflow-management" element={<WorkflowManagementPage />} />
+
             {/* 🔍 智能检索引擎 */}
             <Route path="/rag" element={<RagPage />} />
             <Route path="/agentic-rag" element={<AgenticRagPage />} />
             <Route path="/graphrag" element={<GraphRAGPage />} />
+            <Route path="/graphrag-enhanced" element={<GraphRAGPageEnhanced />} />
             <Route path="/hybrid-search" element={<HybridSearchAdvancedPage />} />
             
             {/* 🧠 推理引擎 */}
             <Route path="/reasoning" element={<ReasoningPage />} />
             <Route path="/multi-step-reasoning" element={<MultiStepReasoningPage />} />
             <Route path="/explainable-ai" element={<ExplainableAiPage />} />
+            <Route path="/targeting-rules" element={<TargetingRulesManagementPage />} />
             
             {/* 🗺️ 知识图谱引擎 */}
             <Route path="/knowledge-extraction-overview" element={<KnowledgeExtractionOverviewPage />} />
@@ -3100,6 +3472,7 @@ const App: React.FC = () => {
             <Route path="/knowledge-confidence-analysis" element={<KnowledgeConfidenceAnalysisPage />} />
             <Route path="/knowledge-error-analysis" element={<KnowledgeErrorAnalysisPage />} />
             <Route path="/knowledge-model-comparison" element={<KnowledgeModelComparisonPage />} />
+            <Route path="/acl-protocol-management" element={<ACLProtocolManagementPage />} />
             
             {/* 🗺️ 动态知识图谱存储系统 (Story 8.2) */}
             <Route path="/kg-entity-management" element={<KnowledgeGraphEntityManagement />} />
@@ -3123,6 +3496,9 @@ const App: React.FC = () => {
             <Route path="/relation-api" element={<RelationApiPage />} />
             <Route path="/batch-operations" element={<BatchOperationsPage />} />
             <Route path="/graph-validation" element={<GraphValidationPage />} />
+            <Route path="/basic-rag-management" element={<BasicRagManagementPage />} />
+            <Route path="/supervisor-api-management" element={<SupervisorApiManagementPage />} />
+            <Route path="/platform-api-management" element={<PlatformApiManagementPage />} />
             
             {/* 数据导入导出 */}
             <Route path="/rdf-import-export" element={<RdfImportExportPage />} />
@@ -3193,6 +3569,7 @@ const App: React.FC = () => {
             <Route path="/personalization-alerts" element={<PersonalizationAlertsPage />} />
             <Route path="/personalization-production" element={<PersonalizationProductionPage />} />
             <Route path="/personalization-websocket" element={<PersonalizationWebSocketPage />} />
+            <Route path="/websocket-management" element={<WebSocketManagementPage />} />
             
             {/* 😊 高级情感智能系统 */}
             <Route path="/emotion-recognition-overview" element={<EmotionRecognitionOverviewPage />} />
@@ -3206,15 +3583,16 @@ const App: React.FC = () => {
             <Route path="/group-emotion-analysis" element={<GroupEmotionAnalysisPage />} />
             <Route path="/relationship-dynamics" element={<RelationshipDynamicsPage />} />
             <Route path="/social-context-adaptation" element={<SocialContextAdaptationPage />} />
+            <Route path="/social-emotional-understanding" element={<SocialEmotionalUnderstandingPage />} />
             <Route path="/cultural-adaptation" element={<CulturalAdaptationPage />} />
             <Route path="/social-intelligence-decision" element={<SocialIntelligenceDecisionPage />} />
             
             {/* 情感记忆管理系统 (Story 11.4) */}
             <Route path="/emotional-memory-management" element={<EmotionalMemoryManagementPage />} />
             <Route path="/emotional-event-analysis" element={<EmotionalEventAnalysisPage />} />
-            <Route path="/emotional-preference-learning" element={<EmotionalMemoryManagementPage />} />
-            <Route path="/emotional-trigger-patterns" element={<EmotionalMemoryManagementPage />} />
-            <Route path="/emotional-memory-retrieval" element={<EmotionalMemoryManagementPage />} />
+            <Route path="/emotional-preference-learning" element={<EmotionalMemoryPage />} />
+            <Route path="/emotional-trigger-patterns" element={<EmotionalMemoryPage />} />
+            <Route path="/emotional-memory-retrieval" element={<EmotionalMemoryPage />} />
             
             {/* 情感智能决策引擎 (Story 11.5) */}
             <Route path="/emotional-intelligence-decision-engine" element={<EmotionalIntelligenceDecisionEnginePage />} />
@@ -3232,6 +3610,9 @@ const App: React.FC = () => {
             <Route path="/qlearning-recommendation" element={<QLearningRecommendationPage />} />
             <Route path="/qlearning-performance" element={<QLearningPerformancePage />} />
             <Route path="/qlearning-performance-optimization" element={<QLearningPerformanceOptimizationPage />} />
+            
+            {/* 🤖 TensorFlow模型管理 */}
+            <Route path="/tensorflow" element={<TensorFlowManagementPage />} />
             <Route path="/qlearning/tabular" element={<TabularQLearningPage />} />
             <Route path="/qlearning/dqn" element={<DQNPage />} />
             <Route path="/qlearning/variants" element={<DQNVariantsPage />} />
@@ -3261,6 +3642,7 @@ const App: React.FC = () => {
             
             {/* 📈 智能行为分析系统 */}
             <Route path="/behavior-analytics" element={<BehaviorAnalyticsPage />} />
+            <Route path="/behavior-analytics-enhanced" element={<BehaviorAnalyticsPageEnhanced />} />
             <Route path="/behavior-analytics/events" element={<EventDataManagePage />} />
             <Route path="/behavior-analytics/sessions" element={<SessionManagePage />} />
             <Route path="/behavior-analytics/reports" element={<ReportCenterPage />} />
@@ -3284,6 +3666,7 @@ const App: React.FC = () => {
             <Route path="/performance-optimization" element={<PerformanceOptimizationPage />} />
             <Route path="/system-monitoring" element={<SystemMonitoringPage />} />
             <Route path="/documentation-management" element={<DocumentationManagementPage />} />
+            <Route path="/realtime-communication" element={<RealtimeCommunicationPage />} />
             
             {/* 🛡️ 故障容错和恢复系统 (Story 10.5) */}
             <Route path="/fault-tolerance-overview" element={<FaultToleranceSystemPage />} />
@@ -3307,11 +3690,13 @@ const App: React.FC = () => {
             <Route path="/conflict-resolver" element={<ConflictResolverPage />} />
             <Route path="/distributed-task-monitor" element={<DistributedTaskMonitorPage />} />
             <Route path="/distributed-task-system-status" element={<DistributedTaskSystemStatusPage />} />
+            <Route path="/distributed-task-management-enhanced" element={<DistributedTaskManagementPageEnhanced />} />
             <Route path="/dag-orchestrator" element={<DagOrchestratorPage />} />
             <Route path="/flow-control" element={<FlowControlPage />} />
+            <Route path="/distributed-message-overview" element={<DistributedMessageOverviewPage />} />
             
             {/* 🏭 处理引擎 */}
-            <Route path="/streaming" element={<StreamingMonitorPage />} />
+            <Route path="/streaming-monitor" element={<StreamingMonitorPage />} />
             <Route path="/batch" element={<BatchJobsPageFixed />} />
             <Route path="/batch-processing" element={<BatchProcessingPage />} />
             <Route path="/intelligent-scheduling" element={<IntelligentSchedulingPage />} />
@@ -3320,6 +3705,7 @@ const App: React.FC = () => {
             {/* 🛡️ 安全与合规 */}
             <Route path="/ai-trism" element={<AiTrismPage />} />
             <Route path="/security-management" element={<SecurityManagementPage />} />
+            <Route path="/security-management-enhanced" element={<SecurityManagementEnhancedPage />} />
             <Route path="/security-audit" element={<SecurityAuditPage />} />
             <Route path="/distributed-security-monitor" element={<DistributedSecurityMonitorPage />} />
             <Route path="/auth-management" element={<AuthManagementPage />} />
@@ -3335,6 +3721,7 @@ const App: React.FC = () => {
             <Route path="/pgvector" element={<PgVectorPage />} />
             <Route path="/vector-advanced" element={<VectorAdvancedPage />} />
             <Route path="/cache" element={<CacheMonitorPage />} />
+            <Route path="/assignment-cache" element={<AssignmentCacheManagementPage />} />
             
             {/* 🔧 协议与工具 */}
             <Route path="/mcp-tools" element={<MCPToolsPage />} />
@@ -3359,7 +3746,7 @@ const App: React.FC = () => {
             <Route path="/test-coverage" element={<TestCoveragePage />} />
             <Route path="/test" element={<IntegrationTestPage />} />
             <Route path="/test-suite" element={<TestingSuitePage />} />
-            <Route path="/document-processing" element={<DocumentProcessingAdvancedPage />} />
+            <Route path="/document-processing" element={<DocumentProcessingPage />} />
             
             {/* 缺失页面补充 */}
             <Route path="/conflict-resolution-learning" element={<ConflictResolutionLearningPage />} />
@@ -3372,22 +3759,37 @@ const App: React.FC = () => {
             <Route path="/unified-engine-complete" element={<UnifiedEnginePageComplete />} />
             <Route path="/batch-jobs" element={<BatchJobsPageFixed />} />
             <Route path="/document-processing-simple" element={<DocumentProcessingPage />} />
+            <Route path="/document-processing-advanced" element={<DocumentProcessingAdvancedPage />} />
             <Route path="/security" element={<SecurityPage />} />
             <Route path="/multimodal-basic" element={<MultimodalPageComplete />} />
+            <Route path="/multimodal-complete" element={<MultimodalPageComplete />} />
             <Route path="/file-management-advanced" element={<FileManagementAdvancedPage />} />
             <Route path="/distributed-events" element={<DistributedEventsPage />} />
             <Route path="/langgraph-065" element={<LangGraph065Page />} />
             <Route path="/multimodal-rag" element={<MultimodalRagPage />} />
+            <Route path="/multimodal-rag-management" element={<MultimodalRagManagementPage />} />
+            <Route path="/document-management-complete" element={<DocumentManagementPageComplete />} />
+            <Route path="/realtime-metrics-management" element={<RealtimeMetricsManagementPage />} />
             
             {/* 🧪 A/B测试实验平台 */}
             <Route path="/experiments" element={<ExperimentListPage />} />
             <Route path="/experiments/dashboard" element={<ExperimentDashboardPage />} />
+            <Route path="/experiments/enhanced-analysis" element={<EnhancedExperimentAnalysisPage />} />
             <Route path="/experiments/statistical-analysis" element={<StatisticalAnalysisPage />} />
             <Route path="/experiments/traffic-allocation" element={<TrafficAllocationPage />} />
             <Route path="/experiments/event-tracking" element={<EventTrackingPage />} />
+            <Route path="/experiments/traffic-ramp" element={<TrafficRampManagementPage />} />
+            <Route path="/experiments/power-analysis" element={<PowerAnalysisPage />} />
+            <Route path="/descriptive-statistics" element={<DescriptiveStatisticsPage />} />
+            <Route path="/experiments/multiple-testing" element={<MultipleTestingCorrectionPage />} />
+            <Route path="/experiments/layered-experiments" element={<LayeredExperimentsManagementPage />} />
             <Route path="/experiments/release-strategy" element={<ReleaseStrategyPage />} />
             <Route path="/experiments/monitoring-alerts" element={<MonitoringAlertsPage />} />
             <Route path="/experiments/advanced-algorithms" element={<AdvancedAlgorithmsPage />} />
+            
+            {/* 服务发现与离线管理 */}
+            <Route path="/service-discovery-management" element={<ServiceDiscoveryManagementPage />} />
+            <Route path="/offline-management" element={<OfflineManagementPage />} />
             
             {/* 📊 强化学习系统监控 */}
             <Route path="/rl-system-dashboard" element={<RLSystemDashboardPage />} />
@@ -3399,6 +3801,12 @@ const App: React.FC = () => {
             
             {/* ⚡ LoRA/QLoRA微调框架 */}
             <Route path="/fine-tuning-jobs" element={<FineTuningJobsPage />} />
+            <Route path="/fine-tuning-config" element={<FineTuningConfigPage />} />
+            <Route path="/fine-tuning-monitor" element={<FineTuningMonitorPage />} />
+            <Route path="/fine-tuning-models" element={<FineTuningModelsPage />} />
+            <Route path="/fine-tuning-datasets" element={<FineTuningDatasetsPage />} />
+            <Route path="/fine-tuning" element={<FineTuningPage />} />
+            <Route path="/fine-tuning-enhanced" element={<FineTuningPageEnhanced />} />
             <Route path="/lora-training-overview" element={<LoRATrainingPage />} />
             <Route path="/lora-config-templates" element={<FineTuningConfigPage />} />
             <Route path="/lora-model-adapters" element={<ModelAdaptersPage />} />
@@ -3408,12 +3816,18 @@ const App: React.FC = () => {
             <Route path="/qlora-memory-optimization" element={<FineTuningMonitorPage />} />
             <Route path="/qlora-inference-optimization" element={<FineTuningMonitorPage />} />
             <Route path="/distributed-training-overview" element={<DistributedTrainingPage />} />
+            <Route path="/auto-scaling-management" element={<AutoScalingManagementPage />} />
+            <Route path="/risk-assessment-dashboard" element={<RiskAssessmentDashboard />} />
+            <Route path="/statistical-analysis-dashboard" element={<StatisticalAnalysisDashboard />} />
             <Route path="/deepspeed-configuration" element={<FineTuningConfigPage />} />
             <Route path="/multi-gpu-monitoring" element={<TrainingMonitorDashboard />} />
             <Route path="/training-synchronization" element={<DistributedTrainingPage />} />
             <Route path="/training-dashboard" element={<TrainingMonitorDashboard />} />
             <Route path="/training-metrics" element={<FineTuningMonitorPage />} />
             <Route path="/training-anomaly-detection" element={<TrainingMonitorDashboard />} />
+            <Route path="/anomaly-detection" element={<AnomalyDetectionPage />} />
+            <Route path="/auto-scaling" element={<AutoScalingManagementPage />} />
+            <Route path="/batch-operations" element={<BatchOperationsPage />} />
             <Route path="/training-reports" element={<TrainingMonitorDashboard />} />
             <Route path="/supported-models" element={<FineTuningModelsPage />} />
             <Route path="/model-checkpoints" element={<FineTuningCheckpointsPage />} />
@@ -3421,6 +3835,7 @@ const App: React.FC = () => {
             <Route path="/model-deployment" element={<FineTuningModelsPage />} />
             {/* 📊 训练数据管理系统 (Story 9.5) */}
             <Route path="/training-data-management" element={<TrainingDataManagementPage />} />
+            <Route path="/training-data-enhanced" element={<TrainingDataManagementPageEnhanced />} />
             <Route path="/data-sources" element={<DataSourceManagementPage />} />
             <Route path="/data-collection" element={<DataCollectionPage />} />
             <Route path="/data-preprocessing" element={<DataPreprocessingPage />} />
@@ -3435,6 +3850,8 @@ const App: React.FC = () => {
             
             {/* 📊 模型评估和基准测试系统 (Story 9.4) */}
             <Route path="/model-evaluation-overview" element={<ModelEvaluationOverviewPage />} />
+            <Route path="/model-evaluation-management" element={<ModelEvaluationManagementPage />} />
+            <Route path="/memory-management-monitor" element={<MemoryManagementMonitorPage />} />
             <Route path="/model-performance-benchmark" element={<ModelPerformanceBenchmarkPage />} />
             <Route path="/evaluation-engine-management" element={<EvaluationEngineManagementPage />} />
             <Route path="/benchmark-suite-management" element={<BenchmarkSuiteManagementPage />} />
@@ -3480,10 +3897,12 @@ const App: React.FC = () => {
             <Route path="/model-inference" element={<ModelInferencePage />} />
             <Route path="/model-deployment" element={<ModelDeploymentPage />} />
             <Route path="/model-monitoring" element={<ModelMonitoringPage />} />
+            <Route path="/model-service-management" element={<ModelServiceManagementPage />} />
             <Route path="/online-learning" element={<OnlineLearningPage />} />
             
             {/* 🚀 自动化超参数优化系统 (Story 9.3) */}
             <Route path="/hyperparameter-optimization" element={<HyperparameterOptimizationPage />} />
+            <Route path="/hyperparameter-optimization-enhanced" element={<HyperparameterOptimizationPageEnhanced />} />
             <Route path="/hyperparameter-experiments" element={<HyperparameterExperimentsPage />} />
             <Route path="/hyperparameter-algorithms" element={<HyperparameterAlgorithmsPage />} />
             <Route path="/hyperparameter-visualizations" element={<HyperparameterVisualizationsPage />} />
@@ -3497,11 +3916,12 @@ const App: React.FC = () => {
             <Route path="/agent-registry" element={<AgentRegistryManagementPage />} />
             <Route path="/service-routing" element={<ServiceRoutingManagementPage />} />
             <Route path="/load-balancer-config" element={<LoadBalancerConfigPage />} />
-            <Route path="/service-health-monitor" element={<ServiceHealthMonitorPage />} />
-            <Route path="/service-cluster-management" element={<ServiceClusterManagementPage />} />
-            <Route path="/service-performance-dashboard" element={<ServicePerformanceDashboardPage />} />
-            <Route path="/service-config-management" element={<ServiceConfigManagementPage />} />
-          </Routes>
+	            <Route path="/service-health-monitor" element={<ServiceHealthMonitorPage />} />
+	            <Route path="/service-cluster-management" element={<ServiceClusterManagementPage />} />
+	            <Route path="/service-performance-dashboard" element={<ServicePerformanceDashboardPage />} />
+	            <Route path="/service-config-management" element={<ServiceConfigManagementPage />} />
+	            <Route path="*" element={<Navigate to="/chat" replace />} />
+	          </Routes>
           </Suspense>
         </Content>
       </Layout>

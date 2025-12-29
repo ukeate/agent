@@ -14,6 +14,7 @@ import {
   MonitorOutlined
 } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
+import { healthService } from '../services/healthService';
 
 const { Option } = Select;
 
@@ -65,192 +66,77 @@ const RLSystemHealthPage: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [systemHealth, setSystemHealth] = useState(0.95);
 
-  // 生成模拟数据
-  const generateComponents = (): SystemComponent[] => [
-    {
-      id: 'rl-api',
-      name: 'RL推荐API服务',
-      type: 'service',
-      status: 'healthy',
-      uptime: 99.8,
-      responseTime: 15.2,
-      lastCheck: '2025-08-22 14:25:30',
-      details: '3个实例运行正常，负载均衡器工作正常',
-      dependencies: ['postgres', 'redis', 'qdrant']
-    },
-    {
-      id: 'postgres',
-      name: 'PostgreSQL数据库',
-      type: 'database',
-      status: 'healthy',
-      uptime: 99.95,
-      responseTime: 3.8,
-      lastCheck: '2025-08-22 14:25:25',
-      details: '主从复制正常，连接池使用率68%',
-      dependencies: []
-    },
-    {
-      id: 'redis',
-      name: 'Redis缓存',
-      type: 'cache',
-      status: 'warning',
-      uptime: 99.2,
-      responseTime: 1.2,
-      lastCheck: '2025-08-22 14:25:28',
-      details: '内存使用率85%，建议清理过期键',
-      dependencies: []
-    },
-    {
-      id: 'qdrant',
-      name: 'Qdrant向量数据库',
-      type: 'database',
-      status: 'healthy',
-      uptime: 99.7,
-      responseTime: 8.5,
-      lastCheck: '2025-08-22 14:25:32',
-      details: '向量索引正常，查询响应时间稳定',
-      dependencies: []
-    },
-    {
-      id: 'message-queue',
-      name: '消息队列',
-      type: 'queue',
-      status: 'healthy',
-      uptime: 99.9,
-      responseTime: 5.1,
-      lastCheck: '2025-08-22 14:25:26',
-      details: '队列长度正常，无积压消息',
-      dependencies: []
-    },
-    {
-      id: 'monitoring',
-      name: '监控系统',
-      type: 'service',
-      status: 'healthy',
-      uptime: 99.85,
-      responseTime: 12.3,
-      lastCheck: '2025-08-22 14:25:29',
-      details: 'Prometheus和Grafana运行正常',
-      dependencies: []
-    }
-  ];
+  const loadData = async () => {
+    setLoading(true);
+    try {
+      const [detailed, trends, alerts] = await Promise.all([
+        healthService.getDetailedHealth(),
+        healthService.getHealthTrends({}),
+        healthService.getHealthAlerts({ limit: 20 })
+      ]);
 
-  const generateHealthMetrics = (): HealthMetric[] => {
-    const data: HealthMetric[] = [];
-    const points = timeRange === '1h' ? 60 : timeRange === '24h' ? 144 : 168;
-    const interval = timeRange === '1h' ? 60000 : timeRange === '24h' ? 600000 : 3600000;
+      const comps: SystemComponent[] = Object.entries(detailed.components || {}).map(([key, value]: any) => ({
+        id: key,
+        name: key,
+        type: (value.type as any) || 'service',
+        status: (value.status?.toLowerCase() as any) || 'healthy',
+        uptime: value.metrics?.uptime || 0,
+        responseTime: value.metrics?.latency_p50 || 0,
+        lastCheck: value.metrics?.last_check || detailed.timestamp,
+        details: value.message || '',
+        dependencies: value.dependencies || []
+      }));
+      setComponents(comps);
 
-    for (let i = points; i >= 0; i--) {
-      const timestamp = new Date(Date.now() - i * interval).toLocaleTimeString();
-      data.push({
-        timestamp,
-        cpu: 40 + Math.random() * 30 + Math.sin(i * 0.1) * 10,
-        memory: 60 + Math.random() * 20 + Math.sin(i * 0.15) * 5,
-        disk: 30 + Math.random() * 10,
-        network: 20 + Math.random() * 40 + Math.sin(i * 0.08) * 15,
-        connections: 150 + Math.random() * 100 + Math.sin(i * 0.12) * 50
-      });
+      const metrics: HealthMetric[] = (trends || []).map((t: any) => ({
+        timestamp: t.timestamp,
+        cpu: t.response_time || 0,
+        memory: t.error_rate || 0,
+        disk: 0,
+        network: t.response_time || 0,
+        connections: t.availability || 0
+      }));
+      setHealthMetrics(metrics);
+
+      const services: ServiceHealth[] = comps.map(c => ({
+        service: c.name,
+        availability: c.uptime,
+        errorRate: 0,
+        throughput: 0,
+        latency: c.responseTime,
+        health: c.status === 'healthy' ? 1 : c.status === 'warning' ? 0.8 : 0.5
+      }));
+      setServiceHealth(services);
+
+      const events: HealthEvent[] = (alerts || []).map((a: any) => ({
+        id: a.id,
+        timestamp: a.timestamp,
+        type: (a.severity as any) || 'info',
+        component: a.component || '',
+        message: a.message,
+        duration: undefined
+      }));
+      setHealthEvents(events);
+
+      if (trends && trends.length > 0) {
+        const avg = trends.reduce((s: number, t: any) => s + (t.availability || 0), 0) / trends.length;
+        setSystemHealth(avg / 100);
+      } else {
+        setSystemHealth(0);
+      }
+    } catch (e) {
+      setComponents([]);
+      setHealthMetrics([]);
+      setServiceHealth([]);
+      setHealthEvents([]);
+      setSystemHealth(0);
+    } finally {
+      setLoading(false);
     }
-    return data;
   };
 
-  const generateServiceHealth = (): ServiceHealth[] => [
-    {
-      service: 'UCB算法服务',
-      availability: 99.8,
-      errorRate: 0.08,
-      throughput: 156.8,
-      latency: 12.3,
-      health: 95
-    },
-    {
-      service: 'Thompson Sampling服务',
-      availability: 99.5,
-      errorRate: 0.12,
-      throughput: 142.3,
-      latency: 15.7,
-      health: 92
-    },
-    {
-      service: 'Q-Learning服务',
-      availability: 98.9,
-      errorRate: 0.05,
-      throughput: 89.2,
-      latency: 28.4,
-      health: 88
-    },
-    {
-      service: '推荐缓存服务',
-      availability: 99.9,
-      errorRate: 0.02,
-      throughput: 1250.5,
-      latency: 1.2,
-      health: 98
-    },
-    {
-      service: '用户画像服务',
-      availability: 99.2,
-      errorRate: 0.15,
-      throughput: 68.4,
-      latency: 45.2,
-      health: 85
-    }
-  ];
-
-  const generateHealthEvents = (): HealthEvent[] => [
-    {
-      id: '1',
-      timestamp: '2025-08-22 14:20:15',
-      type: 'warning',
-      component: 'Redis缓存',
-      message: '内存使用率达到85%，接近告警阈值'
-    },
-    {
-      id: '2',
-      timestamp: '2025-08-22 14:15:30',
-      type: 'recovery',
-      component: 'RL推荐API服务',
-      message: '服务恢复正常，响应时间已降低到正常范围',
-      duration: 1800
-    },
-    {
-      id: '3',
-      timestamp: '2025-08-22 13:45:22',
-      type: 'error',
-      component: 'Q-Learning服务',
-      message: '模型训练任务失败，错误率临时上升',
-      duration: 900
-    },
-    {
-      id: '4',
-      timestamp: '2025-08-22 13:30:10',
-      type: 'info',
-      component: '监控系统',
-      message: '系统自动扩容，新增2个API服务实例'
-    },
-    {
-      id: '5',
-      timestamp: '2025-08-22 12:15:45',
-      type: 'warning',
-      component: 'PostgreSQL数据库',
-      message: '连接池使用率达到75%，建议检查慢查询'
-    }
-  ];
-
   useEffect(() => {
-    setLoading(true);
-    setTimeout(() => {
-      setComponents(generateComponents());
-      setHealthMetrics(generateHealthMetrics());
-      setServiceHealth(generateServiceHealth());
-      setHealthEvents(generateHealthEvents());
-      
-      // 计算系统整体健康度
-      const avgHealth = generateServiceHealth().reduce((sum, s) => sum + s.health, 0) / generateServiceHealth().length;
-      setSystemHealth(avgHealth / 100);
-      
-      setLoading(false);
-    }, 1000);
+    loadData();
   }, [timeRange]);
 
   // 系统健康趋势图配置

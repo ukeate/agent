@@ -14,7 +14,6 @@ from dataclasses import dataclass, asdict
 import json
 import uuid
 from enum import Enum
-
 from .bandits.base import MultiArmedBandit
 from .bandits.ucb import UCBBandit
 from .bandits.thompson_sampling import ThompsonSamplingBandit
@@ -24,6 +23,8 @@ from .cold_start import ColdStartStrategy, ContentBasedColdStart, PopularityBase
 from .feature_processor import ContextFeatureProcessor, UserFeatureProcessor, ItemFeatureProcessor
 from .evaluation import OnlineEvaluator, ABTestManager, InteractionEvent, EvaluationMetrics
 
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 class AlgorithmType(Enum):
     """算法类型枚举"""
@@ -31,7 +32,6 @@ class AlgorithmType(Enum):
     THOMPSON_SAMPLING = "thompson_sampling"
     EPSILON_GREEDY = "epsilon_greedy"
     LINEAR_CONTEXTUAL = "linear_contextual"
-
 
 @dataclass
 class RecommendationRequest:
@@ -42,7 +42,6 @@ class RecommendationRequest:
     exclude_items: Optional[List[str]] = None
     include_explanations: bool = False
     experiment_id: Optional[str] = None
-
 
 @dataclass
 class RecommendationResponse:
@@ -57,7 +56,6 @@ class RecommendationResponse:
     timestamp: datetime = None
     processing_time_ms: float = 0.0
 
-
 @dataclass
 class FeedbackData:
     """用户反馈数据"""
@@ -67,7 +65,6 @@ class FeedbackData:
     feedback_value: float
     context: Optional[Dict[str, Any]] = None
     timestamp: datetime = None
-
 
 class BanditRecommendationEngine:
     """多臂老虎机推荐引擎"""
@@ -246,7 +243,7 @@ class BanditRecommendationEngine:
                 self.evaluator.add_interaction(event)
             
         except Exception as e:
-            print(f"处理反馈时出错: {e}")
+            logger.error("处理反馈时出错", error=str(e), exc_info=True)
     
     async def _select_algorithm(self, request: RecommendationRequest) -> str:
         """选择推荐算法"""
@@ -303,7 +300,7 @@ class BanditRecommendationEngine:
                     exclude_set.add(item_id_str)
                 
             except Exception as e:
-                print(f"生成推荐时出错: {e}")
+                logger.error("生成推荐时出错", error=str(e), exc_info=True)
                 continue
         
         # 计算整体置信度
@@ -393,7 +390,7 @@ class BanditRecommendationEngine:
                 else:
                     return request.context
         except Exception as e:
-            print(f"处理上下文特征时出错: {e}")
+            logger.error("处理上下文特征时出错", error=str(e), exc_info=True)
             return request.context
     
     def _calculate_item_score(self, algorithm: MultiArmedBandit, item_id: int, context: Optional[Dict[str, Any]]) -> float:
@@ -415,7 +412,7 @@ class BanditRecommendationEngine:
                     return float(algorithm.rewards[item_id] / algorithm.n_pulls[item_id])
                 return 0.0
         except Exception as e:
-            print(f"计算物品分数时出错: {e}")
+            logger.error("计算物品分数时出错", error=str(e), exc_info=True)
             return 0.0
     
     def _calculate_confidence(self, algorithm: MultiArmedBandit, item_id: int) -> float:
@@ -428,7 +425,7 @@ class BanditRecommendationEngine:
                 return float(1.0 / (1.0 + ci)) if ci > 0 else 0.5
             return 0.5
         except Exception as e:
-            print(f"计算置信度时出错: {e}")
+            logger.error("计算置信度时出错", error=str(e), exc_info=True)
             return 0.5
     
     def _generate_explanations(self, recommendations: List[Dict[str, Any]], algorithm_name: str) -> List[str]:
@@ -473,7 +470,12 @@ class BanditRecommendationEngine:
                     algorithm.update(item_id, reward)
                     
             except Exception as e:
-                print(f"更新算法{algorithm_name}时出错: {e}")
+                logger.error(
+                    "更新算法时出错",
+                    algorithm_name=algorithm_name,
+                    error=str(e),
+                    exc_info=True,
+                )
     
     def _convert_feedback_to_reward(self, feedback: FeedbackData) -> float:
         """将反馈转换为奖励值"""

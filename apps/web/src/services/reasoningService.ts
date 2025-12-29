@@ -1,5 +1,8 @@
-import { apiClient } from './apiClient';
+import apiClient from './apiClient';
+import { apiFetch, buildApiUrl } from '../utils/apiBase';
+import { consumeSseJson } from '../utils/sse';
 
+import { logger } from '../utils/logger'
 interface ReasoningRequest {
   problem: string;
   strategy: 'ZERO_SHOT' | 'FEW_SHOT' | 'AUTO_COT';
@@ -72,7 +75,7 @@ interface ReasoningStats {
 }
 
 export class ReasoningService {
-  private baseUrl = '/api/v1/reasoning';
+  private baseUrl = '/reasoning';
 
   /**
    * 执行推理
@@ -82,7 +85,7 @@ export class ReasoningService {
       const response = await apiClient.post(`${this.baseUrl}/chain`, request);
       return response.data;
     } catch (error) {
-      console.error('执行推理失败:', error);
+      logger.error('执行推理失败:', error);
       throw new Error('推理执行失败，请检查网络连接或稍后重试');
     }
   }
@@ -95,61 +98,32 @@ export class ReasoningService {
     onChunk: (chunk: ReasoningStreamChunk) => void
   ): Promise<void> {
     try {
-      const response = await fetch(`${this.baseUrl}/stream`, {
+      const token = localStorage.getItem('access_token');
+      const headers: HeadersInit = {
+        'Content-Type': 'application/json',
+        'Accept': 'text/event-stream',
+      };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
+      const response = await apiFetch(buildApiUrl(`${this.baseUrl}/stream`), {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('access_token')}`
-        },
+        headers,
         body: JSON.stringify(request)
       });
 
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
-
-      if (!response.body) {
-        throw new Error('响应体为空');
-      }
-
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = '';
-
-      try {
-        while (true) {
-          const { done, value } = await reader.read();
-          
-          if (done) break;
-
-          buffer += decoder.decode(value, { stream: true });
-          
-          // 处理SSE消息
-          const lines = buffer.split('\n');
-          buffer = lines.pop() || ''; // 保留最后一个不完整的行
-
-          for (const line of lines) {
-            if (line.startsWith('data: ')) {
-              const data = line.slice(6).trim();
-              
-              if (data === '[DONE]') {
-                return;
-              }
-
-              try {
-                const chunk = JSON.parse(data) as ReasoningStreamChunk;
-                onChunk(chunk);
-              } catch (parseError) {
-                console.warn('解析SSE数据失败:', parseError, 'data:', data);
-              }
-            }
-          }
+      await consumeSseJson<ReasoningStreamChunk>(
+        response,
+        (chunk) => {
+          onChunk(chunk);
+        },
+        {
+          onParseError: (error, raw) => {
+            logger.warn('解析SSE数据失败:', error, 'data:', raw);
+          },
         }
-      } finally {
-        reader.releaseLock();
-      }
+      );
     } catch (error) {
-      console.error('流式推理失败:', error);
+      logger.error('流式推理失败:', error);
       throw new Error('流式推理失败，请检查网络连接或稍后重试');
     }
   }
@@ -162,7 +136,7 @@ export class ReasoningService {
       const response = await apiClient.get(`${this.baseUrl}/chain/${chainId}`);
       return response.data;
     } catch (error) {
-      console.error('获取推理链失败:', error);
+      logger.error('获取推理链失败:', error);
       throw new Error('获取推理链失败，请检查网络连接或稍后重试');
     }
   }
@@ -177,7 +151,7 @@ export class ReasoningService {
       });
       return response.data;
     } catch (error) {
-      console.error('获取推理历史失败:', error);
+      logger.error('获取推理历史失败:', error);
       throw new Error('获取推理历史失败，请检查网络连接或稍后重试');
     }
   }
@@ -192,7 +166,7 @@ export class ReasoningService {
       });
       return response.data;
     } catch (error) {
-      console.error('验证推理链失败:', error);
+      logger.error('验证推理链失败:', error);
       throw new Error('验证推理链失败，请检查网络连接或稍后重试');
     }
   }
@@ -212,7 +186,7 @@ export class ReasoningService {
       });
       return response.data.branch_id;
     } catch (error) {
-      console.error('创建分支失败:', error);
+      logger.error('创建分支失败:', error);
       throw new Error('创建分支失败，请检查网络连接或稍后重试');
     }
   }
@@ -227,7 +201,7 @@ export class ReasoningService {
       });
       return response.data.success;
     } catch (error) {
-      console.error('恢复推理链失败:', error);
+      logger.error('恢复推理链失败:', error);
       throw new Error('恢复推理链失败，请检查网络连接或稍后重试');
     }
   }
@@ -240,7 +214,7 @@ export class ReasoningService {
       const response = await apiClient.get(`${this.baseUrl}/stats`);
       return response.data;
     } catch (error) {
-      console.error('获取推理统计失败:', error);
+      logger.error('获取推理统计失败:', error);
       throw new Error('获取推理统计失败，请检查网络连接或稍后重试');
     }
   }
@@ -252,10 +226,81 @@ export class ReasoningService {
     try {
       await apiClient.delete(`${this.baseUrl}/chain/${chainId}`);
     } catch (error) {
-      console.error('删除推理链失败:', error);
+      logger.error('删除推理链失败:', error);
       throw new Error('删除推理链失败，请检查网络连接或稍后重试');
     }
   }
+
+  /**
+   * 执行推理 - /api/v1/reasoning/execute
+   */
+  async execute(request: ReasoningRequest): Promise<ReasoningChain> {
+    try {
+      const response = await apiClient.post(`${this.baseUrl}/execute`, request);
+      return response.data;
+    } catch (error) {
+      logger.error('执行推理失败:', error);
+      throw new Error('执行推理失败，请检查网络连接或稍后重试');
+    }
+  }
+
+  /**
+   * 获取推理策略列表 - /api/v1/reasoning/strategies
+   */
+  async getStrategies(): Promise<Array<{
+    id: string;
+    name: string;
+    description: string;
+    enabled: boolean;
+  }>> {
+    try {
+      const response = await apiClient.get(`${this.baseUrl}/strategies`);
+      return response.data;
+    } catch (error) {
+      logger.error('获取推理策略失败:', error);
+      throw new Error('获取推理策略失败，请检查网络连接或稍后重试');
+    }
+  }
+
+  /**
+   * 获取推理详情 - /api/v1/reasoning/{reasoning_id}
+   */
+  async getReasoningDetails(reasoningId: string): Promise<ReasoningChain> {
+    try {
+      const response = await apiClient.get(`${this.baseUrl}/${reasoningId}`);
+      return response.data;
+    } catch (error) {
+      logger.error('获取推理详情失败:', error);
+      throw new Error('获取推理详情失败，请检查网络连接或稍后重试');
+    }
+  }
+
+  /**
+   * 获取推理统计信息 - /api/v1/reasoning/statistics
+   */
+  async getStatistics(): Promise<ReasoningStats> {
+    try {
+      const response = await apiClient.get(`${this.baseUrl}/statistics`);
+      return response.data;
+    } catch (error) {
+      logger.error('获取推理统计失败:', error);
+      throw new Error('获取推理统计失败，请检查网络连接或稍后重试');
+    }
+  }
+
+  /**
+   * 验证推理 - /api/v1/reasoning/validate
+   */
+  async validate(reasoningChain: ReasoningChain): Promise<ReasoningValidation> {
+    try {
+      const response = await apiClient.post(`${this.baseUrl}/validate`, reasoningChain);
+      return response.data;
+    } catch (error) {
+      logger.error('验证推理失败:', error);
+      throw new Error('验证推理失败，请检查网络连接或稍后重试');
+    }
+  }
+
 }
 
 export const reasoningService = new ReasoningService();

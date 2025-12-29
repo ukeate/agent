@@ -17,11 +17,9 @@ from typing import Dict, Any, List, Optional, Union, Callable
 from dataclasses import dataclass, field
 from enum import Enum
 from uuid import uuid4
-
 from .local_inference import LocalInferenceEngine, InferenceRequest, InferenceResult, ModelType
 from .memory_manager import OfflineMemoryManager, MemoryEntry, MemoryType, MemoryPriority
 from ..models.schemas.offline import OfflineMode, NetworkStatus, VectorClock
-
 
 class ReasoningStep(str, Enum):
     """推理步骤类型"""
@@ -33,7 +31,6 @@ class ReasoningStep(str, Enum):
     CONCLUSION_GENERATION = "conclusion_generation"
     VALIDATION = "validation"
 
-
 class ReasoningStrategy(str, Enum):
     """推理策略"""
     CHAIN_OF_THOUGHT = "chain_of_thought"
@@ -44,7 +41,6 @@ class ReasoningStrategy(str, Enum):
     DEDUCTIVE = "deductive"
     INDUCTIVE = "inductive"
 
-
 class WorkflowStatus(str, Enum):
     """工作流状态"""
     PENDING = "pending"
@@ -53,7 +49,6 @@ class WorkflowStatus(str, Enum):
     COMPLETED = "completed"
     FAILED = "failed"
     CANCELLED = "cancelled"
-
 
 @dataclass
 class ReasoningStepResult:
@@ -68,8 +63,7 @@ class ReasoningStepResult:
     tokens_used: int
     evidence: List[Dict[str, Any]] = field(default_factory=list)
     metadata: Dict[str, Any] = field(default_factory=dict)
-    timestamp: datetime = field(default_factory=datetime.utcnow)
-
+    timestamp: datetime = field(default_factory=utc_now)
 
 @dataclass
 class ReasoningChain:
@@ -83,10 +77,9 @@ class ReasoningChain:
     total_execution_time_ms: float = 0.0
     total_tokens_used: int = 0
     status: WorkflowStatus = WorkflowStatus.PENDING
-    created_at: datetime = field(default_factory=datetime.utcnow)
+    created_at: datetime = field(default_factory=utc_now)
     completed_at: Optional[datetime] = None
     metadata: Dict[str, Any] = field(default_factory=dict)
-
 
 @dataclass
 class ReasoningWorkflow:
@@ -100,11 +93,10 @@ class ReasoningWorkflow:
     current_step_index: int = 0
     status: WorkflowStatus = WorkflowStatus.PENDING
     reasoning_chain: Optional[ReasoningChain] = None
-    created_at: datetime = field(default_factory=datetime.utcnow)
+    created_at: datetime = field(default_factory=utc_now)
     started_at: Optional[datetime] = None
     completed_at: Optional[datetime] = None
     metadata: Dict[str, Any] = field(default_factory=dict)
-
 
 class OfflineReasoningEngine:
     """离线推理引擎"""
@@ -516,7 +508,17 @@ class OfflineReasoningEngine:
         
         # 可以选择暂停工作流或继续执行
         # 这里我们选择继续，但记录警告
-        pass
+        warnings = workflow.metadata.setdefault("low_confidence_steps", [])
+        warnings.append(
+            {
+                "step_id": step_result.step_id,
+                "step_type": step_result.step_type.value,
+                "confidence": step_result.confidence_score,
+                "threshold": self.default_confidence_threshold,
+                "timestamp": step_result.timestamp.isoformat(),
+            }
+        )
+        step_result.metadata["low_confidence"] = True
     
     def _calculate_overall_confidence(self, reasoning_chain: ReasoningChain):
         """计算总体置信度"""

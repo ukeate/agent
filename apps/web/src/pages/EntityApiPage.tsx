@@ -1,5 +1,6 @@
-import React, { useState, useCallback } from 'react'
+import React, { useState, useCallback, useEffect } from 'react'
 import { 
+import { logger } from '../utils/logger'
   Card, 
   Typography, 
   Row, 
@@ -21,6 +22,7 @@ import {
   Timeline,
   List
 } from 'antd'
+import apiClient from '../services/apiClient'
 import { 
   NodeIndexOutlined, 
   PlusOutlined, 
@@ -64,79 +66,52 @@ interface ApiCall {
 
 const EntityApiPage: React.FC = () => {
   const [loading, setLoading] = useState(false)
-  const [entities, setEntities] = useState<Entity[]>([
-    {
-      id: '1',
-      uri: 'http://example.org/person/john-doe',
-      type: 'foaf:Person',
-      label: 'John Doe',
-      properties: {
-        'foaf:name': 'John Doe',
-        'foaf:age': '30',
-        'foaf:email': 'john@example.com'
-      },
-      created: '2024-01-15 10:30:00',
-      updated: '2024-01-15 14:20:00',
-      status: 'active'
-    },
-    {
-      id: '2',
-      uri: 'http://example.org/organization/acme-corp',
-      type: 'org:Organization',
-      label: 'ACME Corporation',
-      properties: {
-        'org:name': 'ACME Corporation',
-        'org:industry': 'Technology',
-        'org:founded': '1995'
-      },
-      created: '2024-01-15 09:15:00',
-      updated: '2024-01-15 13:45:00',
-      status: 'active'
-    }
-  ])
+  const [entities, setEntities] = useState<Entity[]>([])
+  const [loadingEntities, setLoadingEntities] = useState(true)
 
-  const [apiCalls] = useState<ApiCall[]>([
-    {
-      id: '1',
-      method: 'GET',
-      endpoint: '/api/v1/entities',
-      timestamp: '2024-01-15 14:30:25',
-      status: 200,
-      responseTime: 120,
-    },
-    {
-      id: '2',
-      method: 'POST',
-      endpoint: '/api/v1/entities',
-      timestamp: '2024-01-15 14:25:18',
-      status: 201,
-      responseTime: 350,
-      entity: 'john-doe'
-    },
-    {
-      id: '3',
-      method: 'PUT',
-      endpoint: '/api/v1/entities/john-doe',
-      timestamp: '2024-01-15 14:20:33',
-      status: 200,
-      responseTime: 180,
-      entity: 'john-doe'
-    },
-    {
-      id: '4',
-      method: 'DELETE',
-      endpoint: '/api/v1/entities/old-entity',
-      timestamp: '2024-01-15 14:15:45',
-      status: 204,
-      responseTime: 95,
-      entity: 'old-entity'
-    }
-  ])
+  const [apiCalls, setApiCalls] = useState<ApiCall[]>([])
 
   const [modalVisible, setModalVisible] = useState(false)
   const [drawerVisible, setDrawerVisible] = useState(false)
   const [selectedEntity, setSelectedEntity] = useState<Entity | null>(null)
   const [form] = Form.useForm()
+
+  // 加载实体列表
+  const loadEntities = useCallback(async () => {
+    setLoadingEntities(true)
+    try {
+      const response = await apiClient.get('/entities')
+      logger.log('实体API调用成功:', response.data)
+      if (response.data?.entities) {
+        setEntities(response.data.entities)
+      } else {
+        setEntities([])
+      }
+    } catch (error) {
+      logger.error('加载实体失败:', error)
+      message.error('加载实体列表失败')
+      setEntities([])
+    } finally {
+      setLoadingEntities(false)
+    }
+  }, [])
+
+  // 获取单个实体
+  const loadEntity = useCallback(async (entityId: string) => {
+    try {
+      const response = await apiClient.get(`/entities/${entityId}`)
+      logger.log('获取实体详情成功:', response.data)
+      return response.data
+    } catch (error) {
+      logger.error('获取实体详情失败:', error)
+      message.error('获取实体详情失败')
+      return null
+    }
+  }, [])
+
+  useEffect(() => {
+    loadEntities()
+  }, [])
 
   const entityColumns = [
     {
@@ -272,27 +247,37 @@ const EntityApiPage: React.FC = () => {
   const handleCreateEntity = useCallback(async (values: any) => {
     setLoading(true)
     try {
-      await new Promise(resolve => setTimeout(resolve, 1000))
-      const newEntity: Entity = {
-        id: Date.now().toString(),
+      const entityData = {
         uri: values.uri,
         type: values.type,
         label: values.label,
-        properties: JSON.parse(values.properties || '{}'),
-        created: new Date().toLocaleString(),
-        updated: new Date().toLocaleString(),
-        status: 'active'
+        properties: JSON.parse(values.properties || '{}')
       }
-      setEntities(prev => [newEntity, ...prev])
+      
+      if (selectedEntity) {
+        // 更新实体
+        const response = await apiClient.put(`/entities/${selectedEntity.id}`, entityData)
+        logger.log('更新实体成功:', response.data)
+        message.success('实体更新成功')
+      } else {
+        // 创建新实体
+        const response = await apiClient.post('/entities', entityData)
+        logger.log('创建实体成功:', response.data)
+        message.success('实体创建成功')
+      }
+      
+      // 重新加载实体列表
+      await loadEntities()
       setModalVisible(false)
       form.resetFields()
-      message.success('实体创建成功')
+      setSelectedEntity(null)
     } catch (error) {
-      message.error('实体创建失败')
+      logger.error('实体操作失败:', error)
+      message.error(selectedEntity ? '实体更新失败' : '实体创建失败')
     } finally {
       setLoading(false)
     }
-  }, [form])
+  }, [form, selectedEntity, loadEntities])
 
   const handleDeleteEntity = useCallback(async (id: string) => {
     Modal.confirm({
@@ -300,15 +285,18 @@ const EntityApiPage: React.FC = () => {
       content: '确定要删除这个实体吗？',
       onOk: async () => {
         try {
-          await new Promise(resolve => setTimeout(resolve, 500))
-          setEntities(prev => prev.filter(e => e.id !== id))
+          const response = await apiClient.delete(`/entities/${id}`)
+          logger.log('删除实体成功:', response.data)
           message.success('实体删除成功')
+          // 重新加载实体列表
+          await loadEntities()
         } catch (error) {
+          logger.error('删除实体失败:', error)
           message.error('实体删除失败')
         }
       }
     })
-  }, [])
+  }, [loadEntities])
 
   const apiEndpoints = [
     {
@@ -422,6 +410,7 @@ const EntityApiPage: React.FC = () => {
                   columns={entityColumns}
                   rowKey="id"
                   size="small"
+                  loading={loadingEntities}
                   pagination={{
                     showSizeChanger: true,
                     showQuickJumper: true,

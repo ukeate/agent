@@ -2,13 +2,12 @@
 任务执行器服务
 负责执行supervisor分配的pending任务
 """
+
 import asyncio
 import uuid
 from typing import Dict, List, Optional, Any
 from datetime import datetime
 from src.core.utils.timezone_utils import utc_now, utc_factory, timezone
-import structlog
-
 from sqlalchemy.ext.asyncio import AsyncSession
 from src.core.database import get_db_session
 from src.repositories.supervisor_repository import (
@@ -18,8 +17,8 @@ from src.repositories.supervisor_repository import (
 from src.models.schemas.supervisor import TaskStatus
 from src.ai.autogen.agents import BaseAutoGenAgent, create_default_agents
 
-logger = structlog.get_logger(__name__)
-
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 class TaskExecutor:
     """任务执行器"""
@@ -199,9 +198,7 @@ class TaskExecutor:
                     # 获取特定supervisor的pending任务
                     tasks = await task_repo.get_tasks_by_status(supervisor_id, TaskStatus.PENDING)
                 else:
-                    # 获取所有pending任务的简化实现
-                    # TODO: 实现全局pending任务查询
-                    return []
+                    tasks = await task_repo.get_all_tasks_by_status(TaskStatus.PENDING)
                 
                 return [
                     {
@@ -258,7 +255,6 @@ class TaskExecutor:
             "running_task_details": dict(self._running_tasks),
             "max_concurrent_tasks": 10
         }
-
 
 # 全局任务执行器实例
 task_executor = TaskExecutor()

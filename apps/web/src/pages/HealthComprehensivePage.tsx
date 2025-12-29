@@ -1,5 +1,7 @@
+import { buildApiUrl, apiFetch } from '../utils/apiBase'
 import React, { useState, useEffect } from 'react'
 import { 
+import { logger } from '../utils/logger'
   Card, 
   Row, 
   Col, 
@@ -62,138 +64,75 @@ enum HealthStatus {
   DOWN = 'down'
 }
 
-// 生成健康监控数据
-const generateHealthData = () => {
-  const services = [
-    { name: 'API Gateway', endpoint: '/api/health', critical: true },
-    { name: 'Authentication Service', endpoint: '/api/auth/health', critical: true },
-    { name: 'Database (PostgreSQL)', endpoint: '/health/db', critical: true },
-    { name: 'Redis Cache', endpoint: '/health/redis', critical: true },
-    { name: 'Vector Database (Qdrant)', endpoint: '/health/vector', critical: true },
-    { name: 'Q-Learning Service', endpoint: '/api/qlearning/health', critical: false },
-    { name: 'RAG Service', endpoint: '/api/rag/health', critical: false },
-    { name: 'Multi-Agent System', endpoint: '/api/multi-agent/health', critical: false },
-    { name: 'File Service', endpoint: '/api/files/health', critical: false },
-    { name: 'Workflow Engine', endpoint: '/api/workflows/health', critical: false }
-  ]
-
-  return services.map((service, index) => {
-    const rand = Math.random()
-    let status: HealthStatus
-    let responseTime = Math.floor(Math.random() * 200) + 10
-    
-    if (rand < 0.7) {
-      status = HealthStatus.HEALTHY
-    } else if (rand < 0.85) {
-      status = HealthStatus.WARNING
-      responseTime = Math.floor(Math.random() * 500) + 200
-    } else if (rand < 0.95) {
-      status = HealthStatus.CRITICAL  
-      responseTime = Math.floor(Math.random() * 1000) + 500
-    } else {
-      status = HealthStatus.DOWN
-      responseTime = 0
-    }
-
-    return {
-      id: index + 1,
-      name: service.name,
-      endpoint: service.endpoint,
-      status,
-      responseTime,
-      critical: service.critical,
-      uptime: Math.random() * 100,
-      lastCheck: new Date(Date.now() - Math.random() * 300000),
-      errorCount: status === HealthStatus.HEALTHY ? 0 : Math.floor(Math.random() * 10),
-      version: `v${Math.floor(Math.random() * 3) + 1}.${Math.floor(Math.random() * 10)}.${Math.floor(Math.random() * 10)}`
-    }
-  })
-}
-
-// 生成系统指标数据
-const generateSystemMetrics = () => {
-  const data = []
-  
-  for (let i = 0; i < 24; i++) {
-    data.push({
-      time: new Date(Date.now() - (24 - i) * 3600000),
-      cpuUsage: Math.random() * 80 + 10,
-      memoryUsage: Math.random() * 90 + 5,
-      diskUsage: Math.random() * 70 + 20,
-      networkIn: Math.random() * 1000,
-      networkOut: Math.random() * 800,
-      activeConnections: Math.floor(Math.random() * 1000) + 100,
-      requestRate: Math.floor(Math.random() * 5000) + 1000
-    })
-  }
-  
-  return data
-}
-
-// 生成告警数据
-const generateAlerts = () => [
-  {
-    id: 1,
-    level: 'critical',
-    service: 'Database Connection Pool',
-    message: '数据库连接池使用率过高 (95%)',
-    timestamp: new Date(Date.now() - 300000),
-    resolved: false
-  },
-  {
-    id: 2,
-    level: 'warning',
-    service: 'Q-Learning Service',
-    message: '响应时间超过阈值 (>500ms)',
-    timestamp: new Date(Date.now() - 600000),
-    resolved: false
-  },
-  {
-    id: 3,
-    level: 'info',
-    service: 'Redis Cache',
-    message: '缓存命中率下降至85%',
-    timestamp: new Date(Date.now() - 900000),
-    resolved: true
-  },
-  {
-    id: 4,
-    level: 'warning',
-    service: 'File Service',
-    message: '磁盘空间使用率达到80%',
-    timestamp: new Date(Date.now() - 1200000),
-    resolved: false
-  }
-]
-
 const HealthComprehensivePage: React.FC = () => {
-  const [healthData, setHealthData] = useState(() => generateHealthData())
-  const [systemMetrics] = useState(() => generateSystemMetrics())
-  const [alerts] = useState(() => generateAlerts())
+  const [healthData, setHealthData] = useState<any[]>([])
+  const [systemMetrics, setSystemMetrics] = useState<any[]>([])
+  const [alerts, setAlerts] = useState<any[]>([])
   const [autoRefresh, setAutoRefresh] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
 
+  const loadData = async () => {
+    setRefreshing(true)
+    try {
+      const [healthRes, metricsRes, alertsRes] = await Promise.all([
+        apiFetch(buildApiUrl('/api/v1/health?detailed=true')).then(r => r.json()),
+        apiFetch(buildApiUrl('/api/v1/health/metrics')).then(r => r.json()),
+        apiFetch(buildApiUrl('/api/v1/health/alerts')).then(r => r.json())
+      ])
+      const components = healthRes?.components || {}
+      const list = Object.entries(components).map(([name, info]: any, idx) => ({
+        id: idx + 1,
+        name,
+        endpoint: info.endpoint || '',
+        status: (info.status || HealthStatus.HEALTHY) as HealthStatus,
+        responseTime: info.response_time_ms || 0,
+        critical: info.critical ?? false,
+        uptime: info.uptime || 0,
+        lastCheck: info.last_check || info.checked_at || new Date().toISOString(),
+        errorCount: info.error_count || 0,
+        version: info.version || ''
+      }))
+      setHealthData(list)
+      const metricSeries = (metricsRes?.timeseries || []).map((m: any) => ({
+        time: m.timestamp || m.time || Date.now(),
+        cpuUsage: m.cpu_usage ?? m.cpu ?? 0,
+        memoryUsage: m.memory_usage ?? m.memory ?? 0,
+        diskUsage: m.disk_usage ?? m.disk ?? 0,
+        networkIn: m.network_in ?? m.net_in ?? 0,
+        networkOut: m.network_out ?? m.net_out ?? 0,
+        activeConnections: m.active_connections ?? m.connections ?? 0,
+        requestRate: m.request_rate ?? m.qps ?? 0
+      }))
+      setSystemMetrics(metricSeries)
+      setAlerts(alertsRes?.alerts || [])
+    } catch (e: any) {
+      logger.error('加载健康监控数据失败:', e)
+    } finally {
+      setRefreshing(false)
+    }
+  }
+
   // 自动刷新
   useEffect(() => {
-    let interval: NodeJS.Timeout | null = null
+    let interval: ReturnType<typeof setTimeout> | null = null
     
     if (autoRefresh) {
       interval = setInterval(() => {
-        setHealthData(generateHealthData())
-      }, 30000) // 30秒刷新一次
+        loadData()
+      }, 30000)
     }
     
     return () => {
       if (interval) clearInterval(interval)
     }
   }, [autoRefresh])
+  useEffect(() => {
+    loadData()
+  }, [])
 
   // 手动刷新
   const handleRefresh = async () => {
-    setRefreshing(true)
-    await new Promise(resolve => setTimeout(resolve, 1000))
-    setHealthData(generateHealthData())
-    setRefreshing(false)
+    await loadData()
   }
 
   // 计算整体状态

@@ -1,3 +1,4 @@
+import { buildApiUrl, apiFetch } from '../utils/apiBase'
 import React, { useState, useEffect } from 'react'
 import {
   Card,
@@ -42,31 +43,42 @@ interface ProcessInfo {
 
 const PerformanceMonitorPage: React.FC = () => {
   const [metrics, setMetrics] = useState<SystemMetric[]>([])
-  const [processes] = useState<ProcessInfo[]>([
-    { id: '1', name: 'RAG处理器', cpu: 45, memory: 256, status: 'running' },
-    { id: '2', name: '文档分析器', cpu: 12, memory: 128, status: 'idle' },
-    { id: '3', name: '代码生成器', cpu: 78, memory: 512, status: 'running' },
-    { id: '4', name: '向量数据库', cpu: 23, memory: 1024, status: 'running' }
-  ])
+  const [processes, setProcesses] = useState<ProcessInfo[]>([])
 
   const [autoRefresh, setAutoRefresh] = useState(true)
 
   useEffect(() => {
-    const generateMetric = (): SystemMetric => ({
-      timestamp: new Date().toLocaleTimeString(),
-      cpu: Math.floor(Math.random() * 100),
-      memory: Math.floor(Math.random() * 100),
-      disk: Math.floor(Math.random() * 100),
-      network: Math.floor(Math.random() * 100)
-    })
+    const fetchMetrics = async () => {
+      try {
+        const res = await apiFetch(buildApiUrl('/api/v1/health/metrics'))
+        const data = await res.json()
+        const now = new Date().toISOString()
+        const newMetric: SystemMetric = {
+          timestamp: now,
+          cpu: data.cpu_usage ?? 0,
+          memory: data.memory_usage ?? 0,
+          disk: data.disk_usage ?? 0,
+          network: data.network_usage ?? 0
+        }
+        setMetrics(prev => [...prev.slice(-19), newMetric])
+        if (Array.isArray(data.processes)) {
+          const mapped = data.processes.map((p: any, idx: number) => ({
+            id: p.id || String(idx),
+            name: p.name || `process_${idx}`,
+            cpu: p.cpu_usage ?? 0,
+            memory: p.memory_usage ?? 0,
+            status: (p.status || 'running') as ProcessInfo['status']
+          }))
+          setProcesses(mapped)
+        }
+      } catch (e) {
+        // 保持原有数据，不填充假数据
+      }
+    }
 
-    // 初始数据
-    setMetrics(Array.from({ length: 20 }, generateMetric))
-
+    fetchMetrics()
     if (autoRefresh) {
-      const interval = setInterval(() => {
-        setMetrics(prev => [...prev.slice(-19), generateMetric()])
-      }, 3000)
+      const interval = setInterval(fetchMetrics, 3000)
       return () => clearInterval(interval)
     }
   }, [autoRefresh])

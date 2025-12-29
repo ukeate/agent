@@ -129,8 +129,22 @@ const RagResultsList: React.FC<RagResultsListProps> = ({
 
   // ==================== 内容高亮逻辑 ====================
   
+  const escapeHtml = useCallback((value: string) => {
+    return value
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/\"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }, []);
+
+  const escapeRegExp = useCallback((value: string) => {
+    return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  }, []);
+
   const highlightContent = useCallback((content: string, searchQuery: string) => {
-    if (!searchQuery.trim()) return content;
+    const safeContent = escapeHtml(content);
+    if (!searchQuery.trim()) return safeContent;
     
     // 提取查询词（去除逻辑操作符）
     const keywords = searchQuery
@@ -139,18 +153,18 @@ const RagResultsList: React.FC<RagResultsListProps> = ({
       .split(/\s+/)
       .filter(word => word.length > 1);
     
-    let highlightedContent = content;
+    let highlightedContent = safeContent;
     
     keywords.forEach(keyword => {
-      const regex = new RegExp(`(${keyword})`, 'gi');
+      const regex = new RegExp(`(${escapeRegExp(keyword)})`, 'gi');
       highlightedContent = highlightedContent.replace(
         regex, 
-        '<mark style="background-color: #fff566; padding: 1px 2px;">$1</mark>'
+        '<mark class="rag-highlight">$1</mark>'
       );
     });
     
     return highlightedContent;
-  }, []);
+  }, [escapeHtml, escapeRegExp]);
 
   // ==================== 事件处理 ====================
   

@@ -1,6 +1,8 @@
 """
 指标收集器
 """
+
+from contextlib import contextmanager
 from typing import Dict, Any, Optional, List
 from datetime import datetime
 from datetime import timedelta
@@ -12,6 +14,8 @@ from dataclasses import dataclass, field
 from collections import deque, defaultdict
 import statistics
 
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 class MetricType(Enum):
     """指标类型"""
@@ -20,14 +24,12 @@ class MetricType(Enum):
     HISTOGRAM = "histogram"  # 直方图
     SUMMARY = "summary"  # 摘要
 
-
 @dataclass
 class MetricPoint:
     """指标数据点"""
     timestamp: datetime
     value: float
     labels: Dict[str, str] = field(default_factory=dict)
-
 
 @dataclass
 class MetricStats:
@@ -40,7 +42,6 @@ class MetricStats:
     median: float
     p95: float
     p99: float
-
 
 class MetricsCollector:
     """指标收集器"""
@@ -85,6 +86,26 @@ class MetricsCollector:
     async def record_timing(self, name: str, duration: float, labels: Optional[Dict[str, str]] = None):
         """记录时间"""
         await self.record_histogram(f"{name}_duration_seconds", duration, labels)
+
+    def increment(self, name: str, value: float = 1, tags: Optional[Dict[str, Any]] = None):
+        labels = {k: str(v) for k, v in (tags or {}).items()}
+        try:
+            asyncio.get_running_loop().create_task(self.record_counter(name, value, labels))
+        except RuntimeError:
+            return
+
+    @contextmanager
+    def timer(self, name: str, tags: Optional[Dict[str, Any]] = None):
+        start = time.perf_counter()
+        try:
+            yield
+        finally:
+            duration = time.perf_counter() - start
+            labels = {k: str(v) for k, v in (tags or {}).items()}
+            try:
+                asyncio.get_running_loop().create_task(self.record_timing(name, duration, labels))
+            except RuntimeError:
+                logger.debug("事件循环不可用，跳过计时记录", exc_info=True)
     
     async def get_metric(self, name: str, labels: Optional[Dict[str, str]] = None) -> List[MetricPoint]:
         """获取指标"""
@@ -163,8 +184,7 @@ class MetricsCollector:
             except asyncio.CancelledError:
                 break
             except Exception as e:
-                print(f"清理指标时出错: {e}")
-
+                logger.error("清理指标时出错", error=str(e), exc_info=True)
 
 class RequestMetrics:
     """请求指标"""
@@ -198,7 +218,6 @@ class RequestMetrics:
         # 错误率
         if status_code >= 400:
             await self.collector.record_counter("http_errors_total", 1, labels)
-
 
 class ExperimentMetrics:
     """实验指标"""
@@ -254,7 +273,6 @@ class ExperimentMetrics:
             {"experiment_id": experiment_id, "variant_id": variant_id}
         )
 
-
 class SystemMetrics:
     """系统指标"""
     
@@ -299,9 +317,8 @@ class SystemMetrics:
             except asyncio.CancelledError:
                 break
             except Exception as e:
-                print(f"收集系统指标时出错: {e}")
+                logger.error("收集系统指标时出错", error=str(e), exc_info=True)
                 await asyncio.sleep(interval)
-
 
 class DatabaseMetrics:
     """数据库指标"""
@@ -331,7 +348,6 @@ class DatabaseMetrics:
         await self.collector.record_counter("database_transactions_total", 1, labels)
         await self.collector.record_histogram("database_transaction_duration_seconds", duration, labels)
 
-
 # 全局指标收集器实例
 metrics_collector = MetricsCollector()
 request_metrics = RequestMetrics(metrics_collector)
@@ -339,13 +355,11 @@ experiment_metrics = ExperimentMetrics(metrics_collector)
 system_metrics = SystemMetrics(metrics_collector)
 database_metrics = DatabaseMetrics(metrics_collector)
 
-
 async def init_metrics():
     """初始化指标收集"""
     await metrics_collector.start()
     # 启动系统监控
     asyncio.create_task(system_metrics.start_monitoring())
-
 
 async def cleanup_metrics():
     """清理指标收集"""

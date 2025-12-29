@@ -3,8 +3,11 @@
  * 提供智能检索系统的前端接口
  */
 
+import { apiFetch, buildApiUrl } from '../utils/apiBase'
+import { consumeSseJson } from '../utils/sse'
 import apiClient from './apiClient'
 
+import { logger } from '../utils/logger'
 // 枚举类型定义
 export enum QueryIntentType {
   FACTUAL = 'factual',
@@ -23,11 +26,10 @@ export enum ExpansionStrategyType {
 }
 
 export enum RetrievalStrategyType {
-  VECTOR_SEARCH = 'vector_search',
-  KEYWORD_SEARCH = 'keyword_search',
-  HYBRID_SEARCH = 'hybrid_search',
-  GRAPH_TRAVERSAL = 'graph_traversal',
-  SEMANTIC_SEARCH = 'semantic_search'
+  SEMANTIC = 'semantic',
+  KEYWORD = 'keyword',
+  STRUCTURED = 'structured',
+  HYBRID = 'hybrid',
 }
 
 export enum StreamEventType {
@@ -196,7 +198,7 @@ class AgenticRagService {
       const response = await apiClient.post('/rag/agentic/query', request)
       return response.data
     } catch (error) {
-      console.error('Agentic RAG查询失败:', error)
+      logger.error('Agentic RAG查询失败:', error)
       throw error
     }
   }
@@ -209,45 +211,28 @@ class AgenticRagService {
     onEvent: (event: StreamEvent) => void
   ): Promise<void> {
     try {
-      const response = await fetch('/api/v1/rag/agentic/query/stream', {
+      const response = await apiFetch(buildApiUrl('/rag/agentic/query/stream'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Accept': 'text/event-stream',
         },
         body: JSON.stringify(request),
       })
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`)
-      }
-
-      const reader = response.body?.getReader()
-      const decoder = new TextDecoder()
-
-      if (!reader) {
-        throw new Error('No response body')
-      }
-
-      while (true) {
-        const { value, done } = await reader.read()
-        if (done) break
-
-        const chunk = decoder.decode(value)
-        const lines = chunk.split('\n')
-
-        for (const line of lines) {
-          if (line.startsWith('data: ')) {
-            try {
-              const data = JSON.parse(line.slice(6))
-              onEvent(data)
-            } catch (e) {
-              console.error('解析流式数据失败:', e)
-            }
-          }
+      await consumeSseJson<StreamEvent>(
+        response,
+        (data) => {
+          onEvent(data)
+        },
+        {
+          onParseError: (error) => {
+            logger.error('解析流式数据失败:', error)
+          },
         }
-      }
+      )
     } catch (error) {
-      console.error('流式查询失败:', error)
+      logger.error('流式查询失败:', error)
       throw error
     }
   }
@@ -266,7 +251,7 @@ class AgenticRagService {
       const response = await apiClient.get(`/rag/agentic/explain?${params.toString()}`)
       return response.data
     } catch (error) {
-      console.error('获取检索解释失败:', error)
+      logger.error('获取检索解释失败:', error)
       throw error
     }
   }
@@ -284,7 +269,7 @@ class AgenticRagService {
       const response = await apiClient.post('/rag/agentic/feedback', feedback)
       return response.data
     } catch (error) {
-      console.error('提交反馈失败:', error)
+      logger.error('提交反馈失败:', error)
       throw error
     }
   }
@@ -297,7 +282,7 @@ class AgenticRagService {
       const response = await apiClient.get('/rag/agentic/stats')
       return response.data
     } catch (error) {
-      console.error('获取统计信息失败:', error)
+      logger.error('获取统计信息失败:', error)
       throw error
     }
   }
@@ -310,7 +295,7 @@ class AgenticRagService {
       const response = await apiClient.get('/rag/agentic/health')
       return response.data
     } catch (error) {
-      console.error('健康检查失败:', error)
+      logger.error('健康检查失败:', error)
       throw error
     }
   }

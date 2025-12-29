@@ -8,6 +8,7 @@ import { Alert } from '../ui/alert';
 import { Input } from '../ui/input';
 import { securityApi } from '../../services/securityApi';
 
+import { logger } from '../../utils/logger'
 interface SecurityAlert {
   id: string;
   alert_type: 'rate_limit' | 'suspicious_request' | 'unauthorized_tool' | 'data_breach' | 'authentication_failed';
@@ -45,7 +46,7 @@ export const SecurityAlerts: React.FC = () => {
       setError(null);
     } catch (err) {
       setError('加载安全告警失败');
-      console.error('Error loading alerts:', err);
+      logger.error('加载安全告警失败:', err);
     } finally {
       setLoading(false);
     }
@@ -57,7 +58,7 @@ export const SecurityAlerts: React.FC = () => {
       await loadAlerts();
       setSelectedAlert(null);
     } catch (err) {
-      console.error('Error updating alert status:', err);
+      logger.error('更新告警状态失败:', err);
       setError('更新告警状态失败');
     }
   };

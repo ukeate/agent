@@ -13,21 +13,19 @@ from src.core.utils.timezone_utils import utc_now, utc_factory
 from collections import defaultdict, Counter
 from dataclasses import dataclass
 import json
-import logging
-
-# 机器学习相关导入
 from sklearn.cluster import KMeans, DBSCAN
 from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import silhouette_score
 from sklearn.decomposition import PCA
 from sklearn.feature_extraction.text import TfidfVectorizer
 import pandas as pd
-
 from ..models import BehaviorEvent, UserSession, BehaviorPattern
 from ..storage.event_store import EventStore
 
-logger = logging.getLogger(__name__)
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
+# 机器学习相关导入
 
 @dataclass
 class PatternMiningResult:
@@ -36,7 +34,6 @@ class PatternMiningResult:
     total_sequences: int
     processing_time_seconds: float
     algorithm_params: Dict[str, Any]
-
 
 class SequencePatternMiner:
     """序列模式挖掘器
@@ -60,7 +57,7 @@ class SequencePatternMiner:
         event_sequences: List[List[Dict[str, Any]]]
     ) -> PatternMiningResult:
         """挖掘序列模式"""
-        start_time = asyncio.get_event_loop().time()
+        start_time = asyncio.get_running_loop().time()
         
         try:
             # 预处理序列数据
@@ -87,7 +84,7 @@ class SequencePatternMiner:
                 )
                 behavior_patterns.append(behavior_pattern)
             
-            processing_time = asyncio.get_event_loop().time() - start_time
+            processing_time = asyncio.get_running_loop().time() - start_time
             
             return PatternMiningResult(
                 patterns=behavior_patterns,
@@ -193,7 +190,6 @@ class SequencePatternMiner:
         
         return False
 
-
 class BehaviorClustering:
     """用户行为聚类分析器"""
     
@@ -216,7 +212,7 @@ class BehaviorClustering:
         user_event_features: Dict[str, Dict[str, Any]]
     ) -> PatternMiningResult:
         """对用户行为进行聚类"""
-        start_time = asyncio.get_event_loop().time()
+        start_time = asyncio.get_running_loop().time()
         
         try:
             # 构建特征矩阵
@@ -242,7 +238,7 @@ class BehaviorClustering:
                 user_ids, cluster_labels, user_event_features
             )
             
-            processing_time = asyncio.get_event_loop().time() - start_time
+            processing_time = asyncio.get_running_loop().time() - start_time
             
             return PatternMiningResult(
                 patterns=patterns,
@@ -442,7 +438,6 @@ class BehaviorClustering:
             "dominant_features": dominant_features[:5],  # 前5个主导特征
             "average_features": average_features
         }
-
 
 class PatternRecognitionEngine:
     """行为模式识别引擎"""

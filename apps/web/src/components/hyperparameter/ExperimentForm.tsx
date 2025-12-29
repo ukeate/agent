@@ -2,11 +2,12 @@ import React, { useState } from 'react';
 import { Card } from '../ui/card';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
-import { Label } from '../ui/Label';
-import { Textarea } from '../ui/Textarea';
+import { Label } from '../ui/label';
+import { Textarea } from '../ui/textarea';
 import { Badge } from '../ui/badge';
 import { Dialog } from '../ui/dialog';
 
+import { logger } from '../../utils/logger'
 interface Parameter {
   name: string;
   type: 'float' | 'int' | 'categorical' | 'boolean';
@@ -109,7 +110,7 @@ export const ExperimentForm: React.FC<ExperimentFormProps> = ({
         setParameters(presetData.parameters);
       }
     } catch (error) {
-      console.error('Failed to load preset:', error);
+      logger.error('加载预设失败:', error);
     }
   };
 

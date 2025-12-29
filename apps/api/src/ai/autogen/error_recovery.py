@@ -2,6 +2,7 @@
 错误恢复和补偿机制
 实现事件处理的重试、死信队列和补偿事务
 """
+
 import asyncio
 import json
 from typing import Dict, List, Optional, Any, Callable, Union
@@ -10,14 +11,12 @@ from datetime import datetime
 from datetime import timedelta
 from src.core.utils.timezone_utils import utc_now, utc_factory
 from enum import Enum
-import structlog
-
 from .events import Event, EventType, EventPriority
 from .event_processors import EventProcessor, EventContext, ProcessingResult
 from .event_store import EventStore
 
-logger = structlog.get_logger(__name__)
-
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 class RetryStrategy(str, Enum):
     """重试策略"""
@@ -26,7 +25,6 @@ class RetryStrategy(str, Enum):
     FIXED_DELAY = "fixed_delay"
     CUSTOM = "custom"
 
-
 class CompensationAction(str, Enum):
     """补偿动作"""
     ROLLBACK = "rollback"
@@ -34,7 +32,6 @@ class CompensationAction(str, Enum):
     RETRY = "retry"
     SKIP = "skip"
     MANUAL = "manual"
-
 
 @dataclass
 class RetryPolicy:
@@ -90,14 +87,12 @@ class RetryPolicy:
         
         return True  # 默认所有错误都可重试
 
-
 @dataclass
 class CircuitBreakerState:
     """断路器状态"""
     CLOSED = "closed"  # 正常状态
     OPEN = "open"      # 断开状态
     HALF_OPEN = "half_open"  # 半开状态
-
 
 @dataclass
 class CircuitBreaker:
@@ -169,7 +164,6 @@ class CircuitBreaker:
     def allow_request(self) -> bool:
         """是否允许请求通过"""
         return not self.is_open()
-
 
 class RetryableEventProcessor(EventProcessor):
     """可重试的事件处理器"""
@@ -274,7 +268,6 @@ class RetryableEventProcessor(EventProcessor):
             **self.retry_stats,
             "circuit_breaker_state": self.circuit_breaker.state if self.circuit_breaker else None
         }
-
 
 class DeadLetterQueue:
     """死信队列"""
@@ -417,7 +410,6 @@ class DeadLetterQueue:
             "current_dead_letters": len(self.dead_letters)
         }
 
-
 class CompensationManager:
     """补偿管理器"""
     
@@ -555,7 +547,6 @@ class CompensationManager:
             "active_sagas": len(self.saga_transactions),
             "registered_handlers": len(self.compensation_handlers)
         }
-
 
 class ErrorRecoveryService:
     """错误恢复服务"""

@@ -1,6 +1,7 @@
 """
 事件处理服务 - 负责事件的验证、处理和流转
 """
+
 from datetime import datetime
 from datetime import timedelta
 from src.core.utils.timezone_utils import utc_now, utc_factory
@@ -10,20 +11,21 @@ import json
 import hashlib
 from enum import Enum
 from dataclasses import dataclass
+from jsonschema import Draft7Validator
+from src.models.schemas.event_tracking import (
 
-from core.logging import get_logger
-from models.schemas.event_tracking import (
     CreateEventRequest, EventStatus, DataQuality, EventType,
     EventValidationResult, EventDeduplicationInfo
 )
-from models.database.event_tracking import EventStream
-from repositories.event_tracking_repository import (
+from src.models.database.event_tracking import EventStream
+from src.repositories.event_tracking_repository import (
     EventStreamRepository, EventDeduplicationRepository, 
     EventSchemaRepository, EventErrorRepository
+
 )
 
+from src.core.logging import get_logger
 logger = get_logger(__name__)
-
 
 class ProcessingStage(str, Enum):
     """处理阶段"""
@@ -33,7 +35,6 @@ class ProcessingStage(str, Enum):
     ENRICHMENT = "enrichment"
     STORAGE = "storage"
     AGGREGATION = "aggregation"
-
 
 @dataclass
 class EventProcessingResult:
@@ -46,7 +47,6 @@ class EventProcessingResult:
     warnings: List[str] = None
     processing_time_ms: int = None
     stage: ProcessingStage = None
-
 
 class EventValidationService:
     """事件验证服务"""
@@ -81,12 +81,8 @@ class EventValidationService:
             errors.extend(json_errors)
             
             # 5. Schema验证（如果有定义）
-            try:
-                schema_errors = await self._validate_schema(event)
-                errors.extend(schema_errors)
-            except Exception as e:
-                logger.warning(f"Schema验证跳过: {e}")
-                warnings.append("Schema验证未完成")
+            schema_errors = await self._validate_schema(event)
+            errors.extend(schema_errors)
             
             # 6. 数据质量评分
             quality, quality_score = self._calculate_quality_score(errors, warnings)
@@ -237,23 +233,20 @@ class EventValidationService:
     
     async def _validate_schema(self, event: CreateEventRequest) -> List[str]:
         """根据预定义Schema验证事件"""
-        errors = []
-        
+        schema = await self.schema_repo.get_active_schema_by_event(event.event_type.value, event.event_name)
+        if not schema:
+            return []
+
         try:
-            # 查找对应的Schema
-            schema = await self.schema_repo.get_active_schema_by_event(
-                event.event_type.value, event.event_name
-            )
-            
-            if schema:
-                # TODO: 实现JSONSchema验证
-                # 这里可以使用jsonschema库进行验证
-                pass
-        
+            validator = Draft7Validator(schema.schema_definition)
         except Exception as e:
-            logger.warning(f"Schema查找失败: {e}")
-        
-        return errors
+            return [f"Schema无效: {e}"]
+
+        instance = event.model_dump(mode="json")
+        return [
+            f"{'.'.join(str(p) for p in err.path)}: {err.message}" if err.path else err.message
+            for err in validator.iter_errors(instance)
+        ]
     
     def _calculate_quality_score(self, errors: List[str], warnings: List[str]) -> Tuple[DataQuality, float]:
         """计算数据质量等级和分数"""
@@ -266,7 +259,6 @@ class EventValidationService:
             return DataQuality.MEDIUM, 0.7
         else:
             return DataQuality.HIGH, 1.0
-
 
 class EventDeduplicationService:
     """事件去重服务"""
@@ -352,7 +344,6 @@ class EventDeduplicationService:
                 duplicate_count=0
             )
 
-
 class EventEnrichmentService:
     """事件增强服务 - 丰富事件数据"""
     
@@ -386,13 +377,87 @@ class EventEnrichmentService:
     
     async def _enrich_geo_info(self, ip_address: str) -> Optional[Dict[str, Any]]:
         """通过IP地址获取地理位置信息"""
-        # TODO: 集成地理位置服务（如MaxMind GeoIP）
-        return None
+        import ipaddress
+
+        try:
+            ip = ipaddress.ip_address(ip_address)
+        except Exception:
+            return None
+
+        return {
+            "ip": ip_address,
+            "version": int(getattr(ip, "version", 0) or 0),
+            "is_private": bool(getattr(ip, "is_private", False)),
+            "is_global": bool(getattr(ip, "is_global", False)),
+            "is_loopback": bool(getattr(ip, "is_loopback", False)),
+            "is_multicast": bool(getattr(ip, "is_multicast", False)),
+            "is_reserved": bool(getattr(ip, "is_reserved", False)),
+        }
     
     async def _parse_user_agent(self, user_agent: str) -> Optional[Dict[str, Any]]:
         """解析User Agent获取设备信息"""
-        # TODO: 集成User Agent解析库
-        return None
+        import re
+
+        ua = (user_agent or "").strip()
+        if not ua:
+            return None
+
+        ua_lower = ua.lower()
+        is_bot = any(k in ua_lower for k in ["bot", "crawler", "spider", "slurp"])
+
+        device_type = "desktop"
+        if any(k in ua_lower for k in ["ipad", "tablet"]):
+            device_type = "tablet"
+        elif any(k in ua_lower for k in ["mobile", "android", "iphone"]):
+            device_type = "mobile"
+
+        os_name = "unknown"
+        os_version = None
+        if "windows nt" in ua_lower:
+            os_name = "windows"
+            m = re.search(r"windows nt ([0-9.]+)", ua_lower)
+            os_version = m.group(1) if m else None
+        elif "mac os x" in ua_lower and "iphone" not in ua_lower and "ipad" not in ua_lower:
+            os_name = "macos"
+            m = re.search(r"mac os x ([0-9_]+)", ua_lower)
+            os_version = m.group(1).replace("_", ".") if m else None
+        elif "android" in ua_lower:
+            os_name = "android"
+            m = re.search(r"android ([0-9.]+)", ua_lower)
+            os_version = m.group(1) if m else None
+        elif "iphone os" in ua_lower or "cpu iphone os" in ua_lower:
+            os_name = "ios"
+            m = re.search(r"(?:iphone os|cpu iphone os) ([0-9_]+)", ua_lower)
+            os_version = m.group(1).replace("_", ".") if m else None
+        elif "linux" in ua_lower:
+            os_name = "linux"
+
+        browser_name = "unknown"
+        browser_version = None
+        if "edg/" in ua_lower:
+            browser_name = "edge"
+            m = re.search(r"edg/([0-9.]+)", ua_lower)
+            browser_version = m.group(1) if m else None
+        elif "chrome/" in ua_lower and "chromium" not in ua_lower:
+            browser_name = "chrome"
+            m = re.search(r"chrome/([0-9.]+)", ua_lower)
+            browser_version = m.group(1) if m else None
+        elif "firefox/" in ua_lower:
+            browser_name = "firefox"
+            m = re.search(r"firefox/([0-9.]+)", ua_lower)
+            browser_version = m.group(1) if m else None
+        elif "safari/" in ua_lower and "chrome/" not in ua_lower:
+            browser_name = "safari"
+            m = re.search(r"version/([0-9.]+)", ua_lower)
+            browser_version = m.group(1) if m else None
+
+        return {
+            "user_agent": ua,
+            "is_bot": is_bot,
+            "device": {"type": device_type},
+            "os": {"name": os_name, "version": os_version},
+            "browser": {"name": browser_name, "version": browser_version},
+        }
     
     def _generate_session_id(self, user_id: str, client_info: Any) -> str:
         """生成会话ID"""
@@ -409,7 +474,6 @@ class EventEnrichmentService:
         context["processing_version"] = "1.0"
         
         return context
-
 
 class EventProcessingService:
     """事件处理主服务"""
@@ -530,7 +594,7 @@ class EventProcessingService:
         try:
             await self.error_repo.create_error(
                 failed_event_id=event.event_id,
-                raw_event_data=event.dict(),
+                raw_event_data=event.model_dump(mode="json"),
                 error_type="processing_error",
                 error_message=error_message,
                 error_details=error_details or {},

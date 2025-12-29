@@ -12,20 +12,18 @@ import sqlite3
 import json
 import gzip
 import hashlib
-from datetime import datetime
+from datetime import datetime, timedelta
 from src.core.utils.timezone_utils import utc_now, utc_factory
 from typing import Dict, Any, List, Optional, Tuple
 from pathlib import Path
 from contextlib import contextmanager
 from uuid import UUID
-
 from ..models.schemas.offline import (
     OfflineSession, SyncOperation, ConflictRecord, 
     SyncBatch, StateSnapshot, VectorClock,
     SyncOperationType, ConflictType
 )
 from ..core.config import get_settings
-
 
 class OfflineDatabase:
     """离线数据库管理器"""
@@ -40,6 +38,7 @@ class OfflineDatabase:
     def _init_database(self):
         """初始化数据库表结构"""
         with self.get_connection() as conn:
+            self._ensure_session_id_unique(conn)
             # 离线会话表
             conn.execute("""
                 CREATE TABLE IF NOT EXISTS offline_sessions (
@@ -59,7 +58,8 @@ class OfflineDatabase:
                     vector_clock TEXT NOT NULL,
                     metadata TEXT DEFAULT '{}',
                     created_at TEXT NOT NULL,
-                    updated_at TEXT NOT NULL
+                    updated_at TEXT NOT NULL,
+                    UNIQUE(session_id)
                 )
             """)
             
@@ -160,12 +160,91 @@ class OfflineDatabase:
             
             # 创建索引
             self._create_indexes(conn)
+
+    def _ensure_session_id_unique(self, conn: sqlite3.Connection) -> None:
+        row = conn.execute(
+            "SELECT sql FROM sqlite_master WHERE type='table' AND name='offline_sessions'"
+        ).fetchone()
+        sql = (row["sql"] if row else "") or ""
+        if "UNIQUE" in sql and "session_id" in sql:
+            return
+        if not sql:
+            return
+
+        conn.execute("PRAGMA foreign_keys = OFF")
+        try:
+            rows = conn.execute("SELECT * FROM offline_sessions ORDER BY updated_at DESC").fetchall()
+            keep = {}
+            for r in rows:
+                sid = r["session_id"]
+                if sid not in keep:
+                    keep[sid] = r
+
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS offline_sessions_new (
+                    id TEXT PRIMARY KEY,
+                    user_id TEXT NOT NULL,
+                    session_id TEXT NOT NULL,
+                    mode TEXT NOT NULL,
+                    started_at TEXT NOT NULL,
+                    last_sync_at TEXT,
+                    last_heartbeat TEXT NOT NULL,
+                    network_status TEXT NOT NULL,
+                    connection_quality REAL NOT NULL,
+                    bandwidth_kbps REAL,
+                    pending_operations INTEGER DEFAULT 0,
+                    has_conflicts BOOLEAN DEFAULT FALSE,
+                    sync_in_progress BOOLEAN DEFAULT FALSE,
+                    vector_clock TEXT NOT NULL,
+                    metadata TEXT DEFAULT '{}',
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL,
+                    UNIQUE(session_id)
+                )
+                """
+            )
+            conn.execute("DELETE FROM offline_sessions_new")
+            for r in keep.values():
+                conn.execute(
+                    """
+                    INSERT INTO offline_sessions_new (
+                        id, user_id, session_id, mode, started_at, last_sync_at, last_heartbeat,
+                        network_status, connection_quality, bandwidth_kbps, pending_operations, has_conflicts,
+                        sync_in_progress, vector_clock, metadata, created_at, updated_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        r["id"],
+                        r["user_id"],
+                        r["session_id"],
+                        r["mode"],
+                        r["started_at"],
+                        r["last_sync_at"],
+                        r["last_heartbeat"],
+                        r["network_status"],
+                        r["connection_quality"],
+                        r["bandwidth_kbps"],
+                        r["pending_operations"],
+                        r["has_conflicts"],
+                        r["sync_in_progress"],
+                        r["vector_clock"],
+                        r["metadata"],
+                        r["created_at"],
+                        r["updated_at"],
+                    ),
+                )
+            conn.execute("DROP TABLE offline_sessions")
+            conn.execute("ALTER TABLE offline_sessions_new RENAME TO offline_sessions")
+        finally:
+            conn.execute("PRAGMA foreign_keys = ON")
     
     def _create_indexes(self, conn: sqlite3.Connection):
         """创建数据库索引"""
         indexes = [
             "CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON offline_sessions(user_id)",
             "CREATE INDEX IF NOT EXISTS idx_sessions_session_id ON offline_sessions(session_id)",
+            "CREATE UNIQUE INDEX IF NOT EXISTS idx_sessions_session_id_unique ON offline_sessions(session_id)",
             "CREATE INDEX IF NOT EXISTS idx_operations_session_id ON sync_operations(session_id)",
             "CREATE INDEX IF NOT EXISTS idx_operations_object ON sync_operations(table_name, object_id)",
             "CREATE INDEX IF NOT EXISTS idx_operations_timestamp ON sync_operations(client_timestamp)",
@@ -180,7 +259,36 @@ class OfflineDatabase:
         ]
         
         for index_sql in indexes:
+            if "idx_sessions_session_id_unique" in index_sql:
+                try:
+                    conn.execute(index_sql)
+                except sqlite3.IntegrityError:
+                    self._dedupe_sessions(conn)
+                    conn.execute(index_sql)
+                continue
             conn.execute(index_sql)
+
+    def _dedupe_sessions(self, conn: sqlite3.Connection) -> None:
+        rows = conn.execute(
+            """
+            SELECT session_id, COUNT(*) AS cnt
+            FROM offline_sessions
+            GROUP BY session_id
+            HAVING cnt > 1
+            """
+        ).fetchall()
+        for row in rows:
+            session_id = row["session_id"]
+            keep = conn.execute(
+                "SELECT id FROM offline_sessions WHERE session_id = ? ORDER BY updated_at DESC LIMIT 1",
+                (session_id,),
+            ).fetchone()
+            if not keep:
+                continue
+            conn.execute(
+                "DELETE FROM offline_sessions WHERE session_id = ? AND id <> ?",
+                (session_id, keep["id"]),
+            )
     
     @contextmanager
     def get_connection(self):
@@ -217,7 +325,7 @@ class OfflineDatabase:
                 session.last_heartbeat.isoformat(), session.network_status.value,
                 session.connection_quality, session.bandwidth_kbps,
                 session.pending_operations, session.has_conflicts,
-                session.sync_in_progress, json.dumps(session.vector_clock.dict()),
+                session.sync_in_progress, json.dumps(session.vector_clock.model_dump()),
                 json.dumps(session.metadata), session.created_at.isoformat(),
                 session.updated_at.isoformat()
             ))
@@ -272,7 +380,7 @@ class OfflineDatabase:
                 session.last_heartbeat.isoformat(), session.network_status.value,
                 session.connection_quality, session.bandwidth_kbps,
                 session.pending_operations, session.has_conflicts,
-                session.sync_in_progress, json.dumps(session.vector_clock.dict()),
+                session.sync_in_progress, json.dumps(session.vector_clock.model_dump()),
                 json.dumps(session.metadata), session.updated_at.isoformat(),
                 session.session_id
             ))
@@ -298,7 +406,7 @@ class OfflineDatabase:
                 json.dumps(operation.patch_data) if operation.patch_data else None,
                 operation.client_timestamp.isoformat(),
                 operation.server_timestamp.isoformat() if operation.server_timestamp else None,
-                json.dumps(operation.vector_clock.dict()), operation.is_applied,
+                json.dumps(operation.vector_clock.model_dump()), operation.is_applied,
                 operation.is_synced, operation.retry_count, operation.error_message,
                 operation.checksum, json.dumps(operation.metadata),
                 operation.created_at.isoformat(), operation.updated_at.isoformat()
@@ -343,6 +451,48 @@ class OfflineDatabase:
                 operations.append(operation)
             
             return operations
+
+    def list_operations(self, session_id: str, limit: int = 100, offset: int = 0) -> List[SyncOperation]:
+        """列出操作历史（包含已同步与未同步）"""
+        with self.get_connection() as conn:
+            rows = conn.execute(
+                """
+                SELECT * FROM sync_operations
+                WHERE session_id = ?
+                ORDER BY client_timestamp DESC
+                LIMIT ? OFFSET ?
+                """,
+                (session_id, limit, offset),
+            ).fetchall()
+
+            operations = []
+            for row in rows:
+                vector_clock_data = json.loads(row["vector_clock"])
+                operation = SyncOperation(
+                    id=UUID(row["id"]),
+                    session_id=row["session_id"],
+                    operation_type=SyncOperationType(row["operation_type"]),
+                    table_name=row["table_name"],
+                    object_id=row["object_id"],
+                    object_type=row["object_type"],
+                    data=json.loads(row["data"]) if row["data"] else None,
+                    old_data=json.loads(row["old_data"]) if row["old_data"] else None,
+                    patch_data=json.loads(row["patch_data"]) if row["patch_data"] else None,
+                    client_timestamp=datetime.fromisoformat(row["client_timestamp"]),
+                    server_timestamp=datetime.fromisoformat(row["server_timestamp"]) if row["server_timestamp"] else None,
+                    vector_clock=VectorClock(**vector_clock_data),
+                    is_applied=row["is_applied"],
+                    is_synced=row["is_synced"],
+                    retry_count=row["retry_count"],
+                    error_message=row["error_message"],
+                    checksum=row["checksum"],
+                    metadata=json.loads(row["metadata"]),
+                    created_at=datetime.fromisoformat(row["created_at"]),
+                    updated_at=datetime.fromisoformat(row["updated_at"]),
+                )
+                operations.append(operation)
+
+            return operations
     
     def mark_operation_synced(self, operation_id: UUID, server_timestamp: Optional[datetime] = None) -> bool:
         """标记操作已同步"""
@@ -380,8 +530,8 @@ class OfflineDatabase:
                 str(conflict.remote_operation_id), json.dumps(conflict.local_data),
                 json.dumps(conflict.remote_data),
                 json.dumps(conflict.base_data) if conflict.base_data else None,
-                json.dumps(conflict.local_vector_clock.dict()),
-                json.dumps(conflict.remote_vector_clock.dict()),
+                json.dumps(conflict.local_vector_clock.model_dump()),
+                json.dumps(conflict.remote_vector_clock.model_dump()),
                 conflict.resolution_strategy.value if conflict.resolution_strategy else None,
                 json.dumps(conflict.resolved_data) if conflict.resolved_data else None,
                 conflict.is_resolved,
@@ -429,6 +579,38 @@ class OfflineDatabase:
                 conflicts.append(conflict)
             
             return conflicts
+
+    def resolve_conflict(
+        self,
+        conflict_id: UUID,
+        resolution_strategy: str,
+        resolved_data: Optional[Dict[str, Any]],
+        resolved_by: str,
+    ) -> bool:
+        """解决冲突并落库"""
+        now = utc_now()
+        with self.get_connection() as conn:
+            cursor = conn.execute(
+                """
+                UPDATE conflict_records SET
+                    resolution_strategy = ?,
+                    resolved_data = ?,
+                    is_resolved = TRUE,
+                    resolved_at = ?,
+                    resolved_by = ?,
+                    updated_at = ?
+                WHERE id = ? AND is_resolved = FALSE
+                """,
+                (
+                    resolution_strategy,
+                    json.dumps(resolved_data) if resolved_data is not None else None,
+                    now.isoformat(),
+                    resolved_by,
+                    now.isoformat(),
+                    str(conflict_id),
+                ),
+            )
+            return cursor.rowcount > 0
     
     # 状态快照管理
     
@@ -456,7 +638,7 @@ class OfflineDatabase:
                 str(snapshot.id), snapshot.session_id, snapshot.snapshot_type,
                 snapshot.version, snapshot.checkpoint, state_data_blob,
                 snapshot.schema_version, snapshot.is_compressed, compression_ratio,
-                json.dumps(snapshot.vector_clock.dict()), snapshot.size_bytes,
+                json.dumps(snapshot.vector_clock.model_dump()), snapshot.size_bytes,
                 json.dumps(snapshot.metadata), snapshot.created_at.isoformat()
             ))
         
@@ -501,6 +683,23 @@ class OfflineDatabase:
             )
     
     # 数据统计和清理
+
+    def cleanup_old_snapshots(self, session_id: str, snapshot_type: str, max_history: int) -> int:
+        """清理旧快照，保留最新max_history条"""
+        with self.get_connection() as conn:
+            rows = conn.execute("""
+                SELECT id FROM state_snapshots
+                WHERE session_id = ? AND snapshot_type = ?
+                ORDER BY version DESC
+            """, (session_id, snapshot_type)).fetchall()
+            if not rows or len(rows) <= max_history:
+                return 0
+            delete_ids = [row["id"] for row in rows[max_history:]]
+            conn.executemany(
+                "DELETE FROM state_snapshots WHERE id = ?",
+                [(snapshot_id,) for snapshot_id in delete_ids],
+            )
+            return len(delete_ids)
     
     def get_session_stats(self, session_id: str) -> Dict[str, Any]:
         """获取会话统计信息"""
@@ -540,7 +739,7 @@ class OfflineDatabase:
     
     def cleanup_old_data(self, session_id: str, keep_days: int = 7) -> Dict[str, int]:
         """清理旧数据"""
-        cutoff_date = (utc_now() - datetime.timedelta(days=keep_days)).isoformat()
+        cutoff_date = (utc_now() - timedelta(days=keep_days)).isoformat()
         
         with self.get_connection() as conn:
             # 清理已同步的操作

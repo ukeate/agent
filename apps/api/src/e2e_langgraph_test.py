@@ -1,8 +1,3 @@
-#!/usr/bin/env python3
-"""
-LangGraph 0.6.5 新特性 E2E 测试脚本
-全面测试Context API、durability控制、Node Caching和Pre/Post Hooks
-"""
 import asyncio
 import json
 import time
@@ -10,6 +5,16 @@ import aiohttp
 import sys
 from typing import Dict, Any, List
 from dataclasses import dataclass
+from src.core.logging import setup_logging
+
+from src.core.logging import get_logger
+logger = get_logger(__name__)
+
+#!/usr/bin/env python3
+"""
+LangGraph 0.6.5 新特性 E2E 测试脚本
+全面测试Context API、durability控制、Node Caching和Pre/Post Hooks
+"""
 
 @dataclass
 class TestResult:
@@ -29,7 +34,7 @@ class LangGraphE2ETestSuite:
     
     async def run_all_tests(self) -> Dict[str, Any]:
         """运行所有测试"""
-        print("🚀 开始LangGraph 0.6.5新特性E2E测试...")
+        logger.info("🚀 开始LangGraph 0.6.5新特性E2E测试...")
         
         # 测试用例列表
         test_cases = [
@@ -47,12 +52,12 @@ class LangGraphE2ETestSuite:
         
         async with aiohttp.ClientSession() as session:
             for test_name, test_func in test_cases:
-                print(f"\n📋 执行测试: {test_name}")
+                logger.info(f"\n📋 执行测试: {test_name}")
                 try:
                     await test_func(session)
-                    print(f"✅ {test_name} - 通过")
+                    logger.info(f"✅ {test_name} - 通过")
                 except Exception as e:
-                    print(f"❌ {test_name} - 失败: {str(e)}")
+                    logger.error(f"❌ {test_name} - 失败: {str(e)}")
                     self.test_results.append(TestResult(
                         name=test_name,
                         passed=False,
@@ -401,48 +406,49 @@ class LangGraphE2ETestSuite:
 
 async def main():
     """主函数"""
-    print("=" * 60)
-    print("LangGraph 0.6.5 新特性 E2E 测试套件")
-    print("=" * 60)
+    logger.info("=" * 60)
+    logger.info("LangGraph 0.6.5 新特性 E2E 测试套件")
+    logger.info("=" * 60)
     
     test_suite = LangGraphE2ETestSuite()
     report = await test_suite.run_all_tests()
     
-    print("\n" + "=" * 60)
-    print("📊 测试报告摘要")
-    print("=" * 60)
+    logger.info("\n" + "=" * 60)
+    logger.info("📊 测试报告摘要")
+    logger.info("=" * 60)
     
     summary = report["summary"]
-    print(f"总计测试: {summary['total_tests']}")
-    print(f"通过测试: {summary['passed']}")
-    print(f"失败测试: {summary['failed']}")
-    print(f"成功率: {summary['success_rate']}")
-    print(f"总执行时间: {summary['total_duration_ms']:.2f}ms")
-    print(f"平均执行时间: {summary['average_duration_ms']:.2f}ms")
+    logger.info(f"总计测试: {summary['total_tests']}")
+    logger.info(f"通过测试: {summary['passed']}")
+    logger.error(f"失败测试: {summary['failed']}")
+    logger.info(f"成功率: {summary['success_rate']}")
+    logger.info(f"总执行时间: {summary['total_duration_ms']:.2f}ms")
+    logger.info(f"平均执行时间: {summary['average_duration_ms']:.2f}ms")
     
-    print("\n📋 测试详情:")
+    logger.info("\n📋 测试详情:")
     for result in report["test_results"]:
         status = "✅" if result["passed"] else "❌"
-        print(f"{status} {result['name']} ({result['duration_ms']:.2f}ms)")
+        logger.info(f"{status} {result['name']} ({result['duration_ms']:.2f}ms)")
         if result.get("error"):
-            print(f"   错误: {result['error']}")
+            logger.error(f"   错误: {result['error']}")
     
-    print("\n🎯 已测试功能:")
+    logger.info("\n🎯 已测试功能:")
     for feature in report["features_tested"]:
-        print(f"• {feature}")
+        logger.info(f"• {feature}")
     
     # 保存详细报告到文件
     with open("langgraph_e2e_test_report.json", "w", encoding="utf-8") as f:
         json.dump(report, f, ensure_ascii=False, indent=2)
     
-    print(f"\n📄 详细报告已保存到: langgraph_e2e_test_report.json")
+    logger.info(f"\n📄 详细报告已保存到: langgraph_e2e_test_report.json")
     
     if summary["failed"] > 0:
-        print("\n⚠️  部分测试失败，请检查错误信息")
+        logger.error("\n⚠️  部分测试失败，请检查错误信息")
         sys.exit(1)
     else:
-        print("\n🎉 所有测试通过！LangGraph 0.6.5 新特性工作正常")
+        logger.info("\n🎉 所有测试通过！LangGraph 0.6.5 新特性工作正常")
         sys.exit(0)
 
 if __name__ == "__main__":
+    setup_logging()
     asyncio.run(main())

@@ -1,40 +1,39 @@
 """
 事件批处理API端点 - 管理事件批处理任务和缓冲
 """
+
 from datetime import datetime
 from datetime import timedelta
 from src.core.utils.timezone_utils import utc_now, utc_factory
 from typing import List, Optional, Dict, Any
 from fastapi import APIRouter, HTTPException, Depends, BackgroundTasks, Query
-from pydantic import BaseModel, Field
-
-from core.logging import get_logger
-from models.schemas.event_tracking import CreateEventRequest, BatchEventsRequest, EventStatus
-from services.event_batch_manager import (
+from pydantic import Field
+from src.models.schemas.event_tracking import CreateEventRequest, BatchEventsRequest, EventStatus
+from src.services.event_batch_manager import (
     get_batch_manager, EventBatchManager, BatchJobConfig, BatchJobStatus,
     ProcessingMode
 )
-from services.event_buffer_service import BufferPriority
+from src.api.base_model import ApiBaseModel
+from src.services.event_buffer_service import BufferPriority
 
+from src.core.logging import get_logger
 logger = get_logger(__name__)
+
 router = APIRouter(prefix="/event-batch", tags=["事件批处理"])
 
-
 # 请求和响应模型
-class SubmitEventRequest(BaseModel):
+class SubmitEventRequest(ApiBaseModel):
     """提交单个事件请求"""
     event: CreateEventRequest
     processing_mode: ProcessingMode = ProcessingMode.ADAPTIVE
     priority: BufferPriority = BufferPriority.NORMAL
 
-
-class SubmitBatchRequest(BaseModel):
+class SubmitBatchRequest(ApiBaseModel):
     """提交批量事件请求"""
     batch: BatchEventsRequest
     job_config: Optional[BatchJobConfig] = None
 
-
-class EventSubmissionResponse(BaseModel):
+class EventSubmissionResponse(ApiBaseModel):
     """事件提交响应"""
     event_id: str
     job_id: Optional[str] = None
@@ -42,8 +41,7 @@ class EventSubmissionResponse(BaseModel):
     message: str
     submitted_at: datetime = Field(default_factory=lambda: utc_now())
 
-
-class BatchSubmissionResponse(BaseModel):
+class BatchSubmissionResponse(ApiBaseModel):
     """批量提交响应"""
     job_id: str
     total_events: int
@@ -52,8 +50,7 @@ class BatchSubmissionResponse(BaseModel):
     estimated_completion_time: Optional[datetime] = None
     submitted_at: datetime = Field(default_factory=lambda: utc_now())
 
-
-class JobStatusResponse(BaseModel):
+class JobStatusResponse(ApiBaseModel):
     """任务状态响应"""
     job_id: str
     status: EventStatus
@@ -66,20 +63,17 @@ class JobStatusResponse(BaseModel):
     error_message: Optional[str]
     estimated_remaining_time: Optional[int] = None  # seconds
 
-
-class BufferMetricsResponse(BaseModel):
+class BufferMetricsResponse(ApiBaseModel):
     """缓冲指标响应"""
     global_metrics: Dict[str, Any]
     buffer_metrics: Dict[str, Any]
     config: Dict[str, Any]
 
-
-class ManagerStatsResponse(BaseModel):
+class ManagerStatsResponse(ApiBaseModel):
     """管理器统计响应"""
     stats: Dict[str, Any]
     active_jobs_count: int
     active_jobs: List[Dict[str, Any]]
-
 
 # 依赖注入
 async def get_manager() -> EventBatchManager:
@@ -87,7 +81,6 @@ async def get_manager() -> EventBatchManager:
     if not manager.is_initialized:
         await manager.initialize()
     return manager
-
 
 @router.post("/events/submit", response_model=EventSubmissionResponse)
 async def submit_single_event(
@@ -112,7 +105,6 @@ async def submit_single_event(
     except Exception as e:
         logger.error(f"Failed to submit event {request.event.event_id}: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Event submission failed: {str(e)}")
-
 
 @router.post("/batches/submit", response_model=BatchSubmissionResponse)
 async def submit_batch(
@@ -146,7 +138,6 @@ async def submit_batch(
     except Exception as e:
         logger.error(f"Failed to submit batch: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Batch submission failed: {str(e)}")
-
 
 @router.get("/jobs/{job_id}/status", response_model=JobStatusResponse)
 async def get_job_status(
@@ -188,7 +179,6 @@ async def get_job_status(
     except Exception as e:
         logger.error(f"Failed to get job status for {job_id}: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Failed to get job status: {str(e)}")
-
 
 @router.get("/jobs", response_model=List[JobStatusResponse])
 async def list_active_jobs(
@@ -233,7 +223,6 @@ async def list_active_jobs(
         logger.error(f"Failed to list active jobs: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Failed to list jobs: {str(e)}")
 
-
 @router.post("/jobs/{job_id}/cancel")
 async def cancel_job(
     job_id: str,
@@ -254,7 +243,6 @@ async def cancel_job(
         logger.error(f"Failed to cancel job {job_id}: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Failed to cancel job: {str(e)}")
 
-
 @router.get("/buffer/metrics", response_model=BufferMetricsResponse)
 async def get_buffer_metrics(
     manager: EventBatchManager = Depends(get_manager)
@@ -273,7 +261,6 @@ async def get_buffer_metrics(
         logger.error(f"Failed to get buffer metrics: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Failed to get buffer metrics: {str(e)}")
 
-
 @router.get("/stats", response_model=ManagerStatsResponse)
 async def get_manager_stats(
     manager: EventBatchManager = Depends(get_manager)
@@ -291,7 +278,6 @@ async def get_manager_stats(
     except Exception as e:
         logger.error(f"Failed to get manager stats: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Failed to get manager stats: {str(e)}")
-
 
 @router.post("/buffer/flush")
 async def force_flush_buffers(
@@ -319,7 +305,6 @@ async def force_flush_buffers(
         logger.error(f"Failed to flush buffers: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Failed to flush buffers: {str(e)}")
 
-
 @router.post("/config/concurrent-jobs")
 async def set_max_concurrent_jobs(
     max_jobs: int = Query(..., ge=1, le=100, description="Maximum concurrent jobs"),
@@ -337,7 +322,6 @@ async def set_max_concurrent_jobs(
     except Exception as e:
         logger.error(f"Failed to set max concurrent jobs: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Failed to set max concurrent jobs: {str(e)}")
-
 
 @router.get("/health")
 async def health_check(

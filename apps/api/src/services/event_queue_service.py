@@ -1,9 +1,10 @@
 """
 事件队列服务 - 基于Redis的高性能事件队列处理
 """
+
 import asyncio
 import json
-import pickle
+from src.core.utils import secure_pickle as pickle
 from datetime import datetime
 from datetime import timedelta
 from src.core.utils.timezone_utils import utc_now, utc_factory
@@ -11,14 +12,12 @@ from typing import Dict, List, Optional, Any, Callable, Union
 from dataclasses import dataclass, asdict
 from enum import Enum
 import uuid
-import redis.asyncio as aioredis
+import redis.asyncio as redis_async
 from redis.exceptions import ConnectionError, TimeoutError
+from src.models.schemas.event_tracking import CreateEventRequest, EventStatus
 
-from core.logging import get_logger
-from models.schemas.event_tracking import CreateEventRequest, EventStatus
-
+from src.core.logging import get_logger
 logger = get_logger(__name__)
-
 
 class QueuePriority(str, Enum):
     """队列优先级"""
@@ -27,13 +26,11 @@ class QueuePriority(str, Enum):
     NORMAL = "normal"
     LOW = "low"
 
-
 class QueueStatus(str, Enum):
     """队列状态"""
     ACTIVE = "active"
     PAUSED = "paused"
     STOPPED = "stopped"
-
 
 @dataclass
 class QueuedEvent:
@@ -66,7 +63,6 @@ class QueuedEvent:
             data['next_retry_at'] = datetime.fromisoformat(data['next_retry_at'])
         return cls(**data)
 
-
 @dataclass
 class QueueMetrics:
     """队列指标"""
@@ -80,7 +76,6 @@ class QueueMetrics:
     avg_processing_time_ms: float = 0.0
     throughput_per_minute: float = 0.0
     last_processed_at: Optional[datetime] = None
-
 
 class EventQueueService:
     """事件队列服务"""
@@ -96,8 +91,8 @@ class EventQueueService:
         self.max_connections = max_connections
         
         # Redis连接池
-        self.redis_pool: Optional[aioredis.ConnectionPool] = None
-        self.redis_client: Optional[aioredis.Redis] = None
+        self.redis_pool: Optional[redis_async.ConnectionPool] = None
+        self.redis_client: Optional[redis_async.Redis] = None
         
         # 队列配置
         self.queues: Dict[str, QueueMetrics] = {}
@@ -126,13 +121,13 @@ class EventQueueService:
         
         try:
             # 创建Redis连接池
-            self.redis_pool = aioredis.ConnectionPool.from_url(
+            self.redis_pool = redis_async.ConnectionPool.from_url(
                 self.redis_url,
                 max_connections=self.max_connections,
                 decode_responses=False  # 保持二进制模式以支持pickle
             )
-            
-            self.redis_client = aioredis.Redis(connection_pool=self.redis_pool)
+
+            self.redis_client = redis_async.Redis(connection_pool=self.redis_pool)
             
             # 测试连接
             await self.redis_client.ping()
@@ -177,9 +172,9 @@ class EventQueueService:
         
         # 关闭Redis连接
         if self.redis_client:
-            await self.redis_client.close()
+            await self.redis_client.aclose()
         if self.redis_pool:
-            await self.redis_pool.disconnect()
+            await self.redis_pool.aclose()
         
         self.processors.clear()
         logger.info("Event Queue Service shutdown completed")
@@ -244,7 +239,7 @@ class EventQueueService:
             # 创建队列事件
             queued_event = QueuedEvent(
                 event_id=event.event_id,
-                event_data=event.dict(),
+                event_data=event.model_dump(mode="json"),
                 priority=priority,
                 queue_name=full_queue_name,
                 queued_at=utc_now()
@@ -475,10 +470,7 @@ class EventQueueService:
             handler = self.event_handlers[event_type]
             await handler(event_dict)
         else:
-            # 默认处理逻辑
-            logger.debug(f"Processing event {queued_event.event_id} of type {event_type}")
-            # 模拟处理时间
-            await asyncio.sleep(0.1)
+            logger.debug(f"事件类型未注册处理器: {event_type}, 已跳过")
     
     async def _delayed_queue_monitor(self):
         """延迟队列监控器"""

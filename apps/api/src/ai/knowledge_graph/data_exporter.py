@@ -13,7 +13,10 @@ from typing import Dict, List, Any, Optional, Union, AsyncGenerator, TextIO
 from enum import Enum
 from dataclasses import dataclass, asdict
 from pathlib import Path
-import logging
+from src.core.logging import get_logger, setup_logging
+
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 try:
     from rdflib import Graph, URIRef, Literal, BNode
@@ -26,9 +29,6 @@ except ImportError:
     RDF = RDFS = OWL = None
     SPARQLStore = None
 
-logger = logging.getLogger(__name__)
-
-
 class ExportFormat(Enum):
     """支持的导出格式"""
     RDF_XML = "rdf/xml"
@@ -40,13 +40,11 @@ class ExportFormat(Enum):
     EXCEL = "excel"
     GRAPHML = "graphml"
 
-
 class CompressionType(Enum):
     """压缩类型"""
     NONE = "none"
     ZIP = "zip"
     GZIP = "gzip"
-
 
 @dataclass
 class ExportOptions:
@@ -62,7 +60,6 @@ class ExportOptions:
     custom_namespace_prefixes: Optional[Dict[str, str]] = None
     export_directory: Optional[str] = None
 
-
 @dataclass
 class ExportJob:
     """导出任务定义"""
@@ -73,7 +70,6 @@ class ExportJob:
     output_filename: Optional[str] = None
     created_at: Optional[datetime] = None
     metadata: Optional[Dict[str, Any]] = None
-
 
 @dataclass 
 class ExportResult:
@@ -90,7 +86,6 @@ class ExportResult:
     warnings: List[str] = None
     statistics: Optional[Dict[str, Any]] = None
 
-
 class DataExporter:
     """知识图谱数据导出器"""
     
@@ -101,7 +96,7 @@ class DataExporter:
     
     def _setup_logging(self):
         """设置日志记录"""
-        self.logger = logging.getLogger(f"{__name__}.{self.__class__.__name__}")
+        self.logger = get_logger(f"{__name__}.{self.__class__.__name__}")
     
     async def export_data(self, export_job: ExportJob) -> ExportResult:
         """
@@ -589,7 +584,6 @@ class DataExporter:
         """获取支持的压缩格式"""
         return [compression.value for compression in CompressionType]
 
-
 # 便捷函数
 async def export_knowledge_graph(
     job_id: str,
@@ -634,11 +628,11 @@ async def export_knowledge_graph(
     
     return await exporter.export_data(job)
 
-
 if __name__ == "__main__":
     # 测试导出功能
     async def test_export():
-        print("测试数据导出...")
+        setup_logging()
+        logger.info("测试数据导出")
         
         # JSON导出测试
         result = await export_knowledge_graph(
@@ -647,10 +641,10 @@ if __name__ == "__main__":
             output_filename="test_export.json"
         )
         
-        print(f"JSON导出结果: {result.success}")
+        logger.info("JSON导出结果", success=result.success)
         if result.success:
-            print(f"输出文件: {result.output_files}")
-            print(f"三元组数量: {result.total_triples}")
+            logger.info("输出文件", files=result.output_files)
+            logger.info("三元组数量", total=result.total_triples)
         
         # CSV导出测试
         result = await export_knowledge_graph(
@@ -660,10 +654,9 @@ if __name__ == "__main__":
             compression=CompressionType.ZIP
         )
         
-        print(f"CSV压缩导出结果: {result.success}")
+        logger.info("CSV压缩导出结果", success=result.success)
         if result.success:
-            print(f"压缩文件: {result.output_files}")
-        
-        print("数据导出测试完成")
+            logger.info("压缩文件", files=result.output_files)
+        logger.info("数据导出测试完成")
     
     asyncio.run(test_export())

@@ -13,14 +13,13 @@ from datetime import timedelta
 from src.core.utils.timezone_utils import utc_now, utc_factory
 from enum import Enum
 import json
-
 from .qlearning_service import QLearningService
 from .qlearning_strategy_service import QLearningStrategyService, StrategyInferenceRequest
 from .bandit_recommendation_service import BanditRecommendationService
 from ..core.logging import get_logger
 
+from src.core.logging import get_logger
 logger = get_logger(__name__)
-
 
 class StrategyCombinationMode(Enum):
     """策略组合模式"""
@@ -30,14 +29,12 @@ class StrategyCombinationMode(Enum):
     HIERARCHICAL = "hierarchical"
     ENSEMBLE_VOTING = "ensemble_voting"
 
-
 class DecisionSource(Enum):
     """决策来源"""
     Q_LEARNING = "q_learning"
     BANDIT = "bandit"
     HYBRID = "hybrid"
     FALLBACK = "fallback"
-
 
 @dataclass
 class RecommendationContext:
@@ -50,7 +47,6 @@ class RecommendationContext:
     timestamp: Optional[datetime] = None
     additional_info: Optional[Dict[str, Any]] = None
 
-
 @dataclass
 class HybridRecommendationRequest:
     """混合推荐请求"""
@@ -62,7 +58,6 @@ class HybridRecommendationRequest:
     q_learning_weight: float = 0.5
     bandit_weight: float = 0.5
     fallback_to_random: bool = True
-
 
 @dataclass
 class HybridRecommendationResponse:
@@ -77,7 +72,6 @@ class HybridRecommendationResponse:
     inference_time_ms: float = 0.0
     timestamp: datetime = None
 
-
 @dataclass
 class StrategyPerformanceMetrics:
     """策略性能指标"""
@@ -88,7 +82,6 @@ class StrategyPerformanceMetrics:
     average_confidence: float = 0.0
     average_inference_time_ms: float = 0.0
     last_used: Optional[datetime] = None
-
 
 class QLearningRecommendationService:
     """Q-Learning与推荐引擎协调服务"""
@@ -124,7 +117,7 @@ class QLearningRecommendationService:
     
     async def hybrid_recommendation(self, request: HybridRecommendationRequest) -> HybridRecommendationResponse:
         """混合推荐决策"""
-        start_time = asyncio.get_event_loop().time()
+        start_time = asyncio.get_running_loop().time()
         
         try:
             q_learning_result = None
@@ -154,19 +147,15 @@ class QLearningRecommendationService:
             
             # Bandit推理
             if self.bandit_service and request.bandit_arm_id:
-                try:
-                    # 这里需要根据实际的bandit服务接口调整
-                    bandit_action = await self._get_bandit_recommendation(
-                        request.bandit_arm_id, 
-                        request.context
-                    )
-                    bandit_result = {
-                        "action": bandit_action["action"],
-                        "confidence": bandit_action.get("confidence", 0.5),
-                        "source": "bandit"
-                    }
-                except Exception as e:
-                    logger.warning(f"Bandit推理失败: {e}")
+                bandit_action = await self._get_bandit_recommendation(
+                    request.bandit_arm_id, 
+                    request.context
+                )
+                bandit_result = {
+                    "action": bandit_action["action"],
+                    "confidence": bandit_action.get("confidence", 0.5),
+                    "source": "bandit"
+                }
             
             # 策略组合
             final_action, decision_source, combination_details = self._combine_strategies(
@@ -197,7 +186,7 @@ class QLearningRecommendationService:
             )
             
             # 推理时间
-            end_time = asyncio.get_event_loop().time()
+            end_time = asyncio.get_running_loop().time()
             inference_time_ms = (end_time - start_time) * 1000
             
             # 创建响应
@@ -669,17 +658,10 @@ class QLearningRecommendationService:
         return recommendations
     
     async def _get_bandit_recommendation(self, arm_id: str, context: RecommendationContext) -> Dict[str, Any]:
-        """获取Bandit推荐（模拟实现）"""
-        # 这里需要根据实际的bandit服务接口实现
-        # 目前提供一个模拟实现
-        
+        """获取Bandit推荐"""
         if not self.bandit_service:
             raise ValueError("Bandit服务未配置")
-        
-        # 模拟bandit推荐
-        return {
-            "action": np.random.randint(4),  # 假设4个动作
-            "confidence": np.random.uniform(0.3, 0.9),
-            "arm_id": arm_id,
-            "expected_reward": np.random.uniform(0, 1)
-        }
+        result = await self.bandit_service.recommend(arm_id, context)
+        if "action" not in result:
+            raise RuntimeError("Bandit服务返回结果缺少action")
+        return result

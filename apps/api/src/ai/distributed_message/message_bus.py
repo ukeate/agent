@@ -3,15 +3,14 @@
 基于NATS JetStream的智能体消息通信核心组件
 """
 
+from src.core.utils.timezone_utils import utc_now
 import asyncio
 import uuid
 import time
 import hashlib
-import logging
 import weakref
 from typing import Dict, List, Optional, Any, Callable, Set
-from datetime import datetime, timedelta
-
+from datetime import timedelta
 from .models import (
     Message, MessageHeader, MessageType, MessagePriority, DeliveryMode,
     MessageHandler, StreamConfig, ConnectionState, ConnectionMetrics, TopicConfig
@@ -22,8 +21,8 @@ from .reliability import ReliabilityManager, RetryConfig
 from .advanced_patterns import AdvancedCommunicationManager, RoutingStrategy
 from .monitoring import MonitoringManager
 
-logger = logging.getLogger(__name__)
-
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 class DistributedMessageBus:
     """分布式消息总线"""
@@ -710,14 +709,14 @@ class DistributedMessageBus:
                     message_type=MessageType.HEARTBEAT,
                     payload={
                         "agent_id": self.agent_id,
-                        "timestamp": datetime.now().isoformat(),
+                        "timestamp": utc_now().isoformat(),
                         "status": "active",
                         "metrics": self.client.get_metrics().to_dict()
                     }
                 )
                 
                 # 更新心跳时间
-                self.client.metrics.last_heartbeat = datetime.now()
+                self.client.metrics.last_heartbeat = utc_now()
                 
             except asyncio.CancelledError:
                 break
@@ -760,7 +759,7 @@ class DistributedMessageBus:
                 # 更新连接指标
                 if self.client.nc and self.client.nc.is_connected:
                     # 更新基本指标
-                    pass
+                    self.client.metrics.last_heartbeat = utc_now()
                 
             except asyncio.CancelledError:
                 break

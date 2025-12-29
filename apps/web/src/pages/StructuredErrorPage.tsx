@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import apiClient from '../services/apiClient';
 
 interface StructuredError {
   id: string;
@@ -52,134 +53,25 @@ const StructuredErrorPage: React.FC = () => {
     'BIZ-': '业务逻辑错误'
   };
 
-  // 模拟错误数据
   useEffect(() => {
-    setTimeout(() => {
-      const sampleErrors: StructuredError[] = [
-        {
-          id: 'err-001',
-          code: 'BIZ-0001',
-          message: '智能体不可用：agent_123，状态：busy',
-          category: 'business_logic',
-          severity: 'medium',
-          timestamp: new Date(Date.now() - 300000).toISOString(),
-          context: {
-            node_id: 'node-01',
-            session_id: 'sess-456',
-            agent_id: 'agent_123',
-            operation: 'create_task',
-            component: 'AgentManager'
-          },
-          details: {
-            agent_id: 'agent_123',
-            status: 'busy',
-            available_agents: 2
-          },
-          suggestions: [
-            '请稍后重试',
-            '检查智能体状态',
-            '考虑增加智能体池大小'
-          ],
-          related_errors: ['RES-0003'],
-          resolved: false
-        },
-        {
-          id: 'err-002',
-          code: 'VAL-0001',
-          message: '输入数据无效：name = ""',
-          category: 'validation',
-          severity: 'medium',
-          timestamp: new Date(Date.now() - 180000).toISOString(),
-          context: {
-            node_id: 'node-02',
-            operation: 'validate_input',
-            component: 'InputValidator'
-          },
-          details: {
-            field_name: 'name',
-            value: '',
-            expected_format: 'non-empty string'
-          },
-          suggestions: [
-            '请提供有效的name值',
-            '检查输入格式是否正确'
-          ],
-          related_errors: ['VAL-0002'],
-          resolved: true
-        },
-        {
-          id: 'err-003',
-          code: 'SYS-0004',
-          message: '系统内部错误：Database connection failed',
-          category: 'system',
-          severity: 'high',
-          timestamp: new Date(Date.now() - 120000).toISOString(),
-          context: {
-            node_id: 'node-01',
-            component: 'DatabaseManager',
-            operation: 'connect'
-          },
-          details: {
-            database_url: 'postgresql://***',
-            connection_timeout: 5,
-            retry_count: 3
-          },
-          suggestions: [
-            '检查数据库服务器状态',
-            '验证连接参数',
-            '检查网络连接'
-          ],
-          related_errors: ['NET-0001', 'CFG-0001'],
-          stacktrace: 'Traceback (most recent call last):\n  File "database.py", line 42, in connect\n    conn = psycopg2.connect(...)',
-          resolved: false
-        },
-        {
-          id: 'err-004', 
-          code: 'RATE-0001',
-          message: '请求频率超限：150/100，重置时间：2024-01-01T10:30:00Z',
-          category: 'rate_limit',
-          severity: 'low',
-          timestamp: new Date(Date.now() - 60000).toISOString(),
-          context: {
-            user_id: 'user_789',
-            operation: 'api_request'
-          },
-          details: {
-            current_rate: 150,
-            rate_limit: 100,
-            reset_time: '2024-01-01T10:30:00Z'
-          },
-          suggestions: [
-            '请在2024-01-01T10:30:00Z后重试',
-            '考虑降低请求频率'
-          ],
-          related_errors: [],
-          resolved: false
-        }
-      ];
-
-      setErrors(sampleErrors);
-      setStats({
-        total_errors: sampleErrors.length,
-        by_severity: {
-          low: sampleErrors.filter(e => e.severity === 'low').length,
-          medium: sampleErrors.filter(e => e.severity === 'medium').length,
-          high: sampleErrors.filter(e => e.severity === 'high').length,
-          critical: sampleErrors.filter(e => e.severity === 'critical').length,
-        },
-        by_category: {
-          system: sampleErrors.filter(e => e.category === 'system').length,
-          validation: sampleErrors.filter(e => e.category === 'validation').length,
-          business_logic: sampleErrors.filter(e => e.category === 'business_logic').length,
-          rate_limit: sampleErrors.filter(e => e.category === 'rate_limit').length,
-        },
-        recent_count: sampleErrors.filter(e => 
-          new Date(e.timestamp) > new Date(Date.now() - 3600000)
-        ).length,
-        resolution_rate: (sampleErrors.filter(e => e.resolved).length / sampleErrors.length) * 100
-      });
-      setLoading(false);
-    }, 500);
+    const load = async () => {
+      try {
+        const [errRes, statsRes] = await Promise.all([
+          apiClient.get('/structured-errors'),
+          apiClient.get('/structured-errors/stats')
+        ]);
+        const list: StructuredError[] = errRes.data?.errors || errRes.data || [];
+        setErrors(list);
+        setStats(statsRes.data || null);
+        if (list.length) setSelectedError(list[0]);
+      } catch (e) {
+        setErrors([]);
+        setStats(null);
+      } finally {
+        setLoading(false);
+      }
+    };
+    load();
   }, []);
 
   const getSeverityColor = (severity: string) => {

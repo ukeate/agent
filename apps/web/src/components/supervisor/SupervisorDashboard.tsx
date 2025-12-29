@@ -54,7 +54,7 @@ export const SupervisorDashboard: React.FC<SupervisorDashboardProps> = ({
 
   // 智能自动刷新逻辑 - 只在页面可见且用户激活时启用
   useEffect(() => {
-    let intervalId: NodeJS.Timeout | null = null
+    let intervalId: ReturnType<typeof setTimeout> | null = null
 
     // 只有在页面可见、用户明确启用自动刷新、且有supervisor ID时才启用轮询
     if (autoRefresh && currentSupervisorId && !document.hidden) {
@@ -139,6 +139,7 @@ export const SupervisorDashboard: React.FC<SupervisorDashboardProps> = ({
               <label className="flex items-center space-x-1">
                 <input
                   type="checkbox"
+                  name="autoRefresh"
                   checked={autoRefresh}
                   onChange={(e) => setAutoRefresh(e.target.checked)}
                   className="rounded"
@@ -150,6 +151,7 @@ export const SupervisorDashboard: React.FC<SupervisorDashboardProps> = ({
                 value={refreshInterval}
                 onChange={handleRefreshIntervalChange}
                 disabled={!autoRefresh}
+                name="refreshInterval"
                 className="text-sm border border-gray-300 rounded px-2 py-1"
               >
                 <option value={5000}>5秒</option>

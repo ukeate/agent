@@ -3,34 +3,33 @@
 提供完整的社交情感理解系统REST API和WebSocket接口
 """
 
+from src.core.utils.timezone_utils import utc_now
 import asyncio
 import json
-import logging
-from datetime import datetime, timedelta
+from datetime import timedelta
 from typing import Dict, List, Optional, Any
 from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect, Depends, BackgroundTasks
-from pydantic import BaseModel, Field
+from pydantic import Field
 from starlette.status import HTTP_200_OK, HTTP_400_BAD_REQUEST, HTTP_403_FORBIDDEN
-
-from ai.emotion_modeling.social_emotion_system import (
+from src.ai.emotion_modeling.social_emotion_system import (
     SocialEmotionSystem, SocialEmotionRequest, SocialEmotionResponse,
     SystemConfiguration, SystemMode
 )
-from ai.emotion_modeling.privacy_ethics_guard import PrivacyLevel, ConsentType
-from core.dependencies import get_current_user
-from core.security.auth import verify_token
+from src.api.base_model import ApiBaseModel
+from src.ai.emotion_modeling.privacy_ethics_guard import PrivacyLevel, ConsentType
+from src.core.dependencies import get_current_user
 
-logger = logging.getLogger(__name__)
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 # 创建路由
-router = APIRouter(prefix="/api/v1/social-emotion", tags=["Social Emotion Understanding"])
+router = APIRouter(prefix="/social-emotion", tags=["Social Emotion Understanding"])
 
 # 全局系统实例
 social_emotion_system: Optional[SocialEmotionSystem] = None
 
-
 # Pydantic模型定义
-class EmotionAnalysisRequest(BaseModel):
+class EmotionAnalysisRequest(ApiBaseModel):
     user_id: str = Field(..., description="用户ID")
     session_id: Optional[str] = Field(None, description="会话ID")
     emotion_data: Dict[str, Any] = Field(..., description="情感数据")
@@ -42,12 +41,10 @@ class EmotionAnalysisRequest(BaseModel):
     cultural_context: Optional[str] = Field(None, description="文化背景")
     privacy_consent: bool = Field(True, description="隐私同意")
 
-
-class BatchAnalysisRequest(BaseModel):
+class BatchAnalysisRequest(ApiBaseModel):
     requests: List[EmotionAnalysisRequest] = Field(..., description="批量请求列表")
 
-
-class SystemConfigRequest(BaseModel):
+class SystemConfigRequest(ApiBaseModel):
     mode: SystemMode = Field(SystemMode.FULL_INTERACTIVE, description="系统模式")
     privacy_level: PrivacyLevel = Field(PrivacyLevel.RESTRICTED, description="隐私级别")
     cultural_context: Optional[str] = Field(None, description="默认文化背景")
@@ -58,33 +55,28 @@ class SystemConfigRequest(BaseModel):
     data_retention_days: int = Field(365, description="数据保留天数")
     websocket_enabled: bool = Field(True, description="启用WebSocket")
 
-
-class ConsentRequest(BaseModel):
+class ConsentRequest(ApiBaseModel):
     user_id: str = Field(..., description="用户ID")
     consent_type: ConsentType = Field(..., description="同意类型")
     data_categories: List[str] = Field(..., description="数据类别")
     purpose: str = Field(..., description="使用目的")
     expiry_days: Optional[int] = Field(None, description="有效期天数")
 
-
-class PrivacyPolicyRequest(BaseModel):
+class PrivacyPolicyRequest(ApiBaseModel):
     user_id: str = Field(..., description="用户ID")
     privacy_level: PrivacyLevel = Field(..., description="隐私级别")
     data_retention_days: int = Field(365, description="数据保留天数")
     sharing_permissions: Optional[Dict[str, bool]] = Field(None, description="分享权限")
     cultural_context: Optional[str] = Field(None, description="文化背景")
 
-
-class SessionRequest(BaseModel):
+class SessionRequest(ApiBaseModel):
     user_id: str = Field(..., description="用户ID")
     session_config: Dict[str, Any] = Field({}, description="会话配置")
 
-
-class DataExportRequest(BaseModel):
+class DataExportRequest(ApiBaseModel):
     user_id: str = Field(..., description="用户ID")
     data_types: List[str] = Field(..., description="数据类型")
     format_type: str = Field("json", description="导出格式")
-
 
 def get_social_emotion_system() -> SocialEmotionSystem:
     """获取社交情感系统实例"""
@@ -104,7 +96,6 @@ def get_social_emotion_system() -> SocialEmotionSystem:
         )
         social_emotion_system = SocialEmotionSystem(config)
     return social_emotion_system
-
 
 @router.post("/initialize", summary="初始化系统配置")
 async def initialize_system(
@@ -130,14 +121,13 @@ async def initialize_system(
         
         return {
             "message": "Social emotion system initialized successfully",
-            "config": config_request.dict(),
-            "timestamp": datetime.now().isoformat()
+            "config": config_request.model_dump(),
+            "timestamp": utc_now().isoformat()
         }
         
     except Exception as e:
         logger.error(f"System initialization failed: {e}")
         raise HTTPException(status_code=HTTP_400_BAD_REQUEST, detail=str(e))
-
 
 @router.post("/analyze", summary="情感分析")
 async def analyze_emotion(
@@ -150,7 +140,7 @@ async def analyze_emotion(
         
         # 构建内部请求对象
         social_request = SocialEmotionRequest(
-            request_id=f"req_{datetime.now().isoformat()}",
+            request_id=f"req_{utc_now().isoformat()}",
             user_id=request.user_id,
             session_id=request.session_id,
             emotion_data=request.emotion_data,
@@ -158,7 +148,7 @@ async def analyze_emotion(
             analysis_type=request.analysis_type,
             privacy_consent=request.privacy_consent,
             cultural_context=request.cultural_context,
-            timestamp=datetime.now()
+            timestamp=utc_now()
         )
         
         # 处理请求
@@ -181,7 +171,6 @@ async def analyze_emotion(
         logger.error(f"Emotion analysis failed: {e}")
         raise HTTPException(status_code=HTTP_400_BAD_REQUEST, detail=str(e))
 
-
 @router.post("/analyze/batch", summary="批量情感分析")
 async def batch_analyze_emotion(
     request: BatchAnalysisRequest,
@@ -202,7 +191,7 @@ async def batch_analyze_emotion(
         social_requests = []
         for req in request.requests:
             social_request = SocialEmotionRequest(
-                request_id=f"batch_req_{datetime.now().isoformat()}_{req.user_id}",
+                request_id=f"batch_req_{utc_now().isoformat()}_{req.user_id}",
                 user_id=req.user_id,
                 session_id=req.session_id,
                 emotion_data=req.emotion_data,
@@ -210,7 +199,7 @@ async def batch_analyze_emotion(
                 analysis_type=req.analysis_type,
                 privacy_consent=req.privacy_consent,
                 cultural_context=req.cultural_context,
-                timestamp=datetime.now()
+                timestamp=utc_now()
             )
             social_requests.append(social_request)
         
@@ -230,17 +219,16 @@ async def batch_analyze_emotion(
             })
         
         return {
-            "batch_id": f"batch_{datetime.now().isoformat()}",
+            "batch_id": f"batch_{utc_now().isoformat()}",
             "total_requests": len(responses),
             "successful_requests": len([r for r in responses if r.privacy_compliant]),
             "responses": formatted_responses,
-            "timestamp": datetime.now().isoformat()
+            "timestamp": utc_now().isoformat()
         }
         
     except Exception as e:
         logger.error(f"Batch emotion analysis failed: {e}")
         raise HTTPException(status_code=HTTP_400_BAD_REQUEST, detail=str(e))
-
 
 @router.post("/session/create", summary="创建会话")
 async def create_session(
@@ -255,14 +243,13 @@ async def create_session(
         return {
             "session_id": session_id,
             "user_id": request.user_id,
-            "created_at": datetime.now().isoformat(),
+            "created_at": utc_now().isoformat(),
             "config": request.session_config
         }
         
     except Exception as e:
         logger.error(f"Session creation failed: {e}")
         raise HTTPException(status_code=HTTP_400_BAD_REQUEST, detail=str(e))
-
 
 @router.delete("/session/{session_id}", summary="关闭会话")
 async def close_session(
@@ -277,7 +264,7 @@ async def close_session(
         if success:
             return {
                 "message": f"Session {session_id} closed successfully",
-                "timestamp": datetime.now().isoformat()
+                "timestamp": utc_now().isoformat()
             }
         else:
             raise HTTPException(
@@ -290,7 +277,6 @@ async def close_session(
     except Exception as e:
         logger.error(f"Session closure failed: {e}")
         raise HTTPException(status_code=HTTP_400_BAD_REQUEST, detail=str(e))
-
 
 @router.post("/privacy/consent", summary="管理用户同意")
 async def manage_consent(
@@ -326,7 +312,6 @@ async def manage_consent(
         logger.error(f"Consent management failed: {e}")
         raise HTTPException(status_code=HTTP_400_BAD_REQUEST, detail=str(e))
 
-
 @router.delete("/privacy/consent/{user_id}", summary="撤回同意")
 async def withdraw_consent(
     user_id: str,
@@ -350,7 +335,7 @@ async def withdraw_consent(
                 "user_id": user_id,
                 "data_categories": data_categories,
                 "purpose": purpose,
-                "timestamp": datetime.now().isoformat()
+                "timestamp": utc_now().isoformat()
             }
         else:
             raise HTTPException(
@@ -363,7 +348,6 @@ async def withdraw_consent(
     except Exception as e:
         logger.error(f"Consent withdrawal failed: {e}")
         raise HTTPException(status_code=HTTP_400_BAD_REQUEST, detail=str(e))
-
 
 @router.post("/privacy/policy", summary="创建隐私政策")
 async def create_privacy_policy(
@@ -397,7 +381,6 @@ async def create_privacy_policy(
         logger.error(f"Privacy policy creation failed: {e}")
         raise HTTPException(status_code=HTTP_400_BAD_REQUEST, detail=str(e))
 
-
 @router.get("/status", summary="系统状态")
 async def get_system_status(
     current_user: Dict = Depends(get_current_user)
@@ -422,7 +405,6 @@ async def get_system_status(
         logger.error(f"Status retrieval failed: {e}")
         raise HTTPException(status_code=HTTP_400_BAD_REQUEST, detail=str(e))
 
-
 @router.get("/dashboard", summary="分析仪表板")
 async def get_analytics_dashboard(
     user_id: Optional[str] = None,
@@ -434,8 +416,8 @@ async def get_analytics_dashboard(
         system = get_social_emotion_system()
         
         time_range = (
-            datetime.now() - timedelta(days=days),
-            datetime.now()
+            utc_now() - timedelta(days=days),
+            utc_now()
         )
         
         dashboard_data = await system.get_analytics_dashboard(user_id, time_range)
@@ -447,13 +429,12 @@ async def get_analytics_dashboard(
                 "end": time_range[1].isoformat(),
                 "days": days
             },
-            "generated_at": datetime.now().isoformat()
+            "generated_at": utc_now().isoformat()
         }
         
     except Exception as e:
         logger.error(f"Dashboard data retrieval failed: {e}")
         raise HTTPException(status_code=HTTP_400_BAD_REQUEST, detail=str(e))
-
 
 @router.get("/compliance/report", summary="合规报告")
 async def get_compliance_report(
@@ -464,7 +445,7 @@ async def get_compliance_report(
     try:
         system = get_social_emotion_system()
         
-        end_date = datetime.now()
+        end_date = utc_now()
         start_date = end_date - timedelta(days=days)
         
         report = await system.privacy_guard.get_compliance_report(start_date, end_date)
@@ -474,7 +455,6 @@ async def get_compliance_report(
     except Exception as e:
         logger.error(f"Compliance report retrieval failed: {e}")
         raise HTTPException(status_code=HTTP_400_BAD_REQUEST, detail=str(e))
-
 
 @router.post("/export", summary="导出用户数据")
 async def export_user_data(
@@ -506,7 +486,6 @@ async def export_user_data(
         logger.error(f"Data export failed: {e}")
         raise HTTPException(status_code=HTTP_400_BAD_REQUEST, detail=str(e))
 
-
 # WebSocket端点
 @router.websocket("/ws/{user_id}")
 async def websocket_endpoint(websocket: WebSocket, user_id: str):
@@ -526,13 +505,13 @@ async def websocket_endpoint(websocket: WebSocket, user_id: str):
                 if message.get("type") == "ping":
                     await websocket.send_text(json.dumps({
                         "type": "pong",
-                        "timestamp": datetime.now().isoformat()
+                        "timestamp": utc_now().isoformat()
                     }))
                 
                 elif message.get("type") == "emotion_analysis":
                     # 处理实时情感分析请求
                     emotion_request = SocialEmotionRequest(
-                        request_id=f"ws_req_{datetime.now().isoformat()}",
+                        request_id=f"ws_req_{utc_now().isoformat()}",
                         user_id=user_id,
                         session_id=message.get("session_id"),
                         emotion_data=message.get("emotion_data", {}),
@@ -540,7 +519,7 @@ async def websocket_endpoint(websocket: WebSocket, user_id: str):
                         analysis_type=message.get("analysis_type", ["context_adaptation"]),
                         privacy_consent=message.get("privacy_consent", True),
                         cultural_context=message.get("cultural_context"),
-                        timestamp=datetime.now()
+                        timestamp=utc_now()
                     )
                     
                     # 异步处理并发送结果
@@ -562,7 +541,7 @@ async def websocket_endpoint(websocket: WebSocket, user_id: str):
             await websocket.send_text(json.dumps({
                 "type": "error",
                 "message": str(e),
-                "timestamp": datetime.now().isoformat()
+                "timestamp": utc_now().isoformat()
             }))
         
         finally:

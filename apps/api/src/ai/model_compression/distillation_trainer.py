@@ -11,17 +11,13 @@ import torch.nn as nn
 import torch.nn.functional as F
 from typing import Dict, Any, Optional, List, Tuple, Union, Callable
 import numpy as np
-import logging
 import time
 from pathlib import Path
 import os
 from dataclasses import dataclass
-
 from .models import DistillationConfig, CompressionResult, ModelInfo
 
-logger = logging.getLogger(__name__)
-
-
+from src.core.logging import get_logger
 @dataclass
 class DistillationResult:
     """蒸馏结果"""
@@ -31,7 +27,6 @@ class DistillationResult:
     student_model: nn.Module
     training_time: float
     epochs_completed: int
-
 
 class DistillationTrainer:
     """知识蒸馏训练器
@@ -48,7 +43,7 @@ class DistillationTrainer:
         self.teacher_model = None
         self.student_model = None
         
-        self.logger = logging.getLogger(__name__)
+        self.logger = get_logger(__name__)
         
         # 蒸馏策略映射
         self.distillation_strategies = {

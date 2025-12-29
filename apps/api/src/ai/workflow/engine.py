@@ -4,36 +4,30 @@
 """
 
 import asyncio
-import logging
 from typing import Dict, List, Optional, Any, Set, Tuple
 from uuid import uuid4
 from datetime import datetime
 from src.core.utils.timezone_utils import utc_now, utc_factory
 from enum import Enum
-
 import networkx as nx
 from pydantic import BaseModel
-
-from models.schemas.workflow import (
+from src.models.schemas.workflow import (
     WorkflowDefinition, WorkflowExecution, WorkflowStepExecution,
     WorkflowStep, WorkflowStepType, WorkflowStepStatus, WorkflowExecutionMode,
     TaskDependencyType
 )
 from src.ai.workflow.executor import WorkflowExecutor, ParallelExecutor, SequentialExecutor
+
 from src.core.logging import get_logger
-
 logger = get_logger(__name__)
-
 
 class WorkflowValidationError(Exception):
     """工作流验证错误"""
-    pass
-
+    ...
 
 class WorkflowExecutionError(Exception):
     """工作流执行错误"""
-    pass
-
+    ...
 
 class ExecutionStatus(str, Enum):
     """执行状态枚举"""
@@ -43,7 +37,6 @@ class ExecutionStatus(str, Enum):
     COMPLETED = "completed"
     FAILED = "failed"
     CANCELLED = "cancelled"
-
 
 class WorkflowEngine:
     """工作流执行引擎核心类"""
@@ -56,6 +49,7 @@ class WorkflowEngine:
         }
         self.active_executions: Dict[str, WorkflowExecution] = {}
         self.execution_graphs: Dict[str, nx.DiGraph] = {}
+        self.workflow_definitions: Dict[str, WorkflowDefinition] = {}
     
     async def validate_workflow(self, definition: WorkflowDefinition) -> List[str]:
         """
@@ -214,6 +208,7 @@ class WorkflowEngine:
         # 构建执行图
         graph = self._build_dependency_graph(definition.steps)
         self.execution_graphs[execution_id] = graph
+        self.workflow_definitions[definition.id] = definition
         
         # 初始化步骤执行状态
         step_executions = []
@@ -374,11 +369,8 @@ class WorkflowEngine:
         return False
     
     async def _get_workflow_definition(self, definition_id: str) -> Optional[WorkflowDefinition]:
-        """获取工作流定义（这里需要从数据库或缓存获取）"""
-        # TODO: 实现从数据库获取工作流定义的逻辑
-        # 这是一个占位符实现
-        logger.warning(f"需要实现工作流定义获取逻辑: {definition_id}")
-        return None
+        """获取工作流定义"""
+        return self.workflow_definitions.get(definition_id)
     
     def get_statistics(self) -> Dict[str, Any]:
         """获取引擎统计信息"""
@@ -395,7 +387,6 @@ class WorkflowEngine:
             "available_execution_modes": list(self.executors.keys())
         }
 
-
 class WorkflowEngineBuilder:
     """工作流引擎构建器"""
     
@@ -410,7 +401,6 @@ class WorkflowEngineBuilder:
     def build(self) -> WorkflowEngine:
         """构建引擎实例"""
         return self.engine
-
 
 # 全局引擎实例
 _engine_instance = None

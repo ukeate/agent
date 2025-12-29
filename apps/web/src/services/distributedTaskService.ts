@@ -1,14 +1,12 @@
-/**
- * 分布式任务协调API服务
- */
+import apiClient from './apiClient';
 
-const API_BASE = '/api/v1/distributed-task';
+export type TaskPriority = 'critical' | 'high' | 'medium' | 'low' | 'background';
 
 export interface TaskSubmitRequest {
   task_type: string;
   task_data: Record<string, any>;
   requirements?: Record<string, any>;
-  priority?: string;
+  priority?: TaskPriority;
   decomposition_strategy?: string;
   assignment_strategy?: string;
 }
@@ -37,156 +35,64 @@ export interface ConflictInfo {
   involved_tasks: string[];
   involved_agents: string[];
   timestamp: string;
-  resolved?: boolean;
+  resolved: boolean;
   resolution_strategy?: string;
+  resolution_result?: Record<string, any>;
 }
 
-export const distributedTaskService = {
-  /**
-   * 初始化协调引擎
-   */
-  async initializeEngine(nodeId: string, clusterNodes: string[]) {
-    const response = await fetch(`${API_BASE}/initialize?node_id=${nodeId}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(clusterNodes)
-    });
-    
-    if (!response.ok) {
-      throw new Error(`Failed to initialize engine: ${response.statusText}`);
-    }
-    
-    return response.json();
-  },
+class DistributedTaskService {
+  private baseUrl = '/distributed-task';
 
-  /**
-   * 提交任务
-   */
-  async submitTask(request: TaskSubmitRequest): Promise<TaskResponse> {
-    const response = await fetch(`${API_BASE}/submit`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(request)
-    });
-    
-    if (!response.ok) {
-      throw new Error(`Failed to submit task: ${response.statusText}`);
-    }
-    
-    return response.json();
-  },
-
-  /**
-   * 获取任务状态
-   */
-  async getTaskStatus(taskId: string) {
-    const response = await fetch(`${API_BASE}/status/${taskId}`);
-    
-    if (!response.ok) {
-      throw new Error(`Failed to get task status: ${response.statusText}`);
-    }
-    
-    return response.json();
-  },
-
-  /**
-   * 取消任务
-   */
-  async cancelTask(taskId: string) {
-    const response = await fetch(`${API_BASE}/cancel/${taskId}`, {
-      method: 'POST'
-    });
-    
-    if (!response.ok) {
-      throw new Error(`Failed to cancel task: ${response.statusText}`);
-    }
-    
-    return response.json();
-  },
-
-  /**
-   * 获取系统统计
-   */
-  async getSystemStats(): Promise<SystemStats> {
-    const response = await fetch(`${API_BASE}/stats`);
-    
-    if (!response.ok) {
-      throw new Error(`Failed to get system stats: ${response.statusText}`);
-    }
-    
-    return response.json();
-  },
-
-  /**
-   * 检测冲突
-   */
-  async detectConflicts(): Promise<ConflictInfo[]> {
-    const response = await fetch(`${API_BASE}/conflicts`);
-    
-    if (!response.ok) {
-      throw new Error(`Failed to detect conflicts: ${response.statusText}`);
-    }
-    
-    return response.json();
-  },
-
-  /**
-   * 解决冲突
-   */
-  async resolveConflict(conflictId: string, strategy: string = 'priority_based') {
-    const response = await fetch(`${API_BASE}/conflicts/resolve/${conflictId}?strategy=${strategy}`, {
-      method: 'POST'
-    });
-    
-    if (!response.ok) {
-      throw new Error(`Failed to resolve conflict: ${response.statusText}`);
-    }
-    
-    return response.json();
-  },
-
-  /**
-   * 创建检查点
-   */
-  async createCheckpoint(name: string) {
-    const response = await fetch(`${API_BASE}/checkpoint/create?name=${name}`, {
-      method: 'POST'
-    });
-    
-    if (!response.ok) {
-      throw new Error(`Failed to create checkpoint: ${response.statusText}`);
-    }
-    
-    return response.json();
-  },
-
-  /**
-   * 回滚到检查点
-   */
-  async rollbackCheckpoint(name: string) {
-    const response = await fetch(`${API_BASE}/checkpoint/rollback?name=${name}`, {
-      method: 'POST'
-    });
-    
-    if (!response.ok) {
-      throw new Error(`Failed to rollback checkpoint: ${response.statusText}`);
-    }
-    
-    return response.json();
-  },
-
-  /**
-   * 关闭引擎
-   */
-  async shutdownEngine() {
-    const response = await fetch(`${API_BASE}/shutdown`, {
-      method: 'POST'
-    });
-    
-    if (!response.ok) {
-      throw new Error(`Failed to shutdown engine: ${response.statusText}`);
-    }
-    
-    return response.json();
+  async initializeEngine(nodeId: string, clusterNodes: string[]): Promise<{ status: string; node_id: string }> {
+    const response = await apiClient.post(`${this.baseUrl}/initialize`, clusterNodes, { params: { node_id: nodeId } });
+    return response.data;
   }
-};
+
+  async submitTask(request: TaskSubmitRequest): Promise<TaskResponse> {
+    const response = await apiClient.post(`${this.baseUrl}/submit`, request);
+    return response.data;
+  }
+
+  async getTaskStatus(taskId: string): Promise<Record<string, any>> {
+    const response = await apiClient.get(`${this.baseUrl}/status/${taskId}`);
+    return response.data;
+  }
+
+  async cancelTask(taskId: string): Promise<Record<string, any>> {
+    const response = await apiClient.post(`${this.baseUrl}/cancel/${taskId}`);
+    return response.data;
+  }
+
+  async getSystemStats(): Promise<SystemStats> {
+    const response = await apiClient.get(`${this.baseUrl}/stats`);
+    return response.data;
+  }
+
+  async detectConflicts(): Promise<ConflictInfo[]> {
+    const response = await apiClient.get(`${this.baseUrl}/conflicts`);
+    return Array.isArray(response.data) ? response.data : [];
+  }
+
+  async resolveConflict(conflictId: string, strategy: string = 'priority_based'): Promise<Record<string, any>> {
+    const response = await apiClient.post(`${this.baseUrl}/conflicts/resolve/${conflictId}`, null, { params: { strategy } });
+    return response.data;
+  }
+
+  async createCheckpoint(name: string): Promise<Record<string, any>> {
+    const response = await apiClient.post(`${this.baseUrl}/checkpoint/create`, null, { params: { name } });
+    return response.data;
+  }
+
+  async rollbackCheckpoint(name: string): Promise<Record<string, any>> {
+    const response = await apiClient.post(`${this.baseUrl}/checkpoint/rollback`, null, { params: { name } });
+    return response.data;
+  }
+
+  async shutdownEngine(): Promise<Record<string, any>> {
+    const response = await apiClient.post(`${this.baseUrl}/shutdown`);
+    return response.data;
+  }
+}
+
+export const distributedTaskService = new DistributedTaskService();
+

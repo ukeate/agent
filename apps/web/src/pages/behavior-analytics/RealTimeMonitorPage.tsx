@@ -6,6 +6,7 @@ import { Alert } from '../../components/ui/alert';
 import { Progress } from '../../components/ui/progress';
 import { behaviorAnalyticsService } from '../../services/behaviorAnalyticsService';
 
+import { logger } from '../../utils/logger'
 interface RealtimeMetrics {
   active_users: number;
   events_per_second: number;
@@ -93,11 +94,11 @@ export const RealTimeMonitorPage: React.FC = () => {
               },
               onConnect: () => setConnected(true),
               onDisconnect: () => setConnected(false),
-              onError: (error) => console.error('WebSocket错误:', error)
+              onError: (error) => logger.error('WebSocket错误:', error)
             }
           );
         } catch (error) {
-          console.error('WebSocket连接失败:', error);
+          logger.error('WebSocket连接失败:', error);
           setConnected(false);
         }
       };
@@ -127,7 +128,7 @@ export const RealTimeMonitorPage: React.FC = () => {
       setSystemAlerts(alertsData.alerts || []);
       setWsStats(statsData);
     } catch (error) {
-      console.error('刷新数据失败:', error);
+      logger.error('刷新数据失败:', error);
     }
   };
 

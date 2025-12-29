@@ -1,39 +1,40 @@
+from src.core.utils.timezone_utils import utc_now
 from fastapi import APIRouter, HTTPException, Depends, Query
-from pydantic import BaseModel
 from typing import Optional, List, Dict, Any
-from datetime import datetime
-import logging
-
-from ai.fault_tolerance import (
+from src.ai.fault_tolerance import (
     FaultToleranceSystem, 
     FaultType, 
     FaultSeverity,
     BackupType,
     RecoveryStrategy
 )
-from core.dependencies import get_fault_tolerance_system
+from src.api.base_model import ApiBaseModel
+from src.core.dependencies import get_fault_tolerance_system
+from fastapi import WebSocket, WebSocketDisconnect
 
-logger = logging.getLogger(__name__)
+from src.core.logging import get_logger
+logger = get_logger(__name__)
+
 router = APIRouter(prefix="/fault-tolerance", tags=["Fault Tolerance"])
 
 # Pydantic模型
-class BackupRequest(BaseModel):
+class BackupRequest(ApiBaseModel):
     component_ids: List[str]
     backup_type: str = "full_backup"
 
-class ConsistencyCheckRequest(BaseModel):
+class ConsistencyCheckRequest(ApiBaseModel):
     data_keys: List[str]
 
-class FaultInjectionRequest(BaseModel):
+class FaultInjectionRequest(ApiBaseModel):
     component_id: str
     fault_type: str
     duration_seconds: int = 60
 
-class RestoreBackupRequest(BaseModel):
+class RestoreBackupRequest(ApiBaseModel):
     backup_id: str
     target_component_id: Optional[str] = None
 
-class ForceConsistencyRepairRequest(BaseModel):
+class ForceConsistencyRepairRequest(ApiBaseModel):
     data_key: str
     authoritative_component_id: str
 
@@ -55,7 +56,21 @@ async def get_health_summary(
 ) -> Dict[str, Any]:
     """获取健康状态摘要"""
     try:
-        return system.fault_detector.get_system_health_summary()
+        summary = system.fault_detector.get_system_health_summary()
+        services = []
+        for health_status in system.fault_detector.health_status.values():
+            services.append(
+                {
+                    "service_id": health_status.component_id,
+                    "status": health_status.status,
+                    "last_check": health_status.last_check.isoformat(),
+                    "response_time_ms": round(health_status.response_time * 1000, 2),
+                    "error_rate": health_status.error_rate,
+                    "resource_usage": health_status.resource_usage,
+                    "custom_metrics": health_status.custom_metrics,
+                }
+            )
+        return {**summary, "services": services}
     except Exception as e:
         logger.error(f"Error getting health summary: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to get health summary: {e}")
@@ -165,7 +180,7 @@ async def trigger_manual_backup(
             "backup_results": results,
             "success_count": len([r for r in results.values() if r]),
             "total_count": len(results),
-            "timestamp": datetime.now().isoformat()
+            "timestamp": utc_now().isoformat()
         }
     except HTTPException:
         raise
@@ -191,6 +206,15 @@ async def restore_backup(
 ) -> Dict[str, str]:
     """恢复备份"""
     try:
+        record = next(
+            (r for r in system.backup_manager.backup_records if r.backup_id == request.backup_id),
+            None,
+        )
+        if not record:
+            raise HTTPException(status_code=404, detail="备份不存在")
+        if not record.valid:
+            raise HTTPException(status_code=400, detail="备份无效")
+
         success = await system.restore_backup(request.backup_id, request.target_component_id)
         
         if success:
@@ -198,7 +222,7 @@ async def restore_backup(
                 "status": "restored",
                 "backup_id": request.backup_id,
                 "target_component": request.target_component_id or "original",
-                "timestamp": datetime.now().isoformat()
+                "timestamp": utc_now().isoformat()
             }
         else:
             raise HTTPException(status_code=500, detail="Backup restoration failed")
@@ -224,7 +248,7 @@ async def validate_all_backups(
             "valid_count": valid_count,
             "total_count": total_count,
             "validation_rate": valid_count / max(total_count, 1),
-            "timestamp": datetime.now().isoformat()
+            "timestamp": utc_now().isoformat()
         }
     except Exception as e:
         logger.error(f"Error validating backups: {e}")
@@ -271,13 +295,15 @@ async def repair_consistency_issues(
 ) -> Dict[str, str]:
     """修复一致性问题"""
     try:
+        if not system.consistency_manager.get_check_result_by_id(check_id):
+            raise HTTPException(status_code=404, detail="Consistency check not found")
         success = await system.repair_consistency_issues(check_id)
         
         if success:
             return {
                 "status": "repaired",
                 "check_id": check_id,
-                "timestamp": datetime.now().isoformat()
+                "timestamp": utc_now().isoformat()
             }
         else:
             raise HTTPException(status_code=500, detail="Consistency repair failed")
@@ -304,10 +330,10 @@ async def force_consistency_repair(
                 "status": "force_repaired",
                 "data_key": request.data_key,
                 "authoritative_component": request.authoritative_component_id,
-                "timestamp": datetime.now().isoformat()
+                "timestamp": utc_now().isoformat()
             }
         else:
-            raise HTTPException(status_code=500, detail="Force consistency repair failed")
+            raise HTTPException(status_code=400, detail="Force consistency repair failed")
     except HTTPException:
         raise
     except Exception as e:
@@ -344,7 +370,7 @@ async def inject_fault_for_testing(
             "component_id": request.component_id,
             "fault_type": request.fault_type,
             "duration_seconds": request.duration_seconds,
-            "timestamp": datetime.now().isoformat()
+            "timestamp": utc_now().isoformat()
         }
     except HTTPException:
         raise
@@ -403,7 +429,7 @@ async def start_fault_tolerance_system(
         await system.start()
         return {
             "status": "started",
-            "timestamp": datetime.now().isoformat()
+            "timestamp": utc_now().isoformat()
         }
     except Exception as e:
         logger.error(f"Error starting fault tolerance system: {e}")
@@ -418,16 +444,13 @@ async def stop_fault_tolerance_system(
         await system.stop()
         return {
             "status": "stopped",
-            "timestamp": datetime.now().isoformat()
+            "timestamp": utc_now().isoformat()
         }
     except Exception as e:
         logger.error(f"Error stopping fault tolerance system: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to stop system: {e}")
 
 # WebSocket端点用于实时监控
-from fastapi import WebSocket, WebSocketDisconnect
-import asyncio
-import json
 
 @router.websocket("/ws/monitoring")
 async def websocket_monitoring(
@@ -450,7 +473,7 @@ async def websocket_monitoring(
                     "data": {
                         "status": status,
                         "metrics": metrics,
-                        "timestamp": datetime.now().isoformat()
+                        "timestamp": utc_now().isoformat()
                     }
                 }))
                 
@@ -464,7 +487,7 @@ async def websocket_monitoring(
                 await websocket.send_text(json.dumps({
                     "type": "error",
                     "message": str(e),
-                    "timestamp": datetime.now().isoformat()
+                    "timestamp": utc_now().isoformat()
                 }))
                 break
     finally:

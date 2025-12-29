@@ -23,10 +23,10 @@ from src.core.utils.timezone_utils import utc_now, utc_factory
 from typing import Dict, List, Set, Tuple, Optional, Any, Union
 from dataclasses import dataclass, field
 from enum import Enum
-import logging
 from collections import defaultdict
 
-logger = logging.getLogger(__name__)
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 class RuleStatus(str, Enum):
     """规则状态枚举"""
@@ -77,8 +77,8 @@ class ReasoningRule:
     priority: int = 1
     status: RuleStatus = RuleStatus.ACTIVE
     created_by: str = "system"
-    created_at: datetime = field(default_factory=datetime.utcnow)
-    updated_at: datetime = field(default_factory=datetime.utcnow)
+    created_at: datetime = field(default_factory=utc_now)
+    updated_at: datetime = field(default_factory=utc_now)
     execution_count: int = 0
     success_count: int = 0
     last_executed: Optional[datetime] = None
@@ -97,7 +97,7 @@ class InferenceResult:
     confidence: float
     source_rules: List[str]
     derivation_path: List[str]
-    timestamp: datetime = field(default_factory=datetime.utcnow)
+    timestamp: datetime = field(default_factory=utc_now)
 
 class SWRLParser:
     """SWRL规则解析器"""
@@ -494,6 +494,17 @@ class RuleEngine:
             logger.error(f"Error querying graph database: {str(e)}")
         
         return facts
+
+    async def test_rule(self, rule_id: str, facts: List[str]) -> List[InferenceResult]:
+        """测试单条规则"""
+        rule = self.get_rule_by_id(rule_id)
+        if not rule:
+            raise ValueError("规则不存在")
+        bindings_list = await self._match_rule_conditions(rule, set(facts))
+        results: List[InferenceResult] = []
+        for bindings in bindings_list:
+            results.extend(await self._apply_rule_conclusions(rule, bindings))
+        return results
     
     def get_rule_statistics(self) -> Dict[str, Any]:
         """获取规则引擎统计信息"""

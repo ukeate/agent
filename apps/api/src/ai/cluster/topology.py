@@ -12,7 +12,6 @@ import time
 import uuid
 from datetime import datetime
 
-
 class AgentStatus(Enum):
     """智能体状态枚举"""
     PENDING = "pending"              # 待启动
@@ -23,7 +22,7 @@ class AgentStatus(Enum):
     UNKNOWN = "unknown"             # 未知状态
     UPGRADING = "upgrading"         # 升级中
     SCALING = "scaling"             # 扩缩容中
-
+    MAINTENANCE = "maintenance"     # 维护中
 
 class AgentCapability(Enum):
     """智能体能力类型"""
@@ -33,7 +32,6 @@ class AgentCapability(Enum):
     REASONING = "reasoning"         # 推理能力
     MULTIMODAL = "multimodal"       # 多模态能力
     TOOL_USE = "tool_use"          # 工具使用能力
-
 
 @dataclass
 class ResourceSpec:
@@ -64,7 +62,6 @@ class ResourceSpec:
             network_bandwidth=self.network_bandwidth * factor
         )
 
-
 @dataclass
 class ResourceUsage:
     """实时资源使用情况"""
@@ -86,7 +83,6 @@ class ResourceUsage:
             return 0.0
         return self.failed_requests / self.total_requests
 
-
 @dataclass
 class AgentHealthCheck:
     """智能体健康检查"""
@@ -107,7 +103,6 @@ class AgentHealthCheck:
     def needs_restart(self) -> bool:
         """是否需要重启"""
         return self.consecutive_failures >= self.max_failures
-
 
 @dataclass
 class AgentInfo:
@@ -197,7 +192,6 @@ class AgentInfo:
             return 0.0
         return time.time() - self.started_at
 
-
 @dataclass
 class AgentGroup:
     """智能体分组模型"""
@@ -262,7 +256,6 @@ class AgentGroup:
     def can_scale_down(self) -> bool:
         """是否可以缩减"""
         return self.agent_count > self.min_agents
-
 
 @dataclass
 class ClusterTopology:

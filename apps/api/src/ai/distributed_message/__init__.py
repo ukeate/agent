@@ -15,7 +15,6 @@ from .models import (
     ConnectionMetrics,
     TopicConfig
 )
-
 from .protocol import MessageProtocol
 
 __all__ = [
@@ -33,7 +32,6 @@ __all__ = [
     
     # 核心组件
     "MessageProtocol"
-    # TODO: NATSClient, DistributedMessageBus, AgentCommunicationSystem需要安装nats-py
 ]
 
 __version__ = "1.0.0"

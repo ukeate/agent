@@ -8,20 +8,16 @@ import json
 import time
 from datetime import datetime
 from datetime import timedelta
-from src.core.utils.timezone_utils import utc_now, utc_factory
+from src.core.utils.timezone_utils import utc_now
 from typing import Dict, List, Optional, Any, Union
 from enum import Enum
 from dataclasses import dataclass, asdict
 from collections import defaultdict, deque
 import numpy as np
-from sqlalchemy.orm import Session
+from ..reinforcement_learning.qlearning.base import QLearningAgent, AgentState, Experience
 
-from ...core.logging import get_logger
-from ...core.database import get_db_session
-from .base_agent import QLearningAgent
-
+from src.core.logging import get_logger
 logger = get_logger(__name__)
-
 
 class LogLevel(str, Enum):
     """日志级别"""
@@ -31,14 +27,12 @@ class LogLevel(str, Enum):
     ERROR = "error"
     CRITICAL = "critical"
 
-
 class ActionType(str, Enum):
     """动作类型"""
     EXPLORATION = "exploration"
     EXPLOITATION = "exploitation"
     RANDOM = "random"
     FORCED = "forced"
-
 
 @dataclass
 class AgentAction:
@@ -58,7 +52,6 @@ class AgentAction:
     next_state: Optional[Union[List[float], np.ndarray]] = None
     done: Optional[bool] = None
 
-
 @dataclass
 class AgentDecision:
     """智能体决策过程记录"""
@@ -74,7 +67,6 @@ class AgentDecision:
     decision_time: float  # 决策耗时(毫秒)
     reasoning: Optional[str] = None
 
-
 @dataclass
 class PerformanceMetric:
     """性能指标记录"""
@@ -86,7 +78,6 @@ class PerformanceMetric:
     metric_value: float
     additional_data: Optional[Dict[str, Any]] = None
 
-
 @dataclass
 class AgentEvent:
     """智能体事件记录"""
@@ -97,7 +88,6 @@ class AgentEvent:
     level: LogLevel
     message: str
     data: Optional[Dict[str, Any]] = None
-
 
 class AgentMonitor:
     """智能体行为监控器"""
@@ -388,15 +378,12 @@ class AgentMonitor:
                 logger.error(f"更新实时统计异常: {e}")
                 await asyncio.sleep(300)
 
-
 # 全局监控器实例
 global_monitor = AgentMonitor()
-
 
 def get_agent_monitor() -> AgentMonitor:
     """获取全局智能体监控器实例"""
     return global_monitor
-
 
 class MonitoredQLearningAgent(QLearningAgent):
     """带监控功能的Q-Learning智能体包装器"""
@@ -409,20 +396,13 @@ class MonitoredQLearningAgent(QLearningAgent):
             base_agent: 基础Q-Learning智能体
             monitor: 监控器实例，如果为None则使用全局监控器
         """
-        # 复制基础智能体的属性
-        super().__init__(
-            state_size=base_agent.state_size,
-            action_size=base_agent.action_size,
-            learning_rate=base_agent.learning_rate,
-            discount_factor=base_agent.discount_factor,
-            exploration_rate=base_agent.exploration_rate,
-            exploration_decay=base_agent.exploration_decay,
-            min_exploration_rate=base_agent.min_exploration_rate
-        )
-        
+        super().__init__(base_agent.agent_id, base_agent.state_size, base_agent.action_size, base_agent.config)
         self.base_agent = base_agent
         self.monitor = monitor or get_agent_monitor()
         self.session_id = f"session_{int(time.time())}"
+        if hasattr(base_agent, "action_space"):
+            self.action_space = base_agent.action_space
+        self.epsilon = base_agent.epsilon
         
         # 复制Q表或模型
         if hasattr(base_agent, 'q_table'):
@@ -430,79 +410,100 @@ class MonitoredQLearningAgent(QLearningAgent):
         if hasattr(base_agent, 'model'):
             self.model = base_agent.model
     
-    def choose_action(self, state: Union[List[float], np.ndarray]) -> int:
+    def _state_to_list(self, state: AgentState) -> List[float]:
+        if isinstance(state.features, dict):
+            sorted_keys = sorted(state.features.keys())
+            return [float(state.features[key]) for key in sorted_keys]
+        if isinstance(state.features, (list, np.ndarray)):
+            return [float(x) for x in state.features]
+        return []
+
+    def _q_values_to_list(self, q_values: Optional[Dict[str, float]]) -> List[float]:
+        if not q_values:
+            return []
+        action_space = getattr(self, "action_space", None)
+        if action_space:
+            return [float(q_values.get(action, 0.0)) for action in action_space]
+        return [float(v) for _, v in sorted(q_values.items(), key=lambda kv: str(kv[0]))]
+
+    def get_action(self, state: AgentState, exploration: bool = True) -> str:
         """选择动作（带监控）"""
         start_time = time.time()
-        
-        # 获取Q值
-        if hasattr(self, 'q_table'):
-            state_key = self._state_to_key(state)
-            q_values = self.q_table.get(state_key, [0.0] * self.action_size)
-        else:
-            q_values = self.base_agent.get_q_values(state)
-        
-        # 执行动作选择
-        action = self.base_agent.choose_action(state)
-        
-        # 确定动作类型
-        if np.random.random() < self.exploration_rate:
-            action_type = ActionType.EXPLORATION
-        else:
-            action_type = ActionType.EXPLOITATION
-        
-        # 计算置信度
-        if len(q_values) > 0:
-            max_q = max(q_values)
-            min_q = min(q_values)
-            confidence = (q_values[action] - min_q) / (max_q - min_q) if max_q != min_q else 1.0
-        else:
-            confidence = 0.0
-        
-        decision_time = (time.time() - start_time) * 1000  # 转换为毫秒
-        
-        # 记录决策过程
+        normalized_state = self._normalize_state(state)
+        q_values = self.base_agent.get_q_values(normalized_state)
+        action_label = self.base_agent.get_action(normalized_state, exploration=exploration)
+        action_index = self._action_label_to_index(action_label)
+
+        q_values_list = self._q_values_to_list(q_values)
+        confidence = 0.0
+        if q_values_list:
+            max_q = max(q_values_list)
+            min_q = min(q_values_list)
+            if 0 <= action_index < len(q_values_list):
+                confidence = 1.0 if max_q == min_q else (q_values_list[action_index] - min_q) / (max_q - min_q)
+
+        decision_time = (time.time() - start_time) * 1000
         decision_record = AgentDecision(
             timestamp=utc_now(),
             agent_id=self.agent_id,
             session_id=self.session_id,
-            state=state,
+            state=self._state_to_list(normalized_state),
             available_actions=list(range(self.action_size)),
-            q_values=q_values,
-            selected_action=action,
-            action_type=action_type,
-            exploration_rate=self.exploration_rate,
+            q_values=q_values_list,
+            selected_action=action_index,
+            action_type=ActionType.EXPLORATION if exploration else ActionType.EXPLOITATION,
+            exploration_rate=self.base_agent.epsilon,
             decision_time=decision_time
         )
-        
         self.monitor.log_decision(decision_record)
-        
-        return action
-    
-    def learn(self, state: Union[List[float], np.ndarray], action: int, 
+        return action_label
+
+    def update_q_value(self, experience: Experience) -> Optional[float]:
+        return self.base_agent.update_q_value(experience)
+
+    def get_q_values(self, state: AgentState) -> Dict[str, float]:
+        return self.base_agent.get_q_values(state)
+
+    def save_model(self, filepath: str) -> None:
+        self.base_agent.save_model(filepath)
+
+    def load_model(self, filepath: str) -> None:
+        self.base_agent.load_model(filepath)
+
+    def learn(self, state: Union[List[float], np.ndarray], action: int,
               reward: float, next_state: Union[List[float], np.ndarray], done: bool):
         """学习（带监控）"""
-        # 记录动作
+        normalized_state = self._normalize_state(state)
+        normalized_next_state = self._normalize_state(next_state)
+        action_label = self._action_index_to_label(action)
+        action_index = self._action_label_to_index(action_label)
+        q_values_list = self._q_values_to_list(self.base_agent.get_q_values(normalized_state))
+        confidence = 0.0
+        if q_values_list and 0 <= action_index < len(q_values_list):
+            max_q = max(q_values_list)
+            min_q = min(q_values_list)
+            confidence = 1.0 if max_q == min_q else (q_values_list[action_index] - min_q) / (max_q - min_q)
+
         action_record = AgentAction(
             timestamp=utc_now(),
             agent_id=self.agent_id,
             session_id=self.session_id,
             episode=getattr(self, 'current_episode', 0),
             step=getattr(self, 'current_step', 0),
-            state=state,
-            action=action,
-            action_type=ActionType.EXPLOITATION,  # 在学习时记录
-            q_values=self.base_agent.get_q_values(state) if hasattr(self.base_agent, 'get_q_values') else [],
-            confidence=0.5,  # 默认置信度
-            exploration_rate=self.exploration_rate,
+            state=self._state_to_list(normalized_state),
+            action=action_index,
+            action_type=ActionType.EXPLOITATION,
+            q_values=q_values_list,
+            confidence=confidence,
+            exploration_rate=self.base_agent.epsilon,
             reward=reward,
-            next_state=next_state,
+            next_state=self._state_to_list(normalized_next_state),
             done=done
         )
-        
         self.monitor.log_action(action_record)
-        
-        # 执行实际学习
-        return self.base_agent.learn(state, action, reward, next_state, done)
+        loss = self.base_agent.learn(normalized_state, action, reward, normalized_next_state, done)
+        self.epsilon = self.base_agent.epsilon
+        return loss
     
     def log_performance_metric(self, metric_name: str, value: float, 
                              additional_data: Optional[Dict[str, Any]] = None):
@@ -534,13 +535,11 @@ class MonitoredQLearningAgent(QLearningAgent):
         
         self.monitor.log_event(event_record)
 
-
 async def initialize_agent_monitoring():
     """初始化智能体监控系统"""
     monitor = get_agent_monitor()
     await monitor.start_monitoring()
     logger.info("智能体监控系统已启动")
-
 
 async def shutdown_agent_monitoring():
     """关闭智能体监控系统"""

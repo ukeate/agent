@@ -11,7 +11,7 @@
 import os
 import json
 import hashlib
-import pickle
+from src.core.utils import secure_pickle as pickle
 import gzip
 from datetime import datetime, timedelta
 from typing import Dict, Any, Optional, List, Tuple
@@ -19,11 +19,11 @@ from pathlib import Path
 from dataclasses import dataclass
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
-
 from ..core.config import get_settings
+from ..core.logging import get_logger
 from ..core.utils.timezone_utils import utc_now
 
-
+from src.core.logging import get_logger
 @dataclass
 class ModelMetadata:
     """模型元数据"""
@@ -38,7 +38,6 @@ class ModelMetadata:
     quantization_level: Optional[str] = None
     tags: List[str] = None
 
-
 @dataclass
 class CacheEntry:
     """缓存条目"""
@@ -47,7 +46,6 @@ class CacheEntry:
     metadata: ModelMetadata
     is_loaded: bool = False
     load_time: Optional[datetime] = None
-
 
 class ModelCompressionManager:
     """模型压缩管理器"""
@@ -79,11 +77,11 @@ class ModelCompressionManager:
         """计算数据校验和"""
         return hashlib.sha256(data).hexdigest()
 
-
 class ModelCacheManager:
     """本地模型缓存管理器"""
     
     def __init__(self, cache_dir: Optional[str] = None, max_cache_size_gb: float = 5.0):
+        self.logger = get_logger(__name__)
         settings = get_settings()
         self.cache_dir = Path(cache_dir or Path(settings.OFFLINE_STORAGE_PATH) / "model_cache")
         self.cache_dir.mkdir(parents=True, exist_ok=True)
@@ -119,7 +117,7 @@ class ModelCacheManager:
                         for model_id, meta in data.items()
                     }
             except Exception as e:
-                print(f"Failed to load cache metadata: {e}")
+                self.logger.error("加载模型缓存元数据失败", error=str(e))
                 self._cache_metadata = {}
         else:
             self._cache_metadata = {}
@@ -146,7 +144,7 @@ class ModelCacheManager:
             with open(self.metadata_file, 'w') as f:
                 json.dump(data, f, indent=2)
         except Exception as e:
-            print(f"Failed to save cache metadata: {e}")
+            self.logger.error("保存模型缓存元数据失败", error=str(e))
     
     def _get_model_path(self, model_id: str, version: str) -> Path:
         """获取模型文件路径"""
@@ -199,7 +197,7 @@ class ModelCacheManager:
             serialized_data = pickle.dumps(model_data)
             
             # 压缩模型数据
-            compressed_data, compression_ratio = await asyncio.get_event_loop().run_in_executor(
+            compressed_data, compression_ratio = await asyncio.get_running_loop().run_in_executor(
                 self.executor,
                 self.compression_manager.compress_model,
                 serialized_data,
@@ -244,13 +242,17 @@ class ModelCacheManager:
             )
             self._memory_cache[model_id] = cache_entry
             
-            print(f"Model {model_id} v{version} cached successfully. "
-                  f"Compression ratio: {compression_ratio:.2f}")
+            self.logger.info(
+                "模型已缓存",
+                model_id=model_id,
+                version=version,
+                compression_ratio=round(compression_ratio, 4),
+            )
             
             return True
             
         except Exception as e:
-            print(f"Failed to cache model {model_id}: {e}")
+            self.logger.error("缓存模型失败", model_id=model_id, error=str(e))
             return False
     
     async def load_model(self, model_id: str, preload_to_memory: bool = True) -> Optional[Any]:
@@ -285,11 +287,11 @@ class ModelCacheManager:
             # 验证校验和
             checksum = self.compression_manager.calculate_checksum(compressed_data)
             if checksum != metadata.checksum:
-                print(f"Checksum mismatch for model {model_id}")
+                self.logger.error("模型校验和不匹配", model_id=model_id)
                 return None
             
             # 解压缩
-            serialized_data = await asyncio.get_event_loop().run_in_executor(
+            serialized_data = await asyncio.get_running_loop().run_in_executor(
                 self.executor,
                 self.compression_manager.decompress_model,
                 compressed_data,
@@ -318,7 +320,7 @@ class ModelCacheManager:
             return model_data
             
         except Exception as e:
-            print(f"Failed to load model {model_id}: {e}")
+            self.logger.error("加载模型失败", model_id=model_id, error=str(e))
             return None
     
     def get_model_info(self, model_id: str) -> Optional[ModelMetadata]:
@@ -363,7 +365,7 @@ class ModelCacheManager:
             return True
             
         except Exception as e:
-            print(f"Failed to remove model {model_id}: {e}")
+            self.logger.error("移除模型失败", model_id=model_id, error=str(e))
             return False
     
     async def preload_models(self, model_ids: List[str], max_concurrent: int = 2) -> Dict[str, bool]:

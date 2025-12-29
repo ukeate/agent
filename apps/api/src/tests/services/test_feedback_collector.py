@@ -12,11 +12,8 @@ from datetime import timedelta
 from src.core.utils.timezone_utils import utc_now, utc_factory
 from unittest.mock import Mock, patch
 import time
-
 import sys
 import os
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
-
 from src.services.feedback_collector import (
     FeedbackCollector,
     FeedbackBuffer,
@@ -29,6 +26,7 @@ from src.services.feedback_collector import (
 )
 from models.schemas.feedback import FeedbackType
 
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
 
 class TestCollectedEvent:
     """CollectedEvent数据结构测试"""
@@ -52,7 +50,6 @@ class TestCollectedEvent:
         assert event.feedback_type == FeedbackType.CLICK
         assert event.priority == EventPriority.HIGH
         assert event.context["page"] == "home"
-
 
 class TestFeedbackBuffer:
     """反馈缓冲器测试"""
@@ -177,7 +174,6 @@ class TestFeedbackBuffer:
         should_flush = await buffer.should_flush()
         assert should_flush is True
 
-
 class TestEventDeduplicator:
     """事件去重器测试"""
     
@@ -251,7 +247,6 @@ class TestEventDeduplicator:
             # 再次检查，应该不是重复（因为已过期）
             is_dup = await deduplicator.is_duplicate(sample_event)
             assert is_dup is False
-
 
 class TestEventValidator:
     """事件验证器测试"""
@@ -365,7 +360,6 @@ class TestEventValidator:
         
         event.raw_value = "   "  # 只有空格
         assert EventValidator.validate_explicit_event(event) is False
-
 
 class TestFeedbackCollector:
     """反馈收集器主类测试"""
@@ -522,7 +516,6 @@ class TestFeedbackCollector:
         assert "is_running" in stats
         assert stats["is_running"] is True
 
-
 class TestGlobalCollectorInstance:
     """全局收集器实例测试"""
     
@@ -554,7 +547,6 @@ class TestGlobalCollectorInstance:
         
         # 清理
         await shutdown_feedback_collector()
-
 
 # 异常处理测试
 class TestErrorHandling:
@@ -597,7 +589,6 @@ class TestErrorHandling:
             assert result is False
         finally:
             await collector.stop()
-
 
 # 性能测试
 class TestPerformance:

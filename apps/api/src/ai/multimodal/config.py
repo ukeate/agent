@@ -4,7 +4,6 @@
 
 from typing import Dict, List, Any
 
-
 class ModelConfig:
     """模型配置管理"""
     

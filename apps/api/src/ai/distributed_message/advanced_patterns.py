@@ -3,20 +3,19 @@
 实现多播通信、流式数据传输、事件流处理和智能路由
 """
 
+from src.core.utils.timezone_utils import utc_now
 import asyncio
 import uuid
 import time
-import logging
 from typing import Dict, List, Optional, Any, Callable, Set, AsyncGenerator
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import Enum
-
 from .models import Message, MessageHeader, MessageType, MessagePriority
 from .client import NATSClient
 
-logger = logging.getLogger(__name__)
-
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 class RoutingStrategy(str, Enum):
     """路由策略"""
@@ -26,13 +25,11 @@ class RoutingStrategy(str, Enum):
     GEOGRAPHIC = "geographic"       # 地理位置
     PRIORITY_BASED = "priority_based"  # 基于优先级
 
-
 class StreamMode(str, Enum):
     """流模式"""
     PUSH = "push"  # 推送模式
     PULL = "pull"  # 拉取模式
     BIDIRECTIONAL = "bidirectional"  # 双向流
-
 
 @dataclass
 class AgentCapability:
@@ -47,7 +44,6 @@ class AgentCapability:
     def matches_requirement(self, required_capability: str) -> bool:
         """检查是否匹配能力要求"""
         return required_capability in self.capabilities
-
 
 @dataclass
 class MulticastGroup:
@@ -73,7 +69,6 @@ class MulticastGroup:
             return True
         return False
 
-
 @dataclass
 class StreamChunk:
     """数据流块"""
@@ -84,7 +79,6 @@ class StreamChunk:
     is_last: bool = False
     metadata: Dict[str, Any] = field(default_factory=dict)
     timestamp: datetime = field(default_factory=datetime.now)
-
 
 @dataclass
 class DataStream:
@@ -113,7 +107,6 @@ class DataStream:
         received_sequences = set(self.chunks.keys())
         expected_sequences = set(range(self.total_chunks))
         return sorted(expected_sequences - received_sequences)
-
 
 class MulticastManager:
     """多播管理器"""
@@ -241,7 +234,6 @@ class MulticastManager:
     def get_agent_groups(self, agent_id: str) -> List[str]:
         """获取智能体所属的组"""
         return list(self.agent_groups.get(agent_id, set()))
-
 
 class StreamingManager:
     """流式数据传输管理器"""
@@ -452,7 +444,7 @@ class StreamingManager:
                 return None
             
             stream = self.active_streams[stream_id]
-            stream.completed_at = datetime.now()
+            stream.completed_at = utc_now()
             
             if stream.is_complete():
                 # 重建完整数据
@@ -500,7 +492,6 @@ class StreamingManager:
         """列出活跃的数据流"""
         return [self.get_stream_info(stream_id) for stream_id in self.active_streams.keys()]
 
-
 class SmartRouter:
     """智能路由器"""
     
@@ -532,7 +523,7 @@ class SmartRouter:
         """更新智能体负载"""
         if agent_id in self.agent_capabilities:
             self.agent_capabilities[agent_id].load_factor = load_factor
-            self.agent_capabilities[agent_id].last_seen = datetime.now()
+            self.agent_capabilities[agent_id].last_seen = utc_now()
     
     def find_best_agent(
         self,
@@ -644,7 +635,7 @@ class SmartRouter:
     
     def cleanup_stale_agents(self, max_age_minutes: int = 30):
         """清理过期的智能体能力信息"""
-        cutoff_time = datetime.now() - timedelta(minutes=max_age_minutes)
+        cutoff_time = utc_now() - timedelta(minutes=max_age_minutes)
         stale_agents = [
             agent_id for agent_id, capability in self.agent_capabilities.items()
             if capability.last_seen < cutoff_time
@@ -657,7 +648,6 @@ class SmartRouter:
         
         if stale_agents:
             logger.info(f"清理过期智能体: {stale_agents}")
-
 
 class AdvancedCommunicationManager:
     """高级通信模式管理器"""

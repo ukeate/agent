@@ -1,18 +1,17 @@
 """
 紧急情感支持和危机干预系统
 """
+
+from src.core.utils.timezone_utils import utc_now
 import asyncio
 from typing import Dict, List, Optional, Any, Tuple
-from datetime import datetime, timedelta
-import logging
+from datetime import timedelta
 import re
-
 from .models import CrisisAssessment, SeverityLevel, DecisionContext
 from ..emotion_modeling.models import EmotionState
 
-
-logger = logging.getLogger(__name__)
-
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 class CrisisDetectionSystem:
     """危机检测系统"""
@@ -294,7 +293,7 @@ class CrisisDetectionSystem:
                 'actions_taken': response_actions,
                 'monitoring_activated': True,
                 'professional_notified': crisis_assessment.professional_required,
-                'timestamp': datetime.now().isoformat()
+                'timestamp': utc_now().isoformat()
             }
             
         except Exception as e:
@@ -600,7 +599,7 @@ class CrisisDetectionSystem:
         actions.append({
             'action': 'connect_crisis_hotline',
             'status': 'initiated',
-            'timestamp': datetime.now().isoformat(),
+            'timestamp': utc_now().isoformat(),
             'details': '尝试连接全国心理危机干预热线'
         })
         
@@ -608,7 +607,7 @@ class CrisisDetectionSystem:
         actions.append({
             'action': 'notify_emergency_contacts',
             'status': 'initiated', 
-            'timestamp': datetime.now().isoformat(),
+            'timestamp': utc_now().isoformat(),
             'details': '通知用户紧急联系人'
         })
         
@@ -616,7 +615,7 @@ class CrisisDetectionSystem:
         actions.append({
             'action': 'activate_intensive_monitoring',
             'status': 'activated',
-            'timestamp': datetime.now().isoformat(),
+            'timestamp': utc_now().isoformat(),
             'details': '激活24/7密集监护模式'
         })
         
@@ -630,7 +629,7 @@ class CrisisDetectionSystem:
         actions.append({
             'action': 'provide_immediate_support',
             'status': 'active',
-            'timestamp': datetime.now().isoformat(),
+            'timestamp': utc_now().isoformat(),
             'details': '提供即时情感支持和稳定'
         })
         
@@ -638,7 +637,7 @@ class CrisisDetectionSystem:
         actions.append({
             'action': 'recommend_professional_services',
             'status': 'recommended',
-            'timestamp': datetime.now().isoformat(),
+            'timestamp': utc_now().isoformat(),
             'details': '推荐专业心理健康服务'
         })
         
@@ -652,7 +651,7 @@ class CrisisDetectionSystem:
         actions.append({
             'action': 'enhanced_support',
             'status': 'active',
-            'timestamp': datetime.now().isoformat(),
+            'timestamp': utc_now().isoformat(),
             'details': '提供增强的情感支持'
         })
         
@@ -665,7 +664,7 @@ class CrisisDetectionSystem:
             'status': 'activated',
             'monitoring_level': assessment.monitoring_level,
             'check_frequency': assessment.check_frequency.total_seconds(),
-            'timestamp': datetime.now().isoformat(),
+            'timestamp': utc_now().isoformat(),
             'details': f'激活{assessment.monitoring_level}级监护'
         }
     
@@ -678,7 +677,7 @@ class CrisisDetectionSystem:
         """记录紧急响应日志"""
         log_entry = {
             'user_id': user_id,
-            'timestamp': datetime.now().isoformat(),
+            'timestamp': utc_now().isoformat(),
             'crisis_score': assessment.risk_score,
             'severity_level': assessment.severity_level,
             'actions_count': len(actions),

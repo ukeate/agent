@@ -1,18 +1,8 @@
-#!/usr/bin/env python3
-"""
-隐私保护机制验证脚本
-验证Task 7隐私伦理防护的核心功能
-"""
-
+from src.core.utils.timezone_utils import utc_now
 import asyncio
 import sys
-import logging
-from datetime import datetime, timedelta
+from datetime import timedelta
 from pathlib import Path
-
-# 添加项目路径
-sys.path.append(str(Path(__file__).parent))
-
 from ai.emotion_modeling.privacy_ethics_guard import (
     PrivacyEthicsGuard,
     PrivacyLevel,
@@ -23,10 +13,17 @@ from ai.emotion_modeling.privacy_ethics_guard import (
     DataClassification
 )
 
-# 设置日志
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
+#!/usr/bin/env python3
+"""
+隐私保护机制验证脚本
+验证Task 7隐私伦理防护的核心功能
+"""
+
+# 添加项目路径
+sys.path.append(str(Path(__file__).parent))
 
 async def test_basic_functionality():
     """测试基础功能"""
@@ -46,7 +43,7 @@ async def test_basic_functionality():
             },
             "emotion_history": [
                 {
-                    "timestamp": datetime.now(),
+                    "timestamp": utc_now(),
                     "emotions": {"happiness": 0.8, "confidence": 0.7},
                     "context": "work_meeting"
                 }
@@ -61,7 +58,6 @@ async def test_basic_functionality():
     except Exception as e:
         logger.error(f"❌ 基础功能验证失败：{e}")
         return False
-
 
 async def test_privacy_violation_detection():
     """测试隐私违规检测"""
@@ -98,7 +94,6 @@ async def test_privacy_violation_detection():
         logger.error(f"❌ 隐私违规检测验证失败：{e}")
         return False
 
-
 async def test_ethical_violation_detection():
     """测试伦理违规检测"""
     logger.info("⚖️ 开始验证伦理违规检测功能...")
@@ -129,7 +124,6 @@ async def test_ethical_violation_detection():
         logger.error(f"❌ 伦理违规检测验证失败：{e}")
         return False
 
-
 async def test_consent_management():
     """测试同意管理"""
     logger.info("📝 开始验证同意管理功能...")
@@ -142,9 +136,9 @@ async def test_consent_management():
             user_id="test_user",
             consent_type="emotion_analysis",
             granted=True,
-            timestamp=datetime.now(),
+            timestamp=utc_now(),
             scope=["emotion_tracking", "social_analysis"],
-            expiry_date=datetime.now() + timedelta(days=365),
+            expiry_date=utc_now() + timedelta(days=365),
             withdrawal_date=None,
             version="1.0"
         )
@@ -188,7 +182,6 @@ async def test_consent_management():
         logger.error(f"❌ 同意管理验证失败：{e}")
         return False
 
-
 async def test_audit_logging():
     """测试审计日志"""
     logger.info("📋 开始验证审计日志功能...")
@@ -222,7 +215,6 @@ async def test_audit_logging():
     except Exception as e:
         logger.error(f"❌ 审计日志验证失败：{e}")
         return False
-
 
 async def test_data_anonymization():
     """测试数据匿名化"""
@@ -268,7 +260,6 @@ async def test_data_anonymization():
         logger.error(f"❌ 数据匿名化验证失败：{e}")
         return False
 
-
 async def test_compliance_reporting():
     """测试合规报告"""
     logger.info("📊 开始验证合规报告功能...")
@@ -293,7 +284,6 @@ async def test_compliance_reporting():
     except Exception as e:
         logger.error(f"❌ 合规报告验证失败：{e}")
         return False
-
 
 async def main():
     """主验证函数"""
@@ -344,7 +334,6 @@ async def main():
     else:
         logger.warning(f"⚠️ 有 {total_tests - passed_tests} 个测试失败，需要进一步检查")
         return False
-
 
 if __name__ == "__main__":
     success = asyncio.run(main())

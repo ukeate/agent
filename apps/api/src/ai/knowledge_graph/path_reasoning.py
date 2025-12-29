@@ -23,13 +23,13 @@ from src.core.utils.timezone_utils import utc_now, utc_factory
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Dict, List, Set, Tuple, Optional, Any, Union, Callable
-import logging
 import json
 import numpy as np
 from concurrent.futures import ThreadPoolExecutor
 import threading
 
-logger = logging.getLogger(__name__)
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 class SearchStrategy(str, Enum):
     """搜索策略"""
@@ -70,7 +70,7 @@ class ReasoningPath:
     execution_time_ms: float = 0.0
     search_strategy: SearchStrategy = SearchStrategy.BREADTH_FIRST
     metadata: Dict[str, Any] = field(default_factory=dict)
-    timestamp: datetime = field(default_factory=datetime.utcnow)
+    timestamp: datetime = field(default_factory=utc_now)
     
     @property
     def path_relations(self) -> List[str]:
@@ -566,7 +566,7 @@ class PathReasoner:
             paths = [p for p in paths if p.length == min_length]
         elif config.path_type == PathType.MOST_CONFIDENT:
             # 已经按置信度排序
-            pass
+            paths = paths
         elif config.path_type == PathType.DIVERSE:
             # 选择多样化路径
             paths = await self._select_diverse_paths(paths, config)

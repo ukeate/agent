@@ -5,19 +5,18 @@ FastAPI endpoints for agent service discovery and registration.
 """
 
 import time
-import asyncio
 from typing import List, Optional
+from collections.abc import AsyncGenerator
+from contextlib import asynccontextmanager
 from fastapi import APIRouter, HTTPException, Depends, status, BackgroundTasks
 from fastapi.responses import JSONResponse
-import logging
-
-from ai.service_discovery.core import (
+from src.ai.service_discovery.core import (
     AgentServiceDiscoverySystem,
     AgentMetadata,
     AgentCapability,
     AgentStatus
 )
-from ai.service_discovery.models import (
+from src.ai.service_discovery.models import (
     AgentRegistrationRequest,
     AgentMetadataResponse,
     AgentDiscoveryRequest,
@@ -30,42 +29,66 @@ from ai.service_discovery.models import (
     HealthCheckResponse,
     ErrorResponse
 )
-from ai.service_discovery.config import default_config
-from core.config import get_settings
+from src.ai.service_discovery.config import default_config
+from src.core.redis import get_redis
 
-
-router = APIRouter(prefix="/service-discovery", tags=["service-discovery"])
-logger = logging.getLogger(__name__)
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 # Global service discovery system instance
 _service_discovery_system: Optional[AgentServiceDiscoverySystem] = None
 _system_start_time = time.time()
 
+@asynccontextmanager
+async def lifespan(_: APIRouter) -> AsyncGenerator[None, None]:
+    """服务发现路由生命周期管理"""
+    try:
+        await get_service_discovery_system()
+        logger.info("服务发现API启动成功")
+    except Exception as e:
+        logger.error(f"服务发现API启动失败: {e}")
+    yield
+    global _service_discovery_system
+    if _service_discovery_system:
+        try:
+            await _service_discovery_system.cleanup()
+            logger.info("服务发现系统清理完成")
+        except Exception as e:
+            logger.error(f"服务发现系统清理失败: {e}")
+        finally:
+            _service_discovery_system = None
+
+router = APIRouter(prefix="/service-discovery", tags=["service-discovery"], lifespan=lifespan)
 
 async def get_service_discovery_system() -> AgentServiceDiscoverySystem:
     """Get or initialize the service discovery system"""
     global _service_discovery_system
     
     if _service_discovery_system is None:
-        settings = get_settings()
-        
-        # Use etcd endpoints from environment or default config
-        etcd_endpoints = getattr(settings, 'etcd_endpoints', default_config.etcd_endpoints)
-        
-        _service_discovery_system = AgentServiceDiscoverySystem(etcd_endpoints)
+        redis_client = get_redis()
+        if not redis_client:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Redis未初始化，服务发现不可用",
+            )
+
+        _service_discovery_system = AgentServiceDiscoverySystem(
+            redis_client=redis_client,
+            prefix=default_config.redis_prefix,
+            ttl_seconds=default_config.agent_ttl_seconds,
+        )
         
         try:
             await _service_discovery_system.initialize()
-            logger.info("Service discovery system initialized successfully")
+            logger.info("服务发现系统初始化成功")
         except Exception as e:
-            logger.error(f"Failed to initialize service discovery system: {e}")
+            logger.error(f"服务发现系统初始化失败: {e}")
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail=f"Service discovery system initialization failed: {str(e)}"
+                detail=f"服务发现系统初始化失败: {str(e)}"
             )
     
     return _service_discovery_system
-
 
 def _convert_to_response_model(agent_metadata: AgentMetadata) -> AgentMetadataResponse:
     """Convert core AgentMetadata to response model"""
@@ -100,7 +123,6 @@ def _convert_to_response_model(agent_metadata: AgentMetadata) -> AgentMetadataRe
         error_count=agent_metadata.error_count,
         avg_response_time=agent_metadata.avg_response_time
     )
-
 
 @router.post("/agents", 
              response_model=dict,
@@ -148,7 +170,7 @@ async def register_agent(
         if not success:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Failed to register agent. Check agent data validity."
+                detail="注册智能体失败，请检查智能体数据有效性。"
             )
         
         logger.info(f"Agent {request.agent_id} registered successfully")
@@ -162,12 +184,11 @@ async def register_agent(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error registering agent {request.agent_id}: {e}")
+        logger.error(f"注册智能体失败 {request.agent_id}: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Internal server error during agent registration: {str(e)}"
         )
-
 
 @router.get("/agents", 
             response_model=AgentDiscoveryResponse,
@@ -226,12 +247,11 @@ async def discover_agents(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error discovering agents: {e}")
+        logger.error(f"发现智能体失败: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Internal server error during agent discovery: {str(e)}"
         )
-
 
 @router.get("/agents/{agent_id}",
             response_model=AgentMetadataResponse,
@@ -256,12 +276,11 @@ async def get_agent(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error getting agent {agent_id}: {e}")
+        logger.error(f"获取智能体失败 {agent_id}: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Internal server error: {str(e)}"
         )
-
 
 @router.put("/agents/{agent_id}/status",
             response_model=dict,
@@ -296,12 +315,11 @@ async def update_agent_status(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error updating agent status {agent_id}: {e}")
+        logger.error(f"更新智能体状态失败 {agent_id}: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Internal server error: {str(e)}"
         )
-
 
 @router.put("/agents/{agent_id}/metrics",
             response_model=dict,
@@ -337,12 +355,11 @@ async def update_agent_metrics(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error updating agent metrics {agent_id}: {e}")
+        logger.error(f"更新智能体指标失败 {agent_id}: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Internal server error: {str(e)}"
         )
-
 
 @router.delete("/agents/{agent_id}",
                response_model=dict,
@@ -373,12 +390,11 @@ async def deregister_agent(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error deregistering agent {agent_id}: {e}")
+        logger.error(f"注销智能体失败 {agent_id}: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Internal server error: {str(e)}"
         )
-
 
 @router.post("/load-balancer/select",
              response_model=LoadBalancerResponse,
@@ -414,12 +430,11 @@ async def select_agent(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error selecting agent: {e}")
+        logger.error(f"选择智能体失败: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Internal server error: {str(e)}"
         )
-
 
 @router.get("/stats",
             response_model=ServiceStats,
@@ -430,7 +445,7 @@ async def get_system_stats(
 ):
     """Get system statistics"""
     try:
-        stats = system.get_system_stats()
+        stats = await system.get_system_stats()
         
         return ServiceStats(
             registry=stats["registry"],
@@ -439,12 +454,11 @@ async def get_system_stats(
         )
         
     except Exception as e:
-        logger.error(f"Error getting system stats: {e}")
+        logger.error(f"获取系统统计失败: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Internal server error: {str(e)}"
         )
-
 
 @router.get("/health",
             response_model=HealthCheckResponse,
@@ -467,12 +481,11 @@ async def health_check():
         )
         
     except Exception as e:
-        logger.error(f"Error in health check: {e}")
+        logger.error(f"健康检查失败: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Health check failed: {str(e)}"
         )
-
 
 @router.get("/config",
             response_model=dict,
@@ -481,7 +494,7 @@ async def health_check():
 async def get_configuration():
     """Get configuration"""
     try:
-        from ai.service_discovery.config import LoadBalancerConfig, HealthCheckConfig
+        from src.ai.service_discovery.config import LoadBalancerConfig, HealthCheckConfig
         
         return {
             "load_balancer": {
@@ -499,44 +512,15 @@ async def get_configuration():
                 }
             },
             "system": {
-                "etcd_endpoints": default_config.etcd_endpoints,
-                "etcd_prefix": default_config.etcd_prefix,
-                "max_agents_per_discovery": default_config.max_agents_per_discovery
+                "redis_prefix": default_config.redis_prefix,
+                "agent_ttl_seconds": default_config.agent_ttl_seconds,
+                "max_agents_per_discovery": default_config.max_agents_per_discovery,
             }
         }
         
     except Exception as e:
-        logger.error(f"Error getting configuration: {e}")
+        logger.error(f"获取配置失败: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Internal server error: {str(e)}"
         )
-
-
-# Startup event to ensure system is initialized
-@router.on_event("startup")
-async def startup_event():
-    """Initialize service discovery system on startup"""
-    try:
-        # Force initialization of the service discovery system
-        await get_service_discovery_system()
-        logger.info("Service discovery API started successfully")
-    except Exception as e:
-        logger.error(f"Failed to start service discovery API: {e}")
-        # Don't raise here as it would prevent the API from starting
-
-
-# Shutdown event for cleanup
-@router.on_event("shutdown") 
-async def shutdown_event():
-    """Clean up service discovery system on shutdown"""
-    global _service_discovery_system
-    
-    if _service_discovery_system:
-        try:
-            await _service_discovery_system.cleanup()
-            logger.info("Service discovery system cleaned up successfully")
-        except Exception as e:
-            logger.error(f"Error during service discovery cleanup: {e}")
-        finally:
-            _service_discovery_system = None

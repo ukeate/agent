@@ -2,21 +2,25 @@
 事件处理系统API端点
 提供事件查询、监控和管理接口
 """
+
 from fastapi import APIRouter, HTTPException, Query, WebSocket, WebSocketDisconnect, Depends
 from typing import List, Optional, Dict, Any
 from datetime import datetime
 from datetime import timedelta
 from src.core.utils.timezone_utils import utc_now, utc_factory, timezone
-from pydantic import BaseModel, Field
+from pydantic import Field
 import asyncio
 import json
 import uuid
-
 from src.ai.autogen.events import Event, EventType, EventPriority
 from src.ai.autogen.event_store import EventStore, EventReplayService
 from src.ai.autogen.distributed_events import DistributedEventCoordinator
 from src.ai.autogen.event_processors import AsyncEventProcessingEngine
 from src.ai.autogen.monitoring import EventProcessingMonitor
+from src.api.base_model import ApiBaseModel
+
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 router = APIRouter(prefix="/events", tags=["Events"])
 
@@ -27,30 +31,7 @@ processing_engine: Optional[AsyncEventProcessingEngine] = None
 event_monitor: Optional[EventProcessingMonitor] = None
 replay_service: Optional[EventReplayService] = None
 
-# WebSocket连接管理
-class ConnectionManager:
-    def __init__(self):
-        self.active_connections: List[WebSocket] = []
-    
-    async def connect(self, websocket: WebSocket):
-        await websocket.accept()
-        self.active_connections.append(websocket)
-    
-    def disconnect(self, websocket: WebSocket):
-        self.active_connections.remove(websocket)
-    
-    async def broadcast(self, message: dict):
-        """广播消息到所有连接"""
-        for connection in self.active_connections:
-            try:
-                await connection.send_json(message)
-            except:
-                pass
-
-manager = ConnectionManager()
-
-
-class EventQuery(BaseModel):
+class EventQuery(ApiBaseModel):
     """事件查询参数"""
     start_time: Optional[datetime] = Field(None, description="开始时间")
     end_time: Optional[datetime] = Field(None, description="结束时间")
@@ -61,8 +42,7 @@ class EventQuery(BaseModel):
     limit: int = Field(100, description="返回数量限制")
     offset: int = Field(0, description="偏移量")
 
-
-class EventResponse(BaseModel):
+class EventResponse(ApiBaseModel):
     """事件响应"""
     id: str
     timestamp: datetime
@@ -75,8 +55,7 @@ class EventResponse(BaseModel):
     severity: str
     data: Dict[str, Any] = {}
 
-
-class EventStats(BaseModel):
+class EventStats(ApiBaseModel):
     """事件统计"""
     total: int
     info: int
@@ -87,16 +66,14 @@ class EventStats(BaseModel):
     by_source: Dict[str, int]
     by_type: Dict[str, int]
 
-
-class ReplayRequest(BaseModel):
+class ReplayRequest(ApiBaseModel):
     """事件重播请求"""
     agent_id: Optional[str] = Field(None, description="智能体ID")
     conversation_id: Optional[str] = Field(None, description="会话ID")
     start_time: datetime = Field(..., description="开始时间")
     end_time: Optional[datetime] = Field(None, description="结束时间")
 
-
-class ClusterStatus(BaseModel):
+class ClusterStatus(ApiBaseModel):
     """集群状态"""
     node_id: str
     role: str
@@ -105,7 +82,6 @@ class ClusterStatus(BaseModel):
     active_nodes: int
     nodes: Dict[str, Dict[str, Any]]
     stats: Dict[str, Any]
-
 
 def init_services(
     store: EventStore,
@@ -122,26 +98,31 @@ def init_services(
     if store and engine:
         replay_service = EventReplayService(store, engine)
 
-
 def convert_event_to_response(event: Event) -> EventResponse:
     """转换事件为响应格式"""
     # 根据事件类型映射标题
     title_map = {
+        EventType.AGENT_CREATED: "智能体创建",
+        EventType.AGENT_DESTROYED: "智能体销毁",
+        EventType.AGENT_STATUS_CHANGED: "智能体状态变更",
         EventType.MESSAGE_SENT: "消息发送",
         EventType.MESSAGE_RECEIVED: "消息接收",
         EventType.TASK_ASSIGNED: "任务分配",
+        EventType.TASK_STARTED: "任务开始",
         EventType.TASK_COMPLETED: "任务完成",
+        EventType.TASK_FAILED: "任务失败",
         EventType.ERROR_OCCURRED: "错误发生",
-        EventType.AGENT_JOINED: "智能体加入",
-        EventType.AGENT_LEFT: "智能体离开",
-        EventType.STATE_CHANGED: "状态变更"
+        EventType.SYSTEM_STATUS_CHANGED: "系统状态变更",
     }
     
     # 根据事件类型映射UI类型
     type_map = {
         EventType.ERROR_OCCURRED: "error",
         EventType.TASK_COMPLETED: "success",
-        EventType.STATE_CHANGED: "warning"
+        EventType.TASK_FAILED: "error",
+        EventType.MESSAGE_FAILED: "error",
+        EventType.SYSTEM_STATUS_CHANGED: "warning",
+        EventType.AGENT_STATUS_CHANGED: "warning",
     }
     
     # 根据优先级映射严重程度
@@ -165,24 +146,11 @@ def convert_event_to_response(event: Event) -> EventResponse:
         data=getattr(event, 'data', {})
     )
 
-
 @router.get("/list", response_model=List[EventResponse])
 async def get_events(query: EventQuery = Depends()) -> List[EventResponse]:
     """获取事件列表"""
     if not event_store:
-        # 返回模拟数据
-        return [
-            EventResponse(
-                id="1",
-                timestamp=utc_now(),
-                type="info",
-                source="System",
-                title="系统启动",
-                message="事件处理系统已启动",
-                severity="low",
-                data={}
-            )
-        ]
+        raise HTTPException(status_code=503, detail="Event store not initialized")
     
     try:
         # 设置默认时间范围
@@ -216,24 +184,13 @@ async def get_events(query: EventQuery = Depends()) -> List[EventResponse]:
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-
 @router.get("/stats", response_model=EventStats)
 async def get_event_stats(
     hours: int = Query(24, description="统计时间范围（小时）")
 ) -> EventStats:
     """获取事件统计信息"""
     if not event_store:
-        # 返回模拟数据
-        return EventStats(
-            total=10,
-            info=4,
-            warning=3,
-            error=2,
-            success=1,
-            critical=0,
-            by_source={"System": 5, "Agent Manager": 3, "Task Scheduler": 2},
-            by_type={"MESSAGE_SENT": 4, "TASK_COMPLETED": 3, "ERROR_OCCURRED": 3}
-        )
+        raise HTTPException(status_code=503, detail="Event store not initialized")
     
     try:
         # 查询时间范围内的事件
@@ -281,7 +238,6 @@ async def get_event_stats(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-
 @router.post("/replay")
 async def replay_events(request: ReplayRequest) -> Dict[str, Any]:
     """重播历史事件"""
@@ -304,26 +260,16 @@ async def replay_events(request: ReplayRequest) -> Dict[str, Any]:
             raise HTTPException(status_code=400, detail="必须指定agent_id或conversation_id")
         
         return result
-        
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-
 
 @router.get("/cluster/status", response_model=ClusterStatus)
 async def get_cluster_status() -> ClusterStatus:
     """获取集群状态"""
     if not event_coordinator:
-        # 返回模拟数据
-        return ClusterStatus(
-            node_id="local",
-            role="standalone",
-            status="active",
-            load=0.1,
-            active_nodes=1,
-            nodes={"local": {"status": "active", "role": "leader", "load": 0.1}},
-            stats={"events_processed": 0}
-        )
-    
+        raise HTTPException(status_code=503, detail="事件协调器未初始化")
     try:
         status = await event_coordinator.get_cluster_status()
         return ClusterStatus(**status)
@@ -331,64 +277,74 @@ async def get_cluster_status() -> ClusterStatus:
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-
 @router.get("/monitoring/metrics")
 async def get_monitoring_metrics() -> Dict[str, Any]:
     """获取监控指标"""
     if not event_monitor:
-        return {
-            "event_counts": {},
-            "processing_times": {},
-            "error_rates": {},
-            "queue_sizes": {}
-        }
-    
+        raise HTTPException(status_code=503, detail="监控系统未初始化")
     try:
-        return event_monitor.get_metrics()
+        return await event_monitor.get_processing_stats()
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-
 @router.websocket("/stream")
 async def event_stream(websocket: WebSocket):
     """WebSocket事件流"""
-    await manager.connect(websocket)
-    
-    try:
-        # 发送初始连接消息
-        await websocket.send_json({
-            "type": "connection",
-            "message": "已连接到事件流"
-        })
-        
-        # 如果有事件处理引擎，订阅事件
-        if processing_engine:
-            async def event_handler(event: Event):
-                """处理并发送事件"""
-                response = convert_event_to_response(event)
-                await manager.broadcast({
-                    "type": "event",
-                    "data": response.dict()
-                })
-            
-            # 这里应该注册事件处理器，但需要修改原有的事件系统支持
-            # processing_engine.add_event_handler(event_handler)
-        
-        # 保持连接
-        while True:
-            # 接收客户端消息（心跳等）
-            data = await websocket.receive_text()
-            
-            if data == "ping":
-                await websocket.send_text("pong")
-            
-    except WebSocketDisconnect:
-        manager.disconnect(websocket)
-    except Exception as e:
-        manager.disconnect(websocket)
-        print(f"WebSocket错误: {e}")
+    await websocket.accept()
 
+    if not event_store or not getattr(event_store, "redis", None):
+        await websocket.send_json({"type": "error", "message": "事件系统未初始化"})
+        await websocket.close()
+        return
+
+    channel = f"{event_store.stream_prefix}pubsub"
+    pubsub = event_store.redis.pubsub()
+    await pubsub.subscribe(channel)
+
+    async def forward_events() -> None:
+        async for message in pubsub.listen():
+            if not message or message.get("type") != "message":
+                continue
+            raw = message.get("data")
+            if raw in (1, b"1"):
+                continue
+            if isinstance(raw, bytes):
+                raw = raw.decode("utf-8", errors="ignore")
+
+            try:
+                payload = json.loads(raw)
+                event = Event.from_dict(payload)
+            except Exception:
+                continue
+
+            response = convert_event_to_response(event)
+            await websocket.send_json({"type": "event", "data": response.model_dump(mode="json")})
+
+    forward_task = asyncio.create_task(forward_events())
+
+    try:
+        await websocket.send_json({"type": "connection", "message": "已连接到事件流"})
+
+        while True:
+            data = await websocket.receive_text()
+            if data.lower() == "ping":
+                await websocket.send_json({"type": "pong"})
+    except WebSocketDisconnect:
+        logger.info("WebSocket连接断开")
+    except Exception as e:
+        logger.error("事件流WebSocket异常", error=str(e))
+    finally:
+        forward_task.cancel()
+        await asyncio.gather(forward_task, return_exceptions=True)
+        try:
+            await pubsub.unsubscribe(channel)
+        except Exception:
+            logger.exception("事件流取消订阅失败", exc_info=True)
+        try:
+            await pubsub.close()
+        except Exception:
+            logger.exception("事件流关闭pubsub失败", exc_info=True)
 
 @router.get("/dead-letter")
 async def get_dead_letter_events(limit: int = 100) -> List[Dict[str, Any]]:
@@ -402,7 +358,6 @@ async def get_dead_letter_events(limit: int = 100) -> List[Dict[str, Any]]:
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-
 @router.post("/submit")
 async def submit_event(
     event_type: str = Query(..., description="事件类型"),
@@ -411,8 +366,8 @@ async def submit_event(
     priority: str = Query("normal", description="优先级")
 ) -> Dict[str, str]:
     """手动提交事件（用于测试）"""
-    if not processing_engine:
-        raise HTTPException(status_code=503, detail="事件处理引擎未初始化")
+    if not processing_engine or not event_store:
+        raise HTTPException(status_code=503, detail="事件系统未初始化")
     
     try:
         # 创建事件
@@ -425,15 +380,11 @@ async def submit_event(
             priority=EventPriority[priority.upper()] if priority.upper() in EventPriority.__members__ else EventPriority.NORMAL
         )
         
-        # 提交到处理引擎
-        await processing_engine.submit_event(event, event.priority)
-        
-        # 广播到WebSocket客户端
-        response = convert_event_to_response(event)
-        await manager.broadcast({
-            "type": "event",
-            "data": response.dict()
-        })
+        if event_coordinator:
+            await event_coordinator.distribute_event(event)
+        else:
+            await processing_engine.submit_event(event, event.priority)
+            await event_store.append_event(event)
         
         return {"status": "success", "event_id": event.id}
         

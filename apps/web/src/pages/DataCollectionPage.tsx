@@ -1,5 +1,7 @@
+import { buildApiUrl, apiFetch } from '../utils/apiBase'
 import React, { useState, useEffect } from 'react';
 import {
+import { logger } from '../utils/logger'
   Box,
   Card,
   CardContent,
@@ -91,11 +93,9 @@ export default function DataCollectionPage() {
   const fetchJobs = async () => {
     try {
       setLoading(true);
-      const response = await fetch('/api/v1/training-data/collection/jobs');
-      if (response.ok) {
-        const data = await response.json();
-        setJobs(data);
-      }
+      const response = await apiFetch(buildApiUrl('/api/v1/training-data/collection/jobs'));
+      const data = await response.json();
+      setJobs(data);
     } catch (err) {
       setError('获取收集任务失败');
     } finally {
@@ -105,49 +105,42 @@ export default function DataCollectionPage() {
 
   const fetchStats = async () => {
     try {
-      const response = await fetch('/api/v1/training-data/collection/stats');
-      if (response.ok) {
-        const data = await response.json();
-        setStats(data);
-      }
+      const response = await apiFetch(buildApiUrl('/api/v1/training-data/collection/stats'));
+      const data = await response.json();
+      setStats(data);
     } catch (err) {
-      console.error('获取统计信息失败:', err);
+      logger.error('获取统计信息失败:', err);
     }
   };
 
   const fetchSources = async () => {
     try {
-      const response = await fetch('/api/v1/training-data/sources?active_only=true');
-      if (response.ok) {
-        const data = await response.json();
-        setAvailableSources(data);
-      }
+      const response = await apiFetch(buildApiUrl('/api/v1/training-data/sources?active_only=true'));
+      const data = await response.json();
+      setAvailableSources(data);
     } catch (err) {
-      console.error('获取数据源失败:', err);
+      logger.error('获取数据源失败:', err);
     }
   };
 
   const handleStartJob = async () => {
     try {
       setLoading(true);
-      const response = await fetch('/api/v1/training-data/collect', {
+      const response = await apiFetch(buildApiUrl('/api/v1/training-data/collect'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(newJob)
       });
       
-      if (response.ok) {
-        setStartJobDialog(false);
-        setNewJob({
-          source_id: '',
-          processing_rules: ['text_cleaning', 'format_standardization'],
-          batch_size: 100,
-          auto_start: true
-        });
-        await fetchJobs();
-      } else {
-        throw new Error('启动收集任务失败');
-      }
+      await response.json().catch(() => null);
+      setStartJobDialog(false);
+      setNewJob({
+        source_id: '',
+        processing_rules: ['text_cleaning', 'format_standardization'],
+        batch_size: 100,
+        auto_start: true
+      });
+      await fetchJobs();
     } catch (err) {
       setError(err instanceof Error ? err.message : '启动收集任务失败');
     } finally {
@@ -157,15 +150,12 @@ export default function DataCollectionPage() {
 
   const handleJobAction = async (jobId: string, action: 'pause' | 'resume' | 'stop') => {
     try {
-      const response = await fetch(`/api/v1/training-data/collection/jobs/${jobId}/${action}`, {
+      const response = await apiFetch(buildApiUrl(`/api/v1/training-data/collection/jobs/${jobId}/${action}`), {
         method: 'POST'
       });
       
-      if (response.ok) {
-        await fetchJobs();
-      } else {
-        throw new Error(`${action}操作失败`);
-      }
+      await response.json().catch(() => null);
+      await fetchJobs();
     } catch (err) {
       setError(err instanceof Error ? err.message : '操作失败');
     }

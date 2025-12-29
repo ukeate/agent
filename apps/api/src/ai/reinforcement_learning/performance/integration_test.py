@@ -5,7 +5,7 @@
 
 import time
 import numpy as np
-import tensorflow as tf
+from src.core.tensorflow_config import tensorflow_lazy
 from typing import Dict, List, Optional, Any, Callable, Tuple
 from dataclasses import dataclass
 from enum import Enum
@@ -15,8 +15,8 @@ import shutil
 import json
 import matplotlib.pyplot as plt
 from pathlib import Path
-
 from ..qlearning.base import (
+
     QLearningAgent, QLearningConfig, AlgorithmType, 
     AgentState, Experience, EpsilonGreedyStrategy
 )
@@ -26,7 +26,10 @@ from ..qlearning.dueling_dqn import DuelingDQNAgent
 from .gpu_accelerator import GPUAccelerator, GPUConfig
 from .optimized_replay_buffer import OptimizedReplayBuffer, BufferConfig
 from .distributed_training import DistributedTrainingManager, DistributedConfig
+from src.core.logging import setup_logging
 
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 class TestScenario(Enum):
     """测试场景类型"""
@@ -38,7 +41,6 @@ class TestScenario(Enum):
     FAULT_TOLERANCE = "fault_tolerance"
     MEMORY_EFFICIENCY = "memory_efficiency"
     INFERENCE_SPEED = "inference_speed"
-
 
 @dataclass
 class TestConfig:
@@ -53,7 +55,6 @@ class TestConfig:
     save_results: bool = True
     visualize_results: bool = True
     output_dir: str = "./test_results"
-
 
 class TestEnvironment:
     """测试环境模拟器"""
@@ -118,7 +119,6 @@ class TestEnvironment:
         
         return next_state, reward, done, info
 
-
 class IntegrationTestSuite:
     """集成测试套件"""
     
@@ -130,17 +130,17 @@ class IntegrationTestSuite:
         # 创建输出目录
         Path(config.output_dir).mkdir(parents=True, exist_ok=True)
         
-        print(f"初始化集成测试套件，场景数量: {len(config.scenarios)}")
+        logger.info("初始化集成测试套件", scenario_count=len(config.scenarios))
     
     def run_all_tests(self) -> Dict[str, Any]:
         """运行所有测试"""
-        print("开始运行集成测试...")
+        logger.info("开始运行集成测试")
         start_time = time.time()
         
         for scenario in self.config.scenarios:
-            print(f"\n{'='*50}")
-            print(f"运行测试场景: {scenario.value}")
-            print(f"{'='*50}")
+            logger.info("测试分隔线", line="=" * 50)
+            logger.info("运行测试场景", scenario=scenario.value)
+            logger.info("测试分隔线", line="=" * 50)
             
             try:
                 if scenario == TestScenario.BASIC_TRAINING:
@@ -165,7 +165,7 @@ class IntegrationTestSuite:
                 self.results[scenario.value] = result
                 
             except Exception as e:
-                print(f"测试场景 {scenario.value} 失败: {e}")
+                logger.exception("测试场景失败", scenario=scenario.value)
                 self.results[scenario.value] = {
                     "status": "failed",
                     "error": str(e),
@@ -181,7 +181,7 @@ class IntegrationTestSuite:
     
     def _test_basic_training(self) -> Dict[str, Any]:
         """基础训练测试"""
-        print("测试基础训练功能...")
+        logger.info("测试基础训练功能")
         
         # 测试不同算法
         algorithms = [
@@ -193,7 +193,7 @@ class IntegrationTestSuite:
         results = {}
         
         for name, agent_class in algorithms:
-            print(f"测试 {name} 算法...")
+            logger.info("测试算法", name=name)
             
             config = QLearningConfig(
                 algorithm_type=AlgorithmType.DQN,
@@ -252,7 +252,12 @@ class IntegrationTestSuite:
                 "convergence": final_performance > 0.5  # 简单的收敛标准
             }
             
-            print(f"{name} 训练完成: 平均奖励 {final_performance:.3f}, 训练时间 {training_time:.2f}s")
+            logger.info(
+                "训练完成",
+                algorithm=name,
+                final_performance=round(final_performance, 3),
+                training_time=round(training_time, 2),
+            )
         
         return {
             "status": "completed",
@@ -262,7 +267,7 @@ class IntegrationTestSuite:
     
     def _test_convergence(self) -> Dict[str, Any]:
         """收敛性测试"""
-        print("测试算法收敛性...")
+        logger.info("测试算法收敛性")
         
         config = QLearningConfig(
             algorithm_type=AlgorithmType.DQN,
@@ -318,7 +323,11 @@ class IntegrationTestSuite:
             
             if episode % 100 == 0:
                 recent_avg = np.mean(episode_rewards[-100:]) if episode >= 100 else np.mean(episode_rewards)
-                print(f"Episode {episode}: 最近100个episode平均奖励 {recent_avg:.3f}")
+                logger.info(
+                    "收敛进度",
+                    episode=episode,
+                    recent_avg=round(recent_avg, 3),
+                )
         
         return {
             "status": "completed",
@@ -331,7 +340,7 @@ class IntegrationTestSuite:
     
     def _test_performance_benchmark(self) -> Dict[str, Any]:
         """性能基准测试"""
-        print("测试性能基准...")
+        logger.info("测试性能基准")
         
         config = QLearningConfig(batch_size=64, buffer_size=10000)
         agent = DQNAgent(
@@ -363,7 +372,7 @@ class IntegrationTestSuite:
         num_iterations = 1000
         step_times = []
         
-        print(f"开始性能测试: {num_iterations} 次迭代...")
+        logger.info("开始性能测试", iterations=num_iterations)
         
         for i in range(num_iterations):
             state = AgentState(
@@ -379,7 +388,11 @@ class IntegrationTestSuite:
         avg_step_time = np.mean(step_times)
         fps = 1.0 / avg_step_time
         
-        print(f"性能测试结果: 平均步骤时间 {avg_step_time*1000:.2f}ms, FPS {fps:.2f}")
+        logger.info(
+            "性能测试结果",
+            avg_step_time_ms=round(avg_step_time * 1000, 2),
+            fps=round(fps, 2),
+        )
         
         return {
             "status": "completed",
@@ -392,7 +405,7 @@ class IntegrationTestSuite:
     
     def _test_distributed_training(self) -> Dict[str, Any]:
         """分布式训练测试"""
-        print("测试分布式训练...")
+        logger.info("测试分布式训练")
         
         try:
             dist_config = DistributedConfig(num_workers=2, batch_size_per_worker=16)
@@ -450,21 +463,21 @@ class IntegrationTestSuite:
     
     def _test_gpu_acceleration(self) -> Dict[str, Any]:
         """GPU加速测试"""
-        print("测试GPU加速...")
+        logger.info("测试GPU加速")
         
         try:
             gpu_config = GPUConfig(enable_mixed_precision=True, enable_xla=True)
             accelerator = GPUAccelerator(gpu_config)
             
             # 创建测试数据
-            sample_data = tf.random.normal((32, self.test_environment.state_size))
+            sample_data = tensorflow_lazy.tf.random.normal((32, self.test_environment.state_size))
             
             # 创建测试模型
             def create_model():
-                model = tf.keras.Sequential([
-                    tf.keras.layers.Dense(128, activation='relu'),
-                    tf.keras.layers.Dense(64, activation='relu'),
-                    tf.keras.layers.Dense(self.test_environment.action_size)
+                model = tensorflow_lazy.tf.keras.Sequential([
+                    tensorflow_lazy.tf.keras.layers.Dense(128, activation='relu'),
+                    tensorflow_lazy.tf.keras.layers.Dense(64, activation='relu'),
+                    tensorflow_lazy.tf.keras.layers.Dense(self.test_environment.action_size)
                 ])
                 return model
             
@@ -485,6 +498,7 @@ class IntegrationTestSuite:
             }
             
         except Exception as e:
+            logger.exception("GPU加速测试失败")
             return {
                 "status": "failed",
                 "error": str(e),
@@ -493,7 +507,7 @@ class IntegrationTestSuite:
     
     def _test_fault_tolerance(self) -> Dict[str, Any]:
         """容错性测试"""
-        print("测试容错性...")
+        logger.info("测试容错性")
         
         config = QLearningConfig(batch_size=32, buffer_size=10000)
         agent = DQNAgent(
@@ -594,7 +608,7 @@ class IntegrationTestSuite:
     
     def _test_memory_efficiency(self) -> Dict[str, Any]:
         """内存效率测试"""
-        print("测试内存效率...")
+        logger.info("测试内存效率")
         
         import psutil
         import gc
@@ -658,7 +672,7 @@ class IntegrationTestSuite:
     
     def _test_inference_speed(self) -> Dict[str, Any]:
         """推理速度测试"""
-        print("测试推理速度...")
+        logger.info("测试推理速度")
         
         config = QLearningConfig(batch_size=1)  # 单样本推理
         agent = DQNAgent(
@@ -722,50 +736,48 @@ class IntegrationTestSuite:
     
     def _generate_test_report(self, total_time: float):
         """生成测试报告"""
-        print(f"\n{'='*60}")
-        print("集成测试报告")
-        print(f"{'='*60}")
+        logger.info("集成测试报告")
+        logger.info("报告分隔线", line="=" * 60)
         
         # 统计信息
         total_tests = len(self.results)
         passed_tests = sum(1 for r in self.results.values() if r.get("status") == "completed")
         failed_tests = total_tests - passed_tests
         
-        print(f"总测试数: {total_tests}")
-        print(f"通过测试: {passed_tests}")
-        print(f"失败测试: {failed_tests}")
-        print(f"总耗时: {total_time:.2f}秒")
-        print(f"成功率: {passed_tests/total_tests*100:.1f}%")
+        logger.info("总测试数", total=total_tests)
+        logger.info("通过测试", passed=passed_tests)
+        logger.info("失败测试", failed=failed_tests)
+        logger.info("总耗时", seconds=round(total_time, 2))
+        logger.info("成功率", percent=round(passed_tests / total_tests * 100, 1))
         
         # 详细结果
-        print(f"\n{'='*60}")
-        print("详细测试结果")
-        print(f"{'='*60}")
+        logger.info("详细测试结果")
+        logger.info("报告分隔线", line="=" * 60)
         
         for scenario, result in self.results.items():
             status = result.get("status", "unknown")
-            print(f"\n{scenario}: {status.upper()}")
+            logger.info("测试场景结果", scenario=scenario, status=status.upper())
             
             if status == "completed":
                 # 显示关键指标
                 if "final_performance" in result:
-                    print(f"  最终性能: {result['final_performance']:.3f}")
+                    logger.info("最终性能", value=round(result["final_performance"], 3))
                 if "fps" in result:
-                    print(f"  FPS: {result['fps']:.2f}")
+                    logger.info("FPS", value=round(result["fps"], 2))
                 if "memory_usage_mb" in result:
-                    print(f"  内存使用: {result['memory_usage_mb']:.2f} MB")
+                    logger.info("内存使用", mb=round(result["memory_usage_mb"], 2))
                 if "convergence_achieved" in result:
-                    print(f"  收敛状态: {'是' if result['convergence_achieved'] else '否'}")
+                    logger.info("收敛状态", achieved=result["convergence_achieved"])
             
             elif status == "failed":
-                print(f"  错误: {result.get('error', '未知错误')}")
+                logger.error("测试失败", error=result.get("error", "未知错误"))
         
         # 保存结果
         if self.config.save_results:
             result_file = Path(self.config.output_dir) / "test_results.json"
             with open(result_file, 'w') as f:
                 json.dump(self.results, f, indent=2, default=str)
-            print(f"\n测试结果已保存到: {result_file}")
+            logger.info("测试结果已保存", path=str(result_file))
         
         # 生成可视化
         if self.config.visualize_results:
@@ -792,11 +804,10 @@ class IntegrationTestSuite:
             plt.savefig(plot_file)
             plt.close()
             
-            print(f"可视化图表已保存到: {plot_file}")
+            logger.info("可视化图表已保存", path=str(plot_file))
             
-        except Exception as e:
-            print(f"生成可视化失败: {e}")
-
+        except Exception:
+            logger.exception("生成可视化失败")
 
 def run_integration_tests(scenarios: Optional[List[str]] = None) -> Dict[str, Any]:
     """运行集成测试"""
@@ -817,7 +828,7 @@ def run_integration_tests(scenarios: Optional[List[str]] = None) -> Dict[str, An
     
     return results
 
-
 if __name__ == "__main__":
     # 运行所有测试
+    setup_logging()
     test_results = run_integration_tests()

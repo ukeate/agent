@@ -2,12 +2,12 @@
 Supervisor业务逻辑层实现
 提供Supervisor相关的业务操作和协调功能
 """
+
 from typing import Dict, List, Optional, Any
 from datetime import datetime
 from src.core.utils.timezone_utils import utc_now, utc_factory, timezone
 import uuid
-import structlog
-
+import inspect
 from sqlalchemy.ext.asyncio import AsyncSession
 from src.core.database import get_db_session
 from src.ai.autogen.supervisor_agent import (
@@ -30,10 +30,11 @@ from src.models.database.supervisor import (
 from src.models.schemas.supervisor import (
     TaskSubmissionRequest, TaskSubmissionResponse, SupervisorStatusResponse,
     SupervisorConfigUpdateRequest, TaskStatus, AgentStatus
+
 )
 
-logger = structlog.get_logger(__name__)
-
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 class SupervisorService:
     """Supervisor业务服务"""
@@ -286,19 +287,20 @@ class SupervisorService:
                     db_supervisor = await supervisor_repo.get_by_id(supervisor_id)
                 if not db_supervisor:
                     raise ValueError(f"Supervisor {supervisor_id} 未找到")
+                actual_supervisor_id = db_supervisor.id
                 
                 # 获取智能体负载
-                agent_loads = await load_repo.get_current_loads(supervisor_id)
+                agent_loads = await load_repo.get_current_loads(actual_supervisor_id)
                 
                 # 获取任务队列长度
-                pending_tasks = await task_repo.get_pending_tasks(supervisor_id)
+                pending_tasks = await task_repo.get_pending_tasks(actual_supervisor_id)
                 
                 # 获取决策历史数量
                 decision_repo = SupervisorDecisionRepository(db)
-                decision_stats = await decision_repo.get_decision_statistics(supervisor_id)
+                decision_stats = await decision_repo.get_decision_statistics(actual_supervisor_id)
                 
                 # 获取当前配置
-                active_config = await config_repo.get_active_config(supervisor_id)
+                active_config = await config_repo.get_active_config(actual_supervisor_id)
                 config_data = None
                 if active_config:
                     config_data = {
@@ -310,7 +312,7 @@ class SupervisorService:
                     }
                 
                 # 获取Supervisor实例状态
-                supervisor_agent = self._supervisor_agents.get(supervisor_id)
+                supervisor_agent = self._supervisor_agents.get(actual_supervisor_id) or self._supervisor_agents.get(db_supervisor.name)
                 available_agents = list(supervisor_agent.available_agents.keys()) if supervisor_agent else []
                 
                 return SupervisorStatusResponse(
@@ -371,12 +373,22 @@ class SupervisorService:
             logger.error("获取决策历史失败", supervisor_id=supervisor_id, error=str(e))
             # 不抛出异常，返回空列表
             return []
+
+    async def get_decision_history_total(self, supervisor_id: str) -> int:
+        """获取Supervisor决策总数"""
+        try:
+            async with get_db_session() as db:
+                decision_repo = SupervisorDecisionRepository(db)
+                return await decision_repo.count_by_supervisor_id(supervisor_id)
+        except Exception as e:
+            logger.error("获取决策总数失败", supervisor_id=supervisor_id, error=str(e))
+            return 0
     
     async def update_supervisor_config(
         self, 
         supervisor_id: str, 
         request: SupervisorConfigUpdateRequest
-    ) -> Dict[str, Any]:
+    ) -> DBSupervisorConfig:
         """更新Supervisor配置"""
         try:
             async with get_db_session() as db:
@@ -448,17 +460,17 @@ class SupervisorService:
                 
                 # 更新内存中的Supervisor配置
                 supervisor_agent = self._supervisor_agents.get(supervisor_id)
-                if supervisor_agent and hasattr(supervisor_agent, 'update_config'):
-                    # 这里需要根据实际的SupervisorAgent接口来更新配置
-                    pass
+                if supervisor_agent:
+                    if hasattr(supervisor_agent, "update_config"):
+                        result = supervisor_agent.update_config(config_data)
+                        if inspect.isawaitable(result):
+                            await result
+                    else:
+                        supervisor_agent.supervisor_config = config_data
                 
                 logger.info("Supervisor配置已更新", supervisor_id=supervisor_id)
                 
-                return {
-                    "config_id": new_config.id,
-                    "message": "配置更新成功",
-                    "updated_fields": list(config_data.keys())
-                }
+                return new_config
                 
         except Exception as e:
             logger.error("更新Supervisor配置失败", supervisor_id=supervisor_id, error=str(e))
@@ -623,7 +635,6 @@ class SupervisorService:
         except Exception as e:
             logger.error("更新任务复杂度失败", task_id=task_id, error=str(e))
             raise
-
 
 # 单例服务实例
 supervisor_service = SupervisorService()

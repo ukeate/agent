@@ -12,17 +12,15 @@ import uuid
 import time
 from datetime import datetime
 from src.core.utils.timezone_utils import utc_now, utc_factory
-import logging
 from concurrent.futures import ThreadPoolExecutor
 import json
 import hashlib
 from typing import Tuple
-
 from .checkpoint_manager import checkpoint_manager, CheckpointConfig
 from .batch_types import BatchJob, BatchTask, BatchStatus, TaskPriority
 
-logger = logging.getLogger(__name__)
-
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 class BatchProcessor:
     """批处理引擎"""
@@ -402,7 +400,7 @@ class BatchProcessor:
         else:
             # 同步处理器，在线程池中执行
             result = await asyncio.wait_for(
-                asyncio.get_event_loop().run_in_executor(
+                asyncio.get_running_loop().run_in_executor(
                     self.thread_pool, 
                     handler, 
                     task.data

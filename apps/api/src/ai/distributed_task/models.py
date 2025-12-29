@@ -7,7 +7,6 @@ from datetime import datetime
 from enum import Enum
 from typing import Dict, List, Optional, Any
 
-
 class TaskStatus(Enum):
     """任务状态枚举"""
     PENDING = "pending"
@@ -19,7 +18,6 @@ class TaskStatus(Enum):
     CANCELLED = "cancelled"
     RETRY = "retry"
 
-
 class TaskPriority(Enum):
     """任务优先级枚举"""
     CRITICAL = 1
@@ -28,13 +26,11 @@ class TaskPriority(Enum):
     LOW = 4
     BACKGROUND = 5
 
-
 class ConsensusState(Enum):
     """Raft共识状态"""
     FOLLOWER = "follower"
     CANDIDATE = "candidate"
     LEADER = "leader"
-
 
 class ConflictType(Enum):
     """冲突类型枚举"""
@@ -42,7 +38,6 @@ class ConflictType(Enum):
     STATE_CONFLICT = "state_conflict"
     ASSIGNMENT_CONFLICT = "assignment_conflict"
     DEPENDENCY_CONFLICT = "dependency_conflict"
-
 
 @dataclass
 class Task:
@@ -97,7 +92,6 @@ class Task:
             data['completed_at'] = datetime.fromisoformat(data['completed_at'])
         return cls(**data)
 
-
 @dataclass
 class RaftLogEntry:
     """Raft日志条目"""
@@ -117,7 +111,6 @@ class RaftLogEntry:
         content = f"{self.term}-{self.index}-{self.command_type}-{json.dumps(self.command_data, sort_keys=True)}"
         return hashlib.sha256(content.encode()).hexdigest()
 
-
 @dataclass
 class VoteRequest:
     """投票请求"""
@@ -127,7 +120,6 @@ class VoteRequest:
     last_log_term: int
     election_id: str
 
-
 @dataclass
 class VoteResponse:
     """投票响应"""
@@ -135,7 +127,6 @@ class VoteResponse:
     vote_granted: bool
     voter_id: str
     reason: Optional[str] = None
-
 
 @dataclass
 class AppendEntriesRequest:
@@ -148,7 +139,6 @@ class AppendEntriesRequest:
     leader_commit: int
     heartbeat: bool = False
 
-
 @dataclass
 class AppendEntriesResponse:
     """日志追加响应"""
@@ -158,7 +148,6 @@ class AppendEntriesResponse:
     follower_id: str
     conflict_index: Optional[int] = None
     reason: Optional[str] = None
-
 
 @dataclass
 class Conflict:

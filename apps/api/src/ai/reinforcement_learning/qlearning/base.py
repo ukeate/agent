@@ -13,14 +13,12 @@ import uuid
 from datetime import datetime
 from src.core.utils.timezone_utils import utc_now, utc_factory
 
-
 class AlgorithmType(Enum):
     """Q-Learning算法类型枚举"""
     Q_LEARNING = "q_learning"
     DQN = "dqn"
     DOUBLE_DQN = "double_dqn"
     DUELING_DQN = "dueling_dqn"
-
 
 @dataclass
 class AgentState:
@@ -41,7 +39,6 @@ class AgentState:
             timestamp=utc_now(),
             episode_id=episode_id
         )
-
 
 @dataclass 
 class Experience:
@@ -72,7 +69,6 @@ class Experience:
             priority=priority
         )
 
-
 @dataclass
 class QLearningConfig:
     """Q-Learning配置参数"""
@@ -98,7 +94,6 @@ class QLearningConfig:
         if not 0 <= self.epsilon_end <= self.epsilon_start <= 1:
             raise ValueError("epsilon参数范围错误")
 
-
 @dataclass
 class TrainingResults:
     """训练结果数据结构"""
@@ -110,7 +105,6 @@ class TrainingResults:
     best_average_reward: float
     loss_history: List[float]
     reward_history: List[float]
-
 
 class QLearningAgent(ABC):
     """Q-Learning智能体抽象基类"""
@@ -142,7 +136,7 @@ class QLearningAgent(ABC):
         Returns:
             选择的动作
         """
-        pass
+        raise NotImplementedError
     
     @abstractmethod 
     def update_q_value(self, experience: Experience) -> Optional[float]:
@@ -155,7 +149,7 @@ class QLearningAgent(ABC):
         Returns:
             训练损失（如果适用）
         """
-        pass
+        raise NotImplementedError
     
     @abstractmethod
     def get_q_values(self, state: AgentState) -> Dict[str, float]:
@@ -168,17 +162,17 @@ class QLearningAgent(ABC):
         Returns:
             动作到Q值的映射
         """
-        pass
+        raise NotImplementedError
     
     @abstractmethod
     def save_model(self, filepath: str) -> None:
         """保存模型"""
-        pass
+        raise NotImplementedError
     
     @abstractmethod
     def load_model(self, filepath: str) -> None:
         """加载模型"""
-        pass
+        raise NotImplementedError
     
     def decay_epsilon(self) -> None:
         """衰减探索率"""
@@ -207,6 +201,69 @@ class QLearningAgent(ABC):
         self.training_history["rewards"].append(total_reward)
         self.training_history["epsilon_values"].append(self.epsilon)
         self.decay_epsilon()
+
+    def _normalize_state(self, state: Any) -> AgentState:
+        """将输入状态统一为AgentState"""
+        if isinstance(state, AgentState):
+            return state
+        if isinstance(state, dict):
+            features = {str(k): float(v) for k, v in state.items()}
+            return AgentState.create(features=features)
+        if isinstance(state, (list, tuple, np.ndarray)):
+            array_state = np.asarray(state, dtype=float).reshape(-1)
+            features = {f"f{i}": float(v) for i, v in enumerate(array_state.tolist())}
+            return AgentState.create(features=features)
+        raise ValueError(f"不支持的状态类型: {type(state)}")
+
+    def _action_label_to_index(self, action: Any) -> int:
+        if isinstance(action, int):
+            return action
+        action_space = getattr(self, "action_space", None)
+        if action_space and action in action_space:
+            return action_space.index(action)
+        try:
+            return int(action)
+        except (TypeError, ValueError) as exc:
+            raise ValueError(f"无法解析动作: {action}") from exc
+
+    def _action_index_to_label(self, action: Any) -> str:
+        if isinstance(action, str):
+            return action
+        action_space = getattr(self, "action_space", None)
+        if action_space and isinstance(action, int) and 0 <= action < len(action_space):
+            return action_space[action]
+        return str(action)
+
+    def act(self, state: Any, episode: Optional[int] = None, evaluation: bool = False) -> int:
+        """兼容旧接口的动作选择"""
+        agent_state = self._normalize_state(state)
+        action_label = self.get_action(agent_state, exploration=not evaluation)
+        return self._action_label_to_index(action_label)
+
+    def learn(self, state: Any, action: Any, reward: float, next_state: Any, done: bool) -> Optional[float]:
+        """兼容旧接口的学习过程"""
+        agent_state = self._normalize_state(state)
+        next_agent_state = self._normalize_state(next_state)
+        action_label = self._action_index_to_label(action)
+        experience = Experience.create(agent_state, action_label, float(reward), next_agent_state, bool(done))
+        loss = self.update_q_value(experience)
+        self.decay_epsilon()
+        return loss
+
+    def on_episode_end(self, episode_reward: float) -> None:
+        """回合结束处理（基础实现）"""
+        self.training_history["rewards"].append(float(episode_reward))
+        self.training_history["epsilon_values"].append(self.epsilon)
+
+    def set_learning_rate(self, learning_rate: float) -> None:
+        """更新学习率（基础实现）"""
+        self.config.learning_rate = float(learning_rate)
+        optimizer = getattr(self, "optimizer", None)
+        if optimizer is not None and hasattr(optimizer, "learning_rate"):
+            try:
+                optimizer.learning_rate.assign(self.config.learning_rate)
+            except Exception:
+                optimizer.learning_rate = self.config.learning_rate
     
     def get_training_stats(self) -> Dict[str, Any]:
         """获取训练统计信息"""
@@ -229,15 +286,13 @@ class QLearningAgent(ABC):
         self.total_reward = 0.0
         self.training_history = {"rewards": [], "losses": [], "epsilon_values": []}
 
-
 class ExplorationStrategy(ABC):
     """探索策略抽象基类"""
     
     @abstractmethod
     def select_action(self, q_values: Dict[str, float], available_actions: List[str], epsilon: float) -> str:
         """根据探索策略选择动作"""
-        pass
-
+        raise NotImplementedError
 
 class EpsilonGreedyStrategy(ExplorationStrategy):
     """epsilon-greedy探索策略"""
@@ -260,7 +315,6 @@ class EpsilonGreedyStrategy(ExplorationStrategy):
                 return np.random.choice(available_actions)
                 
             return np.random.choice(best_actions)
-
 
 class UCBStrategy(ExplorationStrategy):
     """Upper Confidence Bound探索策略"""

@@ -1,0 +1,44 @@
+{
+  "model_name": "hf-internal-testing/tiny-random-LlamaForCausalLM",
+  "model_architecture": {
+    "_value_": "llama",
+    "_name_": "LLAMA",
+    "__objclass__": "<enum 'ModelArchitecture'>",
+    "_sort_order_": 0
+  },
+  "training_mode": {
+    "_value_": "lora",
+    "_name_": "LORA",
+    "__objclass__": "<enum 'TrainingMode'>",
+    "_sort_order_": 0
+  },
+  "dataset_path": "./datasets/test_fine_tuning_ds.json",
+  "output_dir": "./fine_tuned_models/3c232feb-eafe-4260-8abb-522e056b24e8",
+  "learning_rate": 0.0002,
+  "num_train_epochs": 5,
+  "per_device_train_batch_size": 2,
+  "gradient_accumulation_steps": 1,
+  "warmup_steps": 0,
+  "max_seq_length": 256,
+  "lora_config": {
+    "rank": 8,
+    "alpha": 16,
+    "dropout": 0.1,
+    "target_modules": null,
+    "bias": "none",
+    "task_type": "CAUSAL_LM",
+    "inference_mode": false
+  },
+  "quantization_config": null,
+  "use_distributed": false,
+  "world_size": 1,
+  "use_deepspeed": false,
+  "deepspeed_config": null,
+  "use_flash_attention": false,
+  "use_gradient_checkpointing": false,
+  "fp16": false,
+  "bf16": false,
+  "logging_steps": 10,
+  "save_steps": 500,
+  "eval_steps": 500
+}

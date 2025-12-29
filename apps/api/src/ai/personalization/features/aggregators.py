@@ -4,10 +4,9 @@ from collections import defaultdict
 from datetime import datetime
 from datetime import timedelta
 from src.core.utils.timezone_utils import utc_now, utc_factory
-import logging
 
-logger = logging.getLogger(__name__)
-
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 class FeatureAggregator:
     """特征聚合器"""
@@ -261,7 +260,6 @@ class FeatureAggregator:
             
         return result
 
-
 class TemporalAggregator:
     """时间序列特征聚合器"""
     
@@ -328,7 +326,6 @@ class TemporalAggregator:
                     aggregated_features[f"{prefix}_volatility"] = np.std(changes)
         
         return aggregated_features
-
 
 class CrossFeatureAggregator:
     """交叉特征聚合器"""
@@ -399,7 +396,6 @@ class CrossFeatureAggregator:
                     break
         
         return cross_features
-
 
 class HierarchicalAggregator:
     """层次化特征聚合器"""

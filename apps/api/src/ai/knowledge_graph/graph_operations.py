@@ -3,7 +3,6 @@
 提供高级的CRUD操作、查询构建器、事务处理和批量操作
 """
 
-import logging
 from typing import Any, Dict, List, Optional, Union, Tuple
 from datetime import datetime
 from src.core.utils.timezone_utils import utc_now, utc_factory
@@ -11,13 +10,12 @@ from dataclasses import dataclass
 from enum import Enum
 import uuid
 import json
-
 from .graph_database import Neo4jGraphDatabase
 from .schema import GraphNode, GraphEdge, GraphNodeType, GraphEdgeType, SchemaManager
 from .data_models import Entity, Relation, EntityType, RelationType
 
-logger = logging.getLogger(__name__)
-
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 class QueryType(str, Enum):
     """查询类型"""
@@ -27,7 +25,6 @@ class QueryType(str, Enum):
     DELETE = "delete"
     MATCH = "match"
     MERGE = "merge"
-
 
 @dataclass
 class QueryResult:
@@ -48,7 +45,6 @@ class QueryResult:
             "query_type": self.query_type.value,
             "error_message": self.error_message
         }
-
 
 class CypherQueryBuilder:
     """Cypher查询构建器"""
@@ -168,7 +164,6 @@ class CypherQueryBuilder:
             query_parts.append(f"LIMIT {self.query_parts['limit']}")
         
         return "\n".join(query_parts), self.parameters
-
 
 class GraphOperations:
     """图谱操作引擎"""

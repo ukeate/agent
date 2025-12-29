@@ -5,31 +5,27 @@
 
 import asyncio
 import time
-import logging
 from abc import ABC, abstractmethod
 from typing import Dict, List, Optional, Any, Set
 from datetime import datetime
 from src.core.utils.timezone_utils import utc_now, utc_factory
 from uuid import uuid4
-
 import networkx as nx
-
-from models.schemas.workflow import (
+from src.models.schemas.workflow import (
     WorkflowDefinition, WorkflowExecution, WorkflowStepExecution,
     WorkflowStep, WorkflowStepType, WorkflowStepStatus, WorkflowExecutionMode,
     TaskDependencyType
 )
 from src.ai.reasoning.cot_engine import BaseCoTEngine
 from src.ai.mcp.client import MCPClientManager
+from src.core.security.expression import safe_eval_bool
+
 from src.core.logging import get_logger
-
 logger = get_logger(__name__)
-
 
 class StepExecutionError(Exception):
     """步骤执行错误"""
-    pass
-
+    ...
 
 class WorkflowExecutor(ABC):
     """工作流执行器抽象基类"""
@@ -43,23 +39,22 @@ class WorkflowExecutor(ABC):
         stream_callback: Optional[callable] = None
     ) -> None:
         """执行工作流"""
-        pass
+        raise NotImplementedError
     
     @abstractmethod
     async def pause(self, execution_id: str) -> None:
         """暂停执行"""
-        pass
+        raise NotImplementedError
     
     @abstractmethod
     async def resume(self, execution_id: str) -> None:
         """恢复执行"""
-        pass
+        raise NotImplementedError
     
     @abstractmethod
     async def cancel(self, execution_id: str) -> None:
         """取消执行"""
-        pass
-
+        raise NotImplementedError
 
 class BaseStepExecutor:
     """基础步骤执行器"""
@@ -183,20 +178,11 @@ class BaseStepExecutor:
     ) -> bool:
         """评估执行条件"""
         try:
-            # 简单的条件评估实现
-            # 实际应该使用更安全的表达式评估器
             evaluation_context = {
                 "input": input_data,
                 "context": context,
-                "len": len,
-                "str": str,
-                "int": int,
-                "float": float
             }
-            
-            # 安全地评估条件表达式
-            result = eval(condition, {"__builtins__": {}}, evaluation_context)
-            return bool(result)
+            return safe_eval_bool(condition, evaluation_context)
             
         except Exception as e:
             logger.warning(f"条件评估失败: {condition}, 错误: {e}")
@@ -482,7 +468,6 @@ class BaseStepExecutor:
             "config": step.config
         }
 
-
 class SequentialExecutor(WorkflowExecutor):
     """串行执行器"""
     
@@ -570,7 +555,6 @@ class SequentialExecutor(WorkflowExecutor):
     async def cancel(self, execution_id: str) -> None:
         """取消执行"""
         self.cancelled_executions.add(execution_id)
-
 
 class ParallelExecutor(WorkflowExecutor):
     """并行执行器"""

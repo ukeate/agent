@@ -3,20 +3,19 @@
 支持消息确认、重试机制、死信队列和消息持久化
 """
 
+from src.core.utils.timezone_utils import utc_now
 import asyncio
 import uuid
 import time
-import logging
 import json
 from typing import Dict, List, Optional, Any, Callable, Set
 from datetime import datetime, timedelta
 from dataclasses import dataclass, field
 from enum import Enum, auto
-
 from .models import Message, MessageType, MessagePriority, DeliveryMode
 
-logger = logging.getLogger(__name__)
-
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 class RetryPolicy(Enum):
     """重试策略"""
@@ -24,7 +23,6 @@ class RetryPolicy(Enum):
     FIXED_INTERVAL = auto()    # 固定间隔
     EXPONENTIAL_BACKOFF = auto()  # 指数退避
     LINEAR_BACKOFF = auto()    # 线性退避
-
 
 class MessageStatus(Enum):
     """消息状态"""
@@ -36,7 +34,6 @@ class MessageStatus(Enum):
     DEAD_LETTER = auto()       # 进入死信队列
     EXPIRED = auto()           # 已过期
 
-
 @dataclass
 class RetryConfig:
     """重试配置"""
@@ -46,7 +43,6 @@ class RetryConfig:
     max_delay: float = 60.0     # 最大延迟（秒）
     backoff_factor: float = 2.0  # 退避因子
     jitter: bool = True         # 是否添加随机抖动
-
 
 @dataclass
 class ReliableMessage:
@@ -81,7 +77,7 @@ class ReliableMessage:
             return True
         if not self.next_retry:
             return True
-        return datetime.now() >= self.next_retry
+        return utc_now() >= self.next_retry
     
     def calculate_next_retry_time(self) -> datetime:
         """计算下次重试时间"""
@@ -101,11 +97,11 @@ class ReliableMessage:
             jitter = delay * 0.1 * random.random()  # 10%的抖动
             delay += jitter
         
-        return datetime.now() + timedelta(seconds=delay)
+        return utc_now() + timedelta(seconds=delay)
     
     def record_attempt(self, success: bool, error: Optional[str] = None):
         """记录发送尝试"""
-        now = datetime.now()
+        now = utc_now()
         self.last_attempt = now
         self.delivery_attempts.append(now)
         
@@ -118,9 +114,6 @@ class ReliableMessage:
             # 只有在这不是第一次尝试时才增加重试次数
             if self.status != MessageStatus.PENDING:
                 self.retry_count += 1
-            else:
-                # 第一次尝试失败，不增加重试次数
-                pass
             
             if self.can_retry():
                 self.status = MessageStatus.RETRYING
@@ -137,9 +130,8 @@ class ReliableMessage:
         if not ttl_seconds:
             ttl_seconds = self.message.header.ttl or 300  # 默认5分钟
         
-        elapsed = (datetime.now() - self.created_at).total_seconds()
+        elapsed = (utc_now() - self.created_at).total_seconds()
         return elapsed > ttl_seconds
-
 
 @dataclass
 class DeadLetterQueueConfig:
@@ -148,7 +140,6 @@ class DeadLetterQueueConfig:
     retention_hours: int = 24
     auto_cleanup: bool = True
     cleanup_interval_minutes: int = 60
-
 
 class ReliabilityManager:
     """消息可靠性管理器"""
@@ -222,7 +213,7 @@ class ReliabilityManager:
                 try:
                     await task
                 except asyncio.CancelledError:
-                    pass
+                    raise
         
         logger.info("可靠性管理器已停止")
     
@@ -307,7 +298,7 @@ class ReliabilityManager:
             
             # 更新统计
             self.stats["messages_acknowledged"] += 1
-            delivery_time = (datetime.now() - reliable_msg.created_at).total_seconds()
+            delivery_time = (utc_now() - reliable_msg.created_at).total_seconds()
             self._update_avg_delivery_time(delivery_time)
             
             logger.debug(f"消息已确认: {message_id}")
@@ -414,7 +405,7 @@ class ReliabilityManager:
         if not self.dlq_config.auto_cleanup:
             return
         
-        now = datetime.now()
+        now = utc_now()
         retention_cutoff = now - timedelta(hours=self.dlq_config.retention_hours)
         
         # 清理死信队列中的过期消息
@@ -453,7 +444,7 @@ class ReliabilityManager:
     async def _check_ack_timeouts(self):
         """检查确认超时"""
         timeout_messages = []
-        now = datetime.now()
+        now = utc_now()
         
         for message_id, reliable_msg in self.awaiting_ack.items():
             if reliable_msg.last_attempt:

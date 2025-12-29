@@ -8,7 +8,6 @@ from abc import ABC, abstractmethod
 from typing import Dict, List, Any, Optional
 import numpy as np
 
-
 class MultiArmedBandit(ABC):
     """多臂老虎机算法抽象基类"""
     
@@ -46,7 +45,7 @@ class MultiArmedBandit(ABC):
         Returns:
             选择的臂索引
         """
-        pass
+        raise NotImplementedError
     
     def update(self, arm: int, reward: float, context: Optional[Dict[str, Any]] = None):
         """
@@ -79,7 +78,7 @@ class MultiArmedBandit(ABC):
             reward: 获得的奖励
             context: 上下文信息
         """
-        pass
+        raise NotImplementedError
     
     def get_arm_stats(self) -> Dict[str, Any]:
         """
@@ -108,7 +107,7 @@ class MultiArmedBandit(ABC):
         Returns:
             每个臂的置信区间上界
         """
-        pass
+        raise NotImplementedError
     
     def get_best_arm(self) -> int:
         """
@@ -181,7 +180,7 @@ class MultiArmedBandit(ABC):
     @abstractmethod
     def _reset_algorithm_state(self):
         """重置算法特定的状态"""
-        pass
+        raise NotImplementedError
     
     def __str__(self) -> str:
         """字符串表示"""

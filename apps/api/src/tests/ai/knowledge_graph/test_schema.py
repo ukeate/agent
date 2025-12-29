@@ -4,7 +4,6 @@
 
 import pytest
 from unittest.mock import Mock, AsyncMock
-
 from src.ai.knowledge_graph.schema import (
     GraphSchema,
     SchemaManager,
@@ -14,7 +13,6 @@ from src.ai.knowledge_graph.schema import (
     ConstraintDefinition,
     SchemaValidationError
 )
-
 
 @pytest.mark.unit
 class TestGraphSchema:
@@ -141,7 +139,6 @@ class TestGraphSchema:
         
         assert "Person" in schema.nodes
         assert schema.nodes["Person"].label == "Person"
-
 
 @pytest.mark.unit 
 class TestSchemaManager:
@@ -345,7 +342,6 @@ class TestSchemaManager:
         # 应该调用: 删除旧索引、删除旧约束、创建新索引、创建新约束
         assert mock_graph_db.execute_write_query.call_count == 4
 
-
 @pytest.mark.integration
 class TestSchemaIntegration:
     """模式集成测试"""
@@ -394,7 +390,6 @@ class TestSchemaIntegration:
             
         finally:
             await db.close()
-
 
 @pytest.mark.performance
 class TestSchemaPerformance:

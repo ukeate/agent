@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { 
   Card, 
   Typography, 
@@ -11,49 +11,144 @@ import {
   Tag,
   Alert,
   Tabs,
-  Select,
-  Button
+  Button,
+  List
 } from 'antd'
 import { 
   MonitorOutlined, 
   ThunderboltOutlined,
-  LineChartOutlined,
-  DatabaseOutlined,
   ClockCircleOutlined,
   CheckCircleOutlined,
   ExclamationCircleOutlined
 } from '@ant-design/icons'
+import { healthService } from '../services/healthService'
+import { sparqlService } from '../services/sparqlService'
 
 const { Title, Paragraph } = Typography
 const { TabPane } = Tabs
-const { Option } = Select
 
 const SparqlPerformance: React.FC = () => {
-  const performanceMetrics = [
-    { name: '查询吞吐量', value: 256, unit: 'QPS', trend: 'up', change: '+12%' },
-    { name: '平均响应时间', value: 320, unit: 'ms', trend: 'down', change: '-8%' },
-    { name: '峰值响应时间', value: 1240, unit: 'ms', trend: 'down', change: '-15%' },
-    { name: '错误率', value: 0.8, unit: '%', trend: 'down', change: '-0.3%' }
-  ]
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [metricSnapshot, setMetricSnapshot] = useState<{
+    throughput: number | null
+    avgTime: number | null
+    maxTime: number | null
+    errorRate: number | null
+  } | null>(null)
+  const [prevSnapshot, setPrevSnapshot] = useState<typeof metricSnapshot>(null)
+  const [slowQueries, setSlowQueries] = useState<Array<{
+    query: string
+    execution_time: number
+    max_time: number
+    frequency: number
+  }>>([])
+  const [recommendations, setRecommendations] = useState<string[]>([])
+  const [resourceStats, setResourceStats] = useState<{
+    cpu: number | null
+    memory: number | null
+    disk: number | null
+    networkConnections: number | null
+  }>({
+    cpu: null,
+    memory: null,
+    disk: null,
+    networkConnections: null
+  })
 
-  const queryPerformance = [
+  const isNumber = (value: number | null): value is number =>
+    typeof value === 'number' && !Number.isNaN(value)
+
+  const loadData = async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      const [performanceReport, healthMetrics] = await Promise.all([
+        sparqlService.getPerformanceReport(),
+        healthService.getSystemMetrics()
+      ])
+      const summary = performanceReport.performance_report?.performance_summary || {}
+      const execStats = summary.execution_time || {}
+      const queryCountStats = summary.query_count || {}
+      const windowMinutes = performanceReport.performance_report?.window_minutes || 60
+      const throughput = queryCountStats.count
+        ? queryCountStats.count / (windowMinutes * 60)
+        : null
+      const avgTime = isNumber(execStats.mean) ? execStats.mean : null
+      const maxTime = isNumber(execStats.max) ? execStats.max : null
+      const totalQueries = performanceReport.sparql_engine_stats?.total_queries || 0
+      const failedQueries = performanceReport.sparql_engine_stats?.failed_queries || 0
+      const errorRate = totalQueries > 0 ? (failedQueries / totalQueries) * 100 : null
+
+      setPrevSnapshot(metricSnapshot)
+      setMetricSnapshot({
+        throughput: isNumber(throughput) ? throughput : null,
+        avgTime,
+        maxTime,
+        errorRate
+      })
+
+      const slow = performanceReport.performance_report?.top_slow_queries || []
+      setSlowQueries(slow.map(item => ({
+        query: item.query,
+        execution_time: item.execution_time,
+        max_time: item.max_time,
+        frequency: item.frequency
+      })))
+      setRecommendations(performanceReport.recommendations || [])
+
+      const system = (healthMetrics as any).system || {}
+      setResourceStats({
+        cpu: isNumber(system.cpu_percent) ? system.cpu_percent : null,
+        memory: isNumber(system.memory_percent) ? system.memory_percent : null,
+        disk: isNumber(system.disk_percent) ? system.disk_percent : null,
+        networkConnections: isNumber(system.network_connections) ? system.network_connections : null
+      })
+    } catch (err) {
+      setError((err as Error).message || '加载性能数据失败')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    loadData()
+  }, [])
+
+  const buildChange = (current: number | null, previous: number | null) => {
+    if (!isNumber(current) || !isNumber(previous) || previous === 0) return null
+    const diff = current - previous
+    const percent = (diff / previous) * 100
+    return {
+      trend: diff >= 0 ? 'up' : 'down',
+      change: `${diff >= 0 ? '+' : ''}${percent.toFixed(1)}%`
+    }
+  }
+
+  const performanceMetrics = [
     {
-      query: 'SELECT ?s ?p ?o WHERE { ?s ?p ?o } LIMIT 100',
-      avgTime: 120,
-      minTime: 85,
-      maxTime: 180,
-      executions: 1456,
-      cacheHitRate: 78.5,
-      status: 'good'
+      name: '查询吞吐量',
+      value: metricSnapshot?.throughput ?? null,
+      unit: 'QPS',
+      ...(buildChange(metricSnapshot?.throughput ?? null, prevSnapshot?.throughput ?? null) || {})
     },
     {
-      query: 'SELECT ?person WHERE { ?person rdf:type foaf:Person }',
-      avgTime: 350,
-      minTime: 200,
-      maxTime: 520,
-      executions: 892,
-      cacheHitRate: 65.2,
-      status: 'warning'
+      name: '平均响应时间',
+      value: metricSnapshot?.avgTime ?? null,
+      unit: 'ms',
+      ...(buildChange(metricSnapshot?.avgTime ?? null, prevSnapshot?.avgTime ?? null) || {})
+    },
+    {
+      name: '峰值响应时间',
+      value: metricSnapshot?.maxTime ?? null,
+      unit: 'ms',
+      ...(buildChange(metricSnapshot?.maxTime ?? null, prevSnapshot?.maxTime ?? null) || {})
+    },
+    {
+      name: '错误率',
+      value: metricSnapshot?.errorRate ?? null,
+      unit: '%',
+      ...(buildChange(metricSnapshot?.errorRate ?? null, prevSnapshot?.errorRate ?? null) || {})
     }
   ]
 
@@ -69,30 +164,20 @@ const SparqlPerformance: React.FC = () => {
     },
     {
       title: '平均时间',
-      dataIndex: 'avgTime',
-      key: 'avgTime',
+      dataIndex: 'execution_time',
+      key: 'execution_time',
+      render: (time: number) => `${time}ms`
+    },
+    {
+      title: '最大时间',
+      dataIndex: 'max_time',
+      key: 'max_time',
       render: (time: number) => `${time}ms`
     },
     {
       title: '执行次数',
-      dataIndex: 'executions',
-      key: 'executions'
-    },
-    {
-      title: '缓存命中率',
-      dataIndex: 'cacheHitRate',
-      key: 'cacheHitRate',
-      render: (rate: number) => `${rate}%`
-    },
-    {
-      title: '状态',
-      dataIndex: 'status',
-      key: 'status',
-      render: (status: string) => (
-        <Tag color={status === 'good' ? 'green' : status === 'warning' ? 'orange' : 'red'}>
-          {status === 'good' ? '良好' : status === 'warning' ? '警告' : '错误'}
-        </Tag>
-      )
+      dataIndex: 'frequency',
+      key: 'frequency'
     }
   ]
 
@@ -106,6 +191,9 @@ const SparqlPerformance: React.FC = () => {
         <Paragraph>
           实时监控SPARQL查询性能、响应时间和系统资源使用情况
         </Paragraph>
+        {error && (
+          <Alert type="error" message={error} showIcon style={{ marginTop: 12 }} />
+        )}
       </div>
 
       <Row gutter={[24, 24]}>
@@ -116,20 +204,24 @@ const SparqlPerformance: React.FC = () => {
                 <Col span={6} key={index}>
                   <Statistic
                     title={metric.name}
-                    value={metric.value}
+                    value={metric.value ?? '-'}
                     suffix={metric.unit}
                     prefix={index === 0 ? <ThunderboltOutlined /> : 
                            index === 1 ? <ClockCircleOutlined /> : 
                            index === 2 ? <ExclamationCircleOutlined /> : 
                            <CheckCircleOutlined />}
                     valueStyle={{ 
-                      color: metric.trend === 'up' ? '#3f8600' : '#cf1322' 
+                      color: metric.trend === 'down' ? '#cf1322' : '#3f8600' 
                     }}
                   />
                   <div style={{ marginTop: '8px' }}>
-                    <Tag color={metric.trend === 'up' ? 'green' : 'red'}>
-                      {metric.change}
-                    </Tag>
+                    {metric.change ? (
+                      <Tag color={metric.trend === 'down' ? 'red' : 'green'}>
+                        {metric.change}
+                      </Tag>
+                    ) : (
+                      <Tag color="default">-</Tag>
+                    )}
                   </div>
                 </Col>
               ))}
@@ -142,10 +234,12 @@ const SparqlPerformance: React.FC = () => {
             <TabPane tab="查询性能" key="queries">
               <Card size="small">
                 <Table
-                  dataSource={queryPerformance}
+                  dataSource={slowQueries.map((item, index) => ({ key: index, ...item }))}
                   columns={columns}
                   pagination={false}
                   size="small"
+                  loading={loading}
+                  locale={{ emptyText: '暂无慢查询数据' }}
                 />
               </Card>
             </TabPane>
@@ -155,34 +249,53 @@ const SparqlPerformance: React.FC = () => {
                 <Row gutter={[16, 16]}>
                   <Col span={12}>
                     <Card size="small" title="CPU使用率">
-                      <Progress percent={68} status="active" />
-                      <p style={{ marginTop: '8px', fontSize: '12px', color: '#666' }}>
-                        当前: 68% | 平均: 72% | 峰值: 89%
-                      </p>
+                      {isNumber(resourceStats.cpu) ? (
+                        <>
+                          <Progress percent={resourceStats.cpu} status="active" />
+                          <p style={{ marginTop: '8px', fontSize: '12px', color: '#666' }}>
+                            当前: {resourceStats.cpu}%
+                          </p>
+                        </>
+                      ) : (
+                        <Text type="secondary">暂无数据</Text>
+                      )}
                     </Card>
                   </Col>
                   <Col span={12}>
                     <Card size="small" title="内存使用率">
-                      <Progress percent={45} status="active" strokeColor="#52c41a" />
-                      <p style={{ marginTop: '8px', fontSize: '12px', color: '#666' }}>
-                        当前: 45% | 平均: 52% | 峰值: 76%
-                      </p>
+                      {isNumber(resourceStats.memory) ? (
+                        <>
+                          <Progress percent={resourceStats.memory} status="active" strokeColor="#52c41a" />
+                          <p style={{ marginTop: '8px', fontSize: '12px', color: '#666' }}>
+                            当前: {resourceStats.memory}%
+                          </p>
+                        </>
+                      ) : (
+                        <Text type="secondary">暂无数据</Text>
+                      )}
                     </Card>
                   </Col>
                   <Col span={12}>
-                    <Card size="small" title="磁盘I/O">
-                      <Progress percent={23} status="active" strokeColor="#1890ff" />
-                      <p style={{ marginTop: '8px', fontSize: '12px', color: '#666' }}>
-                        读: 120MB/s | 写: 45MB/s
-                      </p>
+                    <Card size="small" title="磁盘使用率">
+                      {isNumber(resourceStats.disk) ? (
+                        <>
+                          <Progress percent={resourceStats.disk} status="active" strokeColor="#1890ff" />
+                          <p style={{ marginTop: '8px', fontSize: '12px', color: '#666' }}>
+                            当前: {resourceStats.disk}%
+                          </p>
+                        </>
+                      ) : (
+                        <Text type="secondary">暂无数据</Text>
+                      )}
                     </Card>
                   </Col>
                   <Col span={12}>
-                    <Card size="small" title="网络I/O">
-                      <Progress percent={15} status="active" strokeColor="#722ed1" />
-                      <p style={{ marginTop: '8px', fontSize: '12px', color: '#666' }}>
-                        入: 50MB/s | 出: 25MB/s
-                      </p>
+                    <Card size="small" title="网络连接数">
+                      {isNumber(resourceStats.networkConnections) ? (
+                        <Statistic value={resourceStats.networkConnections} />
+                      ) : (
+                        <Text type="secondary">暂无数据</Text>
+                      )}
                     </Card>
                   </Col>
                 </Row>
@@ -194,24 +307,22 @@ const SparqlPerformance: React.FC = () => {
         <Col span={8}>
           <Card title="性能建议" size="small">
             <Space direction="vertical" style={{ width: '100%' }}>
-              <Alert
-                message="查询优化建议"
-                description="检测到复杂连接查询，建议启用查询重写优化"
-                type="info"
-                showIcon
-              />
-              <Alert
-                message="缓存建议"
-                description="频繁查询模式缓存命中率较低，建议调整缓存策略"
-                type="warning"
-                showIcon
-              />
-              <Alert
-                message="索引建议"
-                description="发现全表扫描操作，建议为常用谓词创建索引"
-                type="error"
-                showIcon
-              />
+              {recommendations.length === 0 && (
+                <Alert
+                  message="暂无性能建议"
+                  type="info"
+                  showIcon
+                />
+              )}
+              {recommendations.map((rec, index) => (
+                <Alert
+                  key={index}
+                  message={`建议 ${index + 1}`}
+                  description={rec}
+                  type="info"
+                  showIcon
+                />
+              ))}
             </Space>
           </Card>
 

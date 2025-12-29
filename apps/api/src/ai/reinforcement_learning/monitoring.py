@@ -17,9 +17,6 @@ from datetime import timedelta
 from src.core.utils.timezone_utils import utc_now, utc_factory
 from dataclasses import dataclass
 from enum import Enum
-import logging
-
-# OpenTelemetry imports
 from opentelemetry import trace, metrics
 from opentelemetry.exporter.prometheus import PrometheusMetricReader
 from opentelemetry.sdk.metrics import MeterProvider
@@ -28,6 +25,8 @@ from opentelemetry.sdk.trace.export import BatchSpanProcessor, ConsoleSpanExport
 from opentelemetry.instrumentation.auto_instrumentation import sitecustomize
 from opentelemetry.semconv.trace import SpanAttributes
 
+from src.core.logging import get_logger
+# OpenTelemetry imports
 
 class MetricType(Enum):
     """指标类型"""
@@ -35,7 +34,6 @@ class MetricType(Enum):
     HISTOGRAM = "histogram"
     GAUGE = "gauge"
     UP_DOWN_COUNTER = "up_down_counter"
-
 
 @dataclass
 class AlertRule:
@@ -48,12 +46,11 @@ class AlertRule:
     severity: str  # "critical", "warning", "info"
     description: str
 
-
 class RLSystemMonitoring:
     """强化学习系统监控"""
     
     def __init__(self):
-        self.logger = logging.getLogger(__name__)
+        self.logger = get_logger(__name__)
         
         # 初始化OpenTelemetry
         self._setup_telemetry()
@@ -606,10 +603,8 @@ groups:
         self.monitoring_active = False
         self.logger.info("监控系统已关闭")
 
-
 # 全局监控实例
 monitoring = RLSystemMonitoring()
-
 
 # 装饰器用于自动追踪和监控
 def trace_recommendation(func):
@@ -647,7 +642,6 @@ def trace_recommendation(func):
                 raise
     
     return wrapper
-
 
 def trace_feedback(func):
     """反馈处理追踪装饰器"""

@@ -1,12 +1,13 @@
 """
 情感状态建模系统的核心数据模型
 """
+
+from src.core.utils.timezone_utils import utc_now
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Any, Tuple
 from datetime import datetime, timedelta
 from enum import Enum
 import uuid
-
 
 class EmotionType(Enum):
     """基础情感类型枚举"""
@@ -31,7 +32,6 @@ class EmotionType(Enum):
     ANXIETY = "anxiety"
     DEPRESSION = "depression"
 
-
 class PersonalityTrait(Enum):
     """Big Five人格特质枚举"""
     EXTRAVERSION = "extraversion"  # 外向性
@@ -40,6 +40,26 @@ class PersonalityTrait(Enum):
     CONSCIENTIOUSNESS = "conscientiousness"  # 尽责性
     OPENNESS = "openness"  # 开放性
 
+@dataclass
+class EmotionVector:
+    """情感向量（用于社交情感系统的统一输入）"""
+    emotions: Dict[str, float] = field(default_factory=lambda: {"neutral": 1.0})
+    intensity: float = 0.5
+    confidence: float = 0.5
+    context: Dict[str, Any] = field(default_factory=dict)
+    timestamp: datetime = field(default_factory=datetime.now)
+
+@dataclass
+class SocialContext:
+    """社交情感上下文（面向社交情感系统组件）"""
+    participants: List[str] = field(default_factory=list)
+    scenario: str = "general"
+    cultural_context: Optional[str] = None
+    power_dynamics: Dict[str, float] = field(default_factory=dict)
+    group_emotions: Dict[str, str] = field(default_factory=dict)
+    relationship_history: List[Dict[str, Any]] = field(default_factory=list)
+    topics: List[str] = field(default_factory=list)
+    communication_style: float = 0.5
 
 @dataclass
 class EmotionState:
@@ -114,7 +134,6 @@ class EmotionState:
         """是否为高唤醒情感"""
         return self.arousal > 0.6
 
-
 @dataclass 
 class PersonalityProfile:
     """个性化情感画像"""
@@ -173,7 +192,7 @@ class PersonalityProfile:
     def set_trait(self, trait: PersonalityTrait, score: float):
         """设置人格特质分数"""
         self.emotional_traits[trait.value] = max(0.0, min(1.0, score))
-        self.updated_at = datetime.now()
+        self.updated_at = utc_now()
     
     def get_dominant_emotion(self) -> Optional[str]:
         """获取最主导的情感"""
@@ -188,7 +207,6 @@ class PersonalityProfile:
     def is_fast_recovery(self) -> bool:
         """是否快速恢复"""
         return self.recovery_rate > 0.7
-
 
 @dataclass
 class EmotionTransition:
@@ -236,7 +254,6 @@ class EmotionTransition:
             
         return transition
 
-
 @dataclass
 class EmotionPrediction:
     """情感预测结果"""
@@ -266,12 +283,11 @@ class EmotionPrediction:
             return None
         return max(self.predicted_emotions, key=lambda x: x[1])
 
-
 @dataclass
 class EmotionStatistics:
     """情感统计信息"""
     user_id: str = ""
-    time_period: Tuple[datetime, datetime] = field(default_factory=lambda: (datetime.now(), datetime.now()))
+    time_period: Tuple[datetime, datetime] = field(default_factory=lambda: (utc_now(), utc_now()))
     emotion_distribution: Dict[str, float] = field(default_factory=dict)  # 情感分布
     intensity_stats: Dict[str, float] = field(default_factory=dict)  # 强度统计
     valence_stats: Dict[str, float] = field(default_factory=dict)  # 效价统计

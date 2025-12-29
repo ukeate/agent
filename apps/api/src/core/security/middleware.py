@@ -4,42 +4,48 @@
 
 import time
 import uuid
-from typing import Any, Dict, Optional
-
-import structlog
-from fastapi import Request, Response, HTTPException, status
+from fastapi import Request, status
 from fastapi.responses import JSONResponse
-# from slowapi import Limiter, _rate_limit_exceeded_handler
-# from slowapi.util import get_remote_address
-# from slowapi.errors import RateLimitExceeded
-from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 from starlette.middleware.httpsredirect import HTTPSRedirectMiddleware
 from starlette.middleware.gzip import GZipMiddleware
-
+from starlette.datastructures import MutableHeaders
+from starlette.types import ASGIApp, Receive, Scope, Send
 from src.core.config import get_settings
 from src.core.security.audit import AuditLogger
 from src.core.security.monitoring import SecurityMonitor
 
-logger = structlog.get_logger(__name__)
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
+# from slowapi import Limiter, _rate_limit_exceeded_handler
+# from slowapi.util import get_remote_address
+# from slowapi.errors import RateLimitExceeded
 
-class SecurityMiddleware(BaseHTTPMiddleware):
+class SecurityMiddleware:
     """统一的安全中间件"""
     
     def __init__(self, app, **kwargs):
-        super().__init__(app)
+        self.app = app
         self.settings = get_settings()
         self.security_monitor = SecurityMonitor()
         self.audit_logger = AuditLogger()
         
-    async def dispatch(self, request: Request, call_next):
+    async def __call__(self, scope: Scope, receive: Receive, send: Send):
         """处理请求"""
-        request_id = str(uuid.uuid4())
-        request.state.request_id = request_id
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+
+        request = Request(scope, receive=receive)
+        request_id = scope.get("state", {}).get("request_id") or str(uuid.uuid4())
+        scope.setdefault("state", {})["request_id"] = request_id
         
         # 记录请求开始时间
-        start_time = time.time()
+        start_time = time.perf_counter()
+
+        response_status = None
+        response_headers = None
         
         try:
             # 安全检查：异常请求检测
@@ -55,7 +61,7 @@ class SecurityMiddleware(BaseHTTPMiddleware):
                 )
                 
                 # 返回阻断响应
-                return JSONResponse(
+                response = JSONResponse(
                     status_code=status.HTTP_403_FORBIDDEN,
                     content={
                         "detail": "Request blocked by security policy",
@@ -63,33 +69,19 @@ class SecurityMiddleware(BaseHTTPMiddleware):
                         "risk_score": security_check.risk_score
                     }
                 )
+                response_status = response.status_code
+                response_headers = list(response.headers.raw)
+                await response(scope, receive, send)
+                return
             
-            # 添加安全头
-            response = await call_next(request)
-            
-            # 设置安全响应头
-            response.headers["X-Request-ID"] = request_id
-            response.headers["X-Content-Type-Options"] = "nosniff"
-            response.headers["X-Frame-Options"] = "DENY"
-            response.headers["X-XSS-Protection"] = "1; mode=block"
-            response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
-            response.headers["Content-Security-Policy"] = self.settings.CSP_HEADER
-            
-            # 记录请求完成
-            process_time = time.time() - start_time
-            
-            # 审计日志
-            await self.audit_logger.log_api_call(
-                request=request,
-                response=response,
-                process_time=process_time,
-                request_id=request_id
-            )
-            
-            # 添加处理时间头
-            response.headers["X-Process-Time"] = str(process_time)
-            
-            return response
+            async def send_wrapper(message):
+                nonlocal response_status, response_headers
+                if message["type"] == "http.response.start":
+                    response_status = message["status"]
+                    response_headers = message.get("headers", [])
+                await send(message)
+
+            await self.app(scope, receive, send_wrapper)
             
         except Exception as e:
             # 记录错误
@@ -108,27 +100,19 @@ class SecurityMiddleware(BaseHTTPMiddleware):
             )
             
             raise
-
-
-class RateLimitMiddleware:
-    """频率限制中间件"""
-    
-    def __init__(self):
-        self.settings = get_settings()
-        # 创建一个简单的模拟限制器，直到slowapi依赖添加
-        self.limiter = None
-        
-    def _get_rate_limit_key(self, request: Request) -> str:
-        """获取频率限制的键"""
-        # 优先使用认证用户ID，否则使用IP地址
-        if hasattr(request.state, "user") and request.state.user:
-            return f"user:{request.state.user.id}"
-        return request.client.host if request.client else "127.0.0.1"
-    
-    def get_limiter(self):
-        """获取限制器实例"""
-        return self.limiter
-
+        finally:
+            process_time = time.perf_counter() - start_time
+            status_code = response_status if response_status is not None else 500
+            response = JSONResponse(status_code=status_code, content={"status": "recorded"})
+            if response_headers:
+                for raw_key, raw_value in response_headers:
+                    response.headers[raw_key.decode()] = raw_value.decode()
+            await self.audit_logger.log_api_call(
+                request=request,
+                response=response,
+                process_time=process_time,
+                request_id=request_id,
+            )
 
 class CompressionMiddleware(GZipMiddleware):
     """响应压缩中间件"""
@@ -143,40 +127,34 @@ class CompressionMiddleware(GZipMiddleware):
         """
         super().__init__(app, minimum_size=minimum_size, compresslevel=compresslevel)
 
-
-class SecureHeadersMiddleware(BaseHTTPMiddleware):
+class SecureHeadersMiddleware:
     """安全头中间件"""
     
     def __init__(self, app, **kwargs):
-        super().__init__(app)
+        self.app = app
         self.settings = get_settings()
         
-    async def dispatch(self, request: Request, call_next):
+    async def __call__(self, scope: Scope, receive: Receive, send: Send):
         """添加安全响应头"""
-        response = await call_next(request)
-        
-        # 添加安全头
-        security_headers = {
-            "X-Content-Type-Options": "nosniff",
-            "X-Frame-Options": "DENY",
-            "X-XSS-Protection": "1; mode=block",
-            "Referrer-Policy": "strict-origin-when-cross-origin",
-            "Permissions-Policy": "geolocation=(), microphone=(), camera=()"
-        }
-        
-        # 在生产环境添加HSTS
-        if not self.settings.DEBUG:
-            security_headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains; preload"
-        
-        # 添加CSP头（如果配置了）
-        if hasattr(self.settings, "CSP_HEADER") and self.settings.CSP_HEADER:
-            security_headers["Content-Security-Policy"] = self.settings.CSP_HEADER
-        
-        for header, value in security_headers.items():
-            response.headers[header] = value
-        
-        return response
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
 
+        async def send_wrapper(message):
+            if message["type"] == "http.response.start":
+                headers = MutableHeaders(scope=message)
+                headers["X-Content-Type-Options"] = "nosniff"
+                headers["X-Frame-Options"] = "DENY"
+                headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+                headers["Permissions-Policy"] = "geolocation=(), microphone=(), camera=()"
+                headers["X-Permitted-Cross-Domain-Policies"] = "none"
+                if self.settings.FORCE_HTTPS or scope.get("scheme") == "https":
+                    headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+                if self.settings.CSP_HEADER:
+                    headers["Content-Security-Policy"] = self.settings.CSP_HEADER
+            await send(message)
+
+        await self.app(scope, receive, send_wrapper)
 
 def setup_security_middleware(app):
     """设置所有安全中间件"""
@@ -187,31 +165,24 @@ def setup_security_middleware(app):
         app.add_middleware(HTTPSRedirectMiddleware)
     
     # 2. 可信主机验证
-    trusted_hosts = ["localhost", "127.0.0.1", "localhost:8000", "127.0.0.1:8000"]
-    if not settings.DEBUG:
-        # 在生产环境中使用更严格的主机验证
+    if settings.TRUSTED_HOSTS and not settings.DEBUG:
         app.add_middleware(
             TrustedHostMiddleware,
-            allowed_hosts=trusted_hosts
+            allowed_hosts=settings.TRUSTED_HOSTS,
+            www_redirect=settings.TRUSTED_HOSTS_WWW_REDIRECT,
         )
     
     # 3. 响应压缩
     app.add_middleware(
         CompressionMiddleware,
-        minimum_size=1000,
-        compresslevel=6
+        minimum_size=settings.GZIP_MINIMUM_SIZE,
+        compresslevel=settings.GZIP_COMPRESS_LEVEL,
     )
     
     # 4. 安全头
     app.add_middleware(SecureHeadersMiddleware)
     
-    # 5. 频率限制
-    rate_limiter = RateLimitMiddleware()
-    limiter = rate_limiter.get_limiter()
-    app.state.limiter = limiter
-    # app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
-    
-    # 6. 统一安全中间件
+    # 5. 统一安全中间件
     app.add_middleware(SecurityMiddleware)
     
     logger.info("Security middleware initialized successfully")

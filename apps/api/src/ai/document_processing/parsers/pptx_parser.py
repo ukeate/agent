@@ -1,19 +1,15 @@
 """PowerPoint文档解析器"""
 
-import logging
 from pathlib import Path
 from typing import List, Dict, Any
 import base64
 import io
-
 from pptx import Presentation
 from pptx.enum.shapes import MSO_SHAPE_TYPE
 from PIL import Image
-
 from .base_parser import BaseParser, ParsedDocument, ParsedElement
 
-logger = logging.getLogger(__name__)
-
+logger = get_logger(__name__)
 
 class PowerPointParser(BaseParser):
     """PowerPoint文档解析器
@@ -372,3 +368,4 @@ class PowerPointParser(BaseParser):
                 "shape_type": "speaker_notes",
             }
         )
+from src.core.logging import get_logger

@@ -7,10 +7,8 @@ import pytest_asyncio
 import asyncio
 import time
 from unittest.mock import Mock, AsyncMock
-
 from src.ai.cluster.state_manager import ClusterStateManager, StateChangeEvent
 from src.ai.cluster.topology import AgentInfo, AgentStatus, AgentGroup, ResourceUsage, AgentHealthCheck
-
 
 @pytest_asyncio.fixture
 async def state_manager():
@@ -19,7 +17,6 @@ async def state_manager():
     await manager.start()
     yield manager
     await manager.stop()
-
 
 @pytest.fixture
 def sample_agent():
@@ -30,7 +27,6 @@ def sample_agent():
         port=8080
     )
 
-
 @pytest.fixture
 def sample_group():
     """创建示例分组"""
@@ -38,7 +34,6 @@ def sample_group():
         name="test-group",
         description="Test group"
     )
-
 
 class TestClusterStateManager:
     """测试集群状态管理器"""
@@ -402,7 +397,6 @@ class TestClusterStateManager:
             
         finally:
             await manager.stop()
-
 
 class TestStateChangeEvent:
     """测试状态变更事件"""

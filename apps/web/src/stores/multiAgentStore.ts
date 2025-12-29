@@ -1,13 +1,10 @@
+import { buildApiUrl, apiFetch } from '../utils/apiBase'
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { CONVERSATION_CONSTANTS } from '../constants/timeout'
+import { multiAgentService } from '../services/multiAgentService'
 
-// 辅助函数：构建完整的API URL
-const buildApiUrl = (endpoint: string): string => {
-  const baseUrl = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:8000'
-  return `${baseUrl}/api/v1${endpoint}`
-}
-
+import { logger } from '../utils/logger'
 // 多智能体相关类型定义
 export interface Agent {
   id: string
@@ -67,6 +64,7 @@ export interface MultiAgentConversation {
 
 export interface ConversationSession {
   session_id: string
+  conversation_id?: string
   status: string
   created_at: string
   updated_at: string
@@ -319,30 +317,46 @@ export const useMultiAgentStore = create<MultiAgentState>()(
 
       handleStreamingError: (messageId, errorData) => {
         set((state) => {
-          // 标记流式消息为错误状态
-          const updatedStreamingMessages = { ...state.streamingMessages }
-          if (updatedStreamingMessages[messageId]) {
-            updatedStreamingMessages[messageId] = {
-              ...updatedStreamingMessages[messageId],
-              content: errorData.fullContent,
+          const errorContent = errorData.fullContent || `${errorData.agentName}: 遇到错误 - ${errorData.error}`
+          
+          const updatedStreamingMessages = {
+            ...state.streamingMessages,
+            [messageId]: {
+              id: messageId,
+              agentName: errorData.agentName,
+              content: errorContent,
+              round: errorData.round,
               isComplete: true,
               hasError: true,
               error: errorData.error
             }
           }
           
-          // 更新消息列表中的消息，显示错误信息
-          const errorContent = errorData.fullContent || `${errorData.agentName}: 遇到错误 - ${errorData.error}`
-          const updatedMessages = state.currentMessages.map(msg => 
-            msg.id === messageId 
-              ? { 
-                  ...msg, 
+          const existing = state.currentMessages.find(msg => msg.id === messageId)
+          const updatedMessages = existing
+            ? state.currentMessages.map(msg => 
+                msg.id === messageId 
+                  ? { 
+                      ...msg, 
+                      content: errorContent,
+                      isStreaming: false,
+                      streamingComplete: true
+                    }
+                  : msg
+              )
+            : [
+                ...state.currentMessages,
+                {
+                  id: messageId,
+                  role: 'assistant',
+                  sender: errorData.agentName,
                   content: errorContent,
+                  timestamp: new Date().toISOString(),
+                  round: errorData.round,
                   isStreaming: false,
                   streamingComplete: true
                 }
-              : msg
-          )
+              ]
           
           return {
             streamingMessages: updatedStreamingMessages,
@@ -380,21 +394,18 @@ export const useMultiAgentStore = create<MultiAgentState>()(
 
           // 尝试从API加载会话的消息历史
           try {
-            const response = await fetch(buildApiUrl(`/multi-agent/conversation/${sessionId}/messages`))
-            if (response.ok) {
-              const result = await response.json()
-              if (result.success && result.data?.messages) {
-                // 设置当前会话和消息
-                set({ 
-                  currentSession: session,
-                  currentMessages: result.data.messages 
-                })
-                console.log(`已加载会话 ${sessionId} 的历史消息`)
-                return
-              }
+            const messagesData = await multiAgentService.getMessages(sessionId)
+            if (messagesData.messages && messagesData.messages.length > 0) {
+              // 设置当前会话和消息
+              set({ 
+                currentSession: session,
+                currentMessages: messagesData.messages 
+              })
+              logger.log(`已加载会话 ${sessionId} 的历史消息`)
+              return
             }
           } catch (apiError) {
-            console.warn('从API加载消息失败，使用本地数据:', apiError)
+            logger.warn('从API加载消息失败，使用本地数据:', apiError)
           }
 
           // 如果API调用失败，使用本地存储的基本会话信息
@@ -404,7 +415,7 @@ export const useMultiAgentStore = create<MultiAgentState>()(
           })
           
         } catch (error) {
-          console.error('加载会话历史失败:', error)
+          logger.error('加载会话历史失败:', error)
           set({ error: error instanceof Error ? error.message : '加载会话历史失败' })
         } finally {
           set({ loading: false })
@@ -437,10 +448,10 @@ export const useMultiAgentStore = create<MultiAgentState>()(
         set({ loading: true, error: null })
         
         try {
-          console.log('Creating conversation with participants:', participants, 'topic:', initial_topic)
+          logger.log('创建对话，参与者:', participants, '主题:', initial_topic)
           
           // 生成临时的session ID用于WebSocket连接
-          const tempSessionId = `session-${Date.now()}`
+          const tempSessionId = `session-${crypto.randomUUID()}`
           
           // 创建session对象（临时）
           const session: ConversationSession = {
@@ -483,12 +494,12 @@ export const useMultiAgentStore = create<MultiAgentState>()(
             round: 0,
           })
           
-          console.log('临时会话已创建，等待WebSocket连接并启动实际对话...')
+          logger.log('临时会话已创建，等待WebSocket连接并启动实际对话...')
           
-          console.log('会话创建完成，WebSocket连接建立后将自动启动对话')
+          logger.log('会话创建完成，WebSocket连接建立后将自动启动对话')
           
         } catch (error) {
-          console.error('创建对话失败:', error)
+          logger.error('创建对话失败:', error)
           let errorMessage = '创建对话失败'
           
           if (error instanceof Error) {
@@ -528,7 +539,7 @@ export const useMultiAgentStore = create<MultiAgentState>()(
               : session
           )
           
-          console.log(`会话ID已更新并设置为active: ${oldSessionId} -> ${newSessionId}`)
+          logger.log(`会话ID已更新并设置为active: ${oldSessionId} -> ${newSessionId}`)
           
           return {
             currentSession: updatedCurrentSession,
@@ -540,7 +551,7 @@ export const useMultiAgentStore = create<MultiAgentState>()(
       startConversation: async (sessionId, message) => {
         set({ loading: true, error: null })
         try {
-          console.log('Starting conversation:', sessionId, 'with message:', message)
+          logger.log('启动对话:', sessionId, '消息:', message)
           
           // 多智能体对话通常在创建时就开始，这里可能不需要额外的启动API
           // 但我们可以通过WebSocket发送消息来启动对话
@@ -560,7 +571,7 @@ export const useMultiAgentStore = create<MultiAgentState>()(
             })
           }
         } catch (error) {
-          console.error('启动对话失败:', error)
+          logger.error('启动对话失败:', error)
           set({ error: error instanceof Error ? error.message : '启动对话失败' })
         } finally {
           set({ loading: false })
@@ -569,38 +580,33 @@ export const useMultiAgentStore = create<MultiAgentState>()(
 
       pauseConversation: async (sessionId) => {
         set({ loading: true, error: null })
+        get().updateSessionStatus(sessionId, 'paused')
         try {
-          console.log('Pausing conversation with sessionId:', sessionId)
-          console.log('当前会话状态:', get().currentSession)
+          logger.log('暂停对话，sessionId:', sessionId)
+          logger.log('当前会话状态:', get().currentSession)
           
           // 通过REST API调用后端暂停功能
-          const url = buildApiUrl(`/multi-agent/conversation/${sessionId}/pause`)
-          console.log('暂停请求URL:', url)
+          const conversationId = get().currentSession?.conversation_id || sessionId
+          const url = buildApiUrl(`/multi-agent/conversation/${conversationId}/pause`)
+          logger.log('暂停请求URL:', url)
           
-          const response = await fetch(url, {
+          const response = await apiFetch(url, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
             },
           })
           
-          console.log('暂停响应状态:', response.status)
-          
-          if (!response.ok) {
-            const errorText = await response.text()
-            console.log('暂停响应错误内容:', errorText)
-            throw new Error(`暂停请求失败: ${response.status}`)
-          }
+          logger.log('暂停响应状态:', response.status)
           
           const result = await response.json()
-          console.log('后端暂停响应:', result)
+          logger.log('后端暂停响应:', result)
           
           // 更新本地状态
-          get().updateSessionStatus(sessionId, 'paused')
-          
-          console.log('对话已暂停 (已通知后端停止token生成)')
+          logger.log('对话已暂停 (已通知后端停止token生成)')
         } catch (error) {
-          console.error('暂停对话失败:', error)
+          logger.error('暂停对话失败:', error)
+          get().updateSessionStatus(sessionId, 'active')
           set({ error: error instanceof Error ? error.message : '暂停对话失败' })
         } finally {
           set({ loading: false })
@@ -609,30 +615,27 @@ export const useMultiAgentStore = create<MultiAgentState>()(
 
       resumeConversation: async (sessionId) => {
         set({ loading: true, error: null })
+        get().updateSessionStatus(sessionId, 'active')
         try {
-          console.log('Resuming conversation:', sessionId)
+          logger.log('恢复对话:', sessionId)
           
           // 通过REST API调用后端恢复功能
-          const response = await fetch(buildApiUrl(`/multi-agent/conversation/${sessionId}/resume`), {
+          const conversationId = get().currentSession?.conversation_id || sessionId
+          const response = await apiFetch(buildApiUrl(`/multi-agent/conversation/${conversationId}/resume`), {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
             },
           })
           
-          if (!response.ok) {
-            throw new Error(`恢复请求失败: ${response.status}`)
-          }
-          
           const result = await response.json()
-          console.log('后端恢复响应:', result)
+          logger.log('后端恢复响应:', result)
           
           // 更新本地状态
-          get().updateSessionStatus(sessionId, 'active')
-          
-          console.log('对话已恢复 (已通知后端继续token生成)')
+          logger.log('对话已恢复 (已通知后端继续token生成)')
         } catch (error) {
-          console.error('恢复对话失败:', error)
+          logger.error('恢复对话失败:', error)
+          get().updateSessionStatus(sessionId, 'paused')
           set({ error: error instanceof Error ? error.message : '恢复对话失败' })
         } finally {
           set({ loading: false })
@@ -642,10 +645,11 @@ export const useMultiAgentStore = create<MultiAgentState>()(
       terminateConversation: async (sessionId, reason = '用户终止') => {
         set({ loading: true, error: null })
         try {
-          console.log('Terminating conversation:', sessionId, 'reason:', reason)
+          logger.log('终止对话:', sessionId, '原因:', reason)
           
           // 通过REST API调用后端终止功能
-          const response = await fetch(buildApiUrl(`/multi-agent/conversation/${sessionId}/terminate`), {
+          const conversationId = get().currentSession?.conversation_id || sessionId
+          const response = await apiFetch(buildApiUrl(`/multi-agent/conversation/${conversationId}/terminate`), {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -653,21 +657,17 @@ export const useMultiAgentStore = create<MultiAgentState>()(
             body: JSON.stringify({ reason }),
           })
           
-          if (!response.ok) {
-            throw new Error(`终止请求失败: ${response.status}`)
-          }
-          
           const result = await response.json()
-          console.log('后端终止响应:', result)
+          logger.log('后端终止响应:', result)
           
           // 更新本地状态
           get().updateSessionStatus(sessionId, 'terminated')
           // 清理当前会话
           set({ currentSession: null, currentMessages: [] })
           
-          console.log('对话已终止 (已通知后端完全停止token生成)')
+          logger.log('对话已终止 (已通知后端完全停止token生成)')
         } catch (error) {
-          console.error('终止对话失败:', error)
+          logger.error('终止对话失败:', error)
           set({ error: error instanceof Error ? error.message : '终止对话失败' })
         } finally {
           set({ loading: false })

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import {
+import { logger } from '../../utils/logger'
   Card,
   Row,
   Col,
@@ -19,6 +20,7 @@ import {
   Timeline,
   List,
   Avatar,
+  message,
 } from 'antd';
 import {
   ExperimentOutlined,
@@ -38,6 +40,7 @@ import {
   ShoppingCartOutlined,
 } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
+import { experimentService, type ExperimentData } from '../../services/experimentService';
 
 const { Title, Text } = Typography;
 const { TabPane } = Tabs;
@@ -70,70 +73,23 @@ const ExperimentDashboardPage: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [timeRange, setTimeRange] = useState<string>('7d');
   const [selectedMetric, setSelectedMetric] = useState<string>('conversion_rate');
+  const [experiments, setExperiments] = useState<ExperimentData[]>([]);
+  const [error, setError] = useState<string | null>(null);
 
-  // 模拟仪表板数据
-  const dashboardStats = {
-    total_experiments: 24,
-    running_experiments: 8,
-    completed_experiments: 12,
-    total_users: 45230,
-    total_conversions: 6789,
-    overall_conversion_rate: 15.0,
-    conversion_lift: 12.5,
-    revenue_impact: 125000,
-    active_alerts: 3,
-  };
+  // 仪表板统计数据
+  const [dashboardStats, setDashboardStats] = useState({
+    total_experiments: 0,
+    running_experiments: 0,
+    completed_experiments: 0,
+    total_users: 0,
+    total_conversions: 0,
+    overall_conversion_rate: 0,
+    conversion_lift: 0,
+    revenue_impact: 0,
+    active_alerts: 0,
+  });
 
-  const runningExperiments: ExperimentMetrics[] = [
-    {
-      id: 'exp_001',
-      name: '首页改版A/B测试',
-      status: 'running',
-      conversion_rate: 14.5,
-      conversion_change: 12.3,
-      users_enrolled: 15420,
-      statistical_significance: true,
-      confidence_level: 95,
-      remaining_days: 8,
-      primary_metric: '转化率',
-    },
-    {
-      id: 'exp_002',
-      name: '结算页面优化',
-      status: 'running',
-      conversion_rate: 23.4,
-      conversion_change: 8.7,
-      users_enrolled: 8930,
-      statistical_significance: true,
-      confidence_level: 98,
-      remaining_days: 12,
-      primary_metric: '购买转化',
-    },
-    {
-      id: 'exp_003',
-      name: '推荐算法测试',
-      status: 'running',
-      conversion_rate: 18.9,
-      conversion_change: -2.1,
-      users_enrolled: 12450,
-      statistical_significance: false,
-      confidence_level: 78,
-      remaining_days: 15,
-      primary_metric: '点击率',
-    },
-    {
-      id: 'exp_004',
-      name: '定价策略实验',
-      status: 'paused',
-      conversion_rate: 8.9,
-      conversion_change: -15.3,
-      users_enrolled: 3245,
-      statistical_significance: false,
-      confidence_level: 45,
-      remaining_days: 20,
-      primary_metric: '购买意向',
-    },
-  ];
+  const [runningExperiments, setRunningExperiments] = useState<ExperimentMetrics[]>([]);
 
   const recentActivities: ActivityItem[] = [
     {
@@ -277,16 +233,82 @@ const ExperimentDashboardPage: React.FC = () => {
     },
   ];
 
-  useEffect(() => {
+  const loadDashboardData = async () => {
     setLoading(true);
-    // 模拟数据加载
-    setTimeout(() => {
+    setError(null);
+    try {
+      // 加载所有实验数据
+      const allExperimentsResponse = await experimentService.listExperiments({});
+      const allExperiments = allExperimentsResponse.experiments;
+      
+      // 计算仪表板统计数据
+      const stats = {
+        total_experiments: allExperiments.length,
+        running_experiments: allExperiments.filter(e => e.status === 'running').length,
+        completed_experiments: allExperiments.filter(e => e.status === 'completed').length,
+        total_users: allExperiments.reduce((sum, exp) => sum + (exp.participants || 0), 0),
+        total_conversions: allExperiments.reduce((sum, exp) => sum + (exp.total_conversions || 0), 0),
+        overall_conversion_rate: allExperiments.length > 0 
+          ? allExperiments.reduce((sum, exp) => sum + (exp.conversion_rate || 0), 0) / allExperiments.length
+          : 0,
+        conversion_lift: allExperiments.length > 0
+          ? allExperiments.reduce((sum, exp) => sum + (exp.lift || 0), 0) / allExperiments.length
+          : 0,
+        revenue_impact: allExperiments.reduce((sum, exp) => sum + (exp.revenue_impact || 0), 0),
+        active_alerts: allExperiments.filter(e => e.status === 'running' && (e.lift || 0) < -10).length,
+      };
+      setDashboardStats(stats);
+      
+      // 获取运行中的实验并转换格式
+      const runningExps = allExperiments
+        .filter(exp => exp.status === 'running' || exp.status === 'paused')
+        .map(exp => ({
+          id: exp.id,
+          name: exp.name,
+          status: exp.status as 'running' | 'paused' | 'completed',
+          conversion_rate: (exp.conversion_rate || 0) * 100,
+          conversion_change: exp.lift || 0,
+          users_enrolled: exp.participants || 0,
+          statistical_significance: (exp.statistical_power || 0) >= 0.8,
+          confidence_level: Math.round((exp.confidence_interval || 0.95) * 100),
+          remaining_days: exp.end_date 
+            ? Math.max(0, Math.ceil((new Date(exp.end_date).getTime() - Date.now()) / (1000 * 60 * 60 * 24)))
+            : 30,
+          primary_metric: exp.primary_goal || exp.hypothesis || '转化率',
+        }));
+      setRunningExperiments(runningExps);
+      
+      setExperiments(allExperiments);
+    } catch (error) {
+      logger.error('加载仪表板数据失败:', error);
+      setError('加载仪表板数据失败，请检查网络连接');
+    } finally {
       setLoading(false);
-    }, 800);
+    }
+  };
+
+  useEffect(() => {
+    loadDashboardData();
   }, [timeRange, selectedMetric]);
 
   return (
     <div style={{ padding: '24px' }}>
+      {/* 错误信息显示 */}
+      {error && (
+        <Alert
+          message="加载失败"
+          description={error}
+          type="error"
+          showIcon
+          style={{ marginBottom: 16 }}
+          action={
+            <Button size="small" onClick={loadDashboardData}>
+              重新加载
+            </Button>
+          }
+        />
+      )}
+
       {/* 页面标题和筛选 */}
       <div style={{ marginBottom: '24px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>

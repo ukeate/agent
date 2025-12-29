@@ -6,6 +6,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { 
+import { logger } from '../../utils/logger'
   streamingService, 
   StreamingMetrics, 
   BackpressureStatus, 
@@ -74,7 +75,7 @@ export const StreamingDashboard: React.FC = () => {
         lastUpdate: new Date()
       }));
     } catch (error) {
-      console.error('获取流式处理数据失败:', error);
+      logger.error('获取流式处理数据失败:', error);
       setState(prev => ({
         ...prev,
         loading: false,

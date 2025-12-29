@@ -1,6 +1,7 @@
 """
 事件处理框架单元测试
 """
+
 import asyncio
 import pytest
 from datetime import datetime
@@ -8,11 +9,8 @@ from datetime import timedelta
 from src.core.utils.timezone_utils import utc_now, utc_factory
 from unittest.mock import Mock, AsyncMock, patch
 import uuid
-
 import sys
 import os
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))))
-
 from src.ai.autogen.events import Event, EventType, EventPriority, EventBus
 from src.ai.autogen.event_processors import (
     EventContext,
@@ -38,8 +36,10 @@ from src.ai.autogen.error_recovery import (
     DeadLetterQueue,
     CompensationManager,
     CompensationAction
+
 )
 
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))))
 
 class TestEventProcessor(EventProcessor):
     """测试用事件处理器"""
@@ -65,18 +65,15 @@ class TestEventProcessor(EventProcessor):
         """判断是否能处理该事件"""
         return event.type in self.can_handle_types
 
-
 @pytest.fixture
 def event_bus():
     """创建事件总线"""
     return EventBus()
 
-
 @pytest.fixture
 def processing_engine():
     """创建事件处理引擎"""
     return AsyncEventProcessingEngine(max_workers=2, batch_size=10)
-
 
 @pytest.fixture
 def test_event():
@@ -90,7 +87,6 @@ def test_event():
         priority=EventPriority.NORMAL
     )
 
-
 @pytest.fixture
 def event_context():
     """创建事件上下文"""
@@ -99,7 +95,6 @@ def event_context():
         user_id="test_user",
         session_id="test_session"
     )
-
 
 class TestEventProcessingEngine:
     """测试事件处理引擎"""
@@ -183,7 +178,6 @@ class TestEventProcessingEngine:
         assert len(processing_engine.batch_buffers[EventPriority.NORMAL]) == 0
         
         await processing_engine.stop()
-
 
 class TestEventRouter:
     """测试事件路由器"""
@@ -274,7 +268,6 @@ class TestEventRouter:
             value=None
         )
         assert condition.evaluate(test_event) is True
-
 
 class TestErrorRecovery:
     """测试错误恢复机制"""
@@ -405,7 +398,6 @@ class TestErrorRecovery:
         assert compensation_called is True
         assert "create" in result["compensated"]
 
-
 class TestEventStore:
     """测试事件存储"""
     
@@ -484,7 +476,6 @@ class TestEventStore:
         assert len(events) == 1
         assert events[0].type == EventType.MESSAGE_SENT
 
-
 class TestEventAggregator:
     """测试事件聚合器"""
     
@@ -524,7 +515,6 @@ class TestEventAggregator:
         
         stats = aggregator.get_window_stats()
         assert stats["event_count"] == 2
-
 
 class TestIntegration:
     """集成测试"""
@@ -602,7 +592,6 @@ class TestIntegration:
         # 清理
         await event_bus.stop()
         await processing_engine.stop()
-
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

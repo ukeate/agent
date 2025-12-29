@@ -2,7 +2,6 @@
 
 import asyncio
 import json
-import logging
 import subprocess
 import yaml
 from dataclasses import dataclass
@@ -13,10 +12,16 @@ from typing import Dict, List, Optional, Any, Union
 import uuid
 import tempfile
 import shutil
-
 from .registry import ModelRegistry, ModelMetadata
-
-logger = logging.getLogger(__name__)
+import os
+import uvicorn
+from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel
+from typing import Dict, Any
+import logging
+import torch
+from collections.abc import AsyncGenerator
+from contextlib import asynccontextmanager
 
 class DeploymentType(str, Enum):
     """部署类型"""
@@ -250,19 +255,25 @@ CMD ["python", "start.py"]
         """生成启动脚本"""
         script = f"""#!/usr/bin/env python3
 
-import os
-import uvicorn
-from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel
-from typing import Dict, Any
-import logging
-import torch
-
 # 配置日志
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="Model Service", version="1.0.0")
+@asynccontextmanager
+async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
+    global model
+    try:
+        model_path = "/app/model"
+        if os.path.exists(model_path):
+            model = torch.load(model_path, map_location="cpu")
+            logger.info("模型加载成功")
+        else:
+            logger.error("模型文件不存在")
+    except Exception as e:
+        logger.error(f"模型加载失败: {e}")
+    yield
+
+app = FastAPI(title="Model Service", version="1.0.0", lifespan=lifespan)
 
 # 全局模型变量
 model = None
@@ -274,20 +285,6 @@ class PredictionRequest(BaseModel):
 class PredictionResponse(BaseModel):
     outputs: Dict[str, Any]
     processing_time_ms: float
-
-@app.on_event("startup")
-async def startup_event():
-    global model
-    try:
-        # 加载模型
-        model_path = "/app/model"
-        if os.path.exists(model_path):
-            model = torch.load(model_path, map_location="cpu")
-            logger.info("模型加载成功")
-        else:
-            logger.error("模型文件不存在")
-    except Exception as e:
-        logger.error(f"模型加载失败: {{e}}")
 
 @app.get("{config.health_check_path}")
 async def health_check():
@@ -567,7 +564,7 @@ class EdgeDeploymentManager:
     """边缘设备部署管理器"""
     
     def __init__(self):
-        pass
+        self.active_deployments: Dict[str, Dict[str, Any]] = {}
     
     async def deploy_model(
         self, 

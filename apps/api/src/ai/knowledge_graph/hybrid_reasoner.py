@@ -9,20 +9,17 @@ from typing import Dict, List, Any, Optional, Tuple, Set
 from dataclasses import dataclass, field
 from enum import Enum
 import asyncio
-import logging
 from datetime import datetime
 from src.core.utils.timezone_utils import utc_now, utc_factory
 import numpy as np
 import json
-
 from .rule_engine import RuleEngine, InferenceResult as RuleInferenceResult
 from .embedding_engine import EmbeddingEngine, SimilarityResult
 from .path_reasoning import PathReasoner, PathSearchResult, ReasoningPath
 from .uncertainty_reasoning import UncertaintyReasoner, UncertaintyQuantification
-from .reasoning_optimizer import ReasoningOptimizer, ReasoningPriority
 
-logger = logging.getLogger(__name__)
-
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 class ReasoningStrategy(Enum):
     """推理策略"""
@@ -35,14 +32,12 @@ class ReasoningStrategy(Enum):
     CASCADING = "cascading"                    # 级联推理
     VOTING = "voting"                         # 投票机制
 
-
 class ConfidenceWeights(Enum):
     """置信度权重策略"""
     EQUAL = "equal"                           # 等权重
     PERFORMANCE_BASED = "performance_based"    # 基于性能的权重
     DOMAIN_SPECIFIC = "domain_specific"       # 领域特定权重
     DYNAMIC = "dynamic"                       # 动态调整权重
-
 
 @dataclass
 class ReasoningRequest:
@@ -60,7 +55,6 @@ class ReasoningRequest:
     timeout: int = 30
     metadata: Dict[str, Any] = field(default_factory=dict)
 
-
 @dataclass
 class ReasoningEvidence:
     """推理证据"""
@@ -71,7 +65,6 @@ class ReasoningEvidence:
     confidence: float                        # 置信度
     support_count: int = 0                   # 支持计数
     metadata: Dict[str, Any] = field(default_factory=dict)
-
 
 @dataclass
 class HybridReasoningResult:
@@ -87,7 +80,6 @@ class HybridReasoningResult:
     explanation: str = ""
     metadata: Dict[str, Any] = field(default_factory=dict)
 
-
 @dataclass
 class StrategyPerformance:
     """策略性能统计"""
@@ -99,7 +91,6 @@ class StrategyPerformance:
     accuracy_score: float = 0.0
     last_updated: datetime = field(default_factory=utc_factory)
 
-
 class HybridReasoner:
     """混合推理引擎"""
     
@@ -107,14 +98,12 @@ class HybridReasoner:
                  rule_engine: RuleEngine,
                  embedding_engine: EmbeddingEngine,
                  path_reasoner: PathReasoner,
-                 uncertainty_reasoner: UncertaintyReasoner,
-                 optimizer: ReasoningOptimizer):
+                 uncertainty_reasoner: UncertaintyReasoner):
         """初始化混合推理引擎"""
         self.rule_engine = rule_engine
         self.embedding_engine = embedding_engine
         self.path_reasoner = path_reasoner
         self.uncertainty_reasoner = uncertainty_reasoner
-        self.optimizer = optimizer
         
         # 策略性能统计
         self.strategy_performance: Dict[ReasoningStrategy, StrategyPerformance] = {}
@@ -144,15 +133,9 @@ class HybridReasoner:
     
     async def reason(self, request: ReasoningRequest) -> HybridReasoningResult:
         """执行混合推理"""
-        start_time = asyncio.get_event_loop().time()
+        start_time = asyncio.get_running_loop().time()
         
         try:
-            # 优化推理请求
-            optimized_request = await self.optimizer.optimize_reasoning_request(
-                request.__dict__, 
-                ReasoningPriority.HIGH
-            )
-            
             # 选择推理策略
             if request.strategy == ReasoningStrategy.ADAPTIVE:
                 strategy = await self._select_adaptive_strategy(request)
@@ -163,7 +146,7 @@ class HybridReasoner:
             result = await self._execute_reasoning_strategy(strategy, request)
             
             # 记录性能
-            execution_time = asyncio.get_event_loop().time() - start_time
+            execution_time = asyncio.get_running_loop().time() - start_time
             await self._update_strategy_performance(strategy, result, execution_time)
             
             result.execution_time = execution_time
@@ -182,7 +165,7 @@ class HybridReasoner:
                 confidence=0.0,
                 evidences=[],
                 strategy_used=request.strategy,
-                execution_time=asyncio.get_event_loop().time() - start_time,
+                execution_time=asyncio.get_running_loop().time() - start_time,
                 method_contributions={},
                 explanation=f"推理失败: {str(e)}"
             )

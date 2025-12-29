@@ -1,16 +1,13 @@
 """代码文件解析器"""
 
-import logging
 import ast
 import re
 from pathlib import Path
 from typing import List, Dict, Any, Optional
 import chardet
-
 from .base_parser import BaseParser, ParsedDocument, ParsedElement
 
-logger = logging.getLogger(__name__)
-
+logger = get_logger(__name__)
 
 class CodeParser(BaseParser):
     """代码文件解析器
@@ -461,3 +458,4 @@ class CodeParser(BaseParser):
             stats["code_density"] = 0
         
         return stats
+from src.core.logging import get_logger

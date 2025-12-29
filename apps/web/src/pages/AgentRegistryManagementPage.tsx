@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
-import { Card, Table, Button, Space, Tag, Badge, Modal, Form, Input, Select, Drawer, Descriptions, Typography, Row, Col, Statistic, Progress, Alert, Divider, Timeline, Tooltip } from 'antd'
+import { Card, Table, Button, Space, Tag, Badge, Modal, Form, Input, Select, Drawer, Descriptions, Typography, Row, Col, Statistic, Progress, Alert, Divider, Timeline, Tooltip, message } from 'antd'
 import { 
+import { logger } from '../utils/logger'
   PlusOutlined, 
   EditOutlined, 
   DeleteOutlined, 
@@ -21,188 +22,18 @@ import {
   SettingOutlined,
   ApiOutlined
 } from '@ant-design/icons'
+import { agentRegistryService, type AgentInfo as AgentInfoType, type RegisterAgentRequest, type UpdateAgentRequest } from '../services/agentRegistryService'
 
 const { Title, Paragraph, Text } = Typography
 const { Option } = Select
 
 interface AgentRegistryManagementPageProps {}
 
-interface AgentInfo {
-  id: string
-  name: string
-  type: string
-  status: 'online' | 'offline' | 'error' | 'registering'
-  version: string
-  endpoint: string
-  capabilities: string[]
-  metadata: {
-    description: string
-    tags: string[]
-    owner: string
-    environment: string
-    region: string
-    created: string
-    lastSeen: string
-  }
-  metrics: {
-    uptime: number
-    responseTime: number
-    requestCount: number
-    errorRate: number
-    memoryUsage: number
-    cpuUsage: number
-  }
-  healthCheck: {
-    enabled: boolean
-    interval: number
-    timeout: number
-    retries: number
-    lastCheck: string
-    status: 'healthy' | 'unhealthy' | 'unknown'
-  }
-}
+type AgentInfo = AgentInfoType
 
 const AgentRegistryManagementPage: React.FC<AgentRegistryManagementPageProps> = () => {
-  const [agents, setAgents] = useState<AgentInfo[]>([
-    {
-      id: 'agent-001',
-      name: 'ml-processor-alpha',
-      type: 'ML_PROCESSOR',
-      status: 'online',
-      version: '2.1.3',
-      endpoint: 'http://192.168.1.101:8080',
-      capabilities: ['text_processing', 'sentiment_analysis', 'classification'],
-      metadata: {
-        description: '高性能机器学习文本处理智能体',
-        tags: ['ml', 'nlp', 'production'],
-        owner: 'ml-team',
-        environment: 'production',
-        region: 'us-east-1',
-        created: '2024-08-20T10:30:00Z',
-        lastSeen: '2024-08-26T14:25:00Z'
-      },
-      metrics: {
-        uptime: 99.8,
-        responseTime: 45,
-        requestCount: 15420,
-        errorRate: 0.2,
-        memoryUsage: 78,
-        cpuUsage: 45
-      },
-      healthCheck: {
-        enabled: true,
-        interval: 30,
-        timeout: 5,
-        retries: 3,
-        lastCheck: '2024-08-26T14:25:00Z',
-        status: 'healthy'
-      }
-    },
-    {
-      id: 'agent-002',
-      name: 'data-analyzer-beta',
-      type: 'DATA_ANALYZER',
-      status: 'online',
-      version: '1.8.7',
-      endpoint: 'http://192.168.1.102:8081',
-      capabilities: ['data_mining', 'statistical_analysis', 'visualization'],
-      metadata: {
-        description: '智能数据分析与可视化智能体',
-        tags: ['analytics', 'visualization', 'production'],
-        owner: 'data-team',
-        environment: 'production',
-        region: 'us-west-2',
-        created: '2024-08-18T09:15:00Z',
-        lastSeen: '2024-08-26T14:20:00Z'
-      },
-      metrics: {
-        uptime: 97.5,
-        responseTime: 125,
-        requestCount: 8960,
-        errorRate: 1.2,
-        memoryUsage: 65,
-        cpuUsage: 32
-      },
-      healthCheck: {
-        enabled: true,
-        interval: 30,
-        timeout: 10,
-        retries: 3,
-        lastCheck: '2024-08-26T14:20:00Z',
-        status: 'healthy'
-      }
-    },
-    {
-      id: 'agent-003',
-      name: 'recommendation-engine',
-      type: 'RECOMMENDER',
-      status: 'error',
-      version: '3.2.1',
-      endpoint: 'http://192.168.1.103:8082',
-      capabilities: ['collaborative_filtering', 'content_based', 'hybrid_recommendation'],
-      metadata: {
-        description: '个性化推荐引擎智能体',
-        tags: ['recommendation', 'ml', 'personalization'],
-        owner: 'rec-team',
-        environment: 'production',
-        region: 'eu-central-1',
-        created: '2024-08-22T11:45:00Z',
-        lastSeen: '2024-08-26T13:45:00Z'
-      },
-      metrics: {
-        uptime: 85.3,
-        responseTime: 89,
-        requestCount: 23450,
-        errorRate: 5.8,
-        memoryUsage: 85,
-        cpuUsage: 72
-      },
-      healthCheck: {
-        enabled: true,
-        interval: 30,
-        timeout: 5,
-        retries: 3,
-        lastCheck: '2024-08-26T13:45:00Z',
-        status: 'unhealthy'
-      }
-    },
-    {
-      id: 'agent-004',
-      name: 'chat-assistant-gamma',
-      type: 'CONVERSATIONAL',
-      status: 'registering',
-      version: '1.0.0',
-      endpoint: 'http://192.168.1.104:8083',
-      capabilities: ['natural_language_understanding', 'dialogue_management', 'response_generation'],
-      metadata: {
-        description: '智能对话助手',
-        tags: ['chat', 'nlp', 'staging'],
-        owner: 'ai-team',
-        environment: 'staging',
-        region: 'ap-southeast-1',
-        created: '2024-08-26T14:00:00Z',
-        lastSeen: '2024-08-26T14:15:00Z'
-      },
-      metrics: {
-        uptime: 0,
-        responseTime: 0,
-        requestCount: 0,
-        errorRate: 0,
-        memoryUsage: 0,
-        cpuUsage: 0
-      },
-      healthCheck: {
-        enabled: false,
-        interval: 30,
-        timeout: 5,
-        retries: 3,
-        lastCheck: '',
-        status: 'unknown'
-      }
-    }
-  ])
-
-  const [loading, setLoading] = useState(false)
+  const [agents, setAgents] = useState<AgentInfo[]>([])
+  const [loading, setLoading] = useState(true)
   const [selectedAgent, setSelectedAgent] = useState<AgentInfo | null>(null)
   const [drawerVisible, setDrawerVisible] = useState(false)
   const [modalVisible, setModalVisible] = useState(false)
@@ -211,6 +42,25 @@ const AgentRegistryManagementPage: React.FC<AgentRegistryManagementPageProps> = 
   const [searchText, setSearchText] = useState('')
 
   const [form] = Form.useForm()
+
+  // 加载智能体列表
+  const loadAgents = async () => {
+    try {
+      setLoading(true)
+      const data = await agentRegistryService.listAgents()
+      setAgents(data)
+    } catch (error) {
+      logger.error('加载智能体列表失败:', error)
+      message.error('加载智能体列表失败')
+      setAgents([])
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    loadAgents()
+  }, [])
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -241,6 +91,13 @@ const AgentRegistryManagementPage: React.FC<AgentRegistryManagementPageProps> = 
     }
   }
 
+  const formatTime = (value?: string) => {
+    if (!value) return '-'
+    const parsed = new Date(value)
+    if (Number.isNaN(parsed.getTime())) return '-'
+    return parsed.toLocaleString()
+  }
+
   const filteredAgents = agents.filter(agent => {
     const matchesStatus = filterStatus === 'all' || agent.status === filterStatus
     const matchesType = filterType === 'all' || agent.type === filterType
@@ -253,49 +110,30 @@ const AgentRegistryManagementPage: React.FC<AgentRegistryManagementPageProps> = 
   const handleRegisterAgent = async (values: any) => {
     try {
       setLoading(true)
-      // 模拟API调用
-      await new Promise(resolve => setTimeout(resolve, 1000))
-      
-      const newAgent: AgentInfo = {
-        id: `agent-${Date.now()}`,
+      const requestData: RegisterAgentRequest = {
         name: values.name,
         type: values.type,
-        status: 'registering',
-        version: values.version || '1.0.0',
         endpoint: values.endpoint,
+        version: values.version,
         capabilities: values.capabilities || [],
-        metadata: {
-          description: values.description || '',
-          tags: values.tags || [],
-          owner: values.owner || 'system',
-          environment: values.environment || 'production',
-          region: values.region || 'default',
-          created: new Date().toISOString(),
-          lastSeen: new Date().toISOString()
-        },
-        metrics: {
-          uptime: 0,
-          responseTime: 0,
-          requestCount: 0,
-          errorRate: 0,
-          memoryUsage: 0,
-          cpuUsage: 0
-        },
-        healthCheck: {
-          enabled: values.healthCheckEnabled || false,
-          interval: values.healthCheckInterval || 30,
-          timeout: values.healthCheckTimeout || 5,
-          retries: values.healthCheckRetries || 3,
-          lastCheck: '',
-          status: 'unknown'
-        }
+        description: values.description,
+        tags: values.tags,
+        owner: values.owner,
+        environment: values.environment,
+        region: values.region,
+        healthCheckInterval: values.healthCheckInterval,
+        healthCheckTimeout: values.healthCheckTimeout,
+        healthCheckRetries: values.healthCheckRetries
       }
       
+      const newAgent = await agentRegistryService.registerAgent(requestData)
       setAgents(prev => [newAgent, ...prev])
       setModalVisible(false)
       form.resetFields()
+      message.success('智能体注册成功')
     } catch (error) {
-      console.error('注册智能体失败:', error)
+      logger.error('注册智能体失败:', error)
+      message.error('注册智能体失败')
     } finally {
       setLoading(false)
     }
@@ -310,17 +148,21 @@ const AgentRegistryManagementPage: React.FC<AgentRegistryManagementPageProps> = 
     Modal.confirm({
       title: '确认删除',
       content: '确定要删除这个智能体吗？此操作不可撤销。',
-      onOk: () => {
-        setAgents(prev => prev.filter(agent => agent.id !== agentId))
+      onOk: async () => {
+        try {
+          await agentRegistryService.deleteAgent(agentId)
+          setAgents(prev => prev.filter(agent => agent.id !== agentId))
+          message.success('智能体删除成功')
+        } catch (error) {
+          logger.error('删除智能体失败:', error)
+          message.error('删除智能体失败')
+        }
       }
     })
   }
 
   const handleRefresh = async () => {
-    setLoading(true)
-    // 模拟数据刷新
-    await new Promise(resolve => setTimeout(resolve, 1000))
-    setLoading(false)
+    await loadAgents()
   }
 
   const columns = [
@@ -373,8 +215,8 @@ const AgentRegistryManagementPage: React.FC<AgentRegistryManagementPageProps> = 
       render: (_, agent: AgentInfo) => (
         <div style={{ minWidth: '120px' }}>
           <div>
-            <Text type="secondary" style={{ fontSize: '12px' }}>可用性:</Text>
-            <Text style={{ marginLeft: 4, fontSize: '12px' }}>{agent.metrics.uptime}%</Text>
+            <Text type="secondary" style={{ fontSize: '12px' }}>在线时长:</Text>
+            <Text style={{ marginLeft: 4, fontSize: '12px' }}>{agent.metrics.uptime}小时</Text>
           </div>
           <div>
             <Text type="secondary" style={{ fontSize: '12px' }}>响应时间:</Text>
@@ -384,13 +226,13 @@ const AgentRegistryManagementPage: React.FC<AgentRegistryManagementPageProps> = 
       )
     },
     {
-      title: '环境信息',
+      title: '分组信息',
       key: 'environment',
       render: (_, agent: AgentInfo) => (
         <div>
-          <Tag color="blue">{agent.metadata.environment}</Tag>
+          <Tag color="blue">{agent.metadata.environment || '-'}</Tag>
           <br />
-          <Text type="secondary" style={{ fontSize: '12px' }}>{agent.metadata.region}</Text>
+          <Text type="secondary" style={{ fontSize: '12px' }}>{agent.metadata.region || '-'}</Text>
         </div>
       )
     },
@@ -399,7 +241,7 @@ const AgentRegistryManagementPage: React.FC<AgentRegistryManagementPageProps> = 
       key: 'lastSeen',
       render: (_, agent: AgentInfo) => (
         <Text type="secondary" style={{ fontSize: '12px' }}>
-          {new Date(agent.metadata.lastSeen).toLocaleString()}
+          {formatTime(agent.metadata.lastSeen)}
         </Text>
       )
     },
@@ -412,7 +254,7 @@ const AgentRegistryManagementPage: React.FC<AgentRegistryManagementPageProps> = 
             <Button size="small" icon={<EyeOutlined />} onClick={() => handleViewAgent(agent)} />
           </Tooltip>
           <Tooltip title="编辑">
-            <Button size="small" icon={<EditOutlined />} />
+            <Button size="small" icon={<EditOutlined />} onClick={() => message.info('编辑功能开发中')} />
           </Tooltip>
           <Tooltip title="删除">
             <Button size="small" danger icon={<DeleteOutlined />} onClick={() => handleDeleteAgent(agent.id)} />
@@ -479,9 +321,9 @@ const AgentRegistryManagementPage: React.FC<AgentRegistryManagementPageProps> = 
           <Col xs={24} sm={6}>
             <Card>
               <Statistic
-                title="平均可用性"
+                title="平均在线时长"
                 value={agents.reduce((sum, a) => sum + a.metrics.uptime, 0) / agents.length || 0}
-                suffix="%"
+                suffix="小时"
                 precision={1}
                 prefix={<ThunderboltOutlined />}
                 valueStyle={{ color: '#faad14' }}
@@ -509,6 +351,7 @@ const AgentRegistryManagementPage: React.FC<AgentRegistryManagementPageProps> = 
             <Col>
               <Space>
                 <Input
+                  name="agentSearch"
                   placeholder="搜索智能体名称或能力"
                   prefix={<SearchOutlined />}
                   value={searchText}
@@ -615,7 +458,11 @@ const AgentRegistryManagementPage: React.FC<AgentRegistryManagementPageProps> = 
                 </Form.Item>
               </Col>
               <Col span={12}>
-                <Form.Item name="version" label="版本号">
+                <Form.Item
+                  name="version"
+                  label="版本号"
+                  rules={[{ required: true, message: '请输入版本号' }]}
+                >
                   <Input placeholder="1.0.0" />
                 </Form.Item>
               </Col>
@@ -627,7 +474,11 @@ const AgentRegistryManagementPage: React.FC<AgentRegistryManagementPageProps> = 
 
             <Row gutter={16}>
               <Col span={12}>
-                <Form.Item name="capabilities" label="核心能力">
+                <Form.Item
+                  name="capabilities"
+                  label="核心能力"
+                  rules={[{ required: true, message: '至少添加一个能力' }]}
+                >
                   <Select
                     mode="tags"
                     placeholder="添加智能体的核心能力标签"
@@ -645,6 +496,23 @@ const AgentRegistryManagementPage: React.FC<AgentRegistryManagementPageProps> = 
                 </Form.Item>
               </Col>
             </Row>
+
+            <Row gutter={16}>
+              <Col span={12}>
+                <Form.Item name="environment" label="分组">
+                  <Input placeholder="如: default" />
+                </Form.Item>
+              </Col>
+              <Col span={12}>
+                <Form.Item name="region" label="区域">
+                  <Input placeholder="如: us-east-1" />
+                </Form.Item>
+              </Col>
+            </Row>
+
+            <Form.Item name="owner" label="所有者">
+              <Input placeholder="团队或个人名称" />
+            </Form.Item>
 
             <Divider>健康检查配置</Divider>
 
@@ -690,10 +558,10 @@ const AgentRegistryManagementPage: React.FC<AgentRegistryManagementPageProps> = 
                 <Descriptions.Item label="类型">{selectedAgent.type}</Descriptions.Item>
                 <Descriptions.Item label="版本">{selectedAgent.version}</Descriptions.Item>
                 <Descriptions.Item label="端点">{selectedAgent.endpoint}</Descriptions.Item>
-                <Descriptions.Item label="环境">{selectedAgent.metadata.environment}</Descriptions.Item>
-                <Descriptions.Item label="区域">{selectedAgent.metadata.region}</Descriptions.Item>
+                <Descriptions.Item label="分组">{selectedAgent.metadata.environment || '-'}</Descriptions.Item>
+                <Descriptions.Item label="区域">{selectedAgent.metadata.region || '-'}</Descriptions.Item>
                 <Descriptions.Item label="创建时间" span={2}>
-                  {new Date(selectedAgent.metadata.created).toLocaleString()}
+                  {formatTime(selectedAgent.metadata.created)}
                 </Descriptions.Item>
               </Descriptions>
 
@@ -710,7 +578,7 @@ const AgentRegistryManagementPage: React.FC<AgentRegistryManagementPageProps> = 
               <Row gutter={[16, 16]} style={{ marginBottom: '24px' }}>
                 <Col span={12}>
                   <Card size="small">
-                    <Statistic title="可用性" value={selectedAgent.metrics.uptime} suffix="%" />
+                    <Statistic title="在线时长" value={selectedAgent.metrics.uptime} suffix="小时" />
                   </Card>
                 </Col>
                 <Col span={12}>

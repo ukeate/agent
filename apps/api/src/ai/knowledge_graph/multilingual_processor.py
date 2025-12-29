@@ -8,27 +8,24 @@
 """
 
 import re
-import logging
 import asyncio
 from typing import List, Dict, Optional, Any, Tuple
 from dataclasses import dataclass
 from enum import Enum
 import unicodedata
+from .data_models import Entity, Relation, EntityType, RelationType
+from .entity_recognizer import MultiModelEntityRecognizer
+from .relation_extractor import RelationExtractor
+
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 try:
     from langdetect import detect, detect_langs, LangDetectException
     LANGDETECT_AVAILABLE = True
 except ImportError:
     LANGDETECT_AVAILABLE = False
-    logging.warning("langdetect not available, language detection will use simple heuristics")
-
-from .data_models import Entity, Relation, EntityType, RelationType
-from .entity_recognizer import MultiModelEntityRecognizer
-from .relation_extractor import RelationExtractor
-
-
-logger = logging.getLogger(__name__)
-
+    logger.warning("langdetect not available, language detection will use simple heuristics")
 
 class Language(str, Enum):
     """支持的语言"""
@@ -45,14 +42,12 @@ class Language(str, Enum):
     ARABIC = "ar"
     AUTO = "auto"
 
-
 @dataclass
 class LanguageConfidence:
     """语言检测结果"""
     language: Language
     confidence: float
     script: Optional[str] = None
-
 
 @dataclass
 class MultilingualExtractionResult:
@@ -64,7 +59,6 @@ class MultilingualExtractionResult:
     relations: List[Relation]
     aligned_entities: Dict[str, List[Entity]]  # 跨语言对齐的实体
     processing_metadata: Dict[str, Any]
-
 
 class LanguageDetector:
     """语言检测器"""
@@ -195,7 +189,6 @@ class LanguageDetector:
         best_language = max(language_scores.items(), key=lambda x: x[1])
         return LanguageConfidence(best_language[0], min(best_language[1] * 2, 1.0))
 
-
 class TextNormalizer:
     """文本规范化器"""
     
@@ -243,7 +236,6 @@ class TextNormalizer:
                 normalized_text = re.sub(old_pattern, new_pattern, normalized_text)
         
         return normalized_text.strip()
-
 
 class CrossLingualEntityAligner:
     """跨语言实体对齐器"""
@@ -393,7 +385,6 @@ class CrossLingualEntityAligner:
         # 如果数字相同，认为是同一实体
         return numbers1 == numbers2 and len(numbers1) > 0
 
-
 class MultilingualProcessor:
     """多语言处理器主类"""
     
@@ -454,6 +445,13 @@ class MultilingualProcessor:
                 self.relation_extractors[language] = RelationExtractor(extractor_config)
         
         logger.info(f"Initialized processors for {len(languages)} languages")
+
+    async def detect_language(self, text: str) -> str:
+        """检测文本语言，返回语言代码"""
+        lang = self.language_detector.detect_language(text).language
+        if lang in {Language.CHINESE, Language.CHINESE_SIMPLIFIED, Language.CHINESE_TRADITIONAL}:
+            return "zh"
+        return lang.value
     
     def _get_language_recognizer_config(self, language: Language) -> Dict[str, Any]:
         """获取语言特定的实体识别器配置"""
@@ -515,7 +513,7 @@ class MultilingualProcessor:
                 processing_metadata={}
             )
         
-        start_time = asyncio.get_event_loop().time()
+        start_time = asyncio.get_running_loop().time()
         
         # 语言检测
         if target_language and target_language != Language.AUTO:
@@ -569,7 +567,7 @@ class MultilingualProcessor:
             entities_by_language = {detected_language: entities}
             aligned_entities = self.entity_aligner.align_entities(entities_by_language)
         
-        processing_time = asyncio.get_event_loop().time() - start_time
+        processing_time = asyncio.get_running_loop().time() - start_time
         
         # 构建结果
         result = MultilingualExtractionResult(

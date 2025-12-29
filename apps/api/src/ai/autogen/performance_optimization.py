@@ -2,6 +2,7 @@
 高并发性能优化模块
 实现智能体系统的性能优化、资源管理和负载均衡
 """
+
 import asyncio
 import time
 import threading
@@ -14,9 +15,14 @@ from datetime import datetime
 from datetime import timedelta
 from src.core.utils.timezone_utils import utc_now, utc_factory
 from enum import Enum
-import structlog
 import weakref
 import gc
+from .events import Event, EventType, EventPriority
+from .async_manager import AsyncAgentManager
+from .distributed_events import DistributedEventCoordinator
+
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 try:
     import uvloop
@@ -37,20 +43,12 @@ except ImportError:
     import json
     JSON_FAST = False
 
-from .events import Event, EventType, EventPriority
-from .async_manager import AsyncAgentManager
-from .distributed_events import DistributedEventCoordinator
-
-logger = structlog.get_logger(__name__)
-
-
 class OptimizationLevel(str, Enum):
     """优化级别"""
     LOW = "low"
     MEDIUM = "medium"
     HIGH = "high"
     AGGRESSIVE = "aggressive"
-
 
 class ResourceType(str, Enum):
     """资源类型"""
@@ -59,7 +57,6 @@ class ResourceType(str, Enum):
     IO = "io"
     NETWORK = "network"
     DISK = "disk"
-
 
 @dataclass
 class PerformanceProfile:
@@ -88,7 +85,6 @@ class PerformanceProfile:
             "enable_profiling": self.enable_profiling,
             "enable_memory_profiling": self.enable_memory_profiling
         }
-
 
 @dataclass
 class ResourceMetrics:
@@ -121,7 +117,6 @@ class ResourceMetrics:
             "active_tasks": self.active_tasks,
             "queue_size": self.queue_size
         }
-
 
 class AsyncTaskPool:
     """异步任务池"""
@@ -339,7 +334,6 @@ class AsyncTaskPool:
             "recent_failed": len(self.failed_tasks)
         }
 
-
 class ConnectionPool:
     """连接池"""
     
@@ -437,7 +431,6 @@ class ConnectionPool:
             "max_connections": self.max_connections,
             "utilization": len(self.active_connections) / self.max_connections
         }
-
 
 class MemoryCache:
     """内存缓存"""
@@ -558,7 +551,6 @@ class MemoryCache:
             "utilization": len(self.cache) / self.max_size
         }
 
-
 class ResourceMonitor:
     """资源监控器"""
     
@@ -589,7 +581,7 @@ class ResourceMonitor:
             try:
                 await self.monitor_task
             except asyncio.CancelledError:
-                pass
+                raise
         logger.info("资源监控停止")
     
     async def _monitor_loop(self):
@@ -628,11 +620,6 @@ class ResourceMonitor:
             process_memory = process.memory_info()
             metrics.memory_rss = process_memory.rss
             metrics.memory_vms = process_memory.vms
-            
-            # IO信息
-            io_counters = process.io_counters()
-            metrics.io_read_bytes = io_counters.read_bytes
-            metrics.io_write_bytes = io_counters.write_bytes
             
             # 网络信息
             network = psutil.net_io_counters()
@@ -696,7 +683,6 @@ class ResourceMonitor:
                 "threads": recent_metrics[-1].active_threads
             }
         }
-
 
 class LoadBalancer:
     """负载均衡器"""
@@ -842,7 +828,6 @@ class LoadBalancer:
             "total_workers": len(self.workers),
             "total_requests": sum(self.request_counts.values())
         }
-
 
 class PerformanceOptimizer:
     """性能优化器"""
@@ -1043,13 +1028,7 @@ class PerformanceOptimizer:
         
         # 清理弱引用
         import weakref
-        try:
-            # 清理已失效的弱引用
-            for obj in list(weakref.getweakrefs(self)):
-                if obj() is None:
-                    weakref.ref(obj, None)
-        except:
-            pass
+        weakref.getweakrefs(self)
     
     async def _optimize_cache(self):
         """优化缓存"""

@@ -15,10 +15,9 @@ import xml.etree.ElementTree as ET
 from typing import Dict, List, Any, Optional, Union
 from enum import Enum
 from io import StringIO
-import logging
 
-logger = logging.getLogger(__name__)
-
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 class ResultFormat(str, Enum):
     """结果格式类型"""
@@ -31,7 +30,6 @@ class ResultFormat(str, Enum):
     RDF_XML = "rdf_xml"
     HTML = "html"
     PLAIN_TEXT = "plain_text"
-
 
 class SPARQLResultFormatter:
     """SPARQL结果格式转换器"""
@@ -514,10 +512,8 @@ class SPARQLResultFormatter:
         """获取支持的格式列表"""
         return [format_type.value for format_type in ResultFormat]
 
-
 # 创建默认格式化器实例
 default_formatter = SPARQLResultFormatter()
-
 
 def format_sparql_results(
     results: List[Dict[str, Any]], 

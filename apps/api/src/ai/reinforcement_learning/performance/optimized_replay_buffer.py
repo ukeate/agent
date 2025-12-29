@@ -4,19 +4,20 @@
 """
 
 import numpy as np
-import tensorflow as tf
+from src.core.tensorflow_config import tensorflow_lazy
 from typing import List, Tuple, Optional, Dict, Any, Union
 from collections import deque
 import threading
 import time
-import pickle
+from src.core.utils import secure_pickle as pickle
 import lz4.frame
 from dataclasses import dataclass
 from enum import Enum
 import concurrent.futures
-
 from ..qlearning.base import Experience
 
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 class BufferStrategy(Enum):
     """缓冲区策略类型"""
@@ -25,13 +26,11 @@ class BufferStrategy(Enum):
     RECENCY_WEIGHTED = "recency_weighted"
     CURIOSITY_DRIVEN = "curiosity_driven"
 
-
 class CompressionType(Enum):
     """压缩类型"""
     NONE = "none"
     LZ4 = "lz4"
     GZIP = "gzip"
-
 
 @dataclass
 class BufferConfig:
@@ -48,7 +47,6 @@ class BufferConfig:
     priority_alpha: float = 0.6
     priority_beta: float = 0.4
     priority_beta_increment: float = 0.001
-
 
 class OptimizedReplayBuffer:
     """优化的经验回放缓冲区"""
@@ -75,7 +73,11 @@ class OptimizedReplayBuffer:
         self._preprocessed_cache = {}
         self._cache_lock = threading.Lock()
         
-        print(f"初始化优化的回放缓冲区: {config.strategy.value}, 容量: {config.capacity}")
+        logger.info(
+            "初始化优化的回放缓冲区",
+            strategy=config.strategy.value,
+            capacity=config.capacity,
+        )
     
     def push(self, experience: Experience, priority: Optional[float] = None) -> None:
         """添加经验到缓冲区"""
@@ -233,7 +235,7 @@ class OptimizedReplayBuffer:
         # 基于奖励大小设置初始优先级
         return abs(experience.reward) + self.config.min_priority
     
-    def create_tf_dataset(self) -> tf.data.Dataset:
+    def create_tf_dataset(self) -> tensorflow_lazy.tf.data.Dataset:
         """创建TensorFlow数据集"""
         if not self.config.use_tf_data:
             raise ValueError("TensorFlow数据集未启用")
@@ -262,14 +264,14 @@ class OptimizedReplayBuffer:
         exp = sample_exp[0] if isinstance(sample_exp, list) else sample_exp[0][0]
         state_shape = np.array(exp.state.features).shape
         
-        dataset = tf.data.Dataset.from_generator(
+        dataset = tensorflow_lazy.tf.data.Dataset.from_generator(
             generator,
             output_signature={
-                'states': tf.TensorSpec(shape=(self.config.batch_size, *state_shape), dtype=tf.float32),
-                'actions': tf.TensorSpec(shape=(self.config.batch_size,), dtype=tf.int32),
-                'rewards': tf.TensorSpec(shape=(self.config.batch_size,), dtype=tf.float32),
-                'next_states': tf.TensorSpec(shape=(self.config.batch_size, *state_shape), dtype=tf.float32),
-                'dones': tf.TensorSpec(shape=(self.config.batch_size,), dtype=tf.bool)
+                'states': tensorflow_lazy.tf.TensorSpec(shape=(self.config.batch_size, *state_shape), dtype=tensorflow_lazy.tf.float32),
+                'actions': tensorflow_lazy.tf.TensorSpec(shape=(self.config.batch_size,), dtype=tensorflow_lazy.tf.int32),
+                'rewards': tensorflow_lazy.tf.TensorSpec(shape=(self.config.batch_size,), dtype=tensorflow_lazy.tf.float32),
+                'next_states': tensorflow_lazy.tf.TensorSpec(shape=(self.config.batch_size, *state_shape), dtype=tensorflow_lazy.tf.float32),
+                'dones': tensorflow_lazy.tf.TensorSpec(shape=(self.config.batch_size,), dtype=tensorflow_lazy.tf.bool)
             }
         )
         
@@ -417,7 +419,6 @@ class OptimizedReplayBuffer:
             self._sampling_executor.shutdown(wait=True)
         if hasattr(self, '_preprocess_executor'):
             self._preprocess_executor.shutdown(wait=True)
-
 
 def create_optimized_buffer_config(
     capacity: int = 100000,

@@ -5,11 +5,10 @@
 """
 
 import json
-import pickle
+from src.core.utils import secure_pickle as pickle
 import numpy as np
 from typing import Dict, List, Optional, Any, Tuple
 from collections import defaultdict
-
 from .base import (
     QLearningAgent, 
     AgentState, 
@@ -18,7 +17,6 @@ from .base import (
     AlgorithmType,
     EpsilonGreedyStrategy
 )
-
 
 class ClassicQLearningAgent(QLearningAgent):
     """经典Q-Learning智能体实现"""
@@ -39,7 +37,7 @@ class ClassicQLearningAgent(QLearningAgent):
     
     def _initialize_q_table(self) -> None:
         """初始化Q表，所有Q值设为0"""
-        pass  # Q表使用defaultdict，会自动初始化为0
+        return None  # Q表使用defaultdict，会自动初始化为0
     
     def _state_to_key(self, state: AgentState) -> str:
         """将状态转换为Q表的键"""
@@ -54,6 +52,7 @@ class ClassicQLearningAgent(QLearningAgent):
     
     def get_action(self, state: AgentState, exploration: bool = True) -> str:
         """使用epsilon-greedy策略选择动作"""
+        state = self._normalize_state(state)
         state_key = self._state_to_key(state)
         self.state_visit_count[state_key] += 1
         
@@ -118,6 +117,7 @@ class ClassicQLearningAgent(QLearningAgent):
     
     def get_q_values(self, state: AgentState) -> Dict[str, float]:
         """获取状态的所有Q值"""
+        state = self._normalize_state(state)
         state_key = self._state_to_key(state)
         q_values = dict(self.q_table[state_key])
         

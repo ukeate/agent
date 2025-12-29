@@ -12,8 +12,10 @@
  * - 向量数据导入导出工具
  */
 
+import { buildApiUrl, apiFetch } from '../utils/apiBase'
 import React, { useState, useEffect } from 'react';
 import {
+import { logger } from '../utils/logger'
   Card,
   Tabs,
   Typography,
@@ -57,12 +59,16 @@ const { Title, Text, Paragraph } = Typography;
 const { TabPane } = Tabs;
 
 interface SystemStats {
-  total_vectors: number;
-  unique_entities: number;
-  active_indexes: number;
-  clusters_detected: number;
-  patterns_detected: number;
+  pgvector_version: string;
+  total_size_bytes: number;
+  quantization_enabled: boolean;
+  cache_status: string;
+  index_health: string;
   last_updated: string;
+  indexes_total: number;
+  hnsw_indexes: number;
+  ivfflat_indexes: number;
+  other_indexes: number;
 }
 
 const VectorAdvancedPage: React.FC = () => {
@@ -77,19 +83,32 @@ const VectorAdvancedPage: React.FC = () => {
   const fetchSystemStats = async () => {
     try {
       setLoading(true);
-      // Mock data - 在实际应用中应该调用对应的API
-      const stats: SystemStats = {
-        total_vectors: 1250000,
-        unique_entities: 8500,
-        active_indexes: 12,
-        clusters_detected: 45,
-        patterns_detected: 128,
-        last_updated: new Date().toISOString()
-      };
-      setSystemStats(stats);
+      const [statusRes, indexesRes] = await Promise.all([
+        apiFetch(buildApiUrl('/api/v1/pgvector/status'),
+        apiFetch(buildApiUrl('/api/v1/pgvector/indexes/list'),
+      ]);
+      const status = await statusRes.json();
+      const indexesPayload = await indexesRes.json();
+      const indexes = Array.isArray(indexesPayload?.indexes) ? indexesPayload.indexes : [];
+      const vectorIndexes = indexes.filter((i: any) => typeof i?.indexdef === 'string' && /using\\s+(hnsw|ivfflat)/i.test(i.indexdef));
+      const hnsw = vectorIndexes.filter((i: any) => /using\\s+hnsw/i.test(i.indexdef)).length;
+      const ivfflat = vectorIndexes.filter((i: any) => /using\\s+ivfflat/i.test(i.indexdef)).length;
+      const other = Math.max(0, vectorIndexes.length - hnsw - ivfflat);
+      setSystemStats({
+        pgvector_version: status.pgvector_version || 'unknown',
+        total_size_bytes: Number(status.total_size_bytes || 0),
+        quantization_enabled: Boolean(status.quantization_enabled),
+        cache_status: String(status.cache_status || ''),
+        index_health: String(status.index_health || ''),
+        last_updated: String(status.last_updated || new Date().toISOString()),
+        indexes_total: vectorIndexes.length,
+        hnsw_indexes: hnsw,
+        ivfflat_indexes: ivfflat,
+        other_indexes: other,
+      });
     } catch (error) {
       message.error('获取系统统计信息失败');
-      console.error('Failed to fetch system stats:', error);
+      logger.error('获取系统统计信息失败:', error);
     } finally {
       setLoading(false);
     }
@@ -110,34 +129,33 @@ const VectorAdvancedPage: React.FC = () => {
           <Row gutter={[24, 16]}>
             <Col span={6}>
               <Statistic
-                title="总向量数"
-                value={systemStats.total_vectors}
+                title="pgvector版本"
+                value={systemStats.pgvector_version}
                 valueStyle={{ color: '#3f8600' }}
                 prefix={<DatabaseOutlined />}
-                formatter={(value) => `${(Number(value) / 1000000).toFixed(1)}M`}
               />
             </Col>
             <Col span={6}>
               <Statistic
-                title="实体数量"
-                value={systemStats.unique_entities}
+                title="数据总大小"
+                value={systemStats.total_size_bytes}
                 valueStyle={{ color: '#1890ff' }}
                 prefix={<CloudOutlined />}
-                formatter={(value) => `${(Number(value) / 1000).toFixed(1)}K`}
+                formatter={(value) => `${(Number(value) / 1024 / 1024).toFixed(1)}MB`}
               />
             </Col>
             <Col span={6}>
               <Statistic
-                title="活跃索引"
-                value={systemStats.active_indexes}
+                title="向量索引"
+                value={systemStats.indexes_total}
                 valueStyle={{ color: '#722ed1' }}
                 prefix={<ThunderboltOutlined />}
               />
             </Col>
             <Col span={6}>
               <Statistic
-                title="已检测聚类"
-                value={systemStats.clusters_detected}
+                title="量化"
+                value={systemStats.quantization_enabled ? '启用' : '禁用'}
                 valueStyle={{ color: '#fa8c16' }}
                 prefix={<ClusterOutlined />}
               />
@@ -152,43 +170,51 @@ const VectorAdvancedPage: React.FC = () => {
                 <Space direction="vertical" style={{ width: '100%' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                     <span>HNSW索引</span>
-                    <Tag color="blue">5个</Tag>
+                    <Tag color="blue">{systemStats.hnsw_indexes}个</Tag>
                   </div>
-                  <Progress percent={42} size="small" strokeColor="#1890ff" />
+                  <Progress
+                    percent={systemStats.indexes_total ? Math.round((systemStats.hnsw_indexes / systemStats.indexes_total) * 100) : 0}
+                    size="small"
+                    strokeColor="#1890ff"
+                  />
                   
                   <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                     <span>IVF索引</span>
-                    <Tag color="green">4个</Tag>
+                    <Tag color="green">{systemStats.ivfflat_indexes}个</Tag>
                   </div>
-                  <Progress percent={33} size="small" strokeColor="#52c41a" />
+                  <Progress
+                    percent={systemStats.indexes_total ? Math.round((systemStats.ivfflat_indexes / systemStats.indexes_total) * 100) : 0}
+                    size="small"
+                    strokeColor="#52c41a"
+                  />
                   
                   <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <span>LSH索引</span>
-                    <Tag color="orange">3个</Tag>
+                    <span>其他索引</span>
+                    <Tag color="orange">{systemStats.other_indexes}个</Tag>
                   </div>
-                  <Progress percent={25} size="small" strokeColor="#fa8c16" />
+                  <Progress
+                    percent={systemStats.indexes_total ? Math.round((systemStats.other_indexes / systemStats.indexes_total) * 100) : 0}
+                    size="small"
+                    strokeColor="#fa8c16"
+                  />
                 </Space>
               </Card>
             </Col>
             
             <Col span={12}>
-              <Card size="small" title="功能使用统计">
+              <Card size="small" title="系统状态">
                 <Space direction="vertical" style={{ width: '100%' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <span>混合搜索</span>
-                    <Tag color="cyan">活跃</Tag>
+                    <span>缓存</span>
+                    <Tag color={systemStats.cache_status === 'healthy' ? 'green' : 'orange'}>{systemStats.cache_status || 'unknown'}</Tag>
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <span>多模态搜索</span>
-                    <Tag color="purple">活跃</Tag>
+                    <span>索引健康</span>
+                    <Tag color={systemStats.index_health === 'optimal' ? 'green' : 'orange'}>{systemStats.index_health || 'unknown'}</Tag>
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <span>时序分析</span>
-                    <Tag color="gold">活跃</Tag>
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <span>聚类分析</span>
-                    <Tag color="lime">活跃</Tag>
+                    <span>更新时间</span>
+                    <Tag>{new Date(systemStats.last_updated).toLocaleString()}</Tag>
                   </div>
                 </Space>
               </Card>

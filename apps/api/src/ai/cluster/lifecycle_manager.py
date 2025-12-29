@@ -6,18 +6,16 @@
 """
 
 import asyncio
-import logging
 import time
 import uuid
 import httpx
 from typing import Dict, List, Optional, Any, Callable
 from dataclasses import dataclass, asdict
 from enum import Enum
-
 from .topology import AgentInfo, AgentStatus, AgentHealthCheck
 from .state_manager import ClusterStateManager
 
-
+from src.core.logging import get_logger
 class AgentOperation(Enum):
     """智能体操作类型"""
     START = "start"
@@ -27,7 +25,6 @@ class AgentOperation(Enum):
     REGISTER = "register"
     UNREGISTER = "unregister"
     HEALTH_CHECK = "health_check"
-
 
 @dataclass
 class OperationResult:
@@ -40,7 +37,6 @@ class OperationResult:
     timestamp: float
     duration_ms: float
     operation_id: str
-
 
 @dataclass
 class BatchOperationResult:
@@ -66,7 +62,6 @@ class BatchOperationResult:
         """操作时长"""
         return self.completed_at - self.started_at
 
-
 class LifecycleManager:
     """智能体生命周期管理器
     
@@ -80,7 +75,7 @@ class LifecycleManager:
     
     def __init__(self, cluster_manager: ClusterStateManager):
         self.cluster_manager = cluster_manager
-        self.logger = logging.getLogger(__name__)
+        self.logger = get_logger(__name__)
         
         # 操作锁，防止并发操作冲突
         self.operation_locks: Dict[str, asyncio.Lock] = {}
@@ -489,6 +484,36 @@ class LifecycleManager:
         start_time = time.time()
         
         try:
+            if agent_info.agent_id == "api":
+                try:
+                    resp = await self.http_client.get(f"{agent_info.endpoint}/health", timeout=10.0)
+                    if resp.status_code == 200:
+                        await self.cluster_manager.update_agent_status(
+                            agent_info.agent_id, AgentStatus.RUNNING, "本地API健康"
+                        )
+                        return self._create_operation_result(
+                            True, AgentOperation.START, agent_info.agent_id,
+                            "本地API已运行",
+                            {"endpoint": agent_info.endpoint}, start_time, operation_id
+                        )
+                    await self.cluster_manager.update_agent_status(
+                        agent_info.agent_id, AgentStatus.FAILED, f"本地API健康检查失败: HTTP {resp.status_code}"
+                    )
+                    return self._create_operation_result(
+                        False, AgentOperation.START, agent_info.agent_id,
+                        f"本地API健康检查失败: HTTP {resp.status_code}",
+                        {"endpoint": agent_info.endpoint, "status_code": resp.status_code}, start_time, operation_id
+                    )
+                except Exception as e:
+                    await self.cluster_manager.update_agent_status(
+                        agent_info.agent_id, AgentStatus.FAILED, f"本地API健康检查异常: {str(e)}"
+                    )
+                    return self._create_operation_result(
+                        False, AgentOperation.START, agent_info.agent_id,
+                        f"本地API健康检查异常: {str(e)}",
+                        {"endpoint": agent_info.endpoint}, start_time, operation_id
+                    )
+
             # 检查当前状态
             if agent_info.status == AgentStatus.RUNNING:
                 return self._create_operation_result(
@@ -577,6 +602,13 @@ class LifecycleManager:
         start_time = time.time()
         
         try:
+            if agent_info.agent_id == "api":
+                return self._create_operation_result(
+                    False, AgentOperation.STOP, agent_info.agent_id,
+                    "本地API不支持停止",
+                    {"endpoint": agent_info.endpoint}, start_time, operation_id
+                )
+
             # 检查当前状态
             if agent_info.status in [AgentStatus.STOPPED, AgentStatus.STOPPING]:
                 return self._create_operation_result(
@@ -649,6 +681,36 @@ class LifecycleManager:
         start_time = time.time()
         
         try:
+            if agent_info.agent_id == "api":
+                try:
+                    resp = await self.http_client.get(f"{agent_info.endpoint}/health", timeout=10.0)
+                    if resp.status_code == 200:
+                        await self.cluster_manager.update_agent_status(
+                            agent_info.agent_id, AgentStatus.RUNNING, "本地API健康"
+                        )
+                        return self._create_operation_result(
+                            True, AgentOperation.RESTART, agent_info.agent_id,
+                            "本地API无需重启",
+                            {"endpoint": agent_info.endpoint}, start_time, operation_id
+                        )
+                    await self.cluster_manager.update_agent_status(
+                        agent_info.agent_id, AgentStatus.FAILED, f"本地API健康检查失败: HTTP {resp.status_code}"
+                    )
+                    return self._create_operation_result(
+                        False, AgentOperation.RESTART, agent_info.agent_id,
+                        f"本地API健康检查失败: HTTP {resp.status_code}",
+                        {"endpoint": agent_info.endpoint, "status_code": resp.status_code}, start_time, operation_id
+                    )
+                except Exception as e:
+                    await self.cluster_manager.update_agent_status(
+                        agent_info.agent_id, AgentStatus.FAILED, f"本地API健康检查异常: {str(e)}"
+                    )
+                    return self._create_operation_result(
+                        False, AgentOperation.RESTART, agent_info.agent_id,
+                        f"本地API健康检查异常: {str(e)}",
+                        {"endpoint": agent_info.endpoint}, start_time, operation_id
+                    )
+
             # 先停止智能体
             stop_result = await self._execute_stop_operation(agent_info, graceful=True)
             

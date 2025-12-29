@@ -3,7 +3,6 @@
 实现图谱完整性、一致性、准确性评估和质量分数计算
 """
 
-import logging
 from typing import Any, Dict, List, Optional, Tuple
 from datetime import datetime
 from datetime import timedelta
@@ -12,12 +11,11 @@ from dataclasses import dataclass, field
 from enum import Enum
 import asyncio
 import uuid
-
 from .graph_database import Neo4jGraphDatabase
 from .graph_operations import GraphOperations
 
-logger = logging.getLogger(__name__)
-
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 class QualityDimension(str, Enum):
     """质量维度"""
@@ -27,7 +25,6 @@ class QualityDimension(str, Enum):
     REDUNDANCY = "redundancy"
     FRESHNESS = "freshness"
     CONNECTIVITY = "connectivity"
-
 
 @dataclass
 class QualityMetrics:
@@ -53,7 +50,6 @@ class QualityMetrics:
             "timestamp": self.timestamp.isoformat()
         }
 
-
 @dataclass
 class QualityIssue:
     """质量问题"""
@@ -77,7 +73,6 @@ class QualityIssue:
             "confidence": self.confidence,
             "detected_at": self.detected_at.isoformat()
         }
-
 
 class QualityManager:
     """图谱质量管理器"""

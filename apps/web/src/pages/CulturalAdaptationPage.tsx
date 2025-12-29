@@ -1,5 +1,7 @@
+import { buildApiUrl, apiFetch } from '../utils/apiBase'
 import React, { useState, useEffect } from 'react';
 import { 
+import { logger } from '../utils/logger'
   Card, 
   Tabs, 
   Button, 
@@ -153,140 +155,22 @@ interface CulturalAdaptationPlan {
 
 // 真实API客户端
 const culturalApi = {
-  async analyzeCulturalGap(userCulture: string, targetCulture: string) {
-    try {
-      const response = await fetch('http://localhost:8000/api/v1/social-emotional/cultural-adaptation', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          emotion_data: { direct: 0.8, assertive: 0.9 },
-          cultural_context: { country: targetCulture, context: 'business_meeting' },
-          target_culture: targetCulture
-        })
-      });
-      
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      return await response.json();
-    } catch (error) {
-      console.error('文化差异分析失败:', error);
-      return { success: false, error: error.message };
-    }
+  async analyzeCulturalAdaptation(participants: any[], socialEnv: any) {
+    const response = await apiFetch(buildApiUrl('/api/v1/social-emotional-understanding/analyze/cultural-adaptation'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        session_id: `session_${Date.now()}`,
+        participants,
+        social_environment: socialEnv,
+        real_time: false
+      })
+    });
+    return await response.json();
   },
-  
   async getCulturalProfile(cultureId: string) {
-    try {
-      const response = await fetch('http://localhost:8000/api/v1/social-emotional/analytics');
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      
-      return {
-        success: true,
-        data: {
-          profile: {
-            culture_id: cultureId,
-            name: cultureId === 'japanese' ? '日本文化' : '美国文化',
-            dimensions: {
-              power_distance: cultureId === 'japanese' ? 54 : 40,
-              individualism: cultureId === 'japanese' ? 46 : 91,
-              masculinity: cultureId === 'japanese' ? 95 : 62
-            },
-            communication_style: cultureId === 'japanese' ? 'indirect' : 'direct',
-            business_etiquette: [
-              '重视层级结构',
-              '注重团体和谐',
-              '避免直接冲突'
-            ]
-          }
-        }
-      };
-    } catch (error) {
-      console.error('获取文化档案失败:', error);
-      return { success: false, error: error.message };
-    }
-  },
-  
-  async createAdaptationPlan(gapAnalysis: any) {
-    try {
-      const response = await fetch('http://localhost:8000/api/v1/social-emotional/cultural-adaptation', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          emotion_data: gapAnalysis.emotion_data || { adaptability: 0.8 },
-          cultural_context: gapAnalysis.cultural_context || {},
-          target_culture: gapAnalysis.target_culture
-        })
-      });
-      
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      const result = await response.json();
-      
-      return {
-        success: true,
-        data: {
-          plan: {
-            plan_id: `plan_${Date.now()}`,
-            target_culture: gapAnalysis.target_culture,
-            behavioral_adjustments: result.data?.adapted_response?.behavioral_adjustments || [],
-            communication_style: result.data?.adapted_response?.communication_style,
-            confidence_score: result.data?.confidence || 0.8,
-            estimated_timeline: '4-6 weeks'
-          }
-        }
-      };
-    } catch (error) {
-      console.error('创建适应计划失败:', error);
-      return { success: false, error: error.message };
-    }
-  },
-  
-  async trackAdaptationProgress(planId: string) {
-    try {
-      const response = await fetch('http://localhost:8000/api/v1/social-emotional/analytics');
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      
-      return {
-        success: true,
-        data: {
-          progress: {
-            plan_id: planId,
-            overall_progress: 0.65,
-            completed_milestones: 3,
-            total_milestones: 5,
-            current_phase: 'behavioral_adjustment',
-            next_milestone: '完善沟通风格适应'
-          }
-        }
-      };
-    } catch (error) {
-      console.error('追踪适应进度失败:', error);
-      return { success: false, error: error.message };
-    }
-  },
-  
-  async getCulturalMentors(culture: string) {
-    try {
-      const response = await fetch('http://localhost:8000/api/v1/social-emotional/health');
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      
-      return {
-        success: true,
-        data: {
-          mentors: [
-            {
-              mentor_id: 'mentor_1',
-              name: 'Tanaka San',
-              culture_expertise: culture,
-              experience_years: 8,
-              specialization: ['business_etiquette', 'communication_style'],
-              rating: 4.8,
-              availability: 'available'
-            }
-          ]
-        }
-      };
-    } catch (error) {
-      console.error('获取文化导师失败:', error);
-      return { success: false, error: error.message };
-    }
+    const response = await apiFetch(buildApiUrl(`/api/v1/social-emotional-understanding/status?culture_id=${cultureId}`));
+    return await response.json();
   }
 };
 
@@ -297,6 +181,7 @@ const CulturalAdaptationPage: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [selectedUserCulture, setSelectedUserCulture] = useState('chinese');
   const [selectedTargetCulture, setSelectedTargetCulture] = useState('american');
+  const [analysisResult, setAnalysisResult] = useState<any>(null);
 
   // 模态框状态
   const [showGapAnalysisModal, setShowGapAnalysisModal] = useState(false);
@@ -341,320 +226,116 @@ const CulturalAdaptationPage: React.FC = () => {
   const loadData = async () => {
     setLoading(true);
     try {
-      await Promise.all([
-        loadCulturalProfile(),
-        loadCulturalGap(),
-        loadAdaptationPlan()
-      ]);
+      await analyze();
     } catch (error) {
-      console.error('加载数据失败:', error);
+      logger.error('加载数据失败:', error);
+      message.error('加载失败');
     } finally {
       setLoading(false);
     }
   };
-
-  const loadCulturalProfile = async () => {
-    try {
-      const response = await culturalApi.getCulturalProfile(selectedTargetCulture);
-      
-      if (response.success && response.data) {
-        setCulturalProfile(response.data);
-      } else {
-        // 模拟文化档案数据
-        const mockProfile: CulturalProfile = {
-          profile_id: `profile_${selectedTargetCulture}`,
-          culture_id: selectedTargetCulture,
-          culture_name: cultures.find(c => c.id === selectedTargetCulture)?.name || selectedTargetCulture,
-          cultural_dimensions: {
-            power_distance: selectedTargetCulture === 'american' ? 0.4 : selectedTargetCulture === 'chinese' ? 0.8 : 0.6,
-            individualism_collectivism: selectedTargetCulture === 'american' ? 0.9 : selectedTargetCulture === 'chinese' ? 0.2 : 0.5,
-            uncertainty_avoidance: selectedTargetCulture === 'german' ? 0.7 : selectedTargetCulture === 'american' ? 0.5 : 0.6,
-            masculinity_femininity: 0.6,
-            long_term_orientation: selectedTargetCulture === 'chinese' ? 0.9 : selectedTargetCulture === 'american' ? 0.3 : 0.6,
-            indulgence_restraint: selectedTargetCulture === 'american' ? 0.7 : 0.4
-          },
-          communication_patterns: {
-            directness_level: selectedTargetCulture === 'german' ? 0.9 : selectedTargetCulture === 'american' ? 0.8 : 0.4,
-            context_dependency: selectedTargetCulture === 'chinese' ? 0.8 : selectedTargetCulture === 'japanese' ? 0.9 : 0.3,
-            silence_tolerance: selectedTargetCulture === 'japanese' ? 0.8 : 0.4,
-            emotion_expression: selectedTargetCulture === 'american' ? 0.7 : 0.4,
-            conflict_approach: selectedTargetCulture === 'american' ? 'direct' : 'indirect'
-          },
-          social_norms: [
-            {
-              norm_type: 'greeting_customs',
-              importance_level: 0.8,
-              description: '问候礼仪和社交距离',
-              violation_consequences: '可能被视为不礼貌或冒犯'
-            },
-            {
-              norm_type: 'business_hierarchy',
-              importance_level: 0.7,
-              description: '商务场合的等级观念',
-              violation_consequences: '影响职业关系建立'
-            }
-          ],
-          behavioral_expectations: {
-            'punctuality': 0.9,
-            'eye_contact': 0.8,
-            'personal_space': 0.7,
-            'gift_giving': 0.6
-          },
-          taboo_behaviors: [
-            '谈论敏感政治话题',
-            '过度询问个人收入',
-            '忽视个人空间边界'
-          ],
-          preferred_interaction_styles: [
-            'open_communication',
-            'direct_feedback',
-            'collaborative_approach'
-          ],
-          time_orientation: 'monochronic',
-          space_boundaries: {
-            'intimate_distance': 0.45,
-            'personal_distance': 1.2,
-            'social_distance': 3.6,
-            'public_distance': 7.6
-          },
-          gift_giving_customs: [
-            {
-              occasion: 'business_meeting',
-              appropriate_gifts: ['小型纪念品', '文化特色物品', '书籍'],
-              inappropriate_gifts: ['昂贵物品', '个人用品', '宗教物品']
-            }
-          ],
-          business_etiquette: {
-            'meeting_style': 'structured_agenda',
-            'decision_making': 'consensus_building',
-            'networking': 'professional_events'
-          },
-          created_timestamp: new Date().toISOString()
-        };
-        setCulturalProfile(mockProfile);
+  const analyze = async () => {
+    const participants = [
+      {
+        participant_id: 'user_1',
+        name: 'User',
+        emotion_data: {
+          emotions: { joy: 0.4, neutral: 0.6 },
+          intensity: 0.5,
+          confidence: 0.9,
+          context: 'conversation'
+        },
+        cultural_indicators: { culture_id: selectedTargetCulture }
       }
-    } catch (error) {
-      console.error('获取文化档案失败:', error);
-    }
-  };
+    ];
 
-  const loadCulturalGap = async () => {
-    try {
-      const response = await culturalApi.analyzeCulturalGap(selectedUserCulture, selectedTargetCulture);
-      
-      if (response.success && response.data) {
-        setCulturalGap(response.data);
-      } else {
-        // 模拟文化差异数据
-        const mockGap: CulturalGap = {
-          gap_id: `gap_${selectedUserCulture}_${selectedTargetCulture}`,
-          user_culture: selectedUserCulture,
-          target_culture: selectedTargetCulture,
-          dimension_differences: {
-            'power_distance': Math.abs(Math.random() - 0.5),
-            'individualism_collectivism': Math.abs(Math.random() - 0.5),
-            'uncertainty_avoidance': Math.abs(Math.random() - 0.5),
-            'directness_level': Math.abs(Math.random() - 0.5)
-          },
-          communication_barriers: [
-            {
-              barrier_type: 'language_nuances',
-              severity: 0.7,
-              description: '语言细微差别和习惯用法',
-              potential_solutions: ['语言培训', '文化沟通课程', '本地导师指导']
-            },
-            {
-              barrier_type: 'non_verbal_communication',
-              severity: 0.6,
-              description: '肢体语言和面部表情差异',
-              potential_solutions: ['观察学习', '实践练习', '反馈纠正']
-            }
-          ],
-          behavioral_conflicts: [
-            {
-              conflict_type: 'hierarchy_expectations',
-              risk_level: 0.8,
-              description: '对等级制度的不同理解和期望',
-              mitigation_strategies: ['了解组织结构', '观察互动模式', '寻求指导']
-            }
-          ],
-          adaptation_priorities: [
-            {
-              priority_area: 'communication_style',
-              importance: 0.9,
-              urgency: 0.8,
-              complexity: 0.7
-            },
-            {
-              priority_area: 'business_etiquette',
-              importance: 0.8,
-              urgency: 0.7,
-              complexity: 0.6
-            }
-          ],
-          success_probability: 0.75,
-          estimated_adaptation_time: 12, // weeks
-          analysis_timestamp: new Date().toISOString()
-        };
-        setCulturalGap(mockGap);
-      }
-    } catch (error) {
-      console.error('获取文化差异失败:', error);
-    }
-  };
+    const socialEnv = {
+      scenario: 'business_meeting',
+      participants_count: participants.length,
+      formality_level: 0.6,
+      emotional_intensity: 0.4,
+      time_pressure: 0.3,
+      cultural_context: selectedTargetCulture
+    };
 
-  const loadAdaptationPlan = async () => {
-    if (!culturalGap) return;
-    
-    try {
-      const response = await culturalApi.createAdaptationPlan(culturalGap);
-      
-      if (response.success && response.data) {
-        setAdaptationPlan(response.data);
-      } else {
-        // 模拟适应计划数据
-        const mockPlan: CulturalAdaptationPlan = {
-          plan_id: `plan_${Date.now()}`,
-          user_id: 'user1',
-          target_culture: selectedTargetCulture,
-          adaptation_phases: [
-            {
-              phase_number: 1,
-              phase_name: '文化认知阶段',
-              duration_weeks: 4,
-              learning_objectives: [
-                '了解基本文化维度差异',
-                '识别关键社交规范',
-                '掌握基本沟通模式'
-              ],
-              key_activities: [
-                '文化知识学习',
-                '案例研究分析',
-                '基础语言训练'
-              ],
-              success_criteria: [
-                '通过文化知识测试',
-                '能识别主要文化差异',
-                '掌握基本礼仪规范'
-              ],
-              resources_needed: [
-                '文化学习材料',
-                '在线课程',
-                '文化导师'
-              ]
-            },
-            {
-              phase_number: 2,
-              phase_name: '实践适应阶段',
-              duration_weeks: 6,
-              learning_objectives: [
-                '在实际场景中应用文化知识',
-                '调整个人沟通风格',
-                '建立跨文化关系'
-              ],
-              key_activities: [
-                '模拟文化场景练习',
-                '真实环境实践',
-                '导师指导反馈'
-              ],
-              success_criteria: [
-                '成功处理文化冲突',
-                '建立有效沟通',
-                '获得正面反馈'
-              ],
-              resources_needed: [
-                '实践机会',
-                '反馈系统',
-                '文化伙伴'
-              ]
-            },
-            {
-              phase_number: 3,
-              phase_name: '深度融合阶段',
-              duration_weeks: 2,
-              learning_objectives: [
-                '自然展现跨文化能力',
-                '成为文化桥梁',
-                '持续优化适应策略'
-              ],
-              key_activities: [
-                '独立文化交流',
-                '指导他人适应',
-                '策略反思改进'
-              ],
-              success_criteria: [
-                '获得文化认同',
-                '能够指导他人',
-                '建立长期关系'
-              ],
-              resources_needed: [
-                '持续支持',
-                '反思工具',
-                '社交网络'
-              ]
-            }
-          ],
-          cultural_mentors: [
-            {
-              mentor_id: 'mentor_1',
-              expertise_areas: ['business_culture', 'communication_style'],
-              availability: '周一-周五 9:00-17:00',
-              rating: 4.8
-            },
-            {
-              mentor_id: 'mentor_2', 
-              expertise_areas: ['social_norms', 'daily_interaction'],
-              availability: '灵活时间',
-              rating: 4.6
-            }
-          ],
-          progress_tracking: {
-            current_phase: 1,
-            completion_percentage: 25,
-            skills_acquired: [
-              '基本文化维度理解',
-              '礼貌用语掌握'
-            ],
-            remaining_challenges: [
-              '非语言沟通适应',
-              '商务场合礼仪',
-              '社交距离把握'
-            ]
-          },
-          adaptation_strategies: {
-            'communication': 'gradual_adjustment',
-            'behavior': 'observation_imitation',
-            'mindset': 'open_learning'
-          },
-          created_timestamp: new Date().toISOString(),
-          last_updated: new Date().toISOString()
-        };
-        setAdaptationPlan(mockPlan);
-      }
-    } catch (error) {
-      console.error('获取适应计划失败:', error);
-    }
+    const response = await culturalApi.analyzeCulturalAdaptation(participants, socialEnv);
+    setAnalysisResult(response);
+
+    // 映射为现有视图所需结构
+    const primaryCulture = response.cultural_analysis?.primary_culture || selectedTargetCulture;
+    setCulturalProfile({
+      profile_id: `profile_${primaryCulture}`,
+      culture_id: primaryCulture,
+      culture_name: cultures.find(c => c.id === primaryCulture)?.name || primaryCulture,
+      cultural_dimensions: {
+        power_distance: 0.5,
+        individualism_collectivism: 0.5,
+        uncertainty_avoidance: 0.5,
+        masculinity_femininity: 0.5,
+        long_term_orientation: 0.5,
+        indulgence_restraint: 0.5
+      },
+      communication_patterns: {
+        directness_level: 0.5,
+        context_dependency: 0.5,
+        silence_tolerance: 0.5,
+        emotion_expression: 0.5,
+        conflict_approach: 'balanced'
+      },
+      social_norms: [],
+      behavioral_expectations: {},
+      taboo_behaviors: [],
+      preferred_interaction_styles: [],
+      time_orientation: 'balanced',
+      space_boundaries: {},
+      gift_giving_customs: [],
+      business_etiquette: {},
+      created_timestamp: new Date().toISOString()
+    });
+
+    setCulturalGap({
+      gap_id: `gap_${selectedUserCulture}_${selectedTargetCulture}`,
+      user_culture: selectedUserCulture,
+      target_culture: selectedTargetCulture,
+      dimension_differences: {},
+      communication_barriers: [],
+      behavioral_conflicts: [],
+      adaptation_priorities: [],
+      success_probability: response.cultural_analysis?.analysis_confidence || 0.5,
+      estimated_adaptation_time: 8,
+      analysis_timestamp: new Date().toISOString()
+    });
+
+    setAdaptationPlan({
+      plan_id: `plan_${Date.now()}`,
+      user_id: 'user_1',
+      target_culture: primaryCulture,
+      adaptation_phases: [],
+      cultural_mentors: [],
+      progress_tracking: {
+        current_phase: 0,
+        completion_percentage: 0,
+        skills_acquired: [],
+        remaining_challenges: []
+      },
+      adaptation_strategies: {
+        recommendations: response.cross_cultural_recommendations || []
+      },
+      created_timestamp: new Date().toISOString(),
+      last_updated: new Date().toISOString()
+    });
   };
 
   const performGapAnalysis = async (values: any) => {
     setLoading(true);
     try {
-      const response = await culturalApi.analyzeCulturalGap(values.user_culture, values.target_culture);
-      
-      if (response.success && response.data) {
-        setCulturalGap(response.data);
-        message.success('文化差异分析完成');
-        setShowGapAnalysisModal(false);
-        await loadAdaptationPlan();
-      } else {
-        // 更新选择的文化并重新加载数据
-        setSelectedUserCulture(values.user_culture);
-        setSelectedTargetCulture(values.target_culture);
-        message.success('文化差异分析完成（使用模拟数据）');
-        setShowGapAnalysisModal(false);
-      }
+      setSelectedUserCulture(values.user_culture);
+      setSelectedTargetCulture(values.target_culture);
+      await analyze();
+      message.success('文化差异分析完成');
+      setShowGapAnalysisModal(false);
     } catch (error) {
-      console.error('分析失败:', error);
+      logger.error('分析失败:', error);
       message.error('分析失败，请重试');
     } finally {
       setLoading(false);

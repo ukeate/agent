@@ -2,14 +2,13 @@
 
 import os
 import json
-import logging
 from datetime import datetime
 from typing import Dict, List, Any, Optional
 from pathlib import Path
-
 from fastapi.openapi.utils import get_openapi
 from fastapi import FastAPI
-
+from src.core.utils.timezone_utils import utc_now
+from src.core.logging import get_logger
 
 class DocumentationGenerator:
     """文档生成器"""
@@ -17,7 +16,7 @@ class DocumentationGenerator:
     def __init__(self, config: Dict[str, Any], app: Optional[FastAPI] = None):
         self.config = config
         self.app = app
-        self.logger = logging.getLogger(__name__)
+        self.logger = get_logger(__name__)
         
         self.docs_output_dir = Path(config.get('docs_output_dir', './docs/generated'))
         self.template_dir = Path(config.get('template_dir', './templates'))
@@ -58,7 +57,7 @@ class DocumentationGenerator:
             "status": "completed",
             "generated_documents": generated_docs,
             "output_directory": str(self.docs_output_dir),
-            "timestamp": datetime.now().isoformat()
+            "timestamp": utc_now().isoformat()
         }
     
     async def _generate_user_guide(self) -> Dict[str, Any]:
@@ -171,7 +170,6 @@ A: 使用Prometheus指标端点或监控报告API获取详细性能数据。
 ### Q: 支持并发工作流吗？
 A: 支持，平台可以同时执行多个工作流，但受到组件资源限制。
 """
-        
         file_path = self.docs_output_dir / "user_guide.md"
         
         with open(file_path, 'w', encoding='utf-8') as f:
@@ -911,7 +909,7 @@ Kubernetes高可用配置
         return {
             "status": "completed",
             "materials": materials,
-            "timestamp": datetime.now().isoformat()
+            "timestamp": utc_now().isoformat()
         }
     
     async def _generate_quick_start_tutorial(self) -> Dict[str, Any]:

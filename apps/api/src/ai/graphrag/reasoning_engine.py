@@ -8,7 +8,6 @@ GraphRAG推理引擎
 - 推理缓存和优化策略
 """
 
-import logging
 import asyncio
 import uuid
 from typing import List, Dict, Any, Optional, Tuple, Set
@@ -16,7 +15,6 @@ from datetime import datetime
 from src.core.utils.timezone_utils import utc_now, utc_factory
 import heapq
 from collections import defaultdict, deque
-
 from .data_models import (
     ReasoningPath,
     QueryDecomposition,
@@ -25,10 +23,10 @@ from .data_models import (
     GraphRAGConfig
 )
 from ..knowledge_graph.graph_operations import GraphOperations
-from ...openai_client import get_openai_client
+from ..openai_client import get_openai_client
 
-logger = logging.getLogger(__name__)
-
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 class ReasoningEngine:
     """推理引擎"""
@@ -44,14 +42,6 @@ class ReasoningEngine:
             'entity_confidence': 0.25, # 实体置信度权重
             'relation_confidence': 0.25, # 关系置信度权重
             'semantic_coherence': 0.2   # 语义连贯性权重
-        }
-        
-        # 推理策略
-        self.reasoning_strategies = {
-            'breadth_first': self._breadth_first_reasoning,
-            'depth_first': self._depth_first_reasoning,
-            'best_first': self._best_first_reasoning,
-            'bidirectional': self._bidirectional_reasoning
         }
 
     async def generate_reasoning_paths(

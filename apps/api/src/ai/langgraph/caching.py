@@ -5,20 +5,17 @@ LangGraph Node级缓存实现
 
 import hashlib
 import json
-import pickle
-import logging
 import time
+import sys
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import Any, Optional, Dict, Union
-from datetime import datetime
 from datetime import timedelta
-from src.core.utils.timezone_utils import utc_now, utc_factory
-
+from src.core.utils.timezone_utils import format_iso_string, utc_now
 from .context import AgentContext
 
-logger = logging.getLogger(__name__)
-
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 @dataclass
 class CacheConfig:
@@ -27,17 +24,16 @@ class CacheConfig:
     backend: str = "redis"  # redis, memory, hybrid
     ttl_default: int = 3600  # 1小时
     max_entries: int = 10000
+    max_size_mb: int = 0
     key_prefix: str = "langgraph:cache"
     redis_url: str = "redis://localhost:6379/1"
     compression: bool = True
     monitoring: bool = True
+    warming_enabled: bool = True
     # LRU配置
     lru_enabled: bool = True
     # 失效策略
     cleanup_interval: int = 300  # 5分钟清理一次
-    # 序列化配置
-    serialize_method: str = "pickle"  # json, pickle
-
 
 @dataclass
 class CacheStats:
@@ -46,7 +42,7 @@ class CacheStats:
     miss_count: int = 0
     set_count: int = 0
     error_count: int = 0
-    start_time: float = field(default_factory=time.time)
+    start_time: float = field(default_factory=time.perf_counter)
     # 延迟统计
     get_latency_total: float = 0.0
     set_latency_total: float = 0.0
@@ -85,9 +81,8 @@ class CacheStats:
             "miss_rate": self.miss_rate,
             "avg_get_latency_ms": self.avg_get_latency_ms,
             "avg_set_latency_ms": self.avg_set_latency_ms,
-            "uptime_seconds": time.time() - self.start_time
+            "uptime_seconds": time.perf_counter() - self.start_time
         }
-
 
 class NodeCache(ABC):
     """Node缓存抽象基类"""
@@ -99,27 +94,27 @@ class NodeCache(ABC):
     @abstractmethod
     async def get(self, key: str) -> Optional[Any]:
         """从缓存获取值"""
-        pass
+        raise NotImplementedError
     
     @abstractmethod
     async def set(self, key: str, value: Any, ttl: Optional[int] = None) -> bool:
         """设置缓存值"""
-        pass
+        raise NotImplementedError
     
     @abstractmethod
     async def delete(self, key: str) -> bool:
         """删除缓存值"""
-        pass
+        raise NotImplementedError
     
     @abstractmethod
     async def exists(self, key: str) -> bool:
         """检查缓存是否存在"""
-        pass
+        raise NotImplementedError
     
     @abstractmethod
     async def clear(self, pattern: str = "*") -> int:
         """清理缓存"""
-        pass
+        raise NotImplementedError
     
     def generate_cache_key(
         self, 
@@ -173,33 +168,15 @@ class NodeCache(ABC):
     
     def _serialize_value(self, value: Any) -> bytes:
         """序列化值"""
-        try:
-            if self.config.serialize_method == "json":
-                return json.dumps(value, ensure_ascii=False).encode()
-            elif self.config.serialize_method == "pickle":
-                return pickle.dumps(value)
-            else:
-                return str(value).encode()
-        except Exception as e:
-            logger.error(f"序列化失败: {e}")
-            return pickle.dumps(value)  # 降级到pickle
+        return json.dumps(
+            value,
+            ensure_ascii=False,
+            default=format_iso_string,
+        ).encode()
     
     def _deserialize_value(self, data: bytes) -> Any:
         """反序列化值"""
-        try:
-            if self.config.serialize_method == "json":
-                return json.loads(data.decode())
-            elif self.config.serialize_method == "pickle":
-                return pickle.loads(data)
-            else:
-                return data.decode()
-        except Exception as e:
-            logger.error(f"反序列化失败: {e}")
-            try:
-                return pickle.loads(data)  # 降级到pickle
-            except:
-                return None
-
+        return json.loads(data.decode())
 
 class RedisNodeCache(NodeCache):
     """Redis实现的Node缓存"""
@@ -246,13 +223,13 @@ class RedisNodeCache(NodeCache):
         if not self.config.enabled:
             return None
         
-        start_time = time.time()
+        start_time = time.perf_counter()
         try:
             redis = await self._get_redis()
             data = await redis.get(key)
             
             # 记录延迟
-            latency = time.time() - start_time
+            latency = time.perf_counter() - start_time
             self.stats.get_latency_total += latency
             self.stats.get_operations += 1
             
@@ -281,7 +258,7 @@ class RedisNodeCache(NodeCache):
         if not self.config.enabled:
             return False
         
-        start_time = time.time()
+        start_time = time.perf_counter()
         try:
             redis = await self._get_redis()
             
@@ -295,7 +272,7 @@ class RedisNodeCache(NodeCache):
             result = await redis.set(key, serialized_data, ex=expire_time)
             
             # 记录延迟
-            latency = time.time() - start_time
+            latency = time.perf_counter() - start_time
             self.stats.set_latency_total += latency
             self.stats.set_operations += 1
             
@@ -429,10 +406,9 @@ class RedisNodeCache(NodeCache):
     async def close(self):
         """关闭Redis连接"""
         if self._redis_pool:
-            await self._redis_pool.close()
+            await self._redis_pool.aclose()
             self._redis_pool = None
             logger.info("Redis缓存连接已关闭")
-
 
 class MemoryNodeCache(NodeCache):
     """内存实现的Node缓存（用于降级或测试）"""
@@ -441,6 +417,19 @@ class MemoryNodeCache(NodeCache):
         super().__init__(config)
         self._cache: Dict[str, tuple[Any, float]] = {}  # key -> (value, expire_time)
         self._access_order: Dict[str, float] = {}  # LRU跟踪
+        self._entry_sizes: Dict[str, int] = {}
+        self._size_bytes: int = 0
+
+    def _estimate_entry_size(self, key: str, value: Any) -> int:
+        try:
+            serialized = self._serialize_value(value)
+            if isinstance(serialized, (bytes, bytearray)):
+                value_size = len(serialized)
+            else:
+                value_size = sys.getsizeof(serialized)
+        except Exception:
+            value_size = sys.getsizeof(value)
+        return value_size + len(key.encode("utf-8"))
     
     def _cleanup_expired(self):
         """清理过期缓存"""
@@ -454,20 +443,23 @@ class MemoryNodeCache(NodeCache):
         for key in expired_keys:
             self._cache.pop(key, None)
             self._access_order.pop(key, None)
+            self._size_bytes -= self._entry_sizes.pop(key, 0)
     
     def _enforce_max_entries(self):
         """强制执行最大条目限制（LRU淘汰）"""
-        if len(self._cache) <= self.config.max_entries:
+        max_entries = max(1, self.config.max_entries)
+        max_size_bytes = self.config.max_size_mb * 1024 * 1024 if self.config.max_size_mb > 0 else 0
+        if len(self._cache) <= max_entries and (not max_size_bytes or self._size_bytes <= max_size_bytes):
             return
         
         # 按访问时间排序，移除最久未使用的条目
         sorted_keys = sorted(self._access_order.items(), key=lambda x: x[1])
-        keys_to_remove = len(self._cache) - self.config.max_entries
-        
-        for i in range(keys_to_remove):
-            key = sorted_keys[i][0]
+        for key, _ in sorted_keys:
+            if len(self._cache) <= max_entries and (not max_size_bytes or self._size_bytes <= max_size_bytes):
+                break
             self._cache.pop(key, None)
             self._access_order.pop(key, None)
+            self._size_bytes -= self._entry_sizes.pop(key, 0)
     
     async def get(self, key: str) -> Optional[Any]:
         """从内存获取缓存值"""
@@ -508,7 +500,12 @@ class MemoryNodeCache(NodeCache):
                 expire_time = current_time + ttl
             elif self.config.ttl_default > 0:
                 expire_time = current_time + self.config.ttl_default
-            
+
+            if key in self._entry_sizes:
+                self._size_bytes -= self._entry_sizes.get(key, 0)
+            entry_size = self._estimate_entry_size(key, value)
+            self._entry_sizes[key] = entry_size
+            self._size_bytes += entry_size
             self._cache[key] = (value, expire_time)
             self._access_order[key] = current_time
             
@@ -529,6 +526,7 @@ class MemoryNodeCache(NodeCache):
         if key in self._cache:
             self._cache.pop(key)
             self._access_order.pop(key, None)
+            self._size_bytes -= self._entry_sizes.pop(key, 0)
             return True
         return False
     
@@ -542,6 +540,8 @@ class MemoryNodeCache(NodeCache):
             count = len(self._cache)
             self._cache.clear()
             self._access_order.clear()
+            self._entry_sizes.clear()
+            self._size_bytes = 0
             return count
         
         # 模式匹配清理
@@ -551,6 +551,7 @@ class MemoryNodeCache(NodeCache):
         for key in keys_to_remove:
             self._cache.pop(key, None)
             self._access_order.pop(key, None)
+            self._size_bytes -= self._entry_sizes.pop(key, 0)
         
         return len(keys_to_remove)
     
@@ -561,11 +562,11 @@ class MemoryNodeCache(NodeCache):
         basic_stats.update({
             "cache_entries": len(self._cache),
             "max_entries": self.config.max_entries,
-            "backend": "memory"
+            "backend": "memory",
+            "memory_usage_bytes": self._size_bytes
         })
         
         return basic_stats
-
 
 def create_node_cache(config: CacheConfig) -> NodeCache:
     """创建Node缓存实例"""

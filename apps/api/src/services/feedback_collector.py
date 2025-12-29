@@ -14,22 +14,20 @@ from src.core.utils.timezone_utils import utc_now, utc_factory
 from typing import Dict, List, Optional, Any, Set
 from dataclasses import dataclass, asdict
 from enum import Enum
-import logging
 from collections import defaultdict, deque
-
-from models.schemas.feedback import FeedbackType
+from src.models.schemas.feedback import FeedbackType
 from src.core.config import get_settings
 
-logger = logging.getLogger(__name__)
-settings = get_settings()
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
+settings = get_settings()
 
 class EventPriority(str, Enum):
     """事件优先级"""
     HIGH = "high"        # 显式反馈 - 立即处理
     MEDIUM = "medium"    # 关键隐式反馈 - 快速处理
     LOW = "low"         # 一般隐式反馈 - 批量处理
-
 
 @dataclass
 class CollectedEvent:
@@ -45,7 +43,6 @@ class CollectedEvent:
     priority: EventPriority
     client_ip: Optional[str] = None
     user_agent: Optional[str] = None
-
 
 class FeedbackBuffer:
     """反馈事件缓冲器"""
@@ -107,7 +104,6 @@ class FeedbackBuffer:
             logger.info(f"Flushed {len(events)} events from buffer")
             return events
 
-
 class EventDeduplicator:
     """事件去重器"""
     
@@ -155,7 +151,6 @@ class EventDeduplicator:
         
         for key in expired_keys:
             del self.seen_events[key]
-
 
 class EventValidator:
     """事件验证器"""
@@ -215,7 +210,6 @@ class EventValidator:
         except Exception as e:
             logger.error(f"Error validating explicit event: {e}")
             return False
-
 
 class FeedbackCollector:
     """反馈收集器主类"""
@@ -461,18 +455,31 @@ class FeedbackCollector:
         if not events:
             return
             
-        # 这里应该调用反馈处理器
-        # 为了避免循环依赖，我们使用事件或消息队列
-        # 暂时记录日志
-        logger.info(f"Flushing {len(events)} events for processing")
-        
-        # TODO: 集成反馈处理器
-        # await self.feedback_processor.process_events(events)
+        from src.services.feedback_processor import feedback_processor
 
+        logger.info(f"Flushing {len(events)} events for processing")
+        payloads = []
+        for event in events:
+            payloads.append({
+                "feedback_id": event.event_id,
+                "user_id": event.user_id,
+                "item_id": event.item_id,
+                "feedback_type": event.feedback_type.value,
+                "value": event.raw_value,
+                "timestamp": event.timestamp,
+                "context": event.context,
+                "metadata": {
+                    "session_id": event.session_id,
+                    "priority": event.priority.value,
+                    "client_ip": event.client_ip,
+                    "user_agent": event.user_agent,
+                },
+            })
+
+        await feedback_processor.process_feedback_batch(payloads)
 
 # 全局收集器实例
 _feedback_collector: Optional[FeedbackCollector] = None
-
 
 async def get_feedback_collector() -> FeedbackCollector:
     """获取全局反馈收集器实例"""
@@ -481,7 +488,6 @@ async def get_feedback_collector() -> FeedbackCollector:
         _feedback_collector = FeedbackCollector()
         await _feedback_collector.start()
     return _feedback_collector
-
 
 async def shutdown_feedback_collector():
     """关闭反馈收集器"""

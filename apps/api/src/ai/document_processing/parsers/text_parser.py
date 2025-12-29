@@ -1,17 +1,12 @@
 """文本文档解析器"""
 
-import logging
 import re
 from pathlib import Path
 from typing import List, Dict, Any
 import chardet
 import markdown
 from bs4 import BeautifulSoup
-
 from .base_parser import BaseParser, ParsedDocument, ParsedElement
-
-logger = logging.getLogger(__name__)
-
 
 class TextParser(BaseParser):
     """文本文档解析器

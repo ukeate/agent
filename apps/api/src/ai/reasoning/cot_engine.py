@@ -7,8 +7,7 @@ import time
 from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Optional, Tuple
 from uuid import uuid4
-
-from models.schemas.reasoning import (
+from src.models.schemas.reasoning import (
     ReasoningChain,
     ReasoningStrategy,
     ThoughtStep,
@@ -19,10 +18,8 @@ from models.schemas.reasoning import (
     ReasoningStreamChunk
 )
 from src.ai.openai_client import get_openai_client
-from src.core.logging import get_logger
 
 logger = get_logger(__name__)
-
 
 class BaseCoTEngine(ABC):
     """基础CoT推理引擎抽象类"""
@@ -36,12 +33,12 @@ class BaseCoTEngine(ABC):
     @abstractmethod
     async def generate_prompt(self, problem: str, context: Optional[str] = None, **kwargs) -> str:
         """生成推理提示词"""
-        pass
+        raise NotImplementedError
 
     @abstractmethod
     async def parse_response(self, response: str) -> Tuple[ThoughtStepType, str, str, float]:
         """解析模型响应，返回(步骤类型, 内容, 推理, 置信度)"""
-        pass
+        raise NotImplementedError
 
     async def execute_step(
         self,
@@ -202,7 +199,6 @@ class BaseCoTEngine(ABC):
         response = await self._call_model(prompt)
         return response.strip()
 
-
 class ReasoningChainBuilder:
     """推理链构建器"""
 
@@ -267,7 +263,6 @@ class ReasoningChainBuilder:
         
         return self.chain
 
-
 class StepExecutor:
     """推理步骤执行器"""
 
@@ -304,7 +299,6 @@ class StepExecutor:
         
         return step
 
-
 def generate_cache_key(problem: str, strategy: ReasoningStrategy, context: Optional[str] = None) -> str:
     """生成缓存键"""
     data = {
@@ -314,3 +308,4 @@ def generate_cache_key(problem: str, strategy: ReasoningStrategy, context: Optio
     }
     json_str = json.dumps(data, sort_keys=True, ensure_ascii=False)
     return hashlib.sha256(json_str.encode()).hexdigest()
+from src.core.logging import get_logger

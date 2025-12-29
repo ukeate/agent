@@ -38,6 +38,7 @@ import {
   ExclamationCircleOutlined
 } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
+import { healthService } from '../services/healthService';
 
 const { Title, Text, Paragraph } = Typography;
 const { Option } = Select;
@@ -97,149 +98,17 @@ const RaftConsensusPage: React.FC = () => {
   const [commandModalVisible, setCommandModalVisible] = useState(false);
   const [form] = Form.useForm();
 
-  // 初始化Raft集群
-  const initializeCluster = (nodeCount: number = 5) => {
-    const newNodes: RaftNode[] = Array.from({ length: nodeCount }, (_, i) => ({
-      node_id: `node_${i + 1}`,
-      state: RaftState.FOLLOWER,
-      current_term: 0,
-      last_log_index: 0,
-      last_log_term: 0,
-      commit_index: 0,
-      last_applied: 0,
-      vote_count: 0,
-      last_heartbeat: new Date().toISOString(),
-      is_active: true,
-      network_partition: false
-    }));
-
-    setNodes(newNodes);
+  const initializeCluster = (fetchedNodes: RaftNode[]) => {
+    setNodes(fetchedNodes);
     setLogEntries([]);
     setElectionHistory([]);
     setCurrentTerm(0);
     setCurrentLeader(null);
   };
 
-  // 模拟领导者选举
-  const simulateElection = () => {
-    const activeNodes = nodes.filter(n => n.is_active && !n.network_partition);
-    if (activeNodes.length < 2) return;
-
-    const newTerm = currentTerm + 1;
-    const candidates = activeNodes.filter(n => n.state !== RaftState.LEADER);
-    const candidate = candidates[Math.floor(Math.random() * candidates.length)];
-
-    // 模拟投票过程
-    const majorityNeeded = Math.floor(activeNodes.length / 2) + 1;
-    const voters: string[] = [candidate.node_id]; // 候选者投给自己
-    
-    // 其他节点随机投票
-    activeNodes.forEach(node => {
-      if (node.node_id !== candidate.node_id && Math.random() > 0.3) {
-        voters.push(node.node_id);
-      }
-    });
-
-    const won = voters.length >= majorityNeeded;
-    const result = won ? 'won' : (voters.length === 1 ? 'lost' : 'split');
-
-    // 更新节点状态
-    const updatedNodes = nodes.map(node => {
-      if (!node.is_active || node.network_partition) return node;
-
-      return {
-        ...node,
-        current_term: newTerm,
-        state: node.node_id === candidate.node_id && won ? RaftState.LEADER : RaftState.FOLLOWER,
-        voted_for: voters.includes(node.node_id) ? candidate.node_id : undefined,
-        vote_count: node.node_id === candidate.node_id ? voters.length : 0,
-        last_heartbeat: new Date().toISOString()
-      };
-    });
-
-    setNodes(updatedNodes);
-    setCurrentTerm(newTerm);
-    setCurrentLeader(won ? candidate.node_id : null);
-
-    // 记录选举历史
-    const electionEvent: ElectionEvent = {
-      term: newTerm,
-      candidate: candidate.node_id,
-      voters,
-      result,
-      timestamp: new Date().toISOString(),
-      duration: Math.floor(Math.random() * 500) + 100
-    };
-
-    setElectionHistory(prev => [electionEvent, ...prev.slice(0, 9)]);
-    message.info(`Term ${newTerm}: ${candidate.node_id} ${won ? '当选为Leader' : '选举失败'}`);
-  };
-
   // 添加日志条目
-  const appendLogEntry = (command: any) => {
-    if (!currentLeader) {
-      message.error('没有Leader，无法添加日志条目');
-      return;
-    }
-
-    const leader = nodes.find(n => n.node_id === currentLeader);
-    if (!leader) return;
-
-    const newEntry: LogEntry = {
-      index: leader.last_log_index + 1,
-      term: currentTerm,
-      command_type: command.type || 'custom',
-      command_data: command,
-      timestamp: new Date().toISOString(),
-      committed: false,
-      applied: false
-    };
-
-    // 更新Leader的日志索引
-    const updatedNodes = nodes.map(node => 
-      node.node_id === currentLeader 
-        ? { ...node, last_log_index: newEntry.index, last_log_term: newEntry.term }
-        : node
-    );
-
-    setNodes(updatedNodes);
-    setLogEntries(prev => [newEntry, ...prev]);
-
-    // 模拟日志复制过程
-    setTimeout(() => {
-      commitLogEntry(newEntry.index);
-    }, 1000);
-
-    message.success(`日志条目已添加: Index ${newEntry.index}`);
-  };
-
-  // 提交日志条目
-  const commitLogEntry = (index: number) => {
-    const activeNodes = nodes.filter(n => n.is_active && !n.network_partition);
-    const majorityNeeded = Math.floor(activeNodes.length / 2) + 1;
-
-    // 模拟大多数节点确认
-    if (Math.random() > 0.2) { // 80%的概率成功复制
-      setLogEntries(prev => 
-        prev.map(entry => 
-          entry.index === index 
-            ? { ...entry, committed: true, applied: true }
-            : entry
-        )
-      );
-
-      setNodes(prev => 
-        prev.map(node => 
-          node.is_active 
-            ? { ...node, commit_index: Math.max(node.commit_index, index), last_applied: Math.max(node.last_applied, index) }
-            : node
-        )
-      );
-
-      message.success(`日志条目 ${index} 已提交`);
-    } else {
-      message.error(`日志条目 ${index} 复制失败`);
-    }
+  const appendLogEntry = () => {
+    message.error('未连接后端 Raft 日志接口');
   };
 
   // 模拟网络分区
@@ -294,23 +163,7 @@ const RaftConsensusPage: React.FC = () => {
     if (!isRunning) return;
 
     const interval = setInterval(() => {
-      // 模拟心跳
       updateHeartbeats();
-
-      // 随机事件
-      const rand = Math.random();
-      if (rand < 0.05 && !currentLeader) {
-        // 5%概率触发选举（如果没有Leader）
-        simulateElection();
-      } else if (rand < 0.02) {
-        // 2%概率随机添加日志条目
-        if (currentLeader) {
-          appendLogEntry({
-            type: 'auto_command',
-            data: { timestamp: Date.now(), value: Math.random() }
-          });
-        }
-      }
     }, simulationSpeed);
 
     return () => clearInterval(interval);

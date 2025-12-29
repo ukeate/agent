@@ -5,15 +5,13 @@
 import gzip
 import zlib
 from typing import Any, Dict, Optional
-
-import structlog
 from fastapi import Response
-
 from src.core.config import get_settings
 
-logger = structlog.get_logger(__name__)
-settings = get_settings()
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
+settings = get_settings()
 
 class CompressionHandler:
     """压缩处理器"""
@@ -107,7 +105,6 @@ class CompressionHandler:
             "min_size": self.min_size,
             "compression_level": self.compression_level
         }
-
 
 # 全局压缩处理器实例
 compression_handler = CompressionHandler()

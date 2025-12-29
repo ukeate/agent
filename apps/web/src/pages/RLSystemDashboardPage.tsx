@@ -11,6 +11,7 @@ import {
   FireOutlined
 } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
+import { monitoringService } from '../services/monitoringService';
 
 const { RangePicker } = DatePicker;
 const { Option } = Select;
@@ -45,103 +46,52 @@ interface RecentActivity {
 
 const RLSystemDashboardPage: React.FC = () => {
   const [metrics, setMetrics] = useState<SystemMetrics>({
-    qps: 1247,
-    avgLatency: 45,
-    errorRate: 0.12,
-    cacheHitRate: 94.5,
-    activeUsers: 8432,
-    recommendationAccuracy: 87.3
+    qps: 0,
+    avgLatency: 0,
+    errorRate: 0,
+    cacheHitRate: 0,
+    activeUsers: 0,
+    recommendationAccuracy: 0
   });
 
-  const [algorithmData, setAlgorithmData] = useState<AlgorithmPerformance[]>([
-    {
-      algorithm: 'UCB',
-      requests: 15420,
-      avgReward: 0.73,
-      latency: 12,
-      accuracy: 85.2,
-      status: 'excellent'
-    },
-    {
-      algorithm: 'Thompson Sampling',
-      requests: 12380,
-      avgReward: 0.71,
-      latency: 15,
-      accuracy: 83.7,
-      status: 'good'
-    },
-    {
-      algorithm: 'Epsilon Greedy',
-      requests: 9850,
-      avgReward: 0.68,
-      latency: 8,
-      accuracy: 81.4,
-      status: 'good'
-    },
-    {
-      algorithm: 'Q-Learning',
-      requests: 7240,
-      avgReward: 0.75,
-      latency: 28,
-      accuracy: 88.1,
-      status: 'warning'
-    }
-  ]);
+  const [algorithmData, setAlgorithmData] = useState<AlgorithmPerformance[]>([]);
 
-  const [recentActivities, setRecentActivities] = useState<RecentActivity[]>([
-    {
-      id: '1',
-      timestamp: '2025-08-22 14:23:15',
-      event: '推荐请求',
-      user: 'user_12345',
-      algorithm: 'UCB',
-      result: 'success',
-      details: '返回5个推荐项目，响应时间12ms'
-    },
-    {
-      id: '2',
-      timestamp: '2025-08-22 14:22:58',
-      event: '模型更新',
-      user: 'system',
-      algorithm: 'Q-Learning',
-      result: 'success',
-      details: '更新Q表，新准确率88.1%'
-    },
-    {
-      id: '3',
-      timestamp: '2025-08-22 14:22:42',
-      event: '缓存刷新',
-      user: 'system',
-      algorithm: 'Redis',
-      result: 'success',
-      details: '清理过期推荐缓存，释放内存127MB'
-    },
-    {
-      id: '4',
-      timestamp: '2025-08-22 14:22:01',
-      event: 'A/B测试分流',
-      user: 'user_67890',
-      algorithm: 'Thompson Sampling',
-      result: 'warning',
-      details: '分流延迟较高，响应时间35ms'
-    }
-  ]);
+  const [recentActivities, setRecentActivities] = useState<RecentActivity[]>([]);
 
   const [refreshing, setRefreshing] = useState(false);
 
   const handleRefresh = async () => {
     setRefreshing(true);
-    // 模拟API调用
-    setTimeout(() => {
-      setMetrics(prev => ({
-        ...prev,
-        qps: prev.qps + Math.floor(Math.random() * 200 - 100),
-        avgLatency: Math.max(10, prev.avgLatency + Math.floor(Math.random() * 20 - 10)),
-        errorRate: Math.max(0, prev.errorRate + (Math.random() * 0.1 - 0.05))
-      }));
+    try {
+      const dashboard = await monitoringService.getDashboardData();
+      const m = dashboard.metrics || {};
+      setMetrics({
+        qps: m.qps?.current_value || 0,
+        avgLatency: m.api_response_time?.current_value || 0,
+        errorRate: m.error_rate?.current_value || 0,
+        cacheHitRate: m.cache_hit_rate?.current_value || 0,
+        activeUsers: m.active_users?.current_value || 0,
+        recommendationAccuracy: m.recommendation_accuracy?.current_value || 0
+      });
+      setAlgorithmData([]);
+      setRecentActivities([]);
+    } catch (e) {
+      setMetrics({
+        qps: 0,
+        avgLatency: 0,
+        errorRate: 0,
+        cacheHitRate: 0,
+        activeUsers: 0,
+        recommendationAccuracy: 0
+      });
+    } finally {
       setRefreshing(false);
-    }, 1000);
+    }
   };
+
+  useEffect(() => {
+    handleRefresh();
+  }, []);
 
   const algorithmColumns: ColumnsType<AlgorithmPerformance> = [
     {

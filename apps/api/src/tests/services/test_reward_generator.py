@@ -12,11 +12,8 @@ from datetime import timedelta
 from src.core.utils.timezone_utils import utc_now, utc_factory
 from unittest.mock import Mock, patch, AsyncMock
 from decimal import Decimal
-
 import sys
 import os
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
-
 from src.services.reward_generator import (
     RewardSignalGenerator,
     FeedbackNormalizer,
@@ -29,6 +26,7 @@ from src.services.reward_generator import (
 from src.services.feedback_collector import CollectedEvent, EventPriority
 from models.schemas.feedback import FeedbackType
 
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
 
 class TestFeedbackNormalizer:
     """反馈标准化器测试"""
@@ -92,7 +90,6 @@ class TestFeedbackNormalizer:
         score = normalizer.normalize_text_sentiment(neutral_text)
         assert 0.4 <= score <= 0.6
 
-
 class TestTimeDecayCalculator:
     """时间衰减计算器测试"""
     
@@ -134,7 +131,6 @@ class TestTimeDecayCalculator:
         slow_factor = slow_decay.calculate_decay_factor(six_hours_ago)
         
         assert fast_factor < slow_factor  # 快速衰减应该更小
-
 
 class TestContextBoostCalculator:
     """上下文增强计算器测试"""
@@ -223,7 +219,6 @@ class TestContextBoostCalculator:
         }
         brief_boost = calculator.calculate_session_boost(brief_context)
         assert brief_boost <= 1.0
-
 
 class TestRewardSignalGenerator:
     """奖励信号生成器测试"""
@@ -599,7 +594,6 @@ class TestRewardSignalGenerator:
         # 验证性能（应该在合理时间内完成）
         duration = end_time - start_time
         assert duration < 5.0  # 5秒内完成100个事件处理
-
 
 class TestIntegrationScenarios:
     """集成场景测试"""

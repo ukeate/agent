@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-
 """
 模型评估报告生成器测试模块
 测试HTML报告生成、数据可视化、性能分析等功能
@@ -15,7 +14,6 @@ from datetime import timedelta
 from src.core.utils.timezone_utils import utc_now, utc_factory
 from unittest.mock import Mock, patch, MagicMock
 from typing import List, Dict, Any
-
 from ai.model_evaluation.report_generator import (
     EvaluationReportGenerator,
     ReportConfig,
@@ -25,7 +23,6 @@ from ai.model_evaluation.report_generator import (
     PerformanceStats,
     ComparisonReport
 )
-
 
 class TestEvaluationReportGenerator:
     """测试评估报告生成器"""
@@ -327,7 +324,6 @@ class TestEvaluationReportGenerator:
         assert (end_time - start_time).total_seconds() < 10
         assert summary["total_evaluations"] == 100
 
-
 class TestComparisonReport:
     """测试对比报告功能"""
 
@@ -384,7 +380,6 @@ class TestComparisonReport:
         assert len(suggestions) > 0
         assert any("推理时间" in s or "inference" in s for s in suggestions)
         assert any("内存" in s or "memory" in s for s in suggestions)
-
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

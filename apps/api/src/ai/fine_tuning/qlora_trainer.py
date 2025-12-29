@@ -2,19 +2,19 @@
 QLoRA量化微调训练器
 基于BitsAndBytes实现4-bit和8-bit量化微调
 """
+
 import torch
-import logging
 from typing import Dict, Any, Optional
 from transformers import BitsAndBytesConfig
 from peft import prepare_model_for_kbit_training
 from .lora_trainer import LoRATrainer
 from .models import TrainingConfig, QuantizationConfig, QuantizationType, TrainingMode
 
-
+from src.core.logging import get_logger
 class QLoRATrainer(LoRATrainer):
     """QLoRA量化微调训练器"""
     
-    def __init__(self, config: TrainingConfig, monitor: Optional[object] = None):
+    def __init__(self, config: TrainingConfig, monitor: Optional[object] = None, job_control: Optional[object] = None):
         """
         初始化QLoRA训练器
         
@@ -23,7 +23,7 @@ class QLoRATrainer(LoRATrainer):
             monitor: 训练监控器
         """
         # 初始化logger
-        self.logger = logging.getLogger(self.__class__.__name__)
+        self.logger = get_logger(self.__class__.__name__)
         
         # 确保使用量化配置
         if config.quantization_config is None:
@@ -39,7 +39,7 @@ class QLoRATrainer(LoRATrainer):
         # 确保训练模式为QLoRA
         config.training_mode = TrainingMode.QLORA
         
-        super().__init__(config, monitor)
+        super().__init__(config, monitor, job_control=job_control)
         
         self.logger.info("QLoRA训练器初始化完成")
         self.monitor.log_event("qlora_trainer_initialized", {
@@ -114,8 +114,7 @@ class QLoRATrainer(LoRATrainer):
                 quantization_config=quantization_config,
                 device_map="auto",  # 量化模型必须使用device_map="auto"
                 torch_dtype=torch.bfloat16 if self.config.bf16 else torch.float16,
-                trust_remote_code=True,
-                use_flash_attention_2=self.config.use_flash_attention
+                trust_remote_code=True
             )
             
             # 为量化训练准备模型

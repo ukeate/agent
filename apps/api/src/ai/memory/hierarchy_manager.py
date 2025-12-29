@@ -1,19 +1,17 @@
 """记忆层级管理器"""
+
 import asyncio
 from typing import List, Optional, Dict, Any
 from datetime import datetime
 from datetime import timedelta
 from src.core.utils.timezone_utils import utc_now, utc_factory
-import logging
 from collections import deque
-
 from .models import Memory, MemoryType, MemoryStatus
 from .storage import MemoryStorage
 from .config import MemoryConfig
 from ..openai_client import get_openai_client
 
-logger = logging.getLogger(__name__)
-
+logger = get_logger(__name__)
 
 class WorkingMemoryBuffer:
     """工作记忆缓冲区"""
@@ -50,7 +48,6 @@ class WorkingMemoryBuffer:
     def is_full(self) -> bool:
         """检查是否已满"""
         return len(self.buffer) >= self.capacity
-
 
 class EpisodicMemoryStore:
     """情景记忆存储"""
@@ -105,7 +102,6 @@ class EpisodicMemoryStore:
         )
         
         return await self.storage.store_memory(consolidated)
-
 
 class SemanticMemoryStore:
     """语义记忆存储"""
@@ -197,7 +193,6 @@ class SemanticMemoryStore:
         except Exception as e:
             logger.error(f"生成嵌入向量失败: {e}")
             return []
-
 
 class MemoryHierarchyManager:
     """记忆层级管理器"""
@@ -337,3 +332,4 @@ class MemoryHierarchyManager:
     async def cleanup(self):
         """清理资源"""
         await self.storage.cleanup()
+from src.core.logging import get_logger

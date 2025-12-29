@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import {
+import { logger } from '../../utils/logger'
   Card,
   Table,
   Button,
@@ -17,7 +18,12 @@ import {
   Select,
   DatePicker,
   Modal,
+  Alert,
+  Form,
+  Checkbox,
 } from 'antd';
+
+const { TextArea } = Input;
 import {
   PlusOutlined,
   PlayCircleOutlined,
@@ -33,26 +39,18 @@ import {
   BarChartOutlined,
 } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
+import { experimentService, type ExperimentData, type ListExperimentsParams, type ExperimentConfig } from '../../services/experimentService';
 
 const { Title, Text } = Typography;
 const { Search } = Input;
 const { Option } = Select;
 const { RangePicker } = DatePicker;
 
-interface Experiment {
-  id: string;
-  name: string;
-  description: string;
-  status: 'draft' | 'running' | 'paused' | 'completed' | 'archived';
-  variants: number;
+interface Experiment extends ExperimentData {
   traffic_percentage: number;
   users_enrolled: number;
   conversion_rate: number;
   statistical_significance: boolean;
-  start_date?: string;
-  end_date?: string;
-  created_at: string;
-  updated_at: string;
   creator: string;
 }
 
@@ -63,80 +61,50 @@ const ExperimentListPage: React.FC = () => {
   const [searchText, setSearchText] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [dateRange, setDateRange] = useState<any[]>([]);
+  const [total, setTotal] = useState(0);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const [error, setError] = useState<string | null>(null);
+  const [createModalVisible, setCreateModalVisible] = useState(false);
+  const [form] = Form.useForm();
 
-  // 模拟数据
-  const mockExperiments: Experiment[] = [
-    {
-      id: 'exp_001',
-      name: '首页改版A/B测试',
-      description: '测试新版首页对用户转化率的影响',
-      status: 'running',
-      variants: 2,
-      traffic_percentage: 50,
-      users_enrolled: 15420,
-      conversion_rate: 0.145,
-      statistical_significance: true,
-      start_date: '2024-01-15',
-      end_date: '2024-02-15',
-      created_at: '2024-01-10',
-      updated_at: '2024-01-20',
-      creator: 'Product Team',
-    },
-    {
-      id: 'exp_002',
-      name: '结算页面优化',
-      description: '优化结算流程，减少用户流失',
-      status: 'completed',
-      variants: 3,
-      traffic_percentage: 100,
-      users_enrolled: 8930,
-      conversion_rate: 0.234,
-      statistical_significance: true,
-      start_date: '2024-01-01',
-      end_date: '2024-01-31',
-      created_at: '2023-12-28',
-      updated_at: '2024-01-31',
-      creator: 'UX Team',
-    },
-    {
-      id: 'exp_003',
-      name: '推荐算法测试',
-      description: '测试新的机器学习推荐算法效果',
-      status: 'draft',
-      variants: 2,
-      traffic_percentage: 20,
-      users_enrolled: 0,
-      conversion_rate: 0,
-      statistical_significance: false,
-      created_at: '2024-01-22',
-      updated_at: '2024-01-22',
-      creator: 'ML Team',
-    },
-    {
-      id: 'exp_004',
-      name: '定价策略实验',
-      description: '测试不同定价策略对销售的影响',
-      status: 'paused',
-      variants: 4,
-      traffic_percentage: 25,
-      users_enrolled: 3245,
-      conversion_rate: 0.089,
-      statistical_significance: false,
-      start_date: '2024-01-18',
-      created_at: '2024-01-15',
-      updated_at: '2024-01-20',
-      creator: 'Pricing Team',
-    },
-  ];
+  const loadExperiments = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const params: ListExperimentsParams = {
+        search: searchText || undefined,
+        status: statusFilter !== 'all' ? statusFilter : undefined,
+        page: currentPage,
+        pageSize: pageSize,
+      };
+      
+      const response = await experimentService.listExperiments(params);
+      
+      // 转换数据格式以适应本地接口
+      const experimentsWithExtendedData: Experiment[] = response.experiments.map(exp => ({
+        ...exp,
+        traffic_percentage: 50, // 默认值，需要从API获取
+        users_enrolled: 0, // 默认值，需要从API获取
+        conversion_rate: 0, // 默认值，需要从API获取
+        statistical_significance: false, // 默认值，需要从API获取
+        creator: exp.owners?.[0] || 'Unknown',
+      }));
+      
+      setExperiments(experimentsWithExtendedData);
+      setTotal(response.total);
+    } catch (error) {
+      logger.error('加载实验列表失败:', error);
+      setError('加载实验列表失败，请检查网络连接');
+      message.error('加载实验列表失败');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    setLoading(true);
-    // 模拟API调用
-    setTimeout(() => {
-      setExperiments(mockExperiments);
-      setLoading(false);
-    }, 800);
-  }, []);
+    loadExperiments();
+  }, [searchText, statusFilter, currentPage, pageSize]);
 
   const getStatusColor = (status: string) => {
     const colors = {
@@ -160,26 +128,71 @@ const ExperimentListPage: React.FC = () => {
     return texts[status as keyof typeof texts];
   };
 
-  const handleStatusChange = (experimentId: string, newStatus: string) => {
-    setExperiments(prev =>
-      prev.map(exp =>
-        exp.id === experimentId
-          ? { ...exp, status: newStatus as Experiment['status'], updated_at: new Date().toISOString().split('T')[0] }
-          : exp
-      )
-    );
-    message.success(`实验状态已更新为${getStatusText(newStatus)}`);
+  const handleStatusChange = async (experimentId: string, newStatus: string) => {
+    try {
+      // 根据状态调用相应的API
+      if (newStatus === 'running') {
+        await experimentService.startExperiment(experimentId);
+      } else if (newStatus === 'paused') {
+        await experimentService.pauseExperiment(experimentId);
+      } else if (newStatus === 'completed') {
+        await experimentService.stopExperiment(experimentId);
+      }
+      
+      // 重新加载数据
+      await loadExperiments();
+      message.success(`实验状态已更新为${getStatusText(newStatus)}`);
+    } catch (error) {
+      logger.error('更新实验状态失败:', error);
+      message.error('更新实验状态失败');
+    }
   };
 
   const handleDeleteExperiment = (experimentId: string) => {
     Modal.confirm({
       title: '确认删除',
       content: '删除实验后将无法恢复，确认要删除吗？',
-      onOk: () => {
-        setExperiments(prev => prev.filter(exp => exp.id !== experimentId));
-        message.success('实验已删除');
+      onOk: async () => {
+        try {
+          await experimentService.deleteExperiment(experimentId);
+          await loadExperiments();
+          message.success('实验已删除');
+        } catch (error) {
+          logger.error('删除实验失败:', error);
+          message.error('删除实验失败');
+        }
       },
     });
+  };
+
+  const handleCreateExperiment = async (values: any) => {
+    try {
+      const config: ExperimentConfig = {
+        name: values.name,
+        description: values.description,
+        type: values.type || 'A/B Testing',
+        status: 'draft',
+        variants: [
+          { name: 'Control', traffic: 50 },
+          { name: 'Treatment', traffic: 50 }
+        ],
+        metrics: values.metrics ? values.metrics.split(',').map((m: string) => m.trim()) : ['conversion_rate'],
+        targetingRules: [],
+        confidenceLevel: 0.95,
+        tags: values.tags ? values.tags.split(',').map((t: string) => t.trim()) : [],
+        enableDataQualityChecks: values.enableDataQualityChecks || false,
+        enableAutoStop: values.enableAutoStop || false,
+      };
+
+      await experimentService.createExperiment(config);
+      message.success('实验创建成功');
+      setCreateModalVisible(false);
+      form.resetFields();
+      await loadExperiments();
+    } catch (error) {
+      logger.error('创建实验失败:', error);
+      message.error('创建实验失败');
+    }
   };
 
   const getActionMenu = (record: Experiment): MenuProps => ({
@@ -213,7 +226,7 @@ const ExperimentListPage: React.FC = () => {
               onClick: () => handleStatusChange(record.id, 'running'),
             },
           ]
-        : []),
+        : [],
       ...(record.status === 'running'
         ? [
             {
@@ -223,7 +236,7 @@ const ExperimentListPage: React.FC = () => {
               onClick: () => handleStatusChange(record.id, 'paused'),
             },
           ]
-        : []),
+        : [],
       ...(record.status === 'running' || record.status === 'paused'
         ? [
             {
@@ -233,7 +246,7 @@ const ExperimentListPage: React.FC = () => {
               onClick: () => handleStatusChange(record.id, 'completed'),
             },
           ]
-        : []),
+        : [],
       {
         type: 'divider',
       },
@@ -279,7 +292,7 @@ const ExperimentListPage: React.FC = () => {
       key: 'variants',
       width: 80,
       align: 'center',
-      render: (variants: number) => <Text>{variants}</Text>,
+      render: (variants: any[]) => <Text>{variants?.length || 0}</Text>,
     },
     {
       title: '流量分配',
@@ -364,13 +377,6 @@ const ExperimentListPage: React.FC = () => {
     },
   ];
 
-  const filteredExperiments = experiments.filter(exp => {
-    const matchesSearch = exp.name.toLowerCase().includes(searchText.toLowerCase()) ||
-                         exp.description.toLowerCase().includes(searchText.toLowerCase());
-    const matchesStatus = statusFilter === 'all' || exp.status === statusFilter;
-    return matchesSearch && matchesStatus;
-  });
-
   const stats = {
     total: experiments.length,
     running: experiments.filter(e => e.status === 'running').length,
@@ -431,6 +437,22 @@ const ExperimentListPage: React.FC = () => {
         </Col>
       </Row>
 
+      {/* 错误信息显示 */}
+      {error && (
+        <Alert
+          message="加载失败"
+          description={error}
+          type="error"
+          showIcon
+          style={{ marginBottom: 16 }}
+          action={
+            <Button size="small" onClick={loadExperiments}>
+              重新加载
+            </Button>
+          }
+        />
+      )}
+
       {/* 工具栏 */}
       <Card style={{ marginBottom: '16px' }}>
         <Row justify="space-between" align="middle">
@@ -467,7 +489,7 @@ const ExperimentListPage: React.FC = () => {
               <Button
                 type="primary"
                 icon={<PlusOutlined />}
-                onClick={() => message.info('创建新实验')}
+                onClick={() => setCreateModalVisible(true)}
               >
                 创建实验
               </Button>
@@ -480,16 +502,21 @@ const ExperimentListPage: React.FC = () => {
       <Card>
         <Table
           columns={columns}
-          dataSource={filteredExperiments}
+          dataSource={experiments}
           rowKey="id"
           loading={loading}
           pagination={{
-            total: filteredExperiments.length,
-            pageSize: 10,
+            current: currentPage,
+            pageSize: pageSize,
+            total: total,
             showSizeChanger: true,
             showQuickJumper: true,
             showTotal: (total, range) =>
               `显示 ${range[0]}-${range[1]} 条，共 ${total} 条`,
+            onChange: (page, size) => {
+              setCurrentPage(page);
+              setPageSize(size || 10);
+            },
           }}
           rowSelection={{
             selectedRowKeys,
@@ -514,6 +541,109 @@ const ExperimentListPage: React.FC = () => {
           </Space>
         </Card>
       )}
+
+      {/* 创建实验模态框 */}
+      <Modal
+        title="创建新实验"
+        open={createModalVisible}
+        onCancel={() => {
+          setCreateModalVisible(false);
+          form.resetFields();
+        }}
+        footer={null}
+        width={600}
+      >
+        <Form
+          form={form}
+          layout="vertical"
+          onFinish={handleCreateExperiment}
+        >
+          <Form.Item
+            label="实验名称"
+            name="name"
+            rules={[{ required: true, message: '请输入实验名称' }]}
+          >
+            <Input placeholder="输入实验名称" />
+          </Form.Item>
+
+          <Form.Item
+            label="实验描述"
+            name="description"
+            rules={[{ required: true, message: '请输入实验描述' }]}
+          >
+            <TextArea 
+              rows={3} 
+              placeholder="描述实验的目标和预期结果"
+            />
+          </Form.Item>
+
+          <Row gutter={16}>
+            <Col span={12}>
+              <Form.Item
+                label="实验类型"
+                name="type"
+                initialValue="A/B Testing"
+              >
+                <Select>
+                  <Option value="A/B Testing">A/B测试</Option>
+                  <Option value="Multi-variant">多变体测试</Option>
+                  <Option value="Feature Flag">功能开关</Option>
+                </Select>
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item
+                label="指标"
+                name="metrics"
+                initialValue="conversion_rate,click_rate"
+              >
+                <Input placeholder="用逗号分隔多个指标" />
+              </Form.Item>
+            </Col>
+          </Row>
+
+          <Form.Item
+            label="标签"
+            name="tags"
+            initialValue="新实验"
+          >
+            <Input placeholder="用逗号分隔多个标签" />
+          </Form.Item>
+
+          <Row gutter={16}>
+            <Col span={12}>
+              <Form.Item
+                name="enableDataQualityChecks"
+                valuePropName="checked"
+              >
+                <Checkbox>启用数据质量检查</Checkbox>
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item
+                name="enableAutoStop"
+                valuePropName="checked"
+              >
+                <Checkbox>启用自动停止</Checkbox>
+              </Form.Item>
+            </Col>
+          </Row>
+
+          <Form.Item>
+            <Space>
+              <Button type="primary" htmlType="submit" loading={loading}>
+                创建实验
+              </Button>
+              <Button onClick={() => {
+                setCreateModalVisible(false);
+                form.resetFields();
+              }}>
+                取消
+              </Button>
+            </Space>
+          </Form.Item>
+        </Form>
+      </Modal>
     </div>
   );
 };

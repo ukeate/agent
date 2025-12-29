@@ -4,10 +4,11 @@ Q-Learning算法实现模块
 包含经典Q-Learning、Deep Q-Network、Double DQN、Dueling DQN等算法变体
 """
 
-# 基础类始终可用
 from .base import QLearningAgent
 from .q_learning import ClassicQLearningAgent  
 from .replay_buffer import ReplayBuffer
+
+# 基础类始终可用
 
 __all__ = [
     "QLearningAgent",

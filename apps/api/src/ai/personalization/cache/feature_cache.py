@@ -6,12 +6,11 @@ from datetime import timedelta
 from src.core.utils.timezone_utils import utc_now, utc_factory
 from redis.asyncio import Redis
 import hashlib
-import logging
 from dataclasses import dataclass, asdict
-import pickle
+from src.core.utils import secure_pickle as pickle
 
-logger = logging.getLogger(__name__)
-
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 @dataclass
 class CacheConfig:
@@ -22,7 +21,6 @@ class CacheConfig:
     cache_hit_tracking: bool = True  # 跟踪缓存命中率
     preload_popular: bool = True  # 预加载热门项
     eviction_policy: str = "LRU"  # 驱逐策略: LRU, LFU, FIFO
-
 
 class FeatureCacheManager:
     """特征缓存管理器"""
@@ -507,7 +505,6 @@ class FeatureCacheManager:
         if len(self._popular_keys) > 100:
             # 随机删除一些
             self._popular_keys = set(list(self._popular_keys)[-50:])
-
 
 class MultiLevelCache:
     """多级缓存"""

@@ -8,17 +8,16 @@ from typing import Dict, List, Any, Optional
 import asyncio
 from datetime import datetime
 from src.core.utils.timezone_utils import utc_now, utc_factory
-
 from src.ai.reinforcement_learning.recommendation_engine import (
+
     BanditRecommendationEngine,
     AlgorithmType,
     RecommendationRequest,
     FeedbackData
 )
+
 from src.core.logging import get_logger
-
 logger = get_logger(__name__)
-
 
 class BanditRecommendationService:
     """多臂老虎机推荐服务"""
@@ -287,7 +286,6 @@ class BanditRecommendationService:
             logger.info("推荐引擎正在关闭")
             self.engine = None
             self.is_initialized = False
-
 
 # 全局服务实例
 bandit_recommendation_service = BanditRecommendationService()

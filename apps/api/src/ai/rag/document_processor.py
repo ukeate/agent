@@ -1,15 +1,12 @@
 """多模态文档处理管道"""
 
 import os
-import logging
 import hashlib
 from typing import List, Dict, Any, Optional, Tuple
 from pathlib import Path
 from uuid import uuid4
 import base64
 import io
-
-# Document processing
 from unstructured.partition.auto import partition
 from unstructured.documents.elements import (
     Title, Text, Image, Table, ListItem, NarrativeText
@@ -17,15 +14,15 @@ from unstructured.documents.elements import (
 from PIL import Image as PILImage
 import pytesseract
 import pandas as pd
-
-# LangChain
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.schema import Document
-
 from .multimodal_config import ProcessedDocument, MultimodalConfig
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
+# Document processing
+
+# LangChain
 
 class MultimodalDocumentProcessor:
     """多模态文档处理管道"""
@@ -521,3 +518,4 @@ class MultimodalDocumentProcessor:
                 processed_docs.append(result)
         
         return processed_docs
+from src.core.logging import get_logger

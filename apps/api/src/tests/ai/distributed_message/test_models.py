@@ -5,7 +5,6 @@
 import pytest
 import json
 from datetime import datetime
-
 from src.ai.distributed_message.models import (
     Message,
     MessageHeader,
@@ -17,7 +16,6 @@ from src.ai.distributed_message.models import (
     ConnectionMetrics,
     TopicConfig
 )
-
 
 class TestMessageHeader:
     """消息头测试"""
@@ -35,7 +33,6 @@ class TestMessageHeader:
         assert header.retry_count == 0
         assert header.max_retries == 3
         assert isinstance(header.timestamp, datetime)
-
 
 class TestMessage:
     """消息类测试"""
@@ -132,7 +129,6 @@ class TestMessage:
         deserialized = Message.from_bytes(serialized)
         assert deserialized.receiver_id is None
 
-
 class TestMessageHandler:
     """消息处理器测试"""
     
@@ -228,7 +224,6 @@ class TestMessageHandler:
         assert handler.stats["errors"] == 1
         assert handler.stats["handled"] == 0
 
-
 class TestStreamConfig:
     """流配置测试"""
     
@@ -262,7 +257,6 @@ class TestStreamConfig:
         assert nats_config["subjects"] == ["test.>"]
         assert nats_config["max_msgs"] == 1000
         assert nats_config["num_replicas"] == 1
-
 
 class TestConnectionMetrics:
     """连接指标测试"""
@@ -315,7 +309,6 @@ class TestConnectionMetrics:
         assert isinstance(data, dict)
         assert data["messages_sent"] == 5
         assert "messages_received" in data
-
 
 class TestTopicConfig:
     """主题配置测试"""

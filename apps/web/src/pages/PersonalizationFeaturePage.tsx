@@ -17,6 +17,7 @@ import {
 } from '@ant-design/icons'
 import type { ColumnsType } from 'antd/es/table'
 import { Line, Heatmap } from '@ant-design/plots'
+import personalizationService from '../services/personalizationService'
 
 const { Title, Text, Paragraph } = Typography
 const { Option } = Select
@@ -39,68 +40,7 @@ interface FeatureWindow {
 }
 
 const PersonalizationFeaturePage: React.FC = () => {
-  const [features, setFeatures] = useState<Feature[]>([
-    {
-      key: '1',
-      name: '点击率CTR',
-      category: 'interaction',
-      type: 'realtime',
-      value: 0.125,
-      importance: 0.95,
-      updateFrequency: '实时',
-      status: 'active'
-    },
-    {
-      key: '2',
-      name: '用户活跃度',
-      category: 'user',
-      type: 'realtime',
-      value: 0.78,
-      importance: 0.88,
-      updateFrequency: '5秒',
-      status: 'active'
-    },
-    {
-      key: '3',
-      name: '内容新鲜度',
-      category: 'item',
-      type: 'batch',
-      value: 0.92,
-      importance: 0.72,
-      updateFrequency: '1小时',
-      status: 'cached'
-    },
-    {
-      key: '4',
-      name: '时段偏好',
-      category: 'context',
-      type: 'static',
-      value: 'evening',
-      importance: 0.65,
-      updateFrequency: '24小时',
-      status: 'cached'
-    },
-    {
-      key: '5',
-      name: '兴趣相似度',
-      category: 'user',
-      type: 'batch',
-      value: 0.83,
-      importance: 0.91,
-      updateFrequency: '30分钟',
-      status: 'computing'
-    },
-    {
-      key: '6',
-      name: '会话时长',
-      category: 'interaction',
-      type: 'realtime',
-      value: 245,
-      importance: 0.76,
-      updateFrequency: '实时',
-      status: 'active'
-    }
-  ])
+  const [features, setFeatures] = useState<Feature[]>([])
 
   const [windowConfig, setWindowConfig] = useState<FeatureWindow>({
     windowSize: 300,
@@ -108,52 +48,62 @@ const PersonalizationFeaturePage: React.FC = () => {
     updateInterval: 5
   })
 
-  const [autoCompute, setAutoCompute] = useState(true)
-  const [featureVersion, setFeatureVersion] = useState('v2.3.1')
+  const [autoCompute, setAutoCompute] = useState(false)
+  const [featureVersion, setFeatureVersion] = useState('')
+  const [featureUpdatedAt, setFeatureUpdatedAt] = useState('')
 
-  // 模拟特征重要性热力图数据
   const [heatmapData, setHeatmapData] = useState<any[]>([])
 
-  useEffect(() => {
-    // 生成热力图数据
-    const categories = ['user', 'item', 'context', 'interaction']
-    const times = ['00:00', '06:00', '12:00', '18:00', '24:00']
-    const data: any[] = []
-    
-    categories.forEach(cat => {
-      times.forEach(time => {
-        data.push({
-          category: cat,
-          time: time,
-          value: Math.random() * 100
+  const loadFeatures = async () => {
+    try {
+      const data = await personalizationService.getBehaviorPatterns()
+      setFeatures(
+        (data || []).map((item: any, idx: number) => ({
+          key: item.id || String(idx),
+          name: item.name || item.event_type || 'feature',
+          category: (item.category || 'user') as Feature['category'],
+          type: (item.type || 'realtime') as Feature['type'],
+          value: item.value ?? 0,
+          importance: item.importance ?? 0,
+          updateFrequency: item.frequency || 'N/A',
+          status: (item.status || 'active') as Feature['status']
+        }))
+      )
+      const snapshot = personalizationService.getFeatureSnapshotInfo?.()
+      setFeatureVersion(snapshot?.version || '')
+      setFeatureUpdatedAt(snapshot?.timestamp || '')
+    } catch (e) {
+      setFeatures([])
+      setFeatureVersion('')
+      setFeatureUpdatedAt('')
+    }
+  }
+
+  const loadHeatmap = async () => {
+    try {
+      const res = await personalizationService.getPreferences()
+      const categories = ['user', 'item', 'context', 'interaction']
+      const times = ['00:00', '06:00', '12:00', '18:00', '24:00']
+      const data: any[] = []
+      categories.forEach(cat => {
+        times.forEach(time => {
+          data.push({
+            category: cat,
+            time,
+            value: (res as any)?.importance?.[cat]?.[time] ?? 0
+          })
         })
       })
-    })
-    
-    setHeatmapData(data)
-  }, [])
+      setHeatmapData(data)
+    } catch {
+      setHeatmapData([])
+    }
+  }
 
-  // 模拟实时特征更新
   useEffect(() => {
-    if (!autoCompute) return
-
-    const interval = setInterval(() => {
-      setFeatures(prev => prev.map(f => {
-        if (f.type === 'realtime') {
-          return {
-            ...f,
-            value: typeof f.value === 'number' 
-              ? Math.max(0, Math.min(1, f.value + (Math.random() - 0.5) * 0.1))
-              : f.value,
-            status: 'active' as const
-          }
-        }
-        return f
-      }))
-    }, windowConfig.updateInterval * 1000)
-
-    return () => clearInterval(interval)
-  }, [autoCompute, windowConfig.updateInterval])
+    loadFeatures()
+    loadHeatmap()
+  }, [])
 
   const columns: ColumnsType<Feature> = [
     {
@@ -252,13 +202,26 @@ const PersonalizationFeaturePage: React.FC = () => {
     }
   }
 
+  const formatTimeLabel = (value?: string) => {
+    const date = value ? new Date(value) : new Date()
+    if (Number.isNaN(date.getTime())) return ''
+    return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`
+  }
+
+  const formatDateTime = (value?: string) => {
+    if (!value) return ''
+    const date = new Date(value)
+    if (Number.isNaN(date.getTime())) return ''
+    return date.toLocaleString('zh-CN', { hour12: false })
+  }
+
   // 时间序列数据
-  const timeSeriesData = Array.from({ length: 24 }, (_, i) => ({
-    hour: `${i}:00`,
-    features: Math.floor(50 + Math.random() * 50),
-    computed: Math.floor(40 + Math.random() * 40),
-    cached: Math.floor(60 + Math.random() * 30)
-  }))
+  const timeSeriesData: any[] = features.length ? [{
+    hour: formatTimeLabel(featureUpdatedAt),
+    features: features.length,
+    computed: features.filter(f => f.status === 'computing').length,
+    cached: features.filter(f => f.status === 'cached').length
+  }] : []
 
   const lineConfig = {
     data: timeSeriesData.flatMap(d => [
@@ -301,7 +264,7 @@ const PersonalizationFeaturePage: React.FC = () => {
 
       <Alert
         message="特征计算状态"
-        description={`当前版本: ${featureVersion} | 活跃特征: ${features.filter(f => f.status === 'active').length} | 缓存命中率: 82.5%`}
+        description={`当前版本: ${featureVersion || '未获取'} | 更新时间: ${formatDateTime(featureUpdatedAt) || '未知'} | 活跃特征: ${features.filter(f => f.status === 'active').length}`}
         variant="default"
         showIcon
         icon={<InfoCircleOutlined />}
@@ -388,7 +351,11 @@ const PersonalizationFeaturePage: React.FC = () => {
           <Card>
             <Statistic
               title="平均重要性"
-              value={(features.reduce((acc, f) => acc + f.importance, 0) / features.length * 100).toFixed(1)}
+              value={
+                features.length
+                  ? (features.reduce((acc, f) => acc + f.importance, 0) / features.length * 100).toFixed(1)
+                  : 0
+              }
               suffix="%"
               prefix={<ExperimentOutlined />}
               valueStyle={{ color: '#1890ff' }}
@@ -433,29 +400,19 @@ const PersonalizationFeaturePage: React.FC = () => {
 
       {/* 版本历史 */}
       <Card title="特征版本历史" style={{ marginTop: 24 }}>
-        <Timeline>
-          <Timeline.Item color="green" dot={<CheckCircleOutlined />}>
-            <Space direction="vertical" size="small">
-              <Text strong>v2.3.1 (当前版本)</Text>
-              <Text type="secondary">2024-01-15 10:30</Text>
-              <Text>新增用户长期兴趣特征，优化实时计算性能</Text>
-            </Space>
-          </Timeline.Item>
-          <Timeline.Item color="blue">
-            <Space direction="vertical" size="small">
-              <Text strong>v2.3.0</Text>
-              <Text type="secondary">2024-01-10 14:20</Text>
-              <Text>引入上下文感知特征，支持多模态输入</Text>
-            </Space>
-          </Timeline.Item>
-          <Timeline.Item>
-            <Space direction="vertical" size="small">
-              <Text strong>v2.2.5</Text>
-              <Text type="secondary">2024-01-05 09:15</Text>
-              <Text>修复特征缓存失效问题，提升缓存命中率</Text>
-            </Space>
-          </Timeline.Item>
-        </Timeline>
+        {featureVersion ? (
+          <Timeline>
+            <Timeline.Item color="green" dot={<CheckCircleOutlined />}>
+              <Space direction="vertical" size="small">
+                <Text strong>{featureVersion} (当前版本)</Text>
+                <Text type="secondary">{formatDateTime(featureUpdatedAt) || '未知时间'}</Text>
+                <Text>当前特征版本快照</Text>
+              </Space>
+            </Timeline.Item>
+          </Timeline>
+        ) : (
+          <Text type="secondary">暂无版本记录</Text>
+        )}
       </Card>
     </div>
   )

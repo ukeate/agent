@@ -1,12 +1,12 @@
 """
 多智能体协作服务
 """
+
 import asyncio
 from typing import Dict, List, Optional, Any, AsyncGenerator
 from datetime import datetime
 from src.core.utils.timezone_utils import utc_now, utc_factory, timezone
 import json
-
 from src.ai.autogen import (
     GroupChatManager,
     ConversationSession,
@@ -16,11 +16,11 @@ from src.ai.autogen import (
     AgentRole,
     ConversationConfig,
 )
+from src.ai.autogen.config import AGENT_CONFIGS
 from src.ai.autogen.agents import BaseAutoGenAgent
-import structlog
 
-logger = structlog.get_logger(__name__)
-
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 class MultiAgentService:
     """多智能体协作服务"""
@@ -28,6 +28,13 @@ class MultiAgentService:
     def __init__(self):
         self.group_chat_manager = GroupChatManager()
         self._active_sessions: Dict[str, ConversationSession] = {}
+        self._conversation_ws_sessions: Dict[str, str] = {}
+
+    def bind_ws_session(self, conversation_id: str, ws_session_id: str):
+        self._conversation_ws_sessions[conversation_id] = ws_session_id
+
+    def get_ws_session_id(self, conversation_id: str) -> Optional[str]:
+        return self._conversation_ws_sessions.get(conversation_id)
     
     async def create_multi_agent_conversation(
         self,
@@ -102,9 +109,10 @@ class MultiAgentService:
         participants = []
         for role in agent_roles:
             try:
-                # 为每个角色创建智能体实例
+                config = AGENT_CONFIGS.get(role)
                 agent = create_agent_from_config(
-                    AgentConfig(
+                    config
+                    or AgentConfig(
                         name=f"{role.value}_agent",
                         role=role,
                         system_prompt=self._get_role_system_prompt(role),
@@ -129,26 +137,13 @@ class MultiAgentService:
     
     def _get_role_system_prompt(self, role: AgentRole) -> str:
         """获取角色系统提示词"""
-        prompts = {
-            AgentRole.CODE_EXPERT: """你是一位专业的软件开发专家，擅长代码编写、重构和优化。
-请用简洁、技术准确的语言回答，专注于实际的代码实现方案。""",
-            
-            AgentRole.ARCHITECT: """你是一位资深的软件架构师，专长于系统架构设计和技术选型。
-请从架构角度分析问题，提供高层次的设计方案和技术建议。""",
-            
-            AgentRole.DOC_EXPERT: """你是一位专业的技术文档专家，擅长技术文档撰写和优化。
-请提供清晰、结构化的文档建议，确保信息准确且易于理解。""",
-        }
-        return prompts.get(role, "你是一位AI助手，请协助完成任务。")
+        config = AGENT_CONFIGS.get(role)
+        return config.system_prompt if config else "你是一位AI助手，请协助完成任务。"
     
     def _get_role_capabilities(self, role: AgentRole) -> List[str]:
         """获取角色能力列表"""
-        capabilities = {
-            AgentRole.CODE_EXPERT: ["代码生成", "代码审查", "性能优化", "问题调试"],
-            AgentRole.ARCHITECT: ["架构设计", "技术选型", "性能架构", "系统建模"],
-            AgentRole.DOC_EXPERT: ["文档撰写", "API文档", "知识管理", "信息架构"],
-        }
-        return capabilities.get(role, ["通用AI助手"])
+        config = AGENT_CONFIGS.get(role)
+        return config.capabilities if config else ["通用AI助手"]
     
     async def get_conversation_status(self, conversation_id: str) -> Dict[str, Any]:
         """获取对话状态"""
@@ -161,6 +156,7 @@ class MultiAgentService:
             raise ValueError(f"对话会话不存在: {conversation_id}")
         
         status = session.get_status()
+        status["conversation_id"] = status.get("session_id", conversation_id)
         
         # 添加实时统计信息
         status.update({
@@ -260,6 +256,7 @@ class MultiAgentService:
         # 从活跃会话中移除
         if conversation_id in self._active_sessions:
             del self._active_sessions[conversation_id]
+        self._conversation_ws_sessions.pop(conversation_id, None)
         
         logger.info(
             "对话已终止",
@@ -365,6 +362,7 @@ class MultiAgentService:
             if session.status.value in ["completed", "terminated", "error"]:
                 inactive_sessions.append(session_id)
                 del self._active_sessions[session_id]
+                self._conversation_ws_sessions.pop(session_id, None)
         
         # 清理管理器中的会话
         cleaned_count = await self.group_chat_manager.cleanup_completed_sessions()

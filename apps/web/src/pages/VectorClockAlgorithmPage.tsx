@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
 import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
 import { Progress } from '../components/ui/progress';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/Tabs';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
 import { 
   Clock, GitBranch, ArrowRight, AlertTriangle, CheckCircle,
   Activity, Zap, RefreshCw, Timer, Hash, TrendingUp,
@@ -43,6 +43,7 @@ const VectorClockAlgorithmPage: React.FC = () => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [selectedClocks, setSelectedClocks] = useState<VectorClock[]>([]);
   const [causalComparison, setCausalComparison] = useState<CausalRelation | null>(null);
+  const [activeTab, setActiveTab] = useState('algorithm');
 
   // 向量时钟算法实现 - 教学版本
   const VectorClockAlgorithm = {
@@ -377,7 +378,7 @@ result: C[1]`
         </CardContent>
       </Card>
 
-      <Tabs defaultValue="algorithm" className="w-full">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="algorithm">算法演示</TabsTrigger>
           <TabsTrigger value="comparison">因果关系比较</TabsTrigger>

@@ -11,7 +11,6 @@ import torch
 import torch.nn as nn
 from typing import Dict, Any, Optional, List, Tuple, Union
 import numpy as np
-import logging
 import time
 import psutil
 import os
@@ -21,7 +20,6 @@ from pathlib import Path
 import gc
 import threading
 from contextlib import contextmanager
-
 from .models import (
     CompressionResult, 
     HardwareBenchmark, 
@@ -30,9 +28,7 @@ from .models import (
     DEFAULT_COMPRESSION_STRATEGIES
 )
 
-logger = logging.getLogger(__name__)
-
-
+from src.core.logging import get_logger
 @dataclass
 class EvaluationMetrics:
     """评估指标"""
@@ -47,7 +43,6 @@ class EvaluationMetrics:
     def to_dict(self) -> Dict[str, Any]:
         return asdict(self)
 
-
 @dataclass
 class ComparisonReport:
     """对比报告"""
@@ -61,7 +56,6 @@ class ComparisonReport:
     def to_dict(self) -> Dict[str, Any]:
         return asdict(self)
 
-
 class CompressionEvaluator:
     """压缩评估系统
     
@@ -74,7 +68,7 @@ class CompressionEvaluator:
     """
     
     def __init__(self):
-        self.logger = logging.getLogger(__name__)
+        self.logger = get_logger(__name__)
         self.benchmark_cache = {}
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         

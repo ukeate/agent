@@ -8,14 +8,13 @@ SPARQL查询优化器
 - 成本估算模型
 """
 
-import logging
 from typing import Dict, List, Any, Optional, Set, Tuple
 from enum import Enum
 from dataclasses import dataclass
 import re
 
-logger = logging.getLogger(__name__)
-
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 class OptimizationLevel(str, Enum):
     """优化级别"""
@@ -24,13 +23,11 @@ class OptimizationLevel(str, Enum):
     STANDARD = "standard"
     AGGRESSIVE = "aggressive"
 
-
 class JoinType(str, Enum):
     """连接类型"""
     INNER = "inner"
     LEFT = "left"
     OPTIONAL = "optional"
-
 
 @dataclass
 class QueryPattern:
@@ -47,7 +44,6 @@ class QueryPattern:
         if self.filter_conditions is None:
             self.filter_conditions = []
 
-
 @dataclass
 class JoinOperation:
     """连接操作"""
@@ -57,7 +53,6 @@ class JoinOperation:
     join_variables: List[str]
     estimated_cost: float = 0.0
 
-
 @dataclass
 class OptimizationContext:
     """优化上下文"""
@@ -66,7 +61,6 @@ class OptimizationContext:
     query_type: str
     optimization_level: OptimizationLevel
     time_budget_ms: int = 1000
-
 
 class StatisticsManager:
     """统计信息管理器"""
@@ -114,7 +108,6 @@ class StatisticsManager:
             "total_predicates": len(self.predicate_counts),
             "total_triples": sum(self.predicate_counts.values())
         }
-
 
 class QueryRewriter:
     """查询重写器"""
@@ -296,7 +289,6 @@ class QueryRewriter:
         
         return expr
 
-
 class JoinOptimizer:
     """连接优化器"""
     
@@ -406,7 +398,6 @@ class JoinOptimizer:
                 variables.add(element)
         
         return variables
-
 
 class AdvancedQueryOptimizer:
     """高级查询优化器"""
@@ -717,10 +708,8 @@ class AdvancedQueryOptimizer:
         """获取统计信息摘要"""
         return self.stats_manager.get_statistics()
 
-
 # 创建默认优化器实例
 default_optimizer = AdvancedQueryOptimizer()
-
 
 async def optimize_sparql_query(
     query_text: str,

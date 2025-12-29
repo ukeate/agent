@@ -1,18 +1,14 @@
 """
 置信区间计算服务 - 实现各种参数的置信区间估计
 """
+
 import math
 from typing import List, Tuple, Optional, Dict, Any, Union
 from dataclasses import dataclass
 from enum import Enum
 from scipy import stats
 import numpy as np
-
-from core.logging import get_logger
-from services.statistical_analysis_service import DescriptiveStats, MetricType
-
-logger = get_logger(__name__)
-
+from src.services.statistical_analysis_service import DescriptiveStats, MetricType
 
 class ConfidenceIntervalMethod(str, Enum):
     """置信区间计算方法"""
@@ -23,7 +19,6 @@ class ConfidenceIntervalMethod(str, Enum):
     EXACT_BINOMIAL = "exact_binomial"  # 精确二项分布
     CLOPPER_PEARSON = "clopper_pearson"  # Clopper-Pearson方法
 
-
 class ParameterType(str, Enum):
     """参数类型"""
     MEAN = "mean"  # 均值
@@ -32,7 +27,6 @@ class ParameterType(str, Enum):
     DIFFERENCE_MEANS = "difference_means"  # 均值差
     DIFFERENCE_PROPORTIONS = "difference_proportions"  # 比例差
     RATIO_VARIANCES = "ratio_variances"  # 方差比
-
 
 @dataclass
 class ConfidenceInterval:
@@ -74,7 +68,6 @@ class ConfidenceInterval:
             "width": self.width,
             "contains_zero": self.contains_zero
         }
-
 
 class MeanConfidenceIntervalCalculator:
     """均值置信区间计算器"""
@@ -272,7 +265,6 @@ class MeanConfidenceIntervalCalculator:
             self.logger.error(f"Bootstrap mean CI calculation failed: {e}")
             raise
 
-
 class ProportionConfidenceIntervalCalculator:
     """比例置信区间计算器"""
     
@@ -436,7 +428,6 @@ class ProportionConfidenceIntervalCalculator:
             self.logger.error(f"Two proportion difference CI calculation failed: {e}")
             raise
 
-
 class VarianceConfidenceIntervalCalculator:
     """方差置信区间计算器"""
     
@@ -492,7 +483,6 @@ class VarianceConfidenceIntervalCalculator:
         except Exception as e:
             self.logger.error(f"Single variance CI calculation failed: {e}")
             raise
-
 
 class ConfidenceIntervalService:
     """置信区间服务 - 统一接口"""
@@ -652,7 +642,6 @@ class ConfidenceIntervalService:
         except Exception as e:
             self.logger.error(f"A/B test confidence intervals calculation failed: {e}")
             raise
-
 
 # 全局实例
 _confidence_interval_service = None

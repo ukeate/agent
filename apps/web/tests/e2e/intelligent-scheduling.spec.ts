@@ -154,11 +154,26 @@ test.describe('智能调度监控 E2E 测试', () => {
     await expect(page.locator('text=活跃工作者')).toBeVisible();
 
     // 验证系统概览统计数据
-    await expect(page.locator('text=2847')).toBeVisible(); // 调度任务总数
-    await expect(page.locator('text=83.7')).toBeVisible(); // 负载均衡效率
-    await expect(page.locator('text=89.4')).toBeVisible(); // SLA合规率
-    await expect(page.locator('text=1')).toBeVisible(); // 活跃工作者（1个active状态）
-    await expect(page.locator('text=/ 4')).toBeVisible(); // 总工作者数量
+    const totalTasks = page.locator('.ant-statistic').filter({
+      has: page.locator('.ant-statistic-title', { hasText: '调度任务总数' }),
+    });
+    await expect(totalTasks.locator('.ant-statistic-content-value')).toContainText('2,847');
+
+    const loadBalancing = page.locator('.ant-statistic').filter({
+      has: page.locator('.ant-statistic-title', { hasText: '负载均衡效率' }),
+    });
+    await expect(loadBalancing.locator('.ant-statistic-content-value')).toContainText('83.7');
+
+    const slaCompliance = page.locator('.ant-statistic').filter({
+      has: page.locator('.ant-statistic-title', { hasText: 'SLA合规率' }),
+    });
+    await expect(slaCompliance.locator('.ant-statistic-content-value')).toContainText('89.4');
+
+    const activeWorkers = page.locator('.ant-statistic').filter({
+      has: page.locator('.ant-statistic-title', { hasText: '活跃工作者' }),
+    });
+    await expect(activeWorkers.locator('.ant-statistic-content-value')).toContainText('1');
+    await expect(activeWorkers.locator('.ant-statistic-content-suffix')).toContainText('/ 4');
   });
 
   test('系统资源监控显示测试', async ({ page }) => {
@@ -166,30 +181,31 @@ test.describe('智能调度监控 E2E 测试', () => {
     
     // 验证系统资源使用率部分
     await expect(page.locator('text=系统资源使用率')).toBeVisible();
+    const resourceCard = page.locator('.ant-card').filter({ hasText: '系统资源使用率' });
     
     // 验证各项资源指标
-    await expect(page.locator('text=CPU')).toBeVisible();
-    await expect(page.locator('text=72.5%')).toBeVisible();
+    await expect(resourceCard.getByText('CPU', { exact: true })).toBeVisible();
+    await expect(resourceCard.getByText('CPU', { exact: true }).locator('..').getByText('72.5%')).toBeVisible();
     
-    await expect(page.locator('text=内存')).toBeVisible();
-    await expect(page.locator('text=58.2%')).toBeVisible();
+    await expect(resourceCard.getByText('内存', { exact: true })).toBeVisible();
+    await expect(resourceCard.getByText('内存', { exact: true }).locator('..').getByText('58.2%')).toBeVisible();
     
-    await expect(page.locator('text=I/O')).toBeVisible();
-    await expect(page.locator('text=45.8%')).toBeVisible();
+    await expect(resourceCard.getByText('I/O', { exact: true })).toBeVisible();
+    await expect(resourceCard.getByText('I/O', { exact: true }).locator('..').getByText('45.8%')).toBeVisible();
     
-    await expect(page.locator('text=网络')).toBeVisible();
-    await expect(page.locator('text=34.1%')).toBeVisible();
+    await expect(resourceCard.getByText('网络', { exact: true })).toBeVisible();
+    await expect(resourceCard.getByText('网络', { exact: true }).locator('..').getByText('34.1%')).toBeVisible();
 
     // 验证连接和队列统计
     await expect(page.locator('text=活跃连接')).toBeVisible();
     await expect(page.locator('text=127')).toBeVisible();
     
     await expect(page.locator('text=队列深度')).toBeVisible();
-    await expect(page.locator('text=45')).toBeVisible();
+    await expect(resourceCard.getByText('45', { exact: true })).toBeVisible();
 
     // 验证资源使用率进度条颜色
-    const progressBars = page.locator('.ant-progress-line');
-    await expect(progressBars).toHaveCount(4); // CPU, 内存, I/O, 网络
+    const progressBars = resourceCard.locator('.ant-progress-line');
+    await expect(progressBars).toHaveCount(4);
   });
 
   test('预测性调度建议显示测试', async ({ page }) => {
@@ -271,11 +287,12 @@ test.describe('智能调度监控 E2E 测试', () => {
     await expect(page.locator('text=工作者状态')).toBeVisible();
     
     // 验证表格列标题
-    await expect(page.locator('text=工作者ID')).toBeVisible();
-    await expect(page.locator('text=状态')).toBeVisible();
-    await expect(page.locator('text=当前负载')).toBeVisible();
-    await expect(page.locator('text=完成率')).toBeVisible();
-    await expect(page.locator('text=平均耗时')).toBeVisible();
+    const workerCard = page.locator('.ant-card').filter({ hasText: '工作者状态' });
+    await expect(workerCard.getByRole('columnheader', { name: '工作者ID' })).toBeVisible();
+    await expect(workerCard.getByRole('columnheader', { name: '状态' })).toBeVisible();
+    await expect(workerCard.getByRole('columnheader', { name: '当前负载' })).toBeVisible();
+    await expect(workerCard.getByRole('columnheader', { name: '完成率' })).toBeVisible();
+    await expect(workerCard.getByRole('columnheader', { name: '平均耗时' })).toBeVisible();
     
     // 验证工作者数据
     await expect(page.locator('text=worker-001')).toBeVisible();
@@ -309,11 +326,12 @@ test.describe('智能调度监控 E2E 测试', () => {
     await expect(page.locator('text=worker-001')).toBeVisible();
     
     // 验证进度条存在并有正确的值
-    const progressBars = page.locator('.ant-progress-line');
-    await expect(progressBars).toHaveCount(7); // 4个资源进度条 + 3个工作者负载进度条（offline工作者也有进度条）
+    const resourceCard = page.locator('.ant-card').filter({ hasText: '系统资源使用率' });
+    await expect(resourceCard.locator('.ant-progress-line')).toHaveCount(4);
+    await expect(page.locator('table .ant-progress-line')).toHaveCount(4);
     
     // 验证进度条状态 - 通过aria属性
-    const workerProgressBars = page.locator('table .ant-progress [role="progressbar"]');
+    const workerProgressBars = page.locator('table [role="progressbar"]');
     
     // worker-001: 65%
     await expect(workerProgressBars.nth(0)).toHaveAttribute('aria-valuenow', '65');
@@ -329,7 +347,7 @@ test.describe('智能调度监控 E2E 测试', () => {
     await page.click('text=智能调度');
     
     // 验证SLA监控表格
-    await expect(page.locator('text=SLA监控')).toBeVisible();
+    await expect(page.getByText('SLA监控', { exact: true })).toBeVisible();
     
     // 验证SLA名称
     await expect(page.locator('text=Critical Tasks SLA')).toBeVisible();
@@ -342,9 +360,9 @@ test.describe('智能调度监控 E2E 测试', () => {
     await expect(page.locator('text=VIOLATED')).toBeVisible();
     
     // 验证目标完成时间
-    await expect(page.locator('text=5s')).toBeVisible();
-    await expect(page.locator('text=15s')).toBeVisible();
-    await expect(page.locator('text=30s')).toBeVisible();
+    await expect(page.getByRole('cell', { name: '5s', exact: true })).toBeVisible();
+    await expect(page.getByRole('cell', { name: '15s', exact: true })).toBeVisible();
+    await expect(page.getByRole('cell', { name: '30s', exact: true })).toBeVisible();
     
     // 验证当前性能数据
     await expect(page.locator('text=完成时间: 3.80s')).toBeVisible();
@@ -586,7 +604,10 @@ test.describe('智能调度监控 E2E 测试', () => {
     await expect(page.locator('text=负载均衡效率')).toBeVisible();
     
     // 应该有错误处理，数据显示为默认值
-    await expect(page.locator('text=0')).toBeVisible();
+    const totalTasks = page.locator('.ant-statistic').filter({
+      has: page.locator('.ant-statistic-title', { hasText: '调度任务总数' }),
+    });
+    await expect(totalTasks.locator('.ant-statistic-content-value')).toContainText('0');
   });
 
   test('更新时间显示测试', async ({ page }) => {

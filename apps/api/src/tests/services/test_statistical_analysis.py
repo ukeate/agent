@@ -1,6 +1,7 @@
 """
 统计分析服务单元测试
 """
+
 import pytest
 import math
 from services.statistical_analysis_service import (
@@ -9,7 +10,6 @@ from services.statistical_analysis_service import (
     MetricType,
     DistributionType
 )
-
 
 class TestBasicStatisticsCalculator:
     """基础统计计算器测试"""
@@ -135,7 +135,6 @@ class TestBasicStatisticsCalculator:
         with pytest.raises(ValueError):
             calculator.calculate_conversion_rate_stats(101, 100)
 
-
 class TestExperimentStatsCalculator:
     """实验统计计算器测试"""
     
@@ -258,7 +257,6 @@ class TestExperimentStatsCalculator:
         # 样本太小，应该返回UNKNOWN
         assert dist_type == DistributionType.UNKNOWN
 
-
 # 集成测试
 def test_statistical_analysis_integration():
     """统计分析服务集成测试"""
@@ -276,7 +274,6 @@ def test_statistical_analysis_integration():
     stats = calculator.basic_calculator.calculate_descriptive_stats(test_data)
     assert stats.mean == 3.0
     assert stats.count == 5
-
 
 if __name__ == "__main__":
     pytest.main([__file__])

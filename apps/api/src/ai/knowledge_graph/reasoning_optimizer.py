@@ -18,7 +18,8 @@
 import asyncio
 import time
 import hashlib
-import pickle
+import base64
+from src.core.utils import secure_pickle as pickle
 from collections import defaultdict, OrderedDict
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -26,15 +27,16 @@ from datetime import timedelta
 from src.core.utils.timezone_utils import utc_now, utc_factory
 from enum import Enum
 from typing import Dict, List, Optional, Any, Tuple, Callable, Union
-import logging
 import json
 import threading
 from concurrent.futures import ThreadPoolExecutor, Future
 import psutil
 import numpy as np
 from queue import PriorityQueue
+from uuid import uuid4
 
-logger = logging.getLogger(__name__)
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 class CacheLevel(str, Enum):
     """缓存级别"""
@@ -64,7 +66,7 @@ class CacheEntry:
     value: Any
     timestamp: datetime
     access_count: int = 0
-    last_access: datetime = field(default_factory=datetime.utcnow)
+    last_access: datetime = field(default_factory=utc_now)
     expiry: Optional[datetime] = None
     size_bytes: int = 0
     hit_rate: float = 0.0
@@ -87,7 +89,7 @@ class ReasoningTask:
     query_type: str
     parameters: Dict[str, Any]
     priority: ReasoningPriority = ReasoningPriority.MEDIUM
-    created_at: datetime = field(default_factory=datetime.utcnow)
+    created_at: datetime = field(default_factory=utc_now)
     deadline: Optional[datetime] = None
     estimated_duration: float = 0.0
     resource_requirements: Dict[str, float] = field(default_factory=dict)
@@ -235,23 +237,111 @@ class CacheManager:
     
     async def _get_l2(self, key: str) -> Optional[Any]:
         """L2 Redis缓存获取"""
-        # Redis实现占位符
-        return None
+        if not self.l2_cache:
+            return None
+        try:
+            raw = await self.l2_cache.get(key)
+            if raw is None:
+                return None
+            if isinstance(raw, str):
+                raw = raw.encode("utf-8")
+            payload = base64.b64decode(raw)
+            return pickle.loads(payload)
+        except Exception as e:
+            logger.warning("L2缓存读取失败", key=key, error=str(e))
+            return None
     
     async def _set_l2(self, key: str, value: Any, ttl: Optional[int] = None):
         """L2 Redis缓存设置"""
-        # Redis实现占位符
-        pass
+        if not self.l2_cache:
+            return
+        try:
+            payload = pickle.dumps(value)
+            encoded = base64.b64encode(payload).decode("ascii")
+            if ttl:
+                if hasattr(self.l2_cache, "setex"):
+                    await self.l2_cache.setex(key, ttl, encoded)
+                else:
+                    await self.l2_cache.set(key, encoded, ex=ttl)
+            else:
+                await self.l2_cache.set(key, encoded)
+        except Exception as e:
+            logger.warning("L2缓存写入失败", key=key, error=str(e))
     
     async def _get_l3(self, key: str) -> Optional[Any]:
         """L3数据库缓存获取"""
-        # 数据库实现占位符
-        return None
+        if not self.l3_cache:
+            return None
+        try:
+            if hasattr(self.l3_cache, "get"):
+                result = self.l3_cache.get(key)
+                return await result if asyncio.iscoroutine(result) else result
+            from sqlalchemy import select
+            from sqlalchemy.ext.asyncio import AsyncSession
+            from src.ai.reasoning.models import ReasoningCacheModel
+
+            if isinstance(self.l3_cache, AsyncSession):
+                result = await self.l3_cache.execute(
+                    select(ReasoningCacheModel).where(ReasoningCacheModel.cache_key == key)
+                )
+                cache_entry = result.scalar_one_or_none()
+                if not cache_entry:
+                    return None
+                if cache_entry.expires_at and cache_entry.expires_at < utc_now():
+                    await self.l3_cache.delete(cache_entry)
+                    await self.l3_cache.commit()
+                    return None
+                cache_entry.hit_count = (cache_entry.hit_count or 0) + 1
+                await self.l3_cache.commit()
+                return cache_entry.result
+            raise TypeError("L3缓存需要实现get/set接口或提供AsyncSession")
+        except Exception as e:
+            logger.warning("L3缓存读取失败", key=key, error=str(e))
+            return None
     
     async def _set_l3(self, key: str, value: Any, ttl: Optional[int] = None):
         """L3数据库缓存设置"""
-        # 数据库实现占位符
-        pass
+        if not self.l3_cache:
+            return
+        try:
+            if hasattr(self.l3_cache, "set"):
+                result = self.l3_cache.set(key, value, ttl=ttl)
+                if asyncio.iscoroutine(result):
+                    await result
+                return
+            from sqlalchemy import select
+            from sqlalchemy.ext.asyncio import AsyncSession
+            from src.ai.reasoning.models import ReasoningCacheModel
+
+            if not isinstance(self.l3_cache, AsyncSession):
+                raise TypeError("L3缓存需要实现get/set接口或提供AsyncSession")
+
+            expires_at = utc_now() + timedelta(seconds=ttl or 3600)
+            result = await self.l3_cache.execute(
+                select(ReasoningCacheModel).where(ReasoningCacheModel.cache_key == key)
+            )
+            cache_entry = result.scalar_one_or_none()
+            if cache_entry:
+                cache_entry.result = value
+                cache_entry.ttl_seconds = ttl or cache_entry.ttl_seconds or 3600
+                cache_entry.expires_at = expires_at
+            else:
+                problem_hash = hashlib.sha256(key.encode("utf-8")).hexdigest()
+                cache_entry = ReasoningCacheModel(
+                    id=uuid4(),
+                    cache_key=key,
+                    problem_hash=problem_hash,
+                    strategy="knowledge_graph",
+                    result=value,
+                    hit_count=0,
+                    ttl_seconds=ttl or 3600,
+                    created_at=utc_now(),
+                    expires_at=expires_at,
+                )
+                self.l3_cache.add(cache_entry)
+            await self.l3_cache.commit()
+        except Exception as e:
+            logger.warning("L3缓存写入失败", key=key, error=str(e))
     
     def get_cache_statistics(self) -> Dict[str, Any]:
         """获取缓存统计"""

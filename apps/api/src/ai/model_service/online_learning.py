@@ -2,9 +2,8 @@
 
 import asyncio
 import json
-import logging
 import math
-import pickle
+from src.core.utils import secure_pickle as pickle
 import random
 from collections import defaultdict, deque
 from dataclasses import dataclass, field
@@ -14,17 +13,15 @@ from typing import Dict, List, Optional, Any, Union, Tuple
 import uuid
 import numpy as np
 from pathlib import Path
-
 import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader, TensorDataset
 from sklearn.metrics import accuracy_score, mean_squared_error
-
 from .registry import ModelRegistry, ModelMetadata, ModelFormat
 from .deployment import DeploymentManager
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 class LearningSessionStatus(str, Enum):
     """学习会话状态"""
@@ -628,6 +625,7 @@ class OnlineLearningEngine:
             "status": session.status.value,
             "created_at": session.created_at.isoformat(),
             "updated_at": session.updated_at.isoformat(),
+            "config": session.config,
             "feedback_count": session.feedback_count,
             "update_count": session.update_count,
             "performance_metrics": session.performance_metrics,
@@ -728,3 +726,4 @@ class OnlineLearningEngine:
             "active_ab_tests": active_tests,
             "performance_history_size": sum(len(h) for h in self.performance_history.values())
         }
+from src.core.logging import get_logger

@@ -16,11 +16,10 @@ from datetime import datetime
 from datetime import timedelta
 from src.core.utils.timezone_utils import utc_now, utc_factory
 from dataclasses import dataclass
-import logging
+from src.core.logging import get_logger, setup_logging
 
-# 假设的数据库模块（实际项目中需要替换为真实的数据库连接）
-from core.database import get_database_connection
-
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 @dataclass
 class QueryPerformanceMetrics:
@@ -32,12 +31,11 @@ class QueryPerformanceMetrics:
     index_usage: bool
     optimization_applied: str
 
-
 class DatabaseOptimizer:
     """数据库优化器"""
     
     def __init__(self):
-        self.logger = logging.getLogger(__name__)
+        self.logger = get_logger(__name__)
         self.performance_metrics = []
         
     async def create_optimized_indexes(self):
@@ -556,23 +554,22 @@ class DatabaseOptimizer:
         
         return report
 
-
 async def main():
     """主函数：运行数据库优化"""
     
     optimizer = DatabaseOptimizer()
     
-    print("开始数据库优化分析...")
+    logger.info("开始数据库优化分析")
     report = await optimizer.generate_optimization_report()
     
-    print(report)
+    logger.info("优化报告生成完成", report=report)
     
     # 保存报告
     with open("database_optimization_report.md", "w", encoding="utf-8") as f:
         f.write(report)
     
-    print(f"\n优化报告已保存到: database_optimization_report.md")
-
+    logger.info("优化报告已保存", path="database_optimization_report.md")
 
 if __name__ == "__main__":
+    setup_logging()
     asyncio.run(main())

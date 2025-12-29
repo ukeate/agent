@@ -1,6 +1,7 @@
 """
 超参数优化系统集成测试
 """
+
 import pytest
 import pytest_asyncio
 import asyncio
@@ -9,14 +10,12 @@ import numpy as np
 from datetime import datetime
 from src.core.utils.timezone_utils import utc_now, utc_factory
 import json
-
 from ai.hyperparameter_optimization.optimizer import HyperparameterOptimizer, OptimizationConfig, PruningAlgorithm
 from ai.hyperparameter_optimization.experiment_manager import ExperimentManager
 from ai.hyperparameter_optimization.search_engine import SearchEngine, SearchAlgorithm
 from ai.hyperparameter_optimization.models import (
     OptimizationAlgorithm, ExperimentState, TrialState
 )
-
 
 class TestHyperparameterOptimizationIntegration:
     """超参数优化系统集成测试类"""

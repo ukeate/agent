@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import {
+import { logger } from '../../utils/logger'
   Card,
   Row,
   Col,
@@ -48,6 +49,7 @@ interface PerformanceTarget {
   target: number;
   status: 'achieved' | 'not_achieved' | 'warning';
   improvement: number;
+  unit?: 'ms' | 'ratio' | 'count';
 }
 
 const PerformanceMonitorPanel: React.FC = () => {
@@ -63,7 +65,7 @@ const PerformanceMonitorPanel: React.FC = () => {
   }, [timeRange]);
 
   useEffect(() => {
-    let interval: NodeJS.Timeout;
+    let interval: ReturnType<typeof setTimeout>;
     if (autoRefresh) {
       interval = setInterval(fetchPerformanceData, 10000); // 每10秒刷新
     }
@@ -76,9 +78,22 @@ const PerformanceMonitorPanel: React.FC = () => {
     try {
       setLoading(true);
       const data = await pgvectorApi.getPerformanceMetrics(timeRange);
-      setMetrics(data);
+      const qp = data?.query_performance || {};
+      const end = data?.report_period?.end_time || new Date().toISOString();
+      setMetrics([
+        {
+          timestamp: end,
+          avg_latency_ms: qp.average_execution_time_ms || 0,
+          p95_latency_ms: qp.p95_execution_time_ms || qp.max_execution_time_ms || 0,
+          p99_latency_ms: qp.p99_execution_time_ms || qp.max_execution_time_ms || 0,
+          cache_hit_rate: qp.cache_hit_ratio || 0,
+          quantization_ratio: qp.quantization_ratio || 0,
+          search_count: qp.total_queries || 0,
+          error_rate: qp.error_rate || 0,
+        },
+      ]);
     } catch (error) {
-      console.error('Failed to fetch performance data:', error);
+      logger.error('获取性能数据失败:', error);
     } finally {
       setLoading(false);
     }
@@ -89,7 +104,7 @@ const PerformanceMonitorPanel: React.FC = () => {
       const targetData = await pgvectorApi.getPerformanceTargets();
       setTargets(targetData);
     } catch (error) {
-      console.error('Failed to fetch performance targets:', error);
+      logger.error('获取性能目标失败:', error);
     }
   };
 
@@ -159,6 +174,16 @@ const PerformanceMonitorPanel: React.FC = () => {
     }
   };
 
+  const formatTargetValue = (value: number, record: PerformanceTarget) => {
+    if (record.unit === 'ratio' || record.metric.includes('率') || record.metric.includes('命中')) {
+      return `${(value * 100).toFixed(1)}%`;
+    }
+    if (record.unit === 'count') {
+      return `${Math.round(value)}`;
+    }
+    return `${value.toFixed(1)}ms`;
+  };
+
   const targetColumns = [
     {
       title: '性能指标',
@@ -169,19 +194,13 @@ const PerformanceMonitorPanel: React.FC = () => {
       title: '当前值',
       dataIndex: 'current',
       key: 'current',
-      render: (value: number, record: PerformanceTarget) => {
-        const isPercentage = record.metric.includes('率') || record.metric.includes('命中');
-        return isPercentage ? `${(value * 100).toFixed(1)}%` : `${value.toFixed(1)}ms`;
-      }
+      render: (value: number, record: PerformanceTarget) => formatTargetValue(value, record)
     },
     {
       title: '目标值',
       dataIndex: 'target',
       key: 'target',
-      render: (value: number, record: PerformanceTarget) => {
-        const isPercentage = record.metric.includes('率') || record.metric.includes('命中');
-        return isPercentage ? `${(value * 100).toFixed(1)}%` : `${value.toFixed(1)}ms`;
-      }
+      render: (value: number, record: PerformanceTarget) => formatTargetValue(value, record)
     },
     {
       title: '改善幅度',
@@ -207,6 +226,11 @@ const PerformanceMonitorPanel: React.FC = () => {
       )
     }
   ];
+
+  const achievedCount = targets.filter(t => t.status === 'achieved').length;
+  const totalTargets = targets.length;
+  const achievementRate = totalTargets ? Math.round((achievedCount / totalTargets) * 100) : 0;
+  const avgTarget = targets.find(t => t.metric.includes('平均查询延迟'));
 
   return (
     <div>
@@ -326,8 +350,8 @@ const PerformanceMonitorPanel: React.FC = () => {
           <Col span={8}>
             <Progress
               type="circle"
-              percent={Math.round((targets.filter(t => t.status === 'achieved').length / targets.length) * 100)}
-              format={() => `${targets.filter(t => t.status === 'achieved').length}/${targets.length}`}
+              percent={achievementRate}
+              format={() => `${achievedCount}/${totalTargets || 0}`}
               strokeColor="#52c41a"
             />
             <div style={{ textAlign: 'center', marginTop: 8 }}>
@@ -340,9 +364,9 @@ const PerformanceMonitorPanel: React.FC = () => {
               message="性能优化建议"
               description={
                 <ul>
-                  <li>当前平均延迟: {latestMetrics?.avg_latency_ms?.toFixed(1)}ms，目标: &lt;30ms</li>
-                  <li>缓存命中率: {((latestMetrics?.cache_hit_rate || 0) * 100).toFixed(1)}%，目标: &gt;75%</li>
-                  <li>量化使用率: {((latestMetrics?.quantization_ratio || 0) * 100).toFixed(1)}%，建议提高到70%+</li>
+                  <li>当前平均延迟: {latestMetrics?.avg_latency_ms?.toFixed(1)}ms{avgTarget ? `，目标: <${avgTarget.target.toFixed(1)}ms` : ''}</li>
+                  <li>缓存命中率: {((latestMetrics?.cache_hit_rate || 0) * 100).toFixed(1)}%</li>
+                  <li>量化使用率: {((latestMetrics?.quantization_ratio || 0) * 100).toFixed(1)}%</li>
                   <li>建议启用INT8量化以平衡性能和精度</li>
                 </ul>
               }

@@ -4,7 +4,6 @@
 """
 
 import asyncio
-import logging
 import time
 import psutil
 import gc
@@ -14,18 +13,15 @@ from src.core.utils.timezone_utils import utc_now, utc_factory
 from typing import Dict, List, Any, Optional
 from dataclasses import dataclass
 import json
-
-import aioredis
+import redis.asyncio as redis_async
 import numpy as np
 from contextlib import asynccontextmanager
-
 from .alerts import AlertManager, AlertSeverity, get_default_alert_rules
 from .performance import PerformanceMonitor
 from ..engine import PersonalizationEngine
 
-
-logger = logging.getLogger(__name__)
-
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 @dataclass
 class HealthCheckResult:
@@ -36,14 +32,13 @@ class HealthCheckResult:
     details: Dict[str, Any]
     timestamp: datetime
 
-
 class ProductionMonitor:
     """生产环境监控器"""
     
     def __init__(
         self,
         personalization_engine: PersonalizationEngine,
-        redis_client,
+        redis_client: redis_async.Redis,
         alert_manager: AlertManager,
         performance_monitor: PerformanceMonitor
     ):
@@ -779,7 +774,7 @@ class ProductionMonitor:
                 "timestamp": utc_now().isoformat(),
                 "overall_status": self._calculate_overall_status(health_status, active_alerts),
                 "health_checks": health_status,
-                "active_alerts": [alert.dict() for alert in active_alerts],
+                "active_alerts": [alert.model_dump(mode="json") for alert in active_alerts],
                 "key_metrics": key_metrics,
                 "system_resources": system_resources,
                 "uptime_seconds": (utc_now() - self._last_metrics_update).total_seconds() if self._running else 0
@@ -816,7 +811,6 @@ class ProductionMonitor:
             return "degraded"
         
         return "healthy"
-
 
 @asynccontextmanager
 async def production_monitor_context(

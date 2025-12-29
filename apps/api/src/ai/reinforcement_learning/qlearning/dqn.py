@@ -4,15 +4,17 @@ Deep Q-Network (DQN) 算法实现
 使用深度神经网络近似Q函数，适用于高维状态空间的强化学习问题。
 """
 
+from __future__ import annotations
+
 import os
 import json
 import numpy as np
-import tensorflow as tf
+from src.core.tensorflow_config import tensorflow_lazy
 from typing import Dict, List, Optional, Any, Tuple
 from collections import deque
 import random
-
 from .base import (
+
     QLearningAgent,
     AgentState, 
     Experience,
@@ -22,6 +24,8 @@ from .base import (
 )
 from .replay_buffer import ReplayBuffer, PrioritizedReplayBuffer
 
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 class DQNAgent(QLearningAgent):
     """Deep Q-Network智能体实现"""
@@ -34,6 +38,8 @@ class DQNAgent(QLearningAgent):
                  action_space: List[str],
                  use_prioritized_replay: bool = False,
                  use_double_dqn: bool = False):
+        if not tensorflow_lazy.available:
+            raise RuntimeError("TensorFlow不可用，无法创建DQN智能体")
         
         # 确保是DQN算法
         config.algorithm_type = AlgorithmType.DQN
@@ -72,7 +78,7 @@ class DQNAgent(QLearningAgent):
         self.exploration_strategy = EpsilonGreedyStrategy()
         
         # 训练相关
-        self.loss_function = tf.keras.losses.MeanSquaredError()
+        self.loss_function = tensorflow_lazy.tf.keras.losses.MeanSquaredError()
         self.train_step_counter = 0
         self.target_update_counter = 0
         
@@ -81,27 +87,27 @@ class DQNAgent(QLearningAgent):
     
     def _configure_gpu(self):
         """配置GPU使用"""
-        physical_devices = tf.config.list_physical_devices('GPU')
+        physical_devices = tensorflow_lazy.tf.config.list_physical_devices('GPU')
         if physical_devices:
             try:
                 # 启用内存增长
                 for device in physical_devices:
-                    tf.config.experimental.set_memory_growth(device, True)
+                    tensorflow_lazy.tf.config.experimental.set_memory_growth(device, True)
                 self.device_name = '/GPU:0'
-                print(f"DQN Agent {self.agent_id}: 使用GPU加速")
+                logger.info("DQN使用GPU加速", agent_id=self.agent_id)
             except Exception as e:
-                print(f"GPU配置失败: {e}")
+                logger.error("GPU配置失败", agent_id=self.agent_id, error=str(e), exc_info=True)
                 self.device_name = '/CPU:0'
         else:
             self.device_name = '/CPU:0'
-            print(f"DQN Agent {self.agent_id}: 使用CPU")
+            logger.info("DQN使用CPU", agent_id=self.agent_id)
     
-    def _build_network(self) -> tf.keras.Model:
+    def _build_network(self) -> tensorflow_lazy.tf.keras.Model:
         """构建深度Q网络"""
-        model = tf.keras.Sequential()
+        model = tensorflow_lazy.tf.keras.Sequential()
         
         # 输入层
-        model.add(tf.keras.layers.Dense(
+        model.add(tensorflow_lazy.tf.keras.layers.Dense(
             self.network_config["hidden_layers"][0],
             input_shape=(self.state_size,),
             activation=self.network_config["activation"],
@@ -110,7 +116,7 @@ class DQNAgent(QLearningAgent):
         
         # 隐藏层
         for i, units in enumerate(self.network_config["hidden_layers"][1:], 1):
-            model.add(tf.keras.layers.Dense(
+            model.add(tensorflow_lazy.tf.keras.layers.Dense(
                 units,
                 activation=self.network_config["activation"],
                 name=f"hidden_dense_{i}"
@@ -118,10 +124,10 @@ class DQNAgent(QLearningAgent):
             
             # 添加Dropout防止过拟合
             if i < len(self.network_config["hidden_layers"]) - 1:
-                model.add(tf.keras.layers.Dropout(0.2, name=f"dropout_{i}"))
+                model.add(tensorflow_lazy.tf.keras.layers.Dropout(0.2, name=f"dropout_{i}"))
         
         # 输出层
-        model.add(tf.keras.layers.Dense(
+        model.add(tensorflow_lazy.tf.keras.layers.Dense(
             self.action_size,
             activation="linear",  # Q值可以为负数
             name="output_dense"
@@ -129,18 +135,18 @@ class DQNAgent(QLearningAgent):
         
         return model
     
-    def _create_optimizer(self) -> tf.keras.optimizers.Optimizer:
+    def _create_optimizer(self) -> tensorflow_lazy.tf.keras.optimizers.Optimizer:
         """创建优化器"""
         optimizer_name = self.network_config.get("optimizer", "adam").lower()
         
         if optimizer_name == "adam":
-            return tf.keras.optimizers.Adam(learning_rate=self.config.learning_rate)
+            return tensorflow_lazy.tf.keras.optimizers.Adam(learning_rate=self.config.learning_rate)
         elif optimizer_name == "rmsprop":
-            return tf.keras.optimizers.RMSprop(learning_rate=self.config.learning_rate)
+            return tensorflow_lazy.tf.keras.optimizers.RMSprop(learning_rate=self.config.learning_rate)
         elif optimizer_name == "sgd":
-            return tf.keras.optimizers.SGD(learning_rate=self.config.learning_rate)
+            return tensorflow_lazy.tf.keras.optimizers.SGD(learning_rate=self.config.learning_rate)
         else:
-            return tf.keras.optimizers.Adam(learning_rate=self.config.learning_rate)
+            return tensorflow_lazy.tf.keras.optimizers.Adam(learning_rate=self.config.learning_rate)
     
     def _state_to_array(self, state: AgentState) -> np.ndarray:
         """将状态转换为神经网络输入"""
@@ -161,13 +167,14 @@ class DQNAgent(QLearningAgent):
     
     def get_action(self, state: AgentState, exploration: bool = True) -> str:
         """使用epsilon-greedy策略选择动作"""
-        with tf.device(self.device_name):
+        with tensorflow_lazy.tf.device(self.device_name):
+            state = self._normalize_state(state)
             state_array = self._state_to_array(state)
             
             if not exploration:
                 # 贪婪策略
                 q_values = self.q_network(state_array.reshape(1, -1), training=False)
-                action_idx = tf.argmax(q_values[0]).numpy()
+                action_idx = tensorflow_lazy.tf.argmax(q_values[0]).numpy()
                 return self.action_space[action_idx]
             
             # epsilon-greedy策略
@@ -175,12 +182,13 @@ class DQNAgent(QLearningAgent):
                 return random.choice(self.action_space)
             else:
                 q_values = self.q_network(state_array.reshape(1, -1), training=False)
-                action_idx = tf.argmax(q_values[0]).numpy()
+                action_idx = tensorflow_lazy.tf.argmax(q_values[0]).numpy()
                 return self.action_space[action_idx]
     
     def get_q_values(self, state: AgentState) -> Dict[str, float]:
         """获取状态的所有Q值"""
-        with tf.device(self.device_name):
+        with tensorflow_lazy.tf.device(self.device_name):
+            state = self._normalize_state(state)
             state_array = self._state_to_array(state)
             q_values = self.q_network(state_array.reshape(1, -1), training=False)
             q_values_dict = {}
@@ -213,11 +221,11 @@ class DQNAgent(QLearningAgent):
     
     def _train_step(self) -> float:
         """执行一次训练步骤"""
-        with tf.device(self.device_name):
+        with tensorflow_lazy.tf.device(self.device_name):
             # 从replay buffer采样
             if self.use_prioritized_replay:
                 experiences, indices, weights = self.replay_buffer.sample(self.config.batch_size)
-                weights = tf.constant(weights, dtype=tf.float32)
+                weights = tensorflow_lazy.tf.constant(weights, dtype=tensorflow_lazy.tf.float32)
             else:
                 experiences = self.replay_buffer.sample(self.config.batch_size)
                 weights = None
@@ -230,14 +238,14 @@ class DQNAgent(QLearningAgent):
             states, actions, rewards, next_states, dones = self._prepare_training_data(experiences)
             
             # 计算损失和梯度
-            with tf.GradientTape() as tape:
+            with tensorflow_lazy.tf.GradientTape() as tape:
                 loss, td_errors = self._compute_loss(states, actions, rewards, next_states, dones, weights)
             
             # 应用梯度
             gradients = tape.gradient(loss, self.q_network.trainable_variables)
             
             # 梯度裁剪
-            gradients = [tf.clip_by_value(grad, -1.0, 1.0) for grad in gradients]
+            gradients = [tensorflow_lazy.tf.clip_by_value(grad, -1.0, 1.0) for grad in gradients]
             
             self.optimizer.apply_gradients(zip(gradients, self.q_network.trainable_variables))
             
@@ -252,7 +260,7 @@ class DQNAgent(QLearningAgent):
             
             return loss_value
     
-    def _prepare_training_data(self, experiences: List[Experience]) -> Tuple[tf.Tensor, tf.Tensor, tf.Tensor, tf.Tensor, tf.Tensor]:
+    def _prepare_training_data(self, experiences: List[Experience]) -> Tuple[tensorflow_lazy.tf.Tensor, tensorflow_lazy.tf.Tensor, tensorflow_lazy.tf.Tensor, tensorflow_lazy.tf.Tensor, tensorflow_lazy.tf.Tensor]:
         """准备训练数据"""
         batch_size = len(experiences)
         
@@ -270,33 +278,33 @@ class DQNAgent(QLearningAgent):
             dones[i] = exp.done
         
         return (
-            tf.constant(states),
-            tf.constant(actions),
-            tf.constant(rewards),
-            tf.constant(next_states),
-            tf.constant(dones)
+            tensorflow_lazy.tf.constant(states),
+            tensorflow_lazy.tf.constant(actions),
+            tensorflow_lazy.tf.constant(rewards),
+            tensorflow_lazy.tf.constant(next_states),
+            tensorflow_lazy.tf.constant(dones)
         )
     
     def _compute_loss(self, states, actions, rewards, next_states, dones, weights=None):
         """计算DQN损失"""
         # 当前Q值
         current_q_values = self.q_network(states, training=True)
-        current_q_values = tf.gather(current_q_values, actions, batch_dims=1)
+        current_q_values = tensorflow_lazy.tf.gather(current_q_values, actions, batch_dims=1)
         
         # 计算目标Q值
         if self.use_double_dqn:
             # Double DQN: 使用主网络选择动作，目标网络估计Q值
             next_q_values_main = self.q_network(next_states, training=False)
-            next_actions = tf.argmax(next_q_values_main, axis=1)
+            next_actions = tensorflow_lazy.tf.argmax(next_q_values_main, axis=1)
             next_q_values_target = self.target_network(next_states, training=False)
-            next_q_values = tf.gather(next_q_values_target, next_actions, batch_dims=1)
+            next_q_values = tensorflow_lazy.tf.gather(next_q_values_target, next_actions, batch_dims=1)
         else:
             # 标准DQN: 使用目标网络
-            next_q_values = tf.reduce_max(self.target_network(next_states, training=False), axis=1)
+            next_q_values = tensorflow_lazy.tf.reduce_max(self.target_network(next_states, training=False), axis=1)
         
         # 计算目标
-        targets = rewards + (1.0 - tf.cast(dones, tf.float32)) * self.config.discount_factor * next_q_values
-        targets = tf.stop_gradient(targets)
+        targets = rewards + (1.0 - tensorflow_lazy.tf.cast(dones, tensorflow_lazy.tf.float32)) * self.config.discount_factor * next_q_values
+        targets = tensorflow_lazy.tf.stop_gradient(targets)
         
         # 计算TD误差
         td_errors = targets - current_q_values
@@ -304,9 +312,9 @@ class DQNAgent(QLearningAgent):
         # 计算损失
         if weights is not None:
             # 优先级采样权重
-            loss = tf.reduce_mean(weights * tf.square(td_errors))
+            loss = tensorflow_lazy.tf.reduce_mean(weights * tensorflow_lazy.tf.square(td_errors))
         else:
-            loss = tf.reduce_mean(tf.square(td_errors))
+            loss = tensorflow_lazy.tf.reduce_mean(tensorflow_lazy.tf.square(td_errors))
         
         return loss, td_errors
     

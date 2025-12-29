@@ -3,11 +3,9 @@
 import asyncio
 from typing import Any, Dict, List, Optional, TypedDict
 from uuid import uuid4
-
 from langgraph.graph import StateGraph, END
 from langgraph.checkpoint.memory import MemorySaver
-
-from models.schemas.reasoning import (
+from src.models.schemas.reasoning import (
     ReasoningChain,
     ReasoningStrategy,
     ThoughtStep,
@@ -18,13 +16,12 @@ from src.ai.reasoning.cot_engine import BaseCoTEngine
 from src.ai.reasoning.strategies.zero_shot import ZeroShotCoTEngine
 from src.ai.reasoning.strategies.few_shot import FewShotCoTEngine
 from src.ai.reasoning.strategies.auto_cot import AutoCoTEngine
-from src.core.logging import get_logger
 
 logger = get_logger(__name__)
 
-
 class ReasoningState(TypedDict):
     """推理状态定义"""
+
     chain_id: str
     problem: str
     context: Optional[str]
@@ -38,7 +35,6 @@ class ReasoningState(TypedDict):
     confidence_score: Optional[float]
     is_complete: bool
     error: Optional[str]
-
 
 class ReasoningGraphBuilder:
     """推理图构建器"""
@@ -268,7 +264,6 @@ class ReasoningGraphBuilder:
         
         return "continue"
 
-
 class ReasoningStateMachine:
     """推理状态机"""
 
@@ -339,3 +334,4 @@ class ReasoningStateMachine:
             chain.complete(state["conclusion"])
         
         return chain
+from src.core.logging import get_logger

@@ -9,13 +9,11 @@ from datetime import datetime
 from src.core.utils.timezone_utils import utc_now, utc_factory, timezone
 from typing import Any, Dict, List, Optional, Tuple, Union
 from uuid import uuid4
-
 from src.models.schemas.explanation import (
     ConfidenceMetrics,
     ConfidenceSource,
     ExplanationComponent
 )
-
 
 class ConfidenceCalculator:
     """置信度计算器"""

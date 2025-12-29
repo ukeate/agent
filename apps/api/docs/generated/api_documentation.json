@@ -1,0 +1,112 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Model Fine-tuning Platform API",
+    "version": "1.0.0",
+    "description": "API documentation for model fine-tuning and optimization platform"
+  },
+  "servers": [
+    {
+      "url": "http://localhost:8000",
+      "description": "Development server"
+    }
+  ],
+  "paths": {
+    "/platform/components/register": {
+      "post": {
+        "summary": "注册组件",
+        "tags": [
+          "Component Management"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "component_id",
+                  "component_type",
+                  "name",
+                  "version",
+                  "health_endpoint",
+                  "api_endpoint"
+                ],
+                "properties": {
+                  "component_id": {
+                    "type": "string",
+                    "description": "组件唯一标识"
+                  },
+                  "component_type": {
+                    "type": "string",
+                    "enum": [
+                      "fine_tuning",
+                      "compression",
+                      "hyperparameter",
+                      "evaluation",
+                      "data_management",
+                      "model_service"
+                    ]
+                  },
+                  "name": {
+                    "type": "string",
+                    "description": "组件名称"
+                  },
+                  "version": {
+                    "type": "string",
+                    "description": "组件版本"
+                  },
+                  "health_endpoint": {
+                    "type": "string",
+                    "description": "健康检查端点"
+                  },
+                  "api_endpoint": {
+                    "type": "string",
+                    "description": "API端点"
+                  },
+                  "metadata": {
+                    "type": "object",
+                    "description": "组件元数据"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "组件注册成功"
+          },
+          "500": {
+            "description": "注册失败"
+          }
+        }
+      }
+    },
+    "/platform/components": {
+      "get": {
+        "summary": "列出所有组件",
+        "tags": [
+          "Component Management"
+        ],
+        "responses": {
+          "200": {
+            "description": "组件列表",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "components": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

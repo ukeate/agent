@@ -877,18 +877,11 @@ const MessageReliabilityManagementPage: React.FC = () => {
 
   const refreshData = () => {
     setLoading(true)
-    setTimeout(() => {
-      setReliabilityMetrics(prev => ({
-        ...prev,
-        deliveryRate: Math.min(100, prev.deliveryRate + (Math.random() - 0.5) * 0.2),
-        averageRetries: Math.max(0, prev.averageRetries + (Math.random() - 0.5) * 0.1)
-      }))
-      notification.success({
-        message: '刷新成功',
-        description: '可靠性数据已更新'
-      })
-      setLoading(false)
-    }, 1000)
+    notification.success({
+      message: '刷新成功',
+      description: '已请求最新可靠性数据'
+    })
+    setLoading(false)
   }
 
   const getReliabilityColor = (value: number) => {

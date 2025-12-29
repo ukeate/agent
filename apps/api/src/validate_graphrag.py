@@ -1,13 +1,16 @@
+import sys
+from typing import Dict, Any
+from src.core.logging import setup_logging
+
+from src.core.logging import get_logger
+logger = get_logger(__name__)
+
 #!/usr/bin/env python3
 """
 GraphRAG系统验证脚本
 
 验证GraphRAG组件的基本功能和集成
 """
-
-import sys
-import traceback
-from typing import Dict, Any
 
 def validate_data_models():
     """验证数据模型"""
@@ -29,15 +32,15 @@ def validate_data_models():
             retrieval_mode=RetrievalMode.HYBRID,
             max_docs=10
         )
-        print("✓ GraphRAG请求创建成功")
+        logger.info("GraphRAG请求创建成功")
         
         # 测试请求验证
         errors = validate_graph_rag_request(request)
-        print(f"✓ 请求验证完成，错误数: {len(errors)}")
+        logger.info("请求验证完成", error_count=len(errors))
         
         # 测试空上下文创建
         empty_context = create_empty_graph_context()
-        print(f"✓ 空上下文创建成功，实体数: {len(empty_context.entities)}")
+        logger.info("空上下文创建成功", entity_count=len(empty_context.entities))
         
         # 测试GraphContext创建
         context = GraphContext(
@@ -49,7 +52,7 @@ def validate_data_models():
             confidence_score=0.8
         )
         context_dict = context.to_dict()
-        print("✓ GraphContext创建和序列化成功")
+        logger.info("GraphContext创建和序列化成功")
         
         # 测试推理路径
         path = ReasoningPath(
@@ -62,7 +65,7 @@ def validate_data_models():
             hops_count=1
         )
         path_dict = path.to_dict()
-        print("✓ 推理路径创建和序列化成功")
+        logger.info("推理路径创建和序列化成功")
         
         # 测试知识源
         source = KnowledgeSource(
@@ -72,13 +75,12 @@ def validate_data_models():
             metadata={"source": "test"}
         )
         source_dict = source.to_dict()
-        print("✓ 知识源创建和序列化成功")
+        logger.info("知识源创建和序列化成功")
         
         return True
         
-    except Exception as e:
-        print(f"✗ 数据模型验证失败: {e}")
-        traceback.print_exc()
+    except Exception:
+        logger.exception("数据模型验证失败")
         return False
 
 def validate_cache_manager():
@@ -88,17 +90,16 @@ def validate_cache_manager():
         
         # 创建缓存管理器实例
         cache_manager = CacheManager()
-        print("✓ 缓存管理器创建成功")
+        logger.info("缓存管理器创建成功")
         
         # 测试缓存键生成
         cache_key = cache_manager._generate_cache_key("测试查询", "hybrid", {"param": "value"})
-        print(f"✓ 缓存键生成成功: {cache_key[:50]}...")
+        logger.info("缓存键生成成功", cache_key_prefix=cache_key[:50])
         
         return True
         
-    except Exception as e:
-        print(f"✗ 缓存管理器验证失败: {e}")
-        traceback.print_exc()
+    except Exception:
+        logger.exception("缓存管理器验证失败")
         return False
 
 def validate_query_analyzer():
@@ -108,13 +109,12 @@ def validate_query_analyzer():
         
         # 创建查询分析器实例
         analyzer = QueryAnalyzer()
-        print("✓ 查询分析器创建成功")
+        logger.info("查询分析器创建成功")
         
         return True
         
-    except Exception as e:
-        print(f"✗ 查询分析器验证失败: {e}")
-        traceback.print_exc()
+    except Exception:
+        logger.exception("查询分析器验证失败")
         return False
 
 def validate_knowledge_fusion():
@@ -124,13 +124,12 @@ def validate_knowledge_fusion():
         
         # 创建知识融合器实例
         fusion = KnowledgeFusion()
-        print("✓ 知识融合器创建成功")
+        logger.info("知识融合器创建成功")
         
         return True
         
-    except Exception as e:
-        print(f"✗ 知识融合器验证失败: {e}")
-        traceback.print_exc()
+    except Exception:
+        logger.exception("知识融合器验证失败")
         return False
 
 def validate_reasoning_engine():
@@ -140,13 +139,12 @@ def validate_reasoning_engine():
         
         # 创建推理引擎实例
         engine = ReasoningEngine()
-        print("✓ 推理引擎创建成功")
+        logger.info("推理引擎创建成功")
         
         return True
         
-    except Exception as e:
-        print(f"✗ 推理引擎验证失败: {e}")
-        traceback.print_exc()
+    except Exception:
+        logger.exception("推理引擎验证失败")
         return False
 
 def validate_core_engine():
@@ -156,13 +154,12 @@ def validate_core_engine():
         
         # 创建核心引擎实例
         engine = GraphRAGEngine()
-        print("✓ 核心引擎创建成功")
+        logger.info("核心引擎创建成功")
         
         return True
         
-    except Exception as e:
-        print(f"✗ 核心引擎验证失败: {e}")
-        traceback.print_exc()
+    except Exception:
+        logger.exception("核心引擎验证失败")
         return False
 
 def validate_api_integration():
@@ -170,23 +167,22 @@ def validate_api_integration():
     try:
         # 验证GraphRAG API模块导入
         from api.v1.graphrag import router as graphrag_router
-        print("✓ GraphRAG API路由导入成功")
+        logger.info("GraphRAG API路由导入成功")
         
         # 验证RAG集成模块更新
         from api.v1.rag import router as rag_router
-        print("✓ RAG API路由导入成功")
+        logger.info("RAG API路由导入成功")
         
         return True
         
-    except Exception as e:
-        print(f"✗ API集成验证失败: {e}")
-        traceback.print_exc()
+    except Exception:
+        logger.exception("API集成验证失败")
         return False
 
 def main():
     """主验证函数"""
-    print("开始GraphRAG系统验证...")
-    print("=" * 50)
+    logger.info("开始GraphRAG系统验证")
+    logger.info("验证分隔线", line="=" * 50)
     
     # 运行所有验证测试
     tests = [
@@ -201,33 +197,34 @@ def main():
     
     results = {}
     for test_name, test_func in tests:
-        print(f"\n验证 {test_name}...")
+        logger.info("开始验证", test_name=test_name)
         try:
             results[test_name] = test_func()
-        except Exception as e:
-            print(f"✗ {test_name} 验证出现异常: {e}")
+        except Exception:
+            logger.exception("验证出现异常", test_name=test_name)
             results[test_name] = False
     
     # 生成验证报告
-    print("\n" + "=" * 50)
-    print("GraphRAG系统验证报告")
-    print("=" * 50)
+    logger.info("验证分隔线", line="=" * 50)
+    logger.info("GraphRAG系统验证报告")
+    logger.info("验证分隔线", line="=" * 50)
     
     passed = sum(1 for success in results.values() if success)
     total = len(results)
     
     for test_name, success in results.items():
         status = "✓ 通过" if success else "✗ 失败"
-        print(f"{test_name:<15} : {status}")
+        logger.info("验证结果", test_name=test_name, status=status)
     
-    print(f"\n总体结果: {passed}/{total} 项测试通过")
+    logger.info("总体结果", passed=passed, total=total)
     
     if passed == total:
-        print("🎉 GraphRAG系统验证完全成功!")
+        logger.info("GraphRAG系统验证完全成功")
         return 0
     else:
-        print("⚠️  GraphRAG系统存在问题，需要修复")
+        logger.warning("GraphRAG系统存在问题，需要修复")
         return 1
 
 if __name__ == "__main__":
+    setup_logging()
     sys.exit(main())

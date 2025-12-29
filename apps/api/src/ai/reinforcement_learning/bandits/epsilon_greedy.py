@@ -7,9 +7,7 @@ Epsilon-Greedy算法以epsilon概率进行随机探索，
 
 from typing import Dict, Any, Optional, Union
 import numpy as np
-
 from .base import MultiArmedBandit
-
 
 class EpsilonGreedyBandit(MultiArmedBandit):
     """Epsilon-Greedy 多臂老虎机算法"""
@@ -99,7 +97,7 @@ class EpsilonGreedyBandit(MultiArmedBandit):
             context: 上下文信息
         """
         # Epsilon-Greedy算法的状态更新已在基类的update方法中完成
-        pass
+        return None
     
     def _get_confidence_intervals(self) -> np.ndarray:
         """

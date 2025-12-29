@@ -2,6 +2,7 @@
 AI TRiSM (Trust, Risk and Security Management) 框架实现
 实现Trust、Risk、Security三大组件的综合安全框架
 """
+
 import asyncio
 import re
 import json
@@ -12,12 +13,11 @@ from src.core.utils.timezone_utils import utc_now, utc_factory
 from typing import Dict, Any, List, Optional, Callable, Tuple
 from dataclasses import dataclass, field
 from enum import Enum
-import structlog
 import numpy as np
 from textblob import TextBlob
 
-logger = structlog.get_logger(__name__)
-
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 class ThreatLevel(str, Enum):
     """威胁级别"""
@@ -25,7 +25,6 @@ class ThreatLevel(str, Enum):
     MEDIUM = "medium"
     HIGH = "high"
     CRITICAL = "critical"
-
 
 class TrustLevel(str, Enum):
     """信任级别"""
@@ -35,7 +34,6 @@ class TrustLevel(str, Enum):
     HIGH_TRUST = "high_trust"
     VERIFIED = "verified"
 
-
 class RiskCategory(str, Enum):
     """风险类别"""
     BIAS = "bias"
@@ -43,7 +41,6 @@ class RiskCategory(str, Enum):
     PRIVACY_LEAKAGE = "privacy_leakage"
     MISINFORMATION = "misinformation"
     MANIPULATION = "manipulation"
-
 
 @dataclass
 class SecurityEvent:
@@ -70,7 +67,6 @@ class SecurityEvent:
             "trust_impact": self.trust_impact,
             "risk_score": self.risk_score
         }
-
 
 @dataclass
 class TrustMetrics:
@@ -99,7 +95,6 @@ class TrustMetrics:
             self.historical_performance * weights['historical']
         )
 
-
 @dataclass
 class RiskAssessment:
     """风险评估结果"""
@@ -118,7 +113,6 @@ class RiskAssessment:
             return ThreatLevel.MEDIUM
         else:
             return ThreatLevel.LOW
-
 
 class TrustModule:
     """信任管理模块"""
@@ -409,7 +403,6 @@ class TrustModule:
             recommendations.append("需要更多时间建立可靠的历史表现记录")
         
         return recommendations
-
 
 class RiskModule:
     """风险管理模块"""
@@ -820,7 +813,6 @@ class RiskModule:
         else:
             return "stable"
 
-
 class SecurityModule:
     """安全管理模块"""
     
@@ -1030,7 +1022,6 @@ class SecurityModule:
         # 保持审计日志在合理大小
         if len(self.audit_trail) > 10000:
             self.audit_trail = self.audit_trail[-5000:]
-
 
 class AITRiSMFramework:
     """AI Trust, Risk and Security Management Framework"""

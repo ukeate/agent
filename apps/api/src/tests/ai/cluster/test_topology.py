@@ -5,12 +5,10 @@
 import pytest
 import time
 from unittest.mock import Mock
-
 from src.ai.cluster.topology import (
     AgentInfo, AgentStatus, AgentCapability, ResourceSpec, ResourceUsage,
     AgentHealthCheck, AgentGroup, ClusterTopology
 )
-
 
 class TestResourceSpec:
     """测试资源规格"""
@@ -51,7 +49,6 @@ class TestResourceSpec:
         assert scaled.memory_gb == 16.0
         assert scaled.gpu_count == 2
 
-
 class TestResourceUsage:
     """测试资源使用情况"""
     
@@ -78,7 +75,6 @@ class TestResourceUsage:
         # 测试零除法
         usage_no_requests = ResourceUsage(total_requests=0, failed_requests=0)
         assert usage_no_requests.error_rate == 0.0
-
 
 class TestAgentHealthCheck:
     """测试智能体健康检查"""
@@ -114,7 +110,6 @@ class TestAgentHealthCheck:
         
         health.consecutive_failures = 3
         assert health.needs_restart is True
-
 
 class TestAgentInfo:
     """测试智能体信息"""
@@ -209,7 +204,6 @@ class TestAgentInfo:
         uptime = agent.uptime_seconds
         assert uptime >= 3599  # 允许1秒误差
 
-
 class TestAgentGroup:
     """测试智能体分组"""
     
@@ -286,7 +280,6 @@ class TestAgentGroup:
         
         group.add_agent("agent2")
         assert group.can_scale_down is True
-
 
 class TestClusterTopology:
     """测试集群拓扑"""

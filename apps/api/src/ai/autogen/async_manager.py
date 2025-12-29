@@ -2,6 +2,7 @@
 AutoGen异步智能体管理器
 实现异步智能体生命周期管理、任务调度和协作
 """
+
 import asyncio
 import uuid
 from datetime import datetime
@@ -10,8 +11,6 @@ from src.core.utils.timezone_utils import utc_now, utc_factory
 from typing import Dict, List, Optional, Any, Union, Callable
 from dataclasses import dataclass
 from enum import Enum
-import structlog
-
 from .agents import BaseAutoGenAgent, create_agent_from_config
 from .config import AgentConfig, AgentRole
 from .events import (
@@ -19,8 +18,8 @@ from .events import (
     MessageQueue, StateManager
 )
 
-logger = structlog.get_logger(__name__)
-
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 class AgentStatus(str, Enum):
     """智能体状态枚举"""
@@ -31,7 +30,6 @@ class AgentStatus(str, Enum):
     ERROR = "error"
     SHUTDOWN = "shutdown"
 
-
 class TaskStatus(str, Enum):
     """任务状态枚举"""
     PENDING = "pending"
@@ -40,7 +38,6 @@ class TaskStatus(str, Enum):
     COMPLETED = "completed"
     FAILED = "failed"
     CANCELLED = "cancelled"
-
 
 @dataclass
 class AgentTask:
@@ -68,7 +65,7 @@ class AgentTask:
     def to_dict(self) -> Dict[str, Any]:
         """转换为字典"""
         return {
-            "id": self.id,
+            "task_id": self.id,
             "agent_id": self.agent_id,
             "task_type": self.task_type,
             "description": self.description,
@@ -84,7 +81,6 @@ class AgentTask:
             "max_retries": self.max_retries,
             "timeout_seconds": self.timeout_seconds
         }
-
 
 @dataclass
 class AgentInfo:
@@ -117,7 +113,6 @@ class AgentInfo:
             "failed_tasks": self.failed_tasks,
             "average_task_time": self.average_task_time
         }
-
 
 class AsyncAgentManager:
     """异步智能体管理器"""
@@ -208,14 +203,14 @@ class AsyncAgentManager:
             try:
                 await self._task_processor_task
             except asyncio.CancelledError:
-                pass
+                raise
         
         if self._health_monitor_task:
             self._health_monitor_task.cancel()
             try:
                 await self._health_monitor_task
             except asyncio.CancelledError:
-                pass
+                raise
         
         # 发布系统停止事件
         await self.event_bus.publish(Event(

@@ -2,21 +2,20 @@
 AutoGen与LangGraph集成桥接器
 实现AutoGen和LangGraph的深度集成和统一上下文管理
 """
+
 import asyncio
 from datetime import datetime
 from src.core.utils.timezone_utils import utc_now, utc_factory, timezone
 from typing import Dict, List, Optional, Any, Union, Callable
-import structlog
-
 from .agents import BaseAutoGenAgent
 from .config import AgentConfig
 from .async_manager import AsyncAgentManager, AgentTask
-from .events import Event, EventType, EventBus
+from .events import Event, EventType, EventBus, EventHandler
 from src.ai.langgraph.context import AgentContext
 from src.ai.langgraph.state_graph import StateGraph
 
-logger = structlog.get_logger(__name__)
-
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 class AutoGenLangGraphBridge:
     """AutoGen和LangGraph的桥接器"""
@@ -41,8 +40,18 @@ class AutoGenLangGraphBridge:
     
     def _register_event_handlers(self):
         """注册事件处理器"""
-        # 这里可以注册特定的事件处理逻辑
-        pass
+        bridge = self
+
+        class _BridgeEventHandler(EventHandler):
+            @property
+            def supported_events(self) -> List[EventType]:
+                return [EventType.AGENT_DESTROYED]
+
+            async def handle(self, event: Event) -> None:
+                if event.target and event.target in bridge.context_cache:
+                    bridge.context_cache.pop(event.target, None)
+
+        self.event_bus.subscribe(EventType.AGENT_DESTROYED, _BridgeEventHandler())
     
     async def create_contextual_agent(
         self,
@@ -192,20 +201,22 @@ class AutoGenLangGraphBridge:
             created_agents = {}
             for agent_config_data in agents_config:
                 agent_config = AgentConfig(**agent_config_data)
+                role_key = agent_config.role.value if hasattr(agent_config.role, "value") else str(agent_config.role)
                 agent_id = await self.create_contextual_agent(
-                    agent_config, 
+                    agent_config,
                     context,
-                    agent_id=f"{workflow_id}_{agent_config.role.value}"
+                    agent_id=f"{workflow_id}_{role_key}"
                 )
-                created_agents[agent_config.role] = agent_id
+                created_agents[role_key] = agent_id
             
             # 提交工作流任务
             workflow_tasks = []
             for task_config in tasks_config:
                 agent_role = task_config.get("agent_role")
-                if agent_role in created_agents:
+                agent_role_key = agent_role.value if hasattr(agent_role, "value") else str(agent_role)
+                if agent_role_key in created_agents:
                     task_id = await self.execute_contextual_task(
-                        agent_id=created_agents[agent_role],
+                        agent_id=created_agents[agent_role_key],
                         task_type=task_config.get("task_type", "general"),
                         description=task_config.get("description", ""),
                         input_data=task_config.get("input_data", {}),

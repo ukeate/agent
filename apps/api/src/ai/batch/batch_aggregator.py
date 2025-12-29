@@ -10,15 +10,13 @@ import asyncio
 from enum import Enum
 import json
 import statistics
-import logging
 from datetime import datetime
 from src.core.utils.timezone_utils import utc_now, utc_factory
 from collections import defaultdict
-
 from .batch_processor import BatchTask, BatchJob, BatchStatus
 
-logger = logging.getLogger(__name__)
-
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 class AggregationStrategy(str, Enum):
     """聚合策略"""
@@ -28,14 +26,12 @@ class AggregationStrategy(str, Enum):
     STATISTICS = "statistics"        # 统计分析
     CUSTOM = "custom"                # 自定义处理
 
-
 class AggregationMode(str, Enum):
     """聚合模式"""
     IMMEDIATE = "immediate"          # 立即聚合
     BATCH = "batch"                  # 批量聚合
     STREAMING = "streaming"          # 流式聚合
     ON_COMPLETE = "on_complete"      # 完成时聚合
-
 
 @dataclass
 class AggregationConfig:
@@ -48,21 +44,19 @@ class AggregationConfig:
     output_format: str = "json"
     include_metadata: bool = True
 
-
 @dataclass
 class AggregationResult:
     """聚合结果"""
     job_id: str
     aggregated_data: Any
     metadata: Dict[str, Any] = field(default_factory=dict)
-    created_at: datetime = field(default_factory=datetime.utcnow)
+    created_at: datetime = field(default_factory=utc_now)
     
     # 统计信息
     total_tasks: int = 0
     successful_tasks: int = 0
     failed_tasks: int = 0
     processing_time: Optional[float] = None
-
 
 class BatchAggregator:
     """批处理结果聚合器"""

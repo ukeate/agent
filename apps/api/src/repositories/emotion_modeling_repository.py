@@ -1,27 +1,23 @@
 """
 情感状态建模系统数据访问层
 """
-from typing import List, Optional, Dict, Any, Tuple
-from datetime import datetime, timedelta
-from sqlalchemy import and_, or_, func, desc, asc
-from sqlalchemy.dialects.postgresql import insert
-from sqlalchemy.orm import Session
-from sqlalchemy.exc import IntegrityError
-import logging
 
-from ..db.models import User
+from typing import List, Optional, Dict, Any
+from datetime import datetime, timedelta
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncSession
 from ..ai.emotion_modeling.models import (
     EmotionState, PersonalityProfile, EmotionTransition, 
     EmotionPrediction, EmotionStatistics
 )
 
-logger = logging.getLogger(__name__)
-
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 class EmotionModelingRepository:
     """情感建模数据访问层"""
     
-    def __init__(self, db: Session):
+    def __init__(self, db: AsyncSession):
         self.db = db
     
     # ===== EmotionState 相关操作 =====
@@ -55,17 +51,17 @@ class EmotionModelingRepository:
                 'session_id': state.session_id
             }
             
-            result = self.db.execute(query, params)
+            result = await self.db.execute(text(query), params)
             state_id = result.fetchone()
             if state_id:
                 state.id = str(state_id[0])
-                self.db.commit()
+                await self.db.commit()
                 return True
             return False
             
         except Exception as e:
             logger.error(f"保存情感状态失败: {e}")
-            self.db.rollback()
+            await self.db.rollback()
             return False
     
     async def get_user_emotion_history(
@@ -103,7 +99,7 @@ class EmotionModelingRepository:
             query += " ORDER BY timestamp DESC LIMIT %(limit)s"
             params['limit'] = limit
             
-            result = self.db.execute(query, params)
+            result = await self.db.execute(text(query), params)
             rows = result.fetchall()
             
             states = []
@@ -139,10 +135,44 @@ class EmotionModelingRepository:
     
     async def get_emotion_states_by_session(self, session_id: str) -> List[EmotionState]:
         """根据会话ID获取情感状态"""
-        return await self.get_user_emotion_history(
-            user_id="",  # 先查询所有用户
-            limit=1000
-        )  # 这里需要修改查询逻辑
+        try:
+            query = """
+            SELECT user_id, emotion, intensity, valence, arousal, dominance, confidence,
+                   timestamp, duration, triggers, context, source, session_id, id
+            FROM emotion_states
+            WHERE session_id = %(session_id)s
+            ORDER BY timestamp DESC
+            LIMIT %(limit)s
+            """
+
+            params = {'session_id': session_id, 'limit': 1000}
+            result = await self.db.execute(text(query), params)
+            rows = result.fetchall()
+
+            states = []
+            for row in rows:
+                state = EmotionState(
+                    id=str(row.id),
+                    user_id=row.user_id,
+                    emotion=row.emotion,
+                    intensity=row.intensity,
+                    valence=row.valence,
+                    arousal=row.arousal,
+                    dominance=row.dominance,
+                    confidence=row.confidence,
+                    timestamp=row.timestamp,
+                    duration=row.duration,
+                    triggers=row.triggers or [],
+                    context=row.context or {},
+                    source=row.source,
+                    session_id=row.session_id
+                )
+                states.append(state)
+
+            return states
+        except Exception as e:
+            logger.error(f"根据会话获取情感状态失败: {e}")
+            return []
     
     # ===== PersonalityProfile 相关操作 =====
     
@@ -185,17 +215,17 @@ class EmotionModelingRepository:
                 'confidence_score': profile.confidence_score
             }
             
-            result = self.db.execute(query, params)
+            result = await self.db.execute(text(query), params)
             profile_id = result.fetchone()
             if profile_id:
                 profile.id = str(profile_id[0])
-                self.db.commit()
+                await self.db.commit()
                 return True
             return False
             
         except Exception as e:
             logger.error(f"保存个性画像失败: {e}")
-            self.db.rollback()
+            await self.db.rollback()
             return False
     
     async def get_personality_profile(self, user_id: str) -> Optional[PersonalityProfile]:
@@ -209,7 +239,7 @@ class EmotionModelingRepository:
             WHERE user_id = %(user_id)s
             """
             
-            result = self.db.execute(query, {'user_id': user_id})
+            result = await self.db.execute(text(query), {'user_id': user_id})
             row = result.fetchone()
             
             if row:
@@ -266,17 +296,17 @@ class EmotionModelingRepository:
                 'context_factors': transition.context_factors
             }
             
-            result = self.db.execute(query, params)
+            result = await self.db.execute(text(query), params)
             transition_id = result.fetchone()
             if transition_id:
                 transition.id = str(transition_id[0])
-                self.db.commit()
+                await self.db.commit()
                 return True
             return False
             
         except Exception as e:
             logger.error(f"保存情感转换记录失败: {e}")
-            self.db.rollback()
+            await self.db.rollback()
             return False
     
     async def get_user_transitions(self, user_id: str) -> List[EmotionTransition]:
@@ -290,7 +320,7 @@ class EmotionModelingRepository:
             ORDER BY occurrence_count DESC
             """
             
-            result = self.db.execute(query, {'user_id': user_id})
+            result = await self.db.execute(text(query), {'user_id': user_id})
             rows = result.fetchall()
             
             transitions = []
@@ -342,16 +372,16 @@ class EmotionModelingRepository:
                 'factors': prediction.factors
             }
             
-            result = self.db.execute(query, params)
+            result = await self.db.execute(text(query), params)
             prediction_id = result.fetchone()
             if prediction_id:
-                self.db.commit()
+                await self.db.commit()
                 return True
             return False
             
         except Exception as e:
             logger.error(f"保存情感预测失败: {e}")
-            self.db.rollback()
+            await self.db.rollback()
             return False
     
     # ===== 统计查询 =====
@@ -387,7 +417,7 @@ class EmotionModelingRepository:
                 'end_time': end_time
             }
             
-            result = self.db.execute(query, params)
+            result = await self.db.execute(text(query), params)
             rows = result.fetchall()
             
             # 构建统计对象
@@ -436,9 +466,34 @@ class EmotionModelingRepository:
         """统计用户情感记录数量"""
         try:
             query = "SELECT COUNT(*) FROM emotion_states WHERE user_id = %(user_id)s"
-            result = self.db.execute(query, {'user_id': user_id})
+            result = await self.db.execute(text(query), {'user_id': user_id})
             count = result.fetchone()
             return count[0] if count else 0
         except Exception as e:
             logger.error(f"统计用户情感记录失败: {e}")
             return 0
+
+    async def delete_user_data(self, user_id: str) -> int:
+        """删除用户全部情感相关数据"""
+        try:
+            tables = [
+                "emotion_predictions",
+                "emotion_patterns",
+                "emotion_clusters",
+                "emotion_transitions",
+                "personality_profiles",
+                "emotion_states",
+            ]
+            total = 0
+            for table in tables:
+                result = await self.db.execute(
+                    text(f"DELETE FROM {table} WHERE user_id = :user_id"),
+                    {"user_id": user_id},
+                )
+                total += int(getattr(result, "rowcount", 0) or 0)
+            await self.db.commit()
+            return total
+        except Exception as e:
+            logger.error(f"删除用户情感数据失败: {e}")
+            await self.db.rollback()
+            raise

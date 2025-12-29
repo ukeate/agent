@@ -3,6 +3,7 @@ Encryption Service for Emotional Memory Management
 Implements AES-256-GCM encryption for sensitive emotional data
 """
 
+from src.core.utils.timezone_utils import utc_now
 import os
 import base64
 import json
@@ -13,12 +14,10 @@ from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 from cryptography.hazmat.backends import default_backend
 import secrets
 from datetime import datetime, timedelta
-
-import logging
 from ..exceptions import EncryptionException
 
-logger = logging.getLogger(__name__)
-
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 class EncryptionService:
     """
@@ -45,11 +44,7 @@ class EncryptionService:
                 logger.info(f"Generated master key: {base64.b64encode(self.master_key).decode()}")
             else:
                 self.master_key = base64.b64decode(key_env)
-        
-        # Key rotation tracking
-        self.key_rotation_days = 90
-        self.last_rotation = datetime.utcnow()
-        
+
         # Key cache for performance
         self._key_cache: Dict[str, Tuple[bytes, datetime]] = {}
         self._cache_ttl = timedelta(hours=1)
@@ -70,12 +65,8 @@ class EncryptionService:
             Tuple of (encrypted_data_base64, key_id)
         """
         try:
-            # Generate unique key for this data
-            data_key = self._generate_data_key()
             key_id = self._generate_key_id()
-            
-            # Store key in cache
-            self._key_cache[key_id] = (data_key, datetime.utcnow())
+            data_key = await self._get_data_key(key_id)
             
             # Generate random nonce (96 bits for GCM)
             nonce = os.urandom(12)
@@ -199,25 +190,6 @@ class EncryptionService:
         json_str = await self.decrypt_data(encrypted_base64, key_id)
         return json.loads(json_str)
     
-    def _generate_data_key(self) -> bytes:
-        """
-        Generate a data encryption key derived from master key
-        
-        Returns:
-            32-byte data key
-        """
-        # Use PBKDF2 to derive a data key from master key
-        salt = os.urandom(16)
-        kdf = PBKDF2HMAC(
-            algorithm=hashes.SHA256(),
-            length=32,
-            salt=salt,
-            iterations=100000,
-            backend=default_backend()
-        )
-        
-        return kdf.derive(self.master_key)
-    
     def _generate_key_id(self) -> str:
         """
         Generate unique key identifier
@@ -227,7 +199,7 @@ class EncryptionService:
         """
         # Generate random key ID
         random_bytes = secrets.token_bytes(16)
-        timestamp = int(datetime.utcnow().timestamp())
+        timestamp = int(utc_now().timestamp())
         
         # Combine timestamp and random bytes
         key_id = f"{timestamp}_{base64.b64encode(random_bytes).decode('utf-8')}"
@@ -249,17 +221,21 @@ class EncryptionService:
             key, cached_time = self._key_cache[key_id]
             
             # Check if cache entry is still valid
-            if datetime.utcnow() - cached_time < self._cache_ttl:
+            if utc_now() - cached_time < self._cache_ttl:
                 return key
         
         # Regenerate key deterministically from key_id and master key
         # This ensures we can always decrypt old data
-        key_bytes = key_id.encode('utf-8')
+        try:
+            _, salt_b64 = key_id.split("_", 1)
+            salt = base64.b64decode(salt_b64)
+        except Exception as e:
+            raise EncryptionException(f"Invalid key_id format: {str(e)}")
         
         kdf = PBKDF2HMAC(
             algorithm=hashes.SHA256(),
             length=32,
-            salt=key_bytes[:16],  # Use part of key_id as salt
+            salt=salt,
             iterations=100000,
             backend=default_backend()
         )
@@ -267,7 +243,7 @@ class EncryptionService:
         data_key = kdf.derive(self.master_key)
         
         # Update cache
-        self._key_cache[key_id] = (data_key, datetime.utcnow())
+        self._key_cache[key_id] = (data_key, utc_now())
         
         # Clean old cache entries
         self._clean_cache()
@@ -276,7 +252,7 @@ class EncryptionService:
     
     def _clean_cache(self):
         """Remove expired cache entries"""
-        current_time = datetime.utcnow()
+        current_time = utc_now()
         expired_keys = [
             key_id for key_id, (_, cached_time) in self._key_cache.items()
             if current_time - cached_time > self._cache_ttl
@@ -284,58 +260,6 @@ class EncryptionService:
         
         for key_id in expired_keys:
             del self._key_cache[key_id]
-    
-    async def rotate_master_key(self, new_master_key: str) -> bool:
-        """
-        Rotate master encryption key
-        
-        Args:
-            new_master_key: Base64 encoded new master key
-            
-        Returns:
-            True if rotation successful
-        """
-        try:
-            # Decode new key
-            new_key = base64.b64decode(new_master_key)
-            
-            # Validate key length
-            if len(new_key) != 32:
-                raise ValueError("Master key must be 32 bytes")
-            
-            # Update master key
-            old_key = self.master_key
-            self.master_key = new_key
-            
-            # Clear key cache to force regeneration
-            self._key_cache.clear()
-            
-            # Update rotation timestamp
-            self.last_rotation = datetime.utcnow()
-            
-            logger.info("Master key rotated successfully")
-            
-            # TODO: Implement re-encryption of existing data with new key
-            # This would involve:
-            # 1. Decrypting all data with old key
-            # 2. Re-encrypting with new key
-            # 3. Updating key_ids in database
-            
-            return True
-            
-        except Exception as e:
-            logger.error(f"Key rotation failed: {str(e)}")
-            raise EncryptionException(f"Failed to rotate master key: {str(e)}")
-    
-    def check_rotation_needed(self) -> bool:
-        """
-        Check if key rotation is needed based on age
-        
-        Returns:
-            True if rotation is needed
-        """
-        days_since_rotation = (datetime.utcnow() - self.last_rotation).days
-        return days_since_rotation >= self.key_rotation_days
     
     @staticmethod
     def generate_new_master_key() -> str:
@@ -393,7 +317,6 @@ class EncryptionService:
         aad = f"{field_name}:{user_id}".encode('utf-8')
         
         return await self.decrypt_data(encrypted_value, key_id, aad)
-
 
 class HashingService:
     """

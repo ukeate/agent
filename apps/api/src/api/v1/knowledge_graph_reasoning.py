@@ -5,33 +5,31 @@
 """
 
 from typing import Dict, List, Any, Optional
-from fastapi import APIRouter, HTTPException, Depends, BackgroundTasks
-from pydantic import BaseModel, Field
+from fastapi import APIRouter, HTTPException, Depends, BackgroundTasks, Query
+from pydantic import Field
 import asyncio
-import logging
 from datetime import datetime
 from src.core.utils.timezone_utils import utc_now, utc_factory
-
-from ai.knowledge_graph.hybrid_reasoner import (
+from src.ai.knowledge_graph.hybrid_reasoner import (
     HybridReasoner, ReasoningRequest, HybridReasoningResult,
     ReasoningStrategy, ConfidenceWeights
 )
-from ai.knowledge_graph.rule_engine import RuleEngine
-from ai.knowledge_graph.embedding_engine import EmbeddingEngine
-from ai.knowledge_graph.path_reasoning import PathReasoner
-from ai.knowledge_graph.uncertainty_reasoning import UncertaintyReasoner
-from ai.knowledge_graph.reasoning_optimizer import ReasoningOptimizer, ReasoningPriority
+from src.api.base_model import ApiBaseModel
+from src.ai.knowledge_graph.rule_engine import RuleEngine, RuleStatus
+from src.ai.knowledge_graph.embedding_engine import EmbeddingConfig, EmbeddingEngine, EmbeddingModel
+from src.ai.knowledge_graph.path_reasoning import PathReasoner
+from src.ai.knowledge_graph.uncertainty_reasoning import UncertaintyReasoner
 
-logger = logging.getLogger(__name__)
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 router = APIRouter(prefix="/kg-reasoning", tags=["知识图推理"])
 
 # 全局推理引擎实例
 _hybrid_reasoner: Optional[HybridReasoner] = None
 
-
 # Pydantic模型定义
-class ReasoningQueryRequest(BaseModel):
+class ReasoningQueryRequest(ApiBaseModel):
     """推理查询请求"""
     query: str = Field(..., description="推理查询")
     query_type: str = Field("general", description="查询类型")
@@ -45,8 +43,7 @@ class ReasoningQueryRequest(BaseModel):
     timeout: int = Field(30, ge=5, le=300, description="超时时间（秒）")
     context: Dict[str, Any] = Field(default_factory=dict, description="上下文信息")
 
-
-class ReasoningQueryResponse(BaseModel):
+class ReasoningQueryResponse(ApiBaseModel):
     """推理查询响应"""
     success: bool
     query: str
@@ -60,15 +57,13 @@ class ReasoningQueryResponse(BaseModel):
     uncertainty_analysis: Optional[Dict[str, Any]] = None
     metadata: Dict[str, Any] = Field(default_factory=dict)
 
-
-class BatchReasoningRequest(BaseModel):
+class BatchReasoningRequest(ApiBaseModel):
     """批量推理请求"""
     queries: List[ReasoningQueryRequest] = Field(..., max_items=50, description="推理查询列表")
     parallel: bool = Field(True, description="是否并行处理")
     priority: str = Field("medium", description="处理优先级")
 
-
-class BatchReasoningResponse(BaseModel):
+class BatchReasoningResponse(ApiBaseModel):
     """批量推理响应"""
     success: bool
     total_queries: int
@@ -77,20 +72,52 @@ class BatchReasoningResponse(BaseModel):
     results: List[ReasoningQueryResponse]
     total_execution_time: float
 
-
-class StrategyPerformanceResponse(BaseModel):
+class StrategyPerformanceResponse(ApiBaseModel):
     """策略性能响应"""
     success: bool
     strategies: Dict[str, Dict[str, Any]]
     summary: Dict[str, Any]
 
-
-class ReasoningConfigRequest(BaseModel):
+class ReasoningConfigRequest(ApiBaseModel):
     """推理配置请求"""
     confidence_weights: Optional[Dict[str, float]] = None
     adaptive_thresholds: Optional[Dict[str, float]] = None
     cache_settings: Optional[Dict[str, Any]] = None
 
+class RuleCreateRequest(ApiBaseModel):
+    """创建规则请求"""
+    name: Optional[str] = Field(default=None, description="规则名称")
+    rule_text: str = Field(..., description="规则文本")
+    confidence: float = Field(1.0, ge=0.0, le=1.0, description="置信度")
+    priority: int = Field(1, ge=1, le=100, description="优先级")
+
+class RuleUpdateRequest(ApiBaseModel):
+    """更新规则请求"""
+    name: Optional[str] = Field(default=None, description="规则名称")
+    rule_text: Optional[str] = Field(default=None, description="规则文本")
+    confidence: Optional[float] = Field(default=None, ge=0.0, le=1.0, description="置信度")
+    priority: Optional[int] = Field(default=None, ge=1, le=100, description="优先级")
+    status: Optional[str] = Field(default=None, description="规则状态")
+
+class RuleTestRequest(ApiBaseModel):
+    """规则测试请求"""
+    facts: List[str] = Field(default_factory=list, description="事实列表")
+
+def _serialize_rule(rule) -> Dict[str, Any]:
+    return {
+        "id": rule.id,
+        "name": rule.name,
+        "rule_text": rule.rule_text,
+        "confidence": rule.confidence,
+        "priority": rule.priority,
+        "status": rule.status.value if isinstance(rule.status, RuleStatus) else str(rule.status),
+        "created_at": rule.created_at.isoformat() if rule.created_at else None,
+        "updated_at": rule.updated_at.isoformat() if rule.updated_at else None,
+        "execution_count": rule.execution_count,
+        "success_count": rule.success_count,
+        "success_rate": rule.success_rate,
+        "last_executed": rule.last_executed.isoformat() if rule.last_executed else None,
+    }
 
 async def get_hybrid_reasoner() -> HybridReasoner:
     """获取混合推理引擎实例"""
@@ -100,18 +127,18 @@ async def get_hybrid_reasoner() -> HybridReasoner:
         try:
             # 初始化推理引擎组件
             rule_engine = RuleEngine()
-            embedding_engine = EmbeddingEngine(model_name="TransE", embedding_dim=256)
+            embedding_engine = EmbeddingEngine(
+                EmbeddingConfig(model_type=EmbeddingModel.TRANSE, embedding_dim=256)
+            )
             path_reasoner = PathReasoner()
             uncertainty_reasoner = UncertaintyReasoner()
-            optimizer = ReasoningOptimizer()
             
             # 创建混合推理引擎
             _hybrid_reasoner = HybridReasoner(
                 rule_engine=rule_engine,
                 embedding_engine=embedding_engine,
                 path_reasoner=path_reasoner,
-                uncertainty_reasoner=uncertainty_reasoner,
-                optimizer=optimizer
+                uncertainty_reasoner=uncertainty_reasoner
             )
             
             logger.info("混合推理引擎实例创建成功")
@@ -121,7 +148,6 @@ async def get_hybrid_reasoner() -> HybridReasoner:
             raise HTTPException(status_code=500, detail=f"推理引擎初始化失败: {str(e)}")
     
     return _hybrid_reasoner
-
 
 def _convert_strategy_string(strategy_str: str) -> ReasoningStrategy:
     """转换策略字符串为枚举"""
@@ -137,19 +163,6 @@ def _convert_strategy_string(strategy_str: str) -> ReasoningStrategy:
     }
     
     return strategy_map.get(strategy_str.lower(), ReasoningStrategy.ADAPTIVE)
-
-
-def _convert_priority_string(priority_str: str) -> ReasoningPriority:
-    """转换优先级字符串为枚举"""
-    priority_map = {
-        "low": ReasoningPriority.LOW,
-        "medium": ReasoningPriority.MEDIUM,
-        "high": ReasoningPriority.HIGH,
-        "critical": ReasoningPriority.CRITICAL
-    }
-    
-    return priority_map.get(priority_str.lower(), ReasoningPriority.MEDIUM)
-
 
 @router.post("/query", response_model=ReasoningQueryResponse)
 async def query_reasoning(
@@ -170,7 +183,7 @@ async def query_reasoning(
     - voting: 投票机制
     """
     try:
-        start_time = asyncio.get_event_loop().time()
+        start_time = asyncio.get_running_loop().time()
         
         # 转换请求格式
         reasoning_request = ReasoningRequest(
@@ -217,7 +230,6 @@ async def query_reasoning(
         logger.error(f"推理查询失败: {str(e)}")
         raise HTTPException(status_code=500, detail=f"推理查询失败: {str(e)}")
 
-
 @router.post("/batch", response_model=BatchReasoningResponse)
 async def batch_reasoning(
     request: BatchReasoningRequest,
@@ -230,7 +242,7 @@ async def batch_reasoning(
     支持并行和串行处理模式
     """
     try:
-        start_time = asyncio.get_event_loop().time()
+        start_time = asyncio.get_running_loop().time()
         
         if not request.queries:
             raise HTTPException(status_code=400, detail="查询列表不能为空")
@@ -340,7 +352,7 @@ async def batch_reasoning(
                         explanation=f"推理失败: {str(e)}"
                     ))
         
-        total_execution_time = asyncio.get_event_loop().time() - start_time
+        total_execution_time = asyncio.get_running_loop().time() - start_time
         
         response = BatchReasoningResponse(
             success=True,
@@ -358,7 +370,6 @@ async def batch_reasoning(
     except Exception as e:
         logger.error(f"批量推理失败: {str(e)}")
         raise HTTPException(status_code=500, detail=f"批量推理失败: {str(e)}")
-
 
 @router.get("/strategies/performance", response_model=StrategyPerformanceResponse)
 async def get_strategy_performance(
@@ -386,7 +397,6 @@ async def get_strategy_performance(
     except Exception as e:
         logger.error(f"获取策略性能失败: {str(e)}")
         raise HTTPException(status_code=500, detail=f"获取策略性能失败: {str(e)}")
-
 
 @router.post("/config")
 async def update_reasoning_config(
@@ -421,7 +431,6 @@ async def update_reasoning_config(
         logger.error(f"更新推理配置失败: {str(e)}")
         raise HTTPException(status_code=500, detail=f"更新推理配置失败: {str(e)}")
 
-
 @router.post("/explain")
 async def explain_reasoning_result(
     result_data: Dict[str, Any],
@@ -452,6 +461,133 @@ async def explain_reasoning_result(
         logger.error(f"生成推理解释失败: {str(e)}")
         raise HTTPException(status_code=500, detail=f"生成推理解释失败: {str(e)}")
 
+@router.get("/rules")
+async def list_rules(
+    status: Optional[str] = Query(None, description="规则状态过滤")
+):
+    """获取规则列表"""
+    try:
+        reasoner = await get_hybrid_reasoner()
+        status_enum = None
+        if status:
+            try:
+                status_enum = RuleStatus(status)
+            except ValueError:
+                raise HTTPException(status_code=400, detail="无效的规则状态")
+        rules = reasoner.rule_engine.list_rules(status_enum)
+        return {"total": len(rules), "rules": [_serialize_rule(rule) for rule in rules]}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"获取规则列表失败: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"获取规则列表失败: {str(e)}")
+
+@router.get("/rules/{rule_id}")
+async def get_rule(rule_id: str):
+    """获取规则详情"""
+    try:
+        reasoner = await get_hybrid_reasoner()
+        rule = reasoner.rule_engine.get_rule_by_id(rule_id)
+        if not rule:
+            raise HTTPException(status_code=404, detail="规则不存在")
+        return _serialize_rule(rule)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"获取规则失败: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"获取规则失败: {str(e)}")
+
+@router.post("/rules")
+async def create_rule(request: RuleCreateRequest):
+    """创建新规则"""
+    try:
+        reasoner = await get_hybrid_reasoner()
+        rule = await reasoner.rule_engine.add_rule(
+            rule_text=request.rule_text,
+            name=request.name,
+            confidence=request.confidence,
+            priority=request.priority
+        )
+        return _serialize_rule(rule)
+    except Exception as e:
+        logger.error(f"创建规则失败: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"创建规则失败: {str(e)}")
+
+@router.patch("/rules/{rule_id}")
+async def update_rule(rule_id: str, request: RuleUpdateRequest):
+    """更新规则"""
+    try:
+        reasoner = await get_hybrid_reasoner()
+        rule = reasoner.rule_engine.get_rule_by_id(rule_id)
+        if not rule:
+            raise HTTPException(status_code=404, detail="规则不存在")
+
+        if request.rule_text is not None:
+            conditions, conclusions = reasoner.rule_engine.parser.parse_rule(request.rule_text)
+            reasoner.rule_engine._validate_rule(conditions, conclusions)
+            rule.rule_text = request.rule_text
+            rule.conditions = conditions
+            rule.conclusions = conclusions
+
+        if request.name is not None:
+            rule.name = request.name
+        if request.confidence is not None:
+            rule.confidence = request.confidence
+        if request.priority is not None:
+            rule.priority = request.priority
+        if request.status is not None:
+            try:
+                rule.status = RuleStatus(request.status)
+            except ValueError:
+                raise HTTPException(status_code=400, detail="无效的规则状态")
+
+        rule.updated_at = utc_now()
+        return _serialize_rule(rule)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"更新规则失败: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"更新规则失败: {str(e)}")
+
+@router.delete("/rules/{rule_id}")
+async def delete_rule(rule_id: str):
+    """删除规则"""
+    try:
+        reasoner = await get_hybrid_reasoner()
+        success = await reasoner.rule_engine.remove_rule(rule_id)
+        if not success:
+            raise HTTPException(status_code=404, detail="规则不存在")
+        return {"success": True, "rule_id": rule_id}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"删除规则失败: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"删除规则失败: {str(e)}")
+
+@router.post("/rules/{rule_id}/test")
+async def test_rule(rule_id: str, request: RuleTestRequest):
+    """测试规则"""
+    try:
+        reasoner = await get_hybrid_reasoner()
+        results = await reasoner.rule_engine.test_rule(rule_id, request.facts)
+        return {
+            "success": True,
+            "inferences": [
+                {
+                    "fact": r.fact,
+                    "confidence": r.confidence,
+                    "source_rules": r.source_rules,
+                    "derivation_path": r.derivation_path,
+                    "timestamp": r.timestamp.isoformat()
+                }
+                for r in results
+            ]
+        }
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        logger.error(f"测试规则失败: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"测试规则失败: {str(e)}")
 
 @router.get("/health")
 async def health_check():
@@ -469,6 +605,7 @@ async def health_check():
             # 执行简单的推理测试
             test_request = ReasoningRequest(
                 query="test query",
+                query_type="health_check",
                 entities=["test_entity"],
                 strategy=ReasoningStrategy.RULE_ONLY,
                 timeout=5
@@ -487,7 +624,6 @@ async def health_check():
     except Exception as e:
         logger.error(f"健康检查失败: {str(e)}")
         raise HTTPException(status_code=500, detail=f"健康检查失败: {str(e)}")
-
 
 # 路由元数据
 router.tags = ["知识图推理"]

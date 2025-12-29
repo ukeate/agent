@@ -5,29 +5,20 @@ Configuration settings for the agent service discovery system.
 """
 
 from typing import List, Dict, Any
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic import Field
-
 
 class ServiceDiscoveryConfig(BaseSettings):
     """Service discovery configuration"""
     
-    # etcd configuration
-    etcd_endpoints: List[str] = Field(
-        default=["localhost:2379"],
-        description="etcd cluster endpoints"
+    # Redis存储配置
+    redis_prefix: str = Field(
+        default="service_discovery:agents:",
+        description="Redis中存储agent元数据的key前缀",
     )
-    etcd_prefix: str = Field(
-        default="/agents/",
-        description="Key prefix for agent data in etcd"
-    )
-    etcd_lease_ttl: int = Field(
-        default=30,
-        description="etcd lease TTL in seconds"
-    )
-    etcd_timeout: float = Field(
-        default=5.0,
-        description="etcd operation timeout in seconds"
+    agent_ttl_seconds: int = Field(
+        default=90,
+        description="Agent元数据TTL（秒），超时视为下线",
     )
     
     # Health check configuration
@@ -76,12 +67,6 @@ class ServiceDiscoveryConfig(BaseSettings):
         description="Metrics collection interval in seconds"
     )
     
-    # Thread pool configuration
-    thread_pool_max_workers: int = Field(
-        default=10,
-        description="Maximum thread pool workers for etcd operations"
-    )
-    
     # Monitoring and alerting
     enable_metrics: bool = Field(
         default=True,
@@ -96,36 +81,7 @@ class ServiceDiscoveryConfig(BaseSettings):
         description="Enable event logging"
     )
     
-    # Security configuration
-    etcd_use_tls: bool = Field(
-        default=False,
-        description="Use TLS for etcd connections"
-    )
-    etcd_cert_file: str = Field(
-        default="",
-        description="etcd client certificate file path"
-    )
-    etcd_key_file: str = Field(
-        default="",
-        description="etcd client key file path"
-    )
-    etcd_ca_file: str = Field(
-        default="",
-        description="etcd CA certificate file path"
-    )
-    etcd_username: str = Field(
-        default="",
-        description="etcd authentication username"
-    )
-    etcd_password: str = Field(
-        default="",
-        description="etcd authentication password"
-    )
-    
-    class Config:
-        env_prefix = "SERVICE_DISCOVERY_"
-        case_sensitive = False
-
+    model_config = SettingsConfigDict(env_prefix="SERVICE_DISCOVERY_", case_sensitive=False)
 
 class LoadBalancerConfig:
     """Load balancer configuration"""
@@ -185,7 +141,6 @@ class LoadBalancerConfig:
         """List all available load balancing strategies"""
         return list(cls.STRATEGIES.keys())
 
-
 class HealthCheckConfig:
     """Health check configuration presets"""
     
@@ -222,7 +177,6 @@ class HealthCheckConfig:
     def list_presets(cls) -> List[str]:
         """List all available health check presets"""
         return list(cls.PRESETS.keys())
-
 
 # Default configuration instance
 default_config = ServiceDiscoveryConfig()

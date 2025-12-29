@@ -10,14 +10,16 @@ from datetime import datetime
 from datetime import timedelta
 from src.core.utils.timezone_utils import utc_now, utc_factory
 from uuid import uuid4
-
 from ..models.schemas.offline import (
+
     OfflineSession, ConflictRecord, SyncOperation,
     OfflineMode, NetworkStatus, ConflictResolutionStrategy,
     VectorClock
 )
 from ..core.config import get_settings
 
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 class SimpleNetworkMonitor:
     """简化的网络监控器"""
@@ -43,7 +45,6 @@ class SimpleNetworkMonitor:
             "history_size": 0
         }
 
-
 class SimpleModeSwitch:
     """简化的模式切换器"""
     
@@ -63,7 +64,6 @@ class SimpleModeSwitch:
             "network_status": "unknown",
             "connection_quality": 1.0
         }
-
 
 class OfflineService:
     """离线服务"""
@@ -163,40 +163,8 @@ class OfflineService:
             if not pending_ops:
                 return {"message": "没有待同步的操作", "synced_count": 0}
             
-            # 模拟同步过程
-            synced_count = 0
-            failed_count = 0
-            
-            for operation in pending_ops:
-                try:
-                    # 这里应该调用实际的同步逻辑
-                    # 现在模拟同步成功
-                    success = await self._sync_operation(operation)
-                    
-                    if success:
-                        self.database.mark_operation_synced(
-                            operation.id, 
-                            utc_now()
-                        )
-                        synced_count += 1
-                    else:
-                        failed_count += 1
-                        
-                except Exception as e:
-                    print(f"同步操作失败: {operation.id}, 错误: {e}")
-                    failed_count += 1
-            
-            # 更新会话状态
-            session.last_sync_at = utc_now()
-            session.sync_in_progress = False
-            self.database.update_session(session)
-            
-            return {
-                "message": "同步完成",
-                "synced_count": synced_count,
-                "failed_count": failed_count,
-                "total_processed": len(pending_ops)
-            }
+            # 需要接入真实同步逻辑
+            raise RuntimeError("offline sync not implemented for complex service")
             
         except Exception as e:
             # 确保重置同步状态
@@ -205,23 +173,15 @@ class OfflineService:
             raise e
     
     async def _sync_operation(self, operation: SyncOperation) -> bool:
-        """同步单个操作（模拟）"""
-        # 这里应该实现实际的同步逻辑
-        # 比如调用远程API、处理冲突等
-        
-        # 模拟网络延迟
-        await asyncio.sleep(0.1)
-        
-        # 模拟90%成功率
-        import random
-        return random.random() > 0.1
+        """同步单个操作"""
+        raise RuntimeError("sync operation handler not implemented")
     
     async def background_sync(self, user_id: str, batch_size: int = 50):
         """后台同步"""
         try:
             await self.force_sync(user_id, batch_size)
         except Exception as e:
-            print(f"后台同步失败: {e}")
+            logger.error("后台同步失败", error=str(e), user_id=user_id, exc_info=True)
     
     async def get_unresolved_conflicts(self, user_id: str) -> List[ConflictRecord]:
         """获取未解决的冲突"""

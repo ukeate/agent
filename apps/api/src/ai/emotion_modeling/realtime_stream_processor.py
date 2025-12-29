@@ -3,6 +3,7 @@
 支持文本、音频、视频、生理信号的实时流式处理
 """
 
+from src.core.utils.timezone_utils import utc_now
 import asyncio
 import json
 import time
@@ -12,17 +13,15 @@ from enum import Enum
 from dataclasses import dataclass, field
 from collections import deque
 import numpy as np
-import logging
 from contextlib import asynccontextmanager
-
 from .core_interfaces import (
     ModalityType, EmotionState, MultiModalEmotion, UnifiedEmotionalData,
     EmotionRecognitionEngine, EmotionalDataFlowManager
 )
 from .communication_protocol import CommunicationProtocol, ModuleType, Priority
 
-logger = logging.getLogger(__name__)
-
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 class StreamState(str, Enum):
     """数据流状态"""
@@ -33,13 +32,11 @@ class StreamState(str, Enum):
     ERROR = "error"
     STOPPED = "stopped"
 
-
 class ProcessingMode(str, Enum):
     """处理模式"""
     REAL_TIME = "real_time"        # 实时处理
     BATCH = "batch"                # 批处理
     HYBRID = "hybrid"              # 混合模式
-
 
 @dataclass
 class StreamMetrics:
@@ -50,7 +47,6 @@ class StreamMetrics:
     error_rate: float = 0.0       # percentage
     buffer_usage: float = 0.0     # percentage
     last_updated: datetime = field(default_factory=datetime.now)
-
 
 @dataclass
 class StreamBuffer:
@@ -68,7 +64,7 @@ class StreamBuffer:
         
         self.data.append({
             'data': item,
-            'timestamp': datetime.now(),
+            'timestamp': utc_now(),
             'processed': False
         })
         return True
@@ -87,7 +83,6 @@ class StreamBuffer:
             if i >= count:
                 break
             item['processed'] = True
-
 
 class RealtimeStreamProcessor:
     """实时流处理器"""
@@ -228,7 +223,7 @@ class RealtimeStreamProcessor:
             stream_data = {
                 'user_id': user_id,
                 'data': data,
-                'timestamp': datetime.now(),
+                'timestamp': utc_now(),
                 'modality': modality
             }
             
@@ -304,7 +299,7 @@ class RealtimeStreamProcessor:
             # 创建统一数据格式
             unified_data = UnifiedEmotionalData(
                 user_id=user_id,
-                timestamp=datetime.now(),
+                timestamp=utc_now(),
                 recognition_result=recognition_result,
                 confidence=recognition_result.confidence,
                 processing_time=time.time() - start_time,
@@ -354,7 +349,7 @@ class RealtimeStreamProcessor:
             
             unified_data = UnifiedEmotionalData(
                 user_id=user_id,
-                timestamp=datetime.now(),
+                timestamp=utc_now(),
                 recognition_result=fused_result,
                 confidence=fused_result.confidence,
                 processing_time=time.time() - start_time,
@@ -420,7 +415,7 @@ class RealtimeStreamProcessor:
             arousal=avg_arousal,
             dominance=avg_dominance,
             confidence=avg_confidence,
-            timestamp=datetime.now()
+            timestamp=utc_now()
         )
         
         return MultiModalEmotion(
@@ -453,7 +448,7 @@ class RealtimeStreamProcessor:
         # 数据新鲜度
         if window_data:
             latest_timestamp = max(d['timestamp'] for d in window_data)
-            age = (datetime.now() - latest_timestamp).total_seconds()
+            age = (utc_now() - latest_timestamp).total_seconds()
             freshness = max(0, 1 - min(age / 10.0, 1))  # 10秒内为新鲜数据
             quality_factors.append(freshness)
         
@@ -473,7 +468,7 @@ class RealtimeStreamProcessor:
     
     async def _update_stream_metrics(self):
         """更新流指标"""
-        current_time = datetime.now()
+        current_time = utc_now()
         
         for modality, metrics in self.metrics.items():
             # 计算处理速率
@@ -497,7 +492,7 @@ class RealtimeStreamProcessor:
     async def _update_processing_metrics(self, modality: ModalityType, processed_count: int):
         """更新处理指标"""
         self._processing_history.append({
-            'timestamp': datetime.now(),
+            'timestamp': utc_now(),
             'modality': modality,
             'count': processed_count
         })
@@ -575,7 +570,6 @@ class RealtimeStreamProcessor:
             yield self
         finally:
             await self.stop_processing()
-
 
 class MultiUserStreamManager:
     """多用户流管理器"""
@@ -655,7 +649,7 @@ class MultiUserStreamManager:
         """清理不活跃的用户"""
         while not self._shutdown_event.is_set():
             try:
-                current_time = datetime.now()
+                current_time = utc_now()
                 inactive_users = []
                 
                 for user_id, processor in self.user_processors.items():

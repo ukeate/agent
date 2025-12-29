@@ -12,9 +12,10 @@ from dataclasses import dataclass, field
 from enum import Enum
 from datetime import datetime
 from src.core.utils.timezone_utils import utc_now, utc_factory
-
 from ..models.schemas.offline import SyncOperation, SyncOperationType, VectorClock
 
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 class DeltaType(str, Enum):
     """差异类型"""
@@ -27,14 +28,12 @@ class DeltaType(str, Enum):
     LIST_DELETION = "list_deletion"         # 列表删除
     LIST_MODIFICATION = "list_modification" # 列表修改
 
-
 class CompressionAlgorithm(str, Enum):
     """压缩算法"""
     NONE = "none"
     GZIP = "gzip"
     JSON_DIFF = "json_diff"
     BINARY_DIFF = "binary_diff"
-
 
 @dataclass
 class DeltaOperation:
@@ -44,7 +43,6 @@ class DeltaOperation:
     old_value: Any = None
     new_value: Any = None
     metadata: Dict[str, Any] = field(default_factory=dict)
-
 
 @dataclass
 class ObjectDelta:
@@ -56,8 +54,7 @@ class ObjectDelta:
     original_size: int = 0
     compressed_size: int = 0
     checksum: Optional[str] = None
-    timestamp: datetime = field(default_factory=datetime.utcnow)
-
+    timestamp: datetime = field(default_factory=utc_now)
 
 @dataclass
 class SyncDelta:
@@ -69,7 +66,6 @@ class SyncDelta:
     compression_ratio: float = 0.0
     total_operations: int = 0
     metadata: Dict[str, Any] = field(default_factory=dict)
-
 
 class DeltaCalculator:
     """增量数据计算器"""
@@ -462,10 +458,9 @@ class DeltaCalculator:
                     current.pop(final_key)
             else:
                 current.pop(final_key, None)
-                
         except (KeyError, IndexError, TypeError):
             # 路径不存在，忽略
-            pass
+            logger.debug("删除路径失败，路径不存在或类型不匹配", exc_info=True)
     
     def _parse_path(self, path: str) -> List[Union[str, int]]:
         """解析路径"""

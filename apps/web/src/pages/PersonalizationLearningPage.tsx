@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
-import { Card, Row, Col, Progress, Button, Space, Switch, Typography, Table, Tag, Statistic, Alert, Timeline, Slider } from 'antd'
+import { Card, Row, Col, Progress, Button, Space, Switch, Typography, Table, Tag, Statistic, Alert, Timeline, Slider, message, Empty } from 'antd'
 import { 
-  ExperimentOutlined,
+import { logger } from '../utils/logger'
   BranchesOutlined,
   RiseOutlined,
   BulbOutlined,
@@ -9,138 +9,108 @@ import {
   PlayCircleOutlined,
   PauseCircleOutlined,
   ReloadOutlined,
-  BarChartOutlined,
-  LineChartOutlined,
   AimOutlined,
   RobotOutlined,
   ThunderboltOutlined,
   ClockCircleOutlined
 } from '@ant-design/icons'
-import { Line, Column, Gauge } from '@ant-design/plots'
+import { Line, Gauge } from '@ant-design/plots'
 import type { ColumnsType } from 'antd/es/table'
+import { modelService } from '../services/modelService'
 
 const { Title, Text, Paragraph } = Typography
 
 interface LearningSession {
-  id: string
-  algorithm: string
-  status: 'running' | 'paused' | 'completed' | 'failed'
-  startTime: string
-  duration: string
-  iterations: number
-  currentReward: number
-  bestReward: number
-  convergence: number
+  session_id: string
+  model_name: string
+  model_version: string
+  status: 'active' | 'paused' | 'completed' | 'failed'
+  created_at: string
+  updated_at: string
+  config?: Record<string, any>
+  feedback_count: number
+  update_count: number
+  performance_metrics: Record<string, number>
+  pending_feedback: number
+  buffer_usage: number
+  buffer_capacity: number
 }
 
 interface OnlineMetric {
   timestamp: string
-  reward: number
   loss: number
+  mse: number
+  mae: number
   accuracy: number
-  exploration_rate: number
+}
+
+interface LearningHistory {
+  timestamp: string
+  update_count: number
+  metrics: Record<string, any>
 }
 
 const PersonalizationLearningPage: React.FC = () => {
-  const [isLearning, setIsLearning] = useState(true)
-  const [learningRate, setLearningRate] = useState(0.01)
-  const [explorationRate, setExplorationRate] = useState(0.1)
-  const [batchSize, setBatchSize] = useState(32)
-  const [autoTuning, setAutoTuning] = useState(true)
-
-  const [sessions, setSessions] = useState<LearningSession[]>([
-    {
-      id: '1',
-      algorithm: 'Q-Learning',
-      status: 'running',
-      startTime: '2024-01-15 10:30:00',
-      duration: '2h 15m',
-      iterations: 15420,
-      currentReward: 0.825,
-      bestReward: 0.847,
-      convergence: 0.89
-    },
-    {
-      id: '2',
-      algorithm: 'Thompson Sampling',
-      status: 'completed',
-      startTime: '2024-01-15 08:00:00',
-      duration: '1h 45m',
-      iterations: 12300,
-      currentReward: 0.792,
-      bestReward: 0.798,
-      convergence: 0.95
-    },
-    {
-      id: '3',
-      algorithm: 'UCB',
-      status: 'paused',
-      startTime: '2024-01-15 09:15:00',
-      duration: '3h 02m',
-      iterations: 18750,
-      currentReward: 0.734,
-      bestReward: 0.756,
-      convergence: 0.67
-    }
-  ])
-
+  const [sessions, setSessions] = useState<LearningSession[]>([])
+  const [history, setHistory] = useState<LearningHistory[]>([])
   const [metrics, setMetrics] = useState<OnlineMetric[]>([])
+  const activeSession = sessions.find((session) => session.status === 'active') || sessions[0]
+  const hasConfig = Boolean(activeSession)
+  const config = activeSession?.config || {}
+  const learningRate = Number(config.learning_rate ?? 0)
+  const explorationRate = Number(config.exploration_rate ?? 0)
+  const batchSize = Number(config.batch_size ?? 0)
+  const autoTuning = Boolean(config.auto_tuning ?? false)
+  const isLearning = sessions.some((session) => session.status === 'active')
 
-  // 生成模拟学习指标数据
-  useEffect(() => {
-    const generateMetrics = () => {
-      const newMetrics: OnlineMetric[] = []
-      const now = Date.now()
-      
-      for (let i = 59; i >= 0; i--) {
-        const timestamp = new Date(now - i * 60000).toLocaleTimeString()
-        newMetrics.push({
-          timestamp,
-          reward: 0.5 + Math.random() * 0.4 + i * 0.002, // 递增趋势
-          loss: 1.0 - i * 0.01 + Math.random() * 0.1, // 递减趋势
-          accuracy: 0.6 + i * 0.005 + Math.random() * 0.1,
-          exploration_rate: Math.max(0.01, explorationRate - i * 0.001)
-        })
+  const loadLearningData = async () => {
+    try {
+      const toNumber = (value: any) => {
+        const n = Number(value)
+        return Number.isFinite(n) ? n : 0
       }
-      
-      setMetrics(newMetrics)
-    }
+      const sessionData = await modelService.getLearningSessions()
+      setSessions(sessionData)
 
-    generateMetrics()
-    
-    if (isLearning) {
-      const interval = setInterval(generateMetrics, 5000)
-      return () => clearInterval(interval)
-    }
-  }, [isLearning, explorationRate])
+      const targetSession = sessionData.find((session) => session.status === 'active') || sessionData[0]
+      if (!targetSession) {
+        setHistory([])
+        setMetrics([])
+        return
+      }
 
-  // 模拟学习进度更新
-  useEffect(() => {
-    if (!isLearning) return
-
-    const interval = setInterval(() => {
-      setSessions(prev => prev.map(session => {
-        if (session.status === 'running') {
-          return {
-            ...session,
-            iterations: session.iterations + Math.floor(Math.random() * 100),
-            currentReward: Math.min(1, session.currentReward + (Math.random() - 0.5) * 0.01),
-            convergence: Math.min(1, session.convergence + Math.random() * 0.01)
-          }
+      const historyData = await modelService.getLearningHistory(targetSession.session_id)
+      setHistory(historyData)
+      const nextMetrics = historyData.map((item) => {
+        const ts = String(item.timestamp)
+        const values = item.metrics || {}
+        return {
+          timestamp: new Date(ts).toLocaleTimeString(),
+          loss: toNumber(values.loss),
+          mse: toNumber(values.mse),
+          mae: toNumber(values.mae),
+          accuracy: toNumber(values.accuracy),
         }
-        return session
-      }))
-    }, 2000)
+      })
+      setMetrics(nextMetrics.slice(-60))
+    } catch (error) {
+      logger.error('加载在线学习数据失败:', error)
+      message.error('加载在线学习数据失败')
+    }
+  }
 
+  useEffect(() => {
+    loadLearningData()
+    const interval = setInterval(loadLearningData, 10000)
     return () => clearInterval(interval)
-  }, [isLearning])
+  }, [])
 
   const sessionColumns: ColumnsType<LearningSession> = [
     {
-      title: '算法',
-      dataIndex: 'algorithm',
-      key: 'algorithm',
-      render: (text) => <Text strong>{text}</Text>
+      title: '模型',
+      dataIndex: 'model_name',
+      key: 'model_name',
+      render: (text, record) => <Text strong>{`${text} ${record.model_version}`}</Text>
     },
     {
       title: '状态',
@@ -148,79 +118,50 @@ const PersonalizationLearningPage: React.FC = () => {
       key: 'status',
       render: (status) => {
         const config = {
-          running: { color: 'processing', text: '运行中' },
+          active: { color: 'processing', text: '运行中' },
           paused: { color: 'warning', text: '已暂停' },
           completed: { color: 'success', text: '已完成' },
           failed: { color: 'error', text: '失败' }
         }
-        return <Tag color={config[status].color}>{config[status].text}</Tag>
+        const target = config[status] || { color: 'default', text: String(status) }
+        return <Tag color={target.color}>{target.text}</Tag>
       }
     },
     {
-      title: '迭代次数',
-      dataIndex: 'iterations',
-      key: 'iterations',
-      render: (value) => value.toLocaleString()
+      title: '反馈数量',
+      dataIndex: 'feedback_count',
+      key: 'feedback_count',
+      render: (value) => Number(value || 0).toLocaleString()
     },
     {
-      title: '当前奖励',
-      dataIndex: 'currentReward',
-      key: 'currentReward',
-      render: (value) => (
-        <Progress 
-          percent={value * 100} 
-          size="small" 
-          format={(v) => `${(value).toFixed(3)}`}
-        />
-      )
+      title: '更新次数',
+      dataIndex: 'update_count',
+      key: 'update_count',
+      render: (value) => Number(value || 0).toLocaleString()
     },
     {
-      title: '最佳奖励',
-      dataIndex: 'bestReward',
-      key: 'bestReward',
-      render: (value) => <Text type="success">{value.toFixed(3)}</Text>
+      title: '最新损失',
+      dataIndex: 'performance_metrics',
+      key: 'performance_metrics',
+      render: (_: Record<string, number>, record) => {
+        const loss = record.performance_metrics?.loss
+        if (typeof loss !== 'number') return '-'
+        return (
+          <Progress
+            percent={Math.min(100, Math.max(0, loss * 100))}
+            size="small"
+            format={() => loss.toFixed(3)}
+          />
+        )
+      }
     },
     {
-      title: '收敛度',
-      dataIndex: 'convergence',
-      key: 'convergence',
-      render: (value) => (
-        <Progress 
-          percent={value * 100} 
-          size="small"
-          strokeColor={{
-            '0%': '#ff4d4f',
-            '50%': '#faad14',
-            '100%': '#52c41a',
-          }}
-        />
-      )
-    },
-    {
-      title: '持续时间',
-      dataIndex: 'duration',
-      key: 'duration',
-      render: (text) => <Text type="secondary">{text}</Text>
+      title: '更新时间',
+      dataIndex: 'updated_at',
+      key: 'updated_at',
+      render: (text) => <Text type="secondary">{text ? new Date(text).toLocaleString() : '-'}</Text>
     }
   ]
-
-  // 奖励趋势配置
-  const rewardConfig = {
-    data: metrics,
-    xField: 'timestamp',
-    yField: 'reward',
-    smooth: true,
-    color: '#52c41a',
-    point: {
-      size: 3,
-      shape: 'circle'
-    },
-    yAxis: {
-      title: { text: '奖励值' },
-      min: 0,
-      max: 1
-    }
-  }
 
   // 损失趋势配置
   const lossConfig = {
@@ -234,9 +175,23 @@ const PersonalizationLearningPage: React.FC = () => {
     }
   }
 
+  // MSE趋势配置
+  const mseConfig = {
+    data: metrics,
+    xField: 'timestamp',
+    yField: 'mse',
+    smooth: true,
+    color: '#52c41a',
+    yAxis: {
+      title: { text: 'MSE' }
+    }
+  }
+
   // 准确率仪表盘配置
+  const latestMetric = metrics[metrics.length - 1]
+  const accuracyValue = latestMetric ? Math.max(0, Math.min(1, latestMetric.accuracy)) : 0
   const accuracyGaugeConfig = {
-    percent: metrics.length > 0 ? metrics[metrics.length - 1].accuracy : 0.75,
+    percent: accuracyValue,
     range: {
       color: 'l(0) 0:#ff4d4f 0.5:#faad14 1:#52c41a',
     },
@@ -247,27 +202,63 @@ const PersonalizationLearningPage: React.FC = () => {
     },
   }
 
-  const handleToggleLearning = () => {
-    setIsLearning(!isLearning)
-    
-    // 更新会话状态
-    setSessions(prev => prev.map(session => ({
-      ...session,
-      status: session.status === 'running' ? 'paused' : 
-              session.status === 'paused' ? 'running' : session.status
-    })))
+  const handleToggleLearning = async () => {
+    const activeSessions = sessions.filter((session) => session.status === 'active')
+    const pausedSessions = sessions.filter((session) => session.status === 'paused')
+    if (activeSessions.length === 0 && pausedSessions.length === 0) {
+      message.info('暂无可操作的学习会话')
+      return
+    }
+
+    try {
+      if (activeSessions.length > 0) {
+        await Promise.all(activeSessions.map((session) => modelService.pauseLearningSession(session.session_id)))
+      } else {
+        await Promise.all(pausedSessions.map((session) => modelService.resumeLearningSession(session.session_id)))
+      }
+      await loadLearningData()
+    } catch (error) {
+      logger.error('切换学习状态失败:', error)
+      message.error('切换学习状态失败')
+    }
   }
 
-  const handleResetLearning = () => {
-    setSessions(prev => prev.map(session => ({
-      ...session,
-      iterations: 0,
-      currentReward: 0.5,
-      convergence: 0,
-      status: 'running'
-    })))
-    setMetrics([])
+  const handleRefresh = () => {
+    loadLearningData()
   }
+
+  const totalFeedback = sessions.reduce((acc, session) => acc + (session.feedback_count || 0), 0)
+  const totalUpdates = sessions.reduce((acc, session) => acc + (session.update_count || 0), 0)
+  const efficiency = totalFeedback > 0 ? (totalUpdates / totalFeedback) * 100 : 0
+
+  const timelineItems = [
+    ...history.map((item) => ({
+      key: `update-${item.update_count}-${item.timestamp}`,
+      time: item.timestamp,
+      title: `模型更新 #${item.update_count}`,
+      detail: `loss=${Number(item.metrics?.loss || 0).toFixed(3)}，mse=${Number(item.metrics?.mse || 0).toFixed(3)}`,
+      color: 'blue',
+      icon: <BulbOutlined />,
+    })),
+    ...sessions.map((session) => ({
+      key: `start-${session.session_id}`,
+      time: session.created_at,
+      title: '学习会话开始',
+      detail: `${session.model_name} ${session.model_version}`,
+      color: 'green',
+      icon: <RobotOutlined />,
+    })),
+    ...sessions
+      .filter((session) => session.status === 'completed')
+      .map((session) => ({
+        key: `complete-${session.session_id}`,
+        time: session.updated_at,
+        title: '学习会话完成',
+        detail: `反馈 ${session.feedback_count}，更新 ${session.update_count}`,
+        color: 'gray',
+        icon: <ClockCircleOutlined />,
+      })),
+  ].sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime())
 
   return (
     <div style={{ padding: '24px' }}>
@@ -284,7 +275,7 @@ const PersonalizationLearningPage: React.FC = () => {
           <Space>
             {isLearning ? <SyncOutlined spin /> : <PauseCircleOutlined />}
             <Text>学习状态: {isLearning ? '正在学习' : '已暂停'}</Text>
-            <Text type="secondary">| 活跃会话: {sessions.filter(s => s.status === 'running').length}</Text>
+            <Text type="secondary">| 活跃会话: {sessions.filter(s => s.status === 'active').length}</Text>
           </Space>
         }
         type={isLearning ? 'success' : 'warning'}
@@ -300,9 +291,9 @@ const PersonalizationLearningPage: React.FC = () => {
             </Button>
             <Button 
               icon={<ReloadOutlined />}
-              onClick={handleResetLearning}
+              onClick={handleRefresh}
             >
-              重置
+              刷新
             </Button>
           </Space>
         }
@@ -313,13 +304,13 @@ const PersonalizationLearningPage: React.FC = () => {
         <Row gutter={[24, 16]}>
           <Col span={6}>
             <Space direction="vertical" style={{ width: '100%' }}>
-              <Text>学习率: {learningRate}</Text>
+              <Text>学习率: {hasConfig ? learningRate : '-'}</Text>
               <Slider
                 min={0.001}
                 max={0.1}
                 step={0.001}
-                value={learningRate}
-                onChange={setLearningRate}
+                value={Number.isFinite(learningRate) ? learningRate : 0}
+                disabled
                 marks={{
                   0.001: '0.001',
                   0.01: '0.01',
@@ -330,13 +321,13 @@ const PersonalizationLearningPage: React.FC = () => {
           </Col>
           <Col span={6}>
             <Space direction="vertical" style={{ width: '100%' }}>
-              <Text>探索率: {explorationRate}</Text>
+              <Text>探索率: {hasConfig ? explorationRate : '-'}</Text>
               <Slider
                 min={0.01}
                 max={0.5}
                 step={0.01}
-                value={explorationRate}
-                onChange={setExplorationRate}
+                value={Number.isFinite(explorationRate) ? explorationRate : 0}
+                disabled
                 marks={{
                   0.01: '1%',
                   0.1: '10%',
@@ -347,13 +338,13 @@ const PersonalizationLearningPage: React.FC = () => {
           </Col>
           <Col span={6}>
             <Space direction="vertical" style={{ width: '100%' }}>
-              <Text>批大小: {batchSize}</Text>
+              <Text>批大小: {hasConfig ? batchSize : '-'}</Text>
               <Slider
                 min={8}
                 max={128}
                 step={8}
-                value={batchSize}
-                onChange={setBatchSize}
+                value={Number.isFinite(batchSize) ? batchSize : 0}
+                disabled
                 marks={{
                   8: '8',
                   32: '32',
@@ -368,7 +359,7 @@ const PersonalizationLearningPage: React.FC = () => {
               <Text>自动调参</Text>
               <Switch 
                 checked={autoTuning}
-                onChange={setAutoTuning}
+                disabled
                 checkedChildren="开启"
                 unCheckedChildren="关闭"
               />
@@ -382,8 +373,8 @@ const PersonalizationLearningPage: React.FC = () => {
         <Col span={6}>
           <Card>
             <Statistic
-              title="平均奖励"
-              value={metrics.length > 0 ? metrics[metrics.length - 1].reward : 0}
+              title="最新损失"
+              value={latestMetric ? latestMetric.loss : 0}
               precision={3}
               prefix={<RiseOutlined />}
               valueStyle={{ color: '#52c41a' }}
@@ -393,8 +384,8 @@ const PersonalizationLearningPage: React.FC = () => {
         <Col span={6}>
           <Card>
             <Statistic
-              title="总迭代次数"
-              value={sessions.reduce((acc, s) => acc + s.iterations, 0)}
+              title="反馈数量"
+              value={totalFeedback}
               prefix={<SyncOutlined />}
               valueStyle={{ color: '#1890ff' }}
             />
@@ -403,10 +394,8 @@ const PersonalizationLearningPage: React.FC = () => {
         <Col span={6}>
           <Card>
             <Statistic
-              title="收敛度"
-              value={sessions.reduce((acc, s) => acc + s.convergence, 0) / sessions.length * 100}
-              suffix="%"
-              precision={1}
+              title="更新次数"
+              value={totalUpdates}
               prefix={<AimOutlined />}
               valueStyle={{ color: '#722ed1' }}
             />
@@ -415,9 +404,10 @@ const PersonalizationLearningPage: React.FC = () => {
         <Col span={6}>
           <Card>
             <Statistic
-              title="学习效率"
-              value={85.2}
+              title="更新效率"
+              value={efficiency}
               suffix="%"
+              precision={1}
               prefix={<ThunderboltOutlined />}
               valueStyle={{ color: '#fa8c16' }}
             />
@@ -428,18 +418,18 @@ const PersonalizationLearningPage: React.FC = () => {
       {/* 学习趋势图表 */}
       <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
         <Col span={8}>
-          <Card title="奖励趋势">
-            <Line {...rewardConfig} height={200} />
+          <Card title="损失趋势">
+            {metrics.length > 0 ? <Line {...lossConfig} height={200} /> : <Empty description="暂无数据" />}
           </Card>
         </Col>
         <Col span={8}>
-          <Card title="损失趋势">
-            <Line {...lossConfig} height={200} />
+          <Card title="MSE趋势">
+            {metrics.length > 0 ? <Line {...mseConfig} height={200} /> : <Empty description="暂无数据" />}
           </Card>
         </Col>
         <Col span={8}>
           <Card title="当前准确率">
-            <Gauge {...accuracyGaugeConfig} height={200} />
+            {metrics.length > 0 ? <Gauge {...accuracyGaugeConfig} height={200} /> : <Empty description="暂无数据" />}
           </Card>
         </Col>
       </Row>
@@ -457,30 +447,22 @@ const PersonalizationLearningPage: React.FC = () => {
       {/* 学习历史时间轴 */}
       <Card title="学习历史">
         <Timeline>
-          <Timeline.Item color="green" dot={<BulbOutlined />}>
-            <Space direction="vertical" size="small">
-              <Text strong>自适应学习率优化</Text>
-              <Text type="secondary">10:45 - 学习率自动调整为 0.005，收敛速度提升 15%</Text>
-            </Space>
-          </Timeline.Item>
-          <Timeline.Item color="blue" dot={<RobotOutlined />}>
-            <Space direction="vertical" size="small">
-              <Text strong>新算法启动</Text>
-              <Text type="secondary">10:30 - 启动 Thompson Sampling 算法学习会话</Text>
-            </Space>
-          </Timeline.Item>
-          <Timeline.Item color="orange" dot={<ExperimentOutlined />}>
-            <Space direction="vertical" size="small">
-              <Text strong>A/B测试完成</Text>
-              <Text type="secondary">10:15 - Q-Learning vs UCB 对比测试结束，Q-Learning 胜出</Text>
-            </Space>
-          </Timeline.Item>
-          <Timeline.Item dot={<ClockCircleOutlined />}>
-            <Space direction="vertical" size="small">
-              <Text strong>学习会话开始</Text>
-              <Text type="secondary">10:00 - 启动新一轮在线学习，目标提升推荐准确率</Text>
-            </Space>
-          </Timeline.Item>
+          {timelineItems.length === 0 ? (
+            <Timeline.Item>
+              <Text type="secondary">暂无学习历史</Text>
+            </Timeline.Item>
+          ) : (
+            timelineItems.map((item) => (
+              <Timeline.Item key={item.key} color={item.color} dot={item.icon}>
+                <Space direction="vertical" size="small">
+                  <Text strong>{item.title}</Text>
+                  <Text type="secondary">
+                    {item.time ? new Date(item.time).toLocaleString() : '-'} {item.detail ? `- ${item.detail}` : ''}
+                  </Text>
+                </Space>
+              </Timeline.Item>
+            ))
+          )}
         </Timeline>
       </Card>
     </div>

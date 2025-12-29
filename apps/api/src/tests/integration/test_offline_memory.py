@@ -9,14 +9,12 @@ from datetime import datetime
 from datetime import timedelta
 from src.core.utils.timezone_utils import utc_now, utc_factory
 from uuid import uuid4
-
 from offline.memory_manager import (
     OfflineMemoryManager, MemoryEntry, MemoryQuery,
     MemoryType, MemoryPriority
 )
 from src.ai.memory.context_recall import ContextAwareRecall
 from models.schemas.offline import OfflineMode, NetworkStatus, VectorClock
-
 
 class MockMemoryStorage:
     """模拟内存存储"""
@@ -30,7 +28,6 @@ class MockMemoryStorage:
     async def search_memories(self, filters, limit=10):
         return []
 
-
 class MockMemoryConfig:
     """模拟内存配置"""
     
@@ -38,7 +35,6 @@ class MockMemoryConfig:
         self.vector_dimension = 768
         self.decay_constant = 3600  # 1小时衰减常数
         self.qdrant_collection = "test_memories"
-
 
 class TestOfflineMemoryIntegration:
     """离线记忆系统集成测试"""

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { 
+import { logger } from '../../utils/logger'
   Drawer, 
   Tabs, 
   Timeline, 
@@ -161,7 +162,7 @@ export const WorkflowDebugPanel: React.FC<WorkflowDebugPanelProps> = ({
         <Button 
           size="small" 
           type="link"
-          onClick={() => console.log('查看详情:', record)}
+          onClick={() => logger.log('查看详情:', record)}
         >
           查看
         </Button>

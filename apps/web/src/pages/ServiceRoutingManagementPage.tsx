@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { Card, Table, Button, Space, Tag, Modal, Form, Input, Select, Row, Col, Typography, Divider, Switch, InputNumber, Drawer, Alert, Badge, Tooltip, Timeline, Progress } from 'antd'
 import { 
+import { logger } from '../utils/logger'
   PlusOutlined, 
   EditOutlined, 
   DeleteOutlined, 
@@ -20,6 +21,8 @@ import {
   PlayCircleOutlined,
   PauseCircleOutlined
 } from '@ant-design/icons'
+import { serviceDiscoveryService } from '../services/serviceDiscoveryService'
+import apiClient from '../services/apiClient'
 
 const { Title, Paragraph, Text } = Typography
 const { Option } = Select
@@ -69,104 +72,7 @@ interface RouteTestResult {
 }
 
 const ServiceRoutingManagementPage: React.FC<ServiceRoutingManagementPageProps> = () => {
-  const [routingRules, setRoutingRules] = useState<RoutingRule[]>([
-    {
-      id: 'rule-001',
-      name: 'ML处理器路由',
-      description: '机器学习处理任务的智能路由规则',
-      status: 'active',
-      priority: 100,
-      conditions: {
-        capability: ['text_processing', 'sentiment_analysis'],
-        tags: ['ml', 'production'],
-        version: '>=2.0.0',
-        region: ['us-east-1', 'us-west-2'],
-        environment: ['production'],
-        customRules: 'cpu_usage < 80 AND memory_usage < 70'
-      },
-      targets: {
-        agentTypes: ['ML_PROCESSOR'],
-        endpoints: [],
-        loadBalanceStrategy: 'capability_based',
-        failoverEnabled: true,
-        circuitBreakerEnabled: true
-      },
-      metrics: {
-        requestCount: 15420,
-        successRate: 99.2,
-        avgResponseTime: 45,
-        errorCount: 123,
-        lastUsed: '2024-08-26T14:25:00Z'
-      },
-      created: '2024-08-20T10:30:00Z',
-      updated: '2024-08-25T16:45:00Z',
-      owner: 'ml-team'
-    },
-    {
-      id: 'rule-002',
-      name: '数据分析路由',
-      description: '数据分析和可视化任务路由',
-      status: 'active',
-      priority: 80,
-      conditions: {
-        capability: ['data_mining', 'statistical_analysis'],
-        tags: ['analytics', 'visualization'],
-        version: '>=1.8.0',
-        region: ['us-west-2', 'eu-central-1'],
-        environment: ['production', 'staging'],
-        customRules: 'response_time < 200'
-      },
-      targets: {
-        agentTypes: ['DATA_ANALYZER'],
-        endpoints: [],
-        loadBalanceStrategy: 'round_robin',
-        failoverEnabled: true,
-        circuitBreakerEnabled: false
-      },
-      metrics: {
-        requestCount: 8960,
-        successRate: 97.5,
-        avgResponseTime: 125,
-        errorCount: 224,
-        lastUsed: '2024-08-26T14:20:00Z'
-      },
-      created: '2024-08-18T09:15:00Z',
-      updated: '2024-08-24T11:20:00Z',
-      owner: 'data-team'
-    },
-    {
-      id: 'rule-003',
-      name: '推荐引擎路由',
-      description: '个性化推荐服务路由规则',
-      status: 'error',
-      priority: 90,
-      conditions: {
-        capability: ['collaborative_filtering', 'content_based'],
-        tags: ['recommendation', 'personalization'],
-        version: '>=3.0.0',
-        region: ['eu-central-1'],
-        environment: ['production'],
-        customRules: 'load_score < 0.8'
-      },
-      targets: {
-        agentTypes: ['RECOMMENDER'],
-        endpoints: [],
-        loadBalanceStrategy: 'least_connections',
-        failoverEnabled: true,
-        circuitBreakerEnabled: true
-      },
-      metrics: {
-        requestCount: 23450,
-        successRate: 85.3,
-        avgResponseTime: 89,
-        errorCount: 3447,
-        lastUsed: '2024-08-26T13:45:00Z'
-      },
-      created: '2024-08-22T11:45:00Z',
-      updated: '2024-08-26T10:30:00Z',
-      owner: 'rec-team'
-    }
-  ])
+  const [routingRules, setRoutingRules] = useState<RoutingRule[]>([])
 
   const [loading, setLoading] = useState(false)
   const [modalVisible, setModalVisible] = useState(false)
@@ -217,16 +123,28 @@ const ServiceRoutingManagementPage: React.FC<ServiceRoutingManagementPageProps> 
   const environments = ['development', 'testing', 'staging', 'production']
   const regions = ['us-east-1', 'us-west-2', 'eu-central-1', 'ap-southeast-1', 'ap-northeast-1']
 
+  const loadRoutingRules = async () => {
+    try {
+      setLoading(true)
+      const response = await apiClient.get('/service-routing/rules')
+      setRoutingRules(response.data?.rules || [])
+    } catch (error) {
+      logger.error('加载路由规则失败:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    loadRoutingRules()
+  }, [])
+
   const handleCreateRule = async (values: any) => {
     try {
       setLoading(true)
-      await new Promise(resolve => setTimeout(resolve, 1000))
-      
-      const newRule: RoutingRule = {
-        id: `rule-${Date.now()}`,
+      const payload = {
         name: values.name,
         description: values.description || '',
-        status: 'active',
         priority: values.priority || 50,
         conditions: {
           capability: values.capabilities || [],
@@ -243,23 +161,19 @@ const ServiceRoutingManagementPage: React.FC<ServiceRoutingManagementPageProps> 
           failoverEnabled: values.failoverEnabled || false,
           circuitBreakerEnabled: values.circuitBreakerEnabled || false
         },
-        metrics: {
-          requestCount: 0,
-          successRate: 0,
-          avgResponseTime: 0,
-          errorCount: 0,
-          lastUsed: ''
-        },
-        created: new Date().toISOString(),
-        updated: new Date().toISOString(),
         owner: 'system'
       }
-      
-      setRoutingRules(prev => [newRule, ...prev])
+      if (editingRule) {
+        await apiClient.put(`/service-routing/rules/${editingRule.id}`, payload)
+      } else {
+        await apiClient.post('/service-routing/rules', payload)
+      }
+      await loadRoutingRules()
       setModalVisible(false)
+      setEditingRule(null)
       form.resetFields()
     } catch (error) {
-      console.error('创建路由规则失败:', error)
+      logger.error('创建路由规则失败:', error)
     } finally {
       setLoading(false)
     }
@@ -289,36 +203,53 @@ const ServiceRoutingManagementPage: React.FC<ServiceRoutingManagementPageProps> 
     Modal.confirm({
       title: '确认删除',
       content: '确定要删除这个路由规则吗？此操作不可撤销。',
-      onOk: () => {
-        setRoutingRules(prev => prev.filter(rule => rule.id !== ruleId))
+      onOk: async () => {
+        try {
+          setLoading(true)
+          await apiClient.delete(`/service-routing/rules/${ruleId}`)
+          await loadRoutingRules()
+        } catch (error) {
+          logger.error('删除路由规则失败:', error)
+        } finally {
+          setLoading(false)
+        }
       }
     })
   }
 
   const handleToggleStatus = (ruleId: string) => {
-    setRoutingRules(prev => prev.map(rule => 
-      rule.id === ruleId 
-        ? { ...rule, status: rule.status === 'active' ? 'inactive' : 'active' }
-        : rule
-    ))
+    const current = routingRules.find(rule => rule.id === ruleId)
+    if (!current) return
+    const nextStatus = current.status === 'active' ? 'inactive' : 'active'
+    setLoading(true)
+    apiClient
+      .patch(`/service-routing/rules/${ruleId}/status`, { status: nextStatus })
+      .then(loadRoutingRules)
+      .catch(error => {
+        logger.error('切换规则状态失败:', error)
+      })
+      .finally(() => setLoading(false))
   }
 
   const handleTestRoute = async (values: any) => {
     try {
       setLoading(true)
-      await new Promise(resolve => setTimeout(resolve, 1500))
-      
+      const res = await serviceDiscoveryService.selectAgent({
+        capability: values.testCapability,
+        strategy: values.testStrategy || 'round_robin',
+        tags: values.testTags
+      })
       const testResult: RouteTestResult = {
-        success: Math.random() > 0.2,
-        selectedAgent: `agent-${Math.floor(Math.random() * 100)}`,
-        responseTime: Math.floor(Math.random() * 200) + 20,
+        success: Boolean(res.selected_agent),
+        selectedAgent: res.selected_agent ? res.selected_agent.agent_id : '',
+        responseTime: res.selection_time || 0,
         route: values.testCapability,
         timestamp: new Date().toISOString()
       }
-      
       setTestResults(prev => [testResult, ...prev.slice(0, 9)])
     } catch (error) {
-      console.error('路由测试失败:', error)
+      logger.error('路由测试失败:', error)
+      Modal.error({ title: '路由测试失败', content: (error as Error).message || '' })
     } finally {
       setLoading(false)
     }
@@ -524,7 +455,7 @@ const ServiceRoutingManagementPage: React.FC<ServiceRoutingManagementPageProps> 
                 }}>
                   创建路由规则
                 </Button>
-                <Button icon={<ReloadOutlined />} loading={loading}>
+                <Button icon={<ReloadOutlined />} loading={loading} onClick={loadRoutingRules}>
                   刷新
                 </Button>
                 <Button icon={<ApiOutlined />} onClick={() => setTestDrawerVisible(true)}>

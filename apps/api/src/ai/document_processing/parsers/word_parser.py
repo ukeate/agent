@@ -1,20 +1,16 @@
 """Word文档解析器"""
 
-import logging
 from pathlib import Path
 from typing import List, Dict, Any
 import base64
 import io
-
 from docx import Document
 from docx.table import Table
 from docx.text.paragraph import Paragraph
 from PIL import Image
-
 from .base_parser import BaseParser, ParsedDocument, ParsedElement
 
-logger = logging.getLogger(__name__)
-
+logger = get_logger(__name__)
 
 class WordParser(BaseParser):
     """Word文档解析器
@@ -240,3 +236,4 @@ class WordParser(BaseParser):
             logger.warning(f"Error extracting images: {e}")
         
         return elements
+from src.core.logging import get_logger

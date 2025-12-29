@@ -4,7 +4,6 @@
 """
 
 import asyncio
-import logging
 from datetime import datetime
 from datetime import timedelta
 from src.core.utils.timezone_utils import utc_now, utc_factory
@@ -12,15 +11,14 @@ from typing import Dict, List, Any, Optional, Callable
 from dataclasses import dataclass, field
 from enum import Enum
 import json
+import inspect
 from abc import ABC, abstractmethod
-
-import aioredis
 import aiohttp
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
+import redis.asyncio as redis_async
 
-
-logger = logging.getLogger(__name__)
-
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 class AlertSeverity(Enum):
     """告警严重级别"""
@@ -29,14 +27,12 @@ class AlertSeverity(Enum):
     HIGH = "high"
     CRITICAL = "critical"
 
-
 class AlertStatus(Enum):
     """告警状态"""
     ACTIVE = "active"
     RESOLVED = "resolved"
     ACKNOWLEDGED = "acknowledged"
     SUPPRESSED = "suppressed"
-
 
 @dataclass
 class AlertRule:
@@ -66,7 +62,6 @@ class AlertRule:
             return current_value == self.threshold
         return False
 
-
 class Alert(BaseModel):
     """告警实例"""
     id: str
@@ -82,13 +77,7 @@ class Alert(BaseModel):
     last_update: datetime
     resolved_time: Optional[datetime] = None
     acknowledged_by: Optional[str] = None
-    tags: Dict[str, str] = {}
-    
-    class Config:
-        json_encoders = {
-            datetime: lambda v: v.isoformat()
-        }
-
+    tags: Dict[str, str] = Field(default_factory=dict)
 
 class AlertChannel(ABC):
     """告警通道抽象类"""
@@ -96,13 +85,12 @@ class AlertChannel(ABC):
     @abstractmethod
     async def send_alert(self, alert: Alert) -> bool:
         """发送告警"""
-        pass
+        raise NotImplementedError
     
     @abstractmethod
     async def send_resolution(self, alert: Alert) -> bool:
         """发送解决通知"""
-        pass
-
+        raise NotImplementedError
 
 class WebhookAlertChannel(AlertChannel):
     """Webhook告警通道"""
@@ -116,7 +104,7 @@ class WebhookAlertChannel(AlertChannel):
         try:
             payload = {
                 "type": "alert",
-                "alert": alert.dict(),
+                "alert": alert.model_dump(),
                 "timestamp": utc_now().isoformat()
             }
             
@@ -138,7 +126,7 @@ class WebhookAlertChannel(AlertChannel):
         try:
             payload = {
                 "type": "resolution",
-                "alert": alert.dict(),
+                "alert": alert.model_dump(),
                 "timestamp": utc_now().isoformat()
             }
             
@@ -154,7 +142,6 @@ class WebhookAlertChannel(AlertChannel):
         except Exception as e:
             logger.error(f"发送Webhook解决通知失败: {e}")
             return False
-
 
 class SlackAlertChannel(AlertChannel):
     """Slack告警通道"""
@@ -260,7 +247,6 @@ class SlackAlertChannel(AlertChannel):
         except Exception as e:
             logger.error(f"发送Slack解决通知失败: {e}")
             return False
-
 
 class EmailAlertChannel(AlertChannel):
     """邮件告警通道"""
@@ -374,11 +360,10 @@ class EmailAlertChannel(AlertChannel):
             logger.error(f"发送解决通知邮件失败: {e}")
             return False
 
-
 class AlertManager:
     """告警管理器"""
     
-    def __init__(self, redis_client, alert_channels: List[AlertChannel]):
+    def __init__(self, redis_client: redis_async.Redis, alert_channels: List[AlertChannel]):
         self.redis = redis_client
         self.alert_channels = alert_channels
         self.alert_rules: Dict[str, AlertRule] = {}
@@ -489,7 +474,7 @@ class AlertManager:
         await self.redis.hset(
             "active_alerts",
             alert.id,
-            alert.json()
+            alert.model_dump_json()
         )
         
         # 发送到所有通道
@@ -510,7 +495,7 @@ class AlertManager:
         await self.redis.hset(
             "resolved_alerts",
             alert.id,
-            alert.json()
+            alert.model_dump_json()
         )
         
         # 发送到所有通道
@@ -532,7 +517,7 @@ class AlertManager:
             await self.redis.hset(
                 "active_alerts",
                 alert_id,
-                alert.json()
+                alert.model_dump_json()
             )
             
             logger.info(f"告警已确认: {alert_id} by {acknowledged_by}")
@@ -550,7 +535,7 @@ class AlertManager:
             cutoff_time = utc_now() - timedelta(hours=hours)
             
             for alert_data in resolved_alerts_data.values():
-                alert = Alert.parse_raw(alert_data)
+                alert = Alert.model_validate_json(alert_data)
                 if alert.start_time > cutoff_time:
                     alerts.append(alert)
             
@@ -630,7 +615,11 @@ class AlertManager:
                 # 检查告警通道
                 for i, channel in enumerate(self.alert_channels):
                     # 这里可以添加通道健康检查逻辑
-                    pass
+                    health_check = getattr(channel, "health_check", None)
+                    if health_check:
+                        result = health_check()
+                        if inspect.isawaitable(result):
+                            await result
                 
                 logger.debug("告警管理器健康检查通过")
                 
@@ -639,7 +628,6 @@ class AlertManager:
             except Exception as e:
                 logger.error(f"告警管理器健康检查失败: {e}")
                 await asyncio.sleep(60)
-
 
 # 预定义的告警规则
 def get_default_alert_rules() -> List[AlertRule]:

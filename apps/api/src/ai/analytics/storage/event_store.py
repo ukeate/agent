@@ -12,13 +12,11 @@ from datetime import timedelta
 from src.core.utils.timezone_utils import utc_now, utc_factory
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
-import logging
-
-from core.database import get_db_session
+from src.core.database import get_db_session
 from ..models import BehaviorEvent, BulkEventRequest, EventQueryFilter
 
-logger = logging.getLogger(__name__)
-
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 class EventStore:
     """事件存储器"""

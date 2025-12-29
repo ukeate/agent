@@ -1,7 +1,6 @@
 """文档关系图谱构建引擎"""
 
 import re
-import logging
 from typing import List, Dict, Any, Optional, Tuple, Set
 from dataclasses import dataclass
 from enum import Enum
@@ -10,8 +9,7 @@ from sklearn.metrics.pairwise import cosine_similarity
 import numpy as np
 from collections import defaultdict
 
-logger = logging.getLogger(__name__)
-
+logger = get_logger(__name__)
 
 class RelationshipType(Enum):
     """关系类型枚举"""
@@ -23,7 +21,6 @@ class RelationshipType(Enum):
     VERSION = "version"  # 版本关系
     PARENT_CHILD = "parent_child"  # 父子关系
 
-
 @dataclass
 class DocumentRelationship:
     """文档关系数据类"""
@@ -32,7 +29,6 @@ class DocumentRelationship:
     relationship_type: RelationshipType
     confidence: float
     metadata: Dict[str, Any]
-
 
 @dataclass
 class DocumentCluster:
@@ -43,7 +39,6 @@ class DocumentCluster:
     topic: str
     keywords: List[str]
     metadata: Dict[str, Any]
-
 
 class DocumentRelationshipAnalyzer:
     """文档关系分析器
@@ -637,9 +632,11 @@ class DocumentRelationshipAnalyzer:
                     key=lambda x: x[1],
                     reverse=True
                 )
-                metrics["most_connected"] = degree_sorted[:5] if degree_sorted else []
-            except:
-                pass
+                metrics["top_nodes"] = [
+                    {"node": node, "score": score} for node, score in degree_sorted[:10]
+                ]
+            except Exception:
+                logger.exception("计算中心性指标失败", exc_info=True)
         
         return metrics
     
@@ -726,3 +723,4 @@ class DocumentRelationshipAnalyzer:
             return output_path
         else:
             return json.dumps(graph_data)
+from src.core.logging import get_logger

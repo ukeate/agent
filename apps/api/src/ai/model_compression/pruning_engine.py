@@ -11,16 +11,12 @@ import torch.nn as nn
 import torch.nn.utils.prune as prune
 from typing import Dict, Any, Optional, List, Tuple, Union, Callable
 import numpy as np
-import logging
 import time
 import copy
 from dataclasses import dataclass
-
 from .models import PruningConfig, PruningType, CompressionResult
 
-logger = logging.getLogger(__name__)
-
-
+from src.core.logging import get_logger
 @dataclass
 class PruningResult:
     """剪枝结果"""
@@ -36,7 +32,6 @@ class PruningResult:
     recovery_applied: bool = False
     recovery_epochs: int = 0
 
-
 class PruningEngine:
     """模型剪枝引擎
     
@@ -49,7 +44,7 @@ class PruningEngine:
     
     def __init__(self, config: PruningConfig):
         self.config = config
-        self.logger = logging.getLogger(__name__)
+        self.logger = get_logger(__name__)
         
         # 剪枝策略映射
         self.pruning_strategies = {
@@ -519,32 +514,31 @@ class PruningEngine:
         model.eval()
         total_loss = 0.0
         num_batches = 0
+        last_error: Optional[Exception] = None
         
         with torch.no_grad():
             for batch in val_dataloader:
                 try:
-                    # 处理批次数据
-                    if isinstance(batch, dict):
-                        inputs = batch.get('input_ids', batch.get('inputs'))
-                    elif isinstance(batch, (list, tuple)):
-                        inputs = batch[0]
-                    else:
-                        inputs = batch
-                    
-                    # 移动到设备
                     device = next(model.parameters()).device
-                    if hasattr(inputs, 'to'):
-                        inputs = inputs.to(device)
-                    
-                    # 前向传播
-                    outputs = model(inputs)
-                    
-                    # 简化的损失计算
-                    if hasattr(outputs, 'loss'):
-                        loss = outputs.loss
+                    if isinstance(batch, dict):
+                        inputs = {
+                            k: (v.to(device) if hasattr(v, "to") else v)
+                            for k, v in batch.items()
+                        }
+                        outputs = model(**inputs)
                     else:
-                        # 使用dummy loss
-                        loss = torch.tensor(0.0, device=device)
+                        if isinstance(batch, (list, tuple)):
+                            inputs = batch[0]
+                        else:
+                            inputs = batch
+
+                        if hasattr(inputs, "to"):
+                            inputs = inputs.to(device)
+                        outputs = model(inputs)
+                    
+                    loss = getattr(outputs, "loss", None)
+                    if loss is None:
+                        raise ValueError("模型评估需要loss输出（请提供labels）")
                     
                     total_loss += loss.item()
                     num_batches += 1
@@ -554,10 +548,14 @@ class PruningEngine:
                         break
                 
                 except Exception as e:
+                    last_error = e
                     self.logger.warning(f"评估批次时出错: {e}")
                     continue
-        
-        return total_loss / num_batches if num_batches > 0 else 0.0
+
+        if num_batches <= 0:
+            raise ValueError(f"模型评估失败: {last_error}")
+
+        return total_loss / num_batches
     
     def _make_pruning_permanent(self, model: nn.Module) -> None:
         """永久化剪枝（移除mask，直接修改权重）"""

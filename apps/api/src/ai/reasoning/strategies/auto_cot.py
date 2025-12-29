@@ -2,11 +2,10 @@
 
 import re
 from typing import Optional, Tuple, List, Dict, Any
-
 from src.ai.reasoning.cot_engine import BaseCoTEngine
-from models.schemas.reasoning import ThoughtStepType
-from src.core.logging import logger
+from src.models.schemas.reasoning import ThoughtStepType
 
+logger = get_logger(__name__)
 
 class AutoCoTEngine(BaseCoTEngine):
     """Auto-CoT自动链式思考推理引擎"""
@@ -176,3 +175,4 @@ class AutoCoTEngine(BaseCoTEngine):
                 return value
         
         return ThoughtStepType.ANALYSIS
+from src.core.logging import get_logger

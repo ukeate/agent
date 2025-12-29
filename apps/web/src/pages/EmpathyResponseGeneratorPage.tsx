@@ -1,7 +1,9 @@
+import { buildApiUrl, apiFetch } from '../utils/apiBase'
 import React, { useState, useEffect } from 'react';
 import { Card, Tabs, Button, Input, Select, Slider, Progress, Row, Col, Typography, Space, Tag, Alert, Timeline, message, Badge, Spin } from 'antd';
 import { HeartOutlined, MessageOutlined, UserOutlined, SettingOutlined, BarChartOutlined, GlobalOutlined, ClockCircleOutlined, BulbOutlined } from '@ant-design/icons';
 
+import { logger } from '../utils/logger'
 const { Title, Text, Paragraph } = Typography;
 const { TextArea } = Input;
 const { TabPane } = Tabs;
@@ -69,99 +71,48 @@ interface AnalyticsData {
 // API客户端
 const empathyApi = {
   async generateResponse(request: EmpathyRequest): Promise<{ success: boolean; data?: EmpathyResponse; error?: string }> {
-    console.log('生成共情响应:', request);
-    // 模拟API调用
-    await new Promise(resolve => setTimeout(resolve, 300));
-    return {
-      success: true,
-      data: {
-        id: `response_${Date.now()}`,
-        response_text: '我能感受到你现在的情感状态。让我们一起来处理这个问题，我会陪伴你度过这个困难时刻。',
-        empathy_type: 'affective',
-        emotion_addressed: request.emotion_state?.emotion || 'neutral',
-        comfort_level: 0.85,
-        personalization_score: 0.78,
-        suggested_actions: ['深呼吸练习', '与朋友交流', '进行轻度运动'],
-        tone: 'supportive',
-        confidence: 0.82,
-        timestamp: new Date().toISOString(),
-        generation_time_ms: 285,
-        cultural_adaptation: '针对个人主义文化调整',
-        template_used: 'affective_support_template',
-        metadata: {
-          personality_matched: true,
-          cultural_context_applied: true
-        }
-      }
-    };
+    try {
+      const res = await apiFetch(buildApiUrl('/api/v1/empathy/generate'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(request),
+      });
+      return { success: true, data: await res.json() };
+    } catch (e: any) {
+      return { success: false, error: e?.message || '请求失败' };
+    }
   },
 
   async getStrategies(): Promise<{ success: boolean; data?: any; error?: string }> {
-    return {
-      success: true,
-      data: {
-        available_strategies: [
-          {
-            type: 'cognitive',
-            name: '认知共情',
-            description: '理解和识别情感，提供理性的共情回应',
-            suitable_for: ['分析性思维', '低情感强度', '理性处理']
-          },
-          {
-            type: 'affective',
-            name: '情感共情',
-            description: '分享和镜像情感，提供情感上的共鸣',
-            suitable_for: ['高情感强度', '情感表达', '情感连接']
-          },
-          {
-            type: 'compassionate',
-            name: '慈悲共情',
-            description: '提供支持行动，情感安慰和建设性帮助',
-            suitable_for: ['困难情感', '危机情况', '需要支持']
-          }
-        ],
-        cultural_contexts: ['collectivist', 'individualist', 'high_context', 'low_context'],
-        response_tones: ['supportive', 'gentle', 'professional', 'warm', 'calm']
-      }
-    };
+    try {
+      const res = await apiFetch(buildApiUrl('/api/v1/empathy/strategies'));
+      return { success: true, data: await res.json() };
+    } catch (e: any) {
+      return { success: false, error: e?.message || '请求失败' };
+    }
   },
 
   async getAnalytics(): Promise<{ success: boolean; data?: AnalyticsData; error?: string }> {
-    return {
-      success: true,
-      data: {
-        system_performance: {
-          total_requests: 1250,
-          successful_responses: 1198,
-          average_response_time: 267,
-          strategy_usage: {
-            cognitive: 420,
-            affective: 456,
-            compassionate: 322
-          },
-          success_rate: 0.958
-        },
-        context_statistics: {
-          total_contexts: 345,
-          active_contexts: 89,
-          contexts_created: 1250,
-          contexts_updated: 2340,
-          contexts_cleaned: 67
-        },
-        personalization_stats: {
-          total_users: 234,
-          personalized_responses: 1089,
-          personalization_rate: 0.91,
-          avg_personalization_score: 0.76
-        }
-      }
-    };
+    try {
+      const res = await apiFetch(buildApiUrl('/api/v1/empathy/analytics'));
+      return { success: true, data: await res.json() };
+    } catch (e: any) {
+      return { success: false, error: e?.message || '请求失败' };
+    }
   },
 
   async submitFeedback(responseId: string, rating: number, feedbackText?: string): Promise<{ success: boolean; error?: string }> {
-    console.log('提交反馈:', { responseId, rating, feedbackText });
-    await new Promise(resolve => setTimeout(resolve, 200));
-    return { success: true };
+    try {
+      const res = await apiFetch(buildApiUrl('/api/v1/empathy/feedback'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ response_id: responseId, rating, feedback_text: feedbackText }),
+      });
+      await res.json().catch(() => null);
+      return { success: true };
+    } catch (e: any) {
+      return { success: false, error: e?.message || '请求失败' };
+    }
   }
 };
 
@@ -219,7 +170,7 @@ const EmpathyResponseGeneratorPage: React.FC = () => {
       if (strategiesRes.success) setStrategies(strategiesRes.data);
       if (analyticsRes.success) setAnalytics(analyticsRes.data);
     } catch (error) {
-      console.error('加载数据失败:', error);
+      logger.error('加载数据失败:', error);
     }
   };
 
@@ -261,7 +212,7 @@ const EmpathyResponseGeneratorPage: React.FC = () => {
         throw new Error(result.error || '生成失败');
       }
     } catch (error) {
-      console.error('生成共情响应失败:', error);
+      logger.error('生成共情响应失败:', error);
       message.error('生成失败，请重试');
     } finally {
       setLoading(false);

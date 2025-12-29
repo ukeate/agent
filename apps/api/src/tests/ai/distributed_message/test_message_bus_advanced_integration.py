@@ -7,11 +7,9 @@ import pytest
 import asyncio
 import uuid
 from unittest.mock import Mock, AsyncMock, patch
-
 from src.ai.distributed_message.message_bus import DistributedMessageBus
 from src.ai.distributed_message.models import MessageType, MessagePriority
 from src.ai.distributed_message.advanced_patterns import RoutingStrategy
-
 
 class TestMessageBusAdvancedIntegration:
     """消息总线高级通信模式集成测试"""

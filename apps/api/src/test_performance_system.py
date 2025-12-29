@@ -1,22 +1,25 @@
+import sys
+import time
+import numpy as np
+from pathlib import Path
+from src.core.logging import setup_logging
+
+from src.core.logging import get_logger
+logger = get_logger(__name__)
+
 #!/usr/bin/env python3
 """
 Q-Learning性能优化系统验证脚本
 验证GPU加速、分布式训练、集成测试等核心功能
 """
 
-import sys
-import time
-import numpy as np
-from pathlib import Path
-
-# 添加路径
 sys.path.append(str(Path(__file__).parent))
 
 def test_gpu_accelerator():
     """测试GPU加速器"""
-    print("="*60)
-    print("测试GPU加速器")
-    print("="*60)
+    logger.info("="*60)
+    logger.info("测试GPU加速器")
+    logger.info("="*60)
     
     try:
         from ai.reinforcement_learning.performance import GPUAccelerator, GPUConfig
@@ -31,8 +34,8 @@ def test_gpu_accelerator():
         
         # 获取设备信息
         device_info = accelerator.get_device_info()
-        print(f"检测到 {len(device_info['gpu_devices'])} 个GPU设备")
-        print(f"CPU核心数: {device_info['cpu_count']}")
+        logger.info(f"检测到 {len(device_info['gpu_devices'])} 个GPU设备")
+        logger.info(f"CPU核心数: {device_info['cpu_count']}")
         
         # 创建性能监控器
         monitor = accelerator.create_performance_monitor()
@@ -42,21 +45,20 @@ def test_gpu_accelerator():
         
         monitor.stop_monitoring()
         summary = monitor.get_performance_summary()
-        print(f"性能监控摘要: {summary}")
+        logger.info(f"性能监控摘要: {summary}")
         
-        print("✅ GPU加速器测试通过")
+        logger.info("✅ GPU加速器测试通过")
         return True
         
     except Exception as e:
-        print(f"❌ GPU加速器测试失败: {e}")
+        logger.error(f"❌ GPU加速器测试失败: {e}")
         return False
-
 
 def test_optimized_replay_buffer():
     """测试优化的回放缓冲区"""
-    print("\n" + "="*60)
-    print("测试优化的回放缓冲区")
-    print("="*60)
+    logger.info("\n" + "="*60)
+    logger.info("测试优化的回放缓冲区")
+    logger.info("="*60)
     
     try:
         from ai.reinforcement_learning.performance import OptimizedReplayBuffer, BufferConfig
@@ -72,7 +74,7 @@ def test_optimized_replay_buffer():
         buffer = OptimizedReplayBuffer(config)
         
         # 添加经验
-        print("添加1000个经验到缓冲区...")
+        logger.info("添加1000个经验到缓冲区...")
         for i in range(1000):
             state = AgentState(features=np.random.random(8).tolist())
             next_state = AgentState(features=np.random.random(8).tolist())
@@ -88,7 +90,7 @@ def test_optimized_replay_buffer():
             buffer.push(experience)
         
         # 采样测试
-        print("测试采样性能...")
+        logger.info("测试采样性能...")
         start_time = time.time()
         
         for _ in range(100):
@@ -98,25 +100,24 @@ def test_optimized_replay_buffer():
                 break
         
         sampling_time = time.time() - start_time
-        print(f"100次采样耗时: {sampling_time:.3f}秒")
+        logger.info(f"100次采样耗时: {sampling_time:.3f}秒")
         
         # 获取统计信息
         stats = buffer.get_statistics()
-        print(f"缓冲区统计: {stats}")
+        logger.info(f"缓冲区统计: {stats}")
         
-        print("✅ 优化回放缓冲区测试通过")
+        logger.info("✅ 优化回放缓冲区测试通过")
         return True
         
     except Exception as e:
-        print(f"❌ 优化回放缓冲区测试失败: {e}")
+        logger.error(f"❌ 优化回放缓冲区测试失败: {e}")
         return False
-
 
 def test_distributed_training():
     """测试分布式训练"""
-    print("\n" + "="*60)
-    print("测试分布式训练")
-    print("="*60)
+    logger.info("\n" + "="*60)
+    logger.info("测试分布式训练")
+    logger.info("="*60)
     
     try:
         from ai.reinforcement_learning.performance import DistributedTrainingManager, DistributedConfig
@@ -131,25 +132,24 @@ def test_distributed_training():
         
         # 获取集群状态
         status = manager.get_cluster_status()
-        print(f"集群状态: {status}")
+        logger.info(f"集群状态: {status}")
         
         # 测试通信性能
         comm_results = manager.benchmark_communication()
-        print(f"通信性能测试: {comm_results}")
+        logger.info(f"通信性能测试: {comm_results}")
         
-        print("✅ 分布式训练测试通过")
+        logger.info("✅ 分布式训练测试通过")
         return True
         
     except Exception as e:
-        print(f"❌ 分布式训练测试失败: {e}")
+        logger.error(f"❌ 分布式训练测试失败: {e}")
         return False
-
 
 def test_integration_framework():
     """测试集成测试框架"""
-    print("\n" + "="*60)
-    print("测试集成测试框架")
-    print("="*60)
+    logger.info("\n" + "="*60)
+    logger.info("测试集成测试框架")
+    logger.info("="*60)
     
     try:
         from ai.reinforcement_learning.performance import (
@@ -166,27 +166,26 @@ def test_integration_framework():
         test_suite = IntegrationTestSuite(config)
         results = test_suite.run_all_tests()
         
-        print(f"集成测试结果: {results}")
+        logger.info(f"集成测试结果: {results}")
         
         # 检查测试是否通过
         basic_training = results.get("basic_training", {})
         if basic_training.get("status") == "completed":
-            print("✅ 集成测试框架测试通过")
+            logger.info("✅ 集成测试框架测试通过")
             return True
         else:
-            print("❌ 集成测试框架测试失败")
+            logger.error("❌ 集成测试框架测试失败")
             return False
         
     except Exception as e:
-        print(f"❌ 集成测试框架测试失败: {e}")
+        logger.error(f"❌ 集成测试框架测试失败: {e}")
         return False
-
 
 def test_benchmark_optimizer():
     """测试基准测试和优化器"""
-    print("\n" + "="*60)
-    print("测试基准测试和优化器")
-    print("="*60)
+    logger.info("\n" + "="*60)
+    logger.info("测试基准测试和优化器")
+    logger.info("="*60)
     
     try:
         from ai.reinforcement_learning.performance import (
@@ -204,16 +203,16 @@ def test_benchmark_optimizer():
         benchmark = PerformanceBenchmark(config)
         
         # 运行算法对比测试
-        print("运行算法对比基准测试...")
+        logger.info("运行算法对比基准测试...")
         algorithm_results = benchmark.run_algorithm_comparison()
         
-        print("算法对比结果:")
+        logger.info("算法对比结果:")
         for algo, result in algorithm_results.items():
             performance = result.get("mean_final_performance", 0)
-            print(f"  {algo}: 平均性能 {performance:.3f}")
+            logger.info(f"  {algo}: 平均性能 {performance:.3f}")
         
         # 快速超参数优化测试
-        print("\n运行快速超参数优化...")
+        logger.info("\n运行快速超参数优化...")
         hyperparameter_space = HyperparameterSpace()
         optimization_target = OptimizationTarget.FINAL_PERFORMANCE
         
@@ -226,22 +225,21 @@ def test_benchmark_optimizer():
         # 只运行3次试验进行快速测试
         optimization_results = optimizer.optimize(n_trials=3)
         
-        print(f"优化结果: 最佳目标值 {optimization_results['best_value']:.3f}")
-        print(f"最佳参数: {optimization_results['best_params']}")
+        logger.info(f"优化结果: 最佳目标值 {optimization_results['best_value']:.3f}")
+        logger.info(f"最佳参数: {optimization_results['best_params']}")
         
-        print("✅ 基准测试和优化器测试通过")
+        logger.info("✅ 基准测试和优化器测试通过")
         return True
         
     except Exception as e:
-        print(f"❌ 基准测试和优化器测试失败: {e}")
+        logger.error(f"❌ 基准测试和优化器测试失败: {e}")
         return False
-
 
 def test_performance_presets():
     """测试性能预设配置"""
-    print("\n" + "="*60)
-    print("测试性能预设配置")
-    print("="*60)
+    logger.info("\n" + "="*60)
+    logger.info("测试性能预设配置")
+    logger.info("="*60)
     
     try:
         from ai.reinforcement_learning.performance import (
@@ -253,7 +251,7 @@ def test_performance_presets():
         
         for preset in presets:
             config = create_performance_config(preset)
-            print(f"{preset} 预设配置创建成功")
+            logger.info(f"{preset} 预设配置创建成功")
             
             # 验证配置结构
             required_keys = ["gpu_config", "buffer_config", "distributed_config"]
@@ -262,23 +260,22 @@ def test_performance_presets():
                     raise ValueError(f"缺少配置键: {key}")
         
         # 测试硬件优化
-        print("测试硬件自适应优化...")
+        logger.info("测试硬件自适应优化...")
         optimized_config = optimize_for_hardware()
-        print("硬件优化配置创建成功")
+        logger.info("硬件优化配置创建成功")
         
-        print("✅ 性能预设配置测试通过")
+        logger.info("✅ 性能预设配置测试通过")
         return True
         
     except Exception as e:
-        print(f"❌ 性能预设配置测试失败: {e}")
+        logger.error(f"❌ 性能预设配置测试失败: {e}")
         return False
-
 
 def test_q_learning_integration():
     """测试Q-Learning完整集成"""
-    print("\n" + "="*60)
-    print("测试Q-Learning完整集成")
-    print("="*60)
+    logger.info("\n" + "="*60)
+    logger.info("测试Q-Learning完整集成")
+    logger.info("="*60)
     
     try:
         from ai.reinforcement_learning.qlearning.dqn import DQNAgent
@@ -309,15 +306,15 @@ def test_q_learning_integration():
             action_space=["action_0", "action_1", "action_2", "action_3"]
         )
         
-        print(f"智能体创建成功: {agent.agent_id}")
-        print(f"网络摘要:\n{agent.get_network_summary()}")
+        logger.info(f"智能体创建成功: {agent.agent_id}")
+        logger.info(f"网络摘要:\n{agent.get_network_summary()}")
         
         # 测试基本训练步骤
         from ai.reinforcement_learning.qlearning.base import Experience, AgentState
         
         state = AgentState(features=np.random.random(8).tolist())
         action = agent.get_action(state)
-        print(f"智能体动作选择: {action}")
+        logger.info(f"智能体动作选择: {action}")
         
         next_state = AgentState(features=np.random.random(8).tolist())
         experience = Experience(
@@ -329,20 +326,19 @@ def test_q_learning_integration():
         )
         
         loss = agent.update_q_value(experience)
-        print(f"训练损失: {loss}")
+        logger.info(f"训练损失: {loss}")
         
-        print("✅ Q-Learning完整集成测试通过")
+        logger.info("✅ Q-Learning完整集成测试通过")
         return True
         
     except Exception as e:
-        print(f"❌ Q-Learning完整集成测试失败: {e}")
+        logger.error(f"❌ Q-Learning完整集成测试失败: {e}")
         return False
-
 
 def main():
     """主测试函数"""
-    print("开始Q-Learning性能优化系统验证")
-    print("="*80)
+    logger.info("开始Q-Learning性能优化系统验证")
+    logger.info("="*80)
     
     tests = [
         ("GPU加速器", test_gpu_accelerator),
@@ -361,33 +357,33 @@ def main():
             result = test_func()
             results.append((test_name, result))
         except Exception as e:
-            print(f"❌ {test_name} 测试异常: {e}")
+            logger.error(f"❌ {test_name} 测试异常: {e}")
             results.append((test_name, False))
     
     # 汇总结果
-    print("\n" + "="*80)
-    print("测试结果汇总")
-    print("="*80)
+    logger.info("\n" + "="*80)
+    logger.info("测试结果汇总")
+    logger.info("="*80)
     
     passed = 0
     total = len(results)
     
     for test_name, result in results:
         status = "✅ 通过" if result else "❌ 失败"
-        print(f"{test_name}: {status}")
+        logger.info(f"{test_name}: {status}")
         if result:
             passed += 1
     
-    print(f"\n总体结果: {passed}/{total} 测试通过 ({passed/total*100:.1f}%)")
+    logger.info(f"\n总体结果: {passed}/{total} 测试通过 ({passed/total*100:.1f}%)")
     
     if passed == total:
-        print("🎉 所有性能优化功能验证通过！")
+        logger.info("🎉 所有性能优化功能验证通过！")
         return True
     else:
-        print("⚠️  部分测试失败，请检查相关功能")
+        logger.error("⚠️  部分测试失败，请检查相关功能")
         return False
 
-
 if __name__ == "__main__":
+    setup_logging()
     success = main()
     sys.exit(0 if success else 1)

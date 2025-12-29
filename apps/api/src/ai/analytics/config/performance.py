@@ -8,7 +8,6 @@ from typing import Dict, Any, Optional
 from dataclasses import dataclass
 import os
 
-
 @dataclass
 class EventCollectionConfig:
     """事件收集性能配置"""
@@ -19,7 +18,6 @@ class EventCollectionConfig:
     compression_method: str = "gzip"  # gzip, lz4, zstd
     quality_monitoring: bool = True
     max_memory_usage_mb: int = 100
-
 
 @dataclass
 class DatabaseConfig:
@@ -34,7 +32,6 @@ class DatabaseConfig:
     partition_interval: str = "1 day"
     index_maintenance: bool = True
 
-
 @dataclass
 class AnalysisConfig:
     """分析算法性能配置"""
@@ -48,7 +45,6 @@ class AnalysisConfig:
     cache_analysis_results: bool = True
     cache_ttl_seconds: int = 3600
 
-
 @dataclass
 class WebSocketConfig:
     """WebSocket性能配置"""
@@ -58,7 +54,6 @@ class WebSocketConfig:
     message_queue_size: int = 10000
     broadcast_batch_size: int = 100
     compression: bool = True
-
 
 @dataclass
 class CacheConfig:
@@ -70,7 +65,6 @@ class CacheConfig:
     eviction_policy: str = "lru"
     compression: bool = True
     key_prefix: str = "analytics:"
-
 
 @dataclass
 class PerformanceConfig:
@@ -190,7 +184,6 @@ class PerformanceConfig:
             "warnings": warnings
         }
 
-
 class PerformanceOptimizer:
     """性能优化器"""
     
@@ -274,7 +267,6 @@ class PerformanceOptimizer:
                 }
             }
         }
-
 
 # 全局配置实例
 performance_config = PerformanceConfig.from_environment()

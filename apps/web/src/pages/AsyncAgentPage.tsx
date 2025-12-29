@@ -1,3 +1,4 @@
+import { buildApiUrl, apiFetch } from '../utils/apiBase'
 import React, { useState } from 'react'
 import { 
   Card, 
@@ -45,44 +46,9 @@ interface Agent {
 }
 
 const AsyncAgentPage: React.FC = () => {
-  const [agents, setAgents] = useState<Agent[]>([
-    {
-      id: '1',
-      name: 'RAG处理器',
-      type: 'retrieval',
-      status: 'running',
-      progress: 75,
-      tasksCompleted: 15,
-      tasksTotal: 20,
-      lastActivity: '2024-01-15 14:30:25',
-      cpu: 45,
-      memory: 128
-    },
-    {
-      id: '2', 
-      name: '文档分析器',
-      type: 'analysis',
-      status: 'paused',
-      progress: 30,
-      tasksCompleted: 6,
-      tasksTotal: 20,
-      lastActivity: '2024-01-15 14:25:10',
-      cpu: 0,
-      memory: 64
-    },
-    {
-      id: '3',
-      name: '代码生成器',
-      type: 'generation',
-      status: 'running',
-      progress: 90,
-      tasksCompleted: 18,
-      tasksTotal: 20,
-      lastActivity: '2024-01-15 14:31:45',
-      cpu: 78,
-      memory: 256
-    }
-  ])
+  const [agents, setAgents] = useState<Agent[]>([])
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
 
   const [isCreateModalVisible, setIsCreateModalVisible] = useState(false)
   const [form] = Form.useForm()
@@ -101,69 +67,89 @@ const AsyncAgentPage: React.FC = () => {
     error: '错误'
   }
 
-  const handleAgentAction = (agentId: string, action: string) => {
-    const agent = agents.find(a => a.id === agentId)
-    if (!agent) return
+  const normalizeStatus = (status: string): Agent['status'] => {
+    const mapping: Record<string, Agent['status']> = {
+      active: 'running',
+      running: 'running',
+      paused: 'paused',
+      idle: 'paused',
+      stopped: 'stopped',
+      error: 'error'
+    }
+    return mapping[status] || 'running'
+  }
 
-    switch (action) {
-      case 'start':
-        setAgents(prev => prev.map(a => 
-          a.id === agentId ? { ...a, status: 'running' as const } : a
-        ))
-        message.success(`已启动智能体: ${agent.name}`)
-        break
-      case 'pause':
-        setAgents(prev => prev.map(a => 
-          a.id === agentId ? { ...a, status: 'paused' as const } : a
-        ))
-        message.success(`已暂停智能体: ${agent.name}`)
-        break
-      case 'stop':
-        confirm({
-          title: '确认停止智能体?',
-          icon: <ExclamationCircleOutlined />,
-          content: `这将停止智能体 "${agent.name}" 的所有任务`,
-          onOk() {
-            setAgents(prev => prev.map(a => 
-              a.id === agentId ? { ...a, status: 'stopped' as const, progress: 0 } : a
-            ))
-            message.success(`已停止智能体: ${agent.name}`)
-          }
-        })
-        break
-      case 'delete':
-        confirm({
-          title: '确认删除智能体?',
-          icon: <ExclamationCircleOutlined />,
-          content: `这将永久删除智能体 "${agent.name}"`,
-          okType: 'danger',
-          onOk() {
-            setAgents(prev => prev.filter(a => a.id !== agentId))
-            message.success(`已删除智能体: ${agent.name}`)
-          }
-        })
-        break
+  const fetchAgents = async () => {
+    setLoading(true)
+    setError('')
+    try {
+      const res = await apiFetch(buildApiUrl('/api/v1/async-agents/agents'))
+      const body = await res.json()
+      const agentList: Agent[] = (body.data?.agents || []).map((agent: any, idx: number) => {
+        const tasksTotal = Number(agent.total_tasks ?? agent.state?.total_tasks ?? 0) || 0
+        const tasksCompleted = Number(agent.completed_tasks ?? agent.state?.completed_tasks ?? 0) || 0
+        const progress = tasksTotal > 0 ? Math.round((tasksCompleted / tasksTotal) * 100) : Math.round(agent.state?.progress ?? 0)
+        return {
+          id: agent.id || `agent-${idx}`,
+          name: agent.name || agent.role || `agent-${idx}`,
+          type: agent.role || 'unknown',
+          status: normalizeStatus(agent.status),
+          progress: Math.max(0, Math.min(100, progress)),
+          tasksCompleted,
+          tasksTotal,
+          lastActivity: agent.last_activity ? new Date(agent.last_activity).toLocaleString('zh-CN') : '',
+          cpu: Math.round((agent.state?.load ?? 0) * 100),
+          memory: Math.round(agent.state?.memory_mb ?? 0)
+        }
+      })
+      setAgents(agentList)
+    } catch (e) {
+      setError('加载异步智能体失败')
+      setAgents([])
+    } finally {
+      setLoading(false)
     }
   }
 
-  const handleCreateAgent = (values: any) => {
-    const newAgent: Agent = {
-      id: Date.now().toString(),
-      name: values.name,
-      type: values.type,
-      status: 'stopped',
-      progress: 0,
-      tasksCompleted: 0,
-      tasksTotal: 0,
-      lastActivity: new Date().toLocaleString('zh-CN'),
-      cpu: 0,
-      memory: 0
+  const handleAgentAction = (agentId: string, action: string) => {
+    if (action === 'delete') {
+      confirm({
+        title: '确认删除智能体?',
+        icon: <ExclamationCircleOutlined />,
+        content: `这将永久删除智能体 ${agentId}`,
+        okType: 'danger',
+        onOk() {
+          apiFetch(buildApiUrl(`/api/v1/async-agents/agents/${agentId}`), { method: 'DELETE' })
+            .then((res) => {
+              message.success('删除成功')
+              fetchAgents()
+            })
+            .catch(() => message.error('删除智能体失败'))
+        }
+      })
+      return
     }
-    
-    setAgents(prev => [...prev, newAgent])
-    setIsCreateModalVisible(false)
-    form.resetFields()
-    message.success(`已创建智能体: ${newAgent.name}`)
+    message.info('请使用后端任务接口控制运行状态')
+  }
+
+  const handleCreateAgent = async (values: any) => {
+    try {
+      const res = await apiFetch(buildApiUrl('/api/v1/async-agents/agents'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          role: values.type,
+          name: values.name || undefined
+        })
+      })
+      await res.json().catch(() => null)
+      message.success('已创建智能体')
+      setIsCreateModalVisible(false)
+      form.resetFields()
+      fetchAgents()
+    } catch (e) {
+      message.error('创建智能体失败')
+    }
   }
 
   const columns = [
@@ -249,30 +235,19 @@ const AsyncAgentPage: React.FC = () => {
       key: 'actions',
       render: (record: Agent) => (
         <Space>
-          {record.status === 'running' ? (
-            <Tooltip title="暂停">
-              <Button 
-                size="small" 
-                icon={<PauseCircleOutlined />}
-                onClick={() => handleAgentAction(record.id, 'pause')}
-              />
-            </Tooltip>
-          ) : (
-            <Tooltip title="启动">
-              <Button 
-                size="small" 
-                type="primary"
-                icon={<PlayCircleOutlined />}
-                onClick={() => handleAgentAction(record.id, 'start')}
-              />
-            </Tooltip>
-          )}
-          <Tooltip title="停止">
+          <Tooltip title="暂停/启动请通过任务接口控制">
+            <Button 
+              size="small" 
+              icon={record.status === 'running' ? <PauseCircleOutlined /> : <PlayCircleOutlined />}
+              disabled
+            />
+          </Tooltip>
+          <Tooltip title="停止请通过任务接口控制">
             <Button 
               size="small" 
               danger
               icon={<StopOutlined />}
-              onClick={() => handleAgentAction(record.id, 'stop')}
+              disabled
             />
           </Tooltip>
           <Tooltip title="设置">
@@ -294,6 +269,10 @@ const AsyncAgentPage: React.FC = () => {
     }
   ]
 
+  React.useEffect(() => {
+    fetchAgents()
+  }, [])
+
   const runningAgents = agents.filter(a => a.status === 'running').length
   const totalTasks = agents.reduce((sum, a) => sum + a.tasksTotal, 0)
   const completedTasks = agents.reduce((sum, a) => sum + a.tasksCompleted, 0)
@@ -305,7 +284,7 @@ const AsyncAgentPage: React.FC = () => {
         <div className="flex justify-between items-center mb-4">
           <h1 className="text-2xl font-bold">异步智能体管理</h1>
           <Space>
-            <Button icon={<ReloadOutlined />} onClick={() => window.location.reload()}>
+            <Button icon={<ReloadOutlined />} onClick={fetchAgents} loading={loading}>
               刷新
             </Button>
             <Button 
@@ -361,12 +340,21 @@ const AsyncAgentPage: React.FC = () => {
         </Row>
       </div>
 
+      {error && (
+        <Card style={{ marginBottom: 16 }}>
+          <Space direction="vertical">
+            <span>{error}</span>
+          </Space>
+        </Card>
+      )}
+
       <Card title="智能体列表">
         <Table
           columns={columns}
           dataSource={agents}
           rowKey="id"
           pagination={false}
+          loading={loading}
           size="middle"
         />
       </Card>
@@ -393,13 +381,15 @@ const AsyncAgentPage: React.FC = () => {
           </Form.Item>
           <Form.Item
             name="type"
-            label="智能体类型"
-            rules={[{ required: true, message: '请选择智能体类型' }]}
+            label="智能体角色"
+            rules={[{ required: true, message: '请选择智能体角色' }]}
           >
-            <Select placeholder="请选择智能体类型">
-              <Option value="retrieval">检索型</Option>
-              <Option value="analysis">分析型</Option>
-              <Option value="generation">生成型</Option>
+            <Select placeholder="请选择智能体角色">
+              <Option value="code_expert">代码专家</Option>
+              <Option value="architect">架构师</Option>
+              <Option value="doc_expert">文档专家</Option>
+              <Option value="knowledge_retrieval">知识检索</Option>
+              <Option value="assistant">通用助手</Option>
             </Select>
           </Form.Item>
         </Form>

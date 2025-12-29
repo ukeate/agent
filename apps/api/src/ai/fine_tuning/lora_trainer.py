@@ -2,11 +2,12 @@
 LoRA训练器实现
 基于Hugging Face PEFT库实现高效的LoRA微调
 """
+
 import torch
 import torch.nn as nn
+import time
 import os
 import json
-import logging
 from typing import Dict, Any, Optional, List, Union
 from pathlib import Path
 from datasets import Dataset, load_dataset
@@ -19,11 +20,16 @@ from peft import LoraConfig, get_peft_model, TaskType, prepare_model_for_kbit_tr
 from .models import TrainingConfig, ModelArchitecture, TrainingMode, QuantizationType
 from .training_monitor import TrainingMonitor
 
-
+from src.core.logging import get_logger
 class LoRATrainer:
     """LoRA微调训练器"""
     
-    def __init__(self, config: TrainingConfig, monitor: Optional[TrainingMonitor] = None):
+    def __init__(
+        self,
+        config: TrainingConfig,
+        monitor: Optional[TrainingMonitor] = None,
+        job_control: Optional[object] = None,
+    ):
         """
         初始化LoRA训练器
         
@@ -33,14 +39,13 @@ class LoRATrainer:
         """
         self.config = config
         self.monitor = monitor or TrainingMonitor()
+        self.job_control = job_control
         self.model = None
         self.tokenizer = None
         self.trainer = None
         self.peft_model = None
         
-        # 设置日志
-        self.logger = logging.getLogger(__name__)
-        self.logger.setLevel(logging.INFO)
+        self.logger = get_logger(__name__)
         
         # 创建输出目录
         os.makedirs(self.config.output_dir, exist_ok=True)
@@ -102,8 +107,7 @@ class LoRATrainer:
                 quantization_config=quantization_config,
                 device_map="auto" if quantization_config else None,
                 torch_dtype=torch.bfloat16 if self.config.bf16 else torch.float16 if self.config.fp16 else torch.float32,
-                trust_remote_code=True,
-                use_flash_attention_2=self.config.use_flash_attention
+                trust_remote_code=True
             )
             
             # 设置梯度检查点
@@ -281,14 +285,14 @@ class LoRATrainer:
             save_steps=self.config.save_steps,
             eval_steps=self.config.eval_steps if eval_dataset else None,
             save_strategy="steps",
-            evaluation_strategy="steps" if eval_dataset else "no",
+            eval_strategy="steps" if eval_dataset else "no",
             load_best_model_at_end=bool(eval_dataset),
             metric_for_best_model="eval_loss" if eval_dataset else None,
             greater_is_better=False,
             remove_unused_columns=False,
             dataloader_pin_memory=False,
             gradient_checkpointing=self.config.use_gradient_checkpointing,
-            report_to="wandb" if self._wandb_available() else "tensorboard",
+            report_to="wandb" if self._wandb_available() else "none",
             run_name=f"lora-{self.config.model_name.split('/')[-1]}",
             logging_dir=os.path.join(self.config.output_dir, "logs")
         )
@@ -309,7 +313,8 @@ class LoRATrainer:
             eval_dataset=eval_dataset,
             data_collator=data_collator,
             tokenizer=self.tokenizer,
-            monitor=self.monitor
+            monitor=self.monitor,
+            job_control=self.job_control,
         )
         
         return trainer
@@ -452,18 +457,34 @@ class LoRATrainer:
         
         self.logger.info("模型加载完成")
 
-
 class CustomTrainer(Trainer):
     """自定义训练器，增加监控功能"""
     
-    def __init__(self, *args, monitor: TrainingMonitor, **kwargs):
+    def __init__(self, *args, monitor: TrainingMonitor, job_control: Optional[object] = None, **kwargs):
         super().__init__(*args, **kwargs)
         self.monitor = monitor
         self.step_count = 0
+        self.job_control = job_control
+
+    def training_step(
+        self,
+        model: nn.Module,
+        inputs: Dict[str, Union[torch.Tensor, Any]],
+        num_items_in_batch: Optional[torch.Tensor] = None,
+    ):
+        if self.job_control:
+            if getattr(self.job_control, "cancel_event", None) and self.job_control.cancel_event.is_set():
+                raise RuntimeError("任务已取消")
+            pause_event = getattr(self.job_control, "pause_event", None)
+            while pause_event and pause_event.is_set():
+                time.sleep(0.5)
+                if getattr(self.job_control, "cancel_event", None) and self.job_control.cancel_event.is_set():
+                    raise RuntimeError("任务已取消")
+        return super().training_step(model, inputs, num_items_in_batch=num_items_in_batch)
         
-    def log(self, logs: Dict[str, float]) -> None:
+    def log(self, logs: Dict[str, float], start_time: Optional[float] = None) -> None:
         """重写日志记录方法"""
-        super().log(logs)
+        super().log(logs, start_time=start_time)
         
         # 记录训练指标
         for key, value in logs.items():

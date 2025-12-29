@@ -5,19 +5,18 @@ Revision ID: 003
 Revises: 002
 Create Date: 2024-01-15 10:00:00.000000
 """
+
 from alembic import op
 import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 from datetime import datetime
 from src.core.utils.timezone_utils import utc_now, utc_factory, timezone
 
-
 # revision identifiers
 revision = '003'
 down_revision = '002'
 branch_labels = None
 depends_on = None
-
 
 def upgrade() -> None:
     """创建事件追踪相关表"""
@@ -386,7 +385,6 @@ def upgrade() -> None:
         BEFORE UPDATE ON event_schemas 
         FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
     """)
-
 
 def downgrade() -> None:
     """删除事件追踪表"""

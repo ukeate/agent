@@ -8,7 +8,6 @@ import pytest
 import asyncio
 from datetime import datetime
 from unittest.mock import Mock, patch, AsyncMock
-
 from ai.service_discovery.core import (
     AgentServiceDiscoverySystem,
     AgentMetadata,
@@ -17,7 +16,6 @@ from ai.service_discovery.core import (
     ServiceRegistry,
     LoadBalancer
 )
-
 
 class TestAgentMetadata:
     """Test AgentMetadata class"""
@@ -65,7 +63,6 @@ class TestAgentMetadata:
         assert metadata.status == AgentStatus.ACTIVE
         assert len(metadata.capabilities) == 1
         assert metadata.capabilities[0].name == "text_generation"
-
 
 class TestServiceRegistry:
     """Test ServiceRegistry class"""
@@ -243,7 +240,6 @@ class TestServiceRegistry:
         assert agent.error_count == 5
         assert agent.avg_response_time == 1.5
 
-
 class TestLoadBalancer:
     """Test LoadBalancer class"""
     
@@ -385,7 +381,6 @@ class TestLoadBalancer:
         assert agent is not None
         # Note: Due to the complexity of the scoring algorithm, 
         # we just verify that an agent was selected
-
 
 class TestAgentServiceDiscoverySystem:
     """Test the main service discovery system"""

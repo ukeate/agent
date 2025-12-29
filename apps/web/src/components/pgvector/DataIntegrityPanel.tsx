@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import {
+import { logger } from '../../utils/logger'
   Card,
   Button,
   Row,
@@ -73,7 +74,7 @@ const DataIntegrityPanel: React.FC = () => {
   const [repairResult, setRepairResult] = useState<RepairResult | null>(null);
   const [checking, setChecking] = useState(false);
   const [repairing, setRepairing] = useState(false);
-  const [selectedTable, setSelectedTable] = useState('knowledge_items');
+  const [selectedTable, setSelectedTable] = useState('documents');
   const [repairStrategy, setRepairStrategy] = useState<'remove_invalid' | 'set_null'>('remove_invalid');
   const [repairModalVisible, setRepairModalVisible] = useState(false);
 
@@ -86,7 +87,7 @@ const DataIntegrityPanel: React.FC = () => {
       const summary = await pgvectorApi.getIntegritySummary(selectedTable);
       setSystemSummary(summary);
     } catch (error) {
-      console.error('Failed to fetch system summary:', error);
+      logger.error('获取系统摘要失败:', error);
     }
   };
 
@@ -100,7 +101,7 @@ const DataIntegrityPanel: React.FC = () => {
       setIntegrityReport(report);
       await fetchSystemSummary();
     } catch (error) {
-      console.error('Integrity check failed:', error);
+      logger.error('完整性检查失败:', error);
     } finally {
       setChecking(false);
     }
@@ -118,7 +119,7 @@ const DataIntegrityPanel: React.FC = () => {
       // 重新检查完整性
       await handleIntegrityCheck();
     } catch (error) {
-      console.error('Data repair failed:', error);
+      logger.error('数据修复失败:', error);
     } finally {
       setRepairing(false);
     }
@@ -204,8 +205,8 @@ const DataIntegrityPanel: React.FC = () => {
                 onChange={setSelectedTable}
                 style={{ width: 200 }}
               >
+                <Option value="documents">documents</Option>
                 <Option value="knowledge_items">knowledge_items</Option>
-                <Option value="vector_quantization_params">vector_quantization_params</Option>
               </Select>
               
               <Button

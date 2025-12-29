@@ -1,14 +1,9 @@
 """多模态查询类型分析器"""
 
 import re
-import logging
 from typing import List, Dict, Any, Optional
 from pathlib import Path
-
 from .multimodal_config import QueryContext, QueryType
-
-logger = logging.getLogger(__name__)
-
 
 class MultimodalQueryAnalyzer:
     """查询类型智能识别"""
@@ -321,7 +316,7 @@ class MultimodalQueryAnalyzer:
             try:
                 context.top_k = int(topk_match.group(1))
             except ValueError:
-                pass
+                logger.warning("捕获到ValueError，已继续执行", exc_info=True)
         
         # 提取相似度阈值
         similarity_pattern = re.compile(r'相似度?\s*[>≥>=]\s*(\d+(?:\.\d+)?)', re.IGNORECASE)
@@ -333,7 +328,7 @@ class MultimodalQueryAnalyzer:
                 if context.similarity_threshold > 1:
                     context.similarity_threshold /= 100
             except ValueError:
-                pass
+                logger.warning("捕获到ValueError，已继续执行", exc_info=True)
         
         return context
     
@@ -376,3 +371,6 @@ class MultimodalQueryAnalyzer:
             complexity += min(len(context.input_files) * 0.03, 0.15)
         
         return min(complexity, 1.0)
+logger = get_logger(__name__)
+
+from src.core.logging import get_logger

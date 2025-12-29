@@ -3,17 +3,16 @@
 实现Product Quantization (PQ)、Binary Quantization和Half-precision向量
 """
 
-import logging
 import numpy as np
 from typing import List, Dict, Any, Optional, Tuple, Union
 import asyncio
 import json
-
 from ...core.config import get_settings
 
-logger = logging.getLogger(__name__)
-settings = get_settings()
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
+settings = get_settings()
 
 class VectorQuantizer:
     """向量量化器基类"""
@@ -37,7 +36,6 @@ class VectorQuantizer:
     def get_params(self) -> Dict[str, Any]:
         """获取量化器参数"""
         raise NotImplementedError
-
 
 class BinaryQuantizer(VectorQuantizer):
     """二进制量化器"""
@@ -82,7 +80,6 @@ class BinaryQuantizer(VectorQuantizer):
             "compression_ratio": 32.0 / self.bits if self.bits > 0 else 1.0
         }
 
-
 class HalfPrecisionQuantizer(VectorQuantizer):
     """半精度量化器"""
     
@@ -107,7 +104,6 @@ class HalfPrecisionQuantizer(VectorQuantizer):
             "type": "halfprecision",
             "compression_ratio": 2.0
         }
-
 
 class QuantizationManager:
     """量化管理器"""
@@ -184,20 +180,25 @@ class QuantizationManager:
         except Exception as e:
             logger.error(f"获取训练向量失败: {e}")
             return np.array([])
+
+    async def ensure_config_table(self) -> None:
+        """确保量化配置表存在"""
+        async with self.vector_store.get_connection() as conn:
+            await conn.execute("""
+            CREATE TABLE IF NOT EXISTS vector_quantization_configs (
+                collection_name VARCHAR(255) PRIMARY KEY,
+                quantizer_type VARCHAR(50) NOT NULL,
+                config_data JSONB NOT NULL,
+                created_at TIMESTAMP DEFAULT NOW(),
+                updated_at TIMESTAMP DEFAULT NOW()
+            )
+            """)
             
     async def _save_quantization_config(self, collection_name: str, quantizer: VectorQuantizer):
         """保存量化配置到数据库"""
         try:
+            await self.ensure_config_table()
             async with self.vector_store.get_connection() as conn:
-                await conn.execute("""
-                CREATE TABLE IF NOT EXISTS vector_quantization_configs (
-                    collection_name VARCHAR(255) PRIMARY KEY,
-                    quantizer_type VARCHAR(50) NOT NULL,
-                    config_data JSONB NOT NULL,
-                    created_at TIMESTAMP DEFAULT NOW(),
-                    updated_at TIMESTAMP DEFAULT NOW()
-                )
-                """)
                 
                 config_data = quantizer.get_params()
                 await conn.execute("""
@@ -216,10 +217,8 @@ class QuantizationManager:
         except Exception as e:
             logger.error(f"保存量化配置失败: {e}")
 
-
 # 全局量化管理器实例
 quantization_manager = None
-
 
 async def get_quantization_manager(vector_store) -> QuantizationManager:
     """获取量化管理器实例"""

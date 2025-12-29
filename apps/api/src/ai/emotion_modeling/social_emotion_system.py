@@ -3,16 +3,15 @@
 统一集成所有社交情感理解组件，提供完整的系统API
 """
 
+from src.core.utils.timezone_utils import utc_now
 import asyncio
 import json
-import logging
 from dataclasses import dataclass, asdict
 from datetime import datetime, timedelta
 from enum import Enum
 from typing import Dict, List, Optional, Set, Tuple, Any, Union
 from fastapi import WebSocket
 import websockets
-
 from .models import EmotionVector, SocialContext
 from .core_interfaces import EmotionModelingInterface
 from .social_context_adapter import SocialContextAdapter, SocialScenario, SocialEnvironment
@@ -21,8 +20,8 @@ from .social_intelligence_engine import SocialIntelligenceEngine, DecisionType
 from .social_analytics_tools import SocialAnalyticsTools, AnalysisType
 from .privacy_ethics_guard import PrivacyEthicsGuard, PrivacyLevel, ConsentType
 
-logger = logging.getLogger(__name__)
-
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 class SystemMode(Enum):
     """系统运行模式"""
@@ -30,7 +29,6 @@ class SystemMode(Enum):
     BATCH_PROCESSING = "batch_processing"
     ANALYSIS_ONLY = "analysis_only"
     FULL_INTERACTIVE = "full_interactive"
-
 
 @dataclass
 class SystemConfiguration:
@@ -45,7 +43,6 @@ class SystemConfiguration:
     data_retention_days: int
     websocket_enabled: bool
 
-
 @dataclass
 class SocialEmotionRequest:
     """社交情感分析请求"""
@@ -58,7 +55,6 @@ class SocialEmotionRequest:
     privacy_consent: bool
     cultural_context: Optional[str]
     timestamp: datetime
-
 
 @dataclass
 class SocialEmotionResponse:
@@ -74,7 +70,6 @@ class SocialEmotionResponse:
     processing_time: float
     timestamp: datetime
 
-
 @dataclass
 class SystemStatus:
     """系统状态"""
@@ -85,7 +80,6 @@ class SystemStatus:
     compliance_score: float
     cultural_contexts: List[str]
     last_updated: datetime
-
 
 class SocialEmotionSystem:
     """社交情感理解系统主类"""
@@ -116,7 +110,25 @@ class SocialEmotionSystem:
         request: SocialEmotionRequest
     ) -> SocialEmotionResponse:
         """处理社交情感分析请求"""
-        start_time = datetime.now()
+        start_time = utc_now()
+        session_key = request.session_id or request.user_id
+        session_record = self.active_sessions.setdefault(
+            session_key,
+            {
+                "user_id": request.user_id,
+                "created_at": utc_now(),
+                "config": request.social_context,
+                "interaction_count": 0,
+                "last_activity": utc_now()
+            }
+        )
+        if request.social_context.get("conversation_data"):
+            session_record["conversation_data"] = request.social_context["conversation_data"]
+        if request.social_context.get("session_data"):
+            session_record["session_data"] = request.social_context["session_data"]
+        if request.social_context.get("interaction_history"):
+            session_record["interaction_history"] = request.social_context["interaction_history"]
+        session_record["last_activity"] = utc_now()
         
         try:
             # 1. 验证隐私合规性
@@ -138,7 +150,7 @@ class SocialEmotionSystem:
                     cultural_adaptations=[],
                     confidence_score=0.0,
                     processing_time=0.0,
-                    timestamp=datetime.now()
+                    timestamp=utc_now()
                 )
             
             # 2. 构建情感向量和社交上下文
@@ -161,7 +173,7 @@ class SocialEmotionSystem:
                     cultural_adaptations=[],
                     confidence_score=0.0,
                     processing_time=0.0,
-                    timestamp=datetime.now()
+                    timestamp=utc_now()
                 )
             
             # 4. 执行所有分析组件
@@ -242,21 +254,14 @@ class SocialEmotionSystem:
                 network_result = await self.analytics_tools.build_emotion_network(
                     session_data, interaction_history
                 )
-                results["network_analysis"] = {
-                    "network_id": network_result.network_id,
-                    "nodes_count": len(network_result.nodes),
-                    "user_role": network_result.nodes.get(request.user_id, {}).role if request.user_id in network_result.nodes else "unknown",
-                    "network_cohesion": network_result.network_cohesion,
-                    "polarization_level": network_result.polarization_level,
-                    "central_nodes": network_result.central_nodes
-                }
+                results["network_analysis"] = self._serialize_emotion_network(network_result)
                 if network_result.polarization_level > 0.7:
                     recommendations.append("High polarization detected, consider mediation strategies")
                 confidence_scores.append(0.7)
             
             # 个人统计分析
             if "personal_stats" in request.analysis_type:
-                analysis_period = (datetime.now() - timedelta(days=30), datetime.now())
+                analysis_period = (utc_now() - timedelta(days=30), utc_now())
                 interaction_data = await self._get_user_interaction_data(
                     request.user_id, analysis_period
                 )
@@ -287,7 +292,7 @@ class SocialEmotionSystem:
                 )
             
             # 计算处理时间
-            processing_time = (datetime.now() - start_time).total_seconds()
+            processing_time = (utc_now() - start_time).total_seconds()
             
             # 更新统计
             self.request_count += 1
@@ -307,7 +312,7 @@ class SocialEmotionSystem:
                 cultural_adaptations=list(set(cultural_adaptations)),  # 去重
                 confidence_score=overall_confidence,
                 processing_time=processing_time,
-                timestamp=datetime.now()
+                timestamp=utc_now()
             )
             
         except Exception as e:
@@ -324,7 +329,7 @@ class SocialEmotionSystem:
                 cultural_adaptations=[],
                 confidence_score=0.0,
                 processing_time=0.0,
-                timestamp=datetime.now()
+                timestamp=utc_now()
             )
     
     def _build_emotion_vector(self, emotion_data: Dict[str, Any]) -> EmotionVector:
@@ -335,6 +340,35 @@ class SocialEmotionSystem:
             confidence=emotion_data.get("confidence", 0.5),
             context=emotion_data.get("context", {})
         )
+
+    def _serialize_emotion_network(self, network_result: Any) -> Dict[str, Any]:
+        nodes_payload = {}
+        for user_id, node in network_result.nodes.items():
+            nodes_payload[user_id] = {
+                "user_id": node.user_id,
+                "emotional_influence": node.emotional_influence,
+                "connection_strength": node.connection_strength,
+                "emotion_state": {
+                    "emotions": node.emotion_state.emotions,
+                    "intensity": node.emotion_state.intensity,
+                    "confidence": node.emotion_state.confidence
+                },
+                "role": node.role
+            }
+        edges_payload = {
+            f"{source}-{target}": weight
+            for (source, target), weight in network_result.edges.items()
+        }
+        return {
+            "network_id": network_result.network_id,
+            "nodes": nodes_payload,
+            "edges": edges_payload,
+            "clusters": network_result.clusters,
+            "central_nodes": network_result.central_nodes,
+            "influence_paths": network_result.influence_paths,
+            "network_cohesion": network_result.network_cohesion,
+            "polarization_level": network_result.polarization_level
+        }
     
     def _build_social_context(self, social_data: Dict[str, Any]) -> SocialContext:
         """构建社交上下文"""
@@ -383,49 +417,26 @@ class SocialEmotionSystem:
         }
     
     async def _get_conversation_data(self, session_id: str) -> List[Dict[str, Any]]:
-        """获取会话数据（模拟数据）"""
-        # 实际实现中应从数据库获取
-        return [
-            {
-                "timestamp": datetime.now().isoformat(),
-                "user_id": "user_1",
-                "emotion_data": {
-                    "dominant_emotion": "excited",
-                    "intensity": 0.7,
-                    "valence": 0.6,
-                    "arousal": 0.8
-                },
-                "context": {"topic": "project_planning"}
-            }
-        ]
+        """获取会话数据，必须来源于真实存储或调用方提供的数据"""
+        session_snapshot = self.active_sessions.get(session_id)
+        if session_snapshot and session_snapshot.get("conversation_data"):
+            return session_snapshot["conversation_data"]
+        raise RuntimeError("conversation data unavailable for session: {0}".format(session_id))
     
     async def _get_session_data(self, session_or_user_id: str) -> List[Dict[str, Any]]:
         """获取会话数据"""
-        # 模拟数据
-        return [
-            {
-                "user_id": session_or_user_id,
-                "timestamp": datetime.now().isoformat(),
-                "emotion_data": {
-                    "emotions": {"positive": 0.7, "neutral": 0.3},
-                    "intensity": 0.6,
-                    "confidence": 0.8
-                }
-            }
-        ]
+        session_snapshot = self.active_sessions.get(session_or_user_id)
+        if session_snapshot and session_snapshot.get("session_data"):
+            return session_snapshot["session_data"]
+        raise RuntimeError("session data not recorded for {0}".format(session_or_user_id))
     
     async def _get_interaction_history(self, user_id: str) -> List[Dict[str, Any]]:
-        """获取交互历史"""
-        # 模拟数据
-        return [
-            {
-                "user1": user_id,
-                "user2": "other_user",
-                "timestamp": datetime.now().isoformat(),
-                "interaction_type": "message",
-                "emotion_data": {"valence": 0.5}
-            }
-        ]
+        """获取交互历史（要求外部真实事件流或存储支持）"""
+        session_entry = self.active_sessions.get(user_id)
+        history = session_entry.get("interaction_history") if session_entry else None
+        if history:
+            return history
+        raise RuntimeError(f"interaction history missing for user {user_id}")
     
     async def _get_user_interaction_data(
         self,
@@ -433,21 +444,15 @@ class SocialEmotionSystem:
         period: Tuple[datetime, datetime]
     ) -> List[Dict[str, Any]]:
         """获取用户交互数据"""
-        # 模拟数据
-        return [
-            {
-                "user_id": user_id,
-                "timestamp": datetime.now().isoformat(),
-                "emotion_data": {
-                    "valence": 0.6,
-                    "arousal": 0.5,
-                    "intensity": 0.7,
-                    "confidence": 0.8
-                },
-                "context": {"scenario": "meeting"},
-                "behavior_type": "normal_interaction"
-            }
-        ]
+        session_entry = self.active_sessions.get(user_id)
+        interactions = session_entry.get("interaction_history") if session_entry else None
+        if interactions:
+            start, end = period
+            return [
+                record for record in interactions
+                if start <= datetime.fromisoformat(record.get("timestamp", datetime.min.isoformat())) <= end
+            ]
+        raise RuntimeError(f"user interaction data unavailable for {user_id}")
     
     async def _send_realtime_update(
         self,
@@ -461,7 +466,7 @@ class SocialEmotionSystem:
                 await websocket.send_text(json.dumps({
                     "type": "emotion_analysis_update",
                     "data": results,
-                    "timestamp": datetime.now().isoformat()
+                    "timestamp": utc_now().isoformat()
                 }))
             except Exception as e:
                 logger.warning(f"Failed to send realtime update to user {user_id}: {e}")
@@ -484,14 +489,14 @@ class SocialEmotionSystem:
         session_config: Dict[str, Any]
     ) -> str:
         """创建新会话"""
-        session_id = f"session_{datetime.now().isoformat()}_{user_id}"
+        session_id = f"session_{utc_now().isoformat()}_{user_id}"
         
         self.active_sessions[session_id] = {
             "user_id": user_id,
-            "created_at": datetime.now(),
+            "created_at": utc_now(),
             "config": session_config,
             "interaction_count": 0,
-            "last_activity": datetime.now()
+            "last_activity": utc_now()
         }
         
         logger.info(f"Created session {session_id} for user {user_id}")
@@ -514,7 +519,7 @@ class SocialEmotionSystem:
             average_response_time=self.total_processing_time / max(self.request_count, 1),
             compliance_score=await self._calculate_compliance_score(),
             cultural_contexts=list(self.cultural_analyzer.cultural_profiles.keys()),
-            last_updated=datetime.now()
+            last_updated=utc_now()
         )
     
     async def _calculate_compliance_score(self) -> float:
@@ -551,7 +556,7 @@ class SocialEmotionSystem:
     
     async def _cleanup_expired_sessions(self) -> None:
         """清理过期会话"""
-        current_time = datetime.now()
+        current_time = utc_now()
         expired_sessions = []
         
         for session_id, session_data in self.active_sessions.items():
@@ -598,7 +603,7 @@ class SocialEmotionSystem:
                         cultural_adaptations=[],
                         confidence_score=0.0,
                         processing_time=0.0,
-                        timestamp=datetime.now()
+                        timestamp=utc_now()
                     )
             
         except Exception as e:
@@ -615,7 +620,7 @@ class SocialEmotionSystem:
                     cultural_adaptations=[],
                     confidence_score=0.0,
                     processing_time=0.0,
-                    timestamp=datetime.now()
+                    timestamp=utc_now()
                 )
                 for req in requests
             ]
@@ -629,7 +634,7 @@ class SocialEmotionSystem:
     ) -> Dict[str, Any]:
         """获取分析仪表板数据"""
         if not time_range:
-            time_range = (datetime.now() - timedelta(days=7), datetime.now())
+            time_range = (utc_now() - timedelta(days=7), utc_now())
         
         dashboard_data = {
             "system_overview": await self.get_system_status(),
@@ -671,7 +676,7 @@ class SocialEmotionSystem:
             # 导出情感数据
             interaction_data = await self._get_user_interaction_data(
                 user_id, 
-                (datetime.now() - timedelta(days=privacy_policy.data_retention_days), datetime.now())
+                (utc_now() - timedelta(days=privacy_policy.data_retention_days), utc_now())
             )
             export_data["emotion_data"] = interaction_data
         
@@ -684,7 +689,7 @@ class SocialEmotionSystem:
         
         if "analytics" in data_types:
             # 导出分析结果
-            time_range = (datetime.now() - timedelta(days=30), datetime.now())
+            time_range = (utc_now() - timedelta(days=30), utc_now())
             interaction_data = await self._get_user_interaction_data(user_id, time_range)
             stats = await self.analytics_tools.generate_social_emotion_stats(
                 user_id, time_range, interaction_data
@@ -702,7 +707,7 @@ class SocialEmotionSystem:
         
         return {
             "user_id": user_id,
-            "export_timestamp": datetime.now().isoformat(),
+            "export_timestamp": utc_now().isoformat(),
             "format": format_type,
             "data": export_data
         }

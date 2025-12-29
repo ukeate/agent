@@ -6,6 +6,7 @@
 import React, { useState, useCallback } from 'react';
 import { feedbackService } from '../../services/feedbackService';
 
+import { logger } from '../../utils/logger'
 interface RatingComponentProps {
   itemId?: string;
   userId: string;
@@ -73,7 +74,7 @@ export const RatingComponent: React.FC<RatingComponentProps> = ({
       setHasSubmitted(true);
       onSubmitSuccess?.(rating);
     } catch (error) {
-      console.error('提交评分失败:', error);
+      logger.error('提交评分失败:', error);
       onSubmitError?.(error as Error);
       // 回滚评分
       setCurrentRating(initialRating);

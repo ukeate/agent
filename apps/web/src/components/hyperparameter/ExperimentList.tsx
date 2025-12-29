@@ -6,6 +6,7 @@ import { Table, Button, Tag, Space, Input, Select, Modal, message, Spin, Empty, 
 import { PlusOutlined, ReloadOutlined, DeleteOutlined, PlayCircleOutlined, PauseOutlined, SearchOutlined } from '@ant-design/icons';
 import apiClient from '../../services/apiClient';
 
+import { logger } from '../../utils/logger'
 const { Search } = Input;
 const { Option } = Select;
 
@@ -47,7 +48,7 @@ const ExperimentList: React.FC = () => {
       setExperiments(data);
     } catch (error) {
       message.error('加载实验失败');
-      console.error(error);
+      logger.error('加载实验失败:', error);
     } finally {
       setLoading(false);
     }
@@ -59,7 +60,7 @@ const ExperimentList: React.FC = () => {
 
   const handleStart = async (id: number) => {
     try {
-      await apiClient.post(`/api/v1/hyperparameter-optimization/experiments/${id}/start`);
+      await apiClient.post(`/hyperparameter-optimization/experiments/${id}/start`);
       message.success('实验已启动');
       fetchExperiments();
     } catch (error) {
@@ -69,7 +70,7 @@ const ExperimentList: React.FC = () => {
 
   const handleStop = async (id: number) => {
     try {
-      await apiClient.post(`/api/v1/hyperparameter-optimization/experiments/${id}/stop`);
+      await apiClient.post(`/hyperparameter-optimization/experiments/${id}/stop`);
       message.success('实验已停止');
       fetchExperiments();
     } catch (error) {
@@ -80,11 +81,11 @@ const ExperimentList: React.FC = () => {
   const handleDelete = async (id?: number) => {
     try {
       if (id) {
-        await apiClient.delete(`/api/v1/hyperparameter-optimization/experiments/${id}`);
+        await apiClient.delete(`/hyperparameter-optimization/experiments/${id}`);
       } else {
         // 批量删除
         for (const expId of selectedRows) {
-          await apiClient.delete(`/api/v1/hyperparameter-optimization/experiments/${expId}`);
+          await apiClient.delete(`/hyperparameter-optimization/experiments/${expId}`);
         }
       }
       message.success('删除成功');

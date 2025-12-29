@@ -5,19 +5,17 @@
 
 import time
 import asyncio
-import logging
 from typing import Dict, Any, List, Optional
 from datetime import datetime
 from datetime import timedelta
 from src.core.utils.timezone_utils import utc_now, utc_factory
 from dataclasses import dataclass, field
 from contextlib import asynccontextmanager
-
-from .caching import NodeCache
+from .caching import NodeCache, RedisNodeCache, MemoryNodeCache
 from .cache_factory import get_node_cache
 
-logger = logging.getLogger(__name__)
-
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 @dataclass
 class CacheMetrics:
@@ -89,7 +87,6 @@ class CacheMetrics:
     def reset(self):
         """重置指标"""
         self.__init__()
-
 
 class CacheMonitor:
     """缓存监控器"""
@@ -192,7 +189,7 @@ class CacheMonitor:
             try:
                 await self._monitoring_task
             except asyncio.CancelledError:
-                pass
+                raise
         
         logger.info("缓存监控已停止")
     
@@ -225,7 +222,6 @@ class CacheMonitor:
             "error_rate": f"{self.metrics.error_count / max(1, self.metrics.get_operations + self.metrics.set_operations):.2%}",
             "uptime": f"{self.metrics.uptime_seconds:.0f}s"
         }
-
 
 class CacheHealthChecker:
     """缓存健康检查器"""
@@ -286,34 +282,100 @@ class CacheHealthChecker:
     async def performance_check(self) -> Dict[str, Any]:
         """执行性能检查"""
         performance_data = {
-            "latency_ms": {},
+            "response_times": {
+                "avg_ms": 0,
+                "p50_ms": 0,
+                "p95_ms": 0,
+                "p99_ms": 0
+            },
+            "throughput": {
+                "reads_per_second": 0,
+                "writes_per_second": 0
+            },
+            "memory": {
+                "used_mb": 0,
+                "available_mb": 0,
+                "fragmentation_ratio": 1.0
+            },
+            "operations": {
+                "total_reads": 0,
+                "total_writes": 0,
+                "total_deletes": 0,
+                "failed_operations": 0
+            },
             "timestamp": utc_now().isoformat()
         }
         
         try:
-            # 测试设置性能
+            sample_count = 10
+            get_latencies: List[float] = []
+            set_latencies: List[float] = []
             test_data = {"test": "performance", "timestamp": time.time()}
-            start_time = time.time()
-            await self.cache.set("perf_test", test_data, ttl=10)
-            set_latency = (time.time() - start_time) * 1000
-            performance_data["latency_ms"]["set"] = round(set_latency, 2)
+            start_all = time.time()
             
-            # 测试获取性能
-            start_time = time.time()
-            await self.cache.get("perf_test")
-            get_latency = (time.time() - start_time) * 1000
-            performance_data["latency_ms"]["get"] = round(get_latency, 2)
+            for i in range(sample_count):
+                key = f"perf_test:{i}:{time.time()}"
+                start_time = time.time()
+                await self.cache.set(key, test_data, ttl=10)
+                set_latencies.append((time.time() - start_time) * 1000)
+                
+                start_time = time.time()
+                await self.cache.get(key)
+                get_latencies.append((time.time() - start_time) * 1000)
+                
+                await self.cache.delete(key)
             
-            # 清理测试数据
-            await self.cache.delete("perf_test")
+            elapsed = max(0.001, time.time() - start_all)
+            get_latencies_sorted = sorted(get_latencies)
             
-            # 性能评估
-            if set_latency > 100 or get_latency > 50:
-                performance_data["status"] = "slow"
-                performance_data["warning"] = "缓存延迟较高"
-            else:
-                performance_data["status"] = "fast"
+            def percentile(values: List[float], p: float) -> float:
+                if not values:
+                    return 0.0
+                idx = int(round((p / 100) * (len(values) - 1)))
+                idx = max(0, min(idx, len(values) - 1))
+                return values[idx]
             
+            avg_latency = sum(get_latencies_sorted) / len(get_latencies_sorted) if get_latencies_sorted else 0.0
+            performance_data["response_times"] = {
+                "avg_ms": round(avg_latency, 2),
+                "p50_ms": round(percentile(get_latencies_sorted, 50), 2),
+                "p95_ms": round(percentile(get_latencies_sorted, 95), 2),
+                "p99_ms": round(percentile(get_latencies_sorted, 99), 2)
+            }
+            performance_data["throughput"] = {
+                "reads_per_second": round(len(get_latencies) / elapsed, 2),
+                "writes_per_second": round(len(set_latencies) / elapsed, 2)
+            }
+            
+            cache_stats = self.cache.stats.to_dict()
+            performance_data["operations"] = {
+                "total_reads": cache_stats.get("hit_count", 0) + cache_stats.get("miss_count", 0),
+                "total_writes": cache_stats.get("set_count", 0),
+                "total_deletes": 0,
+                "failed_operations": cache_stats.get("error_count", 0)
+            }
+            
+            if isinstance(self.cache, RedisNodeCache):
+                redis = await self.cache._get_redis()
+                info = await redis.info("memory")
+                used_memory = info.get("used_memory", 0)
+                max_memory = info.get("maxmemory", 0)
+                fragmentation_ratio = info.get("mem_fragmentation_ratio", 1.0)
+                performance_data["memory"] = {
+                    "used_mb": round(used_memory / 1024 / 1024, 2),
+                    "available_mb": round((max_memory - used_memory) / 1024 / 1024, 2) if max_memory > 0 else 0,
+                    "fragmentation_ratio": round(float(fragmentation_ratio), 2)
+                }
+            elif isinstance(self.cache, MemoryNodeCache):
+                stats = await self.cache.get_stats()
+                used_mb = stats.get("memory_usage_bytes", 0) / 1024 / 1024
+                max_mb = self.cache.config.max_size_mb
+                performance_data["memory"] = {
+                    "used_mb": round(used_mb, 2),
+                    "available_mb": round(max_mb - used_mb, 2) if max_mb > 0 else 0,
+                    "fragmentation_ratio": 1.0
+                }
+        
         except Exception as e:
             performance_data["status"] = "error"
             performance_data["error"] = str(e)
@@ -321,10 +383,8 @@ class CacheHealthChecker:
         
         return performance_data
 
-
 # 全局监控器实例
 _global_monitor: Optional[CacheMonitor] = None
-
 
 def get_cache_monitor() -> CacheMonitor:
     """获取全局缓存监控器"""
@@ -333,12 +393,10 @@ def get_cache_monitor() -> CacheMonitor:
         _global_monitor = CacheMonitor()
     return _global_monitor
 
-
 async def start_cache_monitoring():
     """启动缓存监控"""
     monitor = get_cache_monitor()
     await monitor.start_monitoring()
-
 
 async def stop_cache_monitoring():
     """停止缓存监控"""

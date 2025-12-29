@@ -7,9 +7,7 @@ Thompson Sampling是一种贝叶斯方法，通过维护每个臂奖励分布的
 
 from typing import Dict, Any, Optional
 import numpy as np
-
 from .base import MultiArmedBandit
-
 
 class ThompsonSamplingBandit(MultiArmedBandit):
     """Thompson Sampling 多臂老虎机算法"""

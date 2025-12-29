@@ -1,31 +1,54 @@
 """可解释AI API端点"""
 
-from datetime import datetime
-from src.core.utils.timezone_utils import utc_now, utc_factory
+from src.core.utils.timezone_utils import utc_now
 from typing import Any, Dict, List, Optional
 from uuid import UUID
-
-from fastapi import APIRouter, HTTPException, Depends
-from pydantic import BaseModel, Field
-
+from fastapi import APIRouter, HTTPException
+from pydantic import Field
 from src.ai.explainer.explanation_generator import ExplanationGenerator
 from src.ai.explainer.decision_tracker import DecisionTracker
 from src.ai.explainer.workflow_explainer import WorkflowExecution, WorkflowNode
+from src.core.redis import get_redis
 from src.models.schemas.explanation import (
     DecisionExplanation,
     ExplanationType,
     ExplanationLevel,
-    EvidenceType,
-    ConfidenceMetrics
+    ExplanationType,
+    ExplanationLevel,
 )
 
 router = APIRouter(prefix="/explainable-ai", tags=["Explainable AI"])
 
 # 全局解释生成器实例
 explanation_generator = ExplanationGenerator()
+_EXPLANATION_KEY_PREFIX = "explainable_ai:explanation:"
+_EXPLANATION_TTL_SECONDS = 7 * 24 * 3600
 
+def _get_redis_client():
+    redis_client = get_redis()
+    if not redis_client:
+        raise HTTPException(status_code=503, detail="Redis未初始化")
+    return redis_client
 
-class ExplanationRequest(BaseModel):
+def _calc_confidence_score(factors: List[Dict[str, Any]]) -> float:
+    weights: List[float] = []
+    weighted: List[float] = []
+    for f in factors:
+        try:
+            w = float(f.get("weight", 0.0))
+            i = float(f.get("impact", 0.0))
+        except Exception:
+            continue
+        if w <= 0:
+            continue
+        weights.append(w)
+        weighted.append(abs(i) * w)
+    if not weights:
+        return 0.0
+    score = sum(weighted) / sum(weights)
+    return max(0.0, min(1.0, score))
+
+class ExplanationRequest(ApiBaseModel):
     """解释请求模型"""
     decision_id: str = Field(..., description="决策ID")
     decision_context: str = Field(..., description="决策上下文")
@@ -36,8 +59,7 @@ class ExplanationRequest(BaseModel):
     use_cot_reasoning: bool = Field(False, description="是否使用CoT推理")
     reasoning_mode: str = Field("analytical", description="推理模式")
 
-
-class CoTReasoningRequest(BaseModel):
+class CoTReasoningRequest(ApiBaseModel):
     """CoT推理请求模型"""
     decision_id: str = Field(..., description="决策ID")
     decision_context: str = Field(..., description="决策上下文")
@@ -45,28 +67,24 @@ class CoTReasoningRequest(BaseModel):
     explanation_level: ExplanationLevel = Field(ExplanationLevel.DETAILED, description="解释级别")
     factors: List[Dict[str, Any]] = Field(default_factory=list, description="置信度因子")
 
-
-class WorkflowExecutionRequest(BaseModel):
+class WorkflowExecutionRequest(ApiBaseModel):
     """工作流执行请求模型"""
     workflow_id: str = Field(..., description="工作流ID")
     workflow_name: str = Field(..., description="工作流名称")
     nodes: List[Dict[str, Any]] = Field(..., description="工作流节点")
     explanation_level: ExplanationLevel = Field(ExplanationLevel.DETAILED, description="解释级别")
 
-
-class ExplanationFormatRequest(BaseModel):
+class ExplanationFormatRequest(ApiBaseModel):
     """解释格式化请求模型"""
     explanation_id: UUID = Field(..., description="解释ID")
     output_format: str = Field("html", description="输出格式")
     template_name: Optional[str] = Field(None, description="模板名称")
 
-
-class DemoScenarioRequest(BaseModel):
+class DemoScenarioRequest(ApiBaseModel):
     """演示场景请求模型"""
     scenario_type: str = Field(..., description="场景类型")
     complexity: str = Field("medium", description="复杂度")
     include_cot: bool = Field(True, description="包含CoT推理")
-
 
 @router.post("/generate-explanation", response_model=DecisionExplanation)
 async def generate_explanation(request: ExplanationRequest):
@@ -86,10 +104,11 @@ async def generate_explanation(request: ExplanationRequest):
             )
         
         # 完成决策
+        confidence_score = _calc_confidence_score(request.factors)
         tracker.finalize_decision(
             final_decision="completed",
-            confidence_score=0.8,
-            reasoning="决策基于提供的因子完成"
+            confidence_score=confidence_score,
+            reasoning=f"决策基于{len(request.factors)}个因子完成"
         )
         
         # 生成解释
@@ -102,11 +121,16 @@ async def generate_explanation(request: ExplanationRequest):
             reasoning_mode=request.reasoning_mode
         )
         
+        redis_client = _get_redis_client()
+        await redis_client.setex(
+            f"{_EXPLANATION_KEY_PREFIX}{explanation.id}",
+            _EXPLANATION_TTL_SECONDS,
+            explanation.model_dump_json(),
+        )
         return explanation
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"解释生成失败: {str(e)}")
-
 
 @router.post("/cot-reasoning", response_model=DecisionExplanation)
 async def generate_cot_reasoning(request: CoTReasoningRequest):
@@ -126,10 +150,11 @@ async def generate_cot_reasoning(request: CoTReasoningRequest):
             )
         
         # 完成决策
+        confidence_score = _calc_confidence_score(request.factors)
         tracker.finalize_decision(
             final_decision="reasoning_completed",
-            confidence_score=0.85,
-            reasoning="CoT推理过程完成"
+            confidence_score=confidence_score,
+            reasoning=f"CoT推理基于{len(request.factors)}个因子完成"
         )
         
         # 生成CoT推理解释
@@ -139,19 +164,22 @@ async def generate_cot_reasoning(request: CoTReasoningRequest):
             explanation_level=request.explanation_level
         )
         
+        redis_client = _get_redis_client()
+        await redis_client.setex(
+            f"{_EXPLANATION_KEY_PREFIX}{explanation.id}",
+            _EXPLANATION_TTL_SECONDS,
+            explanation.model_dump_json(),
+        )
         return explanation
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"CoT推理生成失败: {str(e)}")
-
 
 @router.post("/workflow-explanation", response_model=DecisionExplanation)
 async def generate_workflow_explanation(request: WorkflowExecutionRequest):
     """生成工作流解释"""
     try:
         # 构建工作流执行对象
-        from ai.explainer.workflow_explainer import WorkflowExecution, WorkflowNode
-        
         workflow_execution = WorkflowExecution(
             workflow_id=request.workflow_id,
             workflow_name=request.workflow_name
@@ -179,52 +207,81 @@ async def generate_workflow_explanation(request: WorkflowExecutionRequest):
             workflow_execution=workflow_execution,
             explanation_level=request.explanation_level
         )
-        
+        redis_client = _get_redis_client()
+        await redis_client.setex(
+            f"{_EXPLANATION_KEY_PREFIX}{explanation.id}",
+            _EXPLANATION_TTL_SECONDS,
+            explanation.model_dump_json(),
+        )
         return explanation
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"工作流解释生成失败: {str(e)}")
 
-
 @router.post("/format-explanation")
 async def format_explanation(request: ExplanationFormatRequest):
     """格式化解释输出"""
     try:
-        # 这里应该从数据库获取解释，目前创建一个示例
-        from src.models.schemas.explanation import ConfidenceSource
-        
-        sample_explanation = DecisionExplanation(
-            decision_id="sample_001",
-            explanation_type=ExplanationType.DECISION,
-            explanation_level=ExplanationLevel.DETAILED,
-            decision_description="示例决策",
-            decision_outcome="approved",
-            summary_explanation="这是一个示例解释用于格式化测试",
-            components=[],
-            confidence_metrics=ConfidenceMetrics(
-                overall_confidence=0.8,
-                uncertainty_score=0.2,
-                confidence_sources=[ConfidenceSource.MODEL_PROBABILITY]
-            ),
-            counterfactuals=[]
-        )
-        
-        # 格式化解释
-        formatted_content = explanation_generator.workflow_explainer.workflow_explainer._format_explanation(
-            sample_explanation,
-            request.output_format,
-            request.template_name
-        )
+        redis_client = _get_redis_client()
+        raw = await redis_client.get(f"{_EXPLANATION_KEY_PREFIX}{request.explanation_id}")
+        if not raw:
+            raise HTTPException(status_code=404, detail="explanation_id不存在或已过期")
+        explanation = DecisionExplanation.model_validate_json(raw)
+        fmt = request.output_format
+        if fmt == "json":
+            formatted_content: Any = explanation.model_dump()
+        elif fmt == "markdown":
+            formatted_content = (
+                f"# Explanation\\n\\n"
+                f"- id: {explanation.id}\\n"
+                f"- decision_id: {explanation.decision_id}\\n"
+                f"- outcome: {explanation.decision_outcome}\\n\\n"
+                f"## Summary\\n\\n{explanation.summary_explanation}\\n\\n"
+                f"## Details\\n\\n{explanation.detailed_explanation or ''}\\n"
+            )
+        elif fmt == "html":
+            import html
+
+            formatted_content = (
+                "<h1>Explanation</h1>"
+                f"<div><b>id</b>: {html.escape(str(explanation.id))}</div>"
+                f"<div><b>decision_id</b>: {html.escape(explanation.decision_id)}</div>"
+                f"<div><b>outcome</b>: {html.escape(explanation.decision_outcome)}</div>"
+                f"<h2>Summary</h2><pre>{html.escape(explanation.summary_explanation)}</pre>"
+                f"<h2>Details</h2><pre>{html.escape(explanation.detailed_explanation or '')}</pre>"
+            )
+        elif fmt == "text":
+            formatted_content = (
+                f"id: {explanation.id}\\n"
+                f"decision_id: {explanation.decision_id}\\n"
+                f"outcome: {explanation.decision_outcome}\\n\\n"
+                f"{explanation.summary_explanation}\\n\\n"
+                f"{explanation.detailed_explanation or ''}"
+            )
+        elif fmt == "xml":
+            import html
+
+            formatted_content = (
+                "<explanation>"
+                f"<id>{html.escape(str(explanation.id))}</id>"
+                f"<decision_id>{html.escape(explanation.decision_id)}</decision_id>"
+                f"<outcome>{html.escape(explanation.decision_outcome)}</outcome>"
+                f"<summary>{html.escape(explanation.summary_explanation)}</summary>"
+                f"<details>{html.escape(explanation.detailed_explanation or '')}</details>"
+                "</explanation>"
+            )
+        else:
+            raise HTTPException(status_code=400, detail="output_format不支持")
         
         return {
             "explanation_id": request.explanation_id,
             "format": request.output_format,
             "content": formatted_content
         }
-        
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"格式化失败: {str(e)}")
-
 
 @router.post("/demo-scenario", response_model=DecisionExplanation)
 async def generate_demo_scenario(request: DemoScenarioRequest):
@@ -294,7 +351,6 @@ async def generate_demo_scenario(request: DemoScenarioRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"演示场景生成失败: {str(e)}")
 
-
 @router.get("/explanation-types")
 async def get_explanation_types():
     """获取支持的解释类型"""
@@ -324,7 +380,6 @@ async def get_explanation_types():
         ]
     }
 
-
 @router.get("/demo-scenarios")
 async def get_demo_scenarios():
     """获取可用的演示场景"""
@@ -350,7 +405,6 @@ async def get_demo_scenarios():
             }
         ]
     }
-
 
 @router.get("/health")
 async def health_check():

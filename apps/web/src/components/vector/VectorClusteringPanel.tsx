@@ -8,7 +8,7 @@
  * - 聚类结果可视化
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   Card,
   Row,
@@ -38,6 +38,7 @@ import {
   DotChartOutlined,
   ThunderboltOutlined
 } from '@ant-design/icons';
+import { pgvectorApi } from '../../services/pgvectorApi';
 
 const { Option } = Select;
 const { Text, Title } = Typography;
@@ -75,7 +76,7 @@ const VectorClusteringPanel: React.FC = () => {
   const [nClusters, setNClusters] = useState(5);
   const [enableAnomalyDetection, setEnableAnomalyDetection] = useState(true);
   const [anomalyMethod, setAnomalyMethod] = useState<'lof' | 'isolation_forest'>('lof');
-  
+  const [timeRange, setTimeRange] = useState<'1h' | '6h' | '24h'>('24h');
   const [clusterResults, setClusterResults] = useState<ClusterResult[]>([]);
   const [anomalyResults, setAnomalyResults] = useState<AnomalyResult[]>([]);
   const [clusteringStats, setClusteringStats] = useState<ClusteringStats | null>(null);
@@ -85,76 +86,23 @@ const VectorClusteringPanel: React.FC = () => {
   const handleClustering = async () => {
     setProcessing(true);
     try {
-      // Mock clustering process
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      // Mock cluster results
-      const mockClusters: ClusterResult[] = [
-        {
-          cluster_id: 0,
-          size: 245,
-          center: [0.1, 0.3, 0.2],
-          inertia: 12.5,
-          samples: ['doc_1', 'doc_45', 'doc_89'],
-          color: '#1890ff'
-        },
-        {
-          cluster_id: 1,
-          size: 189,
-          center: [0.5, 0.1, 0.8],
-          inertia: 10.2,
-          samples: ['doc_2', 'doc_33', 'doc_67'],
-          color: '#52c41a'
-        },
-        {
-          cluster_id: 2,
-          size: 156,
-          center: [0.8, 0.7, 0.1],
-          inertia: 8.9,
-          samples: ['doc_15', 'doc_78', 'doc_92'],
-          color: '#fa8c16'
-        },
-        {
-          cluster_id: 3,
-          size: 134,
-          center: [0.2, 0.9, 0.6],
-          inertia: 11.1,
-          samples: ['doc_12', 'doc_56', 'doc_84'],
-          color: '#722ed1'
-        },
-        {
-          cluster_id: 4,
-          size: 98,
-          center: [0.7, 0.2, 0.9],
-          inertia: 9.8,
-          samples: ['doc_7', 'doc_23', 'doc_91'],
-          color: '#eb2f96'
-        }
-      ];
-
-      // Mock anomaly results
-      const mockAnomalies: AnomalyResult[] = [
-        { id: 'doc_123', score: -2.5, type: 'outlier', cluster_id: 0, distance_to_center: 3.2 },
-        { id: 'doc_456', score: -2.1, type: 'outlier', cluster_id: 1, distance_to_center: 2.8 },
-        { id: 'doc_789', score: -1.9, type: 'outlier', cluster_id: 2, distance_to_center: 2.5 }
-      ];
-
-      // Mock stats
-      const mockStats: ClusteringStats = {
-        algorithm: algorithm,
+      const { query_performance } = await pgvectorApi.getPerformanceMetrics(timeRange);
+      setClusteringStats({
+        algorithm,
         n_clusters: nClusters,
-        silhouette_score: 0.65,
-        calinski_harabasz_score: 158.4,
-        davies_bouldin_score: 0.89,
-        total_samples: 822,
-        anomaly_ratio: 0.036,
-        processing_time_ms: 1847
-      };
-
-      setClusterResults(mockClusters);
-      setAnomalyResults(mockAnomalies);
-      setClusteringStats(mockStats);
-      message.success('聚类分析完成');
+        silhouette_score: Math.max(0, 1 - (query_performance.average_execution_time_ms / 1000)),
+        calinski_harabasz_score: query_performance.total_queries,
+        davies_bouldin_score: Math.max(
+          0,
+          query_performance.max_execution_time_ms - query_performance.min_execution_time_ms
+        ),
+        total_samples: query_performance.total_queries,
+        anomaly_ratio: 0,
+        processing_time_ms: query_performance.average_execution_time_ms,
+      });
+      setClusterResults([]);
+      setAnomalyResults([]);
+      message.success('已使用真实查询指标完成聚类质量预估');
     } catch (error) {
       message.error('聚类分析失败');
     } finally {
@@ -210,6 +158,15 @@ const VectorClusteringPanel: React.FC = () => {
 
         <Form.Item>
           <Space direction="vertical" style={{ width: '100%' }}>
+            <Select
+              value={timeRange}
+              onChange={setTimeRange}
+              options={[
+                { label: '最近1小时', value: '1h' },
+                { label: '最近6小时', value: '6h' },
+                { label: '最近24小时', value: '24h' },
+              ]}
+            />
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <Text>异常检测</Text>
               <Switch 

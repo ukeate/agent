@@ -1,17 +1,13 @@
 """
 多重检验校正服务 - 控制多重比较的错误率
 """
+
 import math
 from typing import List, Tuple, Optional, Dict, Any, Union
 from dataclasses import dataclass
 from enum import Enum
 import numpy as np
 from scipy import stats
-
-from core.logging import get_logger
-
-logger = get_logger(__name__)
-
 
 class CorrectionMethod(str, Enum):
     """多重检验校正方法"""
@@ -25,13 +21,11 @@ class CorrectionMethod(str, Enum):
     HOLM_SIDAK = "holm_sidak"  # Holm-Šidák校正
     NONE = "none"  # 不进行校正
 
-
 class ErrorRateType(str, Enum):
     """错误率类型"""
     FWER = "fwer"  # 家族错误率（Family-Wise Error Rate）
     FDR = "fdr"  # 错误发现率（False Discovery Rate）
     PER_COMPARISON = "per_comparison"  # 每次比较错误率
-
 
 @dataclass
 class MultipleTestingResult:
@@ -67,7 +61,6 @@ class MultipleTestingResult:
             "num_rejected": self.num_rejected,
             "num_tests": self.num_tests
         }
-
 
 class FWERCorrection:
     """家族错误率（FWER）校正方法"""
@@ -269,7 +262,6 @@ class FWERCorrection:
             self.logger.error(f"Hochberg correction failed: {e}")
             raise
 
-
 class FDRCorrection:
     """错误发现率（FDR）校正方法"""
     
@@ -398,7 +390,6 @@ class FDRCorrection:
         except Exception as e:
             self.logger.error(f"Benjamini-Yekutieli correction failed: {e}")
             raise
-
 
 class MultipleTestingCorrectionService:
     """多重检验校正服务 - 统一接口"""
@@ -577,7 +568,6 @@ class MultipleTestingCorrectionService:
         except Exception as e:
             self.logger.error(f"Adjusted power calculation failed: {e}")
             return original_power
-
 
 # 全局实例
 _correction_service = None

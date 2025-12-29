@@ -5,45 +5,45 @@
 
 from fastapi import APIRouter, HTTPException, Depends, status, BackgroundTasks
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel, Field
+from pydantic import Field
 from typing import Dict, List, Optional, Any
 import json
-import structlog
-
 from src.services.agent_service import get_agent_service, AgentService
 from src.core.dependencies import get_current_user
+from src.api.base_model import ApiBaseModel
 
-logger = structlog.get_logger(__name__)
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 router = APIRouter(prefix="/agents", tags=["agents"])
 
 # 请求模型
-class CreateAgentSessionRequest(BaseModel):
+class CreateAgentSessionRequest(ApiBaseModel):
     """创建智能体会话请求"""
     agent_type: str = Field(default="react", description="智能体类型")
     conversation_title: Optional[str] = Field(None, description="对话标题")
     agent_config: Optional[Dict[str, Any]] = Field(default_factory=dict, description="智能体配置")
 
-class ChatRequest(BaseModel):
+class ChatRequest(ApiBaseModel):
     """对话请求"""
     message: str = Field(..., description="用户消息")
     stream: bool = Field(default=False, description="是否启用流式响应")
 
-class TaskRequest(BaseModel):
+class TaskRequest(ApiBaseModel):
     """任务请求"""
     task_description: str = Field(..., description="任务描述")
     task_type: str = Field(default="general", description="任务类型")
     context: Optional[Dict[str, Any]] = Field(default_factory=dict, description="任务上下文")
 
 # 响应模型
-class AgentSessionResponse(BaseModel):
+class AgentSessionResponse(ApiBaseModel):
     """智能体会话响应"""
     conversation_id: str
     agent_id: str
     agent_type: str
     status: str = "created"
 
-class ChatResponse(BaseModel):
+class ChatResponse(ApiBaseModel):
     """对话响应"""
     conversation_id: str
     response: str
@@ -52,13 +52,13 @@ class ChatResponse(BaseModel):
     completed: bool
     session_summary: Optional[Dict[str, Any]] = None
 
-class ConversationHistoryResponse(BaseModel):
+class ConversationHistoryResponse(ApiBaseModel):
     """对话历史响应"""
     conversation_id: str
     messages: List[Dict[str, Any]]
     summary: Dict[str, Any]
 
-class AgentStatusResponse(BaseModel):
+class AgentStatusResponse(ApiBaseModel):
     """智能体状态响应"""
     conversation_id: str
     status: str
@@ -85,7 +85,10 @@ async def create_agent_session(
             agent_id=result["agent_id"],
             agent_type=result["agent_type"]
         )
-        
+    except HTTPException:
+        raise
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
     except Exception as e:
         logger.error(
             "创建智能体会话失败",
@@ -122,11 +125,11 @@ async def chat_with_react_agent(
             
             return StreamingResponse(
                 generate_stream(),
-                media_type="text/plain",
+                media_type="text/event-stream",
                 headers={
                     "Cache-Control": "no-cache",
                     "Connection": "keep-alive",
-                    "Content-Type": "text/event-stream"
+                    "X-Accel-Buffering": "no"
                 }
             )
         else:

@@ -12,19 +12,19 @@ import pandas as pd
 from pathlib import Path
 import matplotlib.pyplot as plt
 import seaborn as sns
-import logging
-
 from ..engine import PersonalizationEngine
 from ..features.realtime import RealTimeFeatureEngine
 from ..models.service import ModelService
 from ..cache.feature_cache import FeatureCache
 from .performance import LoadTester, PerformanceMonitor
+from src.core.logging import setup_logging
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 @dataclass
 class BenchmarkConfig:
     """基准测试配置"""
+
     name: str
     description: str
     duration: int = 60
@@ -662,9 +662,10 @@ async def run_comprehensive_benchmark():
     """运行综合性能基准测试"""
     # 初始化组件
     from ...core.config import get_settings
-    import aioredis
-    
-    redis = await aioredis.create_redis_pool(settings.REDIS_URL)
+    import redis.asyncio as redis_async
+
+    settings = get_settings()
+    redis = redis_async.Redis.from_url(settings.REDIS_URL)
     
     feature_cache = FeatureCache(redis)
     feature_engine = RealTimeFeatureEngine(redis)
@@ -711,15 +712,19 @@ async def run_comprehensive_benchmark():
         logger.info(f"Benchmark {config.name} completed")
         
         # 打印关键结果
-        print(f"\n=== {config.name} Results ===")
-        print(f"P99延迟: {result.latency_percentiles.get('p99', 0):.2f}ms")
-        print(f"最大可持续RPS: {result.throughput_metrics.get('max_sustainable_rps', 0)}")
-        print(f"CPU峰值: {result.resource_usage.get('cpu_max', 0):.1f}%")
-        print(f"瓶颈数: {len(result.bottlenecks)}")
+        logger.info("基准测试结果", name=config.name)
+        logger.info("P99延迟", p99_ms=round(result.latency_percentiles.get("p99", 0), 2))
+        logger.info(
+            "最大可持续RPS",
+            max_sustainable_rps=result.throughput_metrics.get("max_sustainable_rps", 0),
+        )
+        logger.info("CPU峰值", cpu_max=round(result.resource_usage.get("cpu_max", 0), 1))
+        logger.info("瓶颈数", total=len(result.bottlenecks))
         
     # 清理
-    redis.close()
-    await redis.wait_closed()
+    await redis.aclose()
 
 if __name__ == "__main__":
+    setup_logging()
     asyncio.run(run_comprehensive_benchmark())
+from src.core.logging import get_logger

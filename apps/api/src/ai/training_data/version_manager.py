@@ -19,14 +19,11 @@ import shutil
 import os
 from dataclasses import dataclass
 from enum import Enum
-
 from sqlalchemy import select, and_, or_, func, desc
 from sqlalchemy.ext.asyncio import AsyncSession
 import pandas as pd
-
 from .models import DataVersionModel, DataRecordModel
 from .core import DataVersion, VersionComparison, DataRecord, DataFilter, ExportFormat
-
 
 class VersionOperation(Enum):
     """版本操作类型"""
@@ -36,14 +33,12 @@ class VersionOperation(Enum):
     MERGE = "merge"
     ROLLBACK = "rollback"
 
-
 class ConflictResolution(Enum):
     """冲突解决策略"""
     AUTO_MERGE = "auto_merge"
     MANUAL = "manual"
     LATEST_WINS = "latest_wins"
     OLDEST_WINS = "oldest_wins"
-
 
 @dataclass
 class VersionMetrics:
@@ -56,7 +51,6 @@ class VersionMetrics:
     data_hash: str
     parent_version: Optional[str] = None
 
-
 @dataclass
 class VersionDiff:
     """版本差异"""
@@ -67,7 +61,6 @@ class VersionDiff:
     modified_records: List[Dict[str, Any]]
     summary: Dict[str, int]
 
-
 @dataclass
 class MergeResult:
     """合并结果"""
@@ -76,7 +69,6 @@ class MergeResult:
     auto_resolved: int
     manual_resolution_needed: int
     success: bool
-
 
 class DataVersionManager:
     """数据版本管理器"""
@@ -457,9 +449,44 @@ class DataVersionManager:
     
     async def _restore_records_to_database(self, records: List[DataRecord]) -> None:
         """将记录恢复到数据库"""
-        # 这里可以选择性地更新数据库中的记录
-        # 具体实现取决于业务需求
-        pass
+        if not records:
+            return
+
+        record_ids = [record.record_id for record in records]
+        result = await self.db.execute(
+            select(DataRecordModel).where(DataRecordModel.record_id.in_(record_ids))
+        )
+        existing_records = {model.record_id: model for model in result.scalars().all()}
+
+        for record in records:
+            status_value = record.status.value if hasattr(record.status, "value") else str(record.status)
+            model = existing_records.get(record.record_id)
+            if model:
+                model.source_id = record.source_id
+                model.raw_data = record.raw_data or {}
+                model.processed_data = record.processed_data
+                model.metadata = record.metadata or {}
+                model.quality_score = record.quality_score
+                model.status = status_value
+                model.created_at = record.created_at
+                model.processed_at = record.processed_at
+                model.updated_at = utc_now()
+            else:
+                self.db.add(
+                    DataRecordModel(
+                        record_id=record.record_id,
+                        source_id=record.source_id,
+                        raw_data=record.raw_data or {},
+                        processed_data=record.processed_data,
+                        metadata=record.metadata or {},
+                        quality_score=record.quality_score,
+                        status=status_value,
+                        created_at=record.created_at,
+                        processed_at=record.processed_at,
+                    )
+                )
+
+        await self.db.commit()
     
     async def merge_versions(
         self,

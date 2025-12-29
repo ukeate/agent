@@ -1,5 +1,7 @@
+import { buildApiUrl, apiFetch } from '../utils/apiBase'
 import React, { useState, useEffect } from 'react'
 import {
+import { logger } from '../utils/logger'
   Card,
   Table,
   Button,
@@ -18,21 +20,17 @@ import {
   Row,
   Col,
   Statistic,
-  Timeline,
   Typography,
   Alert
 } from 'antd'
 import {
   PlusOutlined,
-  EditOutlined,
   DeleteOutlined,
   EyeOutlined,
   ReloadOutlined,
   ApiOutlined,
   CheckCircleOutlined,
-  ExclamationCircleOutlined,
-  ClockCircleOutlined,
-  SettingOutlined
+  ExclamationCircleOutlined
 } from '@ant-design/icons'
 import type { ColumnsType } from 'antd/es/table'
 
@@ -43,27 +41,20 @@ const { TextArea } = Input
 interface Component {
   component_id: string
   name: string
-  component_type: 'ai_service' | 'data_processor' | 'model_service' | 'monitoring_tool' | 'integration_service'
+  component_type: 'fine_tuning' | 'compression' | 'hyperparameter' | 'evaluation' | 'data_management' | 'model_service' | 'custom'
   version: string
-  status: 'healthy' | 'unhealthy'
+  status: 'healthy' | 'unhealthy' | 'starting' | 'stopping' | 'error'
   health_endpoint: string
   api_endpoint: string
   metadata: Record<string, any>
   last_check: string
   uptime: number
-  created_at: string
-  updated_at: string
+  registered_at: string
+  last_heartbeat: string
 }
 
 interface ComponentHealth {
   status: 'healthy' | 'unhealthy'
-  response_time: number
-  error_message?: string
-  checks: Array<{
-    name: string
-    status: 'pass' | 'fail'
-    message?: string
-  }>
 }
 
 const ComponentManagementPage: React.FC = () => {
@@ -82,13 +73,27 @@ const ComponentManagementPage: React.FC = () => {
   const fetchComponents = async () => {
     setLoading(true)
     try {
-      const response = await fetch('/api/v1/platform-integration/components')
-      if (response.ok) {
-        const data = await response.json()
-        setComponents(data.components || [])
-      } else {
-        message.error('获取组件列表失败')
-      }
+      const response = await apiFetch(buildApiUrl('/api/v1/platform/components'))
+      const data = await response.json()
+      const list = Object.values(data.components || {}).map((c: any) => {
+        const registeredAt = String(c.registered_at || '')
+        const lastHeartbeat = String(c.last_heartbeat || '')
+        return {
+          component_id: String(c.component_id || ''),
+          name: String(c.name || ''),
+          component_type: c.component_type,
+          version: String(c.version || ''),
+          status: c.status,
+          health_endpoint: String(c.health_endpoint || ''),
+          api_endpoint: String(c.api_endpoint || ''),
+          metadata: c.metadata || {},
+          last_check: lastHeartbeat,
+          uptime: registeredAt ? Math.max(0, (Date.now() - new Date(registeredAt).getTime()) / 1000) : 0,
+          registered_at: registeredAt,
+          last_heartbeat: lastHeartbeat
+        }
+      })
+      setComponents(list)
     } catch (error) {
       message.error('获取组件列表失败')
     } finally {
@@ -98,36 +103,54 @@ const ComponentManagementPage: React.FC = () => {
 
   const fetchComponentHealth = async (componentId: string) => {
     try {
-      const response = await fetch(`/api/v1/platform-integration/components/${componentId}/health`)
-      if (response.ok) {
-        const data = await response.json()
-        setComponentHealth(data)
-      }
+      const response = await apiFetch(buildApiUrl(`/api/v1/platform/components/${componentId}`))
+      const data = await response.json()
+      const c = data.component
+      if (!c) return
+      setComponentHealth({ status: c.current_health === 'healthy' ? 'healthy' : 'unhealthy' })
+      setSelectedComponent((prev) => {
+        if (!prev || prev.component_id !== componentId) return prev
+        const registeredAt = String(c.registered_at || prev.registered_at || '')
+        const lastHeartbeat = String(c.last_heartbeat || prev.last_heartbeat || '')
+        return {
+          ...prev,
+          ...c,
+          metadata: c.metadata || {},
+          last_check: lastHeartbeat,
+          uptime: registeredAt ? Math.max(0, (Date.now() - new Date(registeredAt).getTime()) / 1000) : 0,
+          registered_at: registeredAt,
+          last_heartbeat: lastHeartbeat
+        }
+      })
     } catch (error) {
-      console.error('获取组件健康状态失败:', error)
+      logger.error('获取组件健康状态失败:', error)
     }
   }
 
   const handleRegisterComponent = async (values: any) => {
     try {
-      const response = await fetch('/api/v1/platform-integration/components/register', {
+      let metadata = {}
+      if (values.metadata) {
+        try {
+          metadata = JSON.parse(values.metadata)
+        } catch {
+          message.error('元数据JSON格式错误')
+          return
+        }
+      }
+      const response = await apiFetch(buildApiUrl('/api/v1/platform/components/register'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...values,
-          metadata: values.metadata ? JSON.parse(values.metadata) : {}
+          metadata
         })
       })
-
-      if (response.ok) {
-        message.success('组件注册成功')
-        setModalVisible(false)
-        form.resetFields()
-        fetchComponents()
-      } else {
-        const error = await response.json()
-        message.error(`注册失败: ${error.detail}`)
-      }
+      await response.json().catch(() => null)
+      message.success('组件注册成功')
+      setModalVisible(false)
+      form.resetFields()
+      fetchComponents()
     } catch (error) {
       message.error('注册失败')
     }
@@ -135,16 +158,13 @@ const ComponentManagementPage: React.FC = () => {
 
   const handleUnregisterComponent = async (componentId: string) => {
     try {
-      const response = await fetch(`/api/v1/platform-integration/components/${componentId}/unregister`, {
+      const response = await apiFetch(buildApiUrl(`/api/v1/platform/components/${componentId}`), {
         method: 'DELETE'
       })
 
-      if (response.ok) {
-        message.success('组件注销成功')
-        fetchComponents()
-      } else {
-        message.error('注销失败')
-      }
+      await response.json().catch(() => null)
+      message.success('组件注销成功')
+      fetchComponents()
     } catch (error) {
       message.error('注销失败')
     }
@@ -152,16 +172,11 @@ const ComponentManagementPage: React.FC = () => {
 
   const handleHealthCheck = async (componentId: string) => {
     try {
-      const response = await fetch(`/api/v1/platform-integration/components/${componentId}/health-check`, {
-        method: 'POST'
-      })
-
-      if (response.ok) {
-        message.success('健康检查已启动')
-        setTimeout(fetchComponents, 2000)
-      } else {
-        message.error('健康检查失败')
-      }
+      const response = await apiFetch(buildApiUrl(`/api/v1/platform/components/${componentId}`))
+      await response.json().catch(() => null)
+      message.success('健康检查完成')
+      await fetchComponentHealth(componentId)
+      fetchComponents()
     } catch (error) {
       message.error('健康检查失败')
     }
@@ -175,22 +190,25 @@ const ComponentManagementPage: React.FC = () => {
 
   const getTypeColor = (type: string) => {
     const colors = {
-      ai_service: 'blue',
-      data_processor: 'green',
-      model_service: 'purple',
-      monitoring_tool: 'orange',
-      integration_service: 'cyan'
+      fine_tuning: 'blue',
+      compression: 'purple',
+      hyperparameter: 'orange',
+      evaluation: 'green',
+      data_management: 'cyan',
+      model_service: 'gold'
     }
     return colors[type] || 'default'
   }
 
   const getTypeText = (type: string) => {
     const texts = {
-      ai_service: 'AI服务',
-      data_processor: '数据处理',
+      fine_tuning: '微调',
+      compression: '压缩',
+      hyperparameter: '超参数',
+      evaluation: '评估',
+      data_management: '数据管理',
       model_service: '模型服务',
-      monitoring_tool: '监控工具',
-      integration_service: '集成服务'
+      custom: '自定义'
     }
     return texts[type] || type
   }
@@ -388,11 +406,13 @@ const ComponentManagementPage: React.FC = () => {
             rules={[{ required: true, message: '请选择组件类型' }]}
           >
             <Select placeholder="选择组件类型">
-              <Option value="ai_service">AI服务</Option>
-              <Option value="data_processor">数据处理</Option>
+              <Option value="fine_tuning">微调</Option>
+              <Option value="compression">压缩</Option>
+              <Option value="hyperparameter">超参数</Option>
+              <Option value="evaluation">评估</Option>
+              <Option value="data_management">数据管理</Option>
               <Option value="model_service">模型服务</Option>
-              <Option value="monitoring_tool">监控工具</Option>
-              <Option value="integration_service">集成服务</Option>
+              <Option value="custom">自定义</Option>
             </Select>
           </Form.Item>
 
@@ -482,46 +502,22 @@ const ComponentManagementPage: React.FC = () => {
               <Descriptions.Item label="API端点">
                 {selectedComponent.api_endpoint}
               </Descriptions.Item>
-              <Descriptions.Item label="创建时间">
-                {new Date(selectedComponent.created_at).toLocaleString()}
+              <Descriptions.Item label="注册时间">
+                {new Date(selectedComponent.registered_at).toLocaleString()}
               </Descriptions.Item>
-              <Descriptions.Item label="更新时间">
-                {new Date(selectedComponent.updated_at).toLocaleString()}
+              <Descriptions.Item label="最后心跳">
+                {new Date(selectedComponent.last_heartbeat).toLocaleString()}
               </Descriptions.Item>
             </Descriptions>
 
             {componentHealth && (
               <div style={{ marginTop: 24 }}>
-                <Title level={4}>健康状态详情</Title>
+                <Title level={4}>健康状态</Title>
                 <Alert
                   type={componentHealth.status === 'healthy' ? 'success' : 'error'}
                   message={`状态: ${componentHealth.status === 'healthy' ? '健康' : '异常'}`}
-                  description={
-                    <div>
-                      <div>响应时间: {componentHealth.response_time}ms</div>
-                      {componentHealth.error_message && (
-                        <div>错误信息: {componentHealth.error_message}</div>
-                      )}
-                    </div>
-                  }
                   style={{ marginBottom: 16 }}
                 />
-                
-                {componentHealth.checks?.length > 0 && (
-                  <div>
-                    <Text strong>检查项目:</Text>
-                    <div style={{ marginTop: 8 }}>
-                      {componentHealth.checks.map((check, index) => (
-                        <div key={index} style={{ marginBottom: 8 }}>
-                          <Badge
-                            status={check.status === 'pass' ? 'success' : 'error'}
-                            text={`${check.name}: ${check.message || check.status}`}
-                          />
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
               </div>
             )}
 

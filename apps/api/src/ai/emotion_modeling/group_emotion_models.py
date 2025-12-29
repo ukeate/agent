@@ -3,12 +3,12 @@ Social Emotional Understanding System - Group Emotion Models
 群体情感理解系统的核心数据模型
 """
 
+from src.core.utils.timezone_utils import utc_now
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Dict, List, Any, Optional
 import uuid
 from enum import Enum
-
 
 class EmotionContagionType(Enum):
     """情感传染类型"""
@@ -17,14 +17,12 @@ class EmotionContagionType(Enum):
     AMPLIFICATION = "amplification"  # 放大效应
     DAMPENING = "dampening"  # 衰减效应
 
-
 class GroupCohesionLevel(Enum):
     """群体凝聚力水平"""
     HIGH = "high"  # 高凝聚力
     MEDIUM = "medium"  # 中等凝聚力
     LOW = "low"  # 低凝聚力
     FRAGMENTED = "fragmented"  # 分化状态
-
 
 @dataclass
 class EmotionState:
@@ -38,7 +36,6 @@ class EmotionState:
     timestamp: datetime
     confidence: float = 0.8  # 识别置信度
 
-
 @dataclass
 class ContagionPattern:
     """情感传染模式"""
@@ -51,7 +48,6 @@ class ContagionPattern:
     timestamp: datetime
     duration_seconds: int  # 持续时间
 
-
 @dataclass
 class EmotionalLeader:
     """情感领导者"""
@@ -61,7 +57,6 @@ class EmotionalLeader:
     influenced_participants: List[str]  # 被影响的参与者
     dominant_emotions: List[str]  # 主导的情感类型
     consistency_score: float  # 一致性分数 [0,1]
-
 
 @dataclass
 class GroupEmotionalState:
@@ -96,7 +91,6 @@ class GroupEmotionalState:
     analysis_confidence: float = 0.8  # 分析置信度
     data_completeness: float = 1.0  # 数据完整性
 
-
 @dataclass
 class GroupEmotionHistory:
     """群体情感历史记录"""
@@ -109,7 +103,7 @@ class GroupEmotionHistory:
         """获取特定情感的趋势变化"""
         recent_states = [
             state for state in self.emotional_states
-            if (datetime.now() - state.timestamp).seconds <= time_window_minutes * 60
+            if (utc_now() - state.timestamp).seconds <= time_window_minutes * 60
         ]
         
         return [
@@ -121,11 +115,10 @@ class GroupEmotionHistory:
         """获取极化指数趋势"""
         recent_states = [
             state for state in self.emotional_states
-            if (datetime.now() - state.timestamp).seconds <= time_window_minutes * 60
+            if (utc_now() - state.timestamp).seconds <= time_window_minutes * 60
         ]
         
         return [state.polarization_index for state in recent_states]
-
 
 @dataclass
 class GroupEmotionAnalysisConfig:
@@ -152,7 +145,6 @@ class GroupEmotionAnalysisConfig:
     # 质量控制
     min_data_points: int = 5  # 最少数据点
     confidence_threshold: float = 0.6  # 最低置信度阈值
-
 
 @dataclass
 class EmotionContagionEvent:
@@ -190,7 +182,6 @@ class EmotionContagionEvent:
             return 0.0
         return len(self.affected_participants) / (self.propagation_time_seconds / 60)
 
-
 @dataclass
 class GroupEmotionInsight:
     """群体情感洞察"""
@@ -215,11 +206,9 @@ class GroupEmotionInsight:
     engagement_level: float  # 参与度水平 [0,1]
     emotional_balance: float  # 情感平衡度 [0,1]
 
-
 def generate_group_id() -> str:
     """生成群体ID"""
     return f"group_{uuid.uuid4().hex[:8]}"
-
 
 def generate_event_id() -> str:
     """生成事件ID"""

@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import {
   Card,
   Row,
@@ -12,9 +12,7 @@ import {
   Table,
   Tabs,
   Alert,
-  Timeline,
-  Select,
-  Input
+  Timeline
 } from 'antd'
 import {
   NodeIndexOutlined,
@@ -29,6 +27,8 @@ import {
   WarningOutlined,
   InfoCircleOutlined
 } from '@ant-design/icons'
+import apiClient from '../services/apiClient'
+import { healthService } from '../services/healthService'
 
 const { TabPane } = Tabs
 
@@ -41,9 +41,9 @@ interface Component {
   dependencies: string[]
   endpoints?: string[]
   metrics: {
-    uptime: number
-    responseTime: number
-    errorRate: number
+    uptime: number | null
+    responseTime: number | null
+    errorRate: number | null
   }
 }
 
@@ -57,101 +57,11 @@ interface DebugSession {
 }
 
 const ArchitectureDebugPage: React.FC = () => {
-  const [components] = useState<Component[]>([
-    {
-      id: '1',
-      name: 'Web前端',
-      type: 'ui',
-      status: 'healthy',
-      version: '1.0.0',
-      dependencies: ['api-gateway'],
-      metrics: { uptime: 99.9, responseTime: 120, errorRate: 0.1 }
-    },
-    {
-      id: '2', 
-      name: 'API网关',
-      type: 'api',
-      status: 'healthy',
-      version: '2.1.0',
-      dependencies: ['agent-service', 'rag-service'],
-      endpoints: ['/api/agents', '/api/rag', '/api/workflows'],
-      metrics: { uptime: 99.8, responseTime: 85, errorRate: 0.2 }
-    },
-    {
-      id: '3',
-      name: '智能体服务',
-      type: 'service',
-      status: 'warning',
-      version: '1.5.2',
-      dependencies: ['postgresql', 'redis'],
-      metrics: { uptime: 98.5, responseTime: 250, errorRate: 1.5 }
-    },
-    {
-      id: '4',
-      name: 'RAG服务',
-      type: 'service', 
-      status: 'healthy',
-      version: '1.3.1',
-      dependencies: ['qdrant', 'postgresql'],
-      metrics: { uptime: 99.5, responseTime: 180, errorRate: 0.3 }
-    },
-    {
-      id: '5',
-      name: 'PostgreSQL',
-      type: 'database',
-      status: 'healthy',
-      version: '15.2',
-      dependencies: [],
-      metrics: { uptime: 99.9, responseTime: 45, errorRate: 0.0 }
-    },
-    {
-      id: '6',
-      name: 'Qdrant向量库',
-      type: 'database',
-      status: 'error',
-      version: '1.7.0',
-      dependencies: [],
-      metrics: { uptime: 95.2, responseTime: 350, errorRate: 3.2 }
-    },
-    {
-      id: '7',
-      name: 'Redis缓存',
-      type: 'database',
-      status: 'healthy',
-      version: '7.0.8',
-      dependencies: [],
-      metrics: { uptime: 99.7, responseTime: 15, errorRate: 0.1 }
-    }
-  ])
-
-  const [debugSessions] = useState<DebugSession[]>([
-    {
-      id: '1',
-      timestamp: '2024-01-15 14:30:00',
-      component: 'Qdrant向量库',
-      issue: '连接超时频繁发生',
-      status: 'investigating',
-      priority: 'high'
-    },
-    {
-      id: '2',
-      timestamp: '2024-01-15 13:45:00', 
-      component: '智能体服务',
-      issue: '响应时间过长',
-      status: 'pending',
-      priority: 'medium'
-    },
-    {
-      id: '3',
-      timestamp: '2024-01-15 12:20:00',
-      component: 'API网关',
-      issue: '负载均衡配置问题',
-      status: 'resolved',
-      priority: 'low'
-    }
-  ])
-
-  const [selectedComponent, setSelectedComponent] = useState<Component | null>(components[0])
+  const [components, setComponents] = useState<Component[]>([])
+  const [debugSessions, setDebugSessions] = useState<DebugSession[]>([])
+  const [selectedComponent, setSelectedComponent] = useState<Component | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   const statusColors = {
     healthy: 'success',
@@ -187,126 +97,114 @@ const ArchitectureDebugPage: React.FC = () => {
     pending: 'warning'
   }
 
-  const treeData = [
-    {
-      title: (
-        <Space>
-          <NodeIndexOutlined />
-          <span>系统架构</span>
-        </Space>
-      ),
-      key: 'root',
-      children: [
-        {
-          title: (
-            <Space>
-              <Badge status={statusColors.healthy} />
-              <span>前端层</span>
-            </Space>
-          ),
-          key: 'frontend',
-          children: [
-            {
-              title: (
-                <Space>
-                  {statusIcons.healthy}
-                  <span>Web前端</span>
-                </Space>
-              ),
-              key: '1'
-            }
-          ]
-        },
-        {
-          title: (
-            <Space>
-              <Badge status={statusColors.healthy} />
-              <span>API层</span>
-            </Space>
-          ),
-          key: 'api',
-          children: [
-            {
-              title: (
-                <Space>
-                  {statusIcons.healthy}
-                  <span>API网关</span>
-                </Space>
-              ),
-              key: '2'
-            }
-          ]
-        },
-        {
-          title: (
-            <Space>
-              <Badge status={statusColors.warning} />
-              <span>服务层</span>
-            </Space>
-          ),
-          key: 'services',
-          children: [
-            {
-              title: (
-                <Space>
-                  {statusIcons.warning}
-                  <span>智能体服务</span>
-                </Space>
-              ),
-              key: '3'
-            },
-            {
-              title: (
-                <Space>
-                  {statusIcons.healthy}
-                  <span>RAG服务</span>
-                </Space>
-              ),
-              key: '4'
-            }
-          ]
-        },
-        {
-          title: (
-            <Space>
-              <Badge status={statusColors.error} />
-              <span>数据层</span>
-            </Space>
-          ),
-          key: 'data',
-          children: [
-            {
-              title: (
-                <Space>
-                  {statusIcons.healthy}
-                  <span>PostgreSQL</span>
-                </Space>
-              ),
-              key: '5'
-            },
-            {
-              title: (
-                <Space>
-                  {statusIcons.error}
-                  <span>Qdrant向量库</span>
-                </Space>
-              ),
-              key: '6'
-            },
-            {
-              title: (
-                <Space>
-                  {statusIcons.healthy}
-                  <span>Redis缓存</span>
-                </Space>
-              ),
-              key: '7'
-            }
-          ]
+  const mapHealthStatus = (status: string): Component['status'] => {
+    if (status === 'healthy') return 'healthy'
+    if (status === 'degraded') return 'warning'
+    if (status === 'unhealthy') return 'error'
+    return 'unknown'
+  }
+
+  const formatDuration = (seconds: number | null) => {
+    if (seconds === null || Number.isNaN(seconds)) return '-'
+    const hours = Math.floor(seconds / 3600)
+    const minutes = Math.floor((seconds % 3600) / 60)
+    return `${hours}h ${minutes}m`
+  }
+
+  const loadData = async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      const [health, alertsRes] = await Promise.all([
+        healthService.getHealth(true),
+        apiClient.get('/health/alerts')
+      ])
+      const componentEntries = Object.entries(health.components || {})
+      const nextComponents: Component[] = componentEntries.map(([name, data]) => {
+        const responseTime = typeof (data as any).response_time_ms === 'number'
+          ? (data as any).response_time_ms
+          : (typeof (data as any).response_time === 'number' ? (data as any).response_time : null)
+        const uptimeSeconds = typeof (data as any).uptime_seconds === 'number'
+          ? (data as any).uptime_seconds
+          : null
+        const componentType: Component['type'] =
+          name.includes('database') || name.includes('redis') ? 'database' :
+          name === 'api' ? 'api' : 'service'
+        return {
+          id: name,
+          name,
+          type: componentType,
+          status: mapHealthStatus((data as any).status),
+          version: '-',
+          dependencies: [],
+          metrics: {
+            uptime: uptimeSeconds,
+            responseTime,
+            errorRate: null
+          }
         }
-      ]
+      })
+      setComponents(nextComponents)
+      setSelectedComponent(prev => prev || nextComponents[0] || null)
+
+      const alerts = alertsRes.data?.alerts || []
+      const sessions: DebugSession[] = alerts.map((alert: any, idx: number) => ({
+        id: alert.name || `alert_${idx}`,
+        timestamp: alert.timestamp || new Date().toISOString(),
+        component: alert.component || alert.name || 'system',
+        issue: alert.message || '检测到系统告警',
+        status: 'investigating',
+        priority: alert.severity === 'critical' ? 'critical' : alert.severity === 'warning' ? 'medium' : 'low'
+      }))
+      setDebugSessions(sessions)
+    } catch (err) {
+      setError((err as Error).message || '加载架构数据失败')
+    } finally {
+      setLoading(false)
     }
-  ]
+  }
+
+  useEffect(() => {
+    loadData()
+  }, [])
+
+  const treeData = useMemo(() => {
+    const groups: Array<{ key: string; title: string; items: Component[] }> = [
+      { key: 'api', title: 'API层', items: components.filter(c => c.type === 'api') },
+      { key: 'services', title: '服务层', items: components.filter(c => c.type === 'service') },
+      { key: 'database', title: '数据层', items: components.filter(c => c.type === 'database') }
+    ].filter(group => group.items.length > 0)
+
+    return [
+      {
+        title: (
+          <Space>
+            <NodeIndexOutlined />
+            <span>系统架构</span>
+          </Space>
+        ),
+        key: 'root',
+        children: groups.map(group => ({
+          title: (
+            <Space>
+              <Badge status={statusColors.healthy} />
+              <span>{group.title}</span>
+            </Space>
+          ),
+          key: group.key,
+          children: group.items.map(item => ({
+            title: (
+              <Space>
+                {statusIcons[item.status]}
+                <span>{item.name}</span>
+              </Space>
+            ),
+            key: item.id
+          }))
+        }))
+      }
+    ]
+  }, [components, statusColors, statusIcons])
 
   const debugColumns = [
     {
@@ -364,7 +262,12 @@ const ArchitectureDebugPage: React.FC = () => {
   const healthyComponents = components.filter(c => c.status === 'healthy').length
   const warningComponents = components.filter(c => c.status === 'warning').length
   const errorComponents = components.filter(c => c.status === 'error').length
-  const avgUptime = Math.round(components.reduce((sum, c) => sum + c.metrics.uptime, 0) / components.length * 10) / 10
+  const responseTimes = components
+    .map(c => c.metrics.responseTime)
+    .filter((value): value is number => typeof value === 'number')
+  const avgResponseTime = responseTimes.length
+    ? Math.round((responseTimes.reduce((sum, value) => sum + value, 0) / responseTimes.length) * 10) / 10
+    : null
 
   return (
     <div className="p-6">
@@ -375,7 +278,7 @@ const ArchitectureDebugPage: React.FC = () => {
               <Button icon={<BugOutlined />}>
                 开始调试会话
               </Button>
-              <Button icon={<ReloadOutlined />}>
+              <Button icon={<ReloadOutlined />} onClick={loadData} loading={loading}>
                 刷新状态
               </Button>
               <Button icon={<SettingOutlined />}>
@@ -383,6 +286,16 @@ const ArchitectureDebugPage: React.FC = () => {
               </Button>
             </Space>
           </div>
+
+          {error && (
+            <Alert
+              message="架构数据加载失败"
+              description={error}
+              type="error"
+              showIcon
+              className="mb-4"
+            />
+          )}
 
           <Row gutter={16} className="mb-6">
             <Col span={6}>
@@ -412,8 +325,10 @@ const ArchitectureDebugPage: React.FC = () => {
             <Col span={6}>
               <Card>
                 <div className="text-center">
-                  <div className="text-2xl font-bold text-blue-500">{avgUptime}%</div>
-                  <div className="text-gray-600">平均可用性</div>
+                  <div className="text-2xl font-bold text-blue-500">
+                    {avgResponseTime !== null ? `${avgResponseTime}ms` : '-'}
+                  </div>
+                  <div className="text-gray-600">平均响应时间</div>
                 </div>
               </Card>
             </Col>
@@ -466,14 +381,14 @@ const ArchitectureDebugPage: React.FC = () => {
                           {selectedComponent.type}
                         </Space>
                       </Descriptions.Item>
-                      <Descriptions.Item label="可用性">
-                        {selectedComponent.metrics.uptime}%
+                      <Descriptions.Item label="运行时长">
+                        {formatDuration(selectedComponent.metrics.uptime)}
                       </Descriptions.Item>
                       <Descriptions.Item label="响应时间">
-                        {selectedComponent.metrics.responseTime}ms
+                        {selectedComponent.metrics.responseTime !== null ? `${selectedComponent.metrics.responseTime}ms` : '-'}
                       </Descriptions.Item>
                       <Descriptions.Item label="错误率">
-                        {selectedComponent.metrics.errorRate}%
+                        {selectedComponent.metrics.errorRate !== null ? `${selectedComponent.metrics.errorRate}%` : '-'}
                       </Descriptions.Item>
                       <Descriptions.Item label="依赖" span={2}>
                         <Space wrap>
@@ -508,6 +423,7 @@ const ArchitectureDebugPage: React.FC = () => {
                     columns={debugColumns}
                     dataSource={debugSessions}
                     rowKey="id"
+                    loading={loading}
                     pagination={false}
                     size="small"
                   />

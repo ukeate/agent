@@ -4,22 +4,17 @@ import asyncio
 import os
 import signal
 import psutil
-import logging
 from typing import Any, Dict, List, Optional
 from datetime import datetime
 from src.core.utils.timezone_utils import utc_now, utc_factory
-
 from ..client import get_mcp_client_manager
 from ..exceptions import MCPConnectionError
 
-logger = logging.getLogger(__name__)
-
+logger = get_logger(__name__)
 
 class SystemSecurityError(Exception):
     """系统安全异常"""
-    pass
-
-
+    ...
 class SystemTool:
     """系统命令MCP工具实现"""
     
@@ -201,9 +196,10 @@ class SystemTool:
                 # 杀死超时的进程
                 try:
                     process.kill()
-                    await process.wait()
-                except:
-                    pass
+                except ProcessLookupError:
+                    logger.debug("进程已结束，无需终止", exc_info=True)
+                except Exception:
+                    logger.exception("终止超时进程失败", exc_info=True)
                 
                 logger.warning(f"Command timeout: {command}")
                 return {
@@ -415,10 +411,8 @@ class SystemTool:
                 "error_type": "UnknownError"
             }
 
-
 # 全局系统工具实例
 system_tool = SystemTool()
-
 
 async def call_system_tool(tool_name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
     """调用系统工具的统一接口"""
@@ -453,3 +447,4 @@ async def call_system_tool(tool_name: str, arguments: Dict[str, Any]) -> Dict[st
             "error": str(e),
             "error_type": "ToolError"
         }
+from src.core.logging import get_logger

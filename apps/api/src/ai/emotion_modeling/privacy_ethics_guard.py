@@ -3,22 +3,21 @@
 实现多方隐私保护、文化敏感度保护和伦理边界控制
 """
 
+from src.core.utils.timezone_utils import utc_now
 import asyncio
 import hashlib
 import json
-import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import Enum
 from typing import Dict, List, Optional, Set, Tuple, Any, Union
 import re
 from collections import defaultdict
-
 from .models import EmotionVector, SocialContext
 from .core_interfaces import EmotionModelingInterface
 
-logger = logging.getLogger(__name__)
-
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 class PrivacyLevel(Enum):
     """隐私保护级别"""
@@ -26,7 +25,6 @@ class PrivacyLevel(Enum):
     RESTRICTED = "restricted"
     CONFIDENTIAL = "confidential"
     HIGHLY_CONFIDENTIAL = "highly_confidential"
-
 
 class EthicalRisk(Enum):
     """伦理风险类型"""
@@ -37,14 +35,12 @@ class EthicalRisk(Enum):
     CONSENT_VIOLATION = "consent_violation"
     DATA_MISUSE = "data_misuse"
 
-
 class ConsentType(Enum):
     """同意类型"""
     EXPLICIT = "explicit"
     IMPLIED = "implied"
     WITHDRAWN = "withdrawn"
     EXPIRED = "expired"
-
 
 @dataclass
 class PrivacyPolicy:
@@ -59,7 +55,6 @@ class PrivacyPolicy:
     created_at: datetime
     updated_at: datetime
 
-
 @dataclass
 class ConsentRecord:
     """同意记录"""
@@ -72,7 +67,6 @@ class ConsentRecord:
     withdrawal_date: Optional[datetime]
     ip_address: str
     user_agent: str
-
 
 @dataclass
 class EthicalViolation:
@@ -87,7 +81,6 @@ class EthicalViolation:
     action_taken: str
     resolved: bool
 
-
 @dataclass
 class CulturalSensitivity:
     """文化敏感性配置"""
@@ -97,7 +90,6 @@ class CulturalSensitivity:
     communication_norms: Dict[str, Any]
     privacy_expectations: Dict[str, float]
     consent_requirements: Dict[str, str]
-
 
 @dataclass
 class DataProcessingRecord:
@@ -112,7 +104,6 @@ class DataProcessingRecord:
     anonymized: bool
     shared_with: List[str]
     legal_basis: str
-
 
 class PrivacyEthicsGuard(EmotionModelingInterface):
     """隐私保护和伦理机制守护系统"""
@@ -290,7 +281,7 @@ class PrivacyEthicsGuard(EmotionModelingInterface):
                 if (consent.consent_type in [ConsentType.EXPLICIT, ConsentType.IMPLIED] and
                     category in consent.data_categories and
                     consent.purpose == purpose and
-                    (not consent.expiry_date or consent.expiry_date > datetime.now()) and
+                    (not consent.expiry_date or consent.expiry_date > utc_now()) and
                     not consent.withdrawal_date):
                     valid_consent = True
                     break
@@ -395,12 +386,12 @@ class PrivacyEthicsGuard(EmotionModelingInterface):
     ) -> None:
         """记录处理活动"""
         processing_record = DataProcessingRecord(
-            processing_id=f"proc_{datetime.now().isoformat()}_{user_id}",
+            processing_id=f"proc_{utc_now().isoformat()}_{user_id}",
             user_id=user_id,
             data_type="emotional_data",
             purpose=purpose,
             processing_method="automated_analysis",
-            timestamp=datetime.now(),
+            timestamp=utc_now(),
             retention_period=self.privacy_policies[user_id].data_retention_days,
             anonymized=self.privacy_policies[user_id].anonymization_required,
             shared_with=[],
@@ -579,12 +570,12 @@ class PrivacyEthicsGuard(EmotionModelingInterface):
     ) -> None:
         """记录伦理违规"""
         violation = EthicalViolation(
-            violation_id=f"viol_{datetime.now().isoformat()}_{risk_type.value}",
+            violation_id=f"viol_{utc_now().isoformat()}_{risk_type.value}",
             risk_type=risk_type,
             severity=context.get("risk_score", 0.5),
             description=description,
             context=context,
-            timestamp=datetime.now(),
+            timestamp=utc_now(),
             user_affected=user_id,
             action_taken="blocked",
             resolved=False
@@ -693,14 +684,14 @@ class PrivacyEthicsGuard(EmotionModelingInterface):
         """管理用户同意"""
         expiry_date = None
         if expiry_days:
-            expiry_date = datetime.now() + timedelta(days=expiry_days)
+            expiry_date = utc_now() + timedelta(days=expiry_days)
         
         consent_record = ConsentRecord(
             user_id=user_id,
             consent_type=consent_type,
             data_categories=data_categories,
             purpose=purpose,
-            timestamp=datetime.now(),
+            timestamp=utc_now(),
             expiry_date=expiry_date,
             withdrawal_date=None,
             ip_address=ip_address,
@@ -726,7 +717,7 @@ class PrivacyEthicsGuard(EmotionModelingInterface):
                 if (consent.data_categories == data_categories and 
                     consent.purpose == purpose and
                     not consent.withdrawal_date):
-                    consent.withdrawal_date = datetime.now()
+                    consent.withdrawal_date = utc_now()
                     consent.consent_type = ConsentType.WITHDRAWN
                     
                     logger.info(f"Consent withdrawn for user {user_id}: {purpose}")
@@ -776,8 +767,8 @@ class PrivacyEthicsGuard(EmotionModelingInterface):
             ],
             sensitive_data_categories=["emotional_state", "personal_context"],
             geographic_restrictions=[],
-            created_at=datetime.now(),
-            updated_at=datetime.now()
+            created_at=utc_now(),
+            updated_at=utc_now()
         )
         
         self.privacy_policies[user_id] = privacy_policy
@@ -875,7 +866,7 @@ class PrivacyEthicsGuard(EmotionModelingInterface):
     async def cleanup_expired_data(self) -> None:
         """清理过期数据"""
         try:
-            current_time = datetime.now()
+            current_time = utc_now()
             
             # 清理过期的处理记录
             self.processing_records = [

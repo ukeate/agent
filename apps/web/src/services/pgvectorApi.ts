@@ -47,7 +47,7 @@ export class PgVectorApi {
   }
 
   async applyQuantizationConfig(config: QuantizationConfig): Promise<void> {
-    await apiClient.post(`${this.baseUrl}/quantization/config`, config);
+    await apiClient.post(`${this.baseUrl}/quantization/configure`, config);
   }
 
   async testQuantization(config: QuantizationConfig): Promise<any[]> {
@@ -121,7 +121,13 @@ export class PgVectorApi {
     index_type: 'hnsw' | 'ivf' | 'hybrid';
     config: any;
   }): Promise<any> {
-    const response = await apiClient.post(`${this.baseUrl}/indexes/create`, params);
+    const response = await apiClient.post(`${this.baseUrl}/indexes/create`, {
+      table_name: params.table_name,
+      column_name: params.vector_column,
+      index_type: params.index_type,
+      distance_metric: 'l2',
+      index_options: params.config,
+    });
     return response.data;
   }
 
@@ -134,6 +140,11 @@ export class PgVectorApi {
   async clearCache(): Promise<{ success: boolean }> {
     const response = await apiClient.post(`${this.baseUrl}/cache/clear`);
     return response.data;
+  }
+
+  async listIndexes(): Promise<any[]> {
+    const response = await apiClient.get(`${this.baseUrl}/indexes/list`);
+    return response.data.indexes || [];
   }
 }
 

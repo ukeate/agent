@@ -1,8 +1,7 @@
+from src.core.utils.timezone_utils import utc_now
 import pytest
 import asyncio
-from datetime import datetime
 from unittest.mock import Mock, AsyncMock
-
 from ....ai.fault_tolerance.recovery_manager import (
     RecoveryManager,
     RecoveryStrategy
@@ -11,6 +10,7 @@ from ....ai.fault_tolerance.fault_detector import (
     FaultEvent,
     FaultType,
     FaultSeverity
+
 )
 
 @pytest.fixture
@@ -57,7 +57,7 @@ def sample_fault_event():
         fault_type=FaultType.AGENT_UNRESPONSIVE,
         severity=FaultSeverity.HIGH,
         affected_components=["agent-1"],
-        detected_at=datetime.now(),
+        detected_at=utc_now(),
         description="Test agent unresponsive",
         context={"test": "data"}
     )
@@ -107,7 +107,7 @@ class TestRecoveryManager:
             fault_type=FaultType.AGENT_ERROR,
             severity=FaultSeverity.MEDIUM,
             affected_components=["agent-1", "agent-2"],
-            detected_at=datetime.now(),
+            detected_at=utc_now(),
             description="Test error",
             context={}
         )
@@ -134,7 +134,7 @@ class TestRecoveryManager:
             fault_type=FaultType.PERFORMANCE_DEGRADATION,
             severity=FaultSeverity.LOW,
             affected_components=["agent-1"],
-            detected_at=datetime.now(),
+            detected_at=utc_now(),
             description="Performance degraded",
             context={}
         )
@@ -157,7 +157,7 @@ class TestRecoveryManager:
             fault_type=FaultType.RESOURCE_EXHAUSTION,
             severity=FaultSeverity.HIGH,
             affected_components=["agent-1"],
-            detected_at=datetime.now(),
+            detected_at=utc_now(),
             description="Resource exhausted",
             context={}
         )
@@ -192,7 +192,7 @@ class TestRecoveryManager:
             fault_type=FaultType.NETWORK_PARTITION,
             severity=FaultSeverity.CRITICAL,
             affected_components=["network"],
-            detected_at=datetime.now(),
+            detected_at=utc_now(),
             description="Network partition",
             context={}
         )
@@ -212,7 +212,7 @@ class TestRecoveryManager:
             fault_type=FaultType.DATA_CORRUPTION,
             severity=FaultSeverity.CRITICAL,
             affected_components=["agent-1"],
-            detected_at=datetime.now(),
+            detected_at=utc_now(),
             description="Data corruption detected",
             context={}
         )
@@ -229,7 +229,7 @@ class TestRecoveryManager:
             fault_type=FaultType.AGENT_ERROR,
             severity=FaultSeverity.MEDIUM,
             affected_components=["agent-1"],
-            detected_at=datetime.now(),
+            detected_at=utc_now(),
             description="Agent error",
             context={}
         )
@@ -258,7 +258,7 @@ class TestRecoveryManager:
             fault_type=FaultType.AGENT_UNRESPONSIVE,
             severity=FaultSeverity.HIGH,
             affected_components=["agent-1"],
-            detected_at=datetime.now(),
+            detected_at=utc_now(),
             description="Agent unresponsive",
             context={}
         )
@@ -295,7 +295,7 @@ class TestRecoveryManager:
             fault_type=FaultType.AGENT_ERROR,
             severity=FaultSeverity.HIGH,
             affected_components=["agent-1"],
-            detected_at=datetime.now(),
+            detected_at=utc_now(),
             description="Agent error",
             context={}
         )
@@ -374,7 +374,7 @@ class TestRecoveryManager:
             fault_type=FaultType.AGENT_ERROR,
             severity=FaultSeverity.MEDIUM,
             affected_components=["agent-1"],
-            detected_at=datetime.now(),
+            detected_at=utc_now(),
             description="Test error",
             context={}
         )
@@ -407,7 +407,7 @@ class TestRecoveryManager:
             fault_type=FaultType.AGENT_ERROR,
             severity=FaultSeverity.LOW,
             affected_components=["agent-1"],
-            detected_at=datetime.now(),
+            detected_at=utc_now(),
             description="Trigger cleanup",
             context={}
         )
@@ -449,7 +449,7 @@ class TestRecoveryManager:
             fault_type=FaultType.NODE_FAILURE,
             severity=FaultSeverity.CRITICAL,
             affected_components=["system", "agent-1"],
-            detected_at=datetime.now(),
+            detected_at=utc_now(),
             description="System failure",
             context={}
         )

@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react'
+import React, { useEffect, useState, useMemo } from 'react'
 import { 
   Card, 
   Typography, 
@@ -9,14 +9,11 @@ import {
   Table, 
   Tabs, 
   Select, 
-  Form, 
-  Switch,
   Statistic,
   Tag,
   Progress,
   message,
   Alert,
-  Collapse,
   Timeline,
   List
 } from 'antd'
@@ -30,208 +27,215 @@ import {
   DatabaseOutlined,
   ClockCircleOutlined
 } from '@ant-design/icons'
+import { sparqlService } from '../services/sparqlService'
 
 const { Title, Text, Paragraph } = Typography
 const { TabPane } = Tabs
 const { Option } = Select
-const { Panel } = Collapse
 
 interface OptimizationRule {
   id: string
-  name: string
   description: string
-  type: 'rewrite' | 'join' | 'index' | 'cache'
-  enabled: boolean
-  impact: 'high' | 'medium' | 'low'
-  metrics: {
-    applied: number
-    improved: number
-    avgImprovement: number
-  }
+  source: string
 }
 
 interface QueryPlan {
   original: string
   optimized: string
   steps: string[]
-  estimatedCost: number
-  actualCost: number
-  improvement: number
+  estimatedCost: number | null
+  actualCost: number | null
+  improvement: number | null
 }
 
 const SparqlOptimization: React.FC = () => {
   const [loading, setLoading] = useState(false)
   const [selectedLevel, setSelectedLevel] = useState('standard')
-  
-  const [optimizationRules] = useState<OptimizationRule[]>([
-    {
-      id: '1',
-      name: '连接重排序',
-      description: '基于选择性重新排序连接操作',
-      type: 'join',
-      enabled: true,
-      impact: 'high',
-      metrics: { applied: 145, improved: 132, avgImprovement: 45.2 }
-    },
-    {
-      id: '2',
-      name: '谓词下推',
-      description: '将过滤条件推送到数据源层面',
-      type: 'rewrite',
-      enabled: true,
-      impact: 'high',
-      metrics: { applied: 89, improved: 78, avgImprovement: 62.1 }
-    },
-    {
-      id: '3',
-      name: '子查询提升',
-      description: '将子查询转换为连接操作',
-      type: 'rewrite',
-      enabled: true,
-      impact: 'medium',
-      metrics: { applied: 34, improved: 29, avgImprovement: 28.7 }
-    },
-    {
-      id: '4',
-      name: '索引提示',
-      description: '选择最优索引路径',
-      type: 'index',
-      enabled: true,
-      impact: 'high',
-      metrics: { applied: 203, improved: 189, avgImprovement: 38.9 }
-    },
-    {
-      id: '5',
-      name: '缓存利用',
-      description: '利用中间结果缓存',
-      type: 'cache',
-      enabled: false,
-      impact: 'medium',
-      metrics: { applied: 67, improved: 45, avgImprovement: 23.4 }
-    }
-  ])
-
-  const [queryPlan] = useState<QueryPlan>({
-    original: `HashJoin(
-  IndexScan(subject_index),
-  HashJoin(
-    TableScan(triples),
-    IndexScan(object_index)
-  )
-)`,
-    optimized: `MergeJoin(
-  IndexScan(subject_predicate_index),
-  IndexScan(predicate_object_index)
-)`,
-    steps: [
-      '分析查询模式和统计信息',
-      '识别可优化的连接顺序',
-      '选择最优索引组合',
-      '应用谓词下推优化',
-      '生成优化执行计划'
-    ],
-    estimatedCost: 1250,
-    actualCost: 380,
-    improvement: 69.6
+  const [error, setError] = useState<string | null>(null)
+  const [queryPlan, setQueryPlan] = useState<QueryPlan>({
+    original: '',
+    optimized: '',
+    steps: [],
+    estimatedCost: null,
+    actualCost: null,
+    improvement: null
   })
+  const [optimizationRules, setOptimizationRules] = useState<OptimizationRule[]>([])
+  const [optimizationHistory, setOptimizationHistory] = useState<Array<{
+    timestamp: string
+    query: string
+    execution_time: number
+    cached?: boolean
+    success?: boolean
+    result_count?: number
+  }>>([])
+  const [performanceSnapshot, setPerformanceSnapshot] = useState<{
+    avgTime: number | null
+    throughput: number | null
+    errorRate: number | null
+    cacheHitRate: number | null
+  } | null>(null)
+  const [prevSnapshot, setPrevSnapshot] = useState<typeof performanceSnapshot>(null)
 
   const optimizationColumns = [
     {
-      title: '规则名称',
-      dataIndex: 'name',
-      key: 'name',
-      render: (text: string, record: OptimizationRule) => (
-        <Space>
-          <Tag color={record.type === 'join' ? 'blue' : 
-                     record.type === 'rewrite' ? 'green' : 
-                     record.type === 'index' ? 'orange' : 'purple'}>
-            {record.type.toUpperCase()}
-          </Tag>
-          {text}
-        </Space>
-      )
-    },
-    {
-      title: '描述',
+      title: '优化建议',
       dataIndex: 'description',
       key: 'description',
       ellipsis: true
     },
     {
-      title: '影响度',
-      dataIndex: 'impact',
-      key: 'impact',
-      render: (impact: string) => (
-        <Tag color={impact === 'high' ? 'red' : impact === 'medium' ? 'orange' : 'green'}>
-          {impact === 'high' ? '高' : impact === 'medium' ? '中' : '低'}
-        </Tag>
-      )
-    },
-    {
-      title: '应用次数',
-      dataIndex: ['metrics', 'applied'],
-      key: 'applied'
-    },
-    {
-      title: '改进次数',
-      dataIndex: ['metrics', 'improved'],
-      key: 'improved'
-    },
-    {
-      title: '平均改进',
-      dataIndex: ['metrics', 'avgImprovement'],
-      key: 'avgImprovement',
-      render: (value: number) => `${value.toFixed(1)}%`
-    },
-    {
-      title: '状态',
-      dataIndex: 'enabled',
-      key: 'enabled',
-      render: (enabled: boolean) => (
-        <Switch checked={enabled} size="small" />
-      )
+      title: '来源',
+      dataIndex: 'source',
+      key: 'source',
+      render: (source: string) => <Tag color="blue">{source}</Tag>
     }
   ]
 
-  const performanceData = [
-    { metric: '查询吞吐量', before: 120, after: 256, unit: 'QPS' },
-    { metric: '平均响应时间', before: 850, after: 320, unit: 'ms' },
-    { metric: '资源利用率', before: 78, after: 45, unit: '%' },
-    { metric: '缓存命中率', before: 32, after: 67, unit: '%' }
-  ]
+  const performanceData = useMemo(() => {
+    const metrics = [
+      { key: 'throughput', metric: '查询吞吐量', unit: 'QPS' },
+      { key: 'avgTime', metric: '平均响应时间', unit: 'ms' },
+      { key: 'errorRate', metric: '错误率', unit: '%' },
+      { key: 'cacheHitRate', metric: '缓存命中率', unit: '%' }
+    ]
+    return metrics.map(item => ({
+      metric: item.metric,
+      unit: item.unit,
+      before: prevSnapshot ? (prevSnapshot as any)[item.key] : null,
+      after: performanceSnapshot ? (performanceSnapshot as any)[item.key] : null
+    }))
+  }, [performanceSnapshot, prevSnapshot])
 
-  const optimizationHistory = [
-    {
-      timestamp: '2024-01-15 14:30:25',
-      query: 'SELECT ?s ?p ?o WHERE { ?s ?p ?o } LIMIT 100',
-      improvement: 45.2,
-      rules: ['连接重排序', '索引提示']
-    },
-    {
-      timestamp: '2024-01-15 14:25:18',
-      query: 'SELECT ?person WHERE { ?person rdf:type foaf:Person }',
-      improvement: 62.1,
-      rules: ['谓词下推', '索引提示']
-    },
-    {
-      timestamp: '2024-01-15 14:20:33',
-      query: 'SELECT ?concept ?parent WHERE { ?concept rdfs:subClassOf ?parent }',
-      improvement: 28.7,
-      rules: ['子查询提升', '连接重排序']
-    }
-  ]
+  const isNumber = (value: number | null): value is number =>
+    typeof value === 'number' && !Number.isNaN(value)
 
-  const runOptimizationAnalysis = useCallback(async () => {
+  const levelMap: Record<string, 'NONE' | 'BASIC' | 'STANDARD' | 'AGGRESSIVE'> = {
+    basic: 'BASIC',
+    standard: 'STANDARD',
+    aggressive: 'AGGRESSIVE',
+    custom: 'NONE'
+  }
+
+  const buildPlanString = (plan: any) => {
+    if (!plan || !Array.isArray(plan.steps)) return ''
+    return plan.steps.map((step: any) => {
+      const cost = typeof step.estimated_cost === 'number' ? ` cost=${step.estimated_cost}` : ''
+      return `${step.operation}: ${step.description}${cost}`
+    }).join('\n')
+  }
+
+  const loadData = async () => {
     setLoading(true)
+    setError(null)
     try {
-      await new Promise(resolve => setTimeout(resolve, 2000))
-      message.success('优化分析完成')
-    } catch (error) {
-      message.error('优化分析失败')
+      const [performanceReport, cacheStats, history] = await Promise.all([
+        sparqlService.getPerformanceReport(),
+        sparqlService.getCacheStats(),
+        sparqlService.getQueryHistory(20, 0)
+      ])
+
+      const summary = performanceReport.performance_report?.performance_summary || {}
+      const execStats = summary.execution_time || {}
+      const queryCountStats = summary.query_count || {}
+      const windowMinutes = performanceReport.performance_report?.window_minutes || 60
+      const throughput = queryCountStats.count
+        ? queryCountStats.count / (windowMinutes * 60)
+        : null
+      const totalQueries = performanceReport.sparql_engine_stats?.total_queries || 0
+      const failedQueries = performanceReport.sparql_engine_stats?.failed_queries || 0
+      const errorRate = totalQueries > 0 ? (failedQueries / totalQueries) * 100 : null
+      const avgTime = isNumber(execStats.mean) ? execStats.mean : null
+
+      setPrevSnapshot(performanceSnapshot)
+      setPerformanceSnapshot({
+        avgTime,
+        throughput: isNumber(throughput) ? throughput : null,
+        errorRate: isNumber(errorRate) ? errorRate : null,
+        cacheHitRate: isNumber(cacheStats.cache_hit_rate) ? cacheStats.cache_hit_rate * 100 : null
+      })
+
+      const recs = performanceReport.recommendations || performanceReport.performance_report?.recommendations || []
+      setOptimizationRules(
+        recs.map((rec: string, index: number) => ({
+          id: `rec_${index}`,
+          description: rec,
+          source: '性能分析'
+        }))
+      )
+
+      const historyItems = Array.isArray(history) ? history : []
+      setOptimizationHistory(historyItems.map((item: any) => ({
+        timestamp: item.timestamp,
+        query: item.query,
+        execution_time: item.execution_time,
+        cached: item.cached,
+        success: item.status === 'success',
+        result_count: item.result_count
+      })))
+
+      const latest = historyItems.find((item: any) => item.status === 'success') || historyItems[0]
+      if (latest && latest.query) {
+        const optimizeLevel = levelMap[selectedLevel] || 'STANDARD'
+        const optimized = await sparqlService.optimizeQuery(latest.query, optimizeLevel as any)
+        const originalExplain = await sparqlService.explainQuery({
+          query: latest.query,
+          include_optimization: true,
+          include_statistics: true
+        })
+        const optimizedExplain = optimized.optimized_query
+          ? await sparqlService.explainQuery({
+              query: optimized.optimized_query,
+              include_optimization: true,
+              include_statistics: true
+            })
+          : null
+
+        const estimatedCost = originalExplain.execution_plan?.total_cost ?? null
+        const actualCost = optimizedExplain?.execution_plan?.total_cost ?? null
+        const improvement = (isNumber(estimatedCost) && isNumber(actualCost) && estimatedCost > 0)
+          ? ((estimatedCost - actualCost) / estimatedCost) * 100
+          : (typeof optimized.estimated_speedup === 'number' ? optimized.estimated_speedup * 100 : null)
+
+        setQueryPlan({
+          original: buildPlanString(originalExplain.execution_plan),
+          optimized: optimizedExplain ? buildPlanString(optimizedExplain.execution_plan) : optimized.optimized_query || '',
+          steps: Array.isArray(originalExplain.execution_plan?.steps)
+            ? originalExplain.execution_plan.steps.map((step: any) => step.description || step.operation)
+            : [],
+          estimatedCost,
+          actualCost,
+          improvement
+        })
+      } else {
+        setQueryPlan({
+          original: '',
+          optimized: '',
+          steps: [],
+          estimatedCost: null,
+          actualCost: null,
+          improvement: null
+        })
+      }
+    } catch (err) {
+      setError((err as Error).message || '加载优化数据失败')
     } finally {
       setLoading(false)
     }
-  }, [])
+  }
+
+  useEffect(() => {
+    loadData()
+  }, [selectedLevel])
+
+  const runOptimizationAnalysis = async () => {
+    try {
+      await loadData()
+      message.success('优化分析完成')
+    } catch (error) {
+      message.error('优化分析失败')
+    }
+  }
 
   return (
     <div style={{ padding: '24px', background: '#f0f2f5', minHeight: '100vh' }}>
@@ -243,6 +247,9 @@ const SparqlOptimization: React.FC = () => {
         <Paragraph>
           智能查询优化系统，支持多种优化策略和性能监控
         </Paragraph>
+        {error && (
+          <Alert type="error" message={error} showIcon style={{ marginTop: 12 }} />
+        )}
       </div>
 
       <Row gutter={[24, 24]}>
@@ -267,7 +274,7 @@ const SparqlOptimization: React.FC = () => {
               <Col span={6}>
                 <Statistic
                   title="总体改进率"
-                  value={42.3}
+                  value={isNumber(queryPlan.improvement) ? queryPlan.improvement : '-'}
                   suffix="%"
                   valueStyle={{ color: '#3f8600' }}
                   prefix={<BulbOutlined />}
@@ -276,8 +283,8 @@ const SparqlOptimization: React.FC = () => {
               <Col span={6}>
                 <Statistic
                   title="活跃规则数"
-                  value={optimizationRules.filter(r => r.enabled).length}
-                  suffix={`/ ${optimizationRules.length}`}
+                  value={optimizationRules.length}
+                  suffix=""
                   prefix={<SettingOutlined />}
                 />
               </Col>
@@ -320,11 +327,11 @@ const SparqlOptimization: React.FC = () => {
                         fontSize: '12px',
                         fontFamily: 'monospace'
                       }}>
-                        {queryPlan.original}
+                        {queryPlan.original || '暂无执行计划'}
                       </pre>
                       <Statistic
                         title="预估成本"
-                        value={queryPlan.estimatedCost}
+                        value={isNumber(queryPlan.estimatedCost) ? queryPlan.estimatedCost : '-'}
                         suffix="单位"
                       />
                     </Card>
@@ -338,13 +345,13 @@ const SparqlOptimization: React.FC = () => {
                         fontFamily: 'monospace',
                         border: '1px solid #b7eb8f'
                       }}>
-                        {queryPlan.optimized}
+                        {queryPlan.optimized || '暂无优化计划'}
                       </pre>
                       <Row gutter={16}>
                         <Col span={12}>
                           <Statistic
                             title="实际成本"
-                            value={queryPlan.actualCost}
+                            value={isNumber(queryPlan.actualCost) ? queryPlan.actualCost : '-'}
                             suffix="单位"
                             valueStyle={{ color: '#3f8600' }}
                           />
@@ -352,7 +359,7 @@ const SparqlOptimization: React.FC = () => {
                         <Col span={12}>
                           <Statistic
                             title="性能提升"
-                            value={queryPlan.improvement}
+                            value={isNumber(queryPlan.improvement) ? queryPlan.improvement : '-'}
                             suffix="%"
                             valueStyle={{ color: '#3f8600' }}
                           />
@@ -364,6 +371,9 @@ const SparqlOptimization: React.FC = () => {
 
                 <Card title="优化步骤" style={{ marginTop: '16px' }} size="small">
                   <Timeline>
+                    {queryPlan.steps.length === 0 && (
+                      <Timeline.Item color="gray">暂无优化步骤</Timeline.Item>
+                    )}
                     {queryPlan.steps.map((step, index) => (
                       <Timeline.Item
                         key={index}
@@ -388,24 +398,28 @@ const SparqlOptimization: React.FC = () => {
                           <Col span={12}>
                             <Statistic
                               title="优化前"
-                              value={data.before}
+                              value={isNumber(data.before) ? data.before : '-'}
                               suffix={data.unit}
                             />
                           </Col>
                           <Col span={12}>
                             <Statistic
                               title="优化后"
-                              value={data.after}
+                              value={isNumber(data.after) ? data.after : '-'}
                               suffix={data.unit}
                               valueStyle={{ color: '#3f8600' }}
                             />
                           </Col>
                         </Row>
-                        <Progress
-                          percent={((data.before - data.after) / data.before) * 100}
-                          status="success"
-                          style={{ marginTop: '8px' }}
-                        />
+                        {isNumber(data.before) && isNumber(data.after) && data.before > 0 ? (
+                          <Progress
+                            percent={((data.before - data.after) / data.before) * 100}
+                            status="success"
+                            style={{ marginTop: '8px' }}
+                          />
+                        ) : (
+                          <Text type="secondary" style={{ marginTop: '8px', display: 'block' }}>暂无对比数据</Text>
+                        )}
                       </Card>
                     </Col>
                   ))}
@@ -413,8 +427,12 @@ const SparqlOptimization: React.FC = () => {
 
                 <Alert
                   message="优化效果评估"
-                  description="当前优化配置显著改善了查询性能，建议保持现有设置"
-                  type="success"
+                  description={
+                    isNumber(queryPlan.improvement)
+                      ? `当前优化预计提升 ${queryPlan.improvement.toFixed(1)}%`
+                      : '暂无优化评估数据'
+                  }
+                  type={isNumber(queryPlan.improvement) && queryPlan.improvement > 0 ? 'success' : 'info'}
                   showIcon
                   style={{ marginTop: '16px' }}
                 />
@@ -433,7 +451,9 @@ const SparqlOptimization: React.FC = () => {
                   <Card size="small" style={{ width: '100%' }}>
                     <Space direction="vertical" size="small" style={{ width: '100%' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <Tag color="green">+{item.improvement}%</Tag>
+                        <Tag color={item.success ? 'green' : 'red'}>
+                          {isNumber(item.execution_time) ? `${item.execution_time.toFixed(1)}ms` : '-'}
+                        </Tag>
                         <Text type="secondary" style={{ fontSize: '12px' }}>
                           {item.timestamp}
                         </Text>
@@ -443,7 +463,7 @@ const SparqlOptimization: React.FC = () => {
                       </Text>
                       <div>
                         <Text type="secondary" style={{ fontSize: '12px' }}>
-                          应用规则: {item.rules.join(', ')}
+                          结果数: {item.result_count ?? '-'} | 缓存: {item.cached ? '是' : '否'}
                         </Text>
                       </div>
                     </Space>

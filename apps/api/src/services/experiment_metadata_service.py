@@ -1,6 +1,7 @@
 """
 A/B测试实验元数据管理服务 - 管理实验的元数据、标签、分类等信息
 """
+
 from typing import Dict, Any, List, Optional, Set
 from datetime import datetime
 from datetime import timedelta
@@ -8,10 +9,10 @@ from src.core.utils.timezone_utils import utc_now, utc_factory
 from dataclasses import dataclass
 import json
 import re
+from src.models.schemas.experiment import ExperimentConfig, ExperimentStatus
 
-from models.schemas.experiment import ExperimentConfig, ExperimentStatus
-from core.logging import logger
-
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 @dataclass
 class ExperimentMetadata:
@@ -31,7 +32,6 @@ class ExperimentMetadata:
     updated_by: str
     updated_at: datetime
 
-
 @dataclass
 class ExperimentTemplate:
     """实验模板"""
@@ -46,7 +46,6 @@ class ExperimentTemplate:
     created_by: str
     created_at: datetime
 
-
 @dataclass
 class ExperimentArchive:
     """实验归档信息"""
@@ -57,7 +56,6 @@ class ExperimentArchive:
     final_results: Dict[str, Any]
     lessons_learned: str
     retention_policy: str
-
 
 class ExperimentMetadataService:
     """实验元数据管理服务"""

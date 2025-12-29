@@ -1,7 +1,7 @@
 import React from 'react';
 import { Card, Statistic, Row, Col, Typography, Tag, Progress, Tooltip } from 'antd';
 import { DollarOutlined, FileTextOutlined, ApiOutlined } from '@ant-design/icons';
-// import { Pie } from '@ant-design/charts'; // 临时注释以解决启动问题
+import { Pie } from '@ant-design/charts';
 
 const { Text } = Typography;
 
@@ -61,10 +61,7 @@ const CostMonitor: React.FC<CostMonitorProps> = ({ totalCost, totalTokens, model
       {pieData.length > 0 && (
         <div className="mt-4">
           <Text strong>模型使用分布</Text>
-          {/* <Pie {...pieConfig} /> */}
-          <div className="text-center p-4 text-gray-500">
-            <Text>模型使用分布图（临时禁用图表组件）</Text>
-          </div>
+          <Pie {...pieConfig} />
         </div>
       )}
 

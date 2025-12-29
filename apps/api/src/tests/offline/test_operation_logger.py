@@ -9,12 +9,10 @@ from datetime import datetime
 from datetime import timedelta
 from src.core.utils.timezone_utils import utc_now, utc_factory
 from uuid import uuid4
-
 from ...offline.operation_logger import OperationLogger, OperationType, Operation
 from ...offline.state_manager import StateManager, SnapshotType, CompressionType
 from ...offline.models import OfflineDatabase
 from ...models.schemas.offline import VectorClock, SyncOperation, SyncOperationType
-
 
 class TestOperationLogger:
     """操作日志记录器测试"""
@@ -208,7 +206,6 @@ class TestOperationLogger:
         # 验证返回的是最新的操作
         assert operations_5[-1].data["index"] == 19  # 最新的操作
         assert operations_5[0].data["index"] == 15   # 从第15个开始
-
 
 class TestStateManager:
     """状态管理器测试"""

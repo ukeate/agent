@@ -2,38 +2,173 @@
 微调API接口
 提供LoRA/QLoRA微调的RESTful API
 """
+
 import os
+import json
 import uuid
 import asyncio
-import logging
+import threading
+import re
+import ast
+import tempfile
+import zipfile
 from typing import Dict, Any, List, Optional
 from datetime import datetime
 from src.core.utils.timezone_utils import utc_now, utc_factory
 from fastapi import APIRouter, HTTPException, BackgroundTasks, UploadFile, File, Form, Depends
-from fastapi.responses import FileResponse, JSONResponse
-from pydantic import BaseModel, Field
-from sqlalchemy.orm import Session
-from ...core.database import get_db
-from ...ai.fine_tuning import (
+from fastapi.responses import FileResponse
+from pydantic import Field
+from src.ai.fine_tuning import (
     LoRATrainer, QLoRATrainer, DistributedTrainer,
     TrainingConfig, LoRAConfig, QuantizationConfig, 
     ModelArchitecture, TrainingMode, QuantizationType,
     ConfigManager, ModelAdapterFactory, TrainingMonitor
 )
-from ...services.task_scheduler import TaskScheduler
-from ...repositories.task_repository import TaskRepository
+
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 # 创建路由
-router = APIRouter(prefix="/api/v1/fine-tuning", tags=["微调"])
+router = APIRouter(prefix="/fine-tuning", tags=["微调"])
 
 # 全局变量
 config_manager = ConfigManager()
-task_scheduler = TaskScheduler()
-logger = logging.getLogger(__name__)
 
+_JOBS_DIR = "./fine_tuning_jobs"
+_job_lock = threading.Lock()
+_job_controls: Dict[str, "JobControl"] = {}
+
+class JobControl:
+    def __init__(self):
+        self.cancel_event = threading.Event()
+        self.pause_event = threading.Event()
+
+def _ensure_jobs_dir() -> None:
+    os.makedirs(_JOBS_DIR, exist_ok=True)
+
+def _job_path(job_id: str) -> str:
+    return os.path.join(_JOBS_DIR, f"{job_id}.json")
+
+def _read_job(job_id: str) -> Optional[Dict[str, Any]]:
+    path = _job_path(job_id)
+    if not os.path.exists(path):
+        return None
+    with open(path, "r", encoding="utf-8") as f:
+        job = json.load(f)
+    normalized = _normalize_job_config(job)
+    if normalized:
+        _write_job(job)
+    return job
+
+def _parse_structured_config(raw: str) -> Optional[Dict[str, Any]]:
+    if not raw or "(" not in raw or ")" not in raw:
+        return None
+    body = raw[raw.find("(") + 1:raw.rfind(")")]
+    if not body:
+        return None
+    result: Dict[str, Any] = {}
+    for part in [p.strip() for p in body.split(",") if p.strip()]:
+        if "=" not in part:
+            continue
+        key, value = part.split("=", 1)
+        key = key.strip()
+        value = value.strip()
+        if value in ("None", "null"):
+            parsed = None
+        elif value in ("True", "False"):
+            parsed = value == "True"
+        elif value.startswith(("'", '"')) and value.endswith(("'", '"')):
+            parsed = value[1:-1]
+        elif value.startswith("[") or value.startswith("{") or value.startswith("("):
+            try:
+                parsed = ast.literal_eval(value)
+            except Exception:
+                parsed = value
+        else:
+            try:
+                parsed = int(value)
+            except ValueError:
+                try:
+                    parsed = float(value)
+                except ValueError:
+                    parsed = value
+        result[key] = parsed
+    return result or None
+
+def _normalize_job_config(job: Dict[str, Any]) -> bool:
+    config = job.get("config")
+    if not isinstance(config, dict):
+        return False
+    updated = False
+    lora_config = config.get("lora_config")
+    if isinstance(lora_config, str):
+        if lora_config in ("None", "null"):
+            config["lora_config"] = None
+            updated = True
+        else:
+            parsed = _parse_structured_config(lora_config)
+            if parsed is not None:
+                config["lora_config"] = parsed
+                updated = True
+    quant_config = config.get("quantization_config")
+    if isinstance(quant_config, str):
+        if quant_config in ("None", "null"):
+            config["quantization_config"] = None
+            updated = True
+        else:
+            parsed = _parse_structured_config(quant_config)
+            if parsed is not None:
+                config["quantization_config"] = parsed
+                updated = True
+    if updated:
+        job["config"] = config
+    return updated
+
+def _write_job(job: Dict[str, Any]) -> None:
+    job_id = str(job.get("job_id") or "").strip()
+    if not job_id:
+        raise ValueError("job_id不能为空")
+    _ensure_jobs_dir()
+    path = _job_path(job_id)
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(job, f, ensure_ascii=False, indent=2, default=str)
+
+def _update_job(job_id: str, updates: Dict[str, Any]) -> Dict[str, Any]:
+    with _job_lock:
+        job = _read_job(job_id)
+        if not job:
+            raise KeyError("任务不存在")
+        job.update(updates)
+        _write_job(job)
+        return job
+
+def _list_jobs() -> List[Dict[str, Any]]:
+    _ensure_jobs_dir()
+    jobs: List[Dict[str, Any]] = []
+    for name in os.listdir(_JOBS_DIR):
+        if not name.endswith(".json"):
+            continue
+        try:
+            job_id = name.removesuffix(".json")
+            job = _read_job(job_id)
+            if job:
+                jobs.append(job)
+        except Exception:
+            continue
+    jobs.sort(key=lambda j: str(j.get("created_at") or ""), reverse=True)
+    return jobs
+
+def _get_control(job_id: str) -> JobControl:
+    with _job_lock:
+        ctrl = _job_controls.get(job_id)
+        if ctrl:
+            return ctrl
+        ctrl = JobControl()
+        _job_controls[job_id] = ctrl
+        return ctrl
 
 # Pydantic模型定义
-class LoRAConfigRequest(BaseModel):
+class LoRAConfigRequest(ApiBaseModel):
     """LoRA配置请求模型"""
     rank: int = Field(16, ge=1, le=512, description="LoRA rank")
     alpha: int = Field(32, ge=1, le=1024, description="LoRA alpha")
@@ -41,8 +176,7 @@ class LoRAConfigRequest(BaseModel):
     target_modules: Optional[List[str]] = Field(None, description="目标模块列表")
     bias: str = Field("none", description="偏置设置")
 
-
-class QuantizationConfigRequest(BaseModel):
+class QuantizationConfigRequest(ApiBaseModel):
     """量化配置请求模型"""
     quantization_type: QuantizationType = Field(QuantizationType.NF4, description="量化类型")
     bits: int = Field(4, description="量化位数")
@@ -50,8 +184,7 @@ class QuantizationConfigRequest(BaseModel):
     quant_type: str = Field("nf4", description="量化方法")
     compute_dtype: str = Field("bfloat16", description="计算数据类型")
 
-
-class TrainingConfigRequest(BaseModel):
+class TrainingConfigRequest(ApiBaseModel):
     """训练配置请求模型"""
     job_name: str = Field(..., description="任务名称")
     model_name: str = Field(..., description="模型名称")
@@ -84,8 +217,7 @@ class TrainingConfigRequest(BaseModel):
     fp16: bool = Field(False, description="是否使用FP16")
     bf16: bool = Field(True, description="是否使用BF16")
 
-
-class TrainingJobResponse(BaseModel):
+class TrainingJobResponse(ApiBaseModel):
     """训练任务响应模型"""
     job_id: str = Field(..., description="任务ID")
     job_name: str = Field(..., description="任务名称")
@@ -99,25 +231,22 @@ class TrainingJobResponse(BaseModel):
     current_loss: Optional[float] = Field(None, description="当前损失")
     best_loss: Optional[float] = Field(None, description="最佳损失")
     error_message: Optional[str] = Field(None, description="错误信息")
+    config: Optional[Dict[str, Any]] = Field(None, description="训练配置")
 
-
-class ModelListResponse(BaseModel):
+class ModelListResponse(ApiBaseModel):
     """模型列表响应模型"""
     models: List[Dict[str, Any]] = Field(..., description="支持的模型列表")
     architectures: List[str] = Field(..., description="支持的架构列表")
 
-
-class ConfigTemplateResponse(BaseModel):
+class ConfigTemplateResponse(ApiBaseModel):
     """配置模板响应模型"""
     templates: Dict[str, Dict[str, Any]] = Field(..., description="配置模板")
-
 
 # API路由实现
 @router.post("/jobs", response_model=TrainingJobResponse)
 async def create_training_job(
     config: TrainingConfigRequest,
     background_tasks: BackgroundTasks,
-    db: Session = Depends(get_db)
 ):
     """创建微调任务"""
     try:
@@ -142,24 +271,28 @@ async def create_training_job(
                 status_code=400,
                 detail=f"配置验证失败: {'; '.join(validation_errors)}"
             )
-        
-        # 保存任务到数据库
-        task_repo = TaskRepository(db)
-        task_data = {
-            "job_id": job_id,
-            "job_name": config.job_name,
-            "status": "pending",
-            "config": training_config.__dict__,
-            "created_at": utc_now()
-        }
-        
-        # 将任务添加到后台队列
-        background_tasks.add_task(
-            _execute_training_job,
-            job_id,
-            training_config,
-            db
+
+        now = utc_now()
+        os.makedirs(os.path.join(training_config.output_dir, "logs"), exist_ok=True)
+        _write_job(
+            {
+                "job_id": job_id,
+                "job_name": config.job_name,
+                "status": "pending",
+                "created_at": now.isoformat(),
+                "started_at": None,
+                "completed_at": None,
+                "progress": 0.0,
+                "current_epoch": 0,
+                "total_epochs": int(config.num_train_epochs),
+                "current_loss": None,
+                "best_loss": None,
+                "error_message": None,
+                "config": training_config.__dict__,
+            }
         )
+        _get_control(job_id)
+        background_tasks.add_task(_execute_training_job, job_id, training_config)
         
         logger.info(f"创建微调任务: {job_id}")
         
@@ -167,27 +300,33 @@ async def create_training_job(
             job_id=job_id,
             job_name=config.job_name,
             status="pending",
-            created_at=utc_now(),
+            created_at=now,
+            progress=0.0,
             current_epoch=0,
             total_epochs=config.num_train_epochs
         )
         
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"创建微调任务失败: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
-
 
 @router.get("/jobs", response_model=List[TrainingJobResponse])
 async def list_training_jobs(
     status: Optional[str] = None,
     limit: int = 50,
     offset: int = 0,
-    db: Session = Depends(get_db)
 ):
     """获取微调任务列表"""
     try:
-        task_repo = TaskRepository(db)
-        jobs = task_repo.get_jobs(status=status, limit=limit, offset=offset)
+        jobs = _list_jobs()
+        if status:
+            jobs = [j for j in jobs if j.get("status") == status]
+        if offset > 0:
+            jobs = jobs[offset:]
+        if limit > 0:
+            jobs = jobs[:limit]
         
         return [
             TrainingJobResponse(
@@ -197,27 +336,28 @@ async def list_training_jobs(
                 created_at=job["created_at"],
                 started_at=job.get("started_at"),
                 completed_at=job.get("completed_at"),
-                progress=job.get("progress", 0.0),
-                current_epoch=job.get("current_epoch", 0),
-                total_epochs=job.get("total_epochs", 0),
+                progress=float(job.get("progress") or 0.0),
+                current_epoch=int(job.get("current_epoch") or 0),
+                total_epochs=int(job.get("total_epochs") or 0),
                 current_loss=job.get("current_loss"),
                 best_loss=job.get("best_loss"),
-                error_message=job.get("error_message")
+                error_message=job.get("error_message"),
+                config=job.get("config")
             )
             for job in jobs
         ]
         
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"获取任务列表失败: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
-
 @router.get("/jobs/{job_id}", response_model=TrainingJobResponse)
-async def get_training_job(job_id: str, db: Session = Depends(get_db)):
+async def get_training_job(job_id: str):
     """获取微调任务详情"""
     try:
-        task_repo = TaskRepository(db)
-        job = task_repo.get_job(job_id)
+        job = _read_job(job_id)
         
         if not job:
             raise HTTPException(status_code=404, detail="任务不存在")
@@ -230,23 +370,22 @@ async def get_training_job(job_id: str, db: Session = Depends(get_db)):
         logger.error(f"获取任务详情失败: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
-
 @router.put("/jobs/{job_id}/cancel")
-async def cancel_training_job(job_id: str, db: Session = Depends(get_db)):
+async def cancel_training_job(job_id: str):
     """取消微调任务"""
     try:
-        task_repo = TaskRepository(db)
-        job = task_repo.get_job(job_id)
+        job = _read_job(job_id)
         
         if not job:
             raise HTTPException(status_code=404, detail="任务不存在")
         
-        if job["status"] not in ["pending", "running"]:
+        if job.get("status") not in ["pending", "running", "paused"]:
             raise HTTPException(status_code=400, detail="任务无法取消")
         
-        # 取消任务
-        task_scheduler.cancel_task(job_id)
-        task_repo.update_job_status(job_id, "cancelled")
+        ctrl = _get_control(job_id)
+        ctrl.pause_event.clear()
+        ctrl.cancel_event.set()
+        _update_job(job_id, {"status": "cancelled", "completed_at": utc_now().isoformat()})
         
         return {"message": "任务已取消"}
         
@@ -256,18 +395,16 @@ async def cancel_training_job(job_id: str, db: Session = Depends(get_db)):
         logger.error(f"取消任务失败: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
-
 @router.delete("/jobs/{job_id}")
-async def delete_training_job(job_id: str, db: Session = Depends(get_db)):
+async def delete_training_job(job_id: str):
     """删除微调任务"""
     try:
-        task_repo = TaskRepository(db)
-        job = task_repo.get_job(job_id)
+        job = _read_job(job_id)
         
         if not job:
             raise HTTPException(status_code=404, detail="任务不存在")
         
-        if job["status"] == "running":
+        if job.get("status") == "running":
             raise HTTPException(status_code=400, detail="无法删除运行中的任务")
         
         # 删除任务文件
@@ -277,8 +414,11 @@ async def delete_training_job(job_id: str, db: Session = Depends(get_db)):
                 import shutil
                 shutil.rmtree(output_dir)
         
-        # 删除数据库记录
-        task_repo.delete_job(job_id)
+        with _job_lock:
+            path = _job_path(job_id)
+            if os.path.exists(path):
+                os.remove(path)
+            _job_controls.pop(job_id, None)
         
         return {"message": "任务已删除"}
         
@@ -288,17 +428,47 @@ async def delete_training_job(job_id: str, db: Session = Depends(get_db)):
         logger.error(f"删除任务失败: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
+@router.get("/jobs/{job_id}/download")
+async def download_training_artifacts(job_id: str, background_tasks: BackgroundTasks):
+    """下载训练产物"""
+    try:
+        job = _read_job(job_id)
+        
+        if not job:
+            raise HTTPException(status_code=404, detail="任务不存在")
+        
+        output_dir = job.get("config", {}).get("output_dir")
+        if not output_dir or not os.path.isdir(output_dir):
+            raise HTTPException(status_code=404, detail="产物目录不存在")
+        
+        tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".zip")
+        tmp_path = tmp.name
+        tmp.close()
+        
+        with zipfile.ZipFile(tmp_path, "w", compression=zipfile.ZIP_DEFLATED) as zf:
+            for root, _, files in os.walk(output_dir):
+                for filename in files:
+                    full_path = os.path.join(root, filename)
+                    arcname = os.path.relpath(full_path, output_dir)
+                    zf.write(full_path, arcname=arcname)
+        
+        background_tasks.add_task(os.remove, tmp_path)
+        return FileResponse(tmp_path, filename=f"{job_id}.zip", media_type="application/zip")
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"下载产物失败: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/jobs/{job_id}/logs")
 async def get_training_logs(
     job_id: str, 
     lines: int = 100,
-    db: Session = Depends(get_db)
 ):
     """获取训练日志"""
     try:
-        task_repo = TaskRepository(db)
-        job = task_repo.get_job(job_id)
+        job = _read_job(job_id)
         
         if not job:
             raise HTTPException(status_code=404, detail="任务不存在")
@@ -325,29 +495,29 @@ async def get_training_logs(
         logger.error(f"获取训练日志失败: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
-
 @router.get("/jobs/{job_id}/metrics")
-async def get_training_metrics(job_id: str, db: Session = Depends(get_db)):
+async def get_training_metrics(job_id: str):
     """获取训练指标"""
     try:
-        task_repo = TaskRepository(db)
-        job = task_repo.get_job(job_id)
+        job = _read_job(job_id)
         
         if not job:
             raise HTTPException(status_code=404, detail="任务不存在")
         
-        # 读取指标文件
-        metrics_file = os.path.join(
-            job["config"]["output_dir"],
-            "logs",
-            "training_report.json"
-        )
-        
-        if not os.path.exists(metrics_file):
+        logs_dir = os.path.join(job["config"]["output_dir"], "logs")
+        if not os.path.isdir(logs_dir):
             return {"metrics": {}}
         
-        import json
-        with open(metrics_file, 'r', encoding='utf-8') as f:
+        candidates = [
+            os.path.join(logs_dir, name)
+            for name in os.listdir(logs_dir)
+            if name.startswith("training_report_") and name.endswith(".json")
+        ]
+        if not candidates:
+            return {"metrics": {}}
+        metrics_file = max(candidates, key=os.path.getmtime)
+        
+        with open(metrics_file, "r", encoding="utf-8") as f:
             metrics_data = json.load(f)
         
         return {"metrics": metrics_data}
@@ -358,13 +528,11 @@ async def get_training_metrics(job_id: str, db: Session = Depends(get_db)):
         logger.error(f"获取训练指标失败: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
-
 @router.get("/jobs/{job_id}/progress")
-async def get_training_progress(job_id: str, db: Session = Depends(get_db)):
+async def get_training_progress(job_id: str):
     """获取训练进度"""
     try:
-        task_repo = TaskRepository(db)
-        job = task_repo.get_job(job_id)
+        job = _read_job(job_id)
         
         if not job:
             raise HTTPException(status_code=404, detail="任务不存在")
@@ -384,6 +552,8 @@ async def get_training_progress(job_id: str, db: Session = Depends(get_db)):
         # 计算耗时
         if job.get("started_at"):
             start_time = job["started_at"]
+            if isinstance(start_time, str):
+                start_time = datetime.fromisoformat(start_time)
             current_time = utc_now()
             elapsed = (current_time - start_time).total_seconds()
             progress_info["elapsed_time"] = elapsed
@@ -402,23 +572,21 @@ async def get_training_progress(job_id: str, db: Session = Depends(get_db)):
         logger.error(f"获取训练进度失败: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
-
 @router.post("/jobs/{job_id}/pause")
-async def pause_training_job(job_id: str, db: Session = Depends(get_db)):
+async def pause_training_job(job_id: str):
     """暂停训练任务"""
     try:
-        task_repo = TaskRepository(db)
-        job = task_repo.get_job(job_id)
+        job = _read_job(job_id)
         
         if not job:
             raise HTTPException(status_code=404, detail="任务不存在")
         
-        if job["status"] != "running":
+        if job.get("status") != "running":
             raise HTTPException(status_code=400, detail="任务未在运行")
         
-        # 暂停任务逻辑（需要实现）
-        # task_scheduler.pause_task(job_id)
-        task_repo.update_job_status(job_id, "paused")
+        ctrl = _get_control(job_id)
+        ctrl.pause_event.set()
+        _update_job(job_id, {"status": "paused"})
         
         return {"message": "任务已暂停"}
         
@@ -428,23 +596,21 @@ async def pause_training_job(job_id: str, db: Session = Depends(get_db)):
         logger.error(f"暂停任务失败: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
-
 @router.post("/jobs/{job_id}/resume")
-async def resume_training_job(job_id: str, db: Session = Depends(get_db)):
+async def resume_training_job(job_id: str):
     """恢复训练任务"""
     try:
-        task_repo = TaskRepository(db)
-        job = task_repo.get_job(job_id)
+        job = _read_job(job_id)
         
         if not job:
             raise HTTPException(status_code=404, detail="任务不存在")
         
-        if job["status"] != "paused":
+        if job.get("status") != "paused":
             raise HTTPException(status_code=400, detail="任务未暂停")
         
-        # 恢复任务逻辑（需要实现）
-        # task_scheduler.resume_task(job_id)
-        task_repo.update_job_status(job_id, "running")
+        ctrl = _get_control(job_id)
+        ctrl.pause_event.clear()
+        _update_job(job_id, {"status": "running"})
         
         return {"message": "任务已恢复"}
         
@@ -454,62 +620,46 @@ async def resume_training_job(job_id: str, db: Session = Depends(get_db)):
         logger.error(f"恢复任务失败: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
-
 @router.get("/models", response_model=ModelListResponse)
 async def get_supported_models():
     """获取支持的模型列表"""
     try:
-        # 预定义的支持模型列表
-        supported_models = {
-            "LLaMA": {
-                "models": [
-                    "meta-llama/Llama-2-7b-hf",
-                    "meta-llama/Llama-2-13b-hf", 
-                    "meta-llama/Llama-2-70b-hf",
-                    "meta-llama/Meta-Llama-3-8B",
-                    "meta-llama/Meta-Llama-3-70B"
-                ],
-                "architecture": "llama",
-                "max_seq_length": 4096
-            },
-            "Mistral": {
-                "models": [
-                    "mistralai/Mistral-7B-v0.1",
-                    "mistralai/Mistral-7B-Instruct-v0.1",
-                    "mistralai/Mixtral-8x7B-v0.1"
-                ],
-                "architecture": "mistral",
-                "max_seq_length": 8192
-            },
-            "Qwen": {
-                "models": [
-                    "Qwen/Qwen-7B",
-                    "Qwen/Qwen-14B",
-                    "Qwen/Qwen2-7B",
-                    "Qwen/Qwen2-72B"
-                ],
-                "architecture": "qwen",
-                "max_seq_length": 8192
-            },
-            "ChatGLM": {
-                "models": [
-                    "THUDM/chatglm3-6b",
-                    "THUDM/chatglm3-6b-base"
-                ],
-                "architecture": "chatglm",
-                "max_seq_length": 8192
-            }
-        }
+        cache_dir = os.getenv("HUGGINGFACE_HUB_CACHE") or os.path.expanduser("~/.cache/huggingface/hub")
+        by_arch: Dict[str, Dict[str, Any]] = {}
+        if os.path.isdir(cache_dir):
+            for name in os.listdir(cache_dir):
+                if not name.startswith("models--"):
+                    continue
+                raw = name.removeprefix("models--")
+                parts = raw.split("--")
+                if len(parts) < 2:
+                    continue
+                repo_id = f"{parts[0]}/{'--'.join(parts[1:])}"
+                if not any(re.search(p, repo_id.lower()) for p in ModelAdapterFactory.ADAPTER_MAPPING):
+                    continue
+                try:
+                    adapter = ModelAdapterFactory.create_adapter(repo_id)
+                    arch = adapter.get_architecture().value
+                    max_len = adapter.get_max_sequence_length()
+                except Exception:
+                    continue
+                group = by_arch.get(arch)
+                if not group:
+                    group = {"models": [], "architecture": arch, "max_seq_length": max_len}
+                    by_arch[arch] = group
+                if repo_id not in group["models"]:
+                    group["models"].append(repo_id)
+                    group["models"].sort()
+                group["max_seq_length"] = max(group["max_seq_length"], max_len)
         
         return ModelListResponse(
-            models=list(supported_models.values()),
+            models=[by_arch[k] for k in sorted(by_arch)],
             architectures=ModelAdapterFactory.get_supported_architectures()
         )
         
     except Exception as e:
         logger.error(f"获取模型列表失败: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
-
 
 @router.post("/models/validate")
 async def validate_model_config(config: TrainingConfigRequest):
@@ -525,9 +675,9 @@ async def validate_model_config(config: TrainingConfigRequest):
         model_config = config_manager.get_model_specific_config(config.model_name)
         
         # 验证配置兼容性
-        from ...ai.fine_tuning.model_adapters import ModelOptimizer
+        from src.ai.fine_tuning.model_adapters import ModelOptimizer
         optimizer = ModelOptimizer(adapter)
-        warnings = optimizer.validate_configuration(config.dict())
+        warnings = optimizer.validate_configuration(config.model_dump())
         
         # 推荐配置
         recommendations = {}
@@ -554,7 +704,6 @@ async def validate_model_config(config: TrainingConfigRequest):
         logger.error(f"验证模型配置失败: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
-
 @router.get("/configs/templates", response_model=ConfigTemplateResponse)
 async def get_config_templates():
     """获取配置模板"""
@@ -568,7 +717,6 @@ async def get_config_templates():
     except Exception as e:
         logger.error(f"获取配置模板失败: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
-
 
 @router.post("/configs/validate")
 async def validate_training_config(config: TrainingConfigRequest):
@@ -588,7 +736,6 @@ async def validate_training_config(config: TrainingConfigRequest):
     except Exception as e:
         logger.error(f"验证训练配置失败: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
-
 
 @router.post("/datasets")
 async def upload_dataset(
@@ -624,7 +771,6 @@ async def upload_dataset(
         logger.error(f"上传数据集失败: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
-
 @router.get("/datasets")
 async def list_datasets():
     """获取数据集列表"""
@@ -651,7 +797,6 @@ async def list_datasets():
         logger.error(f"获取数据集列表失败: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
-
 @router.get("/datasets/{dataset_id}")
 async def get_dataset_info(dataset_id: str):
     """获取数据集详情"""
@@ -672,7 +817,6 @@ async def get_dataset_info(dataset_id: str):
         logger.error(f"获取数据集详情失败: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
-
 @router.post("/datasets/{dataset_id}/validate")
 async def validate_dataset_format(dataset_id: str):
     """验证数据集格式"""
@@ -691,7 +835,6 @@ async def validate_dataset_format(dataset_id: str):
     except Exception as e:
         logger.error(f"验证数据集格式失败: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
-
 
 # 辅助函数
 def _convert_to_training_config(config: TrainingConfigRequest, job_id: str) -> TrainingConfig:
@@ -744,48 +887,53 @@ def _convert_to_training_config(config: TrainingConfigRequest, job_id: str) -> T
         bf16=config.bf16
     )
 
-
-async def _execute_training_job(job_id: str, config: TrainingConfig, db: Session):
+async def _execute_training_job(job_id: str, config: TrainingConfig):
     """执行训练任务"""
-    task_repo = TaskRepository(db)
-    
+    ctrl = _get_control(job_id)
     try:
-        # 更新任务状态
-        task_repo.update_job_status(job_id, "running")
-        task_repo.update_job_started_at(job_id, utc_now())
+        _update_job(job_id, {"status": "running", "started_at": utc_now().isoformat()})
         
-        # 创建训练监控器
-        monitor = TrainingMonitor(
-            log_dir=os.path.join(config.output_dir, "logs"),
-            enable_wandb=False  # 可以根据需要启用
-        )
-        
-        # 根据配置创建相应的训练器
-        if config.use_distributed:
-            trainer = DistributedTrainer(config, monitor)
-        elif config.training_mode == TrainingMode.QLORA:
-            trainer = QLoRATrainer(config, monitor)
-        else:
-            trainer = LoRATrainer(config, monitor)
-        
-        # 执行训练
-        with monitor:
-            result = trainer.train()
+        with TrainingMonitor(log_dir=os.path.join(config.output_dir, "logs"), enable_wandb=False) as monitor:
+            if config.use_distributed:
+                trainer = DistributedTrainer(config, monitor)
+            elif config.training_mode == TrainingMode.QLORA:
+                trainer = QLoRATrainer(config, monitor, job_control=ctrl)
+            else:
+                trainer = LoRATrainer(config, monitor, job_control=ctrl)
+            
+            result = await asyncio.to_thread(trainer.train)
+        if ctrl.cancel_event.is_set():
+            _update_job(job_id, {"status": "cancelled", "completed_at": utc_now().isoformat()})
+            return
         
         # 更新任务状态为完成
-        task_repo.update_job_status(job_id, "completed")
-        task_repo.update_job_completed_at(job_id, utc_now())
-        task_repo.update_job_result(job_id, result)
+        _update_job(
+            job_id,
+            {
+                "status": "completed",
+                "completed_at": utc_now().isoformat(),
+                "progress": 100.0,
+                "current_epoch": int(getattr(config, "num_train_epochs", 0) or 0),
+                "total_epochs": int(getattr(config, "num_train_epochs", 0) or 0),
+                "result": result,
+            },
+        )
         
         logger.info(f"训练任务 {job_id} 完成")
         
     except Exception as e:
         logger.error(f"训练任务 {job_id} 失败: {str(e)}")
-        
-        # 更新任务状态为失败
-        task_repo.update_job_status(job_id, "failed")
-        task_repo.update_job_error(job_id, str(e))
-
+        if ctrl.cancel_event.is_set():
+            _update_job(job_id, {"status": "cancelled", "completed_at": utc_now().isoformat()})
+            return
+        _update_job(
+            job_id,
+            {
+                "status": "failed",
+                "completed_at": utc_now().isoformat(),
+                "error_message": str(e),
+            },
+        )
 
 def _validate_dataset_format(file_path: str) -> Dict[str, Any]:
     """验证数据集格式"""

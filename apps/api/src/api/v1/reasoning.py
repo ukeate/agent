@@ -2,12 +2,10 @@
 
 from typing import List, Optional
 from uuid import UUID
-
 from fastapi import APIRouter, HTTPException, Depends, BackgroundTasks
 from fastapi.responses import StreamingResponse
 import json
-
-from models.schemas.reasoning import (
+from src.models.schemas.reasoning import (
     ReasoningRequest,
     ReasoningResponse,
     ReasoningChain,
@@ -16,7 +14,6 @@ from models.schemas.reasoning import (
 )
 from src.services.reasoning_service import ReasoningService
 from src.core.dependencies import get_current_user
-from src.core.logging import get_logger
 
 logger = get_logger(__name__)
 
@@ -25,7 +22,6 @@ router = APIRouter(prefix="/reasoning", tags=["reasoning"])
 # 创建服务实例
 reasoning_service = ReasoningService()
 
-
 @router.post("/chain", response_model=ReasoningResponse)
 async def create_reasoning_chain(
     request: ReasoningRequest,
@@ -33,6 +29,7 @@ async def create_reasoning_chain(
     current_user: dict = Depends(get_current_user)
 ) -> ReasoningResponse:
     """
+
     创建新的推理链
     
     Args:
@@ -64,7 +61,6 @@ async def create_reasoning_chain(
         logger.error(f"创建推理链失败: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-
 @router.post("/stream")
 async def create_reasoning_stream(
     request: ReasoningRequest,
@@ -90,7 +86,7 @@ async def create_reasoning_stream(
             """生成流式响应"""
             async for chunk in reasoning_service.stream_reasoning(request, current_user):
                 # 将每个块转换为SSE格式
-                data = json.dumps(chunk.dict(), ensure_ascii=False)
+                data = json.dumps(chunk.model_dump(), ensure_ascii=False)
                 yield f"data: {data}\n\n"
             
             # 发送结束信号
@@ -109,7 +105,6 @@ async def create_reasoning_stream(
     except Exception as e:
         logger.error(f"创建流式推理失败: {e}")
         raise HTTPException(status_code=500, detail=str(e))
-
 
 @router.get("/chain/{chain_id}", response_model=ReasoningChain)
 async def get_reasoning_chain(
@@ -143,7 +138,6 @@ async def get_reasoning_chain(
         logger.error(f"获取推理链失败: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-
 @router.get("/history", response_model=List[ReasoningChain])
 async def get_reasoning_history(
     limit: int = 10,
@@ -173,7 +167,6 @@ async def get_reasoning_history(
     except Exception as e:
         logger.error(f"获取推理历史失败: {e}")
         raise HTTPException(status_code=500, detail=str(e))
-
 
 @router.post("/chain/{chain_id}/validate")
 async def validate_reasoning_chain(
@@ -209,7 +202,6 @@ async def validate_reasoning_chain(
     except Exception as e:
         logger.error(f"验证推理链失败: {e}")
         raise HTTPException(status_code=500, detail=str(e))
-
 
 @router.post("/chain/{chain_id}/branch")
 async def create_reasoning_branch(
@@ -249,7 +241,6 @@ async def create_reasoning_branch(
         logger.error(f"创建推理分支失败: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-
 @router.post("/chain/{chain_id}/recover")
 async def recover_reasoning_chain(
     chain_id: UUID,
@@ -288,7 +279,6 @@ async def recover_reasoning_chain(
         logger.error(f"恢复推理链失败: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-
 @router.get("/stats")
 async def get_reasoning_stats(
     current_user: dict = Depends(get_current_user)
@@ -312,7 +302,6 @@ async def get_reasoning_stats(
     except Exception as e:
         logger.error(f"获取推理统计失败: {e}")
         raise HTTPException(status_code=500, detail=str(e))
-
 
 @router.delete("/chain/{chain_id}")
 async def delete_reasoning_chain(
@@ -348,3 +337,4 @@ async def delete_reasoning_chain(
     except Exception as e:
         logger.error(f"删除推理链失败: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+from src.core.logging import get_logger

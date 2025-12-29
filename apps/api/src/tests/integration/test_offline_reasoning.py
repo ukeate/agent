@@ -8,7 +8,6 @@ import asyncio
 from datetime import datetime
 from src.core.utils.timezone_utils import utc_now, utc_factory
 from uuid import uuid4
-
 from offline.reasoning_engine import (
     OfflineReasoningEngine, ReasoningStrategy, ReasoningStepResult,
     ReasoningStep, WorkflowStatus
@@ -19,7 +18,6 @@ from offline.model_cache import ModelCacheManager
 from src.services.reasoning_service import ReasoningService
 from models.schemas.reasoning import ReasoningRequest, ReasoningStrategy as OnlineReasoningStrategy
 from ...models.schemas.offline import OfflineMode
-
 
 class TestOfflineReasoningIntegration:
     """离线推理系统集成测试"""
@@ -280,12 +278,9 @@ class TestOfflineReasoningIntegration:
         
         # 这里由于没有真实的在线引擎，会抛出异常或返回错误响应
         # 在实际环境中，这会正常执行在线推理
-        try:
-            online_response = await reasoning_service.execute_reasoning(request, user)
-            # 如果有真实的在线引擎，这里会成功
-        except Exception:
-            # 预期的异常，因为没有配置真实的在线引擎
-            pass
+        online_response = await reasoning_service.execute_reasoning(request, user)
+        assert online_response.problem == request.problem
+        assert online_response.strategy == request.strategy
     
     @pytest.mark.asyncio
     async def test_complex_reasoning_scenario(self, temp_offline_components):

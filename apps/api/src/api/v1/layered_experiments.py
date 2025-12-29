@@ -1,32 +1,41 @@
 """
 分层实验管理API端点
 """
+
 from typing import List, Dict, Any, Optional
 from datetime import datetime
 from src.core.utils.timezone_utils import utc_now, utc_factory
 from fastapi import APIRouter, Depends, HTTPException, status, Query
-from sqlalchemy.orm import Session
-
-from core.database import get_db
-from repositories.experiment_repository import ExperimentRepository
-from services.layered_experiment_manager import (
+from collections import defaultdict
+from src.services.layered_experiment_manager import (
     LayeredExperimentManager, ExperimentLayer, ExperimentGroup, LayerType, ConflictResolution
 )
-from core.logging import logger
 
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 router = APIRouter(prefix="/experiments/layers", tags=["layered-experiments"])
 
-
-# 依赖注入
-def get_experiment_repository(db: Session = Depends(get_db)) -> ExperimentRepository:
-    return ExperimentRepository(db)
+_layered_experiment_manager = LayeredExperimentManager()
 
 def get_layered_experiment_manager(
-    experiment_repo: ExperimentRepository = Depends(get_experiment_repository)
 ) -> LayeredExperimentManager:
-    return LayeredExperimentManager(experiment_repo)
+    return _layered_experiment_manager
 
+def _serialize_layer(layer: ExperimentLayer) -> Dict[str, Any]:
+    return {
+        "layer_id": layer.layer_id,
+        "name": layer.name,
+        "description": layer.description,
+        "layer_type": layer.layer_type.value,
+        "traffic_percentage": layer.traffic_percentage,
+        "priority": layer.priority,
+        "is_active": layer.is_active,
+        "max_experiments": layer.max_experiments,
+        "conflict_resolution": layer.conflict_resolution.value,
+        "metadata": layer.metadata,
+        "created_at": layer.created_at.isoformat(),
+    }
 
 @router.post("/", status_code=status.HTTP_201_CREATED)
 async def create_experiment_layer(
@@ -35,6 +44,8 @@ async def create_experiment_layer(
 ):
     """创建实验层"""
     try:
+        if not layer_data.get("layer_id") or not layer_data.get("name") or layer_data.get("traffic_percentage") is None:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="layer_id、name、traffic_percentage 必填")
         layer = ExperimentLayer(
             layer_id=layer_data.get("layer_id"),
             name=layer_data.get("name"),
@@ -67,13 +78,14 @@ async def create_experiment_layer(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e)
         )
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Unexpected error creating layer: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to create layer"
         )
-
 
 @router.get("/")
 async def list_experiment_layers(
@@ -82,15 +94,12 @@ async def list_experiment_layers(
 ):
     """获取实验层列表"""
     try:
-        overview = manager.get_all_layer_overview()
-        
-        if active_only:
-            overview["layers"] = [
-                layer for layer in overview["layers"]
-                if layer.get("is_active", False)
-            ]
-        
-        return overview
+        layers = [
+            _serialize_layer(layer)
+            for layer in manager.list_layers()
+            if (layer.is_active or not active_only)
+        ]
+        return {"layers": layers, "total": len(layers)}
         
     except Exception as e:
         logger.error(f"Failed to list layers: {str(e)}")
@@ -99,6 +108,66 @@ async def list_experiment_layers(
             detail="Failed to retrieve layers"
         )
 
+@router.get("/metrics")
+async def get_system_metrics(
+    manager: LayeredExperimentManager = Depends(get_layered_experiment_manager)
+):
+    """获取系统指标"""
+    try:
+        layers = manager.list_layers()
+        active_layers = [l for l in layers if l.is_active]
+        total_traffic_allocated = sum(l.traffic_percentage for l in active_layers)
+        avg_layer_traffic = total_traffic_allocated / len(active_layers) if active_layers else 0.0
+        traffic_utilization = total_traffic_allocated
+        return {
+            "total_traffic_allocated": total_traffic_allocated,
+            "avg_layer_traffic": avg_layer_traffic,
+            "traffic_utilization": traffic_utilization,
+            "active_layers": len(active_layers),
+        }
+    except Exception as e:
+        logger.error(f"Failed to get system metrics: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to retrieve metrics"
+        )
+
+@router.get("/conflicts")
+async def list_conflicts(
+    manager: LayeredExperimentManager = Depends(get_layered_experiment_manager),
+):
+    """获取冲突列表"""
+    try:
+        validation = manager.validate_layer_configuration()
+        conflicts: List[Dict[str, Any]] = []
+
+        for idx, msg in enumerate(validation.get("errors") or []):
+            conflicts.append(
+                {
+                    "id": f"error_{idx}",
+                    "type": "error",
+                    "description": msg,
+                    "affected_layers": [],
+                }
+            )
+
+        for idx, msg in enumerate(validation.get("warnings") or []):
+            conflicts.append(
+                {
+                    "id": f"warning_{idx}",
+                    "type": "warning",
+                    "description": msg,
+                    "affected_layers": [],
+                }
+            )
+
+        return conflicts
+    except Exception as e:
+        logger.error(f"Failed to list conflicts: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to retrieve conflicts"
+        )
 
 @router.get("/{layer_id}")
 async def get_layer_details(
@@ -107,18 +176,16 @@ async def get_layer_details(
 ):
     """获取层详细信息"""
     try:
-        statistics = manager.get_layer_statistics(layer_id)
-        
-        if "error" in statistics:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=statistics["error"]
-            )
-        
-        return statistics
+        layer = manager.get_layer(layer_id)
+        return _serialize_layer(layer)
         
     except HTTPException:
         raise
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(e)
+        )
     except Exception as e:
         logger.error(f"Failed to get layer {layer_id}: {str(e)}")
         raise HTTPException(
@@ -126,6 +193,42 @@ async def get_layer_details(
             detail="Failed to retrieve layer details"
         )
 
+@router.put("/{layer_id}")
+async def update_layer(
+    layer_id: str,
+    layer_data: Dict[str, Any],
+    manager: LayeredExperimentManager = Depends(get_layered_experiment_manager),
+):
+    """更新实验层"""
+    try:
+        updated = manager.update_layer(layer_id, layer_data)
+        return _serialize_layer(updated)
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    except Exception as e:
+        logger.error(f"Failed to update layer {layer_id}: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to update layer"
+        )
+
+@router.delete("/{layer_id}")
+async def delete_layer(
+    layer_id: str,
+    manager: LayeredExperimentManager = Depends(get_layered_experiment_manager),
+):
+    """删除实验层"""
+    try:
+        manager.delete_layer(layer_id)
+        return {"layer_id": layer_id, "message": "Layer deleted successfully"}
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+    except Exception as e:
+        logger.error(f"Failed to delete layer {layer_id}: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to delete layer"
+        )
 
 @router.post("/{layer_id}/groups", status_code=status.HTTP_201_CREATED)
 async def create_experiment_group(
@@ -172,7 +275,6 @@ async def create_experiment_group(
             detail="Failed to create experiment group"
         )
 
-
 @router.post("/assign/{user_id}")
 async def assign_user_to_layers(
     user_id: str,
@@ -207,7 +309,6 @@ async def assign_user_to_layers(
             detail="Failed to assign user to layers"
         )
 
-
 @router.get("/user/{user_id}/experiments")
 async def get_user_experiments(
     user_id: str,
@@ -229,7 +330,6 @@ async def get_user_experiments(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to retrieve user experiments"
         )
-
 
 @router.post("/user/{user_id}/check-conflicts")
 async def check_experiment_conflicts(
@@ -254,7 +354,6 @@ async def check_experiment_conflicts(
             detail="Failed to check experiment conflicts"
         )
 
-
 @router.post("/validate")
 async def validate_layer_configuration(
     manager: LayeredExperimentManager = Depends(get_layered_experiment_manager)
@@ -271,7 +370,6 @@ async def validate_layer_configuration(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to validate configuration"
         )
-
 
 @router.delete("/user/{user_id}/assignments")
 async def clear_user_assignments(
@@ -295,7 +393,6 @@ async def clear_user_assignments(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to clear user assignments"
         )
-
 
 @router.post("/batch-assign")
 async def batch_assign_users(
@@ -350,7 +447,6 @@ async def batch_assign_users(
             detail="Failed to batch assign users"
         )
 
-
 @router.get("/statistics/overview")
 async def get_layers_overview(
     manager: LayeredExperimentManager = Depends(get_layered_experiment_manager)
@@ -367,7 +463,6 @@ async def get_layers_overview(
             detail="Failed to retrieve layers overview"
         )
 
-
 @router.post("/simulate/assignment")
 async def simulate_layer_assignment(
     simulation_config: Dict[str, Any],
@@ -375,58 +470,61 @@ async def simulate_layer_assignment(
 ):
     """模拟层分配"""
     try:
-        num_users = simulation_config.get("num_users", 10000)
-        user_attributes_samples = simulation_config.get("user_attributes_samples", [])
-        
-        simulation_results = {
-            "simulation_config": {
-                "num_users": num_users,
-                "has_user_samples": len(user_attributes_samples) > 0
-            },
-            "assignment_results": {},
-            "layer_utilization": {},
-            "conflicts_detected": 0
-        }
-        
-        # 模拟用户分配
-        conflicts = 0
-        for i in range(num_users):
-            user_id = f"sim_user_{i:06d}"
-            user_attrs = user_attributes_samples[i % len(user_attributes_samples)] if user_attributes_samples else {}
-            
-            try:
-                assignments = manager.assign_user_to_layers(user_id, user_attrs)
-                
-                for layer_id, assignment in assignments.items():
-                    if layer_id not in simulation_results["assignment_results"]:
-                        simulation_results["assignment_results"][layer_id] = {}
-                    
-                    experiment_id = assignment.assigned_experiment or "no_experiment"
-                    if experiment_id not in simulation_results["assignment_results"][layer_id]:
-                        simulation_results["assignment_results"][layer_id][experiment_id] = 0
-                    
-                    simulation_results["assignment_results"][layer_id][experiment_id] += 1
-                    
-            except Exception as e:
-                conflicts += 1
-                logger.debug(f"Simulation conflict for user {user_id}: {str(e)}")
-        
-        # 计算层利用率
-        for layer_id, assignments in simulation_results["assignment_results"].items():
-            total_in_layer = sum(assignments.values())
-            simulation_results["layer_utilization"][layer_id] = {
-                "total_users": total_in_layer,
-                "utilization_percentage": (total_in_layer / num_users) * 100,
-                "experiment_distribution": {
-                    exp_id: (count / total_in_layer) * 100 if total_in_layer > 0 else 0
-                    for exp_id, count in assignments.items()
-                }
+        users = simulation_config.get("users")
+        if not users:
+            num_users = int(simulation_config.get("num_users", 100))
+            users = [{"user_id": f"sim_user_{i}", "attributes": {}} for i in range(num_users)]
+
+        assignment_results: Dict[str, Any] = {}
+        layer_counts: Dict[str, int] = defaultdict(int)
+        conflicts_detected = 0
+
+        for item in users:
+            user_id = item.get("user_id")
+            if not user_id:
+                continue
+            attributes = item.get("attributes") or {}
+
+            assignments = manager.assign_user_to_layers(user_id, attributes)
+            assignment_results[user_id] = {
+                "layers": {
+                    layer_id: {
+                        "assigned_experiment": a.assigned_experiment,
+                        "assignment_reason": a.assignment_reason,
+                        "assigned_at": a.assigned_at.isoformat(),
+                        "expires_at": a.expires_at.isoformat() if a.expires_at else None,
+                        "metadata": a.metadata,
+                    }
+                    for layer_id, a in assignments.items()
+                },
+                "assigned_experiments": [
+                    a.assigned_experiment for a in assignments.values() if a.assigned_experiment
+                ],
             }
-        
-        simulation_results["conflicts_detected"] = conflicts
-        
-        return simulation_results
-        
+
+            for layer_id, a in assignments.items():
+                if a.assigned_experiment:
+                    layer_counts[layer_id] += 1
+                else:
+                    conflicts_detected += 1
+
+        total_users = len(assignment_results) or 1
+        layer_utilization = {
+            layer_id: {
+                "assigned_users": count,
+                "utilization_rate": count / total_users,
+            }
+            for layer_id, count in layer_counts.items()
+        }
+
+        return {
+            "simulation_config": simulation_config,
+            "total_users": len(assignment_results),
+            "assignment_results": assignment_results,
+            "layer_utilization": layer_utilization,
+            "conflicts_detected": conflicts_detected,
+        }
+    
     except Exception as e:
         logger.error(f"Failed to simulate layer assignment: {str(e)}")
         raise HTTPException(

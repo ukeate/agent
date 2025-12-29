@@ -8,14 +8,12 @@ GraphRAG系统的主引擎，提供：
 - 检索结果融合和重排序机制
 """
 
-import logging
 import time
 import uuid
 import asyncio
 from typing import Dict, Any, List, Optional, Union
 from datetime import datetime
 from src.core.utils.timezone_utils import utc_now, utc_factory
-
 from .data_models import (
     GraphRAGRequest,
     GraphRAGResponse,
@@ -36,10 +34,10 @@ from ..rag.vector_store import get_vector_store
 from ..knowledge_graph.graph_operations import GraphOperations
 from ..knowledge_graph.graph_database import get_graph_database
 from ..knowledge_graph.schema import get_schema_manager
-from ...openai_client import get_openai_client
+from ..openai_client import get_openai_client
 
-logger = logging.getLogger(__name__)
-
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 class GraphRAGEngine:
     """GraphRAG核心引擎"""
@@ -148,23 +146,28 @@ class GraphRAGEngine:
             logger.info(f"图谱上下文扩展完成，实体数: {len(graph_context.entities)}, 关系数: {len(graph_context.relations)}")
             
             # 6. 推理路径生成
+            reasoning_time = 0.0
             reasoning_results = []
             if request['include_reasoning'] and self.config.enable_reasoning:
+                reasoning_start = time.time()
                 reasoning_results = await self.reasoning_engine.generate_reasoning_paths(
                     decomposition,
                     graph_context,
                     max_paths=self.config.max_reasoning_paths
                 )
+                reasoning_time = time.time() - reasoning_start
                 
                 logger.info(f"推理路径生成完成，路径数: {len(reasoning_results)}")
             
             # 7. 知识融合
+            fusion_start = time.time()
             fusion_results = await self.fusion_engine.fuse_knowledge_sources(
                 retrieval_results,
                 graph_context,
                 reasoning_results,
                 confidence_threshold=request['confidence_threshold']
             )
+            fusion_time = time.time() - fusion_start
             
             logger.info(f"知识融合完成，最终文档数: {len(fusion_results['final_ranking'])}")
             
@@ -186,8 +189,8 @@ class GraphRAGEngine:
                 performance_metrics={
                     'total_time': total_time,
                     'retrieval_time': retrieval_results.get('retrieval_time', 0.0),
-                    'reasoning_time': 0.0,  # TODO: 添加推理时间统计
-                    'fusion_time': 0.0,     # TODO: 添加融合时间统计
+                    'reasoning_time': reasoning_time,
+                    'fusion_time': fusion_time,
                     'cache_hit': cached_result is not None
                 },
                 timestamp=utc_now().isoformat()
@@ -742,10 +745,8 @@ class GraphRAGEngine:
         except Exception as e:
             logger.error(f"关闭GraphRAG引擎失败: {e}")
 
-
 # 全局GraphRAG引擎实例
 _graphrag_engine_instance: Optional[GraphRAGEngine] = None
-
 
 async def get_graphrag_engine(config: Optional[GraphRAGConfig] = None) -> GraphRAGEngine:
     """获取GraphRAG引擎实例（单例模式）"""
@@ -756,7 +757,6 @@ async def get_graphrag_engine(config: Optional[GraphRAGConfig] = None) -> GraphR
         await _graphrag_engine_instance.initialize()
     
     return _graphrag_engine_instance
-
 
 async def close_graphrag_engine():
     """关闭GraphRAG引擎"""

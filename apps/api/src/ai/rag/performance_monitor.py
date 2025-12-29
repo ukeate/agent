@@ -7,7 +7,6 @@
 import time
 import numpy as np
 from typing import Dict, Any, List, Optional, Tuple, Callable
-import logging
 from datetime import datetime
 from datetime import timedelta
 from src.core.utils.timezone_utils import utc_now, utc_factory
@@ -16,8 +15,8 @@ from dataclasses import dataclass
 from collections import deque
 import statistics
 
-logger = logging.getLogger(__name__)
-
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 @dataclass
 class PerformanceMetrics:
@@ -28,7 +27,6 @@ class PerformanceMetrics:
     quantization_mode: str
     timestamp: datetime
     error: Optional[str] = None
-
 
 class VectorPerformanceMonitor:
     """向量性能监控器"""

@@ -3,6 +3,7 @@
 
 实现多种异常检测算法用于实验监控
 """
+
 from datetime import datetime
 from datetime import timedelta
 from src.core.utils.timezone_utils import utc_now, utc_factory
@@ -14,10 +15,8 @@ from dataclasses import dataclass, field
 import asyncio
 from collections import deque
 import json
-
 from ..core.database import get_db_session
 from ..core.config import get_settings
-
 
 class AnomalyType(str, Enum):
     """异常类型"""
@@ -32,7 +31,6 @@ class AnomalyType(str, Enum):
     DISTRIBUTION_SHIFT = "distribution_shift"  # 分布偏移
     CORRELATION_BREAK = "correlation_break"  # 相关性破坏
 
-
 class DetectionMethod(str, Enum):
     """检测方法"""
     Z_SCORE = "z_score"
@@ -45,7 +43,6 @@ class DetectionMethod(str, Enum):
     PROPHET = "prophet"
     CUSUM = "cusum"  # 累积和控制图
     EWMA = "ewma"  # 指数加权移动平均
-
 
 @dataclass
 class Anomaly:
@@ -64,7 +61,6 @@ class Anomaly:
     description: str
     metadata: Dict[str, Any] = field(default_factory=dict)
 
-
 @dataclass
 class DetectionConfig:
     """检测配置"""
@@ -78,7 +74,6 @@ class DetectionConfig:
     iqr_multiplier: float = 1.5  # IQR乘数
     enable_seasonal: bool = True  # 启用季节性检测
     enable_trend: bool = True  # 启用趋势检测
-
 
 class AnomalyDetectionService:
     """异常检测服务"""
@@ -662,7 +657,7 @@ class AnomalyDetectionService:
         observed_ratio = control_count / total
         
         # 二项检验
-        p_value = stats.binom_test(control_count, total, expected_ratio)
+        p_value = stats.binomtest(control_count, total, expected_ratio).pvalue
         
         if p_value < 0.01:  # 严格的阈值
             return Anomaly(

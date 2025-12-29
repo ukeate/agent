@@ -6,35 +6,20 @@ import uuid
 from datetime import datetime
 from src.core.utils.timezone_utils import utc_now, utc_factory
 from typing import Dict, List, Any, Optional
-from fastapi import APIRouter, HTTPException, Depends, BackgroundTasks, Query, UploadFile, File, Security
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from pydantic import BaseModel, Field
+from fastapi import APIRouter, HTTPException, Depends, BackgroundTasks, Query, UploadFile, File
+from pydantic import Field, ConfigDict
 import asyncio
-import logging
+from src.ai.training_data_management.models import DataSource, AnnotationTask, Annotation, AnnotationTaskType, AnnotationStatus
+from src.ai.training_data_management.manager import DataCollectionManager
+from src.ai.training_data_management.annotation import AnnotationManager
+from src.ai.training_data_management.version_manager import DataVersionManager
+from src.core.security.auth import User, get_current_active_user
+from src.api.base_model import ApiBaseModel
 
-from ...ai.training_data_management.models import DataSource, AnnotationTask, Annotation, AnnotationTaskType, AnnotationStatus
-from ...ai.training_data_management.manager import DataCollectionManager
-from ...ai.training_data_management.annotation import AnnotationManager
-from ...ai.training_data_management.version_manager import DataVersionManager
-from ...core.config import get_settings
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 router = APIRouter(prefix="/training-data", tags=["training-data"])
-logger = logging.getLogger(__name__)
-
-# 初始化安全认证
-security = HTTPBearer()
-
-def verify_token(credentials: HTTPAuthorizationCredentials = Security(security)) -> str:
-    """验证访问令牌"""
-    token = credentials.credentials
-    # 简化的令牌验证逻辑，生产环境应使用更安全的验证方式
-    if not token or len(token) < 10:
-        raise HTTPException(
-            status_code=401,
-            detail="Invalid access token",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-    return token
 
 # 延迟初始化管理器
 data_manager = None
@@ -45,40 +30,35 @@ def get_data_manager() -> DataCollectionManager:
     """获取数据管理器实例"""
     global data_manager
     if data_manager is None:
-        settings = get_settings()
-        data_manager = DataCollectionManager(settings.DATABASE_URL)
+        data_manager = DataCollectionManager()
     return data_manager
 
 def get_annotation_manager() -> AnnotationManager:
     """获取标注管理器实例"""
     global annotation_manager
     if annotation_manager is None:
-        settings = get_settings()
-        annotation_manager = AnnotationManager(settings.DATABASE_URL)
+        annotation_manager = AnnotationManager()
     return annotation_manager
 
 def get_version_manager() -> DataVersionManager:
     """获取版本管理器实例"""
     global version_manager
     if version_manager is None:
-        settings = get_settings()
-        version_manager = DataVersionManager(settings.DATABASE_URL, "./data_versions")
+        version_manager = DataVersionManager(storage_path="./data_versions")
     return version_manager
 
 # Pydantic模型定义
 
-class DataSourceCreate(BaseModel):
+class DataSourceCreate(ApiBaseModel):
     source_id: str = Field(..., min_length=1, max_length=255, description="数据源ID")
     source_type: str = Field(..., pattern="^(api|file|web|database)$", description="数据源类型: api, file, web, database")
     name: str = Field(..., min_length=1, max_length=255, description="数据源名称")
     description: str = Field("", max_length=1000, description="数据源描述")
     config: Dict[str, Any] = Field(..., description="数据源配置")
-    
-    class Config:
-        # 防止额外字段注入
-        extra = "forbid"
 
-class DataSourceResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+class DataSourceResponse(ApiBaseModel):
     id: str
     source_id: str
     source_type: str
@@ -89,11 +69,11 @@ class DataSourceResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
 
-class DataCollectionRequest(BaseModel):
+class DataCollectionRequest(ApiBaseModel):
     source_id: str = Field(..., description="数据源ID")
     preprocessing_config: Optional[Dict[str, Any]] = Field(None, description="预处理配置")
 
-class AnnotationTaskCreate(BaseModel):
+class AnnotationTaskCreate(ApiBaseModel):
     name: str = Field(..., description="任务名称")
     description: str = Field("", description="任务描述")
     task_type: str = Field(..., description="任务类型")
@@ -101,17 +81,16 @@ class AnnotationTaskCreate(BaseModel):
     annotation_schema: Dict[str, Any] = Field(..., description="标注模式")
     guidelines: str = Field("", description="标注指南")
     assignees: List[str] = Field([], description="分配的用户ID列表")
-    created_by: str = Field(..., description="创建者ID")
     deadline: Optional[datetime] = Field(None, description="截止时间")
 
-class AnnotationSubmit(BaseModel):
+class AnnotationSubmit(ApiBaseModel):
     task_id: str = Field(..., description="任务ID")
     record_id: str = Field(..., description="记录ID")
     annotation_data: Dict[str, Any] = Field(..., description="标注数据")
     confidence: Optional[float] = Field(None, description="置信度", ge=0, le=1)
     time_spent: Optional[int] = Field(None, description="标注耗时(秒)")
 
-class DataVersionCreate(BaseModel):
+class DataVersionCreate(ApiBaseModel):
     dataset_name: str = Field(..., description="数据集名称")
     version_number: str = Field(..., description="版本号")
     description: str = Field(..., description="版本描述")
@@ -124,15 +103,15 @@ class DataVersionCreate(BaseModel):
 @router.post("/sources", response_model=Dict[str, str])
 async def create_data_source(
     source_data: DataSourceCreate,
-    token: str = Depends(verify_token)
+    current_user: User = Depends(get_current_active_user),
 ):
     """创建数据源"""
     try:
-        logger.info(f"Creating data source: {source_data.source_id} by token: {token[:10]}...")
+        logger.info(f"创建数据源: {source_data.source_id}, user={current_user.username}({current_user.id})")
         
         # 验证配置安全性
         if 'password' in source_data.config or 'secret' in source_data.config:
-            logger.warning(f"Data source {source_data.source_id} contains sensitive information")
+            logger.warning(f"数据源 {source_data.source_id} 包含敏感字段")
         
         source = DataSource(
             source_id=source_data.source_id,
@@ -142,8 +121,8 @@ async def create_data_source(
             config=source_data.config
         )
         
-        db_id = get_data_manager().register_data_source(source)
-        logger.info(f"Successfully created data source: {source_data.source_id}")
+        db_id = await get_data_manager().register_data_source(source)
+        logger.info(f"数据源创建成功: {source_data.source_id}")
         
         return {
             "id": db_id,
@@ -151,14 +130,14 @@ async def create_data_source(
             "message": "数据源创建成功"
         }
     except Exception as e:
-        logger.error(f"Failed to create data source {source_data.source_id}: {e}")
+        logger.error(f"创建数据源失败 {source_data.source_id}: {e}")
         raise HTTPException(status_code=400, detail=f"创建数据源失败: {str(e)}")
 
 @router.get("/sources", response_model=List[DataSourceResponse])
 async def list_data_sources(active_only: bool = Query(True, description="只显示活跃的数据源")):
     """列出数据源"""
     try:
-        sources = get_data_manager().list_data_sources(active_only=active_only)
+        sources = await get_data_manager().list_data_sources(active_only=active_only)
         return sources
     except Exception as e:
         logger.error(f"获取数据源列表失败: {e}")
@@ -168,11 +147,11 @@ async def list_data_sources(active_only: bool = Query(True, description="只显�
 async def update_data_source(
     source_id: str, 
     updates: Dict[str, Any],
-    token: str = Depends(verify_token)
+    current_user: User = Depends(get_current_active_user),
 ):
     """更新数据源配置"""
     try:
-        success = get_data_manager().update_data_source(source_id, updates)
+        success = await get_data_manager().update_data_source(source_id, updates)
         if not success:
             raise HTTPException(status_code=404, detail="数据源未找到")
         
@@ -186,11 +165,11 @@ async def update_data_source(
 @router.delete("/sources/{source_id}")
 async def delete_data_source(
     source_id: str,
-    token: str = Depends(verify_token)
+    current_user: User = Depends(get_current_active_user),
 ):
     """删除数据源（软删除）"""
     try:
-        success = get_data_manager().delete_data_source(source_id)
+        success = await get_data_manager().delete_data_source(source_id)
         if not success:
             raise HTTPException(status_code=404, detail="数据源未找到")
         
@@ -207,7 +186,7 @@ async def delete_data_source(
 async def collect_data(
     request: DataCollectionRequest, 
     background_tasks: BackgroundTasks,
-    token: str = Depends(verify_token)
+    current_user: User = Depends(get_current_active_user),
 ):
     """启动数据收集任务"""
     try:
@@ -244,7 +223,7 @@ async def get_data_records(
 ):
     """获取数据记录"""
     try:
-        records = get_data_manager().get_data_records(
+        records = await get_data_manager().get_data_records(
             source_id=source_id,
             status=status,
             min_quality_score=min_quality_score,
@@ -265,7 +244,7 @@ async def get_data_records(
 async def get_collection_statistics(source_id: Optional[str] = Query(None, description="数据源ID")):
     """获取收集统计信息"""
     try:
-        stats = get_data_manager().get_collection_statistics(source_id=source_id)
+        stats = await get_data_manager().get_collection_statistics(source_id=source_id)
         return stats
     except Exception as e:
         logger.error(f"获取统计信息失败: {e}")
@@ -276,7 +255,8 @@ async def reprocess_records(
     record_ids: Optional[List[str]] = None,
     source_id: Optional[str] = None,
     status_filter: Optional[str] = None,
-    preprocessing_config: Optional[Dict[str, Any]] = None
+    preprocessing_config: Optional[Dict[str, Any]] = None,
+    current_user: User = Depends(get_current_active_user),
 ):
     """重新处理记录"""
     try:
@@ -294,7 +274,10 @@ async def reprocess_records(
 # 标注管理接口
 
 @router.post("/annotation-tasks")
-async def create_annotation_task(task_data: AnnotationTaskCreate):
+async def create_annotation_task(
+    task_data: AnnotationTaskCreate,
+    current_user: User = Depends(get_current_active_user),
+):
     """创建标注任务"""
     try:
         task = AnnotationTask(
@@ -304,10 +287,13 @@ async def create_annotation_task(task_data: AnnotationTaskCreate):
             task_type=task_data.task_type,  # 直接使用字符串
             record_ids=task_data.data_records,
             schema=task_data.annotation_schema,
-            annotators=task_data.assignees  # 使用annotators而不是assignees
+            annotators=task_data.assignees,  # 使用annotators而不是assignees
+            created_by=current_user.username,
+            guidelines=task_data.guidelines,
+            deadline=task_data.deadline,
         )
         
-        db_id = get_annotation_manager().create_annotation_task(task)
+        db_id = await get_annotation_manager().create_annotation_task(task)
         
         return {
             "id": db_id,
@@ -328,7 +314,7 @@ async def list_annotation_tasks(
 ):
     """获取标注任务列表"""
     try:
-        tasks = get_annotation_manager().get_annotation_tasks(
+        tasks = await get_annotation_manager().get_annotation_tasks(
             assignee_id=assignee_id,
             status=status,
             created_by=created_by,
@@ -349,7 +335,7 @@ async def list_annotation_tasks(
 async def get_annotation_task_details(task_id: str):
     """获取标注任务详情"""
     try:
-        task = get_annotation_manager().get_annotation_task_details(task_id)
+        task = await get_annotation_manager().get_annotation_task_details(task_id)
         if not task:
             raise HTTPException(status_code=404, detail="标注任务未找到")
         return task
@@ -363,7 +349,7 @@ async def get_annotation_task_details(task_id: str):
 async def get_annotation_progress(task_id: str):
     """获取标注进度"""
     try:
-        progress = get_annotation_manager().get_annotation_progress(task_id)
+        progress = await get_annotation_manager().get_annotation_progress(task_id)
         if not progress:
             raise HTTPException(status_code=404, detail="标注任务未找到")
         return progress
@@ -374,10 +360,14 @@ async def get_annotation_progress(task_id: str):
         raise HTTPException(status_code=500, detail="获取标注进度失败")
 
 @router.post("/annotation-tasks/{task_id}/assign")
-async def assign_annotation_task(task_id: str, user_ids: List[str]):
+async def assign_annotation_task(
+    task_id: str,
+    user_ids: List[str],
+    current_user: User = Depends(get_current_active_user),
+):
     """分配标注任务"""
     try:
-        success = get_annotation_manager().assign_task(task_id, user_ids)
+        success = await get_annotation_manager().assign_task(task_id, user_ids)
         if not success:
             raise HTTPException(status_code=404, detail="标注任务未找到")
         return {"message": "任务分配成功"}
@@ -388,20 +378,23 @@ async def assign_annotation_task(task_id: str, user_ids: List[str]):
         raise HTTPException(status_code=400, detail=str(e))
 
 @router.post("/annotations")
-async def submit_annotation(annotation_data: AnnotationSubmit, annotator_id: str = Query(..., description="标注者ID")):
+async def submit_annotation(
+    annotation_data: AnnotationSubmit,
+    current_user: User = Depends(get_current_active_user),
+):
     """提交标注结果"""
     try:
         annotation = Annotation(
             annotation_id=str(uuid.uuid4()),
             task_id=annotation_data.task_id,
             record_id=annotation_data.record_id,
-            annotator_id=annotator_id,
+            annotator_id=current_user.username,
             annotation_data=annotation_data.annotation_data,
             confidence=annotation_data.confidence,
             time_spent=annotation_data.time_spent
         )
         
-        db_id = get_annotation_manager().submit_annotation(annotation)
+        db_id = await get_annotation_manager().submit_annotation(annotation)
         
         return {
             "id": db_id,
@@ -416,7 +409,7 @@ async def submit_annotation(annotation_data: AnnotationSubmit, annotator_id: str
 async def get_inter_annotator_agreement(task_id: str):
     """获取标注者间一致性"""
     try:
-        agreement = get_annotation_manager().calculate_inter_annotator_agreement(task_id)
+        agreement = await get_annotation_manager().calculate_inter_annotator_agreement(task_id)
         return agreement
     except Exception as e:
         logger.error(f"计算标注一致性失败: {e}")
@@ -426,24 +419,63 @@ async def get_inter_annotator_agreement(task_id: str):
 async def get_quality_control_report(task_id: str):
     """获取质量控制报告"""
     try:
-        report = get_annotation_manager().get_quality_control_report(task_id)
+        report = await get_annotation_manager().get_quality_control_report(task_id)
         return report
     except Exception as e:
         logger.error(f"生成质量报告失败: {e}")
         raise HTTPException(status_code=500, detail="生成质量报告失败")
 
+@router.get("/annotation-tasks-issues")
+async def list_annotation_task_issues(
+    limit: int = Query(50, ge=1, le=500, description="最多返回任务数量")
+):
+    """汇总标注任务的质量问题列表"""
+    try:
+        tasks = await get_annotation_manager().get_annotation_tasks(limit=limit)
+        issues: List[Dict[str, Any]] = []
+
+        for task in tasks:
+            task_id = task.get("task_id")
+            if not task_id:
+                continue
+            report = await get_annotation_manager().get_quality_control_report(task_id)
+            potential = report.get("potential_issues", {}) if isinstance(report, dict) else {}
+
+            def append_issue(issue_type: str, item: Dict[str, Any], severity: str):
+                issue_id = item.get("annotation_id") or item.get("annotator_id") or f"{task_id}-{issue_type}-{len(issues)}"
+                issues.append({
+                    "id": str(issue_id),
+                    "task_id": task_id,
+                    "issue": issue_type,
+                    "severity": severity,
+                    "created_at": report.get("generated_at"),
+                    "detail": item
+                })
+
+            for item in potential.get("very_fast_annotations", []):
+                append_issue("very_fast_annotations", item, "medium")
+            for item in potential.get("very_slow_annotations", []):
+                append_issue("very_slow_annotations", item, "medium")
+            for item in potential.get("low_confidence_annotations", []):
+                append_issue("low_confidence_annotations", item, "high")
+
+        return {"issues": issues, "count": len(issues)}
+    except Exception as e:
+        logger.error(f"获取标注质检问题失败: {e}")
+        raise HTTPException(status_code=500, detail="获取标注质检问题失败")
+
 @router.get("/annotations")
 async def get_user_annotations(
-    annotator_id: str = Query(..., description="标注者ID"),
     task_id: Optional[str] = Query(None, description="任务ID"),
     status: Optional[str] = Query(None, description="状态"),
     limit: int = Query(100, description="返回数量限制"),
-    offset: int = Query(0, description="偏移量")
+    offset: int = Query(0, description="偏移量"),
+    current_user: User = Depends(get_current_active_user),
 ):
     """获取用户标注记录"""
     try:
-        annotations = get_annotation_manager().get_user_annotations(
-            annotator_id=annotator_id,
+        annotations = await get_annotation_manager().get_user_annotations(
+            annotator_id=current_user.username,
             task_id=task_id,
             status=status,
             limit=limit,
@@ -462,30 +494,33 @@ async def get_user_annotations(
 # 版本管理接口
 
 @router.post("/versions")
-async def create_data_version(version_data: DataVersionCreate, created_by: str = Query(..., description="创建者ID")):
+async def create_data_version(
+    version_data: DataVersionCreate,
+    current_user: User = Depends(get_current_active_user),
+):
     """创建数据版本"""
     try:
         # 如果指定了数据记录ID，获取数据记录
         if version_data.data_record_ids:
-            records = get_data_manager().get_data_records(
+            records = await get_data_manager().get_data_records(
                 record_ids=version_data.data_record_ids,
                 limit=len(version_data.data_record_ids)
             )
             data_records = [record['processed_data'] or record['raw_data'] for record in records]
         else:
             # 获取所有已处理的数据记录
-            all_records = get_data_manager().get_data_records(status='processed', limit=10000)
+            all_records = await get_data_manager().get_data_records(status='processed', limit=10000)
             data_records = [record['processed_data'] for record in all_records]
         
         if not data_records:
             raise HTTPException(status_code=400, detail="没有找到可用的数据记录")
         
-        version_id = get_version_manager().create_version(
+        version_id = await get_version_manager().create_version(
             dataset_name=version_data.dataset_name,
             version_number=version_data.version_number,
             data_records=data_records,
             description=version_data.description,
-            created_by=created_by,
+            created_by=current_user.username,
             parent_version=version_data.parent_version,
             metadata=version_data.metadata
         )
@@ -507,7 +542,7 @@ async def create_data_version(version_data: DataVersionCreate, created_by: str =
 async def list_datasets():
     """列出所有数据集"""
     try:
-        datasets = get_version_manager().list_datasets()
+        datasets = await get_version_manager().list_datasets()
         return {"datasets": datasets}
     except Exception as e:
         logger.error(f"获取数据集列表失败: {e}")
@@ -517,7 +552,7 @@ async def list_datasets():
 async def list_dataset_versions(dataset_name: str):
     """列出数据集的所有版本"""
     try:
-        versions = get_version_manager().list_versions(dataset_name)
+        versions = await get_version_manager().list_versions(dataset_name)
         return {
             "dataset_name": dataset_name,
             "versions": versions,
@@ -531,7 +566,7 @@ async def list_dataset_versions(dataset_name: str):
 async def get_version_data(version_id: str):
     """获取版本数据"""
     try:
-        data = get_version_manager().get_version_data(version_id)
+        data = await get_version_manager().get_version_data(version_id)
         return {
             "version_id": version_id,
             "data": data,
@@ -547,17 +582,7 @@ async def get_version_data(version_id: str):
 async def get_version_history(version_id: str):
     """获取版本历史"""
     try:
-        # 首先获取版本信息以确定数据集名称
-        vm = get_version_manager()
-        with vm.SessionLocal() as db:
-            version = db.query(vm.DataVersionModel).filter(
-                vm.DataVersionModel.version_id == version_id
-            ).first()
-            
-            if not version:
-                raise HTTPException(status_code=404, detail="版本未找到")
-        
-        history = vm.get_version_history(version.dataset_name, version_id)
+        history = await get_version_manager().get_version_history(version_id)
         return {
             "version_id": version_id,
             "history": history,
@@ -570,10 +595,14 @@ async def get_version_history(version_id: str):
         raise HTTPException(status_code=500, detail="获取版本历史失败")
 
 @router.post("/versions/{version_id1}/compare/{version_id2}")
-async def compare_versions(version_id1: str, version_id2: str):
+async def compare_versions(
+    version_id1: str,
+    version_id2: str,
+    current_user: User = Depends(get_current_active_user),
+):
     """比较两个版本"""
     try:
-        comparison = get_version_manager().compare_versions(version_id1, version_id2)
+        comparison = await get_version_manager().compare_versions(version_id1, version_id2)
         return comparison
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
@@ -584,7 +613,8 @@ async def compare_versions(version_id1: str, version_id2: str):
 @router.post("/versions/{version_id}/export")
 async def export_version(
     version_id: str, 
-    format: str = Query("jsonl", description="导出格式: jsonl, json, csv")
+    format: str = Query("jsonl", description="导出格式: jsonl, json, csv"),
+    current_user: User = Depends(get_current_active_user),
 ):
     """导出版本数据"""
     try:
@@ -592,7 +622,7 @@ async def export_version(
             raise HTTPException(status_code=400, detail="不支持的导出格式")
         
         export_path = f"./exports/{version_id}.{format}"
-        file_path = get_version_manager().export_version(version_id, export_path, format)
+        file_path = await get_version_manager().export_version(version_id, export_path, format)
         
         return {
             "version_id": version_id,
@@ -610,11 +640,15 @@ async def export_version(
 async def rollback_dataset(
     dataset_name: str, 
     target_version_id: str, 
-    created_by: str = Query(..., description="创建者ID")
+    current_user: User = Depends(get_current_active_user),
 ):
     """回滚数据集到指定版本"""
     try:
-        new_version_id = get_version_manager().rollback_to_version(dataset_name, target_version_id, created_by)
+        new_version_id = await get_version_manager().rollback_to_version(
+            dataset_name,
+            target_version_id,
+            current_user.username,
+        )
         
         return {
             "dataset_name": dataset_name,
@@ -632,17 +666,21 @@ async def rollback_dataset(
 async def get_version_statistics(dataset_name: Optional[str] = Query(None, description="数据集名称")):
     """获取版本统计信息"""
     try:
-        stats = get_version_manager().get_version_statistics(dataset_name)
+        stats = await get_version_manager().get_version_statistics(dataset_name)
         return stats
     except Exception as e:
         logger.error(f"获取版本统计失败: {e}")
         raise HTTPException(status_code=500, detail="获取版本统计失败")
 
 @router.delete("/versions/{version_id}")
-async def delete_version(version_id: str, remove_files: bool = Query(True, description="是否删除文件")):
+async def delete_version(
+    version_id: str,
+    remove_files: bool = Query(True, description="是否删除文件"),
+    current_user: User = Depends(get_current_active_user),
+):
     """删除版本"""
     try:
-        success = get_version_manager().delete_version(version_id, remove_files)
+        success = await get_version_manager().delete_version(version_id, remove_files)
         if not success:
             raise HTTPException(status_code=404, detail="版本未找到")
         
@@ -674,7 +712,7 @@ async def health_check():
 async def get_queue_status():
     """获取处理队列状态"""
     try:
-        status = get_data_manager().get_processing_queue_status()
+        status = await get_data_manager().get_processing_queue_status()
         return status
     except Exception as e:
         logger.error(f"获取队列状态失败: {e}")

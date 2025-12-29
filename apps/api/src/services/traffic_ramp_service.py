@@ -3,6 +3,7 @@
 
 实现实验流量的渐进式调整和安全发布
 """
+
 from datetime import datetime
 from datetime import timedelta
 from src.core.utils.timezone_utils import utc_now, utc_factory
@@ -11,12 +12,11 @@ from enum import Enum
 import asyncio
 from dataclasses import dataclass, field
 import math
-
 from ..core.database import get_db_session
 from ..services.anomaly_detection_service import AnomalyDetectionService
 from ..services.realtime_metrics_service import RealtimeMetricsService
 from ..services.alert_rules_service import AlertRulesEngine
-
+from ..services.traffic_allocation_service import set_variant_traffic
 
 class RampStrategy(str, Enum):
     """流量爬坡策略"""
@@ -25,7 +25,6 @@ class RampStrategy(str, Enum):
     LOGARITHMIC = "logarithmic"  # 对数增长
     STEP = "step"  # 阶梯增长
     CUSTOM = "custom"  # 自定义曲线
-
 
 class RampStatus(str, Enum):
     """爬坡状态"""
@@ -36,7 +35,6 @@ class RampStatus(str, Enum):
     ROLLED_BACK = "rolled_back"  # 已回滚
     FAILED = "failed"  # 失败
 
-
 class RolloutPhase(str, Enum):
     """发布阶段"""
     CANARY = "canary"  # 金丝雀发布 (1-5%)
@@ -44,7 +42,6 @@ class RolloutPhase(str, Enum):
     BETA = "beta"  # Beta发布 (20-50%)
     GRADUAL = "gradual"  # 渐进发布 (50-95%)
     FULL = "full"  # 全量发布 (95-100%)
-
 
 @dataclass
 class RampStep:
@@ -58,7 +55,6 @@ class RampStep:
     metrics_snapshot: Optional[Dict[str, Any]] = None
     health_check_passed: Optional[bool] = None
     
-    
 @dataclass
 class RampPlan:
     """爬坡计划"""
@@ -71,9 +67,8 @@ class RampPlan:
     steps: List[RampStep]
     health_checks: Dict[str, Any]
     rollback_conditions: Dict[str, Any]
-    created_at: datetime = field(default_factory=datetime.utcnow)
-    updated_at: datetime = field(default_factory=datetime.utcnow)
-    
+    created_at: datetime = field(default_factory=utc_now)
+    updated_at: datetime = field(default_factory=utc_now)
     
 @dataclass
 class RampExecution:
@@ -90,7 +85,6 @@ class RampExecution:
     rollback_reason: Optional[str] = None
     metrics_history: List[Dict[str, Any]] = field(default_factory=list)
     alerts_triggered: List[str] = field(default_factory=list)
-
 
 class TrafficRampService:
     """流量爬坡服务"""
@@ -367,9 +361,7 @@ class TrafficRampService:
         percentage: float
     ):
         """调整流量百分比"""
-        # 这里应该调用实际的流量分配服务
-        # 更新实验配置中的流量分配
-        print(f"调整实验 {experiment_id} 变体 {variant} 流量到 {percentage}%")
+        await set_variant_traffic(experiment_id, variant, percentage)
         
     async def _perform_health_check(
         self,

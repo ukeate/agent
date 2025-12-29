@@ -3,13 +3,13 @@ Task 6情感社交分析工具完整单元测试套件
 测试SocialAnalyticsTools的所有分析功能和数据处理能力
 """
 
+from src.core.utils.timezone_utils import utc_now
 import pytest
 import asyncio
-from datetime import datetime, timedelta
+from datetime import timedelta
 from typing import Dict, List, Any
 from unittest.mock import Mock, patch, AsyncMock
 import json
-
 from ai.emotion_modeling.social_analytics_tools import (
     SocialAnalyticsTools,
     EmotionFlow,
@@ -21,17 +21,15 @@ from ai.emotion_modeling.social_analytics_tools import (
 )
 from ai.emotion_modeling.models import EmotionVector, SocialContext
 
-
 @pytest.fixture
 def analytics_tools():
     """创建社交分析工具实例"""
     return SocialAnalyticsTools()
 
-
 @pytest.fixture
 def sample_conversation_data():
     """创建测试对话数据"""
-    base_time = datetime.now()
+    base_time = utc_now()
     return [
         {
             "timestamp": base_time,
@@ -63,7 +61,6 @@ def sample_conversation_data():
         }
     ]
 
-
 @pytest.fixture
 def sample_network_data():
     """创建测试网络数据"""
@@ -81,7 +78,6 @@ def sample_network_data():
             {"source": "user3", "target": "user4", "weight": 0.4, "type": "acquaintance"}
         ]
     }
-
 
 @pytest.fixture
 def sample_group_metrics():
@@ -106,7 +102,6 @@ def sample_group_metrics():
         }
     }
 
-
 class TestSocialAnalyticsTools:
     """社交分析工具基础功能测试"""
     
@@ -123,7 +118,7 @@ class TestSocialAnalyticsTools:
         # 添加一些测试缓存数据
         analytics_tools.network_analysis_cache["test_key"] = {
             "data": "test_data",
-            "timestamp": datetime.now()
+            "timestamp": utc_now()
         }
         
         analytics_tools.clear_cache()
@@ -140,7 +135,6 @@ class TestSocialAnalyticsTools:
         assert "network_analyses_cached" in summary
         assert "influence_patterns_identified" in summary
         assert "cache_hit_rate" in summary
-
 
 class TestEmotionFlowAnalysis:
     """情感流分析测试"""
@@ -177,7 +171,7 @@ class TestEmotionFlowAnalysis:
     async def test_analyze_emotion_flow_single_message(self, analytics_tools):
         """测试单条消息情感流分析"""
         single_message = [{
-            "timestamp": datetime.now(),
+            "timestamp": utc_now(),
             "user_id": "user1",
             "message": "测试消息",
             "emotions": {"happiness": 0.8},
@@ -218,7 +212,6 @@ class TestEmotionFlowAnalysis:
         
         assert flow1.session_id == flow2.session_id
         assert session_id in analytics_tools.emotion_flow_history
-
 
 class TestSocialNetworkAnalysis:
     """社交网络分析测试"""
@@ -297,7 +290,6 @@ class TestSocialNetworkAnalysis:
         analysis = await analytics_tools.analyze_social_network(network_id, sample_network_data)
         assert isinstance(analysis, SocialNetworkAnalysis)
 
-
 class TestInfluencePatternAnalysis:
     """影响力模式分析测试"""
     
@@ -325,14 +317,14 @@ class TestInfluencePatternAnalysis:
         """测试无交互数据的影响力模式"""
         no_response_data = [
             {
-                "timestamp": datetime.now(),
+                "timestamp": utc_now(),
                 "user_id": "user1",
                 "message": "独立消息1",
                 "emotions": {"neutral": 1.0},
                 "response_to": None
             },
             {
-                "timestamp": datetime.now(),
+                "timestamp": utc_now(),
                 "user_id": "user2",
                 "message": "独立消息2", 
                 "emotions": {"neutral": 1.0},
@@ -362,7 +354,6 @@ class TestInfluencePatternAnalysis:
         patterns2 = await analytics_tools.identify_influence_patterns(session_id, sample_conversation_data)
         
         assert len(patterns1) == len(patterns2)
-
 
 class TestGroupCohesionAnalysis:
     """群体凝聚力分析测试"""
@@ -453,7 +444,6 @@ class TestGroupCohesionAnalysis:
         assert len(cohesion.risk_factors) > 0
         assert len(cohesion.improvement_suggestions) > 0
 
-
 class TestConversationQualityAnalysis:
     """对话质量分析测试"""
     
@@ -479,7 +469,7 @@ class TestConversationQualityAnalysis:
         """测试独白式对话质量"""
         monologue_data = [
             {
-                "timestamp": datetime.now(),
+                "timestamp": utc_now(),
                 "user_id": "user1",
                 "message": f"消息{i}",
                 "emotions": {"neutral": 0.8},
@@ -499,7 +489,7 @@ class TestConversationQualityAnalysis:
         """测试高质量对话"""
         high_quality_data = [
             {
-                "timestamp": datetime.now(),
+                "timestamp": utc_now(),
                 "user_id": f"user{i%3+1}",
                 "message": f"深思熟虑的回应{i}",
                 "emotions": {"thoughtfulness": 0.8, "engagement": 0.7},
@@ -513,7 +503,6 @@ class TestConversationQualityAnalysis:
         assert quality.overall_quality_score > 0.6
         assert quality.engagement_score > 0.6
         assert quality.coherence_score > 0.6
-
 
 class TestSocialDynamicsInsights:
     """社交动态洞察测试"""
@@ -562,7 +551,6 @@ class TestSocialDynamicsInsights:
         assert isinstance(insights, SocialDynamicsInsight)
         assert insights.session_id == "empty_session"
         # 即使没有数据也应该有基础结构
-
 
 class TestDataProcessingUtilities:
     """数据处理工具测试"""
@@ -636,7 +624,6 @@ class TestDataProcessingUtilities:
             assert isinstance(community["members"], list)
             assert 0.0 <= community["cohesion_score"] <= 1.0
 
-
 class TestErrorHandlingAndEdgeCases:
     """错误处理和边界条件测试"""
     
@@ -679,7 +666,7 @@ class TestErrorHandlingAndEdgeCases:
         """测试极大数据集处理"""
         # 创建大量数据
         large_conversation_data = []
-        base_time = datetime.now()
+        base_time = utc_now()
         
         for i in range(1000):
             large_conversation_data.append({
@@ -704,7 +691,7 @@ class TestErrorHandlingAndEdgeCases:
                 "message": "缺少时间戳和情感"
             },
             {
-                "timestamp": datetime.now(),
+                "timestamp": utc_now(),
                 "emotions": {"happiness": 0.8}
                 # 缺少user_id
             }
@@ -712,7 +699,6 @@ class TestErrorHandlingAndEdgeCases:
         
         flow = await analytics_tools.analyze_emotion_flow("incomplete_session", incomplete_data)
         assert isinstance(flow, EmotionFlow)
-
 
 class TestPerformanceAndOptimization:
     """性能和优化测试"""
@@ -724,7 +710,7 @@ class TestPerformanceAndOptimization:
         
         # 创建中等规模数据集
         conversation_data = []
-        base_time = datetime.now()
+        base_time = utc_now()
         
         for i in range(100):
             conversation_data.append({
@@ -760,7 +746,7 @@ class TestPerformanceAndOptimization:
         # 添加大量历史数据
         for i in range(100):
             analytics_tools.emotion_flow_history[f"session_{i}"] = {
-                "timestamp": datetime.now(),
+                "timestamp": utc_now(),
                 "data": f"test_data_{i}"
             }
         
@@ -771,7 +757,6 @@ class TestPerformanceAndOptimization:
         
         # 验证清理有效
         assert final_size <= initial_size
-
 
 class TestIntegrationScenarios:
     """集成场景测试"""
@@ -819,7 +804,6 @@ class TestIntegrationScenarios:
         assert cohesion_metrics.group_id == session_id
         assert conversation_quality.conversation_id == session_id
         assert insights.session_id == session_id
-
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

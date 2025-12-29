@@ -3,13 +3,14 @@
 支持端到端加密、密钥管理、前向安全等特性
 """
 
+from src.core.utils.timezone_utils import utc_now
 import asyncio
 import ssl
 import secrets
 import struct
 import time
 import json
-import logging
+from cryptography import x509
 from cryptography.fernet import Fernet
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import rsa, ec, padding
@@ -19,20 +20,18 @@ from typing import Dict, List, Optional, Tuple, Any
 from dataclasses import dataclass
 from enum import Enum
 
-
+from src.core.logging import get_logger
 class EncryptionAlgorithm(Enum):
     AES_256_GCM = "aes_256_gcm"
     CHACHA20_POLY1305 = "chacha20_poly1305"
     RSA_4096 = "rsa_4096"
     ECDH_P384 = "ecdh_p384"
 
-
 class MessageType(Enum):
     HANDSHAKE = "handshake"
     KEY_EXCHANGE = "key_exchange"
     ENCRYPTED_MESSAGE = "encrypted_message"
     HEARTBEAT = "heartbeat"
-
 
 @dataclass
 class EncryptedMessage:
@@ -46,7 +45,6 @@ class EncryptedMessage:
     nonce: bytes
     key_version: int
 
-
 @dataclass
 class CommunicationSession:
     session_id: str
@@ -57,7 +55,6 @@ class CommunicationSession:
     expires_at: float
     forward_secure: bool = True
 
-
 class EncryptedCommunicationFramework:
     """加密通信框架"""
     
@@ -67,7 +64,7 @@ class EncryptedCommunicationFramework:
         self.agent_keys: Dict[str, Dict[str, bytes]] = {}  # agent_id -> {public_key, private_key}
         self.key_rotation_interval = config.get('key_rotation_interval', 3600)  # 1小时
         self.message_ttl = config.get('message_ttl', 300)  # 5分钟
-        self.logger = logging.getLogger(__name__)
+        self.logger = get_logger(__name__)
         
     async def initialize(self):
         """初始化加密通信框架"""
@@ -449,11 +446,30 @@ class EncryptedCommunicationFramework:
         
         self.agent_keys[agent_id] = key_data
         self.logger.info(f"Agent key registered: {agent_id}")
+
+    async def ensure_agent_public_key(self, agent_id: str) -> bytes:
+        """确保智能体公钥存在"""
+        public_key = await self.get_agent_public_key(agent_id)
+        if public_key:
+            return public_key
+
+        private_key = ec.generate_private_key(ec.SECP384R1())
+        public_key_obj = private_key.public_key()
+        public_key_bytes = public_key_obj.public_bytes(
+            encoding=serialization.Encoding.PEM,
+            format=serialization.PublicFormat.SubjectPublicKeyInfo
+        )
+        private_key_bytes = private_key.private_bytes(
+            encoding=serialization.Encoding.PEM,
+            format=serialization.PrivateFormat.PKCS8,
+            encryption_algorithm=serialization.NoEncryption()
+        )
+        await self.register_agent_key(agent_id, public_key_bytes, private_key_bytes)
+        return public_key_bytes
     
     async def get_agent_public_key(self, agent_id: str) -> Optional[bytes]:
         """获取智能体公钥"""
         return self.agent_keys.get(agent_id, {}).get('public_key')
-
 
 class MessageIntegrityValidator:
     """消息完整性验证器"""
@@ -461,7 +477,7 @@ class MessageIntegrityValidator:
     def __init__(self, config: Dict[str, Any]):
         self.config = config
         self.hash_algorithm = config.get('hash_algorithm', 'sha256')
-        self.logger = logging.getLogger(__name__)
+        self.logger = get_logger(__name__)
         
     async def validate_message_integrity(
         self,
@@ -517,7 +533,6 @@ class MessageIntegrityValidator:
         except Exception:
             return False
 
-
 class CertificateManager:
     """证书管理器"""
     
@@ -525,7 +540,7 @@ class CertificateManager:
         self.config = config
         self.certificates: Dict[str, x509.Certificate] = {}
         self.revoked_certificates: set = set()
-        self.logger = logging.getLogger(__name__)
+        self.logger = get_logger(__name__)
     
     async def load_certificate(self, cert_path: str) -> bool:
         """加载证书"""
@@ -552,7 +567,7 @@ class CertificateManager:
         }
         
         # 检查有效期
-        now = datetime.utcnow()
+        now = utc_now()
         if now < cert.not_valid_before:
             validation_result['valid'] = False
             validation_result['errors'].append('Certificate not yet valid')

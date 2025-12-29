@@ -2,17 +2,19 @@
 工作流事件系统
 支持状态变更监听和事件通知
 """
+
 from typing import Any, Dict, List, Optional, Callable, Union
 from dataclasses import dataclass, field
 from datetime import datetime
-from src.core.utils.timezone_utils import utc_now, utc_factory, timezone
+from src.core.utils.timezone_utils import utc_now, utc_factory
 from enum import Enum
 import asyncio
 from abc import ABC, abstractmethod
 import json
-
 from .state import MessagesState
 
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 class EventType(Enum):
     """事件类型"""
@@ -34,7 +36,6 @@ class EventType(Enum):
     TIMEOUT_OCCURRED = "timeout_occurred"
     
     CUSTOM_EVENT = "custom_event"
-
 
 @dataclass
 class WorkflowEvent:
@@ -63,20 +64,18 @@ class WorkflowEvent:
         """转换为JSON字符串"""
         return json.dumps(self.to_dict(), ensure_ascii=False)
 
-
 class EventListener(ABC):
     """事件监听器抽象基类"""
     
     @abstractmethod
     async def handle_event(self, event: WorkflowEvent):
         """处理事件"""
-        pass
+        raise NotImplementedError
     
     @abstractmethod
     def get_interested_events(self) -> List[EventType]:
         """获取感兴趣的事件类型"""
-        pass
-
+        raise NotImplementedError
 
 class LoggingEventListener(EventListener):
     """日志事件监听器"""
@@ -86,16 +85,19 @@ class LoggingEventListener(EventListener):
     
     async def handle_event(self, event: WorkflowEvent):
         """记录事件到日志"""
-        print(f"[{self.log_level}] {event.timestamp} - {event.event_type.value}: {event.workflow_id}")
-        if event.node_name:
-            print(f"  节点: {event.node_name}")
-        if event.data:
-            print(f"  数据: {event.data}")
+        logger.info(
+            "工作流事件",
+            log_level=self.log_level,
+            timestamp=event.timestamp.isoformat(),
+            event_type=event.event_type.value,
+            workflow_id=event.workflow_id,
+            node_name=event.node_name,
+            data=event.data or None,
+        )
     
     def get_interested_events(self) -> List[EventType]:
         """监听所有事件"""
         return list(EventType)
-
 
 class WebSocketEventListener(EventListener):
     """WebSocket事件监听器"""
@@ -127,7 +129,7 @@ class WebSocketEventListener(EventListener):
                 try:
                     await websocket.send_text(message)
                 except Exception as e:
-                    print(f"WebSocket发送失败: {e}")
+                    logger.error("WebSocket发送失败", error=str(e), workflow_id=event.workflow_id, exc_info=True)
                     dead_connections.append(websocket)
             
             # 清理断开的连接
@@ -149,7 +151,6 @@ class WebSocketEventListener(EventListener):
             EventType.STATE_CHANGED,
             EventType.ERROR_OCCURRED
         ]
-
 
 class DatabaseEventListener(EventListener):
     """数据库事件监听器"""
@@ -173,11 +174,6 @@ class DatabaseEventListener(EventListener):
             return
         
         try:
-            import json
-            import logging
-            
-            logger = logging.getLogger(__name__)
-            
             # 将事件序列化为JSON格式保存
             events_data = []
             for event in self.event_buffer:
@@ -185,29 +181,23 @@ class DatabaseEventListener(EventListener):
                     "timestamp": event.timestamp.isoformat(),
                     "event_type": event.event_type.value,
                     "workflow_id": event.workflow_id,
-                    "node_id": event.node_id,
+                    "node_name": event.node_name,
                     "data": event.data,
                     "metadata": event.metadata
                 }
                 events_data.append(event_data)
             
             # 记录事件到日志系统
-            logger.info(f"批量保存工作流事件", extra={
-                "event_count": len(events_data),
-                "events": events_data
-            })
+            logger.info("批量保存工作流事件", event_count=len(events_data), events=events_data)
             
             self.event_buffer.clear()
             
         except Exception as e:
-            import logging
-            logger = logging.getLogger(__name__)
-            logger.error(f"保存事件到数据库失败: {e}", exc_info=True)
+            logger.error("保存事件到数据库失败", error=str(e), exc_info=True)
     
     def get_interested_events(self) -> List[EventType]:
         """监听所有事件用于审计"""
         return list(EventType)
-
 
 class EventBus:
     """事件总线"""
@@ -247,7 +237,7 @@ class EventBus:
             try:
                 await self.processing_task
             except asyncio.CancelledError:
-                pass
+                raise
     
     async def _process_events(self):
         """处理事件队列"""
@@ -261,7 +251,7 @@ class EventBus:
             except asyncio.CancelledError:
                 break
             except Exception as e:
-                print(f"处理事件失败: {e}")
+                logger.error("处理事件失败", error=str(e), exc_info=True)
     
     async def _dispatch_event(self, event: WorkflowEvent):
         """分发事件到监听器"""
@@ -271,8 +261,7 @@ class EventBus:
                 if event.event_type in listener.get_interested_events():
                     await listener.handle_event(event)
             except Exception as e:
-                print(f"事件监听器处理失败: {e}")
-
+                logger.error("事件监听器处理失败", error=str(e), exc_info=True)
 
 class WorkflowEventEmitter:
     """工作流事件发射器"""
@@ -420,7 +409,6 @@ class WorkflowEventEmitter:
                 }
         
         return changes
-
 
 # 创建全局事件系统
 event_bus = EventBus()

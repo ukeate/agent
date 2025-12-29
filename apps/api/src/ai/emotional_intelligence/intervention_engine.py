@@ -1,21 +1,20 @@
 """
 智能干预策略引擎
 """
+
+from src.core.utils.timezone_utils import utc_now
 import asyncio
 from typing import Dict, List, Optional, Any, Tuple
 from datetime import datetime, timedelta
-import logging
 from dataclasses import dataclass, field
-
 from .models import (
     InterventionPlan, InterventionStrategy, RiskAssessment, RiskLevel,
     InterventionType, DecisionContext
 )
 from ..emotion_modeling.models import PersonalityProfile, EmotionState
 
-
-logger = logging.getLogger(__name__)
-
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 @dataclass
 class InterventionResource:
@@ -30,7 +29,6 @@ class InterventionResource:
     location: Optional[str] = None
     cost: Optional[str] = None
     rating: Optional[float] = None
-
 
 class InterventionStrategySelector:
     """干预策略选择器"""
@@ -440,7 +438,7 @@ class InterventionStrategySelector:
         strategies: List[InterventionStrategy]
     ) -> Dict[str, datetime]:
         """创建干预时间安排"""
-        now = datetime.now()
+        now = utc_now()
         timeline = {}
         
         if risk_level == RiskLevel.CRITICAL.value:

@@ -3,6 +3,7 @@
 
 评估实验风险并提供自动回滚能力
 """
+
 from datetime import datetime
 from datetime import timedelta
 from src.core.utils.timezone_utils import utc_now, utc_factory
@@ -11,12 +12,23 @@ from enum import Enum
 import asyncio
 from dataclasses import dataclass, field
 import statistics
-
 from ..core.database import get_db_session
+from sqlalchemy import select
+import redis.asyncio as redis
+from src.core.config import get_settings
+from src.models.database.experiment import ExperimentVariant
 from ..services.realtime_metrics_service import RealtimeMetricsService
 from ..services.anomaly_detection_service import AnomalyDetectionService, AnomalyType
 from ..services.alert_rules_service import AlertRulesEngine, AlertSeverity
+from ..services.traffic_allocation_service import (
 
+    route_all_traffic_to_control,
+    set_experiment_status,
+    set_variant_traffic,
+)
+
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 class RiskLevel(str, Enum):
     """风险等级"""
@@ -25,7 +37,6 @@ class RiskLevel(str, Enum):
     MEDIUM = "medium"  # 中等风险
     HIGH = "high"  # 高风险
     CRITICAL = "critical"  # 严重风险
-
 
 class RiskCategory(str, Enum):
     """风险类别"""
@@ -36,14 +47,12 @@ class RiskCategory(str, Enum):
     DATA_QUALITY = "data_quality"  # 数据质量风险
     COMPLIANCE = "compliance"  # 合规风险
 
-
 class RollbackStrategy(str, Enum):
     """回滚策略"""
     IMMEDIATE = "immediate"  # 立即回滚
     GRADUAL = "gradual"  # 渐进回滚
     PARTIAL = "partial"  # 部分回滚
     MANUAL = "manual"  # 手动确认
-
 
 @dataclass
 class RiskFactor:
@@ -63,7 +72,6 @@ class RiskFactor:
         """计算风险分数"""
         return self.severity * self.likelihood * self.impact
 
-
 @dataclass
 class RiskAssessment:
     """风险评估结果"""
@@ -78,7 +86,6 @@ class RiskAssessment:
     confidence: float
     metadata: Dict[str, Any] = field(default_factory=dict)
 
-
 @dataclass
 class RollbackPlan:
     """回滚计划"""
@@ -90,8 +97,7 @@ class RollbackPlan:
     estimated_duration_minutes: int
     auto_execute: bool
     approval_required: bool
-    created_at: datetime = field(default_factory=datetime.utcnow)
-
+    created_at: datetime = field(default_factory=utc_now)
 
 @dataclass
 class RollbackExecution:
@@ -106,7 +112,6 @@ class RollbackExecution:
     errors: List[str] = field(default_factory=list)
     metrics_before: Dict[str, Any] = field(default_factory=dict)
     metrics_after: Dict[str, Any] = field(default_factory=dict)
-
 
 class RiskAssessmentService:
     """风险评估服务"""
@@ -618,30 +623,89 @@ class RiskAssessmentService:
     async def _execute_rollback_step(self, step: Dict[str, Any], experiment_id: str):
         """执行回滚步骤"""
         action = step["action"]
-        
         if "停止新流量" in action:
-            # 停止新用户进入实验
-            print(f"停止实验 {experiment_id} 的新流量")
-            
-        elif "切换到对照组" in action:
-            # 将所有用户切换到对照组
-            print(f"将实验 {experiment_id} 的用户切换到对照组")
-            
-        elif "减少流量" in action:
-            # 提取百分比并调整流量
+            await set_experiment_status(experiment_id, "paused")
+            return
+
+        if "切换到对照组" in action:
+            await route_all_traffic_to_control(experiment_id)
+            return
+
+        if "减少流量" in action:
             import re
+
             match = re.search(r"(\d+)%", action)
-            if match:
-                percentage = int(match.group(1))
-                print(f"将实验 {experiment_id} 的流量减少到 {percentage}%")
-                
-        elif "清理缓存" in action:
-            # 清理相关缓存
-            print(f"清理实验 {experiment_id} 的缓存")
-            
-        elif "验证回滚" in action:
-            # 验证回滚是否成功
-            print(f"验证实验 {experiment_id} 的回滚状态")
+            if not match:
+                raise ValueError("回滚步骤缺少百分比")
+            percentage = float(match.group(1))
+
+            async with get_db_session() as session:
+                variants = (
+                    (await session.execute(select(ExperimentVariant).where(ExperimentVariant.experiment_id == experiment_id)))
+                    .scalars()
+                    .all()
+                )
+            targets = [v for v in variants if not bool(v.is_control)]
+            if not targets:
+                raise ValueError("找不到实验组变体")
+            target = max(targets, key=lambda v: float(v.traffic_percentage))
+
+            await route_all_traffic_to_control(experiment_id)
+            await set_variant_traffic(experiment_id, target.variant_id, percentage)
+            return
+
+        if "完全停止" in action:
+            await set_experiment_status(experiment_id, "paused")
+            await route_all_traffic_to_control(experiment_id)
+            return
+
+        if "监控指标" in action:
+            await self.metrics_service.get_experiment_metrics(experiment_id)
+            return
+
+        if "清理缓存" in action:
+            settings = get_settings()
+            client = await redis.from_url(settings.REDIS_URL, encoding="utf-8", decode_responses=True)
+            try:
+                await client.delete(f"metrics:realtime:{experiment_id}")
+                async for key in client.scan_iter(f"metrics:trends:{experiment_id}:*"):
+                    await client.delete(key)
+            finally:
+                await client.close()
+            return
+
+        if "验证回滚" in action:
+            async with get_db_session() as session:
+                exp = (
+                    await session.execute(
+                        select(ExperimentVariant).where(ExperimentVariant.experiment_id == experiment_id)
+                    )
+                ).scalars().all()
+            if not exp:
+                raise ValueError("实验不存在或无变体")
+            total = sum(float(v.traffic_percentage) for v in exp)
+            if abs(total - 100.0) > 0.01:
+                raise ValueError("回滚后流量分配异常")
+            return
+
+        if "发送告警" in action:
+            await self.alert_engine.evaluate_rules(
+                {
+                    "experiment_id": experiment_id,
+                    "severity": "warning",
+                    "message": "需要人工确认回滚",
+                    "timestamp": utc_now().isoformat(),
+                }
+            )
+            return
+
+        if "等待确认" in action:
+            return
+
+        if "执行回滚" in action:
+            await set_experiment_status(experiment_id, "paused")
+            await route_all_traffic_to_control(experiment_id)
+            return
             
     async def monitor_risk_continuously(
         self,
@@ -681,6 +745,8 @@ class RiskAssessmentService:
                 # 等待下一次检查
                 await asyncio.sleep(check_interval_minutes * 60)
                 
+            except asyncio.CancelledError:
+                break
             except Exception as e:
-                print(f"风险监控错误: {e}")
+                logger.error("风险监控错误", error=str(e), exc_info=True)
                 await asyncio.sleep(60)  # 错误后等待1分钟

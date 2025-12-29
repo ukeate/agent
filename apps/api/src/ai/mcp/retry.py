@@ -1,18 +1,15 @@
 """MCP工具调用重试机制"""
 
 import asyncio
-import logging
 from typing import Any, Callable, Dict, List, Optional, Union
 from dataclasses import dataclass
 from datetime import datetime
 from datetime import timedelta
 from src.core.utils.timezone_utils import utc_now, utc_factory
 import random
-
 from .exceptions import MCPConnectionError, MCPTimeoutError, MCPToolError
 
-logger = logging.getLogger(__name__)
-
+logger = get_logger(__name__)
 
 @dataclass
 class RetryConfig:
@@ -32,7 +29,6 @@ class RetryConfig:
                 asyncio.TimeoutError,
                 ConnectionError
             ]
-
 
 class RetryManager:
     """重试管理器"""
@@ -187,10 +183,8 @@ class RetryManager:
         else:
             self.retry_stats.clear()
 
-
 # 全局重试管理器实例
 default_retry_manager = RetryManager()
-
 
 def retry_on_failure(
     max_attempts: int = 3,
@@ -228,7 +222,7 @@ def retry_on_failure(
         return wrapper
     return decorator
 
-
 async def get_retry_manager() -> RetryManager:
     """获取重试管理器依赖注入"""
     return default_retry_manager
+from src.core.logging import get_logger

@@ -9,7 +9,6 @@ from datetime import datetime
 from datetime import timedelta
 from src.core.utils.timezone_utils import utc_now, utc_factory
 from pathlib import Path
-import logging
 from jinja2 import Template, Environment, FileSystemLoader
 import plotly.graph_objects as go
 import plotly.express as px
@@ -17,13 +16,14 @@ from plotly.subplots import make_subplots
 import base64
 from io import BytesIO
 import warnings
-
 from .evaluation_engine import EvaluationResult, EvaluationMetrics
 from .performance_monitor import PerformanceMonitor, BenchmarkMetrics
 from .benchmark_manager import BenchmarkManager, BenchmarkInfo
 
+from src.core.logging import get_logger
+logger = get_logger(__name__)
+
 warnings.filterwarnings("ignore")
-logger = logging.getLogger(__name__)
 
 @dataclass
 class ReportConfig:
@@ -68,23 +68,23 @@ class EvaluationReportGenerator:
     
     def _register_template_filters(self):
         """注册模板过滤器"""
-        @self.jinja_env.filter
         def format_number(value, precision=2):
             if isinstance(value, (int, float)):
                 return f"{value:.{precision}f}"
             return str(value)
+        self.jinja_env.filters["format_number"] = format_number
         
-        @self.jinja_env.filter
         def format_percentage(value, precision=1):
             if isinstance(value, (int, float)):
                 return f"{value * 100:.{precision}f}%"
             return str(value)
+        self.jinja_env.filters["format_percentage"] = format_percentage
         
-        @self.jinja_env.filter
         def format_time(value):
             if isinstance(value, datetime):
                 return value.strftime("%Y-%m-%d %H:%M:%S")
             return str(value)
+        self.jinja_env.filters["format_time"] = format_time
     
     def generate_evaluation_report(self,
                                  results: List[EvaluationResult],

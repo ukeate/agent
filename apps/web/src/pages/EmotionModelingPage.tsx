@@ -1,6 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { buildWsUrl } from '../utils/apiBase';
 import { Card, Tabs, Button, Badge, Input, Select, Slider, Progress, Row, Col, Typography, Space, Tag, Alert, Timeline, message } from 'antd';
 import { ExperimentOutlined, LineChartOutlined, BarChartOutlined, AimOutlined, ClockCircleOutlined, StarOutlined, HeartOutlined, RadarChartOutlined } from '@ant-design/icons';
+import { logger } from '../utils/logger'
 const { Title, Text, Paragraph } = Typography;
 const { TextArea } = Input;
 const { TabPane } = Tabs;
@@ -36,85 +38,38 @@ interface PersonalityProfile {
 interface EmotionAnalytics {
   user_id: string;
   period_days: number;
-  temporal_patterns: {
+  temporal_patterns?: {
     best_hours: Array<[number, number]>;
     worst_hours: Array<[number, number]>;
     weekly_patterns: Record<string, number>;
     monthly_patterns: Record<string, number>;
   };
-  emotion_distribution: Record<string, number>;
-  volatility: {
+  emotion_distribution?: Record<string, number>;
+  volatility?: {
     overall_volatility: number;
     valence_volatility: number;
     arousal_volatility: number;
     dominance_volatility: number;
   };
-  clusters: Array<{
+  clusters?: Array<{
     name: string;
     emotions: string[];
     frequency: number;
   }>;
-  patterns: Array<{
+  patterns?: Array<{
     pattern_type: string;
     description: string;
     frequency: number;
     confidence: number;
   }>;
-  recovery_analysis: {
+  recovery_analysis?: {
     average_recovery_time: number;
     recovery_rate: number;
     triggers: Record<string, number>;
   };
 }
 
-// 临时API客户端实现
-const emotionApi = {
-  async recordEmotionState(data: any) {
-    // 模拟API调用
-    console.log('记录情感状态:', data);
-    return { success: false, error: '后端服务未连接，使用模拟数据' };
-  },
-  async getLatestEmotionState() {
-    return { success: false, error: '后端服务未连接' };
-  },
-  async getEmotionHistory(params: any) {
-    return { success: false, error: '后端服务未连接' };
-  },
-  async getPersonalityProfile() {
-    return { success: false, error: '后端服务未连接' };
-  },
-  async getEmotionAnalytics(days: number) {
-    return { success: false, error: '后端服务未连接' };
-  },
-  async predictEmotions(timeHorizon: number) {
-    return { success: false, error: '后端服务未连接' };
-  },
-  connectRealtime(userId: string, callbacks: any): WebSocket {
-    console.log('WebSocket连接模拟 - 用户:', userId);
-    // 创建一个模拟的WebSocket对象
-    return {
-      close: () => console.log('模拟WebSocket关闭'),
-      send: () => {},
-      addEventListener: () => {},
-      removeEventListener: () => {},
-      dispatchEvent: () => true,
-      onopen: null,
-      onclose: null,
-      onmessage: null,
-      onerror: null,
-      readyState: 1,
-      url: '',
-      protocol: '',
-      extensions: '',
-      binaryType: 'blob' as BinaryType,
-      bufferedAmount: 0,
-      CONNECTING: 0,
-      OPEN: 1,
-      CLOSING: 2,
-      CLOSED: 3
-    } as WebSocket;
-  }
-};
+import { emotionalIntelligenceService } from '../services/emotionalIntelligenceService';
 
 const EmotionModelingPage: React.FC = () => {
   const [currentEmotion, setCurrentEmotion] = useState<EmotionState | null>(null);
@@ -123,7 +78,7 @@ const EmotionModelingPage: React.FC = () => {
   const [prediction, setPrediction] = useState<any>(null);
   const [analytics, setAnalytics] = useState<EmotionAnalytics | null>(null);
   const [loading, setLoading] = useState(false);
-  const [wsConnection, setWsConnection] = useState<WebSocket | null>(null);
+  const isMountedRef = useRef(true);
 
   // 新状态录入表单
   const [newEmotion, setNewEmotion] = useState({
@@ -138,187 +93,192 @@ const EmotionModelingPage: React.FC = () => {
     'joy', 'trust', 'anticipation', 'contempt', 'shame', 'guilt', 'pride',
     'envy', 'love', 'gratitude', 'hope', 'anxiety', 'depression'
   ];
+  const userId = 'user-default';
 
   useEffect(() => {
+    isMountedRef.current = true;
     loadData();
     
     // 建立WebSocket连接
-    const userId = 'user1'; // 实际应从认证获取
+    let ws: WebSocket | null = null;
     try {
-      const ws = emotionApi.connectRealtime(userId, {
-        onOpen: () => {
-          console.log('WebSocket连接已建立');
-        },
-        onMessage: (data) => {
-          console.log('收到实时更新:', data);
-          // 根据消息类型更新界面
-          if (data.type === 'emotion_update') {
-            setCurrentEmotion(data.emotion);
-            setEmotionHistory(prev => [data.emotion, ...prev].slice(0, 50));
-          } else if (data.type === 'profile_update') {
-            setPersonalityProfile(data.profile);
-          } else if (data.type === 'analytics_update') {
-            setAnalytics(data.analytics);
+      const wsUrl = buildWsUrl(`/ws/emotion/${userId}`);
+      ws = new WebSocket(wsUrl);
+
+      ws.onopen = () => {
+        logger.log('WebSocket连接已建立');
+      };
+
+      ws.onmessage = (event) => {
+        try {
+          const payload = JSON.parse(event.data);
+          if (!isMountedRef.current) return;
+          if (payload.type === 'emotion_update' && payload.emotion) {
+            setCurrentEmotion(payload.emotion);
+            setEmotionHistory((prev) => [payload.emotion, ...prev].slice(0, 50));
+          } else if (payload.type === 'emotion_result') {
+            const state = payload.data?.emotional_state || payload.data?.recognition_result?.fused_emotion;
+            if (state) {
+              const nextState = {
+                id: payload.message_id || state.timestamp,
+                emotion: state.emotion,
+                intensity: state.intensity,
+                valence: state.valence,
+                arousal: state.arousal,
+                dominance: state.dominance,
+                confidence: state.confidence,
+                timestamp: state.timestamp || payload.timestamp,
+              } as EmotionState;
+              setCurrentEmotion(nextState);
+              setEmotionHistory((prev) => [nextState, ...prev].slice(0, 50));
+            }
+          } else if (payload.type === 'profile_update' && payload.profile) {
+            setPersonalityProfile(payload.profile);
+          } else if (payload.type === 'analytics_update' && payload.analytics) {
+            setAnalytics(payload.analytics);
           }
-        },
-        onClose: () => {
-          console.log('WebSocket连接已断开');
-        },
-        onError: (error) => {
-          console.error('WebSocket连接错误:', error);
+        } catch (err) {
+          logger.error('解析WebSocket消息失败:', err);
         }
-      });
-      
-      setWsConnection(ws);
+      };
+
+      ws.onerror = (error) => {
+        logger.error('WebSocket连接错误:', error);
+        if (ws.readyState !== WebSocket.CLOSING && ws.readyState !== WebSocket.CLOSED) {
+          ws.close();
+        }
+      };
+
+      ws.onclose = () => {
+        logger.log('WebSocket连接已断开');
+      };
+
     } catch (error) {
-      console.error('建立WebSocket连接失败:', error);
+      logger.error('建立WebSocket连接失败:', error);
     }
 
     // 清理函数
     return () => {
-      if (wsConnection) {
-        wsConnection.close();
+      isMountedRef.current = false;
+      if (ws && ws.readyState !== WebSocket.CLOSED) {
+        ws.close();
       }
     };
   }, []);
 
   const loadData = async () => {
+    if (!isMountedRef.current) return;
     setLoading(true);
     try {
-      // 模拟API调用
+      const history = await loadEmotionHistory();
+      if (!history.length) {
+        if (!isMountedRef.current) return;
+        setPersonalityProfile(null);
+        setAnalytics(null);
+        return;
+      }
       await Promise.all([
-        loadLatestEmotion(),
-        loadEmotionHistory(),
-        loadPersonalityProfile(),
-        loadAnalytics()
+        loadPersonalityProfile(history.length),
+        loadAnalytics(history.length)
       ]);
     } catch (error) {
-      console.error('加载数据失败:', error);
+      logger.error('加载数据失败:', error);
     } finally {
-      setLoading(false);
+      if (isMountedRef.current) {
+        setLoading(false);
+      }
     }
   };
 
-  const loadLatestEmotion = async () => {
+  const loadEmotionHistory = async (): Promise<EmotionState[]> => {
     try {
-      const response = await emotionApi.getLatestEmotionState();
-      if (response.success && response.data) {
-        setCurrentEmotion(response.data);
-      }
-    } catch (error) {
-      console.error('获取最新情感状态失败:', error);
-      // 降级到模拟数据
-      setCurrentEmotion({
-        id: '1',
-        emotion: 'happiness',
-        intensity: 0.8,
-        valence: 0.7,
-        arousal: 0.6,
-        dominance: 0.7,
-        timestamp: new Date().toISOString(),
-        confidence: 0.9
-      });
-    }
-  };
-
-  const loadEmotionHistory = async () => {
-    try {
-      const response = await emotionApi.getEmotionHistory({ limit: 50 });
-      if (response.success && response.data) {
-        setEmotionHistory(response.data);
-      }
-    } catch (error) {
-      console.error('获取情感历史失败:', error);
-      // 降级到模拟数据
-      const history = emotions.slice(0, 10).map((emotion, index) => ({
-        id: `${index + 1}`,
-        emotion,
-        intensity: 0.3 + Math.random() * 0.7,
-        valence: -1 + Math.random() * 2,
-        arousal: Math.random(),
-        dominance: Math.random(),
-        timestamp: new Date(Date.now() - index * 3600000).toISOString(),
-        confidence: 0.7 + Math.random() * 0.3
-      }));
+      const data = await emotionalIntelligenceService.getEmotionStateHistory(userId, 50);
+      const history = Array.isArray((data as any)?.history)
+        ? (data as any).history
+        : Array.isArray((data as any)?.states)
+          ? (data as any).states
+          : Array.isArray(data)
+            ? (data as any)
+            : [];
+      if (!isMountedRef.current) return history;
       setEmotionHistory(history);
+      setCurrentEmotion(history[0] || null);
+      return history;
+    } catch (error) {
+      logger.error('获取情感历史失败:', error);
+      message.error('无法获取情感历史');
+      if (isMountedRef.current) {
+        setEmotionHistory([]);
+        setCurrentEmotion(null);
+      }
+      return [];
     }
   };
 
-  const loadPersonalityProfile = async () => {
+  const loadPersonalityProfile = async (historyCount?: number) => {
+    if (typeof historyCount === 'number' && historyCount < 10) {
+      if (isMountedRef.current) {
+        setPersonalityProfile(null);
+      }
+      return;
+    }
     try {
-      const response = await emotionApi.getPersonalityProfile();
-      if (response.success && response.data) {
-        setPersonalityProfile(response.data);
+      const data = await emotionalIntelligenceService.getEmotionProfile(userId);
+      const profile = (data as any)?.profile || data;
+      if (isMountedRef.current) {
+        setPersonalityProfile(profile || null);
       }
     } catch (error) {
-      console.error('获取个性画像失败:', error);
-      // 降级到模拟数据
-      setPersonalityProfile({
-        user_id: 'user1',
-        emotional_traits: {
-          extraversion: 0.7,
-          neuroticism: 0.3,
-          agreeableness: 0.8,
-          conscientiousness: 0.6,
-          openness: 0.75
-        },
-        baseline_emotions: {
-          happiness: 0.4,
-          sadness: 0.1,
-          anger: 0.05,
-          neutral: 0.35,
-          joy: 0.1
-        },
-        emotion_volatility: 0.4,
-        recovery_rate: 0.8,
-        dominant_emotions: ['happiness', 'joy', 'neutral'],
-        sample_count: 100,
-        confidence_score: 0.85,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      });
+      const status = (error as any)?.response?.status;
+      if (status !== 404) {
+        logger.error('获取个性画像失败:', error);
+        message.error('无法获取个性画像');
+      }
+      if (isMountedRef.current) {
+        setPersonalityProfile(null);
+      }
     }
   };
 
-  const loadAnalytics = async () => {
-    try {
-      const response = await emotionApi.getEmotionAnalytics(30);
-      if (response.success && response.data) {
-        setAnalytics(response.data);
+  const loadAnalytics = async (historyCount?: number) => {
+    if (typeof historyCount === 'number' && historyCount === 0) {
+      if (isMountedRef.current) {
+        setAnalytics(null);
       }
-    } catch (error) {
-      console.error('获取情感分析失败:', error);
-      // 降级到模拟数据
-      setAnalytics({
-        user_id: 'user1',
-        period_days: 30,
-        temporal_patterns: {
-          best_hours: [[9, 0.8], [14, 0.75], [19, 0.7]],
-          worst_hours: [[3, 0.2], [23, 0.3], [1, 0.25]],
-          weekly_patterns: {},
-          monthly_patterns: {}
-        },
-        emotion_distribution: {
-          happiness: 0.35,
-          neutral: 0.3,
-          joy: 0.15,
-          sadness: 0.1,
-          other: 0.1
-        },
-        volatility: {
-          overall_volatility: 0.4,
-          valence_volatility: 0.3,
-          arousal_volatility: 0.25,
-          dominance_volatility: 0.2
-        },
-        clusters: [],
-        patterns: [],
-        recovery_analysis: {
-          average_recovery_time: 2.5,
-          recovery_rate: 0.8,
-          triggers: {}
-        }
+      return;
+    }
+    try {
+      const data = await emotionalIntelligenceService.performEmotionAnalytics({
+        days_back: 30
       });
+      const analyticsData = (data as any)?.analytics || data;
+      const temporalPatterns = analyticsData?.temporal_analysis?.patterns || analyticsData?.temporal_patterns;
+      const distribution = analyticsData?.basic_statistics?.emotion_distribution || analyticsData?.emotion_distribution;
+      if (!isMountedRef.current) return;
+      setAnalytics(analyticsData ? {
+        user_id: analyticsData.user_id ?? userId,
+        period_days: analyticsData.analysis_period?.days ?? analyticsData.period_days ?? 30,
+        temporal_patterns: temporalPatterns ? {
+          best_hours: temporalPatterns.best_hours || [],
+          worst_hours: temporalPatterns.worst_hours || [],
+          weekly_patterns: temporalPatterns.weekly_patterns || {},
+          monthly_patterns: temporalPatterns.monthly_patterns || {}
+        } : undefined,
+        emotion_distribution: distribution,
+        volatility: analyticsData?.temporal_analysis?.volatility || analyticsData?.volatility,
+        clusters: analyticsData?.emotion_clusters || analyticsData?.clusters,
+        patterns: analyticsData?.transition_patterns || analyticsData?.patterns,
+        recovery_analysis: analyticsData?.recovery_analysis
+      } : null);
+    } catch (error) {
+      const status = (error as any)?.response?.status;
+      if (status !== 400) {
+        logger.error('获取情感分析失败:', error);
+        message.error('无法获取情感分析');
+      }
+      if (isMountedRef.current) {
+        setAnalytics(null);
+      }
     }
   };
 
@@ -335,74 +295,48 @@ const EmotionModelingPage: React.FC = () => {
         triggers: newEmotion.triggers ? newEmotion.triggers.split(',').map(t => t.trim()).filter(Boolean) : [],
         context: newEmotion.context ? { description: newEmotion.context } : {},
         source: 'manual',
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
+        user_id: userId
       };
 
-      const response = await emotionApi.recordEmotionState(emotionData);
-      
-      if (response.success && response.data) {
-        message.success('情感状态记录成功');
-        
-        // 更新列表
-        setEmotionHistory(prev => [response.data, ...prev].slice(0, 50));
-        setCurrentEmotion(response.data);
-        
-        // 重置表单
+      await emotionalIntelligenceService.recordEmotionState(emotionData);
+
+      message.success('情感状态记录成功');
+      if (isMountedRef.current) {
         setNewEmotion({
           emotion: '',
           intensity: 0.5,
           triggers: '',
           context: ''
         });
-
-        // 重新加载数据
-        await Promise.all([
-          loadPersonalityProfile(),
-          loadAnalytics()
-        ]);
-      } else {
-        throw new Error(response.error || '记录失败');
+        await loadData();
       }
     } catch (error) {
-      console.error('记录情感状态失败:', error);
+      logger.error('记录情感状态失败:', error);
       message.error('记录失败，请重试');
     }
   };
 
   const generatePrediction = async (timeHorizon: number = 1) => {
+    if (!isMountedRef.current) return;
     setLoading(true);
     try {
-      const response = await emotionApi.predictEmotions(timeHorizon);
-      
-      if (response.success && response.data) {
-        setPrediction(response.data);
-        message.success('预测生成成功');
-      } else {
-        throw new Error(response.error || '预测失败');
-      }
-    } catch (error) {
-      console.error('生成预测失败:', error);
-      // 降级到模拟数据
-      setPrediction({
-        user_id: 'user1',
-        time_horizon_hours: timeHorizon,
-        predictions: [
-          { emotion: 'happiness', probability: 0.4, intensity_range: [0.6, 0.8] },
-          { emotion: 'joy', probability: 0.3, intensity_range: [0.5, 0.7] },
-          { emotion: 'neutral', probability: 0.2, intensity_range: [0.4, 0.6] },
-          { emotion: 'contentment', probability: 0.1, intensity_range: [0.3, 0.5] }
-        ],
-        confidence: 0.75,
-        factors: {
-          current_intensity: 0.8,
-          recent_volatility: 0.3,
-          personality_influence: 0.6
-        },
-        timestamp: new Date().toISOString()
+      const data = await emotionalIntelligenceService.predictEmotion({
+        user_id: userId,
+        time_horizon_hours: timeHorizon
       });
-      message.warning('使用本地预测数据');
+      const predictionData = (data as any)?.prediction || data;
+      if (isMountedRef.current) {
+        setPrediction(predictionData);
+      }
+      message.success('预测生成成功');
+    } catch (error) {
+      logger.error('生成预测失败:', error);
+      message.error('预测失败，请重试');
     } finally {
-      setLoading(false);
+      if (isMountedRef.current) {
+        setLoading(false);
+      }
     }
   };
 

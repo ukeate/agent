@@ -1,18 +1,14 @@
 """Excel文档解析器"""
 
-import logging
 from pathlib import Path
 from typing import List, Dict, Any, Optional
 import json
-
 import openpyxl
 from openpyxl.utils import get_column_letter
 import pandas as pd
-
 from .base_parser import BaseParser, ParsedDocument, ParsedElement
 
-logger = logging.getLogger(__name__)
-
+logger = get_logger(__name__)
 
 class ExcelParser(BaseParser):
     """Excel文档解析器
@@ -433,3 +429,4 @@ class ExcelParser(BaseParser):
         stats["type_distribution"] = type_counts
         
         return stats
+from src.core.logging import get_logger

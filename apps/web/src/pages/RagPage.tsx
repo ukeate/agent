@@ -324,6 +324,11 @@ const RagPage: React.FC = () => {
 
           {/* 桌面端面包屑 */}
           {layoutMode !== 'mobile' && renderBreadcrumb()}
+          {layoutMode !== 'mobile' && (
+            <Title level={1} style={{ margin: '8px 0 16px' }}>
+              RAG 混合搜索
+            </Title>
+          )}
 
           {/* 全局错误提示 */}
           {error && (

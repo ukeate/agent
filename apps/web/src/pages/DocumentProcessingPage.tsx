@@ -1,5 +1,7 @@
-import React, { useState, useCallback } from 'react'
+import { buildApiUrl, apiFetch } from '../utils/apiBase'
+import React, { useEffect, useState, useCallback } from 'react'
 import {
+import { logger } from '../utils/logger'
   Container,
   Typography,
   Box,
@@ -26,6 +28,8 @@ import {
   FormControlLabel,
   Switch
 } from '@mui/material'
+import { documentsService } from '../services/documentsService'
+import { message } from 'antd'
 import {
   Upload,
   Description,
@@ -37,7 +41,8 @@ import {
   Label,
   AccountTree,
   Refresh,
-  Close
+  Close,
+  UploadFile
 } from '@mui/icons-material'
 import { useDropzone } from 'react-dropzone'
 
@@ -82,8 +87,31 @@ const DocumentProcessingPage: React.FC<DocumentProcessingPageProps> = () => {
     enable_ocr: false,
     extract_images: true,
     auto_tag: true,
-    chunk_strategy: 'semantic'
+    chunk_strategy: 'semantic',
+    auto_chunk: true,
+    chunk_size: '512',
+    chunk_overlap: '50',
+    auto_summarize: true
   })
+
+  const [relationshipsOpen, setRelationshipsOpen] = useState(false)
+  const [relationshipsResult, setRelationshipsResult] = useState<any>(null)
+  const [versionsOpen, setVersionsOpen] = useState(false)
+  const [versionsResult, setVersionsResult] = useState<any>(null)
+
+  const loadDocuments = useCallback(async () => {
+    try {
+      const response = await apiFetch(buildApiUrl('/api/v1/documents/list'))
+      const data = await response.json()
+      setDocuments(Array.isArray(data?.documents) ? data.documents : [])
+    } catch (error) {
+      logger.error('加载文档列表失败:', error)
+    }
+  }, [])
+
+  useEffect(() => {
+    loadDocuments()
+  }, [loadDocuments])
   
   // 文件上传处理
   const onDrop = useCallback(async (acceptedFiles: File[]) => {
@@ -91,30 +119,32 @@ const DocumentProcessingPage: React.FC<DocumentProcessingPageProps> = () => {
     
     try {
       for (const file of acceptedFiles) {
-        const formData = new FormData()
-        formData.append('file', file)
-        
-        const params = new URLSearchParams(uploadOptions as any)
-        
-        const response = await fetch(`/api/v1/documents/upload?${params}`, {
-          method: 'POST',
-          body: formData
-        })
-        
-        if (response.ok) {
-          const result = await response.json()
+        try {
+          const result = await documentsService.uploadDocument(file, {
+            enableOcr: uploadOptions.enable_ocr,
+            extractImages: uploadOptions.extract_images,
+            autoTag: uploadOptions.auto_tag,
+            chunkStrategy: uploadOptions.chunk_strategy as any,
+          })
+          
           const newDoc: DocumentInfo = {
-            ...result,
+            doc_id: result.doc_id,
+            title: result.title || file.name,
+            file_type: result.file_type || result.content_type || file.type || 'unknown',
+            file_size: result.metadata?.file_size || result.metadata?.size_bytes,
             status: 'completed',
-            created_at: new Date().toISOString()
+            created_at: new Date().toISOString(),
+            tags: (result.processing_info?.auto_tags || []).map((t: any) => t.tag),
+            processing_info: result.processing_info,
+            version: result.version
           }
           setDocuments(prev => [...prev, newDoc])
-        } else {
-          console.error('Upload failed:', await response.text())
+        } catch (error) {
+          logger.error('上传失败:', error)
         }
       }
     } catch (error) {
-      console.error('Upload error:', error)
+      logger.error('上传错误:', error)
     } finally {
       setUploading(false)
     }
@@ -145,69 +175,86 @@ const DocumentProcessingPage: React.FC<DocumentProcessingPageProps> = () => {
         setDialogOpen(true)
       }
     } catch (error) {
-      console.error('Error fetching document details:', error)
+      logger.error('获取文档详情失败:', error)
     }
   }
   
   // 生成标签
   const handleGenerateTags = async (docId: string) => {
     try {
-      const response = await fetch(`/api/v1/documents/${docId}/generate-tags`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          content: "Sample document content for tagging"
-        })
-      })
-      
-      if (response.ok) {
-        const result = await response.json()
-        setDocuments(prev => prev.map(doc =>
-          doc.doc_id === docId
-            ? { ...doc, tags: result.tags.map((t: any) => t.tag) }
-            : doc
-        ))
-      }
+      const current = documents.find(d => d.doc_id === docId)
+      const result = await documentsService.generateDocumentTags(docId, undefined, current?.tags || [])
+      setDocuments(prev => prev.map(doc =>
+        doc.doc_id === docId
+          ? { ...doc, tags: (result.tags || []).map((t: any) => t.tag) }
+          : doc
+      ))
+      message.success('标签生成完成')
     } catch (error) {
-      console.error('Error generating tags:', error)
+      logger.error('生成标签失败:', error)
+      message.error('标签生成失败')
     }
   }
   
   // 分析关系
   const handleAnalyzeRelationships = async (docId: string) => {
     try {
-      const response = await fetch(`/api/v1/documents/${docId}/analyze-relationships`, {
-        method: 'POST'
-      })
-      
-      if (response.ok) {
-        const result = await response.json()
-        console.log('Relationships:', result)
-        // 可以显示关系图或更新UI
-      }
+      const result = await documentsService.analyzeDocumentRelationships(docId)
+      setRelationshipsResult(result)
+      setRelationshipsOpen(true)
     } catch (error) {
-      console.error('Error analyzing relationships:', error)
+      logger.error('关系分析失败:', error)
+      message.error('关系分析失败')
     }
   }
   
   // 获取版本历史
   const handleViewVersions = async (docId: string) => {
     try {
-      const response = await fetch(`/api/v1/documents/${docId}/versions`)
-      
-      if (response.ok) {
-        const result = await response.json()
-        console.log('Version history:', result)
-        // 可以显示版本历史对话框
-      }
+      const result = await documentsService.getDocumentVersionHistory(docId)
+      setVersionsResult(result)
+      setVersionsOpen(true)
     } catch (error) {
-      console.error('Error fetching versions:', error)
+      logger.error('获取版本历史失败:', error)
+      message.error('获取版本历史失败')
     }
   }
   
   // 删除文档
-  const handleDeleteDocument = (docId: string) => {
-    setDocuments(prev => prev.filter(doc => doc.doc_id !== docId))
+  const handleDeleteDocument = async (docId: string) => {
+    try {
+      const result = await documentsService.deleteDocument(docId)
+      if (result.success) {
+        setDocuments(prev => prev.filter(doc => doc.doc_id !== docId))
+        message.success(result.message || '文档已删除')
+        return
+      }
+      message.error(result.message || '删除失败')
+    } catch (error) {
+      logger.error('删除文档失败:', error)
+      message.error('删除文档失败')
+    }
+  }
+
+  const handleBatchUpload = async (files: File[]) => {
+    setUploading(true)
+    try {
+      const result = await documentsService.batchUploadDocuments(files)
+      const newDocs: DocumentInfo[] = (result.results || []).map((doc: any) => ({
+        doc_id: doc.doc_id,
+        title: doc.title || doc.doc_id,
+        file_type: doc.file_type || 'unknown',
+        status: 'completed' as const,
+        created_at: new Date().toISOString(),
+      }))
+      setDocuments(prev => [...newDocs, ...prev])
+      message.success(`批量上传完成: ${result.success || newDocs.length} 个文件`)
+    } catch (error) {
+      logger.error('批量上传失败:', error)
+      message.error('批量上传失败')
+    } finally {
+      setUploading(false)
+    }
   }
 
   return (
@@ -217,12 +264,13 @@ const DocumentProcessingPage: React.FC<DocumentProcessingPageProps> = () => {
       </Typography>
       
       {/* 文件上传区域 */}
-      <Paper sx={{ p: 3, mb: 3 }}>
-        <Box
-          {...getRootProps()}
-          sx={{
-            border: '2px dashed #ccc',
-            borderRadius: 2,
+	      <Paper sx={{ p: 3, mb: 3 }}>
+	        <Box
+	          data-testid="upload-area"
+	          {...getRootProps()}
+	          sx={{
+	            border: '2px dashed #ccc',
+	            borderRadius: 2,
             p: 4,
             textAlign: 'center',
             cursor: 'pointer',
@@ -287,6 +335,30 @@ const DocumentProcessingPage: React.FC<DocumentProcessingPageProps> = () => {
             }
             label="自动标签"
           />
+        </Box>
+        
+        {/* 新增：批量上传按钮 */}
+        <Box sx={{ mt: 2, display: 'flex', gap: 2 }}>
+          <Button
+            variant="outlined"
+            startIcon={<UploadFile />}
+            onClick={() => {
+              const input = document.createElement('input')
+              input.type = 'file'
+              input.multiple = true
+              input.accept = '.pdf,.docx,.xlsx,.pptx,.txt,.md,.py,.js,.java'
+              input.onchange = (e) => {
+                const files = Array.from((e.target as HTMLInputElement).files || [])
+                if (files.length > 0) {
+                  handleBatchUpload(files)
+                }
+              }
+              input.click()
+            }}
+            disabled={uploading}
+          >
+            批量上传文档
+          </Button>
         </Box>
       </Paper>
       
@@ -497,6 +569,53 @@ const DocumentProcessingPage: React.FC<DocumentProcessingPageProps> = () => {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setDialogOpen(false)}>关闭</Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={relationshipsOpen} onClose={() => setRelationshipsOpen(false)} maxWidth="md" fullWidth>
+        <DialogTitle>
+          关系分析结果
+          <IconButton sx={{ position: 'absolute', right: 8, top: 8 }} onClick={() => setRelationshipsOpen(false)}>
+            <Close />
+          </IconButton>
+        </DialogTitle>
+        <DialogContent>
+          {relationshipsResult ? (
+            <Box>
+              <Typography variant="body2" color="textSecondary">
+                关系数: {(relationshipsResult.relationships || []).length} • 聚类数: {(relationshipsResult.clusters || []).length}
+              </Typography>
+            </Box>
+          ) : null}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setRelationshipsOpen(false)}>关闭</Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={versionsOpen} onClose={() => setVersionsOpen(false)} maxWidth="md" fullWidth>
+        <DialogTitle>
+          版本历史
+          <IconButton sx={{ position: 'absolute', right: 8, top: 8 }} onClick={() => setVersionsOpen(false)}>
+            <Close />
+          </IconButton>
+        </DialogTitle>
+        <DialogContent>
+          {versionsResult?.versions ? (
+            <List dense>
+              {versionsResult.versions.map((v: any) => (
+                <ListItem key={v.version_id}>
+                  <ListItemText
+                    primary={`v${v.version_number}${v.is_current ? '（当前）' : ''}`}
+                    secondary={v.change_summary || v.created_at}
+                  />
+                </ListItem>
+              ))}
+            </List>
+          ) : null}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setVersionsOpen(false)}>关闭</Button>
         </DialogActions>
       </Dialog>
     </Container>

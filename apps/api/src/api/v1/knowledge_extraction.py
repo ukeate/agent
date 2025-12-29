@@ -6,28 +6,28 @@
 
 import asyncio
 import time
-import logging
 from typing import List, Dict, Any, Optional, Union
 from datetime import datetime
-from src.core.utils.timezone_utils import utc_now, utc_factory
+from src.core.utils.timezone_utils import utc_now
 from uuid import uuid4
-
 from fastapi import APIRouter, HTTPException, BackgroundTasks, Depends, Query, Path, status
-from fastapi.responses import JSONResponse, StreamingResponse
-from pydantic import BaseModel, Field
+from fastapi.responses import JSONResponse
+from pydantic import Field
 import json
-
-from ...ai.knowledge_graph.data_models import (
+from src.ai.knowledge_graph.data_models import (
     ExtractionRequest, ExtractionResponse,
     BatchProcessingRequest, BatchProcessingResponse,
     EntityModel, RelationModel,
     Entity, Relation, KnowledgeGraph
 )
-from ...ai.knowledge_graph.entity_recognizer import MultiModelEntityRecognizer
-from ...ai.knowledge_graph.relation_extractor import RelationExtractor
-from ...ai.knowledge_graph.entity_linker import EntityLinker
-from ...ai.knowledge_graph.multilingual_processor import MultilingualProcessor
-from ...ai.knowledge_graph.batch_processor import BatchProcessor, BatchConfig
+from src.api.base_model import ApiBaseModel
+from src.ai.knowledge_graph.entity_recognizer import MultiModelEntityRecognizer
+from src.ai.knowledge_graph.relation_extractor import RelationExtractor
+from src.ai.knowledge_graph.entity_linker import EntityLinker
+from src.ai.knowledge_graph.multilingual_processor import MultilingualProcessor
+
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 # 创建路由器
 router = APIRouter(prefix="/knowledge", tags=["knowledge-extraction"])
@@ -40,10 +40,8 @@ multilingual_processor: Optional[MultilingualProcessor] = None
 batch_processor: Optional[BatchProcessor] = None
 
 # 日志配置
-logger = logging.getLogger(__name__)
 
-
-class HealthResponse(BaseModel):
+class HealthResponse(ApiBaseModel):
     """健康检查响应模型"""
     status: str = "healthy"
     version: str = "1.0.0"
@@ -52,8 +50,7 @@ class HealthResponse(BaseModel):
     memory_usage_mb: float = 0.0
     timestamp: datetime = Field(default_factory=datetime.now)
 
-
-class SystemMetrics(BaseModel):
+class SystemMetrics(ApiBaseModel):
     """系统指标模型"""
     total_requests: int = 0
     successful_requests: int = 0
@@ -66,7 +63,6 @@ class SystemMetrics(BaseModel):
     memory_usage_mb: float = 0.0
     uptime_seconds: float = 0.0
     last_updated: datetime = Field(default_factory=datetime.now)
-
 
 # 全局指标收集器
 class MetricsCollector:
@@ -114,10 +110,8 @@ class MetricsCollector:
             last_updated=utc_now()
         )
 
-
 # 全局指标收集器实例
 metrics_collector = MetricsCollector()
-
 
 def get_entity_recognizer() -> MultiModelEntityRecognizer:
     """获取实体识别器实例"""
@@ -126,14 +120,12 @@ def get_entity_recognizer() -> MultiModelEntityRecognizer:
         entity_recognizer = MultiModelEntityRecognizer()
     return entity_recognizer
 
-
 def get_relation_extractor() -> RelationExtractor:
     """获取关系抽取器实例"""
     global relation_extractor
     if relation_extractor is None:
         relation_extractor = RelationExtractor()
     return relation_extractor
-
 
 def get_entity_linker() -> EntityLinker:
     """获取实体链接器实例"""
@@ -142,7 +134,6 @@ def get_entity_linker() -> EntityLinker:
         entity_linker = EntityLinker()
     return entity_linker
 
-
 def get_multilingual_processor() -> MultilingualProcessor:
     """获取多语言处理器实例"""
     global multilingual_processor
@@ -150,21 +141,19 @@ def get_multilingual_processor() -> MultilingualProcessor:
         multilingual_processor = MultilingualProcessor()
     return multilingual_processor
 
-
 def get_batch_processor() -> BatchProcessor:
     """获取批处理器实例"""
     global batch_processor
     if batch_processor is None:
         batch_config = BatchConfig(
-            max_batch_size=100,
-            timeout_seconds=300,
-            retry_count=3,
-            parallel_workers=4,
-            memory_limit_mb=1000
+            max_concurrent_tasks=100,
+            task_timeout_seconds=300,
+            max_retries=3,
+            worker_pool_size=4,
+            memory_limit_mb=1000,
         )
         batch_processor = BatchProcessor(batch_config)
     return batch_processor
-
 
 @router.get("/health", response_model=HealthResponse)
 async def health_check():
@@ -212,12 +201,10 @@ async def health_check():
             detail="健康检查失败"
         )
 
-
 @router.get("/metrics", response_model=SystemMetrics)
 async def get_metrics():
     """获取系统指标"""
     return metrics_collector.get_metrics()
-
 
 @router.post("/extract", response_model=ExtractionResponse)
 async def extract_knowledge(
@@ -370,7 +357,6 @@ async def extract_knowledge(
             detail=f"知识抽取失败: {str(e)}"
         )
 
-
 @router.post("/batch/submit", response_model=BatchProcessingResponse)
 async def submit_batch_job(
     request: BatchProcessingRequest,
@@ -413,6 +399,25 @@ async def submit_batch_job(
             detail=f"批处理任务提交失败: {str(e)}"
         )
 
+@router.get("/batch", summary="批处理任务列表")
+async def list_batch_jobs(
+    limit: int = Query(100, ge=1, le=1000, description="返回任务数量限制")
+):
+    """列出批处理任务摘要"""
+    try:
+        processor = get_batch_processor()
+        batches = await processor.list_batches(limit)
+        return {
+            "batches": batches,
+            "total": len(batches),
+            "timestamp": utc_now().isoformat()
+        }
+    except Exception as e:
+        logger.error(f"获取批处理任务列表失败: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"获取批处理任务列表失败: {str(e)}"
+        )
 
 @router.get("/batch/{batch_id}/status", response_model=BatchProcessingResponse)
 async def get_batch_status(batch_id: str = Path(..., description="批处理任务ID")):
@@ -444,7 +449,6 @@ async def get_batch_status(batch_id: str = Path(..., description="批处理任�
             detail=f"获取批处理状态失败: {str(e)}"
         )
 
-
 @router.get("/batch/{batch_id}/results")
 async def get_batch_results(batch_id: str = Path(..., description="批处理任务ID")):
     """
@@ -474,7 +478,6 @@ async def get_batch_results(batch_id: str = Path(..., description="批处理任�
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"获取批处理结果失败: {str(e)}"
         )
-
 
 @router.delete("/batch/{batch_id}")
 async def cancel_batch_job(batch_id: str = Path(..., description="批处理任务ID")):
@@ -506,7 +509,6 @@ async def cancel_batch_job(batch_id: str = Path(..., description="批处理任�
             detail=f"取消批处理任务失败: {str(e)}"
         )
 
-
 @router.get("/overview")
 async def get_extraction_overview():
     """
@@ -516,16 +518,21 @@ async def get_extraction_overview():
     """
     try:
         metrics = metrics_collector.get_metrics()
+        processor = get_batch_processor()
         
         return {
             "total_tasks": metrics.total_requests,
-            "active_tasks": 0,  # TODO: 实际计算活跃任务数
+            "active_tasks": processor.task_scheduler.get_active_count(),
             "completed_tasks": metrics.successful_requests,
             "failed_tasks": metrics.failed_requests,
             "total_documents": metrics.total_requests,
             "total_entities": metrics.entities_extracted,
             "total_relations": metrics.relations_extracted,
-            "average_accuracy": 94.2,  # TODO: 实际计算准确率
+            "average_accuracy": (
+                (metrics.successful_requests / metrics.total_requests) * 100.0
+                if metrics.total_requests > 0
+                else 0.0
+            ),
             "uptime_seconds": metrics.uptime_seconds,
             "last_updated": metrics.last_updated
         }

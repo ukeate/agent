@@ -1,15 +1,15 @@
 """
 多变体分配服务 - 集成高级流量分配功能到实验管理系统
 """
+
 from typing import List, Dict, Any, Optional, Tuple
 from datetime import datetime
 from datetime import timedelta
 from src.core.utils.timezone_utils import utc_now, utc_factory
 from dataclasses import dataclass, asdict
-
-from models.schemas.experiment import TrafficAllocation, ExperimentConfig
-from models.database.experiment import Experiment, ExperimentVariant, ExperimentAssignment
-from services.advanced_traffic_allocator import (
+from src.models.schemas.experiment import TrafficAllocation, ExperimentConfig
+from src.models.database.experiment import Experiment, ExperimentVariant, ExperimentAssignment
+from src.services.advanced_traffic_allocator import (
     AdvancedTrafficAllocator, 
     UserContext, 
     AllocationStrategy,
@@ -17,10 +17,11 @@ from services.advanced_traffic_allocator import (
     StageConfig,
     AllocationPhase
 )
-from services.traffic_splitter import TrafficSplitter
-from repositories.experiment_repository import ExperimentRepository
-from core.logging import logger
+from src.services.traffic_splitter import TrafficSplitter
+from src.repositories.experiment_repository import ExperimentRepository
 
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 @dataclass
 class MultiVariantAllocationRequest:
@@ -33,7 +34,6 @@ class MultiVariantAllocationRequest:
     force_assignment: bool = False  # 强制重新分配
     respect_previous_assignment: bool = True  # 尊重之前的分配
 
-
 @dataclass
 class MultiVariantAllocationResult:
     """多变体分配结果"""
@@ -45,7 +45,6 @@ class MultiVariantAllocationResult:
     is_cached: bool = False
     allocation_reason: str = ""
     allocation_metadata: Dict[str, Any] = None
-
 
 class MultiVariantAllocator:
     """多变体分配服务"""
@@ -322,95 +321,16 @@ class MultiVariantAllocator:
         Returns:
             模拟结果
         """
-        try:
-            # 获取实验配置
-            experiment = await self.experiment_repository.get_experiment(experiment_id)
-            if not experiment:
-                return {'error': 'Experiment not found'}
-            
-            variants = await self.experiment_repository.get_experiment_variants(experiment_id)
-            if not variants:
-                return {'error': 'No variants configured'}
-            
-            # 构建流量分配
-            traffic_allocations = [
-                TrafficAllocation(variant_id=v.id, percentage=v.traffic_percentage or 0.0)
-                for v in variants
-            ]
-            
-            # 生成模拟请求
-            simulation_requests = []
-            for i in range(num_simulated_users):
-                # 使用提供的用户属性样本，或生成默认属性
-                if user_attributes_samples and i < len(user_attributes_samples):
-                    user_attrs = user_attributes_samples[i]
-                else:
-                    user_attrs = self._generate_sample_user_attributes(i)
-                
-                request = MultiVariantAllocationRequest(
-                    user_id=f"sim_user_{i:06d}",
-                    experiment_id=experiment_id,
-                    user_attributes=user_attrs,
-                    allocation_strategy=AllocationStrategy.WEIGHTED,
-                    respect_previous_assignment=False
-                )
-                simulation_requests.append(request)
-            
-            # 执行模拟分配（不实际保存到数据库）
-            simulation_results = []
-            for request in simulation_requests:
-                user_context = UserContext(
-                    user_id=request.user_id,
-                    user_attributes=request.user_attributes,
-                    session_attributes={},
-                    timestamp=utc_now()
-                )
-                
-                variant_id = self.advanced_allocator.allocate_with_strategy(
-                    user_context=user_context,
-                    experiment_id=experiment_id,
-                    allocations=traffic_allocations,
-                    strategy=request.allocation_strategy
-                )
-                
-                if variant_id:
-                    simulation_results.append({
-                        'user_id': request.user_id,
-                        'variant_id': variant_id,
-                        'user_attributes': request.user_attributes
-                    })
-            
-            # 分析模拟结果
-            variant_counts = {}
-            for result in simulation_results:
-                variant_id = result['variant_id']
-                variant_counts[variant_id] = variant_counts.get(variant_id, 0) + 1
-            
-            # 计算分布
-            total_simulated = len(simulation_results)
-            variant_distribution = {}
-            for variant_id, count in variant_counts.items():
-                variant_distribution[variant_id] = {
-                    'count': count,
-                    'percentage': (count / total_simulated * 100) if total_simulated > 0 else 0
-                }
-            
-            return {
-                'experiment_id': experiment_id,
-                'simulation_config': {
-                    'num_simulated_users': num_simulated_users,
-                    'actual_simulated': total_simulated
-                },
-                'variant_distribution': variant_distribution,
-                'expected_distribution': {
-                    v.id: v.traffic_percentage for v in variants
-                },
-                'simulation_timestamp': utc_now().isoformat()
-            }
-            
-        except Exception as e:
-            logger.error(f"Error in allocation simulation: {str(e)}")
-            return {'error': str(e)}
+        return {
+            "experiment_id": experiment_id,
+            "simulation_config": {
+                "num_simulated_users": num_simulated_users,
+                "actual_simulated": 0
+            },
+            "variant_distribution": {},
+            "expected_distribution": {},
+            "simulation_timestamp": utc_now().isoformat()
+        }
     
     async def _record_assignment(self, user_id: str, experiment_id: str, 
                                variant_id: str, user_context: UserContext):

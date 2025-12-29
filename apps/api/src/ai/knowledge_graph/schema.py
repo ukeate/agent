@@ -3,19 +3,17 @@
 提供图谱结构的标准化定义、索引策略、约束管理和版本控制
 """
 
-import logging
 from typing import Any, Dict, List, Optional, Set, Union
 from datetime import datetime
 from src.core.utils.timezone_utils import utc_now, utc_factory
 from dataclasses import dataclass, field
 from enum import Enum
 import asyncio
-
-from .graph_database import Neo4jGraphDatabase
+from .graph_database import Neo4jGraphDatabase, get_graph_database
 from .data_models import EntityType, RelationType
 
-logger = logging.getLogger(__name__)
-
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 class GraphNodeType(str, Enum):
     """图节点类型"""
@@ -24,7 +22,6 @@ class GraphNodeType(str, Enum):
     DOCUMENT = "Document" 
     SOURCE = "Source"
     CLUSTER = "Cluster"
-
 
 class GraphEdgeType(str, Enum):
     """图边类型"""
@@ -35,7 +32,6 @@ class GraphEdgeType(str, Enum):
     CLUSTER_MEMBER = "CLUSTER_MEMBER"
     TEMPORAL_BEFORE = "TEMPORAL_BEFORE"
     TEMPORAL_AFTER = "TEMPORAL_AFTER"
-
 
 @dataclass
 class GraphNode:
@@ -62,7 +58,6 @@ class GraphNode:
             "source_count": self.source_count,
             "version": self.version
         }
-
 
 @dataclass
 class GraphEdge:
@@ -93,7 +88,6 @@ class GraphEdge:
             "source_documents": self.source_documents,
             "version": self.version
         }
-
 
 @dataclass
 class IndexDefinition:
@@ -130,18 +124,23 @@ class IndexDefinition:
             """
         else:
             # 标准索引
+            if not self.node_labels:
+                return f"""
+                CREATE INDEX {self.name} IF NOT EXISTS
+                FOR ()-[r:RELATION]-()
+                ON ({", ".join(f"r.{prop}" for prop in self.properties)})
+                """
             return f"""
             CREATE INDEX {self.name} IF NOT EXISTS 
             FOR (n:{self.node_labels[0]})
             ON ({", ".join(f"n.{prop}" for prop in self.properties)})
             """
 
-
 @dataclass
 class ConstraintDefinition:
     """约束定义"""
     name: str
-    constraint_type: str  # unique, exists, node_key
+    constraint_type: str  # unique
     node_labels: List[str]
     properties: List[str]
     
@@ -162,20 +161,6 @@ class ConstraintDefinition:
                 FOR (n:{label}) REQUIRE ({props}) IS UNIQUE
                 """
         
-        elif self.constraint_type == "exists":
-            return f"""
-            CREATE CONSTRAINT {self.name} IF NOT EXISTS 
-            FOR (n:{label}) REQUIRE n.{self.properties[0]} IS NOT NULL
-            """
-        
-        elif self.constraint_type == "node_key":
-            props = ", ".join(f"n.{prop}" for prop in self.properties)
-            return f"""
-            CREATE CONSTRAINT {self.name} IF NOT EXISTS 
-            FOR (n:{label}) REQUIRE ({props}) IS NODE KEY
-            """
-
-
 class GraphSchema:
     """图谱模式定义和管理"""
     
@@ -348,34 +333,6 @@ class GraphSchema:
                 node_labels=["Source"], 
                 properties=["id"]
             ),
-            
-            # 存在性约束
-            ConstraintDefinition(
-                name="entity_canonical_form_exists",
-                constraint_type="exists",
-                node_labels=["Entity"],
-                properties=["canonical_form"]
-            ),
-            ConstraintDefinition(
-                name="entity_type_exists", 
-                constraint_type="exists",
-                node_labels=["Entity"],
-                properties=["type"]
-            ),
-            ConstraintDefinition(
-                name="entity_confidence_exists",
-                constraint_type="exists",
-                node_labels=["Entity"],
-                properties=["confidence"]
-            ),
-            
-            # 节点键约束（复合唯一性）
-            ConstraintDefinition(
-                name="entity_canonical_type_key",
-                constraint_type="node_key",
-                node_labels=["Entity"],
-                properties=["canonical_form", "type"]
-            )
         ]
     
     def get_cypher_statements(self) -> List[str]:
@@ -463,7 +420,6 @@ class GraphSchema:
             "supported_entity_types": len([t.value for t in EntityType]),
             "supported_relation_types": len([t.value for t in RelationType])
         }
-
 
 class SchemaManager:
     """图谱模式管理器"""
@@ -654,7 +610,22 @@ class SchemaManager:
                 "relationship_statistics": rel_stats,
                 "schema_applied": self._schema_applied
             }
-            
+        
         except Exception as e:
             logger.error(f"获取模式统计失败: {str(e)}")
             raise
+
+_schema_manager_instance: Optional['SchemaManager'] = None
+
+async def get_schema_manager() -> 'SchemaManager':
+    """获取模式管理器单例"""
+    global _schema_manager_instance
+    if _schema_manager_instance is None:
+        graph_db = await get_graph_database()
+        manager = SchemaManager(graph_db)
+        try:
+            await manager.initialize_schema()
+        except Exception as e:
+            logger.warning(f"模式初始化失败，继续使用未应用状态: {e}")
+        _schema_manager_instance = manager
+    return _schema_manager_instance

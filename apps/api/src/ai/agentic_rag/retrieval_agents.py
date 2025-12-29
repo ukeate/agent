@@ -10,23 +10,31 @@
 """
 
 import asyncio
-import math
-import logging
 from typing import Dict, List, Optional, Any, Tuple
 from dataclasses import dataclass
 from enum import Enum
 from abc import ABC, abstractmethod
-from collections import Counter, defaultdict
-import re
-
+from collections import defaultdict
+from sqlalchemy import select, or_
 from src.ai.rag.retriever import SemanticRetriever
-from src.ai.rag.embeddings import embedding_service
+from src.ai.rag.hybrid_search import get_hybrid_search_engine, SearchStrategy
+from src.core.config import get_settings
 from src.core.database import get_db_session
-from src.db.models import *
+from src.models.database.session import Session
+from src.models.database.experiment import Experiment, ExperimentVariant
+from src.models.database.workflow import WorkflowModel
+from src.models.database.user import AuthUser
+from src.models.database.api_key import APIKey
+from src.models.database.event_tracking import EventStream
+from src.models.database.supervisor import SupervisorAgent, SupervisorTask, SupervisorDecision
 from .query_analyzer import QueryAnalysis, QueryIntent
 
-logger = logging.getLogger(__name__)
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
+def _openai_key_configured() -> bool:
+    key = (get_settings().OPENAI_API_KEY or "").strip()
+    return bool(key) and not key.startswith("sk-test")
 
 class RetrievalStrategy(str, Enum):
     """检索策略类型"""
@@ -34,7 +42,6 @@ class RetrievalStrategy(str, Enum):
     KEYWORD = "keyword"          # 关键词匹配
     STRUCTURED = "structured"    # 结构化查询
     HYBRID = "hybrid"           # 混合检索
-
 
 @dataclass
 class RetrievalResult:
@@ -51,7 +58,6 @@ class RetrievalResult:
     def __post_init__(self):
         if self.metadata is None:
             self.metadata = {}
-
 
 class BaseRetrievalAgent(ABC):
     """检索代理基类"""
@@ -72,7 +78,7 @@ class BaseRetrievalAgent(ABC):
                       limit: int = 10,
                       filters: Optional[Dict[str, Any]] = None) -> RetrievalResult:
         """执行检索"""
-        pass
+        raise NotImplementedError
     
     def is_suitable_for_query(self, query_analysis: QueryAnalysis) -> float:
         """评估代理对查询的适用性 (0-1)"""
@@ -100,7 +106,6 @@ class BaseRetrievalAgent(ABC):
         if result.score > 0.3:
             success_count += 1
         self.performance_stats["success_rate"] = success_count / n
-
 
 class SemanticRetrievalAgent(BaseRetrievalAgent):
     """语义检索专家代理（继承Story 3.1基础能力）"""
@@ -138,6 +143,20 @@ class SemanticRetrievalAgent(BaseRetrievalAgent):
         start_time = time.time()
         
         try:
+            if not _openai_key_configured():
+                processing_time = time.time() - start_time
+                result = RetrievalResult(
+                    agent_type=RetrievalStrategy.SEMANTIC,
+                    query=query_analysis.query_text,
+                    results=[],
+                    score=0.0,
+                    confidence=0.0,
+                    processing_time=processing_time,
+                    explanation="未配置OpenAI嵌入服务，语义检索不可用"
+                )
+                self.update_performance_stats(result)
+                return result
+
             # 选择集合
             collection = "code" if query_analysis.intent_type == QueryIntent.CODE else "documents"
             
@@ -196,15 +215,12 @@ class SemanticRetrievalAgent(BaseRetrievalAgent):
             self.update_performance_stats(result)
             return result
 
-
 class KeywordRetrievalAgent(BaseRetrievalAgent):
     """关键词匹配专家代理（BM25算法）"""
     
     def __init__(self):
         super().__init__("KeywordExpert", RetrievalStrategy.KEYWORD)
-        # BM25参数
-        self.k1 = 1.2
-        self.b = 0.75
+        self.bm42_engine = None
     
     def is_suitable_for_query(self, query_analysis: QueryAnalysis) -> float:
         """评估关键词检索的适用性"""
@@ -228,29 +244,6 @@ class KeywordRetrievalAgent(BaseRetrievalAgent):
         
         return min(suitability, 1.0)
     
-    def _calculate_bm25_score(self, 
-                            query_terms: List[str], 
-                            document_terms: List[str],
-                            document_length: int,
-                            avg_doc_length: float,
-                            term_frequencies: Dict[str, int],
-                            total_docs: int) -> float:
-        """计算BM25分数"""
-        score = 0.0
-        
-        for term in query_terms:
-            if term in document_terms:
-                tf = term_frequencies.get(term, 0)
-                if tf > 0:
-                    # BM25公式
-                    idf = math.log((total_docs - tf + 0.5) / (tf + 0.5))
-                    tf_component = (tf * (self.k1 + 1)) / (
-                        tf + self.k1 * (1 - self.b + self.b * (document_length / avg_doc_length))
-                    )
-                    score += idf * tf_component
-        
-        return score
-    
     async def retrieve(self, 
                       query_analysis: QueryAnalysis,
                       limit: int = 10,
@@ -262,7 +255,7 @@ class KeywordRetrievalAgent(BaseRetrievalAgent):
         try:
             # 使用关键词和查询文本进行搜索
             search_terms = query_analysis.keywords + query_analysis.query_text.split()
-            search_terms = [term.lower() for term in search_terms if len(term) > 2]
+            search_terms = [term.lower() for term in search_terms if len(term) > 1]
             
             # 这里实现一个简化的BM25搜索
             # 在实际应用中，可以集成Elasticsearch或其他全文搜索引擎
@@ -272,8 +265,8 @@ class KeywordRetrievalAgent(BaseRetrievalAgent):
             
             # 计算分数
             if results:
-                avg_score = sum(r.get("bm25_score", 0) for r in results) / len(results)
-                confidence = min(0.8 * avg_score, 1.0)
+                avg_score = sum(r.get("score", 0) for r in results) / len(results)
+                confidence = min(avg_score + 0.1 * len(results) / limit, 1.0)
             else:
                 avg_score = 0.0
                 confidence = 0.0
@@ -319,50 +312,44 @@ class KeywordRetrievalAgent(BaseRetrievalAgent):
                                     limit: int,
                                     filters: Optional[Dict[str, Any]],
                                     query_analysis: QueryAnalysis) -> List[Dict[str, Any]]:
-        """执行关键词搜索（简化实现）"""
-        # 这是一个简化的实现，实际应用中应该集成专门的全文搜索引擎
-        # 这里通过语义检索器获取候选结果，然后使用BM25重新排序
-        
-        semantic_retriever = SemanticRetriever()
-        
-        # 先获取较多的候选结果
+        """执行关键词搜索"""
+        if not search_terms:
+            return []
+
+        if self.bm42_engine is None:
+            self.bm42_engine = get_hybrid_search_engine()
+
         collection = "code" if query_analysis.intent_type == QueryIntent.CODE else "documents"
-        candidates = await semantic_retriever.search(
+        search_results = await self.bm42_engine.search(
             query=query_analysis.query_text,
             collection=collection,
-            limit=limit * 3,  # 获取更多候选
-            score_threshold=0.1,  # 降低阈值获取更多结果
-            filter_dict=filters
+            limit=limit,
+            filters=filters,
+            strategy=SearchStrategy.BM25_ONLY
         )
-        
-        # 使用简化的关键词匹配重新排序
-        scored_results = []
-        for candidate in candidates:
-            content = candidate.get("content", "").lower()
-            
-            # 计算关键词匹配得分
-            keyword_matches = 0
-            for term in search_terms:
-                keyword_matches += content.count(term)
-            
-            # 简化的BM25风格评分
-            content_length = len(content.split())
-            if content_length > 0:
-                tf_score = keyword_matches / content_length
-                bm25_score = tf_score * math.log(1 + keyword_matches)
-            else:
-                bm25_score = 0.0
-            
-            if bm25_score > 0:
-                candidate["bm25_score"] = bm25_score
-                candidate["keyword_matches"] = keyword_matches
-                scored_results.append(candidate)
-        
-        # 按BM25分数排序
-        scored_results.sort(key=lambda x: x["bm25_score"], reverse=True)
-        
-        return scored_results[:limit]
 
+        if not search_results:
+            return []
+
+        max_score = max((r.score for r in search_results), default=0.0)
+        if max_score <= 0:
+            max_score = 1.0
+
+        results = []
+        for result in search_results:
+            normalized_score = min(result.score / max_score, 1.0)
+            results.append({
+                "id": str(result.id),
+                "score": normalized_score,
+                "bm25_score": result.score,
+                "content": result.content,
+                "file_path": result.file_path,
+                "file_type": result.file_type,
+                "chunk_index": result.chunk_index,
+                "metadata": result.metadata,
+            })
+
+        return results
 
 class StructuredRetrievalAgent(BaseRetrievalAgent):
     """结构化数据检索代理（数据库查询）"""
@@ -408,9 +395,8 @@ class StructuredRetrievalAgent(BaseRetrievalAgent):
             
             # 计算分数
             if results:
-                # 结构化查询的分数基于结果的完整性和相关性
-                avg_score = 0.7  # 结构化数据通常质量较高
-                confidence = min(0.9, 0.5 + 0.1 * len(results))
+                avg_score = sum(r.get("score", 0.0) for r in results) / len(results)
+                confidence = min(avg_score + 0.1 * len(results) / limit, 1.0)
             else:
                 avg_score = 0.0
                 confidence = 0.0
@@ -457,51 +443,151 @@ class StructuredRetrievalAgent(BaseRetrievalAgent):
                                        filters: Optional[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """执行结构化搜索（基于数据库模型）"""
         results = []
-        
-        # 这里是一个简化的实现，实际应用中应该根据具体的业务模型进行查询
-        # 示例：搜索会话和消息记录
-        
-        try:
-            async with get_db_session() as session:
-                # 搜索相关的实体或关键词
-                for entity in query_analysis.entities:
-                    # 可以扩展为具体的业务模型查询
-                    # 这里只是示例结构
-                    structured_result = {
-                        "id": f"struct_{entity}",
-                        "score": 0.8,
-                        "content": f"结构化数据匹配: {entity}",
-                        "source_type": "database",
-                        "entity": entity,
-                        "metadata": {
-                            "query_type": "structured",
-                            "match_type": "entity_match"
-                        }
-                    }
-                    results.append(structured_result)
-                    
-                    if len(results) >= limit:
-                        break
-                        
-        except Exception as e:
-            logger.warning(f"Database query failed: {e}")
-            # 即使数据库查询失败，也可以返回基于实体的结构化信息
-            for entity in query_analysis.entities[:limit]:
-                fallback_result = {
-                    "id": f"fallback_{entity}",
-                    "score": 0.5,
-                    "content": f"实体信息: {entity}（来自查询分析）",
-                    "source_type": "analysis",
-                    "entity": entity,
-                    "metadata": {
-                        "query_type": "structured",
-                        "match_type": "entity_analysis"
-                    }
-                }
-                results.append(fallback_result)
-        
-        return results[:limit]
 
+        terms = []
+        for term in query_analysis.entities + query_analysis.keywords:
+            term = term.strip()
+            if term:
+                terms.append(term)
+        if not terms:
+            query_text = query_analysis.query_text.strip()
+            if query_text:
+                terms.append(query_text)
+
+        terms = list(dict.fromkeys(terms))[:8]
+        if not terms:
+            return []
+
+        def score_text(text: str) -> float:
+            if not text:
+                return 0.0
+            lower_text = text.lower()
+            matched = sum(1 for term in terms if term.lower() in lower_text)
+            return min(matched / len(terms), 1.0) if terms else 0.0
+
+        def build_clause(columns):
+            clauses = []
+            for term in terms:
+                pattern = f"%{term}%"
+                for col in columns:
+                    clauses.append(col.ilike(pattern))
+            if not clauses:
+                return None
+            return or_(*clauses)
+
+        targets = [
+            (
+                Session,
+                [Session.title, Session.user_id, Session.status],
+                lambda row: (
+                    f"会话: {row.title}",
+                    {"model": "session", "id": str(row.id), "status": row.status, "user_id": row.user_id}
+                ),
+            ),
+            (
+                Experiment,
+                [Experiment.name, Experiment.description, Experiment.hypothesis, Experiment.owner, Experiment.status],
+                lambda row: (
+                    f"实验: {row.name}\n{row.description}",
+                    {"model": "experiment", "id": row.id, "status": row.status, "owner": row.owner}
+                ),
+            ),
+            (
+                ExperimentVariant,
+                [ExperimentVariant.name, ExperimentVariant.description, ExperimentVariant.variant_id],
+                lambda row: (
+                    f"实验变体: {row.name}\n{row.description or ''}",
+                    {"model": "experiment_variant", "id": row.id, "experiment_id": row.experiment_id, "variant_id": row.variant_id}
+                ),
+            ),
+            (
+                WorkflowModel,
+                [WorkflowModel.name, WorkflowModel.description, WorkflowModel.workflow_type, WorkflowModel.status],
+                lambda row: (
+                    f"工作流: {row.name}\n{row.description or ''}",
+                    {"model": "workflow", "id": str(row.id), "status": row.status, "workflow_type": row.workflow_type}
+                ),
+            ),
+            (
+                AuthUser,
+                [AuthUser.username, AuthUser.email, AuthUser.full_name],
+                lambda row: (
+                    f"用户: {row.username}\n{row.full_name or ''}",
+                    {"model": "user", "id": str(row.id), "email": row.email}
+                ),
+            ),
+            (
+                APIKey,
+                [APIKey.name, APIKey.description, APIKey.key_prefix],
+                lambda row: (
+                    f"API Key: {row.name}\n{row.description or ''}",
+                    {"model": "api_key", "id": str(row.id), "key_prefix": row.key_prefix}
+                ),
+            ),
+            (
+                EventStream,
+                [EventStream.event_name, EventStream.event_type, EventStream.event_category, EventStream.user_id, EventStream.experiment_id, EventStream.variant_id, EventStream.session_id],
+                lambda row: (
+                    f"事件: {row.event_name}\n类型: {row.event_type}",
+                    {
+                        "model": "event_stream",
+                        "id": row.id,
+                        "event_type": row.event_type,
+                        "event_name": row.event_name,
+                        "experiment_id": row.experiment_id,
+                        "variant_id": row.variant_id,
+                        "user_id": row.user_id,
+                    }
+                ),
+            ),
+            (
+                SupervisorAgent,
+                [SupervisorAgent.name, SupervisorAgent.role, SupervisorAgent.status],
+                lambda row: (
+                    f"Supervisor智能体: {row.name}\n角色: {row.role}",
+                    {"model": "supervisor_agent", "id": row.id, "status": row.status}
+                ),
+            ),
+            (
+                SupervisorTask,
+                [SupervisorTask.name, SupervisorTask.description, SupervisorTask.task_type, SupervisorTask.status],
+                lambda row: (
+                    f"Supervisor任务: {row.name}\n{row.description}",
+                    {"model": "supervisor_task", "id": row.id, "status": row.status, "task_type": row.task_type}
+                ),
+            ),
+            (
+                SupervisorDecision,
+                [SupervisorDecision.decision_id, SupervisorDecision.task_description, SupervisorDecision.assigned_agent],
+                lambda row: (
+                    f"Supervisor决策: {row.decision_id}\n{row.task_description}",
+                    {"model": "supervisor_decision", "id": row.id, "assigned_agent": row.assigned_agent}
+                ),
+            ),
+        ]
+
+        async with get_db_session() as session:
+            for model, columns, formatter in targets:
+                if len(results) >= limit:
+                    break
+                clause = build_clause(columns)
+                if clause is None:
+                    continue
+                stmt = select(model).where(clause).limit(limit - len(results))
+                query_result = await session.execute(stmt)
+                rows = query_result.scalars().all()
+                for row in rows:
+                    content, metadata = formatter(row)
+                    result_score = score_text(content)
+                    results.append({
+                        "id": f"{metadata.get('model')}:{metadata.get('id')}",
+                        "score": result_score,
+                        "content": content,
+                        "metadata": metadata,
+                        "source_type": "database",
+                    })
+
+        return results[:limit]
 
 class MultiAgentRetriever:
     """多代理检索协调器"""
@@ -566,6 +652,28 @@ class MultiAgentRetriever:
             selected_strategies = self.select_strategies(query_analysis)
             strategies = [s for s, _ in selected_strategies]
         else:
+            expanded_strategies = []
+            for strategy in strategies:
+                if strategy == RetrievalStrategy.HYBRID:
+                    if _openai_key_configured():
+                        expanded_strategies.append(RetrievalStrategy.SEMANTIC)
+                    expanded_strategies.append(RetrievalStrategy.KEYWORD)
+                    expanded_strategies.append(RetrievalStrategy.STRUCTURED)
+                else:
+                    expanded_strategies.append(strategy)
+
+            if not _openai_key_configured():
+                expanded_strategies = [
+                    s for s in expanded_strategies if s != RetrievalStrategy.SEMANTIC
+                ]
+
+            seen = set()
+            strategies = []
+            for strategy in expanded_strategies:
+                if strategy not in seen:
+                    seen.add(strategy)
+                    strategies.append(strategy)
+
             selected_strategies = [(s, 1.0) for s in strategies]
         
         # 执行检索
@@ -765,7 +873,6 @@ class MultiAgentRetriever:
             }
         
         return summary
-
 
 # 全局多代理检索器实例
 multi_agent_retriever = MultiAgentRetriever()

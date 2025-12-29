@@ -7,6 +7,7 @@ import { Alert } from '../../components/ui/alert';
 import { Switch } from '../../components/ui/Switch';
 import { behaviorAnalyticsService } from '../../services/behaviorAnalyticsService';
 
+import { logger } from '../../utils/logger'
 interface SystemConfig {
   // 事件采集配置
   event_collection: {
@@ -125,7 +126,7 @@ export const SystemConfigPage: React.FC = () => {
       const response = await behaviorAnalyticsService.getSystemConfig();
       setConfig(response.config || DEFAULT_CONFIG);
     } catch (error) {
-      console.error('加载配置失败:', error);
+      logger.error('加载配置失败:', error);
       setConfig(DEFAULT_CONFIG);
     } finally {
       setLoading(false);
@@ -144,7 +145,7 @@ export const SystemConfigPage: React.FC = () => {
       setHasChanges(false);
       setLastSaved(new Date().toLocaleString('zh-CN'));
     } catch (error) {
-      console.error('保存配置失败:', error);
+      logger.error('保存配置失败:', error);
     } finally {
       setSaving(false);
     }

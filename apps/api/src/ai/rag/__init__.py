@@ -11,10 +11,10 @@ from .quantization import (
     QuantizationManager,
     get_quantization_manager
 )
-
 from .vector_store import (
     PgVectorStore,
     get_vector_store
+
 )
 
 __all__ = [

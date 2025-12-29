@@ -9,13 +9,13 @@ This module provides comprehensive group emotion analysis capabilities including
 - Emotional leadership identification
 """
 
+from src.core.utils.timezone_utils import utc_now
 import numpy as np
 from typing import Dict, List, Any, Optional, Tuple
-from datetime import datetime, timedelta
+from datetime import timedelta
 import asyncio
 from collections import defaultdict, Counter
 import statistics
-
 from .group_emotion_models import (
     EmotionState,
     GroupEmotionalState,
@@ -28,7 +28,6 @@ from .group_emotion_models import (
     generate_group_id,
     generate_event_id
 )
-
 
 class GroupEmotionAnalyzer:
     """群体情感分析器"""
@@ -119,7 +118,7 @@ class GroupEmotionAnalyzer:
         
         return GroupEmotionalState(
             group_id=group_id or generate_group_id(),
-            timestamp=datetime.now(),
+            timestamp=utc_now(),
             participants=list(participants_emotions.keys()),
             dominant_emotion=dominant_emotion,
             emotion_distribution=emotion_distribution,
@@ -494,7 +493,7 @@ class GroupEmotionAnalyzer:
         # 按时间排序
         sorted_history = sorted(
             interaction_history,
-            key=lambda x: x.get('timestamp', datetime.now())
+            key=lambda x: x.get('timestamp', utc_now())
         )
         
         # 检测情感传染事件
@@ -503,7 +502,7 @@ class GroupEmotionAnalyzer:
         for interaction in sorted_history:
             sender = interaction.get('sender_id')
             emotion = interaction.get('detected_emotion')
-            timestamp = interaction.get('timestamp', datetime.now())
+            timestamp = interaction.get('timestamp', utc_now())
             
             if sender and emotion:
                 emotion_sequences[emotion].append({
@@ -613,7 +612,7 @@ class GroupEmotionAnalyzer:
         # 分析最近的情感变化趋势
         recent_history = [
             interaction for interaction in interaction_history
-            if (datetime.now() - interaction.get('timestamp', datetime.now())).seconds <= 300  # 5分钟内
+            if (utc_now() - interaction.get('timestamp', utc_now())).seconds <= 300  # 5分钟内
         ]
         
         if len(recent_history) < 3:

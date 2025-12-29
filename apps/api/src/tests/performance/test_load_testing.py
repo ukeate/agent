@@ -1,6 +1,7 @@
 """
 负载测试和性能基准测试
 """
+
 import pytest
 import asyncio
 import time
@@ -13,7 +14,10 @@ import aiohttp
 import numpy as np
 from typing import List, Dict, Any
 import json
+from src.core.logging import setup_logging
 
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 class PerformanceMetrics:
     """性能指标收集器"""
@@ -54,7 +58,6 @@ class PerformanceMetrics:
             "p99_response_time": sorted_times[int(len(sorted_times) * 0.99)],
             "throughput": total_requests / (self.end_time - self.start_time) if self.end_time else 0
         }
-
 
 class LoadTester:
     """负载测试器"""
@@ -110,7 +113,6 @@ class LoadTester:
         self.metrics.end_time = time.time()
         return self.metrics.get_statistics()
 
-
 class TestLoadPerformance:
     """负载性能测试"""
     
@@ -148,7 +150,7 @@ class TestLoadPerformance:
         assert stats["p95_response_time"] < 1.0  # 95分位响应时间小于1秒
         assert stats["throughput"] > 5  # 吞吐量大于5 req/s
         
-        print(f"实验创建性能统计: {json.dumps(stats, indent=2)}")
+        logger.info(f"实验创建性能统计: {json.dumps(stats, indent=2)}")
     
     @pytest.mark.asyncio
     async def test_traffic_allocation_load(self):
@@ -179,7 +181,7 @@ class TestLoadPerformance:
         assert stats["mean_response_time"] < 0.1  # 平均响应时间小于100ms
         assert duration < 10  # 总时间小于10秒
         
-        print(f"流量分配性能统计: {json.dumps(stats, indent=2)}")
+        logger.info(f"流量分配性能统计: {json.dumps(stats, indent=2)}")
     
     @pytest.mark.asyncio
     async def test_event_tracking_load(self):
@@ -215,7 +217,7 @@ class TestLoadPerformance:
         assert stats["p99_response_time"] < 2.0  # 99分位响应时间小于2秒
         assert stats["throughput"] > 20  # 吞吐量大于20 req/s
         
-        print(f"事件跟踪性能统计: {json.dumps(stats, indent=2)}")
+        logger.info(f"事件跟踪性能统计: {json.dumps(stats, indent=2)}")
     
     @pytest.mark.asyncio
     async def test_metrics_calculation_load(self):
@@ -244,7 +246,7 @@ class TestLoadPerformance:
         assert stats["mean_response_time"] < 0.5  # 平均响应时间小于500ms
         assert stats["p95_response_time"] < 1.0  # 95分位响应时间小于1秒
         
-        print(f"指标计算性能统计: {json.dumps(stats, indent=2)}")
+        logger.info(f"指标计算性能统计: {json.dumps(stats, indent=2)}")
     
     @pytest.mark.asyncio
     async def test_statistical_analysis_load(self):
@@ -274,8 +276,7 @@ class TestLoadPerformance:
         assert stats["error_rate"] < 0.1  # 错误率小于10%
         assert stats["p95_response_time"] < 5.0  # 95分位响应时间小于5秒
         
-        print(f"统计分析性能统计: {json.dumps(stats, indent=2)}")
-
+        logger.info(f"统计分析性能统计: {json.dumps(stats, indent=2)}")
 
 class TestConcurrencyScenarios:
     """并发场景测试"""
@@ -328,7 +329,7 @@ class TestConcurrencyScenarios:
         assert stats["error_rate"] < 0.05
         assert stats["mean_response_time"] < 1.0
         
-        print(f"混合负载性能统计: {json.dumps(stats, indent=2)}")
+        logger.info(f"混合负载性能统计: {json.dumps(stats, indent=2)}")
     
     @pytest.mark.asyncio
     async def test_spike_load(self):
@@ -362,7 +363,7 @@ class TestConcurrencyScenarios:
         assert stats["error_rate"] < 0.1
         assert stats["p99_response_time"] < 3.0
         
-        print(f"峰值负载性能统计: {json.dumps(stats, indent=2)}")
+        logger.info(f"峰值负载性能统计: {json.dumps(stats, indent=2)}")
     
     @pytest.mark.asyncio
     async def test_sustained_load(self):
@@ -393,8 +394,7 @@ class TestConcurrencyScenarios:
         assert stats["error_rate"] < 0.01
         assert stats["mean_response_time"] < 0.5
         
-        print(f"持续负载性能统计: {json.dumps(stats, indent=2)}")
-
+        logger.info(f"持续负载性能统计: {json.dumps(stats, indent=2)}")
 
 class TestResourceOptimization:
     """资源优化测试"""
@@ -420,7 +420,7 @@ class TestResourceOptimization:
         assert stats["error_rate"] < 0.01
         assert stats["mean_response_time"] < 0.2
         
-        print(f"数据库连接池性能统计: {json.dumps(stats, indent=2)}")
+        logger.info(f"数据库连接池性能统计: {json.dumps(stats, indent=2)}")
     
     @pytest.mark.asyncio
     async def test_cache_effectiveness(self):
@@ -450,7 +450,7 @@ class TestResourceOptimization:
         
         assert hot_mean < cold_mean * 0.5  # 缓存后响应时间减少50%以上
         
-        print(f"缓存性能提升: {(1 - hot_mean/cold_mean) * 100:.2f}%")
+        logger.info(f"缓存性能提升: {(1 - hot_mean/cold_mean) * 100:.2f}%")
     
     @pytest.mark.asyncio
     async def test_batch_processing_efficiency(self):
@@ -492,8 +492,7 @@ class TestResourceOptimization:
         # 批处理应该更高效
         assert batch_events_time < single_events_time * 0.2
         
-        print(f"批处理效率提升: {(1 - batch_events_time/single_events_time) * 100:.2f}%")
-
+        logger.info(f"批处理效率提升: {(1 - batch_events_time/single_events_time) * 100:.2f}%")
 
 class TestMemoryAndLeaks:
     """内存和泄漏测试"""
@@ -528,7 +527,7 @@ class TestMemoryAndLeaks:
         # 内存增长应该在合理范围内
         assert memory_increase < 100  # 内存增长小于100MB
         
-        print(f"内存使用: 初始={initial_memory:.2f}MB, 最终={final_memory:.2f}MB, 增长={memory_increase:.2f}MB")
+        logger.info(f"内存使用: 初始={initial_memory:.2f}MB, 最终={final_memory:.2f}MB, 增长={memory_increase:.2f}MB")
     
     @pytest.mark.asyncio
     async def test_connection_cleanup(self):
@@ -551,10 +550,10 @@ class TestMemoryAndLeaks:
         stats = tester.metrics.get_statistics()
         assert stats["error_rate"] < 0.05
         
-        print(f"连接清理测试: 错误率={stats['error_rate']:.2%}")
-
+        logger.error(f"连接清理测试: 错误率={stats['error_rate']:.2%}")
 
 if __name__ == "__main__":
+    setup_logging()
     # 运行性能测试
     import sys
     

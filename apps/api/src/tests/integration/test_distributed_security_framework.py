@@ -2,14 +2,15 @@
 分布式安全框架集成测试
 """
 
+from src.core.utils.timezone_utils import utc_now
 import pytest
 import asyncio
 import uuid
-from datetime import datetime, timedelta
+from datetime import timedelta
 from typing import Dict, Any
 from unittest.mock import Mock, AsyncMock, patch
-
 from src.ai.autogen.security.identity_authentication import (
+
     IdentityAuthenticationService,
     AuthenticationRequest,
     AuthenticationResponse,
@@ -40,7 +41,10 @@ from src.db.models import (
     AuthenticationMethodEnum,
     AccessControlModelEnum
 )
+from src.core.logging import setup_logging
 
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 class TestDistributedSecurityFrameworkIntegration:
     """分布式安全框架集成测试类"""
@@ -140,7 +144,7 @@ class TestDistributedSecurityFrameworkIntegration:
                     context_attributes={
                         "ip_address": "10.0.1.100",
                         "user_agent": "AIAgent/1.0",
-                        "timestamp": datetime.utcnow().isoformat()
+                        "timestamp": utc_now().isoformat()
                     }
                 )
                 
@@ -219,7 +223,7 @@ class TestDistributedSecurityFrameworkIntegration:
                     context_attributes={
                         "ip_address": "10.0.1.100",
                         "user_agent": "AIAgent/1.0",
-                        "timestamp": datetime.utcnow().isoformat(),
+                        "timestamp": utc_now().isoformat(),
                         "session_id": "session_123456"
                     }
                 )
@@ -254,7 +258,7 @@ class TestDistributedSecurityFrameworkIntegration:
                 outcome="failure",
                 details={"reason": "invalid_credentials", "attempt_number": 1},
                 risk_score=25.0,
-                timestamp=datetime.utcnow() - timedelta(minutes=5)
+                timestamp=utc_now() - timedelta(minutes=5)
             ),
             SecurityEvent(
                 id=str(uuid.uuid4()),
@@ -267,7 +271,7 @@ class TestDistributedSecurityFrameworkIntegration:
                 outcome="failure",
                 details={"reason": "invalid_credentials", "attempt_number": 2},
                 risk_score=35.0,
-                timestamp=datetime.utcnow() - timedelta(minutes=3)
+                timestamp=utc_now() - timedelta(minutes=3)
             ),
             SecurityEvent(
                 id=str(uuid.uuid4()),
@@ -280,7 +284,7 @@ class TestDistributedSecurityFrameworkIntegration:
                 outcome="failure",
                 details={"reason": "invalid_credentials", "attempt_number": 3},
                 risk_score=45.0,
-                timestamp=datetime.utcnow() - timedelta(minutes=1)
+                timestamp=utc_now() - timedelta(minutes=1)
             )
         ]
         
@@ -498,9 +502,9 @@ class TestDistributedSecurityFrameworkIntegration:
                     context_attributes={"ip_address": "10.0.1.100"}
                 )
                 
-                start_time = datetime.utcnow()
+                start_time = utc_now()
                 response = await auth_service.authenticate_agent(auth_request)
-                end_time = datetime.utcnow()
+                end_time = utc_now()
                 
                 return {
                     "request_id": request_id,
@@ -520,7 +524,7 @@ class TestDistributedSecurityFrameworkIntegration:
         avg_duration = sum(r["duration_ms"] for r in successful_requests) / len(successful_requests)
         assert avg_duration < 100  # 平均响应时间小于100ms
         
-        print(f"并发认证测试完成: {len(successful_requests)}/{concurrent_requests} 成功, "
+        logger.info(f"并发认证测试完成: {len(successful_requests)}/{concurrent_requests} 成功, "
               f"平均响应时间: {avg_duration:.2f}ms")
 
     @pytest.mark.asyncio 
@@ -570,6 +574,6 @@ class TestDistributedSecurityFrameworkIntegration:
             except Exception as e:
                 pytest.fail(f"处理无效事件时不应抛出异常: {e}")
 
-
 if __name__ == "__main__":
+    setup_logging()
     pytest.main([__file__, "-v", "--asyncio-mode=auto"])

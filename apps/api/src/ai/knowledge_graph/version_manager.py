@@ -6,14 +6,17 @@ import asyncio
 import json
 import hashlib
 from datetime import datetime
-from src.core.utils.timezone_utils import utc_now, utc_factory, timezone
+from src.core.utils.timezone_utils import utc_now, utc_factory
 from typing import Dict, List, Any, Optional, Set, Tuple
 from dataclasses import dataclass, asdict
 from enum import Enum
-import logging
 from pathlib import Path
 import gzip
-import pickle
+from src.core.utils import secure_pickle as pickle
+from src.core.logging import get_logger, setup_logging
+
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 try:
     from rdflib import Graph, URIRef, Literal, BNode
@@ -24,16 +27,12 @@ except ImportError:
     Graph = URIRef = Literal = BNode = None
     RDF = RDFS = OWL = None
 
-logger = logging.getLogger(__name__)
-
-
 class VersionType(Enum):
     """版本类型"""
     MAJOR = "major"        # 主要版本 - 重大结构变更
     MINOR = "minor"        # 次要版本 - 功能增加
     PATCH = "patch"        # 补丁版本 - 错误修复
     SNAPSHOT = "snapshot"  # 快照版本 - 临时保存
-
 
 class ChangeType(Enum):
     """变更类型"""
@@ -48,7 +47,6 @@ class ChangeType(Enum):
     MODIFY_RELATION = "modify_relation"
     BULK_IMPORT = "bulk_import"
     BULK_DELETE = "bulk_delete"
-
 
 @dataclass
 class VersionInfo:
@@ -68,7 +66,6 @@ class VersionInfo:
     relation_count: int = 0
     size_bytes: int = 0
 
-
 @dataclass
 class Change:
     """单个变更记录"""
@@ -83,7 +80,6 @@ class Change:
     new_value: Optional[Any] = None
     metadata: Optional[Dict[str, Any]] = None
 
-
 @dataclass
 class ChangeSet:
     """变更集"""
@@ -95,7 +91,6 @@ class ChangeSet:
     description: str
     statistics: Optional[Dict[str, Any]] = None
 
-
 @dataclass
 class DiffResult:
     """差异对比结果"""
@@ -103,7 +98,6 @@ class DiffResult:
     removed_triples: List[Dict[str, str]]
     modified_triples: List[Dict[str, Any]]
     statistics: Dict[str, int]
-
 
 class VersionManager:
     """知识图谱版本管理器"""
@@ -126,7 +120,7 @@ class VersionManager:
     
     def _setup_logging(self):
         """设置日志"""
-        self.logger = logging.getLogger(f"{__name__}.{self.__class__.__name__}")
+        self.logger = get_logger(f"{__name__}.{self.__class__.__name__}")
     
     def _load_metadata(self):
         """加载版本元数据"""
@@ -718,7 +712,6 @@ class VersionManager:
             "average_triple_count": sum(v.triple_count for v in versions) // len(versions) if versions else 0
         }
 
-
 # 便捷函数
 async def create_knowledge_graph_version(
     graph_data: Any,
@@ -748,11 +741,11 @@ async def create_knowledge_graph_version(
         created_by=created_by
     )
 
-
 if __name__ == "__main__":
     # 测试版本管理器
     async def test_version_manager():
-        print("测试版本管理器...")
+        setup_logging()
+        logger.info("测试版本管理器")
         
         manager = VersionManager("/tmp/test_kg_versions")
         
@@ -771,7 +764,7 @@ if __name__ == "__main__":
             created_by="test_user"
         )
         
-        print(f"创建版本1: {version1.version_number}")
+        logger.info("创建版本1", version_number=version1.version_number)
         
         # 创建第二个版本
         updated_data = {
@@ -789,20 +782,23 @@ if __name__ == "__main__":
             created_by="test_user"
         )
         
-        print(f"创建版本2: {version2.version_number}")
+        logger.info("创建版本2", version_number=version2.version_number)
         
         # 比较版本差异
         diff = await manager.compare_versions(version1.version_id, version2.version_id)
-        print(f"版本差异: +{len(diff.added_triples)}, -{len(diff.removed_triples)}")
+        logger.info(
+            "版本差异",
+            added_triples=len(diff.added_triples),
+            removed_triples=len(diff.removed_triples),
+        )
         
         # 列出所有版本
         versions = await manager.list_versions()
-        print(f"总共 {len(versions)} 个版本")
+        logger.info("版本数量", total=len(versions))
         
         # 获取统计信息
         stats = await manager.get_version_statistics()
-        print(f"版本统计: {stats}")
-        
-        print("版本管理器测试完成")
+        logger.info("版本统计", stats=stats)
+        logger.info("版本管理器测试完成")
     
     asyncio.run(test_version_manager())

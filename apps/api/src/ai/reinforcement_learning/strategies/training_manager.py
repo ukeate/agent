@@ -12,7 +12,10 @@ from collections import deque
 from enum import Enum
 import json
 import os
+from ..environment.simulator import StepResult
 
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 class TrainingPhase(Enum):
     """训练阶段"""
@@ -22,7 +25,6 @@ class TrainingPhase(Enum):
     FINE_TUNING = "fine_tuning"
     COMPLETED = "completed"
 
-
 class LearningRateScheduleType(Enum):
     """学习率调度类型"""
     CONSTANT = "constant"
@@ -31,7 +33,6 @@ class LearningRateScheduleType(Enum):
     COSINE_ANNEALING = "cosine_annealing"
     STEP_DECAY = "step_decay"
     ADAPTIVE = "adaptive"
-
 
 @dataclass
 class TrainingConfig:
@@ -67,7 +68,6 @@ class TrainingConfig:
     warmup_episodes: int = 100
     evaluation_episodes: int = 50
 
-
 @dataclass
 class TrainingMetrics:
     """训练指标"""
@@ -102,7 +102,6 @@ class TrainingMetrics:
     # 早停指标
     no_improvement_count: int = 0
     early_stopped: bool = False
-
 
 class LearningRateScheduler:
     """学习率调度器"""
@@ -177,7 +176,6 @@ class LearningRateScheduler:
         
         return self.current_lr
 
-
 class EarlyStopping:
     """早停机制"""
     
@@ -206,7 +204,6 @@ class EarlyStopping:
         self.best_score = float('-inf')
         self.no_improvement_count = 0
         self.should_stop = False
-
 
 class PerformanceTracker:
     """性能追踪器"""
@@ -243,7 +240,6 @@ class PerformanceTracker:
         }
         
         return stats
-
 
 class TrainingManager:
     """训练管理器"""
@@ -322,7 +318,7 @@ class TrainingManager:
             self.metrics.current_phase = TrainingPhase.COMPLETED
             
         except Exception as e:
-            print(f"训练过程中出现错误: {e}")
+            logger.error("训练过程中出现错误", error=str(e), exc_info=True)
             raise
         finally:
             # 保存最终结果
@@ -344,7 +340,8 @@ class TrainingManager:
             action = self.agent.act(state, episode)
             
             # 执行动作
-            next_state, reward, done, info = self.environment.step(action)
+            step_result = self.environment.step(action)
+            next_state, reward, done, info = self._unpack_step_result(step_result)
             
             # 训练智能体
             if hasattr(self.agent, 'learn'):
@@ -421,7 +418,8 @@ class TrainingManager:
             for _ in range(self.config.max_steps_per_episode):
                 # 评估时使用确定性策略
                 action = self.agent.act(state, episode, evaluation=True)
-                next_state, reward, done, info = self.environment.step(action)
+                step_result = self.environment.step(action)
+                next_state, reward, done, info = self._unpack_step_result(step_result)
                 
                 state = next_state
                 total_reward += reward
@@ -441,7 +439,12 @@ class TrainingManager:
         
         self.metrics.success_rates.append(eval_success_rate)
         
-        print(f"Episode {episode}: Eval reward: {eval_mean_reward:.3f}, Success rate: {eval_success_rate:.3f}")
+        logger.info(
+            "评估结果",
+            episode=episode,
+            eval_reward=f"{eval_mean_reward:.3f}",
+            success_rate=f"{eval_success_rate:.3f}",
+        )
     
     def _execute_callbacks(self, episode: int):
         """执行回调函数"""
@@ -456,7 +459,7 @@ class TrainingManager:
             try:
                 callback(callback_data)
             except Exception as e:
-                print(f"回调执行错误: {e}")
+                logger.error("回调执行错误", error=str(e), exc_info=True)
     
     def _save_checkpoint(self, episode: int):
         """保存检查点"""
@@ -482,7 +485,7 @@ class TrainingManager:
             with open(checkpoint_path, 'w') as f:
                 json.dump(checkpoint_data, f, indent=2)
         except Exception as e:
-            print(f"保存检查点失败: {e}")
+            logger.error("保存检查点失败", error=str(e), exc_info=True)
         
         # 保存智能体模型（如果支持）
         if hasattr(self.agent, 'save_model'):
@@ -509,21 +512,26 @@ class TrainingManager:
             with open(results_path, 'w') as f:
                 json.dump(results, f, indent=2)
         except Exception as e:
-            print(f"保存最终结果失败: {e}")
+            logger.error("保存最终结果失败", error=str(e), exc_info=True)
+
+    def _unpack_step_result(self, step_result):
+        if isinstance(step_result, StepResult):
+            return step_result.next_state, step_result.reward, step_result.done, step_result.info
+        return step_result
     
     def _check_training_complete(self) -> bool:
         """检查训练是否完成"""
         # 检查目标奖励
         if self.config.target_reward is not None:
             if self.metrics.mean_reward >= self.config.target_reward:
-                print(f"达到目标奖励 {self.config.target_reward}")
+                logger.info("达到目标奖励", target_reward=self.config.target_reward)
                 return True
         
         # 检查目标成功率
         if self.config.target_success_rate is not None and len(self.metrics.success_rates) > 0:
             recent_success_rate = np.mean(self.metrics.success_rates[-10:])
             if recent_success_rate >= self.config.target_success_rate:
-                print(f"达到目标成功率 {self.config.target_success_rate}")
+                logger.info("达到目标成功率", target_success_rate=self.config.target_success_rate)
                 return True
         
         return False

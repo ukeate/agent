@@ -6,17 +6,15 @@
 
 from typing import Dict, Any, List, Optional
 from fastapi import APIRouter, HTTPException, Depends, BackgroundTasks
-from pydantic import BaseModel
-
-from ...services.offline_service import OfflineService
-from ...models.schemas.offline import OfflineMode, NetworkStatus
-from ...core.auth import get_current_user
-
+from src.services.offline_service import OfflineService
+from src.models.schemas.offline import OfflineMode, NetworkStatus
+from src.core.config import get_settings
+from src.core.dependencies import get_current_user
+from src.api.base_model import ApiBaseModel
 
 router = APIRouter(prefix="/offline", tags=["offline"])
 
-
-class OfflineStatusResponse(BaseModel):
+class OfflineStatusResponse(ApiBaseModel):
     """离线状态响应"""
     mode: str
     network_status: str
@@ -26,28 +24,35 @@ class OfflineStatusResponse(BaseModel):
     sync_in_progress: bool
     last_sync_at: Optional[str] = None
 
+class OfflineConfigResponse(ApiBaseModel):
+    max_concurrent_tasks: int
+    batch_size: int
+    sync_interval_seconds: int
+    retry_max_count: int
+    retry_backoff_factor: float
+    connection_timeout_seconds: int
+    vector_clock_enabled: bool
+    conflict_resolution: str
 
-class SyncRequest(BaseModel):
+class SyncRequest(ApiBaseModel):
     """同步请求"""
     force: bool = False
     batch_size: int = 100
 
-
-class ConflictResolutionRequest(BaseModel):
+class ConflictResolutionRequest(ApiBaseModel):
     """冲突解决请求"""
     conflict_id: str
     resolution_strategy: str
     resolved_data: Optional[Dict[str, Any]] = None
 
-
 @router.get("/status", response_model=OfflineStatusResponse)
 async def get_offline_status(
-    current_user: Dict[str, Any] = Depends(get_current_user)
+    current_user: str = Depends(get_current_user)
 ) -> OfflineStatusResponse:
     """获取离线状态"""
     try:
         service = OfflineService()
-        status = await service.get_offline_status(current_user["id"])
+        status = await service.get_offline_status(current_user)
         
         return OfflineStatusResponse(
             mode=status["mode"],
@@ -58,16 +63,30 @@ async def get_offline_status(
             sync_in_progress=status["sync_in_progress"],
             last_sync_at=status.get("last_sync_at")
         )
-        
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"获取离线状态失败: {str(e)}")
 
+@router.get("/config", response_model=OfflineConfigResponse)
+async def get_offline_config() -> OfflineConfigResponse:
+    settings = get_settings()
+    return OfflineConfigResponse(
+        max_concurrent_tasks=1,
+        batch_size=int(settings.OFFLINE_BATCH_SIZE),
+        sync_interval_seconds=int(settings.OFFLINE_SYNC_INTERVAL),
+        retry_max_count=int(settings.OFFLINE_RETRY_MAX_COUNT),
+        retry_backoff_factor=float(settings.OFFLINE_RETRY_BACKOFF_FACTOR),
+        connection_timeout_seconds=int(settings.OFFLINE_CONNECTION_TIMEOUT),
+        vector_clock_enabled=bool(settings.OFFLINE_VECTOR_CLOCK_ENABLED),
+        conflict_resolution=str(settings.OFFLINE_CONFLICT_RESOLUTION),
+    )
 
 @router.post("/sync")
 async def manual_sync(
     request: SyncRequest,
     background_tasks: BackgroundTasks,
-    current_user: Dict[str, Any] = Depends(get_current_user)
+    current_user: str = Depends(get_current_user)
 ) -> Dict[str, Any]:
     """手动同步"""
     try:
@@ -76,32 +95,32 @@ async def manual_sync(
         if request.force:
             # 强制同步
             result = await service.force_sync(
-                current_user["id"], 
+                current_user, 
                 batch_size=request.batch_size
             )
         else:
             # 添加到后台任务
             background_tasks.add_task(
                 service.background_sync, 
-                current_user["id"],
+                current_user,
                 request.batch_size
             )
             result = {"message": "同步已启动", "background": True}
         
         return result
-        
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"同步失败: {str(e)}")
 
-
 @router.get("/conflicts")
 async def get_conflicts(
-    current_user: Dict[str, Any] = Depends(get_current_user)
+    current_user: str = Depends(get_current_user)
 ) -> List[Dict[str, Any]]:
     """获取冲突列表"""
     try:
         service = OfflineService()
-        conflicts = await service.get_unresolved_conflicts(current_user["id"])
+        conflicts = await service.get_unresolved_conflicts(current_user)
         
         return [
             {
@@ -115,21 +134,21 @@ async def get_conflicts(
             }
             for conflict in conflicts
         ]
-        
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"获取冲突失败: {str(e)}")
-
 
 @router.post("/resolve")
 async def resolve_conflict(
     request: ConflictResolutionRequest,
-    current_user: Dict[str, Any] = Depends(get_current_user)
+    current_user: str = Depends(get_current_user)
 ) -> Dict[str, Any]:
     """解决冲突"""
     try:
         service = OfflineService()
         success = await service.resolve_conflict(
-            current_user["id"],
+            current_user,
             request.conflict_id,
             request.resolution_strategy,
             request.resolved_data
@@ -139,22 +158,22 @@ async def resolve_conflict(
             return {"message": "冲突已解决", "conflict_id": request.conflict_id}
         else:
             raise HTTPException(status_code=404, detail="冲突不存在或已解决")
-            
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"解决冲突失败: {str(e)}")
-
 
 @router.get("/operations")
 async def get_operations(
     limit: int = 100,
     offset: int = 0,
-    current_user: Dict[str, Any] = Depends(get_current_user)
+    current_user: str = Depends(get_current_user)
 ) -> List[Dict[str, Any]]:
     """获取操作历史"""
     try:
         service = OfflineService()
         operations = await service.get_operation_history(
-            current_user["id"], 
+            current_user, 
             limit=limit, 
             offset=offset
         )
@@ -171,30 +190,30 @@ async def get_operations(
             }
             for op in operations
         ]
-        
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"获取操作历史失败: {str(e)}")
 
-
 @router.get("/statistics")
 async def get_statistics(
-    current_user: Dict[str, Any] = Depends(get_current_user)
+    current_user: str = Depends(get_current_user)
 ) -> Dict[str, Any]:
     """获取离线统计信息"""
     try:
         service = OfflineService()
-        stats = await service.get_offline_statistics(current_user["id"])
+        stats = await service.get_offline_statistics(current_user)
         
         return stats
-        
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"获取统计信息失败: {str(e)}")
-
 
 @router.post("/mode/{mode}")
 async def set_offline_mode(
     mode: str,
-    current_user: Dict[str, Any] = Depends(get_current_user)
+    current_user: str = Depends(get_current_user)
 ) -> Dict[str, Any]:
     """设置离线模式"""
     try:
@@ -203,13 +222,13 @@ async def set_offline_mode(
             raise HTTPException(status_code=400, detail="无效的离线模式")
         
         service = OfflineService()
-        await service.set_offline_mode(current_user["id"], mode)
+        await service.set_offline_mode(current_user, mode)
         
         return {"message": f"离线模式已设置为: {mode}", "mode": mode}
-        
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"设置离线模式失败: {str(e)}")
-
 
 @router.get("/network")
 async def get_network_status() -> Dict[str, Any]:
@@ -219,15 +238,15 @@ async def get_network_status() -> Dict[str, Any]:
         network_stats = await service.get_network_statistics()
         
         return network_stats
-        
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"获取网络状态失败: {str(e)}")
-
 
 @router.post("/cleanup")
 async def cleanup_old_data(
     days: int = 30,
-    current_user: Dict[str, Any] = Depends(get_current_user)
+    current_user: str = Depends(get_current_user)
 ) -> Dict[str, Any]:
     """清理旧数据"""
     try:
@@ -235,7 +254,7 @@ async def cleanup_old_data(
             raise HTTPException(status_code=400, detail="天数必须大于0")
         
         service = OfflineService()
-        result = await service.cleanup_old_data(current_user["id"], days)
+        result = await service.cleanup_old_data(current_user, days)
         
         return {
             "message": f"已清理{days}天前的数据",
@@ -243,10 +262,10 @@ async def cleanup_old_data(
             "cleaned_conflicts": result.get("conflicts", 0),
             "cleaned_memories": result.get("memories", 0)
         }
-        
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"清理数据失败: {str(e)}")
-
 
 @router.get("/health")
 async def health_check() -> Dict[str, Any]:
@@ -256,6 +275,20 @@ async def health_check() -> Dict[str, Any]:
         health = await service.health_check()
         
         return health
-        
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"健康检查失败: {str(e)}")
+
+@router.get("/vector-clocks")
+async def get_vector_clock_state(
+    current_user: Dict[str, Any] = Depends(get_current_user)
+) -> Dict[str, Any]:
+    """获取向量时钟节点与事件列表（真实数据为空则返回空列表）"""
+    try:
+        service = OfflineService()
+        return await service.get_vector_clock_state()
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"获取向量时钟状态失败: {str(e)}")

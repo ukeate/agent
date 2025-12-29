@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useEffect } from 'react'
 import { List, Card, Typography, Space, Button, Empty, Tag } from 'antd'
 import { MessageOutlined, DeleteOutlined, CalendarOutlined } from '@ant-design/icons'
 import dayjs from 'dayjs'
@@ -16,7 +16,11 @@ const ConversationHistory: React.FC<ConversationHistoryProps> = ({
   visible,
   onSelectConversation,
 }) => {
-  const { conversations, deleteConversation, currentConversation } = useConversationStore()
+  const { conversations, deleteConversation, currentConversation, refreshConversations } = useConversationStore()
+
+  useEffect(() => {
+    refreshConversations()
+  }, [refreshConversations])
 
   const handleDeleteConversation = (conversationId: string, e: React.MouseEvent) => {
     e.stopPropagation()
@@ -70,7 +74,7 @@ const ConversationHistory: React.FC<ConversationHistoryProps> = ({
                       {conversation.title}
                     </Text>
                     <Tag color="blue">
-                      {conversation.messages.length} 条消息
+                      {(conversation.messageCount ?? conversation.messages.length) || 0} 条消息
                     </Tag>
                   </div>
 
@@ -87,7 +91,9 @@ const ConversationHistory: React.FC<ConversationHistoryProps> = ({
                     <Space size="small">
                       <MessageOutlined className="text-gray-400" />
                       <Text type="secondary" className="text-xs">
-                        {conversation.messages.filter(m => m.role === 'user').length} 次提问
+                        {(conversation.userMessageCount ??
+                          conversation.messages.filter((m) => m.role === 'user').length) || 0}{' '}
+                        次提问
                       </Text>
                     </Space>
                     <Space size="small">

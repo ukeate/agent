@@ -3,18 +3,16 @@
 import asyncio
 from typing import Any, Dict, Optional, List, Tuple
 from datetime import datetime
-import logging
 import re
 import torch
-
 from .base_analyzer import BaseEmotionAnalyzer
 from ..models.emotion_models import (
     EmotionResult, EmotionDimension, Modality,
     EmotionCategory, EMOTION_DIMENSIONS
 )
+from src.core.utils.timezone_utils import utc_now
 
-logger = logging.getLogger(__name__)
-
+logger = get_logger(__name__)
 
 class TextEmotionAnalyzer(BaseEmotionAnalyzer):
     """基于Transformer的文本情感分析器"""
@@ -238,7 +236,7 @@ class TextEmotionAnalyzer(BaseEmotionAnalyzer):
             emotion=emotion_label,
             confidence=confidence,
             intensity=intensity * features["complexity_weight"],
-            timestamp=datetime.now(),
+            timestamp=utc_now(),
             modality=str(self.modality.value),
             details={
                 "text_length": features["length"],
@@ -292,7 +290,7 @@ class TextEmotionAnalyzer(BaseEmotionAnalyzer):
             emotion=EmotionCategory.NEUTRAL.value,
             confidence=0.5,
             intensity=0.3,
-            timestamp=datetime.now(),
+            timestamp=utc_now(),
             modality=str(self.modality.value),
             details=features,
             dimension=EMOTION_DIMENSIONS[EmotionCategory.NEUTRAL]
@@ -368,3 +366,4 @@ class TextEmotionAnalyzer(BaseEmotionAnalyzer):
                 return -0.7
             else:
                 return 0.0
+from src.core.logging import get_logger

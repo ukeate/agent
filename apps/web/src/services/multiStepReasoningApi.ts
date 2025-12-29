@@ -1,5 +1,6 @@
 import apiClient from './apiClient';
 
+import { logger } from '../utils/logger'
 // 类型定义
 export interface DecompositionRequest {
   problem_statement: string;
@@ -114,7 +115,7 @@ export class MultiStepReasoningApi {
       const response = await apiClient.post(`${this.baseURL}/decompose`, request);
       return response.data;
     } catch (error) {
-      console.error('Problem decomposition failed:', error);
+      logger.error('问题分解失败:', error);
       throw error;
     }
   }
@@ -125,7 +126,7 @@ export class MultiStepReasoningApi {
       const response = await apiClient.post(`${this.baseURL}/execute`, request);
       return response.data;
     } catch (error) {
-      console.error('Execution start failed:', error);
+      logger.error('启动执行失败:', error);
       throw error;
     }
   }
@@ -136,7 +137,7 @@ export class MultiStepReasoningApi {
       const response = await apiClient.get(`${this.baseURL}/executions/${executionId}`);
       return response.data;
     } catch (error) {
-      console.error('Get execution status failed:', error);
+      logger.error('获取执行状态失败:', error);
       throw error;
     }
   }
@@ -147,7 +148,7 @@ export class MultiStepReasoningApi {
       const response = await apiClient.post(`${this.baseURL}/executions/control`, request);
       return response.data;
     } catch (error) {
-      console.error('Execution control failed:', error);
+      logger.error('执行控制失败:', error);
       throw error;
     }
   }
@@ -158,7 +159,7 @@ export class MultiStepReasoningApi {
       const response = await apiClient.get(`${this.baseURL}/system/metrics`);
       return response.data;
     } catch (error) {
-      console.error('Get system metrics failed:', error);
+      logger.error('获取系统指标失败:', error);
       throw error;
     }
   }
@@ -176,7 +177,7 @@ export class MultiStepReasoningApi {
       const response = await apiClient.get(`${this.baseURL}/workflows`);
       return response.data;
     } catch (error) {
-      console.error('List workflows failed:', error);
+      logger.error('获取工作流列表失败:', error);
       throw error;
     }
   }
@@ -195,7 +196,7 @@ export class MultiStepReasoningApi {
       const response = await apiClient.get(`${this.baseURL}/executions`);
       return response.data;
     } catch (error) {
-      console.error('List executions failed:', error);
+      logger.error('获取执行列表失败:', error);
       throw error;
     }
   }
@@ -206,7 +207,7 @@ export class MultiStepReasoningApi {
       const response = await apiClient.delete(`${this.baseURL}/executions/${executionId}`);
       return response.data;
     } catch (error) {
-      console.error('Delete execution failed:', error);
+      logger.error('删除执行失败:', error);
       throw error;
     }
   }
@@ -231,7 +232,7 @@ export class MultiStepReasoningApi {
       const response = await apiClient.get(`${this.baseURL}/executions/${executionId}/results`);
       return response.data;
     } catch (error) {
-      console.error('Get execution results failed:', error);
+      logger.error('获取执行结果失败:', error);
       throw error;
     }
   }
@@ -252,7 +253,7 @@ export class MultiStepReasoningApi {
           setTimeout(poll, interval);
         }
       } catch (error) {
-        console.error('Polling failed:', error);
+        logger.error('轮询失败:', error);
         // 在错误情况下也继续轮询，但增加间隔
         setTimeout(poll, interval * 2);
       }
@@ -275,7 +276,7 @@ export class MultiStepReasoningApi {
         const metrics = await this.getSystemMetrics();
         onUpdate(metrics);
       } catch (error) {
-        console.error('System metrics monitoring failed:', error);
+        logger.error('系统指标监控失败:', error);
       }
       
       if (isMonitoring) {

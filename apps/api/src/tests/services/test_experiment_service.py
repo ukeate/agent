@@ -1,13 +1,13 @@
 """
 实验服务单元测试
 """
+
 import pytest
 from datetime import datetime
 from datetime import timedelta
 from src.core.utils.timezone_utils import utc_now, utc_factory
 from unittest.mock import Mock, patch, AsyncMock
 import json
-
 from services.experiment_service import (
     ExperimentService,
     ExperimentStatus,
@@ -16,12 +16,10 @@ from services.experiment_service import (
     ExperimentConfig
 )
 
-
 @pytest.fixture
 def experiment_service():
     """创建实验服务实例"""
     return ExperimentService()
-
 
 @pytest.fixture
 def sample_config():
@@ -63,7 +61,6 @@ def sample_config():
         start_date=utc_now(),
         end_date=utc_now() + timedelta(days=14)
     )
-
 
 class TestExperimentService:
     """实验服务测试类"""
@@ -274,7 +271,6 @@ class TestExperimentService:
         experiment = await experiment_service.archive_experiment(experiment.id)
         assert experiment.status == ExperimentStatus.ARCHIVED
 
-
 class TestVariantAssignment:
     """变体分配测试"""
     
@@ -331,7 +327,6 @@ class TestVariantAssignment:
         # 普通用户应该正常分配
         variant = await experiment_service.get_variant(experiment.id, "normal_user")
         assert variant is not None
-
 
 class TestMetricsCalculation:
     """指标计算测试"""
@@ -398,7 +393,6 @@ class TestMetricsCalculation:
         
         assert result["significant"] is False
         assert result["p_value"] > 0.05
-
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

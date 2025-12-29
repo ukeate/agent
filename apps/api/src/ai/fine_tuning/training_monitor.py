@@ -2,9 +2,9 @@
 训练监控模块
 提供训练过程中的指标监控、日志记录、异常检测等功能
 """
+
 import time
 import json
-import logging
 import os
 from typing import Dict, Any, List, Optional
 from datetime import datetime
@@ -12,6 +12,8 @@ from src.core.utils.timezone_utils import utc_now, utc_factory
 from collections import defaultdict, deque
 import threading
 
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 class TrainingMonitor:
     """训练监控器"""
@@ -31,8 +33,7 @@ class TrainingMonitor:
         # 创建日志目录
         os.makedirs(self.log_dir, exist_ok=True)
         
-        # 初始化日志记录
-        self.logger = self._setup_logger()
+        self.logger = get_logger(__name__)
         
         # 监控数据
         self.metrics = defaultdict(list)
@@ -53,32 +54,6 @@ class TrainingMonitor:
         # 初始化wandb
         if self.enable_wandb:
             self._init_wandb()
-    
-    def _setup_logger(self) -> logging.Logger:
-        """设置日志记录器"""
-        logger = logging.getLogger('training_monitor')
-        logger.setLevel(logging.INFO)
-        
-        # 文件处理器
-        log_file = os.path.join(self.log_dir, 'training_monitor.log')
-        file_handler = logging.FileHandler(log_file, encoding='utf-8')
-        file_handler.setLevel(logging.INFO)
-        
-        # 控制台处理器
-        console_handler = logging.StreamHandler()
-        console_handler.setLevel(logging.INFO)
-        
-        # 格式化器
-        formatter = logging.Formatter(
-            '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-        )
-        file_handler.setFormatter(formatter)
-        console_handler.setFormatter(formatter)
-        
-        logger.addHandler(file_handler)
-        logger.addHandler(console_handler)
-        
-        return logger
     
     def _init_wandb(self):
         """初始化Weights & Biases"""
@@ -414,5 +389,5 @@ class TrainingMonitor:
             try:
                 import wandb
                 wandb.finish()
-            except:
-                pass
+            except Exception as e:
+                self.logger.error(f"Wandb关闭失败: {e}")

@@ -1,22 +1,19 @@
 """记忆持久化存储层"""
+
 import json
 from typing import List, Optional, Dict, Any
 from datetime import datetime
 from src.core.utils.timezone_utils import utc_now, utc_factory
 import asyncio
-import logging
-
 from qdrant_client import QdrantClient
 from qdrant_client.models import Distance, VectorParams, PointStruct, Filter, FieldCondition, Range
 import redis.asyncio as redis
 import asyncpg
 from asyncpg.pool import Pool
-
 from .models import Memory, MemoryType, MemoryStatus, MemoryFilters
 from .config import MemoryConfig
 
-logger = logging.getLogger(__name__)
-
+logger = get_logger(__name__)
 
 class MemoryStorage:
     """记忆持久化存储管理器"""
@@ -108,7 +105,7 @@ class MemoryStorage:
         """清理失败的初始化资源"""
         try:
             if self.redis_cache:
-                await self.redis_cache.close()
+                await self.redis_cache.aclose()
                 self.redis_cache = None
             if self.postgres_pool:
                 await self.postgres_pool.close()
@@ -219,7 +216,7 @@ class MemoryStorage:
                 await self.redis_cache.setex(
                     cache_key,
                     self.config.cache_ttl,
-                    memory.json()
+                    memory.model_dump_json()
                 )
             
             logger.info(f"记忆存储成功: {memory.id}")
@@ -239,7 +236,7 @@ class MemoryStorage:
             cache_key = f"{self.config.cache_prefix}{memory_id}"
             cached = await self.redis_cache.get(cache_key)
             if cached:
-                memory = Memory.parse_raw(cached)
+                memory = Memory.model_validate_json(cached)
                 # 更新访问信息
                 memory.access_count += 1
                 memory.last_accessed = utc_now()
@@ -266,7 +263,7 @@ class MemoryStorage:
                 await self.redis_cache.setex(
                     cache_key,
                     self.config.cache_ttl,
-                    memory.json()
+                    memory.model_dump_json()
                 )
             
             return memory
@@ -419,7 +416,7 @@ class MemoryStorage:
     async def cleanup(self):
         """清理资源"""
         if self.redis_cache:
-            await self.redis_cache.close()
+            await self.redis_cache.aclose()
         if self.postgres_pool:
             await self.postgres_pool.close()
             
@@ -447,7 +444,7 @@ class MemoryStorage:
         """关闭存储连接，释放资源"""
         try:
             if self.redis_cache:
-                await self.redis_cache.close()
+                await self.redis_cache.aclose()
                 self.redis_cache = None
                 
             if self.postgres_pool:
@@ -471,3 +468,4 @@ class MemoryStorage:
     async def __aexit__(self, exc_type, exc_val, exc_tb):
         """异步上下文管理器出口"""
         await self.close()
+from src.core.logging import get_logger

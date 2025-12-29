@@ -10,8 +10,6 @@ import shutil
 from datetime import datetime
 from src.core.utils.timezone_utils import utc_now, utc_factory, timezone
 from pathlib import Path
-
-# 导入所有知识图谱组件
 from ai.knowledge_graph.sparql_engine import SPARQLEngine, SPARQLQuery, QueryType, execute_sparql_query
 from ai.knowledge_graph.query_optimizer import QueryOptimizer, OptimizationLevel
 from ai.knowledge_graph.result_formatter import ResultFormatter, ResultFormat
@@ -23,12 +21,16 @@ from ai.knowledge_graph.version_manager import VersionManager, VersionType, crea
 from ai.knowledge_graph.change_tracker import ChangeTracker, EventType, Priority
 from ai.knowledge_graph.kg_auth import KnowledgeGraphAuth, SecurityConfig, Role, Permission
 from ai.knowledge_graph.kg_models import (
+
     Triple, Entity, Relation, KnowledgeGraph, 
     create_triple, create_entity, create_relation, create_knowledge_graph,
     model_registry, SerializationFormat
 )
 from ai.knowledge_graph.kg_monitor import KnowledgeGraphMonitor, kg_monitor
+from src.core.logging import setup_logging
 
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 class TestKnowledgeGraphIntegration:
     """知识图谱集成测试"""
@@ -394,7 +396,7 @@ class TestKnowledgeGraphIntegration:
             change_stats = await change_tracker.get_statistics()
             assert change_stats.total_events > 0
             
-            print("✓ 所有集成测试通过")
+            logger.info("✓ 所有集成测试通过")
             
         finally:
             await change_tracker.stop()
@@ -437,7 +439,7 @@ class TestKnowledgeGraphIntegration:
         with pytest.raises(ValueError):
             await version_manager.compare_versions("fake1", "fake2")
         
-        print("✓ 错误处理测试通过")
+        logger.error("✓ 错误处理测试通过")
     
     @pytest.mark.asyncio
     async def test_concurrent_operations(self):
@@ -493,7 +495,7 @@ class TestKnowledgeGraphIntegration:
             concurrent_events = [e for e in events if e.metadata and e.metadata.get("batch") == "concurrent_test"]
             assert len(concurrent_events) >= 8  # 大部分事件应该被记录
             
-            print("✓ 并发操作测试通过")
+            logger.info("✓ 并发操作测试通过")
             
         finally:
             await change_tracker.stop()
@@ -544,37 +546,37 @@ class TestKnowledgeGraphIntegration:
             assert "performance_metrics" in system_status
             assert system_status["performance_metrics"]["total_requests"] >= 100
             
-            print(f"✓ 性能测试通过 - {successful_queries}个查询，{queries_per_second:.2f} QPS")
+            logger.info(f"✓ 性能测试通过 - {successful_queries}个查询，{queries_per_second:.2f} QPS")
             
         finally:
             await monitor.stop_monitoring()
 
-
 if __name__ == "__main__":
+    setup_logging()
     # 运行集成测试
     async def run_integration_tests():
-        print("开始知识图谱系统集成测试...")
+        logger.info("开始知识图谱系统集成测试...")
         
         test_instance = TestKnowledgeGraphIntegration()
         test_instance.setup_method()
         
         try:
-            print("1. 运行完整工作流程测试...")
+            logger.info("1. 运行完整工作流程测试...")
             await test_instance.test_complete_workflow()
             
-            print("2. 运行错误处理测试...")
+            logger.error("2. 运行错误处理测试...")
             await test_instance.test_error_handling()
             
-            print("3. 运行并发操作测试...")
+            logger.info("3. 运行并发操作测试...")
             await test_instance.test_concurrent_operations()
             
-            print("4. 运行性能负载测试...")
+            logger.info("4. 运行性能负载测试...")
             await test_instance.test_performance_under_load()
             
-            print("✅ 所有集成测试成功完成！")
+            logger.info("✅ 所有集成测试成功完成！")
             
         except Exception as e:
-            print(f"❌ 集成测试失败: {str(e)}")
+            logger.error(f"❌ 集成测试失败: {str(e)}")
             raise
         finally:
             test_instance.teardown_method()

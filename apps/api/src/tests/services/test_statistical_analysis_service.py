@@ -1,23 +1,21 @@
 """
 统计分析服务单元测试
 """
+
 import pytest
 import numpy as np
 from unittest.mock import Mock, patch
 from scipy import stats
-
 from services.statistical_analysis_service import (
     StatisticalAnalysisService,
     TestType,
     CorrectionMethod
 )
 
-
 @pytest.fixture
 def stats_service():
     """创建统计分析服务实例"""
     return StatisticalAnalysisService()
-
 
 @pytest.fixture
 def sample_data():
@@ -29,7 +27,6 @@ def sample_data():
         "small_control": np.random.normal(100, 15, 30),
         "small_treatment": np.random.normal(110, 15, 30)
     }
-
 
 class TestBasicStatistics:
     """基础统计测试"""
@@ -66,7 +63,6 @@ class TestBasicStatistics:
         
         assert p25 < p50 < p75
         assert abs(p50 - 100) < 2  # 中位数接近100
-
 
 class TestHypothesisTesting:
     """假设检验测试"""
@@ -159,7 +155,6 @@ class TestHypothesisTesting:
         assert "p_value" in result
         assert result["p_value"] < 0.05  # 组间差异显著
 
-
 class TestConfidenceIntervals:
     """置信区间测试"""
     
@@ -216,7 +211,6 @@ class TestConfidenceIntervals:
         assert len(ci) == 2
         assert ci[0] < np.mean(sample_data["small_control"]) < ci[1]
 
-
 class TestPowerAnalysis:
     """功效分析测试"""
     
@@ -271,7 +265,6 @@ class TestPowerAnalysis:
         assert mde > 0
         assert mde < 0.05  # 合理的MDE
 
-
 class TestMultipleTestingCorrection:
     """多重检验校正测试"""
     
@@ -322,7 +315,6 @@ class TestMultipleTestingCorrection:
         assert sum(corrected["rejected"]) >= sum(
             p < 0.05/4 for p in p_values
         )
-
 
 class TestVariantComparison:
     """变体比较测试"""
@@ -380,7 +372,6 @@ class TestVariantComparison:
         assert "p_value" in result
         assert result["p_value"] < 0.05
 
-
 class TestNormality:
     """正态性检验测试"""
     
@@ -416,7 +407,6 @@ class TestNormality:
         assert "critical_values" in result
         assert "significance_levels" in result
 
-
 class TestCorrelation:
     """相关性分析测试"""
     
@@ -448,7 +438,6 @@ class TestCorrelation:
         
         assert -1 <= result["correlation"] <= 1
         assert "p_value" in result
-
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

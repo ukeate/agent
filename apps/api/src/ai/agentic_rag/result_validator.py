@@ -11,19 +11,17 @@
 import asyncio
 import json
 import math
-import logging
 from typing import Dict, List, Optional, Any, Tuple, Set
 from dataclasses import dataclass
 from enum import Enum
 from collections import Counter, defaultdict
 import re
-
 from src.ai.openai_client import get_openai_client
 from .query_analyzer import QueryAnalysis, QueryIntent
 from .retrieval_agents import RetrievalResult
 
-logger = logging.getLogger(__name__)
-
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 class QualityDimension(str, Enum):
     """质量评估维度"""
@@ -34,14 +32,12 @@ class QualityDimension(str, Enum):
     TIMELINESS = "timeliness"       # 时效性
     CREDIBILITY = "credibility"     # 可信度
 
-
 class ConflictType(str, Enum):
     """冲突类型"""
     FACTUAL = "factual"              # 事实冲突
     NUMERICAL = "numerical"          # 数值冲突
     TEMPORAL = "temporal"            # 时间冲突
     SEMANTIC = "semantic"            # 语义冲突
-
 
 @dataclass
 class QualityScore:
@@ -56,7 +52,6 @@ class QualityScore:
         if self.evidence is None:
             self.evidence = []
 
-
 @dataclass
 class ConflictDetection:
     """冲突检测结果"""
@@ -65,7 +60,6 @@ class ConflictDetection:
     severity: float  # 冲突严重程度 0-1
     explanation: str
     resolution_suggestion: Optional[str] = None
-
 
 @dataclass
 class ValidationResult:
@@ -83,7 +77,6 @@ class ValidationResult:
     def __post_init__(self):
         if self.metadata is None:
             self.metadata = {}
-
 
 class ResultValidator:
     """检索结果验证器"""
@@ -1075,7 +1068,6 @@ class ResultValidator:
             recommendations.append("对于事实查询，建议交叉验证多个可靠来源")
         
         return recommendations[:5]  # 限制建议数量
-
 
 # 全局结果验证器实例
 result_validator = ResultValidator()

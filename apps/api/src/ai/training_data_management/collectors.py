@@ -17,10 +17,11 @@ from typing import Dict, List, Optional, Any, Union, AsyncIterator
 from pathlib import Path
 from abc import ABC, abstractmethod
 from concurrent.futures import ThreadPoolExecutor
-import logging
 from urllib.parse import urlparse
 import chardet
+from .models import DataSource, DataRecord
 
+from src.core.logging import get_logger
 # 条件导入可选依赖
 try:
     from bs4 import BeautifulSoup
@@ -34,26 +35,22 @@ try:
 except ImportError:
     HAS_TRAFILATURA = False
 
-from .models import DataSource, DataRecord
-
-
 class DataCollector(ABC):
     """数据收集器基类"""
     
     def __init__(self, source: DataSource):
         self.source = source
-        self.logger = logging.getLogger(self.__class__.__name__)
+        self.logger = get_logger(self.__class__.__name__)
     
     @abstractmethod
     async def collect_data(self) -> AsyncIterator[DataRecord]:
         """收集数据的抽象方法"""
-        pass
+        raise NotImplementedError
     
     def generate_record_id(self, data: Dict[str, Any]) -> str:
         """生成唯一的记录ID"""
         content = json.dumps(data, sort_keys=True)
         return hashlib.md5(content.encode()).hexdigest()
-
 
 class APIDataCollector(DataCollector):
     """API数据收集器"""
@@ -127,7 +124,6 @@ class APIDataCollector(DataCollector):
                 except Exception as e:
                     self.logger.error(f"Error collecting data from API: {e}")
                     break
-
 
 class FileDataCollector(DataCollector):
     """文件数据收集器"""
@@ -240,7 +236,7 @@ class FileDataCollector(DataCollector):
     
     async def _process_csv_file(self, path: Path, encoding: str) -> AsyncIterator[DataRecord]:
         """处理CSV文件"""
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         with ThreadPoolExecutor() as executor:
             df = await loop.run_in_executor(
                 executor, 
@@ -285,7 +281,6 @@ class FileDataCollector(DataCollector):
                             }
                         )
                         yield record
-
 
 class WebDataCollector(DataCollector):
     """网页数据收集器"""
@@ -360,7 +355,6 @@ class WebDataCollector(DataCollector):
                 # 避免过于频繁的请求
                 await asyncio.sleep(config.get('delay', 2))
 
-
 class DatabaseDataCollector(DataCollector):
     """数据库数据收集器"""
     
@@ -378,27 +372,7 @@ class DatabaseDataCollector(DataCollector):
         # 这里简化实现，实际项目中需要支持不同数据库类型
         self.logger.info(f"Starting database data collection with query: {query}")
         
-        # 模拟数据库查询结果
-        # 实际实现需要使用具体的数据库驱动
-        for i in range(0, 100, batch_size):  # 示例数据
-            batch_data = [
-                {'id': j, 'content': f'Database record {j}'}
-                for j in range(i, min(i + batch_size, 100))
-            ]
-            
-            for item in batch_data:
-                record_id = self.generate_record_id(item)
-                record = DataRecord(
-                    record_id=record_id,
-                    source_id=self.source.source_id,
-                    raw_data=item,
-                    metadata={
-                        'query': query,
-                        'collected_at': utc_now().isoformat()
-                    }
-                )
-                yield record
-
+        return
 
 class CollectorFactory:
     """数据收集器工厂"""

@@ -1,24 +1,24 @@
 """
 统计功效和样本量计算API端点
 """
+
 from typing import List, Dict, Any, Optional, Union
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel, Field, validator
-
-from core.logging import get_logger
-from services.power_analysis_service import (
+from pydantic import Field, field_validator, ValidationInfo
+from src.services.power_analysis_service import (
     get_power_analysis_service,
     PowerAnalysisType,
     TestType,
     AlternativeHypothesis
 )
 
+from src.core.logging import get_logger
 logger = get_logger(__name__)
+
 router = APIRouter(prefix="/power-analysis", tags=["统计功效分析"])
 
-
 # 请求模型
-class PowerCalculationRequest(BaseModel):
+class PowerCalculationRequest(ApiBaseModel):
     """统计功效计算请求"""
     test_type: TestType = Field(..., description="检验类型")
     effect_size: float = Field(..., gt=0, description="效应量")
@@ -26,7 +26,7 @@ class PowerCalculationRequest(BaseModel):
     alpha: float = Field(0.05, ge=0.001, le=0.1, description="显著性水平")
     alternative: AlternativeHypothesis = Field(AlternativeHypothesis.TWO_SIDED, description="备择假设类型")
     
-    @validator('sample_size')
+    @field_validator('sample_size')
     def validate_sample_size(cls, v):
         if isinstance(v, list):
             if len(v) != 2:
@@ -37,8 +37,7 @@ class PowerCalculationRequest(BaseModel):
             raise ValueError("Sample size must be positive")
         return v
 
-
-class SampleSizeCalculationRequest(BaseModel):
+class SampleSizeCalculationRequest(ApiBaseModel):
     """样本量计算请求"""
     test_type: TestType = Field(..., description="检验类型")
     effect_size: float = Field(..., gt=0, description="效应量")
@@ -47,8 +46,7 @@ class SampleSizeCalculationRequest(BaseModel):
     alternative: AlternativeHypothesis = Field(AlternativeHypothesis.TWO_SIDED, description="备择假设类型")
     ratio: float = Field(1.0, gt=0, description="样本量比例（n2/n1）")
 
-
-class EffectSizeCalculationRequest(BaseModel):
+class EffectSizeCalculationRequest(ApiBaseModel):
     """效应量计算请求"""
     test_type: TestType = Field(..., description="检验类型")
     sample_size: Union[int, List[int]] = Field(..., description="样本量")
@@ -56,8 +54,7 @@ class EffectSizeCalculationRequest(BaseModel):
     alpha: float = Field(0.05, ge=0.001, le=0.1, description="显著性水平")
     alternative: AlternativeHypothesis = Field(AlternativeHypothesis.TWO_SIDED, description="备择假设类型")
 
-
-class ProportionPowerRequest(BaseModel):
+class ProportionPowerRequest(ApiBaseModel):
     """比例检验功效分析请求"""
     test_type: TestType = Field(..., description="检验类型")
     p1: float = Field(..., ge=0, le=1, description="第一组比例")
@@ -66,8 +63,7 @@ class ProportionPowerRequest(BaseModel):
     alpha: float = Field(0.05, ge=0.001, le=0.1, description="显著性水平")
     alternative: AlternativeHypothesis = Field(AlternativeHypothesis.TWO_SIDED, description="备择假设类型")
 
-
-class ProportionSampleSizeRequest(BaseModel):
+class ProportionSampleSizeRequest(ApiBaseModel):
     """比例检验样本量计算请求"""
     test_type: TestType = Field(..., description="检验类型")
     p1: float = Field(..., ge=0, le=1, description="第一组比例")
@@ -77,8 +73,7 @@ class ProportionSampleSizeRequest(BaseModel):
     alternative: AlternativeHypothesis = Field(AlternativeHypothesis.TWO_SIDED, description="备择假设类型")
     ratio: float = Field(1.0, gt=0, description="样本量比例")
 
-
-class ABTestSampleSizeRequest(BaseModel):
+class ABTestSampleSizeRequest(ApiBaseModel):
     """A/B测试样本量计算请求"""
     baseline_conversion_rate: float = Field(..., ge=0, le=1, description="基准转化率")
     minimum_detectable_effect: float = Field(..., gt=0, le=1, description="最小可检测效应（相对提升）")
@@ -86,31 +81,28 @@ class ABTestSampleSizeRequest(BaseModel):
     alpha: float = Field(0.05, ge=0.001, le=0.1, description="显著性水平")
     alternative: AlternativeHypothesis = Field(AlternativeHypothesis.TWO_SIDED, description="备择假设类型")
     
-    @validator('minimum_detectable_effect')
-    def validate_effect(cls, v, values):
-        baseline = values.get('baseline_conversion_rate', 0)
+    @field_validator('minimum_detectable_effect')
+    def validate_effect(cls, v, info: ValidationInfo):
+        baseline = info.data.get('baseline_conversion_rate', 0)
         if baseline + (baseline * v) > 1:
             raise ValueError("Treatment conversion rate cannot exceed 1")
         return v
 
-
 # 响应模型
-class PowerAnalysisResponse(BaseModel):
+class PowerAnalysisResponse(ApiBaseModel):
     """功效分析响应"""
     result: Dict[str, Any] = Field(..., description="分析结果")
     interpretation: Dict[str, str] = Field(..., description="结果解释")
     recommendations: List[str] = Field(default_factory=list, description="建议")
     message: str = Field(default="Analysis completed successfully")
 
-
-class ABTestSampleSizeResponse(BaseModel):
+class ABTestSampleSizeResponse(ApiBaseModel):
     """A/B测试样本量响应"""
     sample_size_analysis: Dict[str, Any] = Field(..., description="样本量分析结果")
     experimental_design: Dict[str, Any] = Field(..., description="实验设计建议")
     duration_estimates: Dict[str, int] = Field(..., description="实验持续时间估计")
     recommendations: List[str] = Field(default_factory=list, description="建议")
     message: str = Field(default="A/B test sample size calculation completed")
-
 
 # 辅助函数
 def _interpret_power_result(result: Dict[str, Any]) -> Dict[str, str]:
@@ -156,7 +148,6 @@ def _interpret_power_result(result: Dict[str, Any]) -> Dict[str, str]:
     
     return interpretation
 
-
 def _generate_power_recommendations(result: Dict[str, Any], analysis_type: str) -> List[str]:
     """生成功效分析建议"""
     recommendations = []
@@ -191,7 +182,6 @@ def _generate_power_recommendations(result: Dict[str, Any], analysis_type: str) 
     
     return recommendations
 
-
 # API端点
 @router.post("/calculate-power", response_model=PowerAnalysisResponse)
 async def calculate_power(request: PowerCalculationRequest):
@@ -225,7 +215,6 @@ async def calculate_power(request: PowerCalculationRequest):
         logger.error(f"Power calculation failed: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Power calculation failed: {str(e)}")
 
-
 @router.post("/calculate-sample-size", response_model=PowerAnalysisResponse)
 async def calculate_sample_size(request: SampleSizeCalculationRequest):
     """计算所需样本量"""
@@ -257,7 +246,6 @@ async def calculate_sample_size(request: SampleSizeCalculationRequest):
     except Exception as e:
         logger.error(f"Sample size calculation failed: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Sample size calculation failed: {str(e)}")
-
 
 @router.post("/calculate-effect-size", response_model=PowerAnalysisResponse)
 async def calculate_detectable_effect_size(request: EffectSizeCalculationRequest):
@@ -291,11 +279,12 @@ async def calculate_detectable_effect_size(request: EffectSizeCalculationRequest
         logger.error(f"Effect size calculation failed: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Effect size calculation failed: {str(e)}")
 
-
 @router.post("/proportion-power", response_model=PowerAnalysisResponse)
 async def calculate_proportion_power(request: ProportionPowerRequest):
     """计算比例检验统计功效"""
     try:
+        if request.test_type not in {TestType.ONE_PROPORTION, TestType.TWO_PROPORTIONS}:
+            raise HTTPException(status_code=400, detail="test_type必须为one_proportion或two_proportions")
         service = get_power_analysis_service()
         
         # 转换样本量格式
@@ -320,16 +309,18 @@ async def calculate_proportion_power(request: ProportionPowerRequest):
             recommendations=recommendations,
             message=f"比例检验功效计算完成，功效 = {result.power:.3f}"
         )
-        
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Proportion power calculation failed: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Proportion power calculation failed: {str(e)}")
-
 
 @router.post("/proportion-sample-size", response_model=PowerAnalysisResponse)
 async def calculate_proportion_sample_size(request: ProportionSampleSizeRequest):
     """计算比例检验样本量"""
     try:
+        if request.test_type not in {TestType.ONE_PROPORTION, TestType.TWO_PROPORTIONS}:
+            raise HTTPException(status_code=400, detail="test_type必须为one_proportion或two_proportions")
         service = get_power_analysis_service()
         
         result = service.run_power_analysis(
@@ -354,11 +345,11 @@ async def calculate_proportion_sample_size(request: ProportionSampleSizeRequest)
             recommendations=recommendations,
             message=f"比例检验样本量计算完成，所需样本量 = {sample_size_str}"
         )
-        
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Proportion sample size calculation failed: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Proportion sample size calculation failed: {str(e)}")
-
 
 @router.post("/ab-test-sample-size", response_model=ABTestSampleSizeResponse)
 async def calculate_ab_test_sample_size(request: ABTestSampleSizeRequest):
@@ -402,7 +393,6 @@ async def calculate_ab_test_sample_size(request: ABTestSampleSizeRequest):
     except Exception as e:
         logger.error(f"A/B test sample size calculation failed: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"A/B test sample size calculation failed: {str(e)}")
-
 
 @router.get("/effect-size-guidelines")
 async def get_effect_size_guidelines():
@@ -453,7 +443,6 @@ async def get_effect_size_guidelines():
     except Exception as e:
         logger.error(f"Failed to get effect size guidelines: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Failed to get guidelines: {str(e)}")
-
 
 @router.get("/sample-size-calculator")
 async def get_sample_size_calculator_info():
@@ -510,7 +499,6 @@ async def get_sample_size_calculator_info():
         logger.error(f"Failed to get calculator info: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Failed to get calculator info: {str(e)}")
 
-
 @router.get("/health")
 async def health_check():
     """功效分析服务健康检查"""
@@ -530,10 +518,10 @@ async def health_check():
             "status": "healthy",
             "service": "power-analysis",
             "test_calculation": {
-                "effect_size": test_result.effect_size,
-                "power": test_result.power,
-                "sample_size": test_result.sample_size,
-                "passed": 0.7 <= test_result.power <= 0.9  # 预期功效范围
+                "effect_size": float(test_result.effect_size) if test_result.effect_size is not None else None,
+                "power": float(test_result.power) if test_result.power is not None else None,
+                "sample_size": int(test_result.sample_size) if test_result.sample_size is not None else None,
+                "passed": bool(0.7 <= float(test_result.power) <= 0.9) if test_result.power is not None else False
             },
             "message": "Power analysis service is running properly"
         }

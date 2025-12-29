@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import {
+import { logger } from '../utils/logger'
   Card,
   Row,
   Col,
@@ -95,27 +96,18 @@ const DistributedTaskCoordinationPage: React.FC = () => {
       setSystemStats(stats);
       setEngineInitialized(true);
     } catch (error) {
-      console.error('Failed to fetch system stats:', error);
+      logger.error('获取系统统计失败:', error);
       setEngineInitialized(false);
     }
   };
 
   // 获取任务列表
   const fetchTasks = async () => {
-    if (!systemStats) return;
-    
-    const taskIds = Object.keys(systemStats.stats);
-    const taskPromises = taskIds.map(async (taskId) => {
-      try {
-        return await distributedTaskService.getTaskStatus(taskId);
-      } catch (error) {
-        console.error(`Failed to fetch task ${taskId}:`, error);
-        return null;
-      }
-    });
-    
-    const taskResults = await Promise.all(taskPromises);
-    setTasks(taskResults.filter(Boolean));
+    const taskIds = tasks.map((t) => t.task_id);
+    if (!taskIds.length) return;
+
+    const taskResults = await Promise.all(taskIds.map((id) => distributedTaskService.getTaskStatus(id).catch(() => null)));
+    setTasks(taskResults.filter(Boolean) as any);
   };
 
   // 获取冲突列表
@@ -124,7 +116,7 @@ const DistributedTaskCoordinationPage: React.FC = () => {
       const conflictList = await distributedTaskService.detectConflicts();
       setConflicts(conflictList);
     } catch (error) {
-      console.error('Failed to fetch conflicts:', error);
+      logger.error('获取冲突列表失败:', error);
     }
   };
 
@@ -158,8 +150,9 @@ const DistributedTaskCoordinationPage: React.FC = () => {
       const result = await distributedTaskService.submitTask(request);
       message.success(`任务提交成功: ${result.task_id}`);
       taskForm.resetFields();
+      const status = await distributedTaskService.getTaskStatus(result.task_id).catch(() => null);
+      if (status) setTasks((prev) => [status as any, ...prev.filter((t) => t.task_id !== (status as any).task_id)]);
       await fetchSystemStats();
-      await fetchTasks();
     } catch (error) {
       message.error(`任务提交失败: ${error}`);
     } finally {
@@ -206,40 +199,30 @@ const DistributedTaskCoordinationPage: React.FC = () => {
 
   // 创建检查点
   const handleCreateCheckpoint = () => {
-    Modal.prompt({
-      title: '创建检查点',
-      content: '请输入检查点名称：',
-      onOk: async (name: string) => {
-        try {
-          await distributedTaskService.createCheckpoint(name);
-          message.success(`检查点 ${name} 创建成功`);
-        } catch (error) {
-          message.error(`检查点创建失败: ${error}`);
-        }
-      }
-    });
+    const name = window.prompt('请输入检查点名称');
+    if (!name) return;
+    distributedTaskService
+      .createCheckpoint(name)
+      .then(() => message.success(`检查点 ${name} 创建成功`))
+      .catch((e) => message.error(`检查点创建失败: ${e}`));
   };
 
   // 回滚检查点
   const handleRollbackCheckpoint = () => {
-    Modal.prompt({
-      title: '回滚检查点',
-      content: '请输入要回滚的检查点名称：',
-      onOk: async (name: string) => {
-        confirm({
-          title: '确认回滚',
-          icon: <ExclamationCircleOutlined />,
-          content: `确定要回滚到检查点 ${name} 吗？这将撤销之后的所有状态更改。`,
-          onOk: async () => {
-            try {
-              await distributedTaskService.rollbackCheckpoint(name);
-              message.success(`回滚到检查点 ${name} 成功`);
-              await fetchSystemStats();
-            } catch (error) {
-              message.error(`检查点回滚失败: ${error}`);
-            }
-          }
-        });
+    const name = window.prompt('请输入要回滚的检查点名称');
+    if (!name) return;
+    confirm({
+      title: '确认回滚',
+      icon: <ExclamationCircleOutlined />,
+      content: `确定要回滚到检查点 ${name} 吗？这将撤销之后的所有状态更改。`,
+      onOk: async () => {
+        try {
+          await distributedTaskService.rollbackCheckpoint(name);
+          message.success(`回滚到检查点 ${name} 成功`);
+          await fetchSystemStats();
+        } catch (error) {
+          message.error(`检查点回滚失败: ${error}`);
+        }
       }
     });
   };
@@ -270,7 +253,6 @@ const DistributedTaskCoordinationPage: React.FC = () => {
     if (engineInitialized) {
       const interval = setInterval(async () => {
         await fetchSystemStats();
-        await fetchTasks();
         await fetchConflicts();
       }, 5000);
       

@@ -7,7 +7,6 @@
 from typing import Dict, List, Optional, Callable, Any
 from dataclasses import dataclass, field
 import asyncio
-import logging
 import time
 from enum import Enum
 from datetime import datetime
@@ -15,8 +14,8 @@ from datetime import timedelta
 from src.core.utils.timezone_utils import utc_now, utc_factory
 import weakref
 
-logger = logging.getLogger(__name__)
-
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 class ThrottleLevel(str, Enum):
     """限流级别"""
@@ -25,7 +24,6 @@ class ThrottleLevel(str, Enum):
     MODERATE = "moderate"
     HEAVY = "heavy"
     SEVERE = "severe"
-
 
 class PressureSource(str, Enum):
     """压力来源"""
@@ -36,7 +34,6 @@ class PressureSource(str, Enum):
     ERROR_RATE = "error_rate"
     CONNECTION_LIMIT = "connection_limit"
 
-
 @dataclass
 class PressureMetrics:
     """压力指标"""
@@ -44,12 +41,11 @@ class PressureMetrics:
     current_value: float
     threshold: float
     severity: float  # 0-1，1表示最严重
-    timestamp: datetime = field(default_factory=datetime.utcnow)
+    timestamp: datetime = field(default_factory=utc_now)
     
     @property
     def is_over_threshold(self) -> bool:
         return self.current_value > self.threshold
-
 
 @dataclass
 class ThrottleAction:
@@ -58,9 +54,8 @@ class ThrottleAction:
     action_type: str
     target: str
     parameters: Dict[str, Any] = field(default_factory=dict)
-    applied_at: datetime = field(default_factory=datetime.utcnow)
+    applied_at: datetime = field(default_factory=utc_now)
     duration: Optional[float] = None
-
 
 class BackpressureManager:
     """背压管理器"""
@@ -122,7 +117,7 @@ class BackpressureManager:
             try:
                 await self._monitor_task
             except asyncio.CancelledError:
-                pass
+                raise
             
         logger.info("背压监控已停止")
     
@@ -183,8 +178,19 @@ class BackpressureManager:
             )
             
         except ImportError:
-            # 如果没有psutil，使用模拟数据
-            pass
+            # 无psutil则跳过系统指标
+            self.pressure_metrics[PressureSource.CPU_HIGH] = PressureMetrics(
+                source=PressureSource.CPU_HIGH,
+                current_value=0.0,
+                threshold=self.thresholds[PressureSource.CPU_HIGH],
+                severity=0.0
+            )
+            self.pressure_metrics[PressureSource.MEMORY_HIGH] = PressureMetrics(
+                source=PressureSource.MEMORY_HIGH,
+                current_value=0.0,
+                threshold=self.thresholds[PressureSource.MEMORY_HIGH],
+                severity=0.0
+            )
     
     def _analyze_pressure(self) -> ThrottleLevel:
         """分析当前压力水平"""
@@ -441,7 +447,6 @@ class BackpressureManager:
         """获取所有阈值配置"""
         return {source.value: threshold for source, threshold in self.thresholds.items()}
 
-
 class RateLimiter:
     """速率限制器"""
     
@@ -519,7 +524,6 @@ class RateLimiter:
         self.total_requests = 0
         self.total_allowed = 0
         self.total_rejected = 0
-
 
 class CircuitBreaker:
     """熔断器"""

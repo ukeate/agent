@@ -1,17 +1,21 @@
 """
 工作流管理API路由
 """
+
 import json
 from typing import List, Optional
 from fastapi import APIRouter, HTTPException, Query, Path, WebSocket, WebSocketDisconnect
 from fastapi.responses import JSONResponse
-
+from src.core.utils.timezone_utils import utc_now
 from src.models.schemas.workflow import (
     WorkflowCreate, WorkflowUpdate, WorkflowResponse,
     WorkflowExecuteRequest, WorkflowControlRequest,
     CheckpointResponse
 )
 from src.services.workflow_service import workflow_service
+
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 router = APIRouter(prefix="/workflows", tags=["workflows"])
 
@@ -22,9 +26,8 @@ async def health_check():
     return {
         "status": "healthy",
         "service": "workflow_service",
-        "timestamp": "2025-01-01T00:00:00Z"
+        "timestamp": utc_now().isoformat()
     }
-
 
 @router.post("/", response_model=WorkflowResponse)
 async def create_workflow(workflow_data: WorkflowCreate):
@@ -33,7 +36,6 @@ async def create_workflow(workflow_data: WorkflowCreate):
         return await workflow_service.create_workflow(workflow_data)
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
-
 
 @router.get("/", response_model=List[WorkflowResponse])
 async def list_workflows(
@@ -47,7 +49,6 @@ async def list_workflows(
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-
 @router.get("/{workflow_id}", response_model=WorkflowResponse)
 async def get_workflow(
     workflow_id: str = Path(..., description="工作流ID")
@@ -59,7 +60,6 @@ async def get_workflow(
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
-
 
 @router.post("/{workflow_id}/start", response_model=WorkflowResponse)
 async def start_workflow(
@@ -75,7 +75,6 @@ async def start_workflow(
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-
 @router.get("/{workflow_id}/status", response_model=WorkflowResponse)
 async def get_workflow_status(
     workflow_id: str = Path(..., description="工作流ID")
@@ -87,7 +86,6 @@ async def get_workflow_status(
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
-
 
 @router.put("/{workflow_id}/control")
 async def control_workflow(
@@ -125,7 +123,6 @@ async def control_workflow(
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-
 @router.get("/{workflow_id}/checkpoints", response_model=List[CheckpointResponse])
 async def get_workflow_checkpoints(
     workflow_id: str = Path(..., description="工作流ID")
@@ -146,7 +143,6 @@ async def get_workflow_checkpoints(
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-
 @router.delete("/{workflow_id}")
 async def delete_workflow(
     workflow_id: str = Path(..., description="工作流ID")
@@ -165,7 +161,6 @@ async def delete_workflow(
         return {"message": "工作流已删除", "workflow_id": workflow_id}
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
-
 
 # WebSocket连接管理
 class ConnectionManager:
@@ -188,7 +183,7 @@ class ConnectionManager:
             try:
                 await self.active_connections[workflow_id].send_text(json.dumps(data))
             except Exception as e:
-                print(f"Error sending update to {workflow_id}: {e}")
+                logger.error("发送工作流更新失败", workflow_id=workflow_id, error=str(e))
                 self.disconnect(workflow_id)
 
     async def broadcast_update(self, data: dict):
@@ -197,7 +192,7 @@ class ConnectionManager:
             try:
                 await connection.send_text(json.dumps(data))
             except Exception as e:
-                print(f"Error broadcasting to {workflow_id}: {e}")
+                logger.error("广播工作流更新失败", workflow_id=workflow_id, error=str(e))
                 self.disconnect(workflow_id)
 
 manager = ConnectionManager()
@@ -212,7 +207,7 @@ async def workflow_websocket_endpoint(websocket: WebSocket, workflow_id: str):
         initial_status = await workflow_service.get_workflow_status(workflow_id)
         await websocket.send_text(json.dumps({
             "type": "initial_status",
-            "data": initial_status.dict() if initial_status else None
+            "data": initial_status.model_dump() if initial_status else None
         }))
         
         # 保持连接并处理客户端消息
@@ -225,7 +220,7 @@ async def workflow_websocket_endpoint(websocket: WebSocket, workflow_id: str):
                 current_status = await workflow_service.get_workflow_status(workflow_id)
                 await websocket.send_text(json.dumps({
                     "type": "status_update",
-                    "data": current_status.dict() if current_status else None
+                    "data": current_status.model_dump() if current_status else None
                 }))
                 
             elif message.get("type") == "ping":
@@ -234,5 +229,9 @@ async def workflow_websocket_endpoint(websocket: WebSocket, workflow_id: str):
     except WebSocketDisconnect:
         manager.disconnect(workflow_id)
     except Exception as e:
-        print(f"WebSocket error for workflow {workflow_id}: {e}")
+        logger.error("工作流WebSocket错误", workflow_id=workflow_id, error=str(e))
+        try:
+            await websocket.close(code=1011)
+        except Exception:
+            logger.exception("关闭工作流WebSocket失败", exc_info=True)
         manager.disconnect(workflow_id)

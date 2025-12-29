@@ -5,61 +5,59 @@
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.security import HTTPBearer
-from pydantic import BaseModel, Field
+from pydantic import Field
 from typing import Dict, List, Optional, Any
 from datetime import datetime
-import logging
 import time
+from src.core.config import get_settings
+from src.api.base_model import ApiBaseModel
+from src.ai.autogen.security.identity_authentication import (
+    IdentityAuthenticationService, AuthenticationMethod, AuthenticationResult
+)
+from src.ai.autogen.security.access_control import (
+    AccessControlEngine, AccessRequest, ResourceType, AccessDecision, AccessPolicy
+)
+from src.ai.autogen.security.security_audit import (
+    SecurityAuditSystem, SecurityEvent, EventType, ThreatLevel
+)
+from src.ai.autogen.security.encrypted_communication import (
+    EncryptedCommunicationFramework, MessageType
 
-# 导入分布式安全框架组件
-try:
-    from ai.autogen.security.identity_authentication import (
-        IdentityAuthenticationService, AuthenticationMethod, AuthenticationResult
-    )
-    from ai.autogen.security.access_control import (
-        AccessControlEngine, AccessRequest, ResourceType, AccessDecision
-    )
-    from ai.autogen.security.security_audit import (
-        SecurityAuditSystem, SecurityEvent, EventType, ThreatLevel
-    )
-    from ai.autogen.security.encrypted_communication import (
-        EncryptedCommunicationFramework, MessageType
-    )
-except ImportError:
-    # 如果导入失败，使用模拟实现
-    pass
+)
 
-router = APIRouter(prefix="/api/v1/distributed-security", tags=["distributed-security"])
+from src.core.logging import get_logger
+logger = get_logger(__name__)
+
+router = APIRouter(prefix="/distributed-security", tags=["distributed-security"])
 security = HTTPBearer()
-logger = logging.getLogger(__name__)
 
 # Pydantic 模型定义
 
-class AuthenticationRequest(BaseModel):
+class AuthenticationRequest(ApiBaseModel):
     agent_id: str = Field(..., description="智能体ID")
     credentials: Dict[str, Any] = Field(..., description="认证凭据")
     authentication_methods: List[str] = Field(..., description="认证方法列表")
 
-class AuthenticationResponse(BaseModel):
+class AuthenticationResponse(ApiBaseModel):
     authenticated: bool
     session_token: Optional[str] = None
     trust_score: float
     error_message: Optional[str] = None
 
-class AccessControlRequest(BaseModel):
+class AccessControlRequest(ApiBaseModel):
     subject_id: str = Field(..., description="主体ID")
     resource_id: str = Field(..., description="资源ID")
     action: str = Field(..., description="操作类型")
     resource_type: str = Field(..., description="资源类型")
     context: Dict[str, Any] = Field(default_factory=dict, description="请求上下文")
 
-class AccessControlResponse(BaseModel):
+class AccessControlResponse(ApiBaseModel):
     decision: str
     reason: str
     request_id: str
     evaluation_time_ms: float
 
-class SecurityEventRequest(BaseModel):
+class SecurityEventRequest(ApiBaseModel):
     event_type: str = Field(..., description="事件类型")
     source_agent_id: str = Field(..., description="源智能体ID")
     target_resource: Optional[str] = Field(None, description="目标资源")
@@ -67,24 +65,24 @@ class SecurityEventRequest(BaseModel):
     result: str = Field(..., description="操作结果")
     details: Dict[str, Any] = Field(default_factory=dict, description="事件详情")
 
-class SecurityEventResponse(BaseModel):
+class SecurityEventResponse(ApiBaseModel):
     event_id: str
     logged: bool
     message: str
 
-class SecureCommunicationRequest(BaseModel):
+class SecureCommunicationRequest(ApiBaseModel):
     sender_id: str = Field(..., description="发送方ID")
     recipient_id: str = Field(..., description="接收方ID")
     message: Dict[str, Any] = Field(..., description="消息内容")
     session_id: Optional[str] = Field(None, description="通信会话ID")
 
-class SecureCommunicationResponse(BaseModel):
+class SecureCommunicationResponse(ApiBaseModel):
     session_id: str
     message_id: str
     encrypted: bool
     message: str
 
-class PolicyRequest(BaseModel):
+class PolicyRequest(ApiBaseModel):
     policy_id: str
     name: str
     description: str
@@ -93,14 +91,14 @@ class PolicyRequest(BaseModel):
     priority: int = 0
     enabled: bool = True
 
-class AlertResponse(BaseModel):
+class AlertResponse(ApiBaseModel):
     alert_id: str
     threat_level: str
     confidence_score: float
     description: str
     timestamp: float
 
-class SecurityDashboardResponse(BaseModel):
+class SecurityDashboardResponse(ApiBaseModel):
     total_events: int
     event_by_type: Dict[str, int]
     events_by_threat_level: Dict[str, int]
@@ -122,9 +120,10 @@ async def get_auth_service():
     global _auth_service
     if _auth_service is None:
         try:
+            settings = get_settings()
             config = {
-                'redis_url': 'redis://localhost:6379',
-                'jwt_secret': 'your-jwt-secret',
+                'redis_url': settings.REDIS_URL,
+                'jwt_secret': settings.SECRET_KEY,
                 'session_timeout': 3600,
                 'min_trust_score': 0.6,
                 'ca_certificates': []
@@ -132,9 +131,8 @@ async def get_auth_service():
             _auth_service = IdentityAuthenticationService(config)
             await _auth_service.initialize()
         except Exception as e:
-            logger.error(f"Failed to initialize authentication service: {e}")
-            # 返回模拟服务
-            _auth_service = MockAuthenticationService()
+            logger.error(f"身份认证服务初始化失败: {e}")
+            raise HTTPException(status_code=503, detail="认证服务不可用")
     return _auth_service
 
 async def get_access_control():
@@ -149,9 +147,8 @@ async def get_access_control():
             _access_control = AccessControlEngine(config)
             await _access_control.initialize()
         except Exception as e:
-            logger.error(f"Failed to initialize access control: {e}")
-            # 返回模拟服务
-            _access_control = MockAccessControl()
+            logger.error(f"访问控制引擎初始化失败: {e}")
+            raise HTTPException(status_code=503, detail="访问控制服务不可用")
     return _access_control
 
 async def get_audit_system():
@@ -169,9 +166,8 @@ async def get_audit_system():
             _audit_system = SecurityAuditSystem(config)
             await _audit_system.initialize()
         except Exception as e:
-            logger.error(f"Failed to initialize audit system: {e}")
-            # 返回模拟服务
-            _audit_system = MockAuditSystem()
+            logger.error(f"安全审计系统初始化失败: {e}")
+            raise HTTPException(status_code=503, detail="审计系统不可用")
     return _audit_system
 
 async def get_communication_framework():
@@ -186,84 +182,9 @@ async def get_communication_framework():
             _comm_framework = EncryptedCommunicationFramework(config)
             await _comm_framework.initialize()
         except Exception as e:
-            logger.error(f"Failed to initialize communication framework: {e}")
-            # 返回模拟服务
-            _comm_framework = MockCommunicationFramework()
+            logger.error(f"加密通信框架初始化失败: {e}")
+            raise HTTPException(status_code=503, detail="加密通信框架不可用")
     return _comm_framework
-
-# 模拟服务类（用于演示和测试）
-class MockAuthenticationService:
-    async def authenticate_agent(self, agent_id, credentials, methods):
-        return type('AuthResult', (), {
-            'authenticated': True,
-            'session_token': 'mock_token_123',
-            'trust_score': 0.8,
-            'error_message': None
-        })()
-    
-    async def revoke_agent_access(self, agent_id, reason):
-        logger.info(f"Mock: Revoking access for {agent_id}: {reason}")
-
-class MockAccessControl:
-    async def evaluate_access(self, request):
-        return {
-            'decision': type('Decision', (), {'value': 'permit'})(),
-            'reason': 'Mock access granted',
-            'request_id': f'mock_req_{int(time.time())}',
-            'evaluation_time_ms': 10.5
-        }
-    
-    async def add_policy(self, policy):
-        return True
-    
-    @property
-    def policies(self):
-        return {}
-    
-    async def get_access_logs(self, subject_id=None, resource_id=None, limit=1000):
-        return []
-
-class MockAuditSystem:
-    def __init__(self):
-        self.active_alerts = {}
-    
-    async def log_security_event(self, event):
-        logger.info(f"Mock: Logging security event {event.event_id}")
-    
-    async def get_security_dashboard(self, time_range):
-        return {
-            'total_events': 100,
-            'event_by_type': {'authentication': 50, 'authorization': 30},
-            'events_by_threat_level': {'low': 80, 'medium': 15, 'high': 5},
-            'events_by_result': {'success': 85, 'failure': 15},
-            'active_alerts_count': 2,
-            'active_alerts': [
-                {
-                    'alert_id': 'alert_1',
-                    'threat_level': 'medium',
-                    'confidence_score': 0.7,
-                    'description': 'Mock alert 1'
-                }
-            ],
-            'high_risk_agents': [],
-            'time_range_hours': time_range / 3600
-        }
-    
-    async def resolve_alert(self, alert_id, notes):
-        return True
-
-class MockCommunicationFramework:
-    async def encrypt_message(self, session_id, sender_id, recipient_id, payload, msg_type):
-        return type('EncryptedMessage', (), {
-            'message_id': f'msg_{int(time.time())}',
-            'session_id': session_id or 'mock_session_123'
-        })()
-    
-    async def get_agent_public_key(self, agent_id):
-        return b'mock_public_key'
-    
-    async def establish_secure_channel(self, sender_id, recipient_id, sender_key, recipient_key):
-        return f'session_{sender_id}_{recipient_id}'
 
 # API路由定义
 
@@ -287,8 +208,10 @@ async def authenticate_agent(
             error_message=result.error_message
         )
         
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error(f"Authentication failed: {e}")
+        logger.error(f"认证失败: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/authorize", response_model=AccessControlResponse)
@@ -298,26 +221,26 @@ async def authorize_access(
 ):
     """访问授权检查"""
     try:
-        # 创建模拟访问请求
-        mock_request = type('AccessRequest', (), {
-            'subject_id': request.subject_id,
-            'resource_id': request.resource_id,
-            'action': request.action,
-            'resource_type': request.resource_type,
-            'context': request.context
-        })()
-        
-        result = await access_control.evaluate_access(mock_request)
+        access_request = AccessRequest(
+            subject_id=request.subject_id,
+            resource_id=request.resource_id,
+            action=request.action,
+            resource_type=request.resource_type,
+            context=request.context
+        )
+        result = await access_control.evaluate_access(access_request)
         
         return AccessControlResponse(
-            decision=result['decision'].value,
-            reason=result['reason'],
-            request_id=result['request_id'],
-            evaluation_time_ms=result['evaluation_time_ms']
+            decision=result.decision.value if hasattr(result, "decision") else result["decision"].value,
+            reason=result.reason if hasattr(result, "reason") else result["reason"],
+            request_id=result.request_id if hasattr(result, "request_id") else result["request_id"],
+            evaluation_time_ms=result.evaluation_time_ms if hasattr(result, "evaluation_time_ms") else result["evaluation_time_ms"]
         )
         
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error(f"Authorization failed: {e}")
+        logger.error(f"授权失败: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/events", response_model=SecurityEventResponse)
@@ -327,29 +250,32 @@ async def log_security_event(
 ):
     """记录安全事件"""
     try:
-        # 创建模拟安全事件
-        event_id = f"evt_{int(time.time())}_{request.source_agent_id}"
-        mock_event = type('SecurityEvent', (), {
-            'event_id': event_id,
-            'event_type': request.event_type,
-            'timestamp': time.time(),
-            'source_agent_id': request.source_agent_id,
-            'target_resource': request.target_resource,
-            'action': request.action,
-            'result': request.result,
-            'details': request.details
-        })()
-        
-        await audit_system.log_security_event(mock_event)
-        
+        try:
+            event_type = EventType(request.event_type)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="无效的事件类型")
+
+        event = SecurityEvent(
+            event_id=f"evt_{int(time.time())}_{request.source_agent_id}",
+            event_type=event_type,
+            timestamp=time.time(),
+            source_agent_id=request.source_agent_id,
+            target_resource=request.target_resource,
+            action=request.action,
+            result=request.result,
+            details=request.details
+        )
+        await audit_system.log_security_event(event)
         return SecurityEventResponse(
-            event_id=event_id,
+            event_id=event.event_id,
             logged=True,
-            message="Security event logged successfully"
+            message="安全事件记录成功"
         )
         
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error(f"Failed to log security event: {e}")
+        logger.error(f"记录安全事件失败: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/dashboard", response_model=SecurityDashboardResponse)
@@ -360,31 +286,30 @@ async def get_security_dashboard(
     """获取安全仪表板数据"""
     try:
         dashboard_data = await audit_system.get_security_dashboard(time_range)
-        
-        # 转换告警数据
-        alert_responses = []
-        for alert in dashboard_data['active_alerts']:
-            alert_responses.append(AlertResponse(
-                alert_id=alert['alert_id'],
-                threat_level=alert['threat_level'],
-                confidence_score=alert['confidence_score'],
-                description=alert['description'],
-                timestamp=time.time()
+        alerts = []
+        for alert in dashboard_data.get('active_alerts', []):
+            alerts.append(AlertResponse(
+                alert_id=alert.get('alert_id'),
+                threat_level=alert.get('threat_level'),
+                confidence_score=alert.get('confidence_score', 0.0),
+                description=alert.get('description', ''),
+                timestamp=alert.get('timestamp', time.time())
             ))
-        
         return SecurityDashboardResponse(
-            total_events=dashboard_data['total_events'],
-            event_by_type=dashboard_data['event_by_type'],
-            events_by_threat_level=dashboard_data['events_by_threat_level'],
-            events_by_result=dashboard_data['events_by_result'],
-            active_alerts_count=dashboard_data['active_alerts_count'],
-            active_alerts=alert_responses,
-            high_risk_agents=dashboard_data['high_risk_agents'],
-            time_range_hours=dashboard_data['time_range_hours']
+            total_events=dashboard_data.get('total_events', 0),
+            event_by_type=dashboard_data.get('event_by_type', {}),
+            events_by_threat_level=dashboard_data.get('events_by_threat_level', {}),
+            events_by_result=dashboard_data.get('events_by_result', {}),
+            active_alerts_count=dashboard_data.get('active_alerts_count', len(alerts)),
+            active_alerts=alerts,
+            high_risk_agents=dashboard_data.get('high_risk_agents', []),
+            time_range_hours=dashboard_data.get('time_range_hours', time_range / 3600)
         )
         
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error(f"Failed to get security dashboard: {e}")
+        logger.error(f"获取安全仪表盘失败: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/alerts")
@@ -394,26 +319,16 @@ async def get_active_alerts(
 ):
     """获取活跃告警"""
     try:
-        active_alerts = [
-            {
-                'alert_id': f'alert_{i}',
-                'threat_pattern_id': f'pattern_{i}',
-                'threat_level': 'medium',
-                'confidence_score': 0.7,
-                'description': f'Mock alert {i}',
-                'timestamp': time.time(),
-                'resolved': False
-            }
-            for i in range(min(limit, 5))  # 模拟最多5个告警
-        ]
-        
+        alerts = await audit_system.get_active_alerts(limit=limit)
         return {
-            'alerts': active_alerts,
-            'total_count': len(active_alerts)
+            'alerts': alerts,
+            'total_count': len(alerts)
         }
         
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error(f"Failed to get active alerts: {e}")
+        logger.error(f"获取活跃告警失败: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/alerts/{alert_id}/resolve")
@@ -427,12 +342,14 @@ async def resolve_alert(
         success = await audit_system.resolve_alert(alert_id, resolution_notes)
         
         if success:
-            return {"message": f"Alert {alert_id} resolved successfully"}
+            return {"message": f"告警 {alert_id} 已成功解决"}
         else:
-            raise HTTPException(status_code=404, detail="Alert not found")
+            raise HTTPException(status_code=404, detail="告警未找到")
             
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error(f"Failed to resolve alert: {e}")
+        logger.error(f"解决告警失败: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/communication/encrypt", response_model=SecureCommunicationResponse)
@@ -446,11 +363,8 @@ async def encrypt_message(
         
         # 如果没有会话ID，建立新的安全通道
         if not session_id:
-            sender_public_key = await comm_framework.get_agent_public_key(request.sender_id)
-            recipient_public_key = await comm_framework.get_agent_public_key(request.recipient_id)
-            
-            if not sender_public_key or not recipient_public_key:
-                raise HTTPException(status_code=400, detail="Agent public keys not found")
+            sender_public_key = await comm_framework.ensure_agent_public_key(request.sender_id)
+            recipient_public_key = await comm_framework.ensure_agent_public_key(request.recipient_id)
             
             session_id = await comm_framework.establish_secure_channel(
                 request.sender_id,
@@ -472,11 +386,13 @@ async def encrypt_message(
             session_id=session_id,
             message_id=encrypted_message.message_id,
             encrypted=True,
-            message="Message encrypted successfully"
+            message="消息加密成功"
         )
         
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error(f"Failed to encrypt message: {e}")
+        logger.error(f"加密消息失败: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/policies")
@@ -486,26 +402,24 @@ async def add_security_policy(
 ):
     """添加安全策略"""
     try:
-        # 创建模拟策略
-        policy = type('AccessPolicy', (), {
-            'policy_id': request.policy_id,
-            'name': request.name,
-            'description': request.description,
-            'target': request.target,
-            'rules': request.rules,
-            'priority': request.priority,
-            'enabled': request.enabled
-        })()
-        
+        policy = AccessPolicy(
+            policy_id=request.policy_id,
+            name=request.name,
+            description=request.description,
+            target=request.target,
+            rules=request.rules,
+            priority=request.priority,
+            enabled=request.enabled,
+        )
         success = await access_control.add_policy(policy)
-        
-        if success:
-            return {"message": f"Policy {request.policy_id} added successfully"}
-        else:
-            raise HTTPException(status_code=400, detail="Failed to add policy")
+        if not success:
+            raise HTTPException(status_code=400, detail="添加策略失败")
+        return {"message": f"策略 {request.policy_id} 已成功添加"}
             
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error(f"Failed to add policy: {e}")
+        logger.error(f"添加策略失败: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/policies")
@@ -514,32 +428,25 @@ async def get_security_policies(
 ):
     """获取安全策略列表"""
     try:
-        # 模拟策略列表
         policies = [
             {
-                'policy_id': 'admin_policy',
-                'name': 'Administrator Policy',
-                'description': 'Full access for administrators',
-                'target': {'subjects': ['admin']},
-                'priority': 100,
-                'enabled': True,
-                'created_at': time.time()
-            },
-            {
-                'policy_id': 'agent_policy',
-                'name': 'Agent Policy',
-                'description': 'Basic access for agents',
-                'target': {'resource_type': 'api_endpoint'},
-                'priority': 10,
-                'enabled': True,
-                'created_at': time.time()
+                "policy_id": p.policy_id,
+                "name": p.name,
+                "description": p.description,
+                "target": p.target,
+                "rules": p.rules,
+                "priority": p.priority,
+                "enabled": p.enabled,
+                "created_at": p.created_at,
             }
+            for p in access_control.policies.values()
         ]
+        return {"policies": policies, "total_count": len(policies)}
         
-        return {'policies': policies, 'total_count': len(policies)}
-        
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error(f"Failed to get policies: {e}")
+        logger.error(f"获取策略列表失败: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/access-logs")
@@ -552,23 +459,6 @@ async def get_access_logs(
     """获取访问日志"""
     try:
         logs = await access_control.get_access_logs(subject_id, resource_id, limit)
-        
-        # 如果没有日志，返回模拟数据
-        if not logs:
-            logs = [
-                {
-                    'request_id': f'req_{i}',
-                    'subject_id': subject_id or f'agent_{i}',
-                    'resource_id': resource_id or f'resource_{i}',
-                    'action': 'read',
-                    'decision': 'permit',
-                    'reason': 'Policy allows access',
-                    'timestamp': time.time() - i * 60,
-                    'evaluation_time_ms': 10 + i
-                }
-                for i in range(min(limit, 10))
-            ]
-        
         return {
             'logs': logs,
             'total_count': len(logs),
@@ -579,8 +469,10 @@ async def get_access_logs(
             }
         }
         
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error(f"Failed to get access logs: {e}")
+        logger.error(f"获取访问日志失败: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/revoke-access")
@@ -593,38 +485,59 @@ async def revoke_agent_access(
     try:
         await auth_service.revoke_agent_access(agent_id, reason)
         
-        return {"message": f"Access revoked for agent {agent_id}"}
+        return {"message": f"已撤销智能体 {agent_id} 的访问权限"}
         
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error(f"Failed to revoke access: {e}")
+        logger.error(f"撤销访问权限失败: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/health")
-async def security_health_check():
+async def security_health_check(
+    auth_service = Depends(get_auth_service),
+    access_control = Depends(get_access_control),
+    audit_system = Depends(get_audit_system),
+    comm_framework = Depends(get_communication_framework),
+):
     """安全服务健康检查"""
     return {
         "status": "healthy",
+        "components": {
+            "auth_service": bool(auth_service),
+            "access_control": bool(access_control),
+            "audit_system": bool(audit_system),
+            "communication_framework": bool(comm_framework),
+        },
         "timestamp": time.time(),
-        "services": {
-            "authentication": "operational",
-            "access_control": "operational",
-            "audit_system": "operational",
-            "communication": "operational"
-        }
     }
 
 @router.get("/metrics")
-async def get_security_metrics():
+async def get_security_metrics(
+    auth_service = Depends(get_auth_service),
+    access_control = Depends(get_access_control),
+    audit_system = Depends(get_audit_system),
+    comm_framework = Depends(get_communication_framework),
+):
     """获取安全指标"""
     return {
-        "authentication_success_rate": 0.95,
-        "total_security_events": 1523,
-        "total_alerts": 12,
-        "critical_alerts": 2,
-        "agent_risk_distribution": {
-            "low": 150,
-            "medium": 25,
-            "high": 5
+        "timestamp": time.time(),
+        "authentication": {
+            "ca_certificates": len(getattr(auth_service, "ca_certificates", {}) or {}),
+            "revoked_certificates": len(getattr(auth_service, "revoked_certificates", set()) or set()),
         },
-        "collection_timestamp": time.time()
+        "access_control": {
+            "policies": len(getattr(access_control, "policies", {}) or {}),
+            "roles": len(getattr(access_control, "roles", {}) or {}),
+            "subjects": len(getattr(access_control, "subjects", {}) or {}),
+            "access_logs": len(getattr(access_control, "access_logs", []) or []),
+        },
+        "audit": {
+            "events": len(getattr(audit_system, "events", []) or []),
+            "threat_patterns": len(getattr(audit_system, "threat_patterns", {}) or {}),
+            "active_alerts": len(getattr(audit_system, "active_alerts", {}) or {}),
+        },
+        "communication": {
+            "sessions": len(getattr(comm_framework, "sessions", {}) or {}),
+        },
     }

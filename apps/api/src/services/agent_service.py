@@ -5,13 +5,12 @@
 
 import uuid
 from typing import Dict, List, Optional, Any, AsyncGenerator
-import structlog
-
 from src.ai.agents.react_agent import ReActAgent, ReActStep, ReActStepType
 from src.services.conversation_service import get_conversation_service
 from src.core.config import get_settings
 
-logger = structlog.get_logger(__name__)
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 class AgentService:
     """智能体服务类"""
@@ -355,6 +354,9 @@ class AgentService:
     ) -> Dict[str, Any]:
         """获取对话历史"""
         try:
+            if not self.conversation_service:
+                await self.initialize()
+
             # 获取对话历史
             messages = await self.conversation_service.get_conversation_history(
                 conversation_id=conversation_id,
@@ -384,7 +386,12 @@ class AgentService:
         try:
             agent = await self._get_agent_for_conversation(conversation_id)
             if not agent:
-                return {"status": "not_found", "conversation_id": conversation_id}
+                return {
+                    "conversation_id": conversation_id,
+                    "status": "not_found",
+                    "session_summary": None,
+                    "agent_type": "react",
+                }
 
             # 获取会话摘要
             session = agent.get_session(conversation_id)
@@ -411,6 +418,9 @@ class AgentService:
     async def close_agent_session(self, conversation_id: str) -> None:
         """关闭智能体会话"""
         try:
+            if not self.conversation_service:
+                await self.initialize()
+
             # 清理智能体会话
             agent = await self._get_agent_for_conversation(conversation_id)
             if agent:
@@ -483,7 +493,6 @@ class AgentService:
                 user_id=user_id
             )
             raise
-
 
 # 单例模式的服务实例
 _agent_service: Optional[AgentService] = None

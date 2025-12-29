@@ -1,18 +1,17 @@
 """
 超参数优化API单元测试
 """
+
 import pytest
 from fastapi.testclient import TestClient
 from unittest.mock import Mock, patch, AsyncMock
 import json
 from datetime import datetime
 from src.core.utils.timezone_utils import utc_now, utc_factory
-
 from main import app
 from ai.hyperparameter_optimization.models import (
     ExperimentState, TrialState, OptimizationAlgorithm
 )
-
 
 class TestHyperparameterOptimizationAPI:
     """超参数优化API测试类"""

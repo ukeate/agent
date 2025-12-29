@@ -3,6 +3,7 @@ AutoGen企业级架构管理器
 基于现有AsyncAgentManager实现企业级异步事件驱动架构增强
 包含负载均衡、池化管理、分布式事件处理、安全框架和监控系统
 """
+
 import asyncio
 import json
 import time
@@ -15,9 +16,7 @@ from typing import Dict, List, Optional, Any, Callable, Union, Set
 from dataclasses import dataclass, field
 from enum import Enum
 from concurrent.futures import ThreadPoolExecutor
-import structlog
 import redis.asyncio as redis
-
 from .events import Event, EventType, EventPriority, EventHandler, EventBus
 from .async_manager import AsyncAgentManager, AgentTask, AgentInfo, AgentStatus, TaskStatus
 from .config import AgentConfig, AgentRole
@@ -26,15 +25,16 @@ from .monitoring import EnterpriseMonitoringManager as EnterpriseMonitoring
 from .error_recovery import ErrorRecoveryService as ErrorRecoveryManager
 from .enterprise_config import get_config_manager, ConfigCategory, ConfigLevel
 from .flow_control import FlowController, BackpressureStrategy, get_flow_controller
-# from .backpressure_task_processor import BackpressureTaskProcessor  # 避免循环导入
 from .structured_errors import (
     ErrorFactory, ErrorContext, StructuredException, handle_structured_error,
     ErrorCodes, ErrorCategory, ErrorSeverity
 )
 from .monitoring_dashboard import get_metric_collector, MetricType
 
-logger = structlog.get_logger(__name__)
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
+# from .backpressure_task_processor import BackpressureTaskProcessor  # 避免循环导入
 
 class LoadBalancingStrategy(str, Enum):
     """负载均衡策略"""
@@ -43,13 +43,11 @@ class LoadBalancingStrategy(str, Enum):
     WEIGHTED = "weighted"
     RESOURCE_BASED = "resource_based"
 
-
 class PoolingStrategy(str, Enum):
     """池化策略"""
     FIXED_SIZE = "fixed_size"
     DYNAMIC = "dynamic"
     AUTO_SCALING = "auto_scaling"
-
 
 @dataclass
 class AgentPoolConfig:
@@ -76,7 +74,6 @@ class AgentPoolConfig:
             pooling_strategy=PoolingStrategy(config_manager.get('AGENT_POOL_STRATEGY', 'dynamic'))
         )
 
-
 @dataclass
 class EnterpriseAgentInfo(AgentInfo):
     """企业级智能体信息"""
@@ -97,7 +94,6 @@ class EnterpriseAgentInfo(AgentInfo):
         elif self.status == AgentStatus.ERROR:
             return float('inf')
         return 0.5
-
 
 @dataclass
 class AgentPool:
@@ -142,7 +138,6 @@ class AgentPool:
         # 检查空闲智能体数量
         idle_agents = len(self.get_available_agents())
         return idle_agents > (len(self.agents) * 0.5)
-
 
 class EnterpriseAgentManager(AsyncAgentManager):
     """企业级智能体管理器"""
@@ -858,7 +853,6 @@ class EnterpriseAgentManager(AsyncAgentManager):
             "max_concurrent": self.max_concurrent_tasks
         }
 
-
 class SecurityLevel(str, Enum):
     """安全级别"""
     PUBLIC = "public"
@@ -866,14 +860,12 @@ class SecurityLevel(str, Enum):
     CONFIDENTIAL = "confidential"
     RESTRICTED = "restricted"
 
-
 class AlertSeverity(str, Enum):
     """告警严重程度"""
     INFO = "info"
     WARNING = "warning"
     ERROR = "error"
     CRITICAL = "critical"
-
 
 @dataclass
 class SecurityContext:
@@ -885,7 +877,6 @@ class SecurityContext:
     ip_address: Optional[str] = None
     user_agent: Optional[str] = None
     timestamp: datetime = field(default_factory=lambda: utc_now())
-
 
 @dataclass
 class AuditLogEntry:
@@ -913,7 +904,6 @@ class AuditLogEntry:
             "details": self.details,
             "security_context": self.security_context.__dict__ if self.security_context else None
         }
-
 
 @dataclass
 class Alert:
@@ -943,7 +933,6 @@ class Alert:
             "resolved": self.resolved,
             "resolved_at": self.resolved_at.isoformat() if self.resolved_at else None
         }
-
 
 class EnterpriseErrorHandler:
     """企业级错误处理器"""
@@ -1131,7 +1120,6 @@ class EnterpriseErrorHandler:
         """获取错误统计"""
         return self.error_stats.copy()
 
-
 class SecurityManager:
     """安全管理器"""
     
@@ -1261,7 +1249,6 @@ class SecurityManager:
         """设置安全策略"""
         self.security_policies[resource] = security_level
         logger.info("设置安全策略", resource=resource, level=security_level.value)
-
 
 class AuditLogger:
     """审计日志器"""
@@ -1398,7 +1385,6 @@ class AuditLogger:
             "newest_log": self.audit_logs[-1].timestamp.isoformat() if self.audit_logs else None
         }
 
-
 class MonitoringSystem:
     """监控系统"""
     
@@ -1517,7 +1503,6 @@ class MonitoringSystem:
         """设置阈值"""
         self.thresholds[metric_name] = threshold
         logger.info("设置监控阈值", metric=metric_name, threshold=threshold)
-
 
 class EnterpriseIntegrationService:
     """企业级集成服务"""
@@ -1647,7 +1632,6 @@ class EnterpriseIntegrationService:
             "metrics_count": len(self.monitoring_system.metrics),
             "thresholds": self.monitoring_system.thresholds
         }
-
 
 class EnterpriseEventHandler(EventHandler):
     """企业级事件处理器"""

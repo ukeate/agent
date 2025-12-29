@@ -1,12 +1,13 @@
 """
 情感智能决策引擎的核心数据模型
 """
+
+from src.core.utils.timezone_utils import utc_now
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Any, Tuple, Union
 from datetime import datetime, timedelta
 from enum import Enum
 import uuid
-
 
 class RiskLevel(Enum):
     """风险等级枚举"""
@@ -14,7 +15,6 @@ class RiskLevel(Enum):
     MEDIUM = "medium" 
     HIGH = "high"
     CRITICAL = "critical"
-
 
 class DecisionType(Enum):
     """决策类型枚举"""
@@ -24,7 +24,6 @@ class DecisionType(Enum):
     CRISIS_RESPONSE = "crisis_response"
     SUPPORT_PROVISION = "support_provision"
 
-
 class InterventionType(Enum):
     """干预类型枚举"""
     PREVENTIVE = "preventive"  # 预防性干预
@@ -32,14 +31,12 @@ class InterventionType(Enum):
     CORRECTIVE = "corrective"  # 矫正性干预
     CRISIS = "crisis"  # 危机干预
 
-
 class SeverityLevel(Enum):
     """严重程度枚举"""
     MILD = "mild"
     MODERATE = "moderate"
     SEVERE = "severe"
     CRITICAL = "critical"
-
 
 @dataclass
 class DecisionContext:
@@ -83,7 +80,6 @@ class DecisionContext:
             'decision_feedback': self.decision_feedback,
             'metadata': self.metadata
         }
-
 
 @dataclass
 class EmotionalDecision:
@@ -138,7 +134,6 @@ class EmotionalDecision:
             'user_feedback': self.user_feedback
         }
 
-
 @dataclass
 class RiskFactor:
     """风险因子"""
@@ -147,7 +142,6 @@ class RiskFactor:
     evidence: Dict[str, Any] = field(default_factory=dict)
     weight: float = 1.0
     description: str = ""
-
 
 @dataclass
 class RiskAssessment:
@@ -203,7 +197,6 @@ class RiskAssessment:
             'assessment_details': self.assessment_details
         }
 
-
 @dataclass
 class InterventionStrategy:
     """干预策略"""
@@ -244,7 +237,6 @@ class InterventionStrategy:
             'target_risk_levels': self.target_risk_levels,
             'contraindications': self.contraindications
         }
-
 
 @dataclass
 class InterventionPlan:
@@ -295,7 +287,6 @@ class InterventionPlan:
             'execution_log': self.execution_log
         }
 
-
 @dataclass
 class CrisisAssessment:
     """危机评估结果"""
@@ -341,13 +332,12 @@ class CrisisAssessment:
             'check_frequency': self.check_frequency.total_seconds()
         }
 
-
 @dataclass
 class HealthDashboardData:
     """健康仪表盘数据"""
     user_id: str = ""
     generated_at: datetime = field(default_factory=datetime.now)
-    time_period: Tuple[datetime, datetime] = field(default_factory=lambda: (datetime.now() - timedelta(days=30), datetime.now()))
+    time_period: Tuple[datetime, datetime] = field(default_factory=lambda: (utc_now() - timedelta(days=30), utc_now()))
     
     # 整体健康指标
     overall_health_score: float = 0.5  # [0,1]

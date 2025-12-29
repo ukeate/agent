@@ -4,12 +4,9 @@ RAG系统 API 路由
 包含基础RAG功能和Agentic RAG智能检索功能
 """
 
-import logging
 from typing import List
 from fastapi.responses import StreamingResponse
-
 from fastapi import APIRouter, HTTPException, status, BackgroundTasks
-
 from src.models.schemas.rag import (
     IndexDirectoryRequest,
     IndexFileRequest,
@@ -34,10 +31,10 @@ from src.models.schemas.agentic_rag import (
 )
 from src.services.rag_service import rag_service
 
-logger = logging.getLogger(__name__)
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 router = APIRouter(prefix="/rag", tags=["RAG"])
-
 
 @router.post("/documents")
 async def add_document(request: dict):
@@ -82,7 +79,6 @@ async def add_document(request: dict):
             detail=str(e)
         )
 
-
 @router.post("/search")
 async def search_documents(request: dict):
     """
@@ -98,17 +94,36 @@ async def search_documents(request: dict):
                 detail="查询不能为空"
             )
         
-        # 执行搜索
-        result = await rag_service.search(
+        result = await rag_service.query(
             query=query,
-            top_k=top_k
+            search_type="semantic",
+            limit=top_k,
+            score_threshold=0.1,
         )
+
+        if not result["success"]:
+            error = result.get("error") or "RAG查询失败"
+            if "Error code: 401" in error or "invalid_api_key" in error or "Incorrect API key" in error:
+                raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=error)
+            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=error)
+
+        results: List[dict] = []
+        for item in result.get("results") or []:
+            results.append(
+                {
+                    "id": item.get("id", ""),
+                    "content": item.get("content", ""),
+                    "score": item.get("score", 0.0),
+                    "metadata": item.get("metadata", {}),
+                    "file_path": item.get("file_path", ""),
+                }
+            )
         
         return {
             "success": True,
             "query": query,
-            "results": result,
-            "total_results": len(result)
+            "results": results,
+            "total_results": len(results),
         }
         
     except HTTPException:
@@ -120,7 +135,6 @@ async def search_documents(request: dict):
             detail=str(e)
         )
 
-
 @router.post("/query", response_model=QueryResponse)
 async def query_rag(
     request: QueryRequest,
@@ -129,6 +143,10 @@ async def query_rag(
     执行 RAG 检索查询
     """
     try:
+        import time
+        import uuid
+
+        start_time = time.monotonic()
         result = await rag_service.query(
             query=request.query,
             search_type=request.search_type,
@@ -138,11 +156,16 @@ async def query_rag(
         )
         
         if not result["success"]:
+            error = result.get("error") or "RAG查询失败"
+            if "Error code: 401" in error or "invalid_api_key" in error or "Incorrect API key" in error:
+                raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=error)
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=result["error"]
+                detail=error
             )
-        
+        result["query_id"] = str(uuid.uuid4())
+        result["processing_time"] = time.monotonic() - start_time
+        result["total_results"] = result.get("count", 0)
         return QueryResponse(**result)
     except HTTPException:
         raise
@@ -152,7 +175,6 @@ async def query_rag(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=str(e)
         )
-
 
 @router.post("/index/file", response_model=IndexResponse)
 async def index_file(
@@ -168,9 +190,14 @@ async def index_file(
         )
         
         if not result["success"]:
+            error = result.get("error") or "文件索引失败"
+            if error.startswith("File not found:"):
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
+            if error.startswith("Unsupported file type:"):
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=error)
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=result["error"]
+                detail=error
             )
         
         return IndexResponse(**result)
@@ -182,7 +209,6 @@ async def index_file(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=str(e)
         )
-
 
 @router.post("/index/directory", response_model=IndexResponse)
 async def index_directory(
@@ -200,9 +226,12 @@ async def index_directory(
         )
         
         if not result["success"]:
+            error = result.get("error") or "目录索引失败"
+            if error.startswith("Directory not found:"):
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=result["error"]
+                detail=error
             )
         
         return IndexResponse(**result)
@@ -214,7 +243,6 @@ async def index_directory(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=str(e)
         )
-
 
 @router.post("/index/update", response_model=IndexResponse)
 async def update_index(
@@ -244,7 +272,6 @@ async def update_index(
             detail=str(e)
         )
 
-
 @router.get("/index/stats", response_model=StatsResponse)
 async def get_index_stats() -> StatsResponse:
     """
@@ -254,9 +281,12 @@ async def get_index_stats() -> StatsResponse:
         result = await rag_service.get_index_stats()
         
         if not result["success"]:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=result["error"]
+            return StatsResponse(
+                success=False,
+                stats={},
+                total_disk_size=0,
+                health=result.get("health"),
+                error=result.get("error")
             )
         
         # 手动构造StatsResponse来确保所有字段都包含
@@ -289,7 +319,6 @@ async def get_index_stats() -> StatsResponse:
             detail=str(e)
         )
 
-
 @router.delete("/index/reset", response_model=ResetResponse)
 async def reset_index(
     request: ResetRequest = ResetRequest(),
@@ -318,7 +347,6 @@ async def reset_index(
             detail=str(e)
         )
 
-
 @router.get("/health")
 async def health_check():
     """
@@ -327,7 +355,7 @@ async def health_check():
     try:
         stats = await rag_service.get_index_stats()
         return {
-            "status": "healthy" if stats["success"] else "unhealthy",
+            "status": "healthy" if stats.get("success") else "degraded",
             "details": stats,
         }
     except Exception as e:
@@ -336,7 +364,6 @@ async def health_check():
             "status": "unhealthy",
             "error": str(e),
         }
-
 
 # ==================== Agentic RAG 路由 ====================
 
@@ -380,7 +407,6 @@ async def agentic_query(
             detail=str(e)
         )
 
-
 @router.post("/agentic/query/stream")
 async def agentic_query_stream(
     request: AgenticQueryRequest,
@@ -406,11 +432,12 @@ async def agentic_query_stream(
             ):
                 # 转换为StreamEvent格式
                 event = StreamEvent(**event_data)
-                yield f"data: {event.json()}\n\n"
+                yield f"data: {event.model_dump_json()}\n\n"
+            yield "data: [DONE]\n\n"
         
         return StreamingResponse(
             generate_stream(),
-            media_type="text/plain",
+            media_type="text/event-stream",
             headers={
                 "Cache-Control": "no-cache",
                 "Connection": "keep-alive",
@@ -424,7 +451,6 @@ async def agentic_query_stream(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=str(e)
         )
-
 
 @router.get("/agentic/explain", response_model=ExplanationResponse)
 async def get_retrieval_explanation(
@@ -440,6 +466,9 @@ async def get_retrieval_explanation(
     置信度分析、改进建议和可视化数据。
     """
     try:
+        if not (query_id or path_id):
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="必须提供query_id或path_id")
+
         from src.services.agentic_rag_service import agentic_rag_service
         
         request_data = ExplanationRequest(
@@ -466,7 +495,6 @@ async def get_retrieval_explanation(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=str(e)
         )
-
 
 @router.post("/agentic/feedback", response_model=FeedbackResponse)
 async def submit_feedback(
@@ -506,7 +534,6 @@ async def submit_feedback(
             detail=str(e)
         )
 
-
 @router.get("/agentic/stats", response_model=AgenticRagStats)
 async def get_agentic_rag_stats() -> AgenticRagStats:
     """
@@ -536,7 +563,6 @@ async def get_agentic_rag_stats() -> AgenticRagStats:
             detail=str(e)
         )
 
-
 @router.get("/agentic/health", response_model=HealthCheckResponse)
 async def agentic_rag_health_check() -> HealthCheckResponse:
     """
@@ -559,7 +585,6 @@ async def agentic_rag_health_check() -> HealthCheckResponse:
             error=str(e)
         )
 
-
 # ==================== GraphRAG 路由 ====================
 
 @router.post("/graphrag/query")
@@ -571,8 +596,8 @@ async def graphrag_query(request: dict):
     """
     try:
         # 导入GraphRAG组件
-        from ...ai.graphrag.core_engine import get_graphrag_engine
-        from ...ai.graphrag.data_models import create_graph_rag_request, RetrievalMode, validate_graph_rag_request
+        from src.ai.graphrag.core_engine import get_graphrag_engine
+        from src.ai.graphrag.data_models import create_graph_rag_request, RetrievalMode, validate_graph_rag_request
         
         # 解析请求参数
         query = request.get('query', '')
@@ -621,14 +646,13 @@ async def graphrag_query(request: dict):
             detail=f"GraphRAG查询失败: {str(e)}"
         )
 
-
 @router.get("/graphrag/health")
 async def graphrag_health_check():
     """
     GraphRAG系统健康检查
     """
     try:
-        from ...ai.graphrag.core_engine import get_graphrag_engine
+        from src.ai.graphrag.core_engine import get_graphrag_engine
         
         engine = await get_graphrag_engine()
         stats = await engine.get_performance_stats()

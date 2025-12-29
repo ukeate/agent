@@ -1,0 +1,5434 @@
+{
+  "multimodal_rag.py": {
+    "routes": [
+      {
+        "path": "/api/v1/multimodal-rag/query",
+        "method": "POST",
+        "function": "multimodal_query"
+      },
+      {
+        "path": "/api/v1/multimodal-rag/query-with-files",
+        "method": "POST",
+        "function": "multimodal_query"
+      },
+      {
+        "path": "/api/v1/multimodal-rag/stream-query",
+        "method": "POST",
+        "function": "multimodal_query"
+      },
+      {
+        "path": "/api/v1/multimodal-rag/upload-document",
+        "method": "POST",
+        "function": "multimodal_query"
+      },
+      {
+        "path": "/api/v1/multimodal-rag/batch-upload",
+        "method": "POST",
+        "function": "multimodal_query"
+      },
+      {
+        "path": "/api/v1/multimodal-rag/status",
+        "method": "GET",
+        "function": "get_vector_store_status"
+      },
+      {
+        "path": "/api/v1/multimodal-rag/clear",
+        "method": "DELETE",
+        "function": "clear_vector_store"
+      },
+      {
+        "path": "/api/v1/multimodal-rag/cache",
+        "method": "DELETE",
+        "function": "clear_vector_store"
+      }
+    ]
+  },
+  "fault_tolerance.py": {
+    "routes": [
+      {
+        "path": "/api/v1/fault-tolerance/status",
+        "method": "GET",
+        "function": "get_fault_tolerance_status"
+      },
+      {
+        "path": "/api/v1/fault-tolerance/health",
+        "method": "GET",
+        "function": "get_fault_tolerance_status"
+      },
+      {
+        "path": "/api/v1/fault-tolerance/health/{component_id}",
+        "method": "GET",
+        "function": "get_fault_tolerance_status"
+      },
+      {
+        "path": "/api/v1/fault-tolerance/metrics",
+        "method": "GET",
+        "function": "get_fault_tolerance_status"
+      },
+      {
+        "path": "/api/v1/fault-tolerance/report",
+        "method": "GET",
+        "function": "get_fault_tolerance_status"
+      },
+      {
+        "path": "/api/v1/fault-tolerance/faults",
+        "method": "GET",
+        "function": "get_fault_tolerance_status"
+      },
+      {
+        "path": "/api/v1/fault-tolerance/recovery/statistics",
+        "method": "GET",
+        "function": "get_fault_tolerance_status"
+      },
+      {
+        "path": "/api/v1/fault-tolerance/backup/manual",
+        "method": "POST",
+        "function": "trigger_manual_backup"
+      },
+      {
+        "path": "/api/v1/fault-tolerance/backup/statistics",
+        "method": "GET",
+        "function": "get_fault_tolerance_status"
+      },
+      {
+        "path": "/api/v1/fault-tolerance/backup/restore",
+        "method": "POST",
+        "function": "trigger_manual_backup"
+      },
+      {
+        "path": "/api/v1/fault-tolerance/backup/validate",
+        "method": "POST",
+        "function": "trigger_manual_backup"
+      },
+      {
+        "path": "/api/v1/fault-tolerance/consistency/check",
+        "method": "POST",
+        "function": "trigger_manual_backup"
+      },
+      {
+        "path": "/api/v1/fault-tolerance/consistency/statistics",
+        "method": "GET",
+        "function": "get_fault_tolerance_status"
+      },
+      {
+        "path": "/api/v1/fault-tolerance/consistency/{check_id}/repair",
+        "method": "POST",
+        "function": "trigger_manual_backup"
+      },
+      {
+        "path": "/api/v1/fault-tolerance/consistency/force-repair",
+        "method": "POST",
+        "function": "trigger_manual_backup"
+      },
+      {
+        "path": "/api/v1/fault-tolerance/testing/inject-fault",
+        "method": "POST",
+        "function": "trigger_manual_backup"
+      },
+      {
+        "path": "/api/v1/fault-tolerance/enums/fault-types",
+        "method": "GET",
+        "function": "get_fault_tolerance_status"
+      },
+      {
+        "path": "/api/v1/fault-tolerance/enums/severities",
+        "method": "GET",
+        "function": "get_fault_tolerance_status"
+      },
+      {
+        "path": "/api/v1/fault-tolerance/enums/backup-types",
+        "method": "GET",
+        "function": "get_fault_tolerance_status"
+      },
+      {
+        "path": "/api/v1/fault-tolerance/enums/recovery-strategies",
+        "method": "GET",
+        "function": "get_fault_tolerance_status"
+      },
+      {
+        "path": "/api/v1/fault-tolerance/system/start",
+        "method": "POST",
+        "function": "trigger_manual_backup"
+      },
+      {
+        "path": "/api/v1/fault-tolerance/system/stop",
+        "method": "POST",
+        "function": "trigger_manual_backup"
+      }
+    ]
+  },
+  "auth.py": {
+    "routes": [
+      {
+        "path": "/api/v1/auth/token",
+        "method": "POST",
+        "function": "login"
+      },
+      {
+        "path": "/api/v1/auth/refresh",
+        "method": "POST",
+        "function": "login"
+      },
+      {
+        "path": "/api/v1/auth/logout",
+        "method": "POST",
+        "function": "login"
+      },
+      {
+        "path": "/api/v1/auth/me",
+        "method": "GET",
+        "function": "get_current_user_profile"
+      },
+      {
+        "path": "/api/v1/auth/me",
+        "method": "PUT",
+        "function": "update_current_user_profile"
+      },
+      {
+        "path": "/api/v1/auth/change-password",
+        "method": "POST",
+        "function": "login"
+      },
+      {
+        "path": "/api/v1/auth/permissions",
+        "method": "GET",
+        "function": "get_current_user_profile"
+      },
+      {
+        "path": "/api/v1/auth/verify",
+        "method": "GET",
+        "function": "get_current_user_profile"
+      }
+    ]
+  },
+  "report_generation.py": {
+    "routes": [
+      {
+        "path": "/api/v1/reports/generate",
+        "method": "POST",
+        "function": "generate_report"
+      },
+      {
+        "path": "/api/v1/reports/generate-summary",
+        "method": "POST",
+        "function": "generate_report"
+      },
+      {
+        "path": "/api/v1/reports/schedule",
+        "method": "POST",
+        "function": "generate_report"
+      },
+      {
+        "path": "/api/v1/reports/export/{experiment_id}",
+        "method": "GET",
+        "function": "export_report"
+      },
+      {
+        "path": "/api/v1/reports/batch-generate",
+        "method": "POST",
+        "function": "generate_report"
+      },
+      {
+        "path": "/api/v1/reports/templates",
+        "method": "GET",
+        "function": "export_report"
+      },
+      {
+        "path": "/api/v1/reports/templates",
+        "method": "POST",
+        "function": "generate_report"
+      },
+      {
+        "path": "/api/v1/reports/preview/{experiment_id}",
+        "method": "GET",
+        "function": "export_report"
+      },
+      {
+        "path": "/api/v1/reports/compare",
+        "method": "POST",
+        "function": "generate_report"
+      },
+      {
+        "path": "/api/v1/reports/health",
+        "method": "GET",
+        "function": "export_report"
+      }
+    ]
+  },
+  "knowledge_graph_reasoning.py": {
+    "routes": [
+      {
+        "path": "/api/v1/kg-reasoning/query",
+        "method": "POST",
+        "function": "query_reasoning"
+      },
+      {
+        "path": "/api/v1/kg-reasoning/batch",
+        "method": "POST",
+        "function": "query_reasoning"
+      },
+      {
+        "path": "/api/v1/kg-reasoning/strategies/performance",
+        "method": "GET",
+        "function": "get_strategy_performance"
+      },
+      {
+        "path": "/api/v1/kg-reasoning/config",
+        "method": "POST",
+        "function": "query_reasoning"
+      },
+      {
+        "path": "/api/v1/kg-reasoning/explain",
+        "method": "POST",
+        "function": "query_reasoning"
+      },
+      {
+        "path": "/api/v1/kg-reasoning/health",
+        "method": "GET",
+        "function": "get_strategy_performance"
+      }
+    ]
+  },
+  "targeting_rules.py": {
+    "routes": [
+      {
+        "path": "/api/v1/targeting/rules",
+        "method": "POST",
+        "function": "create_targeting_rule"
+      },
+      {
+        "path": "/api/v1/targeting/rules",
+        "method": "GET",
+        "function": "list_targeting_rules"
+      },
+      {
+        "path": "/api/v1/targeting/rules/{rule_id}",
+        "method": "GET",
+        "function": "list_targeting_rules"
+      },
+      {
+        "path": "/api/v1/targeting/rules/{rule_id}",
+        "method": "PUT",
+        "function": "update_targeting_rule"
+      },
+      {
+        "path": "/api/v1/targeting/rules/{rule_id}",
+        "method": "DELETE",
+        "function": "delete_targeting_rule"
+      },
+      {
+        "path": "/api/v1/targeting/evaluate",
+        "method": "POST",
+        "function": "create_targeting_rule"
+      },
+      {
+        "path": "/api/v1/targeting/evaluate/batch",
+        "method": "POST",
+        "function": "create_targeting_rule"
+      },
+      {
+        "path": "/api/v1/targeting/check-eligibility",
+        "method": "POST",
+        "function": "create_targeting_rule"
+      },
+      {
+        "path": "/api/v1/targeting/statistics",
+        "method": "GET",
+        "function": "list_targeting_rules"
+      },
+      {
+        "path": "/api/v1/targeting/rules",
+        "method": "DELETE",
+        "function": "delete_targeting_rule"
+      },
+      {
+        "path": "/api/v1/targeting/rules/templates",
+        "method": "POST",
+        "function": "create_targeting_rule"
+      },
+      {
+        "path": "/api/v1/targeting/operators",
+        "method": "GET",
+        "function": "list_targeting_rules"
+      }
+    ]
+  },
+  "model_evaluation.py": {
+    "routes": [
+      {
+        "path": "/api/v1/model-evaluation/",
+        "method": "GET",
+        "function": "get_evaluation_overview"
+      },
+      {
+        "path": "/api/v1/model-evaluation/benchmarks",
+        "method": "GET",
+        "function": "get_evaluation_overview"
+      },
+      {
+        "path": "/api/v1/model-evaluation/benchmark-suites",
+        "method": "GET",
+        "function": "get_evaluation_overview"
+      },
+      {
+        "path": "/api/v1/model-evaluation/evaluate",
+        "method": "POST",
+        "function": "create_evaluation"
+      },
+      {
+        "path": "/api/v1/model-evaluation/batch-evaluate",
+        "method": "POST",
+        "function": "create_evaluation"
+      },
+      {
+        "path": "/api/v1/model-evaluation/jobs",
+        "method": "GET",
+        "function": "get_evaluation_overview"
+      },
+      {
+        "path": "/api/v1/model-evaluation/jobs/{job_id}",
+        "method": "GET",
+        "function": "get_evaluation_overview"
+      },
+      {
+        "path": "/api/v1/model-evaluation/jobs/{job_id}",
+        "method": "DELETE",
+        "function": "cancel_evaluation_job"
+      },
+      {
+        "path": "/api/v1/model-evaluation/generate-report",
+        "method": "POST",
+        "function": "create_evaluation"
+      },
+      {
+        "path": "/api/v1/model-evaluation/reports/{report_id}",
+        "method": "GET",
+        "function": "get_evaluation_overview"
+      },
+      {
+        "path": "/api/v1/model-evaluation/performance/system",
+        "method": "GET",
+        "function": "get_evaluation_overview"
+      },
+      {
+        "path": "/api/v1/model-evaluation/performance/models/{model_name}",
+        "method": "GET",
+        "function": "get_evaluation_overview"
+      },
+      {
+        "path": "/api/v1/model-evaluation/performance/comparison",
+        "method": "GET",
+        "function": "get_evaluation_overview"
+      },
+      {
+        "path": "/api/v1/model-evaluation/alerts",
+        "method": "GET",
+        "function": "get_evaluation_overview"
+      },
+      {
+        "path": "/api/v1/model-evaluation/alerts/{alert_id}/resolve",
+        "method": "POST",
+        "function": "create_evaluation"
+      },
+      {
+        "path": "/api/v1/model-evaluation/export/metrics",
+        "method": "GET",
+        "function": "get_evaluation_overview"
+      }
+    ]
+  },
+  "files.py": {
+    "routes": [
+      {
+        "path": "/api/v1/files/upload",
+        "method": "POST",
+        "function": "upload_file"
+      },
+      {
+        "path": "/api/v1/files/upload/batch",
+        "method": "POST",
+        "function": "upload_file"
+      },
+      {
+        "path": "/api/v1/files/list",
+        "method": "GET",
+        "function": "list_files"
+      },
+      {
+        "path": "/api/v1/files/{file_id}",
+        "method": "GET",
+        "function": "list_files"
+      },
+      {
+        "path": "/api/v1/files/{file_id}/download",
+        "method": "GET",
+        "function": "list_files"
+      },
+      {
+        "path": "/api/v1/files/{file_id}",
+        "method": "DELETE",
+        "function": "delete_file"
+      },
+      {
+        "path": "/api/v1/files/cleanup",
+        "method": "POST",
+        "function": "upload_file"
+      },
+      {
+        "path": "/api/v1/files/stats/summary",
+        "method": "GET",
+        "function": "list_files"
+      }
+    ]
+  },
+  "memory_management.py": {
+    "routes": [
+      {
+        "path": "/api/v1/memories/",
+        "method": "POST",
+        "function": "create_memory"
+      },
+      {
+        "path": "/api/v1/memories/{memory_id}",
+        "method": "PUT",
+        "function": "update_memory"
+      },
+      {
+        "path": "/api/v1/memories/{memory_id}",
+        "method": "DELETE",
+        "function": "delete_memory"
+      },
+      {
+        "path": "/api/v1/memories/search",
+        "method": "GET",
+        "function": "search_memories"
+      },
+      {
+        "path": "/api/v1/memories/session/{session_id}",
+        "method": "GET",
+        "function": "search_memories"
+      },
+      {
+        "path": "/api/v1/memories/{memory_id}/associate",
+        "method": "POST",
+        "function": "create_memory"
+      },
+      {
+        "path": "/api/v1/memories/{memory_id}/related",
+        "method": "GET",
+        "function": "search_memories"
+      },
+      {
+        "path": "/api/v1/memories/consolidate/{session_id}",
+        "method": "POST",
+        "function": "create_memory"
+      },
+      {
+        "path": "/api/v1/memories/analytics",
+        "method": "GET",
+        "function": "search_memories"
+      },
+      {
+        "path": "/api/v1/memories/analytics/patterns",
+        "method": "GET",
+        "function": "search_memories"
+      },
+      {
+        "path": "/api/v1/memories/analytics/trends",
+        "method": "GET",
+        "function": "search_memories"
+      },
+      {
+        "path": "/api/v1/memories/analytics/graph/stats",
+        "method": "GET",
+        "function": "search_memories"
+      },
+      {
+        "path": "/api/v1/memories/cleanup",
+        "method": "POST",
+        "function": "create_memory"
+      },
+      {
+        "path": "/api/v1/memories/{memory_id}",
+        "method": "GET",
+        "function": "search_memories"
+      }
+    ]
+  },
+  "emotional_intelligence.py": {
+    "routes": [
+      {
+        "path": "/api/v1/emotional-intelligence/decide",
+        "method": "POST",
+        "function": "make_emotional_decision"
+      },
+      {
+        "path": "/api/v1/emotional-intelligence/risk-assessment",
+        "method": "POST",
+        "function": "make_emotional_decision"
+      },
+      {
+        "path": "/api/v1/emotional-intelligence/crisis-detection",
+        "method": "POST",
+        "function": "make_emotional_decision"
+      },
+      {
+        "path": "/api/v1/emotional-intelligence/intervention-plan",
+        "method": "POST",
+        "function": "make_emotional_decision"
+      },
+      {
+        "path": "/api/v1/emotional-intelligence/health-dashboard/{user_id}",
+        "method": "GET",
+        "function": "get_health_dashboard"
+      },
+      {
+        "path": "/api/v1/emotional-intelligence/emotional-patterns/{user_id}",
+        "method": "GET",
+        "function": "get_health_dashboard"
+      },
+      {
+        "path": "/api/v1/emotional-intelligence/suicide-risk-assessment",
+        "method": "POST",
+        "function": "make_emotional_decision"
+      },
+      {
+        "path": "/api/v1/emotional-intelligence/risk-trends/{user_id}",
+        "method": "GET",
+        "function": "get_health_dashboard"
+      },
+      {
+        "path": "/api/v1/emotional-intelligence/crisis-prediction/{user_id}",
+        "method": "GET",
+        "function": "get_health_dashboard"
+      },
+      {
+        "path": "/api/v1/emotional-intelligence/intervention-effectiveness",
+        "method": "POST",
+        "function": "make_emotional_decision"
+      },
+      {
+        "path": "/api/v1/emotional-intelligence/health-insights/{user_id}",
+        "method": "GET",
+        "function": "get_health_dashboard"
+      },
+      {
+        "path": "/api/v1/emotional-intelligence/system-status",
+        "method": "GET",
+        "function": "get_health_dashboard"
+      }
+    ]
+  },
+  "emotion_modeling.py": {
+    "routes": [
+      {
+        "path": "/api/v1/emotion/state",
+        "method": "POST",
+        "function": "record_emotion_state"
+      },
+      {
+        "path": "/api/v1/emotion/state/latest",
+        "method": "GET",
+        "function": "get_latest_emotion_state"
+      },
+      {
+        "path": "/api/v1/emotion/state/history",
+        "method": "GET",
+        "function": "get_latest_emotion_state"
+      },
+      {
+        "path": "/api/v1/emotion/predict",
+        "method": "POST",
+        "function": "record_emotion_state"
+      },
+      {
+        "path": "/api/v1/emotion/analytics",
+        "method": "POST",
+        "function": "record_emotion_state"
+      },
+      {
+        "path": "/api/v1/emotion/profile",
+        "method": "GET",
+        "function": "get_latest_emotion_state"
+      },
+      {
+        "path": "/api/v1/emotion/patterns",
+        "method": "GET",
+        "function": "get_latest_emotion_state"
+      },
+      {
+        "path": "/api/v1/emotion/clusters",
+        "method": "GET",
+        "function": "get_latest_emotion_state"
+      },
+      {
+        "path": "/api/v1/emotion/transitions",
+        "method": "GET",
+        "function": "get_latest_emotion_state"
+      },
+      {
+        "path": "/api/v1/emotion/export",
+        "method": "GET",
+        "function": "get_latest_emotion_state"
+      },
+      {
+        "path": "/api/v1/emotion/data",
+        "method": "DELETE",
+        "function": "delete_user_data"
+      },
+      {
+        "path": "/api/v1/emotion/status",
+        "method": "GET",
+        "function": "get_latest_emotion_state"
+      },
+      {
+        "path": "/api/v1/emotion/statistics",
+        "method": "GET",
+        "function": "get_latest_emotion_state"
+      }
+    ]
+  },
+  "explainable_ai.py": {
+    "routes": [
+      {
+        "path": "/api/v1/explainable-ai/generate-explanation",
+        "method": "POST",
+        "function": "generate_explanation"
+      },
+      {
+        "path": "/api/v1/explainable-ai/cot-reasoning",
+        "method": "POST",
+        "function": "generate_explanation"
+      },
+      {
+        "path": "/api/v1/explainable-ai/workflow-explanation",
+        "method": "POST",
+        "function": "generate_explanation"
+      },
+      {
+        "path": "/api/v1/explainable-ai/format-explanation",
+        "method": "POST",
+        "function": "generate_explanation"
+      },
+      {
+        "path": "/api/v1/explainable-ai/demo-scenario",
+        "method": "POST",
+        "function": "generate_explanation"
+      },
+      {
+        "path": "/api/v1/explainable-ai/explanation-types",
+        "method": "GET",
+        "function": "get_explanation_types"
+      },
+      {
+        "path": "/api/v1/explainable-ai/demo-scenarios",
+        "method": "GET",
+        "function": "get_explanation_types"
+      },
+      {
+        "path": "/api/v1/explainable-ai/health",
+        "method": "GET",
+        "function": "get_explanation_types"
+      }
+    ]
+  },
+  "assignment_cache.py": {
+    "routes": [
+      {
+        "path": "/api/v1/cache/assignments/{user_id}/{experiment_id}",
+        "method": "GET",
+        "function": "get_user_assignment"
+      },
+      {
+        "path": "/api/v1/cache/assignments",
+        "method": "POST",
+        "function": "create_assignment"
+      },
+      {
+        "path": "/api/v1/cache/assignments/batch",
+        "method": "POST",
+        "function": "create_assignment"
+      },
+      {
+        "path": "/api/v1/cache/users/{user_id}/assignments",
+        "method": "GET",
+        "function": "get_user_assignment"
+      },
+      {
+        "path": "/api/v1/cache/assignments/batch-get",
+        "method": "POST",
+        "function": "create_assignment"
+      },
+      {
+        "path": "/api/v1/cache/assignments/{user_id}/{experiment_id}",
+        "method": "DELETE",
+        "function": "delete_assignment"
+      },
+      {
+        "path": "/api/v1/cache/users/{user_id}/assignments",
+        "method": "DELETE",
+        "function": "delete_assignment"
+      },
+      {
+        "path": "/api/v1/cache/metrics",
+        "method": "GET",
+        "function": "get_user_assignment"
+      },
+      {
+        "path": "/api/v1/cache/health",
+        "method": "GET",
+        "function": "get_user_assignment"
+      },
+      {
+        "path": "/api/v1/cache/clear",
+        "method": "POST",
+        "function": "create_assignment"
+      },
+      {
+        "path": "/api/v1/cache/info",
+        "method": "GET",
+        "function": "get_user_assignment"
+      },
+      {
+        "path": "/api/v1/cache/warmup",
+        "method": "POST",
+        "function": "create_assignment"
+      }
+    ]
+  },
+  "realtime_metrics.py": {
+    "routes": [
+      {
+        "path": "/api/v1/realtime-metrics/register-metric",
+        "method": "POST",
+        "function": "register_metric_definition"
+      },
+      {
+        "path": "/api/v1/realtime-metrics/calculate",
+        "method": "POST",
+        "function": "register_metric_definition"
+      },
+      {
+        "path": "/api/v1/realtime-metrics/compare-groups",
+        "method": "POST",
+        "function": "register_metric_definition"
+      },
+      {
+        "path": "/api/v1/realtime-metrics/trends",
+        "method": "POST",
+        "function": "register_metric_definition"
+      },
+      {
+        "path": "/api/v1/realtime-metrics/start-monitoring/{experiment_id}",
+        "method": "POST",
+        "function": "register_metric_definition"
+      },
+      {
+        "path": "/api/v1/realtime-metrics/stop-monitoring",
+        "method": "POST",
+        "function": "register_metric_definition"
+      },
+      {
+        "path": "/api/v1/realtime-metrics/metrics-catalog",
+        "method": "GET",
+        "function": "get_metrics_catalog"
+      },
+      {
+        "path": "/api/v1/realtime-metrics/metric-definition/{metric_name}",
+        "method": "GET",
+        "function": "get_metrics_catalog"
+      },
+      {
+        "path": "/api/v1/realtime-metrics/experiment/{experiment_id}/summary",
+        "method": "GET",
+        "function": "get_metrics_catalog"
+      },
+      {
+        "path": "/api/v1/realtime-metrics/health",
+        "method": "GET",
+        "function": "get_metrics_catalog"
+      }
+    ]
+  },
+  "social_emotional_understanding.py": {
+    "routes": [
+      {
+        "path": "/api/v1/social-emotional-understanding/analyze/group-emotion",
+        "method": "POST",
+        "function": "analyze_group_emotion"
+      },
+      {
+        "path": "/api/v1/social-emotional-understanding/analyze/relationships",
+        "method": "POST",
+        "function": "analyze_group_emotion"
+      },
+      {
+        "path": "/api/v1/social-emotional-understanding/analyze/social-context",
+        "method": "POST",
+        "function": "analyze_group_emotion"
+      },
+      {
+        "path": "/api/v1/social-emotional-understanding/analyze/cultural-adaptation",
+        "method": "POST",
+        "function": "analyze_group_emotion"
+      },
+      {
+        "path": "/api/v1/social-emotional-understanding/decisions/generate",
+        "method": "POST",
+        "function": "analyze_group_emotion"
+      },
+      {
+        "path": "/api/v1/social-emotional-understanding/comprehensive-analysis",
+        "method": "POST",
+        "function": "analyze_group_emotion"
+      },
+      {
+        "path": "/api/v1/social-emotional-understanding/health",
+        "method": "GET",
+        "function": "health_check"
+      },
+      {
+        "path": "/api/v1/social-emotional-understanding/analytics",
+        "method": "GET",
+        "function": "health_check"
+      }
+    ]
+  },
+  "social_emotion_api.py": {
+    "routes": [
+      {
+        "path": "/api/v1/api/v1/social-emotion/initialize",
+        "method": "POST",
+        "function": "initialize_system"
+      },
+      {
+        "path": "/api/v1/api/v1/social-emotion/analyze",
+        "method": "POST",
+        "function": "initialize_system"
+      },
+      {
+        "path": "/api/v1/api/v1/social-emotion/analyze/batch",
+        "method": "POST",
+        "function": "initialize_system"
+      },
+      {
+        "path": "/api/v1/api/v1/social-emotion/session/create",
+        "method": "POST",
+        "function": "initialize_system"
+      },
+      {
+        "path": "/api/v1/api/v1/social-emotion/session/{session_id}",
+        "method": "DELETE",
+        "function": "close_session"
+      },
+      {
+        "path": "/api/v1/api/v1/social-emotion/privacy/consent",
+        "method": "POST",
+        "function": "initialize_system"
+      },
+      {
+        "path": "/api/v1/api/v1/social-emotion/privacy/consent/{user_id}",
+        "method": "DELETE",
+        "function": "close_session"
+      },
+      {
+        "path": "/api/v1/api/v1/social-emotion/privacy/policy",
+        "method": "POST",
+        "function": "initialize_system"
+      },
+      {
+        "path": "/api/v1/api/v1/social-emotion/status",
+        "method": "GET",
+        "function": "get_system_status"
+      },
+      {
+        "path": "/api/v1/api/v1/social-emotion/dashboard",
+        "method": "GET",
+        "function": "get_system_status"
+      },
+      {
+        "path": "/api/v1/api/v1/social-emotion/compliance/report",
+        "method": "GET",
+        "function": "get_system_status"
+      },
+      {
+        "path": "/api/v1/api/v1/social-emotion/export",
+        "method": "POST",
+        "function": "initialize_system"
+      }
+    ]
+  },
+  "training_data.py": {
+    "routes": [
+      {
+        "path": "/api/v1/training-data/sources",
+        "method": "POST",
+        "function": "create_data_source"
+      },
+      {
+        "path": "/api/v1/training-data/sources",
+        "method": "GET",
+        "function": "list_data_sources"
+      },
+      {
+        "path": "/api/v1/training-data/sources/{source_id}",
+        "method": "PUT",
+        "function": "update_data_source"
+      },
+      {
+        "path": "/api/v1/training-data/sources/{source_id}",
+        "method": "DELETE",
+        "function": "delete_data_source"
+      },
+      {
+        "path": "/api/v1/training-data/collect",
+        "method": "POST",
+        "function": "create_data_source"
+      },
+      {
+        "path": "/api/v1/training-data/records",
+        "method": "GET",
+        "function": "list_data_sources"
+      },
+      {
+        "path": "/api/v1/training-data/statistics",
+        "method": "GET",
+        "function": "list_data_sources"
+      },
+      {
+        "path": "/api/v1/training-data/reprocess",
+        "method": "POST",
+        "function": "create_data_source"
+      },
+      {
+        "path": "/api/v1/training-data/annotation-tasks",
+        "method": "POST",
+        "function": "create_data_source"
+      },
+      {
+        "path": "/api/v1/training-data/annotation-tasks",
+        "method": "GET",
+        "function": "list_data_sources"
+      },
+      {
+        "path": "/api/v1/training-data/annotation-tasks/{task_id}",
+        "method": "GET",
+        "function": "list_data_sources"
+      },
+      {
+        "path": "/api/v1/training-data/annotation-tasks/{task_id}/progress",
+        "method": "GET",
+        "function": "list_data_sources"
+      },
+      {
+        "path": "/api/v1/training-data/annotation-tasks/{task_id}/assign",
+        "method": "POST",
+        "function": "create_data_source"
+      },
+      {
+        "path": "/api/v1/training-data/annotations",
+        "method": "POST",
+        "function": "create_data_source"
+      },
+      {
+        "path": "/api/v1/training-data/annotation-tasks/{task_id}/agreement",
+        "method": "GET",
+        "function": "list_data_sources"
+      },
+      {
+        "path": "/api/v1/training-data/annotation-tasks/{task_id}/quality-report",
+        "method": "GET",
+        "function": "list_data_sources"
+      },
+      {
+        "path": "/api/v1/training-data/annotations",
+        "method": "GET",
+        "function": "list_data_sources"
+      },
+      {
+        "path": "/api/v1/training-data/versions",
+        "method": "POST",
+        "function": "create_data_source"
+      },
+      {
+        "path": "/api/v1/training-data/datasets",
+        "method": "GET",
+        "function": "list_data_sources"
+      },
+      {
+        "path": "/api/v1/training-data/datasets/{dataset_name}/versions",
+        "method": "GET",
+        "function": "list_data_sources"
+      },
+      {
+        "path": "/api/v1/training-data/versions/{version_id}",
+        "method": "GET",
+        "function": "list_data_sources"
+      },
+      {
+        "path": "/api/v1/training-data/versions/{version_id}/history",
+        "method": "GET",
+        "function": "list_data_sources"
+      },
+      {
+        "path": "/api/v1/training-data/versions/{version_id1}/compare/{version_id2}",
+        "method": "POST",
+        "function": "create_data_source"
+      },
+      {
+        "path": "/api/v1/training-data/versions/{version_id}/export",
+        "method": "POST",
+        "function": "create_data_source"
+      },
+      {
+        "path": "/api/v1/training-data/datasets/{dataset_name}/rollback",
+        "method": "POST",
+        "function": "create_data_source"
+      },
+      {
+        "path": "/api/v1/training-data/version-statistics",
+        "method": "GET",
+        "function": "list_data_sources"
+      },
+      {
+        "path": "/api/v1/training-data/versions/{version_id}",
+        "method": "DELETE",
+        "function": "delete_data_source"
+      },
+      {
+        "path": "/api/v1/training-data/health",
+        "method": "GET",
+        "function": "list_data_sources"
+      },
+      {
+        "path": "/api/v1/training-data/queue-status",
+        "method": "GET",
+        "function": "list_data_sources"
+      }
+    ]
+  },
+  "fine_tuning.py": {
+    "routes": [
+      {
+        "path": "/api/v1/api/v1/fine-tuning/jobs",
+        "method": "POST",
+        "function": "create_training_job"
+      },
+      {
+        "path": "/api/v1/api/v1/fine-tuning/jobs",
+        "method": "GET",
+        "function": "list_training_jobs"
+      },
+      {
+        "path": "/api/v1/api/v1/fine-tuning/jobs/{job_id}",
+        "method": "GET",
+        "function": "list_training_jobs"
+      },
+      {
+        "path": "/api/v1/api/v1/fine-tuning/jobs/{job_id}/cancel",
+        "method": "PUT",
+        "function": "cancel_training_job"
+      },
+      {
+        "path": "/api/v1/api/v1/fine-tuning/jobs/{job_id}",
+        "method": "DELETE",
+        "function": "delete_training_job"
+      },
+      {
+        "path": "/api/v1/api/v1/fine-tuning/jobs/{job_id}/logs",
+        "method": "GET",
+        "function": "list_training_jobs"
+      },
+      {
+        "path": "/api/v1/api/v1/fine-tuning/jobs/{job_id}/metrics",
+        "method": "GET",
+        "function": "list_training_jobs"
+      },
+      {
+        "path": "/api/v1/api/v1/fine-tuning/jobs/{job_id}/progress",
+        "method": "GET",
+        "function": "list_training_jobs"
+      },
+      {
+        "path": "/api/v1/api/v1/fine-tuning/jobs/{job_id}/pause",
+        "method": "POST",
+        "function": "create_training_job"
+      },
+      {
+        "path": "/api/v1/api/v1/fine-tuning/jobs/{job_id}/resume",
+        "method": "POST",
+        "function": "create_training_job"
+      },
+      {
+        "path": "/api/v1/api/v1/fine-tuning/models",
+        "method": "GET",
+        "function": "list_training_jobs"
+      },
+      {
+        "path": "/api/v1/api/v1/fine-tuning/models/validate",
+        "method": "POST",
+        "function": "create_training_job"
+      },
+      {
+        "path": "/api/v1/api/v1/fine-tuning/configs/templates",
+        "method": "GET",
+        "function": "list_training_jobs"
+      },
+      {
+        "path": "/api/v1/api/v1/fine-tuning/configs/validate",
+        "method": "POST",
+        "function": "create_training_job"
+      },
+      {
+        "path": "/api/v1/api/v1/fine-tuning/datasets",
+        "method": "POST",
+        "function": "create_training_job"
+      },
+      {
+        "path": "/api/v1/api/v1/fine-tuning/datasets",
+        "method": "GET",
+        "function": "list_training_jobs"
+      },
+      {
+        "path": "/api/v1/api/v1/fine-tuning/datasets/{dataset_id}",
+        "method": "GET",
+        "function": "list_training_jobs"
+      },
+      {
+        "path": "/api/v1/api/v1/fine-tuning/datasets/{dataset_id}/validate",
+        "method": "POST",
+        "function": "create_training_job"
+      }
+    ]
+  },
+  "unified.py": {
+    "routes": [
+      {
+        "path": "/api/v1/unified/process",
+        "method": "POST",
+        "function": "process_unified_request"
+      },
+      {
+        "path": "/api/v1/unified/status/{session_id}",
+        "method": "GET",
+        "function": "get_session_status"
+      },
+      {
+        "path": "/api/v1/unified/history",
+        "method": "GET",
+        "function": "get_session_status"
+      },
+      {
+        "path": "/api/v1/unified/metrics",
+        "method": "GET",
+        "function": "get_session_status"
+      },
+      {
+        "path": "/api/v1/unified/mode/recommendations",
+        "method": "POST",
+        "function": "process_unified_request"
+      },
+      {
+        "path": "/api/v1/unified/selector/stats",
+        "method": "GET",
+        "function": "get_session_status"
+      },
+      {
+        "path": "/api/v1/unified/mode/set-default",
+        "method": "POST",
+        "function": "process_unified_request"
+      },
+      {
+        "path": "/api/v1/unified/selector/set-strategy",
+        "method": "POST",
+        "function": "process_unified_request"
+      },
+      {
+        "path": "/api/v1/unified/clear-history",
+        "method": "POST",
+        "function": "process_unified_request"
+      },
+      {
+        "path": "/api/v1/unified/modes",
+        "method": "GET",
+        "function": "get_session_status"
+      },
+      {
+        "path": "/api/v1/unified/strategies",
+        "method": "GET",
+        "function": "get_session_status"
+      }
+    ]
+  },
+  "release_strategy.py": {
+    "routes": [
+      {
+        "path": "/api/v1/release-strategy/strategies",
+        "method": "POST",
+        "function": "create_strategy"
+      },
+      {
+        "path": "/api/v1/release-strategy/strategies/from-template",
+        "method": "POST",
+        "function": "create_strategy"
+      },
+      {
+        "path": "/api/v1/release-strategy/strategies",
+        "method": "GET",
+        "function": "list_strategies"
+      },
+      {
+        "path": "/api/v1/release-strategy/strategies/{strategy_id}",
+        "method": "GET",
+        "function": "list_strategies"
+      },
+      {
+        "path": "/api/v1/release-strategy/execute/{strategy_id}",
+        "method": "POST",
+        "function": "create_strategy"
+      },
+      {
+        "path": "/api/v1/release-strategy/approve",
+        "method": "POST",
+        "function": "create_strategy"
+      },
+      {
+        "path": "/api/v1/release-strategy/executions/{exec_id}",
+        "method": "GET",
+        "function": "list_strategies"
+      },
+      {
+        "path": "/api/v1/release-strategy/templates",
+        "method": "GET",
+        "function": "list_strategies"
+      },
+      {
+        "path": "/api/v1/release-strategy/release-types",
+        "method": "GET",
+        "function": "list_strategies"
+      },
+      {
+        "path": "/api/v1/release-strategy/approval-levels",
+        "method": "GET",
+        "function": "list_strategies"
+      },
+      {
+        "path": "/api/v1/release-strategy/environments",
+        "method": "GET",
+        "function": "list_strategies"
+      },
+      {
+        "path": "/api/v1/release-strategy/health",
+        "method": "GET",
+        "function": "list_strategies"
+      }
+    ]
+  },
+  "supervisor.py": {
+    "routes": [
+      {
+        "path": "/api/v1/supervisor/tasks",
+        "method": "POST",
+        "function": "submit_task"
+      },
+      {
+        "path": "/api/v1/supervisor/status",
+        "method": "GET",
+        "function": "get_supervisor_status"
+      },
+      {
+        "path": "/api/v1/supervisor/decisions",
+        "method": "GET",
+        "function": "get_supervisor_status"
+      },
+      {
+        "path": "/api/v1/supervisor/config",
+        "method": "PUT",
+        "function": "update_supervisor_config"
+      },
+      {
+        "path": "/api/v1/supervisor/initialize",
+        "method": "POST",
+        "function": "submit_task"
+      },
+      {
+        "path": "/api/v1/supervisor/agents/{agent_name}",
+        "method": "POST",
+        "function": "submit_task"
+      },
+      {
+        "path": "/api/v1/supervisor/agents/{agent_name}",
+        "method": "DELETE",
+        "function": "remove_agent"
+      },
+      {
+        "path": "/api/v1/supervisor/tasks/{task_id}/complete",
+        "method": "POST",
+        "function": "submit_task"
+      },
+      {
+        "path": "/api/v1/supervisor/stats",
+        "method": "GET",
+        "function": "get_supervisor_status"
+      },
+      {
+        "path": "/api/v1/supervisor/load-statistics",
+        "method": "GET",
+        "function": "get_supervisor_status"
+      },
+      {
+        "path": "/api/v1/supervisor/metrics",
+        "method": "GET",
+        "function": "get_supervisor_status"
+      },
+      {
+        "path": "/api/v1/supervisor/tasks",
+        "method": "GET",
+        "function": "get_supervisor_status"
+      },
+      {
+        "path": "/api/v1/supervisor/config",
+        "method": "GET",
+        "function": "get_supervisor_status"
+      },
+      {
+        "path": "/api/v1/supervisor/health",
+        "method": "GET",
+        "function": "get_supervisor_status"
+      },
+      {
+        "path": "/api/v1/supervisor/tasks/{task_id}/execute",
+        "method": "POST",
+        "function": "submit_task"
+      },
+      {
+        "path": "/api/v1/supervisor/scheduler/force-execution",
+        "method": "POST",
+        "function": "submit_task"
+      },
+      {
+        "path": "/api/v1/supervisor/scheduler/status",
+        "method": "GET",
+        "function": "get_supervisor_status"
+      },
+      {
+        "path": "/api/v1/supervisor/tasks/{task_id}/details",
+        "method": "GET",
+        "function": "get_supervisor_status"
+      }
+    ]
+  },
+  "health.py": {
+    "routes": [
+      {
+        "path": "/api/v1/health",
+        "method": "GET",
+        "function": "health_check"
+      },
+      {
+        "path": "/api/v1/health/live",
+        "method": "GET",
+        "function": "health_check"
+      },
+      {
+        "path": "/api/v1/health/ready",
+        "method": "GET",
+        "function": "health_check"
+      },
+      {
+        "path": "/api/v1/health/metrics",
+        "method": "GET",
+        "function": "health_check"
+      },
+      {
+        "path": "/api/v1/health/alerts",
+        "method": "GET",
+        "function": "health_check"
+      }
+    ]
+  },
+  "events.py": {
+    "routes": [
+      {
+        "path": "/api/v1/events/list",
+        "method": "GET",
+        "function": "get_events"
+      },
+      {
+        "path": "/api/v1/events/stats",
+        "method": "GET",
+        "function": "get_events"
+      },
+      {
+        "path": "/api/v1/events/replay",
+        "method": "POST",
+        "function": "replay_events"
+      },
+      {
+        "path": "/api/v1/events/cluster/status",
+        "method": "GET",
+        "function": "get_events"
+      },
+      {
+        "path": "/api/v1/events/monitoring/metrics",
+        "method": "GET",
+        "function": "get_events"
+      },
+      {
+        "path": "/api/v1/events/dead-letter",
+        "method": "GET",
+        "function": "get_events"
+      },
+      {
+        "path": "/api/v1/events/submit",
+        "method": "POST",
+        "function": "replay_events"
+      }
+    ]
+  },
+  "knowledge_graph.py": {
+    "routes": [
+      {
+        "path": "/api/v1/knowledge-graph/entities",
+        "method": "POST",
+        "function": "create_entity"
+      },
+      {
+        "path": "/api/v1/knowledge-graph/entities/{entity_id}",
+        "method": "GET",
+        "function": "get_entity"
+      },
+      {
+        "path": "/api/v1/knowledge-graph/entities/{entity_id}",
+        "method": "PUT",
+        "function": "update_entity"
+      },
+      {
+        "path": "/api/v1/knowledge-graph/entities/{entity_id}",
+        "method": "DELETE",
+        "function": "delete_entity"
+      },
+      {
+        "path": "/api/v1/knowledge-graph/entities/search",
+        "method": "POST",
+        "function": "create_entity"
+      },
+      {
+        "path": "/api/v1/knowledge-graph/relations",
+        "method": "POST",
+        "function": "create_entity"
+      },
+      {
+        "path": "/api/v1/knowledge-graph/entities/{entity_id}/relations",
+        "method": "GET",
+        "function": "get_entity"
+      },
+      {
+        "path": "/api/v1/knowledge-graph/path",
+        "method": "GET",
+        "function": "get_entity"
+      },
+      {
+        "path": "/api/v1/knowledge-graph/subgraph/{entity_id}",
+        "method": "GET",
+        "function": "get_entity"
+      },
+      {
+        "path": "/api/v1/knowledge-graph/query",
+        "method": "POST",
+        "function": "create_entity"
+      },
+      {
+        "path": "/api/v1/knowledge-graph/upsert-entity",
+        "method": "POST",
+        "function": "create_entity"
+      },
+      {
+        "path": "/api/v1/knowledge-graph/batch-upsert",
+        "method": "POST",
+        "function": "create_entity"
+      },
+      {
+        "path": "/api/v1/knowledge-graph/quality/metrics",
+        "method": "GET",
+        "function": "get_entity"
+      },
+      {
+        "path": "/api/v1/knowledge-graph/quality/issues",
+        "method": "GET",
+        "function": "get_entity"
+      },
+      {
+        "path": "/api/v1/knowledge-graph/quality/report",
+        "method": "GET",
+        "function": "get_entity"
+      },
+      {
+        "path": "/api/v1/knowledge-graph/performance/stats",
+        "method": "GET",
+        "function": "get_entity"
+      },
+      {
+        "path": "/api/v1/knowledge-graph/performance/slow-queries",
+        "method": "GET",
+        "function": "get_entity"
+      },
+      {
+        "path": "/api/v1/knowledge-graph/performance/cache",
+        "method": "DELETE",
+        "function": "delete_entity"
+      },
+      {
+        "path": "/api/v1/knowledge-graph/statistics",
+        "method": "GET",
+        "function": "get_entity"
+      },
+      {
+        "path": "/api/v1/knowledge-graph/health",
+        "method": "GET",
+        "function": "get_entity"
+      },
+      {
+        "path": "/api/v1/knowledge-graph/admin/schema/initialize",
+        "method": "POST",
+        "function": "create_entity"
+      },
+      {
+        "path": "/api/v1/knowledge-graph/admin/schema/status",
+        "method": "GET",
+        "function": "get_entity"
+      }
+    ]
+  },
+  "feedback.py": {
+    "routes": [
+      {
+        "path": "/api/v1/feedback/implicit",
+        "method": "POST",
+        "function": "submit_implicit_feedback"
+      },
+      {
+        "path": "/api/v1/feedback/explicit",
+        "method": "POST",
+        "function": "submit_implicit_feedback"
+      },
+      {
+        "path": "/api/v1/feedback/user/{user_id}",
+        "method": "GET",
+        "function": "get_user_feedback_history"
+      },
+      {
+        "path": "/api/v1/feedback/analytics/user/{user_id}",
+        "method": "GET",
+        "function": "get_user_feedback_history"
+      },
+      {
+        "path": "/api/v1/feedback/analytics/item/{item_id}",
+        "method": "GET",
+        "function": "get_user_feedback_history"
+      },
+      {
+        "path": "/api/v1/feedback/quality/score",
+        "method": "POST",
+        "function": "submit_implicit_feedback"
+      },
+      {
+        "path": "/api/v1/feedback/process/batch",
+        "method": "POST",
+        "function": "submit_implicit_feedback"
+      },
+      {
+        "path": "/api/v1/feedback/reward/calculate",
+        "method": "POST",
+        "function": "submit_implicit_feedback"
+      },
+      {
+        "path": "/api/v1/feedback/overview",
+        "method": "GET",
+        "function": "get_user_feedback_history"
+      },
+      {
+        "path": "/api/v1/feedback/metrics/realtime",
+        "method": "GET",
+        "function": "get_user_feedback_history"
+      }
+    ]
+  },
+  "layered_experiments.py": {
+    "routes": [
+      {
+        "path": "/api/v1/experiments/layers/",
+        "method": "POST",
+        "function": "create_experiment_layer"
+      },
+      {
+        "path": "/api/v1/experiments/layers/",
+        "method": "GET",
+        "function": "list_experiment_layers"
+      },
+      {
+        "path": "/api/v1/experiments/layers/{layer_id}",
+        "method": "GET",
+        "function": "list_experiment_layers"
+      },
+      {
+        "path": "/api/v1/experiments/layers/{layer_id}/groups",
+        "method": "POST",
+        "function": "create_experiment_layer"
+      },
+      {
+        "path": "/api/v1/experiments/layers/assign/{user_id}",
+        "method": "POST",
+        "function": "create_experiment_layer"
+      },
+      {
+        "path": "/api/v1/experiments/layers/user/{user_id}/experiments",
+        "method": "GET",
+        "function": "list_experiment_layers"
+      },
+      {
+        "path": "/api/v1/experiments/layers/user/{user_id}/check-conflicts",
+        "method": "POST",
+        "function": "create_experiment_layer"
+      },
+      {
+        "path": "/api/v1/experiments/layers/validate",
+        "method": "POST",
+        "function": "create_experiment_layer"
+      },
+      {
+        "path": "/api/v1/experiments/layers/user/{user_id}/assignments",
+        "method": "DELETE",
+        "function": "clear_user_assignments"
+      },
+      {
+        "path": "/api/v1/experiments/layers/batch-assign",
+        "method": "POST",
+        "function": "create_experiment_layer"
+      },
+      {
+        "path": "/api/v1/experiments/layers/statistics/overview",
+        "method": "GET",
+        "function": "list_experiment_layers"
+      },
+      {
+        "path": "/api/v1/experiments/layers/simulate/assignment",
+        "method": "POST",
+        "function": "create_experiment_layer"
+      }
+    ]
+  },
+  "graphrag.py": {
+    "routes": [
+      {
+        "path": "/api/v1/graphrag/query",
+        "method": "POST",
+        "function": "graphrag_query"
+      },
+      {
+        "path": "/api/v1/graphrag/query/analyze",
+        "method": "POST",
+        "function": "graphrag_query"
+      },
+      {
+        "path": "/api/v1/graphrag/query/reasoning",
+        "method": "POST",
+        "function": "graphrag_query"
+      },
+      {
+        "path": "/api/v1/graphrag/query/{query_id}",
+        "method": "GET",
+        "function": "get_query_result"
+      },
+      {
+        "path": "/api/v1/graphrag/fusion/multi-source",
+        "method": "POST",
+        "function": "graphrag_query"
+      },
+      {
+        "path": "/api/v1/graphrag/fusion/conflict-resolution",
+        "method": "POST",
+        "function": "graphrag_query"
+      },
+      {
+        "path": "/api/v1/graphrag/fusion/consistency",
+        "method": "GET",
+        "function": "get_query_result"
+      },
+      {
+        "path": "/api/v1/graphrag/performance/stats",
+        "method": "GET",
+        "function": "get_query_result"
+      },
+      {
+        "path": "/api/v1/graphrag/performance/comparison",
+        "method": "GET",
+        "function": "get_query_result"
+      },
+      {
+        "path": "/api/v1/graphrag/performance/benchmark",
+        "method": "POST",
+        "function": "graphrag_query"
+      },
+      {
+        "path": "/api/v1/graphrag/config",
+        "method": "GET",
+        "function": "get_query_result"
+      },
+      {
+        "path": "/api/v1/graphrag/config",
+        "method": "PUT",
+        "function": "update_config"
+      },
+      {
+        "path": "/api/v1/graphrag/debug/explain",
+        "method": "POST",
+        "function": "graphrag_query"
+      },
+      {
+        "path": "/api/v1/graphrag/debug/trace/{query_id}",
+        "method": "GET",
+        "function": "get_query_result"
+      }
+    ]
+  },
+  "multiple_testing_correction.py": {
+    "routes": [
+      {
+        "path": "/api/v1/multiple-testing/apply-correction",
+        "method": "POST",
+        "function": "apply_correction"
+      },
+      {
+        "path": "/api/v1/multiple-testing/compare-methods",
+        "method": "POST",
+        "function": "apply_correction"
+      },
+      {
+        "path": "/api/v1/multiple-testing/recommend-method",
+        "method": "POST",
+        "function": "apply_correction"
+      },
+      {
+        "path": "/api/v1/multiple-testing/adjust-power",
+        "method": "POST",
+        "function": "apply_correction"
+      },
+      {
+        "path": "/api/v1/multiple-testing/ab-test-multiple-comparison",
+        "method": "POST",
+        "function": "apply_correction"
+      },
+      {
+        "path": "/api/v1/multiple-testing/correction-methods",
+        "method": "GET",
+        "function": "get_correction_methods"
+      },
+      {
+        "path": "/api/v1/multiple-testing/health",
+        "method": "GET",
+        "function": "get_correction_methods"
+      }
+    ]
+  },
+  "documents.py": {
+    "routes": [
+      {
+        "path": "/api/v1/documents/upload",
+        "method": "POST",
+        "function": "upload_document"
+      },
+      {
+        "path": "/api/v1/documents/batch-upload",
+        "method": "POST",
+        "function": "upload_document"
+      },
+      {
+        "path": "/api/v1/documents/supported-formats",
+        "method": "GET",
+        "function": "get_supported_formats"
+      },
+      {
+        "path": "/api/v1/documents/{doc_id}/analyze-relationships",
+        "method": "POST",
+        "function": "upload_document"
+      },
+      {
+        "path": "/api/v1/documents/{doc_id}/generate-tags",
+        "method": "POST",
+        "function": "upload_document"
+      },
+      {
+        "path": "/api/v1/documents/{doc_id}/versions",
+        "method": "GET",
+        "function": "get_supported_formats"
+      },
+      {
+        "path": "/api/v1/documents/{doc_id}/rollback",
+        "method": "POST",
+        "function": "upload_document"
+      }
+    ]
+  },
+  "knowledge_extraction.py": {
+    "routes": [
+      {
+        "path": "/api/v1/knowledge/health",
+        "method": "GET",
+        "function": "health_check"
+      },
+      {
+        "path": "/api/v1/knowledge/metrics",
+        "method": "GET",
+        "function": "health_check"
+      },
+      {
+        "path": "/api/v1/knowledge/extract",
+        "method": "POST",
+        "function": "extract_knowledge"
+      },
+      {
+        "path": "/api/v1/knowledge/batch/submit",
+        "method": "POST",
+        "function": "extract_knowledge"
+      },
+      {
+        "path": "/api/v1/knowledge/batch/{batch_id}/status",
+        "method": "GET",
+        "function": "health_check"
+      },
+      {
+        "path": "/api/v1/knowledge/batch/{batch_id}/results",
+        "method": "GET",
+        "function": "health_check"
+      },
+      {
+        "path": "/api/v1/knowledge/batch/{batch_id}",
+        "method": "DELETE",
+        "function": "cancel_batch_job"
+      },
+      {
+        "path": "/api/v1/knowledge/overview",
+        "method": "GET",
+        "function": "health_check"
+      }
+    ]
+  },
+  "batch.py": {
+    "routes": [
+      {
+        "path": "/api/v1/batch/jobs/create",
+        "method": "POST",
+        "function": "create_batch_job"
+      },
+      {
+        "path": "/api/v1/batch/jobs/{job_id}",
+        "method": "GET",
+        "function": "get_batch_job_status"
+      },
+      {
+        "path": "/api/v1/batch/jobs",
+        "method": "GET",
+        "function": "get_batch_job_status"
+      },
+      {
+        "path": "/api/v1/batch/jobs/{job_id}/start",
+        "method": "POST",
+        "function": "create_batch_job"
+      },
+      {
+        "path": "/api/v1/batch/jobs/{job_id}/pause",
+        "method": "POST",
+        "function": "create_batch_job"
+      },
+      {
+        "path": "/api/v1/batch/jobs/{job_id}/resume",
+        "method": "POST",
+        "function": "create_batch_job"
+      },
+      {
+        "path": "/api/v1/batch/jobs/{job_id}",
+        "method": "DELETE",
+        "function": "cancel_batch_job"
+      },
+      {
+        "path": "/api/v1/batch/jobs/{job_id}/logs",
+        "method": "GET",
+        "function": "get_batch_job_status"
+      },
+      {
+        "path": "/api/v1/batch/operations/bulk-create",
+        "method": "POST",
+        "function": "create_batch_job"
+      },
+      {
+        "path": "/api/v1/batch/operations/bulk-update",
+        "method": "POST",
+        "function": "create_batch_job"
+      },
+      {
+        "path": "/api/v1/batch/operations/bulk-delete",
+        "method": "POST",
+        "function": "create_batch_job"
+      },
+      {
+        "path": "/api/v1/batch/stats/summary",
+        "method": "GET",
+        "function": "get_batch_job_status"
+      },
+      {
+        "path": "/api/v1/batch/queues/status",
+        "method": "GET",
+        "function": "get_batch_job_status"
+      }
+    ]
+  },
+  "traffic_ramp.py": {
+    "routes": [
+      {
+        "path": "/api/v1/traffic-ramp/plans",
+        "method": "POST",
+        "function": "create_ramp_plan"
+      },
+      {
+        "path": "/api/v1/traffic-ramp/start",
+        "method": "POST",
+        "function": "create_ramp_plan"
+      },
+      {
+        "path": "/api/v1/traffic-ramp/pause",
+        "method": "POST",
+        "function": "create_ramp_plan"
+      },
+      {
+        "path": "/api/v1/traffic-ramp/resume",
+        "method": "POST",
+        "function": "create_ramp_plan"
+      },
+      {
+        "path": "/api/v1/traffic-ramp/rollback",
+        "method": "POST",
+        "function": "create_ramp_plan"
+      },
+      {
+        "path": "/api/v1/traffic-ramp/status/{exec_id}",
+        "method": "GET",
+        "function": "get_ramp_status"
+      },
+      {
+        "path": "/api/v1/traffic-ramp/plans",
+        "method": "GET",
+        "function": "get_ramp_status"
+      },
+      {
+        "path": "/api/v1/traffic-ramp/executions",
+        "method": "GET",
+        "function": "get_ramp_status"
+      },
+      {
+        "path": "/api/v1/traffic-ramp/recommended-plan",
+        "method": "POST",
+        "function": "create_ramp_plan"
+      },
+      {
+        "path": "/api/v1/traffic-ramp/quick-ramp",
+        "method": "POST",
+        "function": "create_ramp_plan"
+      },
+      {
+        "path": "/api/v1/traffic-ramp/strategies",
+        "method": "GET",
+        "function": "get_ramp_status"
+      },
+      {
+        "path": "/api/v1/traffic-ramp/phases",
+        "method": "GET",
+        "function": "get_ramp_status"
+      },
+      {
+        "path": "/api/v1/traffic-ramp/current-phase/{exec_id}",
+        "method": "GET",
+        "function": "get_ramp_status"
+      },
+      {
+        "path": "/api/v1/traffic-ramp/health",
+        "method": "GET",
+        "function": "get_ramp_status"
+      }
+    ]
+  },
+  "security.py": {
+    "routes": [
+      {
+        "path": "/api/v1/security/config",
+        "method": "GET",
+        "function": "get_security_config"
+      },
+      {
+        "path": "/api/v1/security/config",
+        "method": "PUT",
+        "function": "update_security_config"
+      },
+      {
+        "path": "/api/v1/security/api-keys",
+        "method": "GET",
+        "function": "get_security_config"
+      },
+      {
+        "path": "/api/v1/security/api-keys",
+        "method": "POST",
+        "function": "create_api_key"
+      },
+      {
+        "path": "/api/v1/security/api-keys/{key_id}",
+        "method": "DELETE",
+        "function": "revoke_api_key"
+      },
+      {
+        "path": "/api/v1/security/mcp-tools/audit",
+        "method": "GET",
+        "function": "get_security_config"
+      },
+      {
+        "path": "/api/v1/security/mcp-tools/whitelist",
+        "method": "POST",
+        "function": "create_api_key"
+      },
+      {
+        "path": "/api/v1/security/mcp-tools/permissions",
+        "method": "GET",
+        "function": "get_security_config"
+      },
+      {
+        "path": "/api/v1/security/mcp-tools/permissions",
+        "method": "PUT",
+        "function": "update_security_config"
+      },
+      {
+        "path": "/api/v1/security/alerts",
+        "method": "GET",
+        "function": "get_security_config"
+      },
+      {
+        "path": "/api/v1/security/alerts/{alert_id}/resolve",
+        "method": "POST",
+        "function": "create_api_key"
+      },
+      {
+        "path": "/api/v1/security/metrics",
+        "method": "GET",
+        "function": "get_security_config"
+      },
+      {
+        "path": "/api/v1/security/risk-assessment",
+        "method": "GET",
+        "function": "get_security_config"
+      },
+      {
+        "path": "/api/v1/security/compliance-report",
+        "method": "GET",
+        "function": "get_security_config"
+      },
+      {
+        "path": "/api/v1/security/mcp-tools/pending-approvals",
+        "method": "GET",
+        "function": "get_security_config"
+      },
+      {
+        "path": "/api/v1/security/mcp-tools/approve/{request_id}",
+        "method": "POST",
+        "function": "create_api_key"
+      }
+    ]
+  },
+  "hyperparameter_optimization.py": {
+    "routes": [
+      {
+        "path": "/api/v1/hyperparameter-optimization/experiments",
+        "method": "POST",
+        "function": "create_experiment"
+      },
+      {
+        "path": "/api/v1/hyperparameter-optimization/experiments",
+        "method": "GET",
+        "function": "list_experiments"
+      },
+      {
+        "path": "/api/v1/hyperparameter-optimization/experiments/{experiment_id}",
+        "method": "GET",
+        "function": "list_experiments"
+      },
+      {
+        "path": "/api/v1/hyperparameter-optimization/experiments/{experiment_id}/start",
+        "method": "POST",
+        "function": "create_experiment"
+      },
+      {
+        "path": "/api/v1/hyperparameter-optimization/experiments/{experiment_id}/stop",
+        "method": "POST",
+        "function": "create_experiment"
+      },
+      {
+        "path": "/api/v1/hyperparameter-optimization/experiments/{experiment_id}",
+        "method": "DELETE",
+        "function": "delete_experiment"
+      },
+      {
+        "path": "/api/v1/hyperparameter-optimization/experiments/{experiment_id}/trials",
+        "method": "GET",
+        "function": "list_experiments"
+      },
+      {
+        "path": "/api/v1/hyperparameter-optimization/experiments/{experiment_id}/visualizations",
+        "method": "GET",
+        "function": "list_experiments"
+      },
+      {
+        "path": "/api/v1/hyperparameter-optimization/experiments/{experiment_id}/progress",
+        "method": "GET",
+        "function": "list_experiments"
+      },
+      {
+        "path": "/api/v1/hyperparameter-optimization/tasks",
+        "method": "GET",
+        "function": "list_experiments"
+      },
+      {
+        "path": "/api/v1/hyperparameter-optimization/tasks/{task_name}",
+        "method": "GET",
+        "function": "list_experiments"
+      },
+      {
+        "path": "/api/v1/hyperparameter-optimization/tasks",
+        "method": "POST",
+        "function": "create_experiment"
+      },
+      {
+        "path": "/api/v1/hyperparameter-optimization/optimize/{task_name}",
+        "method": "POST",
+        "function": "create_experiment"
+      },
+      {
+        "path": "/api/v1/hyperparameter-optimization/compare-algorithms/{task_name}",
+        "method": "POST",
+        "function": "create_experiment"
+      },
+      {
+        "path": "/api/v1/hyperparameter-optimization/resource-status",
+        "method": "GET",
+        "function": "list_experiments"
+      },
+      {
+        "path": "/api/v1/hyperparameter-optimization/active-experiments",
+        "method": "GET",
+        "function": "list_experiments"
+      },
+      {
+        "path": "/api/v1/hyperparameter-optimization/health",
+        "method": "GET",
+        "function": "list_experiments"
+      },
+      {
+        "path": "/api/v1/hyperparameter-optimization/algorithms",
+        "method": "GET",
+        "function": "list_experiments"
+      },
+      {
+        "path": "/api/v1/hyperparameter-optimization/pruning-strategies",
+        "method": "GET",
+        "function": "list_experiments"
+      },
+      {
+        "path": "/api/v1/hyperparameter-optimization/parameter-types",
+        "method": "GET",
+        "function": "list_experiments"
+      }
+    ]
+  },
+  "emotion_intelligence.py": {
+    "routes": [
+      {
+        "path": "/api/v1/emotion-intelligence/analyze",
+        "method": "POST",
+        "function": "analyze_emotion"
+      },
+      {
+        "path": "/api/v1/emotion-intelligence/status",
+        "method": "GET",
+        "function": "get_system_status"
+      },
+      {
+        "path": "/api/v1/emotion-intelligence/quality-report",
+        "method": "GET",
+        "function": "get_system_status"
+      },
+      {
+        "path": "/api/v1/emotion-intelligence/quality/ground-truth",
+        "method": "POST",
+        "function": "analyze_emotion"
+      },
+      {
+        "path": "/api/v1/emotion-intelligence/health",
+        "method": "GET",
+        "function": "get_system_status"
+      }
+    ]
+  },
+  "multimodal.py": {
+    "routes": [
+      {
+        "path": "/api/v1/multimodal/upload",
+        "method": "POST",
+        "function": "upload_file"
+      },
+      {
+        "path": "/api/v1/multimodal/process",
+        "method": "POST",
+        "function": "upload_file"
+      },
+      {
+        "path": "/api/v1/multimodal/process/batch",
+        "method": "POST",
+        "function": "upload_file"
+      },
+      {
+        "path": "/api/v1/multimodal/status/{content_id}",
+        "method": "GET",
+        "function": "get_processing_status"
+      },
+      {
+        "path": "/api/v1/multimodal/queue/status",
+        "method": "GET",
+        "function": "get_processing_status"
+      },
+      {
+        "path": "/api/v1/multimodal/analyze/image",
+        "method": "POST",
+        "function": "upload_file"
+      },
+      {
+        "path": "/api/v1/multimodal/file/{content_id}",
+        "method": "DELETE",
+        "function": "delete_file"
+      }
+    ]
+  },
+  "cache.py": {
+    "routes": [
+      {
+        "path": "/api/v1/cache/stats",
+        "method": "GET",
+        "function": "get_cache_stats"
+      },
+      {
+        "path": "/api/v1/cache/health",
+        "method": "GET",
+        "function": "get_cache_stats"
+      },
+      {
+        "path": "/api/v1/cache/performance",
+        "method": "GET",
+        "function": "get_cache_stats"
+      },
+      {
+        "path": "/api/v1/cache/clear",
+        "method": "DELETE",
+        "function": "clear_cache"
+      },
+      {
+        "path": "/api/v1/cache/invalidate/{node_name}",
+        "method": "DELETE",
+        "function": "clear_cache"
+      },
+      {
+        "path": "/api/v1/cache/summary",
+        "method": "GET",
+        "function": "get_cache_stats"
+      },
+      {
+        "path": "/api/v1/cache/config",
+        "method": "GET",
+        "function": "get_cache_stats"
+      },
+      {
+        "path": "/api/v1/cache/warmup",
+        "method": "POST",
+        "function": "warmup_cache"
+      }
+    ]
+  },
+  "langgraph_features.py": {
+    "routes": [
+      {
+        "path": "/api/v1/langgraph/context-api/demo",
+        "method": "POST",
+        "function": "demo_context_api"
+      },
+      {
+        "path": "/api/v1/langgraph/durability/demo",
+        "method": "POST",
+        "function": "demo_context_api"
+      },
+      {
+        "path": "/api/v1/langgraph/caching/demo",
+        "method": "POST",
+        "function": "demo_context_api"
+      },
+      {
+        "path": "/api/v1/langgraph/hooks/demo",
+        "method": "POST",
+        "function": "demo_context_api"
+      },
+      {
+        "path": "/api/v1/langgraph/hooks/status",
+        "method": "GET",
+        "function": "get_hooks_status"
+      },
+      {
+        "path": "/api/v1/langgraph/hooks/configure",
+        "method": "POST",
+        "function": "demo_context_api"
+      },
+      {
+        "path": "/api/v1/langgraph/cache/stats",
+        "method": "GET",
+        "function": "get_hooks_status"
+      },
+      {
+        "path": "/api/v1/langgraph/cache/clear",
+        "method": "POST",
+        "function": "demo_context_api"
+      },
+      {
+        "path": "/api/v1/langgraph/execute-demo",
+        "method": "POST",
+        "function": "demo_context_api"
+      },
+      {
+        "path": "/api/v1/langgraph/complete-demo",
+        "method": "POST",
+        "function": "demo_context_api"
+      }
+    ]
+  },
+  "offline.py": {
+    "routes": [
+      {
+        "path": "/api/v1/offline/status",
+        "method": "GET",
+        "function": "get_offline_status"
+      },
+      {
+        "path": "/api/v1/offline/sync",
+        "method": "POST",
+        "function": "manual_sync"
+      },
+      {
+        "path": "/api/v1/offline/conflicts",
+        "method": "GET",
+        "function": "get_offline_status"
+      },
+      {
+        "path": "/api/v1/offline/resolve",
+        "method": "POST",
+        "function": "manual_sync"
+      },
+      {
+        "path": "/api/v1/offline/operations",
+        "method": "GET",
+        "function": "get_offline_status"
+      },
+      {
+        "path": "/api/v1/offline/statistics",
+        "method": "GET",
+        "function": "get_offline_status"
+      },
+      {
+        "path": "/api/v1/offline/mode/{mode}",
+        "method": "POST",
+        "function": "manual_sync"
+      },
+      {
+        "path": "/api/v1/offline/network",
+        "method": "GET",
+        "function": "get_offline_status"
+      },
+      {
+        "path": "/api/v1/offline/cleanup",
+        "method": "POST",
+        "function": "manual_sync"
+      },
+      {
+        "path": "/api/v1/offline/health",
+        "method": "GET",
+        "function": "get_offline_status"
+      }
+    ]
+  },
+  "auto_scaling.py": {
+    "routes": [
+      {
+        "path": "/api/v1/auto-scaling/rules",
+        "method": "POST",
+        "function": "create_scaling_rule"
+      },
+      {
+        "path": "/api/v1/auto-scaling/rules/{rule_id}/conditions",
+        "method": "POST",
+        "function": "create_scaling_rule"
+      },
+      {
+        "path": "/api/v1/auto-scaling/start",
+        "method": "POST",
+        "function": "create_scaling_rule"
+      },
+      {
+        "path": "/api/v1/auto-scaling/stop/{rule_id}",
+        "method": "POST",
+        "function": "create_scaling_rule"
+      },
+      {
+        "path": "/api/v1/auto-scaling/rules",
+        "method": "GET",
+        "function": "list_rules"
+      },
+      {
+        "path": "/api/v1/auto-scaling/history/{experiment_id}",
+        "method": "GET",
+        "function": "list_rules"
+      },
+      {
+        "path": "/api/v1/auto-scaling/recommendations/{experiment_id}",
+        "method": "GET",
+        "function": "list_rules"
+      },
+      {
+        "path": "/api/v1/auto-scaling/simulate",
+        "method": "POST",
+        "function": "create_scaling_rule"
+      },
+      {
+        "path": "/api/v1/auto-scaling/templates/safe",
+        "method": "POST",
+        "function": "create_scaling_rule"
+      },
+      {
+        "path": "/api/v1/auto-scaling/templates/aggressive",
+        "method": "POST",
+        "function": "create_scaling_rule"
+      },
+      {
+        "path": "/api/v1/auto-scaling/modes",
+        "method": "GET",
+        "function": "list_rules"
+      },
+      {
+        "path": "/api/v1/auto-scaling/triggers",
+        "method": "GET",
+        "function": "list_rules"
+      },
+      {
+        "path": "/api/v1/auto-scaling/status",
+        "method": "GET",
+        "function": "list_rules"
+      },
+      {
+        "path": "/api/v1/auto-scaling/health",
+        "method": "GET",
+        "function": "list_rules"
+      }
+    ]
+  },
+  "test.py": {
+    "routes": [
+      {
+        "path": "/api/v1/test/async-db",
+        "method": "GET",
+        "function": "test_async_database"
+      },
+      {
+        "path": "/api/v1/test/async-redis",
+        "method": "GET",
+        "function": "test_async_database"
+      },
+      {
+        "path": "/api/v1/test/concurrent",
+        "method": "GET",
+        "function": "test_async_database"
+      },
+      {
+        "path": "/api/v1/test/mixed-async",
+        "method": "GET",
+        "function": "test_async_database"
+      }
+    ]
+  },
+  "knowledge_management.py": {
+    "routes": [
+      {
+        "path": "/api/v1/api/v1/kg/entities",
+        "method": "GET",
+        "function": "list_entities"
+      },
+      {
+        "path": "/api/v1/api/v1/kg/entities",
+        "method": "POST",
+        "function": "create_entity"
+      },
+      {
+        "path": "/api/v1/api/v1/kg/entities/{entity_uri:path}",
+        "method": "GET",
+        "function": "list_entities"
+      },
+      {
+        "path": "/api/v1/api/v1/kg/entities/{entity_uri:path}",
+        "method": "PUT",
+        "function": "update_entity"
+      },
+      {
+        "path": "/api/v1/api/v1/kg/entities/{entity_uri:path}",
+        "method": "DELETE",
+        "function": "delete_entity"
+      },
+      {
+        "path": "/api/v1/api/v1/kg/relations",
+        "method": "GET",
+        "function": "list_entities"
+      },
+      {
+        "path": "/api/v1/api/v1/kg/relations",
+        "method": "POST",
+        "function": "create_entity"
+      },
+      {
+        "path": "/api/v1/api/v1/kg/batch",
+        "method": "POST",
+        "function": "create_entity"
+      },
+      {
+        "path": "/api/v1/api/v1/kg/validate",
+        "method": "POST",
+        "function": "create_entity"
+      },
+      {
+        "path": "/api/v1/api/v1/kg/schema",
+        "method": "GET",
+        "function": "list_entities"
+      },
+      {
+        "path": "/api/v1/api/v1/kg/stats",
+        "method": "GET",
+        "function": "list_entities"
+      },
+      {
+        "path": "/api/v1/api/v1/kg/health",
+        "method": "GET",
+        "function": "list_entities"
+      }
+    ]
+  },
+  "agents.py": {
+    "routes": [
+      {
+        "path": "/api/v1/agents/sessions",
+        "method": "POST",
+        "function": "create_agent_session"
+      },
+      {
+        "path": "/api/v1/agents/react/chat/{conversation_id}",
+        "method": "POST",
+        "function": "create_agent_session"
+      },
+      {
+        "path": "/api/v1/agents/react/task/{conversation_id}",
+        "method": "POST",
+        "function": "create_agent_session"
+      },
+      {
+        "path": "/api/v1/agents/conversations/{conversation_id}/history",
+        "method": "GET",
+        "function": "get_conversation_history"
+      },
+      {
+        "path": "/api/v1/agents/conversations/{conversation_id}/status",
+        "method": "GET",
+        "function": "get_conversation_history"
+      },
+      {
+        "path": "/api/v1/agents/conversations/{conversation_id}",
+        "method": "DELETE",
+        "function": "close_agent_session"
+      },
+      {
+        "path": "/api/v1/agents/conversations",
+        "method": "GET",
+        "function": "get_conversation_history"
+      },
+      {
+        "path": "/api/v1/agents/performance",
+        "method": "GET",
+        "function": "get_conversation_history"
+      }
+    ]
+  },
+  "platform_integration.py": {
+    "routes": [
+      {
+        "path": "/api/v1/platform/components/register",
+        "method": "POST",
+        "function": "register_component"
+      },
+      {
+        "path": "/api/v1/platform/components/{component_id}",
+        "method": "DELETE",
+        "function": "unregister_component"
+      },
+      {
+        "path": "/api/v1/platform/components",
+        "method": "GET",
+        "function": "list_components"
+      },
+      {
+        "path": "/api/v1/platform/components/{component_id}",
+        "method": "GET",
+        "function": "list_components"
+      },
+      {
+        "path": "/api/v1/platform/workflows/run",
+        "method": "POST",
+        "function": "register_component"
+      },
+      {
+        "path": "/api/v1/platform/workflows/{workflow_id}/status",
+        "method": "GET",
+        "function": "list_components"
+      },
+      {
+        "path": "/api/v1/platform/workflows/{workflow_id}/cancel",
+        "method": "POST",
+        "function": "register_component"
+      },
+      {
+        "path": "/api/v1/platform/workflows",
+        "method": "GET",
+        "function": "list_components"
+      },
+      {
+        "path": "/api/v1/platform/health",
+        "method": "GET",
+        "function": "list_components"
+      },
+      {
+        "path": "/api/v1/platform/metrics",
+        "method": "GET",
+        "function": "list_components"
+      },
+      {
+        "path": "/api/v1/platform/monitoring/report",
+        "method": "GET",
+        "function": "list_components"
+      },
+      {
+        "path": "/api/v1/platform/optimization/run",
+        "method": "POST",
+        "function": "register_component"
+      },
+      {
+        "path": "/api/v1/platform/optimization/metrics",
+        "method": "GET",
+        "function": "list_components"
+      },
+      {
+        "path": "/api/v1/platform/optimization/profile/{profile_name}",
+        "method": "POST",
+        "function": "register_component"
+      },
+      {
+        "path": "/api/v1/platform/optimization/report",
+        "method": "GET",
+        "function": "list_components"
+      },
+      {
+        "path": "/api/v1/platform/documentation/generate",
+        "method": "POST",
+        "function": "register_component"
+      },
+      {
+        "path": "/api/v1/platform/documentation/status",
+        "method": "GET",
+        "function": "list_components"
+      },
+      {
+        "path": "/api/v1/platform/documentation/training-materials",
+        "method": "POST",
+        "function": "register_component"
+      },
+      {
+        "path": "/api/v1/platform/config",
+        "method": "GET",
+        "function": "list_components"
+      },
+      {
+        "path": "/api/v1/platform/stats",
+        "method": "GET",
+        "function": "list_components"
+      }
+    ]
+  },
+  "emotional_memory.py": {
+    "routes": [
+      {
+        "path": "/api/v1/emotional-memory/memories",
+        "method": "POST",
+        "function": "create_memory"
+      },
+      {
+        "path": "/api/v1/emotional-memory/memories",
+        "method": "GET",
+        "function": "get_user_memories"
+      },
+      {
+        "path": "/api/v1/emotional-memory/memories/search",
+        "method": "POST",
+        "function": "create_memory"
+      },
+      {
+        "path": "/api/v1/emotional-memory/events/detect",
+        "method": "POST",
+        "function": "create_memory"
+      },
+      {
+        "path": "/api/v1/emotional-memory/events/{user_id}",
+        "method": "GET",
+        "function": "get_user_memories"
+      },
+      {
+        "path": "/api/v1/emotional-memory/preferences/learn",
+        "method": "POST",
+        "function": "create_memory"
+      },
+      {
+        "path": "/api/v1/emotional-memory/patterns/triggers",
+        "method": "GET",
+        "function": "get_user_memories"
+      },
+      {
+        "path": "/api/v1/emotional-memory/storage/optimize",
+        "method": "POST",
+        "function": "create_memory"
+      },
+      {
+        "path": "/api/v1/emotional-memory/preferences/{user_id}",
+        "method": "GET",
+        "function": "get_user_memories"
+      },
+      {
+        "path": "/api/v1/emotional-memory/patterns/identify",
+        "method": "POST",
+        "function": "create_memory"
+      },
+      {
+        "path": "/api/v1/emotional-memory/patterns/{user_id}",
+        "method": "GET",
+        "function": "get_user_memories"
+      },
+      {
+        "path": "/api/v1/emotional-memory/patterns/predict",
+        "method": "POST",
+        "function": "create_memory"
+      },
+      {
+        "path": "/api/v1/emotional-memory/memories/{user_id}/{memory_id}",
+        "method": "DELETE",
+        "function": "delete_memory"
+      },
+      {
+        "path": "/api/v1/emotional-memory/memories/export/{user_id}",
+        "method": "POST",
+        "function": "create_memory"
+      },
+      {
+        "path": "/api/v1/emotional-memory/statistics/{user_id}",
+        "method": "GET",
+        "function": "get_user_memories"
+      }
+    ]
+  },
+  "event_tracking.py": {
+    "routes": [
+      {
+        "path": "/api/v1/event-tracking/events",
+        "method": "POST",
+        "function": "create_event"
+      },
+      {
+        "path": "/api/v1/event-tracking/events/batch",
+        "method": "POST",
+        "function": "create_event"
+      },
+      {
+        "path": "/api/v1/event-tracking/events",
+        "method": "GET",
+        "function": "query_events"
+      },
+      {
+        "path": "/api/v1/event-tracking/events/{event_id}",
+        "method": "GET",
+        "function": "query_events"
+      },
+      {
+        "path": "/api/v1/event-tracking/stats",
+        "method": "GET",
+        "function": "query_events"
+      },
+      {
+        "path": "/api/v1/event-tracking/events/{event_id}/reprocess",
+        "method": "POST",
+        "function": "create_event"
+      }
+    ]
+  },
+  "async_agents.py": {
+    "routes": [
+      {
+        "path": "/api/v1/async-agents/agents",
+        "method": "POST",
+        "function": "create_agent"
+      },
+      {
+        "path": "/api/v1/async-agents/agents",
+        "method": "GET",
+        "function": "list_agents"
+      },
+      {
+        "path": "/api/v1/async-agents/agents/{agent_id}",
+        "method": "GET",
+        "function": "list_agents"
+      },
+      {
+        "path": "/api/v1/async-agents/agents/{agent_id}",
+        "method": "DELETE",
+        "function": "destroy_agent"
+      },
+      {
+        "path": "/api/v1/async-agents/tasks",
+        "method": "POST",
+        "function": "create_agent"
+      },
+      {
+        "path": "/api/v1/async-agents/tasks",
+        "method": "GET",
+        "function": "list_agents"
+      },
+      {
+        "path": "/api/v1/async-agents/tasks/{task_id}",
+        "method": "GET",
+        "function": "list_agents"
+      },
+      {
+        "path": "/api/v1/async-agents/tasks/{task_id}",
+        "method": "DELETE",
+        "function": "destroy_agent"
+      },
+      {
+        "path": "/api/v1/async-agents/workflows",
+        "method": "POST",
+        "function": "create_agent"
+      },
+      {
+        "path": "/api/v1/async-agents/collaborative-tasks",
+        "method": "POST",
+        "function": "create_agent"
+      },
+      {
+        "path": "/api/v1/async-agents/stats",
+        "method": "GET",
+        "function": "list_agents"
+      },
+      {
+        "path": "/api/v1/async-agents/health",
+        "method": "GET",
+        "function": "list_agents"
+      }
+    ]
+  },
+  "multi_agents.py": {
+    "routes": [
+      {
+        "path": "/api/v1/multi-agent/conversation",
+        "method": "POST",
+        "function": "create_conversation"
+      },
+      {
+        "path": "/api/v1/multi-agent/conversation/{conversation_id}/status",
+        "method": "GET",
+        "function": "get_conversation_status"
+      },
+      {
+        "path": "/api/v1/multi-agent/conversation/{conversation_id}/pause",
+        "method": "POST",
+        "function": "create_conversation"
+      },
+      {
+        "path": "/api/v1/multi-agent/conversation/{conversation_id}/resume",
+        "method": "POST",
+        "function": "create_conversation"
+      },
+      {
+        "path": "/api/v1/multi-agent/conversation/{conversation_id}/terminate",
+        "method": "POST",
+        "function": "create_conversation"
+      },
+      {
+        "path": "/api/v1/multi-agent/conversation/{conversation_id}/messages",
+        "method": "GET",
+        "function": "get_conversation_status"
+      },
+      {
+        "path": "/api/v1/multi-agent/conversations",
+        "method": "GET",
+        "function": "get_conversation_status"
+      },
+      {
+        "path": "/api/v1/multi-agent/statistics",
+        "method": "GET",
+        "function": "get_conversation_status"
+      },
+      {
+        "path": "/api/v1/multi-agent/cleanup",
+        "method": "POST",
+        "function": "create_conversation"
+      },
+      {
+        "path": "/api/v1/multi-agent/agents",
+        "method": "GET",
+        "function": "get_conversation_status"
+      },
+      {
+        "path": "/api/v1/multi-agent/health",
+        "method": "GET",
+        "function": "get_conversation_status"
+      }
+    ]
+  },
+  "model_service.py": {
+    "routes": [
+      {
+        "path": "/api/v1/api/v1/model-service/models/upload",
+        "method": "POST",
+        "function": "upload_model"
+      },
+      {
+        "path": "/api/v1/api/v1/model-service/models/register-from-hub",
+        "method": "POST",
+        "function": "upload_model"
+      },
+      {
+        "path": "/api/v1/api/v1/model-service/models",
+        "method": "GET",
+        "function": "list_models"
+      },
+      {
+        "path": "/api/v1/api/v1/model-service/models/{model_name}/versions/{version}",
+        "method": "GET",
+        "function": "list_models"
+      },
+      {
+        "path": "/api/v1/api/v1/model-service/models/{model_name}/versions/{version}",
+        "method": "DELETE",
+        "function": "delete_model"
+      },
+      {
+        "path": "/api/v1/api/v1/model-service/models/{model_name}/versions/{version}/validate",
+        "method": "POST",
+        "function": "upload_model"
+      },
+      {
+        "path": "/api/v1/api/v1/model-service/inference/predict",
+        "method": "POST",
+        "function": "upload_model"
+      },
+      {
+        "path": "/api/v1/api/v1/model-service/inference/batch-predict",
+        "method": "POST",
+        "function": "upload_model"
+      },
+      {
+        "path": "/api/v1/api/v1/model-service/inference/models/loaded",
+        "method": "GET",
+        "function": "list_models"
+      },
+      {
+        "path": "/api/v1/api/v1/model-service/inference/models/{model_name}/load",
+        "method": "POST",
+        "function": "upload_model"
+      },
+      {
+        "path": "/api/v1/api/v1/model-service/inference/models/{model_name}/unload",
+        "method": "DELETE",
+        "function": "delete_model"
+      },
+      {
+        "path": "/api/v1/api/v1/model-service/deployment/deploy",
+        "method": "POST",
+        "function": "upload_model"
+      },
+      {
+        "path": "/api/v1/api/v1/model-service/deployment/{deployment_id}",
+        "method": "GET",
+        "function": "list_models"
+      },
+      {
+        "path": "/api/v1/api/v1/model-service/deployment/list",
+        "method": "GET",
+        "function": "list_models"
+      },
+      {
+        "path": "/api/v1/api/v1/model-service/deployment/{deployment_id}",
+        "method": "DELETE",
+        "function": "delete_model"
+      },
+      {
+        "path": "/api/v1/api/v1/model-service/learning/start",
+        "method": "POST",
+        "function": "upload_model"
+      },
+      {
+        "path": "/api/v1/api/v1/model-service/learning/{session_id}/feedback",
+        "method": "POST",
+        "function": "upload_model"
+      },
+      {
+        "path": "/api/v1/api/v1/model-service/learning/{session_id}/update",
+        "method": "POST",
+        "function": "upload_model"
+      },
+      {
+        "path": "/api/v1/api/v1/model-service/learning/{session_id}/stats",
+        "method": "GET",
+        "function": "list_models"
+      },
+      {
+        "path": "/api/v1/api/v1/model-service/learning/sessions",
+        "method": "GET",
+        "function": "list_models"
+      },
+      {
+        "path": "/api/v1/api/v1/model-service/abtest/create",
+        "method": "POST",
+        "function": "upload_model"
+      },
+      {
+        "path": "/api/v1/api/v1/model-service/abtest/{test_id}/assign",
+        "method": "GET",
+        "function": "list_models"
+      },
+      {
+        "path": "/api/v1/api/v1/model-service/abtest/{test_id}/record",
+        "method": "POST",
+        "function": "upload_model"
+      },
+      {
+        "path": "/api/v1/api/v1/model-service/abtest/{test_id}/results",
+        "method": "GET",
+        "function": "list_models"
+      },
+      {
+        "path": "/api/v1/api/v1/model-service/abtest/list",
+        "method": "GET",
+        "function": "list_models"
+      },
+      {
+        "path": "/api/v1/api/v1/model-service/monitoring/overview",
+        "method": "GET",
+        "function": "list_models"
+      },
+      {
+        "path": "/api/v1/api/v1/model-service/monitoring/dashboard",
+        "method": "GET",
+        "function": "list_models"
+      },
+      {
+        "path": "/api/v1/api/v1/model-service/monitoring/alerts",
+        "method": "GET",
+        "function": "list_models"
+      },
+      {
+        "path": "/api/v1/api/v1/model-service/monitoring/recommendations",
+        "method": "GET",
+        "function": "list_models"
+      },
+      {
+        "path": "/api/v1/api/v1/model-service/monitoring/metrics/{metric_name}",
+        "method": "GET",
+        "function": "list_models"
+      },
+      {
+        "path": "/api/v1/api/v1/model-service/health",
+        "method": "GET",
+        "function": "list_models"
+      },
+      {
+        "path": "/api/v1/api/v1/model-service/statistics",
+        "method": "GET",
+        "function": "list_models"
+      }
+    ]
+  },
+  "acl.py": {
+    "routes": [
+      {
+        "path": "/api/v1/acl/rules",
+        "method": "GET",
+        "function": "list_rules"
+      },
+      {
+        "path": "/api/v1/acl/rules/{rule_id}",
+        "method": "GET",
+        "function": "list_rules"
+      },
+      {
+        "path": "/api/v1/acl/rules",
+        "method": "POST",
+        "function": "create_rule"
+      },
+      {
+        "path": "/api/v1/acl/rules/{rule_id}",
+        "method": "PUT",
+        "function": "update_rule"
+      },
+      {
+        "path": "/api/v1/acl/rules/{rule_id}",
+        "method": "DELETE",
+        "function": "delete_rule"
+      },
+      {
+        "path": "/api/v1/acl/metrics",
+        "method": "GET",
+        "function": "list_rules"
+      },
+      {
+        "path": "/api/v1/acl/validate",
+        "method": "POST",
+        "function": "create_rule"
+      },
+      {
+        "path": "/api/v1/acl/rules/{rule_id}/test",
+        "method": "POST",
+        "function": "create_rule"
+      },
+      {
+        "path": "/api/v1/acl/export",
+        "method": "GET",
+        "function": "list_rules"
+      },
+      {
+        "path": "/api/v1/acl/import",
+        "method": "POST",
+        "function": "create_rule"
+      },
+      {
+        "path": "/api/v1/acl/health",
+        "method": "GET",
+        "function": "list_rules"
+      }
+    ]
+  },
+  "experiments.py": {
+    "routes": [
+      {
+        "path": "/api/v1/experiments/",
+        "method": "POST",
+        "function": "create_experiment"
+      },
+      {
+        "path": "/api/v1/experiments/",
+        "method": "GET",
+        "function": "list_experiments"
+      },
+      {
+        "path": "/api/v1/experiments/{experiment_id}",
+        "method": "GET",
+        "function": "list_experiments"
+      },
+      {
+        "path": "/api/v1/experiments/{experiment_id}",
+        "method": "PUT",
+        "function": "update_experiment"
+      },
+      {
+        "path": "/api/v1/experiments/{experiment_id}",
+        "method": "DELETE",
+        "function": "delete_experiment"
+      },
+      {
+        "path": "/api/v1/experiments/{experiment_id}/start",
+        "method": "POST",
+        "function": "create_experiment"
+      },
+      {
+        "path": "/api/v1/experiments/{experiment_id}/pause",
+        "method": "POST",
+        "function": "create_experiment"
+      },
+      {
+        "path": "/api/v1/experiments/{experiment_id}/stop",
+        "method": "POST",
+        "function": "create_experiment"
+      },
+      {
+        "path": "/api/v1/experiments/{experiment_id}/assign",
+        "method": "POST",
+        "function": "create_experiment"
+      },
+      {
+        "path": "/api/v1/experiments/user/{user_id}",
+        "method": "GET",
+        "function": "list_experiments"
+      },
+      {
+        "path": "/api/v1/experiments/events",
+        "method": "POST",
+        "function": "create_experiment"
+      },
+      {
+        "path": "/api/v1/experiments/events/batch",
+        "method": "POST",
+        "function": "create_experiment"
+      },
+      {
+        "path": "/api/v1/experiments/{experiment_id}/results",
+        "method": "GET",
+        "function": "list_experiments"
+      },
+      {
+        "path": "/api/v1/experiments/{experiment_id}/report",
+        "method": "GET",
+        "function": "list_experiments"
+      },
+      {
+        "path": "/api/v1/experiments/{experiment_id}/metrics/{metric_name}",
+        "method": "GET",
+        "function": "list_experiments"
+      },
+      {
+        "path": "/api/v1/experiments/{experiment_id}/monitor",
+        "method": "GET",
+        "function": "list_experiments"
+      },
+      {
+        "path": "/api/v1/experiments/{experiment_id}/alerts",
+        "method": "POST",
+        "function": "create_experiment"
+      },
+      {
+        "path": "/api/v1/experiments/{experiment_id}/allocate",
+        "method": "POST",
+        "function": "create_experiment"
+      },
+      {
+        "path": "/api/v1/experiments/{experiment_id}/allocate/batch",
+        "method": "POST",
+        "function": "create_experiment"
+      },
+      {
+        "path": "/api/v1/experiments/{experiment_id}/allocation/distribution",
+        "method": "GET",
+        "function": "list_experiments"
+      },
+      {
+        "path": "/api/v1/experiments/{experiment_id}/allocation/simulate",
+        "method": "POST",
+        "function": "create_experiment"
+      },
+      {
+        "path": "/api/v1/experiments/{experiment_id}/allocation/rules",
+        "method": "POST",
+        "function": "create_experiment"
+      },
+      {
+        "path": "/api/v1/experiments/{experiment_id}/allocation/stages",
+        "method": "POST",
+        "function": "create_experiment"
+      },
+      {
+        "path": "/api/v1/experiments/{experiment_id}/allocation/cache",
+        "method": "DELETE",
+        "function": "delete_experiment"
+      },
+      {
+        "path": "/api/v1/experiments/allocation/stats",
+        "method": "GET",
+        "function": "list_experiments"
+      }
+    ]
+  },
+  "emotion_recognition.py": {
+    "routes": [
+      {
+        "path": "/api/v1/api/v1/emotion/analyze/text",
+        "method": "POST",
+        "function": "analyze_text_emotion"
+      },
+      {
+        "path": "/api/v1/api/v1/emotion/analyze/audio",
+        "method": "POST",
+        "function": "analyze_text_emotion"
+      },
+      {
+        "path": "/api/v1/api/v1/emotion/analyze/visual",
+        "method": "POST",
+        "function": "analyze_text_emotion"
+      },
+      {
+        "path": "/api/v1/api/v1/emotion/analyze/multimodal",
+        "method": "POST",
+        "function": "analyze_text_emotion"
+      },
+      {
+        "path": "/api/v1/api/v1/emotion/stats",
+        "method": "GET",
+        "function": "get_emotion_stats"
+      },
+      {
+        "path": "/api/v1/api/v1/emotion/models",
+        "method": "GET",
+        "function": "get_emotion_stats"
+      },
+      {
+        "path": "/api/v1/api/v1/emotion/health",
+        "method": "GET",
+        "function": "get_emotion_stats"
+      }
+    ]
+  },
+  "pgvector.py": {
+    "routes": [
+      {
+        "path": "/api/v1/pgvector/collections",
+        "method": "POST",
+        "function": "create_collection"
+      },
+      {
+        "path": "/api/v1/pgvector/vectors",
+        "method": "POST",
+        "function": "create_collection"
+      },
+      {
+        "path": "/api/v1/pgvector/collections/{collection_name}/stats",
+        "method": "GET",
+        "function": "get_collection_stats"
+      },
+      {
+        "path": "/api/v1/pgvector/search/similarity",
+        "method": "POST",
+        "function": "create_collection"
+      },
+      {
+        "path": "/api/v1/pgvector/search/hybrid",
+        "method": "POST",
+        "function": "create_collection"
+      },
+      {
+        "path": "/api/v1/pgvector/quantization/test",
+        "method": "POST",
+        "function": "create_collection"
+      },
+      {
+        "path": "/api/v1/pgvector/quantization/config",
+        "method": "GET",
+        "function": "get_collection_stats"
+      },
+      {
+        "path": "/api/v1/pgvector/quantization/configure",
+        "method": "POST",
+        "function": "create_collection"
+      },
+      {
+        "path": "/api/v1/pgvector/performance/metrics",
+        "method": "GET",
+        "function": "get_collection_stats"
+      },
+      {
+        "path": "/api/v1/pgvector/performance/targets",
+        "method": "GET",
+        "function": "get_collection_stats"
+      },
+      {
+        "path": "/api/v1/pgvector/monitoring/performance-report",
+        "method": "GET",
+        "function": "get_collection_stats"
+      },
+      {
+        "path": "/api/v1/pgvector/health",
+        "method": "GET",
+        "function": "get_collection_stats"
+      },
+      {
+        "path": "/api/v1/pgvector/config",
+        "method": "GET",
+        "function": "get_collection_stats"
+      }
+    ]
+  },
+  "anomaly_detection.py": {
+    "routes": [
+      {
+        "path": "/api/v1/anomalies/detect",
+        "method": "POST",
+        "function": "detect_anomalies"
+      },
+      {
+        "path": "/api/v1/anomalies/check-srm",
+        "method": "POST",
+        "function": "detect_anomalies"
+      },
+      {
+        "path": "/api/v1/anomalies/check-data-quality",
+        "method": "POST",
+        "function": "detect_anomalies"
+      },
+      {
+        "path": "/api/v1/anomalies/summary/{experiment_id}",
+        "method": "GET",
+        "function": "get_anomaly_summary"
+      },
+      {
+        "path": "/api/v1/anomalies/configure",
+        "method": "POST",
+        "function": "detect_anomalies"
+      },
+      {
+        "path": "/api/v1/anomalies/real-time-monitor",
+        "method": "POST",
+        "function": "detect_anomalies"
+      },
+      {
+        "path": "/api/v1/anomalies/types",
+        "method": "GET",
+        "function": "get_anomaly_summary"
+      },
+      {
+        "path": "/api/v1/anomalies/methods",
+        "method": "GET",
+        "function": "get_anomaly_summary"
+      },
+      {
+        "path": "/api/v1/anomalies/batch-detect",
+        "method": "POST",
+        "function": "detect_anomalies"
+      },
+      {
+        "path": "/api/v1/anomalies/health",
+        "method": "GET",
+        "function": "get_anomaly_summary"
+      }
+    ]
+  },
+  "mcp.py": {
+    "routes": [
+      {
+        "path": "/api/v1/mcp/tools/call",
+        "method": "POST",
+        "function": "call_tool"
+      },
+      {
+        "path": "/api/v1/mcp/tools",
+        "method": "GET",
+        "function": "list_available_tools"
+      },
+      {
+        "path": "/api/v1/mcp/health",
+        "method": "GET",
+        "function": "list_available_tools"
+      },
+      {
+        "path": "/api/v1/mcp/metrics",
+        "method": "GET",
+        "function": "list_available_tools"
+      },
+      {
+        "path": "/api/v1/mcp/tools/filesystem/read",
+        "method": "POST",
+        "function": "call_tool"
+      },
+      {
+        "path": "/api/v1/mcp/tools/filesystem/write",
+        "method": "POST",
+        "function": "call_tool"
+      },
+      {
+        "path": "/api/v1/mcp/tools/filesystem/list",
+        "method": "GET",
+        "function": "list_available_tools"
+      },
+      {
+        "path": "/api/v1/mcp/tools/database/query",
+        "method": "POST",
+        "function": "call_tool"
+      },
+      {
+        "path": "/api/v1/mcp/tools/system/command",
+        "method": "POST",
+        "function": "call_tool"
+      }
+    ]
+  },
+  "empathy_response.py": {
+    "routes": [
+      {
+        "path": "/api/v1/empathy/generate",
+        "method": "POST",
+        "function": "generate_empathy_response"
+      },
+      {
+        "path": "/api/v1/empathy/batch-generate",
+        "method": "POST",
+        "function": "generate_empathy_response"
+      },
+      {
+        "path": "/api/v1/empathy/strategies",
+        "method": "GET",
+        "function": "get_empathy_strategies"
+      },
+      {
+        "path": "/api/v1/empathy/analytics",
+        "method": "GET",
+        "function": "get_empathy_strategies"
+      },
+      {
+        "path": "/api/v1/empathy/feedback",
+        "method": "POST",
+        "function": "generate_empathy_response"
+      },
+      {
+        "path": "/api/v1/empathy/health",
+        "method": "GET",
+        "function": "get_empathy_strategies"
+      },
+      {
+        "path": "/api/v1/empathy/context/{user_id}",
+        "method": "DELETE",
+        "function": "clear_user_context"
+      }
+    ]
+  },
+  "rag.py": {
+    "routes": [
+      {
+        "path": "/api/v1/rag/documents",
+        "method": "POST",
+        "function": "add_document"
+      },
+      {
+        "path": "/api/v1/rag/search",
+        "method": "POST",
+        "function": "add_document"
+      },
+      {
+        "path": "/api/v1/rag/query",
+        "method": "POST",
+        "function": "add_document"
+      },
+      {
+        "path": "/api/v1/rag/index/file",
+        "method": "POST",
+        "function": "add_document"
+      },
+      {
+        "path": "/api/v1/rag/index/directory",
+        "method": "POST",
+        "function": "add_document"
+      },
+      {
+        "path": "/api/v1/rag/index/update",
+        "method": "POST",
+        "function": "add_document"
+      },
+      {
+        "path": "/api/v1/rag/index/stats",
+        "method": "GET",
+        "function": "get_index_stats"
+      },
+      {
+        "path": "/api/v1/rag/index/reset",
+        "method": "DELETE",
+        "function": "reset_index"
+      },
+      {
+        "path": "/api/v1/rag/health",
+        "method": "GET",
+        "function": "get_index_stats"
+      },
+      {
+        "path": "/api/v1/rag/agentic/query",
+        "method": "POST",
+        "function": "add_document"
+      },
+      {
+        "path": "/api/v1/rag/agentic/query/stream",
+        "method": "POST",
+        "function": "add_document"
+      },
+      {
+        "path": "/api/v1/rag/agentic/explain",
+        "method": "GET",
+        "function": "get_index_stats"
+      },
+      {
+        "path": "/api/v1/rag/agentic/feedback",
+        "method": "POST",
+        "function": "add_document"
+      },
+      {
+        "path": "/api/v1/rag/agentic/stats",
+        "method": "GET",
+        "function": "get_index_stats"
+      },
+      {
+        "path": "/api/v1/rag/agentic/health",
+        "method": "GET",
+        "function": "get_index_stats"
+      },
+      {
+        "path": "/api/v1/rag/graphrag/query",
+        "method": "POST",
+        "function": "add_document"
+      },
+      {
+        "path": "/api/v1/rag/graphrag/health",
+        "method": "GET",
+        "function": "get_index_stats"
+      }
+    ]
+  },
+  "alert_rules.py": {
+    "routes": [
+      {
+        "path": "/api/v1/alert-rules/rules",
+        "method": "POST",
+        "function": "create_rule"
+      },
+      {
+        "path": "/api/v1/alert-rules/rules/{rule_id}",
+        "method": "PUT",
+        "function": "update_rule"
+      },
+      {
+        "path": "/api/v1/alert-rules/rules/{rule_id}",
+        "method": "DELETE",
+        "function": "delete_rule"
+      },
+      {
+        "path": "/api/v1/alert-rules/rules",
+        "method": "GET",
+        "function": "list_rules"
+      },
+      {
+        "path": "/api/v1/alert-rules/rules/{rule_id}",
+        "method": "GET",
+        "function": "list_rules"
+      },
+      {
+        "path": "/api/v1/alert-rules/evaluate",
+        "method": "POST",
+        "function": "create_rule"
+      },
+      {
+        "path": "/api/v1/alert-rules/templates",
+        "method": "POST",
+        "function": "create_rule"
+      },
+      {
+        "path": "/api/v1/alert-rules/templates",
+        "method": "GET",
+        "function": "list_rules"
+      },
+      {
+        "path": "/api/v1/alert-rules/alerts",
+        "method": "GET",
+        "function": "list_rules"
+      },
+      {
+        "path": "/api/v1/alert-rules/alerts/{alert_id}/acknowledge",
+        "method": "POST",
+        "function": "create_rule"
+      },
+      {
+        "path": "/api/v1/alert-rules/alerts/{alert_id}/resolve",
+        "method": "POST",
+        "function": "create_rule"
+      },
+      {
+        "path": "/api/v1/alert-rules/statistics",
+        "method": "GET",
+        "function": "list_rules"
+      },
+      {
+        "path": "/api/v1/alert-rules/test",
+        "method": "POST",
+        "function": "create_rule"
+      },
+      {
+        "path": "/api/v1/alert-rules/health",
+        "method": "GET",
+        "function": "list_rules"
+      }
+    ]
+  },
+  "risk_assessment.py": {
+    "routes": [
+      {
+        "path": "/api/v1/risk-assessment/assess",
+        "method": "POST",
+        "function": "assess_risk"
+      },
+      {
+        "path": "/api/v1/risk-assessment/history/{experiment_id}",
+        "method": "GET",
+        "function": "get_risk_history"
+      },
+      {
+        "path": "/api/v1/risk-assessment/rollback-plan",
+        "method": "POST",
+        "function": "assess_risk"
+      },
+      {
+        "path": "/api/v1/risk-assessment/rollback/execute",
+        "method": "POST",
+        "function": "assess_risk"
+      },
+      {
+        "path": "/api/v1/risk-assessment/rollback/status/{exec_id}",
+        "method": "GET",
+        "function": "get_risk_history"
+      },
+      {
+        "path": "/api/v1/risk-assessment/monitor",
+        "method": "POST",
+        "function": "assess_risk"
+      },
+      {
+        "path": "/api/v1/risk-assessment/thresholds",
+        "method": "GET",
+        "function": "get_risk_history"
+      },
+      {
+        "path": "/api/v1/risk-assessment/thresholds",
+        "method": "PUT",
+        "function": "update_risk_thresholds"
+      },
+      {
+        "path": "/api/v1/risk-assessment/risk-levels",
+        "method": "GET",
+        "function": "get_risk_history"
+      },
+      {
+        "path": "/api/v1/risk-assessment/categories",
+        "method": "GET",
+        "function": "get_risk_history"
+      },
+      {
+        "path": "/api/v1/risk-assessment/strategies",
+        "method": "GET",
+        "function": "get_risk_history"
+      },
+      {
+        "path": "/api/v1/risk-assessment/health",
+        "method": "GET",
+        "function": "get_risk_history"
+      }
+    ]
+  },
+  "agent_interface.py": {
+    "routes": [
+      {
+        "path": "/api/v1/agent/chat",
+        "method": "POST",
+        "function": "chat_with_agent"
+      },
+      {
+        "path": "/api/v1/agent/task",
+        "method": "POST",
+        "function": "chat_with_agent"
+      },
+      {
+        "path": "/api/v1/agent/status",
+        "method": "GET",
+        "function": "get_agent_status"
+      },
+      {
+        "path": "/api/v1/agent/metrics",
+        "method": "GET",
+        "function": "get_agent_status"
+      }
+    ]
+  },
+  "statistical_analysis.py": {
+    "routes": [
+      {
+        "path": "/api/v1/statistical-analysis/basic-stats",
+        "method": "POST",
+        "function": "calculate_basic_statistics"
+      },
+      {
+        "path": "/api/v1/statistical-analysis/conversion-stats",
+        "method": "POST",
+        "function": "calculate_basic_statistics"
+      },
+      {
+        "path": "/api/v1/statistical-analysis/percentiles",
+        "method": "POST",
+        "function": "calculate_basic_statistics"
+      },
+      {
+        "path": "/api/v1/statistical-analysis/multiple-groups-stats",
+        "method": "POST",
+        "function": "calculate_basic_statistics"
+      },
+      {
+        "path": "/api/v1/statistical-analysis/mean",
+        "method": "GET",
+        "function": "calculate_mean"
+      },
+      {
+        "path": "/api/v1/statistical-analysis/variance",
+        "method": "GET",
+        "function": "calculate_mean"
+      },
+      {
+        "path": "/api/v1/statistical-analysis/summary",
+        "method": "GET",
+        "function": "calculate_mean"
+      },
+      {
+        "path": "/api/v1/statistical-analysis/health",
+        "method": "GET",
+        "function": "calculate_mean"
+      }
+    ]
+  },
+  "memory_analytics.py": {
+    "routes": [
+      {
+        "path": "/api/v1/memories/analytics/",
+        "method": "GET",
+        "function": "get_memory_analytics"
+      },
+      {
+        "path": "/api/v1/memories/analytics/patterns",
+        "method": "GET",
+        "function": "get_memory_analytics"
+      },
+      {
+        "path": "/api/v1/memories/analytics/graph/stats",
+        "method": "GET",
+        "function": "get_memory_analytics"
+      },
+      {
+        "path": "/api/v1/memories/analytics/trends",
+        "method": "GET",
+        "function": "get_memory_analytics"
+      },
+      {
+        "path": "/api/v1/memories/analytics/health",
+        "method": "GET",
+        "function": "get_memory_analytics"
+      }
+    ]
+  },
+  "cluster_management.py": {
+    "routes": [
+      {
+        "path": "/api/v1/cluster/status",
+        "method": "GET",
+        "function": "get_cluster_status"
+      },
+      {
+        "path": "/api/v1/cluster/topology",
+        "method": "GET",
+        "function": "get_cluster_status"
+      },
+      {
+        "path": "/api/v1/cluster/health",
+        "method": "GET",
+        "function": "get_cluster_status"
+      },
+      {
+        "path": "/api/v1/cluster/agents",
+        "method": "POST",
+        "function": "create_agent"
+      },
+      {
+        "path": "/api/v1/cluster/agents",
+        "method": "GET",
+        "function": "get_cluster_status"
+      },
+      {
+        "path": "/api/v1/cluster/agents/{agent_id}",
+        "method": "GET",
+        "function": "get_cluster_status"
+      },
+      {
+        "path": "/api/v1/cluster/agents/{agent_id}/start",
+        "method": "POST",
+        "function": "create_agent"
+      },
+      {
+        "path": "/api/v1/cluster/agents/{agent_id}/stop",
+        "method": "POST",
+        "function": "create_agent"
+      },
+      {
+        "path": "/api/v1/cluster/agents/{agent_id}/restart",
+        "method": "POST",
+        "function": "create_agent"
+      },
+      {
+        "path": "/api/v1/cluster/agents/{agent_id}",
+        "method": "DELETE",
+        "function": "delete_agent"
+      },
+      {
+        "path": "/api/v1/cluster/groups",
+        "method": "POST",
+        "function": "create_agent"
+      },
+      {
+        "path": "/api/v1/cluster/groups",
+        "method": "GET",
+        "function": "get_cluster_status"
+      },
+      {
+        "path": "/api/v1/cluster/groups/{group_id}/agents/{agent_id}",
+        "method": "POST",
+        "function": "create_agent"
+      },
+      {
+        "path": "/api/v1/cluster/metrics/query",
+        "method": "POST",
+        "function": "create_agent"
+      },
+      {
+        "path": "/api/v1/cluster/metrics/summary",
+        "method": "GET",
+        "function": "get_cluster_status"
+      },
+      {
+        "path": "/api/v1/cluster/metrics/trends/{metric_name}",
+        "method": "GET",
+        "function": "get_cluster_status"
+      },
+      {
+        "path": "/api/v1/cluster/scaling/policies",
+        "method": "POST",
+        "function": "create_agent"
+      },
+      {
+        "path": "/api/v1/cluster/scaling/recommendations",
+        "method": "GET",
+        "function": "get_cluster_status"
+      },
+      {
+        "path": "/api/v1/cluster/scaling/groups/{group_id}/manual",
+        "method": "POST",
+        "function": "create_agent"
+      },
+      {
+        "path": "/api/v1/cluster/scaling/history",
+        "method": "GET",
+        "function": "get_cluster_status"
+      },
+      {
+        "path": "/api/v1/cluster/agents/batch/start",
+        "method": "POST",
+        "function": "create_agent"
+      },
+      {
+        "path": "/api/v1/cluster/agents/batch/stop",
+        "method": "POST",
+        "function": "create_agent"
+      },
+      {
+        "path": "/api/v1/cluster/operations/history",
+        "method": "GET",
+        "function": "get_cluster_status"
+      }
+    ]
+  },
+  "bandit_recommendations.py": {
+    "routes": [
+      {
+        "path": "/api/v1/initialize",
+        "method": "POST",
+        "function": "initialize_engine"
+      },
+      {
+        "path": "/api/v1/recommend",
+        "method": "POST",
+        "function": "initialize_engine"
+      },
+      {
+        "path": "/api/v1/feedback",
+        "method": "POST",
+        "function": "initialize_engine"
+      },
+      {
+        "path": "/api/v1/statistics",
+        "method": "GET",
+        "function": "get_engine_statistics"
+      },
+      {
+        "path": "/api/v1/user/{user_id}/context",
+        "method": "PUT",
+        "function": "update_user_context"
+      },
+      {
+        "path": "/api/v1/item/{item_id}/features",
+        "method": "PUT",
+        "function": "update_user_context"
+      },
+      {
+        "path": "/api/v1/experiments",
+        "method": "POST",
+        "function": "initialize_engine"
+      },
+      {
+        "path": "/api/v1/experiments",
+        "method": "GET",
+        "function": "get_engine_statistics"
+      },
+      {
+        "path": "/api/v1/experiments/{experiment_id}/results",
+        "method": "GET",
+        "function": "get_engine_statistics"
+      },
+      {
+        "path": "/api/v1/experiments/{experiment_id}/end",
+        "method": "POST",
+        "function": "initialize_engine"
+      },
+      {
+        "path": "/api/v1/health",
+        "method": "GET",
+        "function": "get_engine_statistics"
+      },
+      {
+        "path": "/api/v1/algorithms",
+        "method": "GET",
+        "function": "get_engine_statistics"
+      }
+    ]
+  },
+  "personalization.py": {
+    "routes": [
+      {
+        "path": "/api/v1/personalization/recommend",
+        "method": "POST",
+        "function": "get_recommendations"
+      },
+      {
+        "path": "/api/v1/personalization/user/{user_id}/profile",
+        "method": "GET",
+        "function": "get_user_profile"
+      },
+      {
+        "path": "/api/v1/personalization/user/{user_id}/profile",
+        "method": "PUT",
+        "function": "update_user_profile"
+      },
+      {
+        "path": "/api/v1/personalization/feedback",
+        "method": "POST",
+        "function": "get_recommendations"
+      },
+      {
+        "path": "/api/v1/personalization/features/realtime/{user_id}",
+        "method": "GET",
+        "function": "get_user_profile"
+      },
+      {
+        "path": "/api/v1/personalization/features/compute",
+        "method": "POST",
+        "function": "get_recommendations"
+      },
+      {
+        "path": "/api/v1/personalization/models/status",
+        "method": "GET",
+        "function": "get_user_profile"
+      },
+      {
+        "path": "/api/v1/personalization/models/predict",
+        "method": "POST",
+        "function": "get_recommendations"
+      },
+      {
+        "path": "/api/v1/personalization/models/update",
+        "method": "PUT",
+        "function": "update_user_profile"
+      },
+      {
+        "path": "/api/v1/personalization/cache/stats",
+        "method": "GET",
+        "function": "get_user_profile"
+      },
+      {
+        "path": "/api/v1/personalization/cache/invalidate/{user_id}",
+        "method": "POST",
+        "function": "get_recommendations"
+      },
+      {
+        "path": "/api/v1/personalization/metrics",
+        "method": "GET",
+        "function": "get_user_profile"
+      }
+    ]
+  },
+  "workflows.py": {
+    "routes": [
+      {
+        "path": "/api/v1/workflows/health/check",
+        "method": "GET",
+        "function": "health_check"
+      },
+      {
+        "path": "/api/v1/workflows/",
+        "method": "POST",
+        "function": "create_workflow"
+      },
+      {
+        "path": "/api/v1/workflows/",
+        "method": "GET",
+        "function": "health_check"
+      },
+      {
+        "path": "/api/v1/workflows/{workflow_id}",
+        "method": "GET",
+        "function": "health_check"
+      },
+      {
+        "path": "/api/v1/workflows/{workflow_id}/start",
+        "method": "POST",
+        "function": "create_workflow"
+      },
+      {
+        "path": "/api/v1/workflows/{workflow_id}/status",
+        "method": "GET",
+        "function": "health_check"
+      },
+      {
+        "path": "/api/v1/workflows/{workflow_id}/control",
+        "method": "PUT",
+        "function": "control_workflow"
+      },
+      {
+        "path": "/api/v1/workflows/{workflow_id}/checkpoints",
+        "method": "GET",
+        "function": "health_check"
+      },
+      {
+        "path": "/api/v1/workflows/{workflow_id}",
+        "method": "DELETE",
+        "function": "delete_workflow"
+      }
+    ]
+  },
+  "distributed_task.py": {
+    "routes": [
+      {
+        "path": "/api/v1/distributed-task/initialize",
+        "method": "POST",
+        "function": "initialize_engine"
+      },
+      {
+        "path": "/api/v1/distributed-task/submit",
+        "method": "POST",
+        "function": "initialize_engine"
+      },
+      {
+        "path": "/api/v1/distributed-task/status/{task_id}",
+        "method": "GET",
+        "function": "get_task_status"
+      },
+      {
+        "path": "/api/v1/distributed-task/cancel/{task_id}",
+        "method": "POST",
+        "function": "initialize_engine"
+      },
+      {
+        "path": "/api/v1/distributed-task/stats",
+        "method": "GET",
+        "function": "get_task_status"
+      },
+      {
+        "path": "/api/v1/distributed-task/conflicts",
+        "method": "GET",
+        "function": "get_task_status"
+      },
+      {
+        "path": "/api/v1/distributed-task/conflicts/resolve/{conflict_id}",
+        "method": "POST",
+        "function": "initialize_engine"
+      },
+      {
+        "path": "/api/v1/distributed-task/checkpoint/create",
+        "method": "POST",
+        "function": "initialize_engine"
+      },
+      {
+        "path": "/api/v1/distributed-task/checkpoint/rollback",
+        "method": "POST",
+        "function": "initialize_engine"
+      },
+      {
+        "path": "/api/v1/distributed-task/shutdown",
+        "method": "POST",
+        "function": "initialize_engine"
+      }
+    ]
+  },
+  "reasoning.py": {
+    "routes": [
+      {
+        "path": "/api/v1/reasoning/chain",
+        "method": "POST",
+        "function": "create_reasoning_chain"
+      },
+      {
+        "path": "/api/v1/reasoning/stream",
+        "method": "POST",
+        "function": "create_reasoning_chain"
+      },
+      {
+        "path": "/api/v1/reasoning/chain/{chain_id}",
+        "method": "GET",
+        "function": "get_reasoning_chain"
+      },
+      {
+        "path": "/api/v1/reasoning/history",
+        "method": "GET",
+        "function": "get_reasoning_chain"
+      },
+      {
+        "path": "/api/v1/reasoning/chain/{chain_id}/validate",
+        "method": "POST",
+        "function": "create_reasoning_chain"
+      },
+      {
+        "path": "/api/v1/reasoning/chain/{chain_id}/branch",
+        "method": "POST",
+        "function": "create_reasoning_chain"
+      },
+      {
+        "path": "/api/v1/reasoning/chain/{chain_id}/recover",
+        "method": "POST",
+        "function": "create_reasoning_chain"
+      },
+      {
+        "path": "/api/v1/reasoning/stats",
+        "method": "GET",
+        "function": "get_reasoning_chain"
+      },
+      {
+        "path": "/api/v1/reasoning/chain/{chain_id}",
+        "method": "DELETE",
+        "function": "delete_reasoning_chain"
+      }
+    ]
+  },
+  "emotion_websocket.py": {
+    "routes": [
+      {
+        "path": "/api/v1/ws/stats",
+        "method": "GET",
+        "function": "get_websocket_stats"
+      },
+      {
+        "path": "/api/v1/ws/broadcast",
+        "method": "POST",
+        "function": "broadcast_message"
+      }
+    ]
+  },
+  "enterprise.py": {
+    "routes": [
+      {
+        "path": "/api/v1/enterprise/overview",
+        "method": "GET",
+        "function": "get_enterprise_overview"
+      },
+      {
+        "path": "/api/v1/enterprise/health",
+        "method": "GET",
+        "function": "get_enterprise_overview"
+      },
+      {
+        "path": "/api/v1/enterprise/security",
+        "method": "GET",
+        "function": "get_enterprise_overview"
+      },
+      {
+        "path": "/api/v1/enterprise/performance",
+        "method": "GET",
+        "function": "get_enterprise_overview"
+      },
+      {
+        "path": "/api/v1/enterprise/compliance",
+        "method": "GET",
+        "function": "get_enterprise_overview"
+      },
+      {
+        "path": "/api/v1/enterprise/configuration",
+        "method": "GET",
+        "function": "get_enterprise_overview"
+      },
+      {
+        "path": "/api/v1/enterprise/configuration",
+        "method": "PUT",
+        "function": "update_configuration"
+      },
+      {
+        "path": "/api/v1/enterprise/compliance/assess",
+        "method": "POST",
+        "function": "run_compliance_assessment"
+      },
+      {
+        "path": "/api/v1/enterprise/security/scan",
+        "method": "POST",
+        "function": "run_compliance_assessment"
+      },
+      {
+        "path": "/api/v1/enterprise/alerts",
+        "method": "GET",
+        "function": "get_enterprise_overview"
+      },
+      {
+        "path": "/api/v1/enterprise/audit/logs",
+        "method": "GET",
+        "function": "get_enterprise_overview"
+      },
+      {
+        "path": "/api/v1/enterprise/topology",
+        "method": "GET",
+        "function": "get_enterprise_overview"
+      },
+      {
+        "path": "/api/v1/enterprise/test/connections",
+        "method": "POST",
+        "function": "run_compliance_assessment"
+      }
+    ]
+  },
+  "analytics.py": {
+    "routes": [
+      {
+        "path": "/api/v1/analytics/events",
+        "method": "POST",
+        "function": "submit_events"
+      },
+      {
+        "path": "/api/v1/analytics/events",
+        "method": "GET",
+        "function": "get_events"
+      },
+      {
+        "path": "/api/v1/analytics/sessions",
+        "method": "GET",
+        "function": "get_events"
+      },
+      {
+        "path": "/api/v1/analytics/analyze",
+        "method": "POST",
+        "function": "submit_events"
+      },
+      {
+        "path": "/api/v1/analytics/patterns",
+        "method": "GET",
+        "function": "get_events"
+      },
+      {
+        "path": "/api/v1/analytics/anomalies",
+        "method": "GET",
+        "function": "get_events"
+      },
+      {
+        "path": "/api/v1/analytics/reports/generate",
+        "method": "POST",
+        "function": "submit_events"
+      },
+      {
+        "path": "/api/v1/analytics/reports/{report_id}",
+        "method": "GET",
+        "function": "get_events"
+      },
+      {
+        "path": "/api/v1/analytics/dashboard/stats",
+        "method": "GET",
+        "function": "get_events"
+      },
+      {
+        "path": "/api/v1/analytics/ws/stats",
+        "method": "GET",
+        "function": "get_events"
+      },
+      {
+        "path": "/api/v1/analytics/health",
+        "method": "GET",
+        "function": "get_events"
+      },
+      {
+        "path": "/api/v1/analytics/sessions",
+        "method": "GET",
+        "function": "get_events"
+      },
+      {
+        "path": "/api/v1/analytics/analyze",
+        "method": "POST",
+        "function": "submit_events"
+      },
+      {
+        "path": "/api/v1/analytics/patterns",
+        "method": "GET",
+        "function": "get_events"
+      },
+      {
+        "path": "/api/v1/analytics/anomalies",
+        "method": "GET",
+        "function": "get_events"
+      },
+      {
+        "path": "/api/v1/analytics/reports/generate",
+        "method": "POST",
+        "function": "submit_events"
+      },
+      {
+        "path": "/api/v1/analytics/reports/{report_id}",
+        "method": "GET",
+        "function": "get_events"
+      },
+      {
+        "path": "/api/v1/analytics/dashboard/stats",
+        "method": "GET",
+        "function": "get_events"
+      },
+      {
+        "path": "/api/v1/analytics/realtime/events",
+        "method": "GET",
+        "function": "get_events"
+      },
+      {
+        "path": "/api/v1/analytics/ws/stats",
+        "method": "GET",
+        "function": "get_events"
+      },
+      {
+        "path": "/api/v1/analytics/realtime/broadcast",
+        "method": "POST",
+        "function": "submit_events"
+      },
+      {
+        "path": "/api/v1/analytics/export/events",
+        "method": "GET",
+        "function": "get_events"
+      },
+      {
+        "path": "/api/v1/analytics/reports/{report_id}/download",
+        "method": "GET",
+        "function": "get_events"
+      },
+      {
+        "path": "/api/v1/analytics/health",
+        "method": "GET",
+        "function": "get_events"
+      }
+    ]
+  },
+  "model_compression.py": {
+    "routes": [
+      {
+        "path": "/api/v1/model-compression/jobs",
+        "method": "POST",
+        "function": "create_compression_job_api"
+      },
+      {
+        "path": "/api/v1/model-compression/jobs",
+        "method": "GET",
+        "function": "list_compression_jobs"
+      },
+      {
+        "path": "/api/v1/model-compression/jobs/{job_id}",
+        "method": "GET",
+        "function": "list_compression_jobs"
+      },
+      {
+        "path": "/api/v1/model-compression/jobs/{job_id}/cancel",
+        "method": "PUT",
+        "function": "cancel_job"
+      },
+      {
+        "path": "/api/v1/model-compression/jobs/{job_id}",
+        "method": "DELETE",
+        "function": "delete_job"
+      },
+      {
+        "path": "/api/v1/model-compression/results/{job_id}",
+        "method": "GET",
+        "function": "list_compression_jobs"
+      },
+      {
+        "path": "/api/v1/model-compression/results/{job_id}/download",
+        "method": "POST",
+        "function": "create_compression_job_api"
+      },
+      {
+        "path": "/api/v1/model-compression/results/{job_id}/report",
+        "method": "GET",
+        "function": "list_compression_jobs"
+      },
+      {
+        "path": "/api/v1/model-compression/methods",
+        "method": "GET",
+        "function": "list_compression_jobs"
+      },
+      {
+        "path": "/api/v1/model-compression/methods/validate",
+        "method": "POST",
+        "function": "create_compression_job_api"
+      },
+      {
+        "path": "/api/v1/model-compression/strategies",
+        "method": "GET",
+        "function": "list_compression_jobs"
+      },
+      {
+        "path": "/api/v1/model-compression/strategies/recommend",
+        "method": "POST",
+        "function": "create_compression_job_api"
+      },
+      {
+        "path": "/api/v1/model-compression/benchmark",
+        "method": "POST",
+        "function": "create_compression_job_api"
+      },
+      {
+        "path": "/api/v1/model-compression/status",
+        "method": "GET",
+        "function": "list_compression_jobs"
+      },
+      {
+        "path": "/api/v1/model-compression/health",
+        "method": "GET",
+        "function": "list_compression_jobs"
+      }
+    ]
+  },
+  "streaming.py": {
+    "routes": [
+      {
+        "path": "/api/v1/streaming/start",
+        "method": "POST",
+        "function": "start_streaming_session"
+      },
+      {
+        "path": "/api/v1/streaming/sse/{session_id}",
+        "method": "GET",
+        "function": "stream_sse"
+      },
+      {
+        "path": "/api/v1/streaming/sessions/{session_id}/metrics",
+        "method": "GET",
+        "function": "stream_sse"
+      },
+      {
+        "path": "/api/v1/streaming/sessions",
+        "method": "GET",
+        "function": "stream_sse"
+      },
+      {
+        "path": "/api/v1/streaming/metrics",
+        "method": "GET",
+        "function": "stream_sse"
+      },
+      {
+        "path": "/api/v1/streaming/backpressure/status",
+        "method": "GET",
+        "function": "stream_sse"
+      },
+      {
+        "path": "/api/v1/streaming/flow-control/metrics",
+        "method": "GET",
+        "function": "stream_sse"
+      },
+      {
+        "path": "/api/v1/streaming/queue/status",
+        "method": "GET",
+        "function": "stream_sse"
+      },
+      {
+        "path": "/api/v1/streaming/sessions/{session_id}",
+        "method": "DELETE",
+        "function": "stop_session"
+      },
+      {
+        "path": "/api/v1/streaming/sessions/{session_id}/cleanup",
+        "method": "POST",
+        "function": "start_streaming_session"
+      },
+      {
+        "path": "/api/v1/streaming/health",
+        "method": "GET",
+        "function": "stream_sse"
+      }
+    ]
+  },
+  "event_batch.py": {
+    "routes": [
+      {
+        "path": "/api/v1/event-batch/events/submit",
+        "method": "POST",
+        "function": "submit_single_event"
+      },
+      {
+        "path": "/api/v1/event-batch/batches/submit",
+        "method": "POST",
+        "function": "submit_single_event"
+      },
+      {
+        "path": "/api/v1/event-batch/jobs/{job_id}/status",
+        "method": "GET",
+        "function": "get_job_status"
+      },
+      {
+        "path": "/api/v1/event-batch/jobs",
+        "method": "GET",
+        "function": "get_job_status"
+      },
+      {
+        "path": "/api/v1/event-batch/jobs/{job_id}/cancel",
+        "method": "POST",
+        "function": "submit_single_event"
+      },
+      {
+        "path": "/api/v1/event-batch/buffer/metrics",
+        "method": "GET",
+        "function": "get_job_status"
+      },
+      {
+        "path": "/api/v1/event-batch/stats",
+        "method": "GET",
+        "function": "get_job_status"
+      },
+      {
+        "path": "/api/v1/event-batch/buffer/flush",
+        "method": "POST",
+        "function": "submit_single_event"
+      },
+      {
+        "path": "/api/v1/event-batch/config/concurrent-jobs",
+        "method": "POST",
+        "function": "submit_single_event"
+      },
+      {
+        "path": "/api/v1/event-batch/health",
+        "method": "GET",
+        "function": "get_job_status"
+      }
+    ]
+  },
+  "testing.py": {
+    "routes": [
+      {
+        "path": "/api/v1/api/v1/testing/integration/suites",
+        "method": "GET",
+        "function": "get_integration_test_suites"
+      },
+      {
+        "path": "/api/v1/api/v1/testing/integration/run",
+        "method": "POST",
+        "function": "run_integration_tests"
+      },
+      {
+        "path": "/api/v1/api/v1/testing/integration/results/{test_id}",
+        "method": "GET",
+        "function": "get_integration_test_suites"
+      },
+      {
+        "path": "/api/v1/api/v1/testing/integration/reports",
+        "method": "GET",
+        "function": "get_integration_test_suites"
+      },
+      {
+        "path": "/api/v1/api/v1/testing/benchmarks",
+        "method": "GET",
+        "function": "get_integration_test_suites"
+      },
+      {
+        "path": "/api/v1/api/v1/testing/benchmarks/run",
+        "method": "POST",
+        "function": "run_integration_tests"
+      },
+      {
+        "path": "/api/v1/api/v1/testing/benchmarks/compare",
+        "method": "GET",
+        "function": "get_integration_test_suites"
+      },
+      {
+        "path": "/api/v1/api/v1/testing/benchmarks/trends",
+        "method": "GET",
+        "function": "get_integration_test_suites"
+      },
+      {
+        "path": "/api/v1/api/v1/testing/load/run",
+        "method": "POST",
+        "function": "run_integration_tests"
+      },
+      {
+        "path": "/api/v1/api/v1/testing/stress/run",
+        "method": "POST",
+        "function": "run_integration_tests"
+      },
+      {
+        "path": "/api/v1/api/v1/testing/health/comprehensive",
+        "method": "GET",
+        "function": "get_integration_test_suites"
+      },
+      {
+        "path": "/api/v1/api/v1/testing/health/components",
+        "method": "GET",
+        "function": "get_integration_test_suites"
+      },
+      {
+        "path": "/api/v1/api/v1/testing/health/check",
+        "method": "POST",
+        "function": "run_integration_tests"
+      },
+      {
+        "path": "/api/v1/api/v1/testing/health/dependencies",
+        "method": "GET",
+        "function": "get_integration_test_suites"
+      },
+      {
+        "path": "/api/v1/api/v1/testing/validation/readiness",
+        "method": "GET",
+        "function": "get_integration_test_suites"
+      },
+      {
+        "path": "/api/v1/api/v1/testing/validation/epic5-verification",
+        "method": "POST",
+        "function": "run_integration_tests"
+      },
+      {
+        "path": "/api/v1/api/v1/testing/validation/regression-tests",
+        "method": "GET",
+        "function": "get_integration_test_suites"
+      },
+      {
+        "path": "/api/v1/api/v1/testing/validation/security-audit",
+        "method": "GET",
+        "function": "get_integration_test_suites"
+      },
+      {
+        "path": "/api/v1/api/v1/testing/security/audit",
+        "method": "POST",
+        "function": "run_integration_tests"
+      },
+      {
+        "path": "/api/v1/api/v1/testing/security/penetration-test",
+        "method": "POST",
+        "function": "run_integration_tests"
+      }
+    ]
+  },
+  "sparql_api.py": {
+    "routes": [
+      {
+        "path": "/api/v1/api/v1/kg/sparql/query",
+        "method": "POST",
+        "function": "execute_query"
+      },
+      {
+        "path": "/api/v1/api/v1/kg/sparql/query",
+        "method": "GET",
+        "function": "execute_query_get"
+      },
+      {
+        "path": "/api/v1/api/v1/kg/sparql/update",
+        "method": "POST",
+        "function": "execute_query"
+      },
+      {
+        "path": "/api/v1/api/v1/kg/sparql/update/form",
+        "method": "POST",
+        "function": "execute_query"
+      },
+      {
+        "path": "/api/v1/api/v1/kg/sparql/explain",
+        "method": "POST",
+        "function": "execute_query"
+      },
+      {
+        "path": "/api/v1/api/v1/kg/sparql/stream",
+        "method": "GET",
+        "function": "execute_query_get"
+      },
+      {
+        "path": "/api/v1/api/v1/kg/sparql/history",
+        "method": "GET",
+        "function": "execute_query_get"
+      },
+      {
+        "path": "/api/v1/api/v1/kg/sparql/performance",
+        "method": "GET",
+        "function": "execute_query_get"
+      },
+      {
+        "path": "/api/v1/api/v1/kg/sparql/cache",
+        "method": "DELETE",
+        "function": "clear_query_cache"
+      },
+      {
+        "path": "/api/v1/api/v1/kg/sparql/cache/stats",
+        "method": "GET",
+        "function": "execute_query_get"
+      },
+      {
+        "path": "/api/v1/api/v1/kg/sparql/batch",
+        "method": "POST",
+        "function": "execute_query"
+      }
+    ]
+  },
+  "power_analysis.py": {
+    "routes": [
+      {
+        "path": "/api/v1/power-analysis/calculate-power",
+        "method": "POST",
+        "function": "calculate_power"
+      },
+      {
+        "path": "/api/v1/power-analysis/calculate-sample-size",
+        "method": "POST",
+        "function": "calculate_power"
+      },
+      {
+        "path": "/api/v1/power-analysis/calculate-effect-size",
+        "method": "POST",
+        "function": "calculate_power"
+      },
+      {
+        "path": "/api/v1/power-analysis/proportion-power",
+        "method": "POST",
+        "function": "calculate_power"
+      },
+      {
+        "path": "/api/v1/power-analysis/proportion-sample-size",
+        "method": "POST",
+        "function": "calculate_power"
+      },
+      {
+        "path": "/api/v1/power-analysis/ab-test-sample-size",
+        "method": "POST",
+        "function": "calculate_power"
+      },
+      {
+        "path": "/api/v1/power-analysis/effect-size-guidelines",
+        "method": "GET",
+        "function": "get_effect_size_guidelines"
+      },
+      {
+        "path": "/api/v1/power-analysis/sample-size-calculator",
+        "method": "GET",
+        "function": "get_effect_size_guidelines"
+      },
+      {
+        "path": "/api/v1/power-analysis/health",
+        "method": "GET",
+        "function": "get_effect_size_guidelines"
+      }
+    ]
+  },
+  "qlearning_tensorflow_backup.py": {
+    "routes": [
+      {
+        "path": "/api/v1/qlearning/info",
+        "method": "GET",
+        "function": "get_algorithm_info"
+      },
+      {
+        "path": "/api/v1/qlearning/agents",
+        "method": "POST",
+        "function": "create_agent"
+      },
+      {
+        "path": "/api/v1/qlearning/agents",
+        "method": "GET",
+        "function": "get_algorithm_info"
+      },
+      {
+        "path": "/api/v1/qlearning/agents/{session_id}",
+        "method": "GET",
+        "function": "get_algorithm_info"
+      },
+      {
+        "path": "/api/v1/qlearning/agents/{session_id}",
+        "method": "DELETE",
+        "function": "delete_agent"
+      },
+      {
+        "path": "/api/v1/qlearning/agents/{session_id}/train",
+        "method": "POST",
+        "function": "create_agent"
+      },
+      {
+        "path": "/api/v1/qlearning/agents/{session_id}/stop",
+        "method": "POST",
+        "function": "create_agent"
+      },
+      {
+        "path": "/api/v1/qlearning/agents/{session_id}/progress",
+        "method": "GET",
+        "function": "get_algorithm_info"
+      },
+      {
+        "path": "/api/v1/qlearning/agents/{session_id}/predict",
+        "method": "POST",
+        "function": "create_agent"
+      },
+      {
+        "path": "/api/v1/qlearning/agents/{session_id}/evaluate",
+        "method": "POST",
+        "function": "create_agent"
+      },
+      {
+        "path": "/api/v1/qlearning/agents/{session_id}/statistics",
+        "method": "GET",
+        "function": "get_algorithm_info"
+      },
+      {
+        "path": "/api/v1/qlearning/batch/create",
+        "method": "POST",
+        "function": "create_agent"
+      },
+      {
+        "path": "/api/v1/qlearning/batch/cleanup",
+        "method": "DELETE",
+        "function": "delete_agent"
+      },
+      {
+        "path": "/api/v1/qlearning/templates/configs",
+        "method": "GET",
+        "function": "get_algorithm_info"
+      },
+      {
+        "path": "/api/v1/qlearning/health",
+        "method": "GET",
+        "function": "get_algorithm_info"
+      },
+      {
+        "path": "/api/v1/qlearning/environments",
+        "method": "GET",
+        "function": "get_algorithm_info"
+      },
+      {
+        "path": "/api/v1/qlearning/exploration_strategies",
+        "method": "GET",
+        "function": "get_algorithm_info"
+      },
+      {
+        "path": "/api/v1/qlearning/reward_functions",
+        "method": "GET",
+        "function": "get_algorithm_info"
+      },
+      {
+        "path": "/api/v1/qlearning/agents/{session_id}/inference",
+        "method": "POST",
+        "function": "create_agent"
+      },
+      {
+        "path": "/api/v1/qlearning/agents/{session_id}/batch_inference",
+        "method": "POST",
+        "function": "create_agent"
+      },
+      {
+        "path": "/api/v1/qlearning/strategies/compare",
+        "method": "POST",
+        "function": "create_agent"
+      },
+      {
+        "path": "/api/v1/qlearning/agents/{session_id}/insights",
+        "method": "GET",
+        "function": "get_algorithm_info"
+      },
+      {
+        "path": "/api/v1/qlearning/agents/{session_id}/performance",
+        "method": "GET",
+        "function": "get_algorithm_info"
+      },
+      {
+        "path": "/api/v1/qlearning/agents/{session_id}/warmup",
+        "method": "POST",
+        "function": "create_agent"
+      },
+      {
+        "path": "/api/v1/qlearning/agents/{session_id}/cache",
+        "method": "DELETE",
+        "function": "delete_agent"
+      },
+      {
+        "path": "/api/v1/qlearning/cache",
+        "method": "DELETE",
+        "function": "delete_agent"
+      },
+      {
+        "path": "/api/v1/qlearning/agents/{session_id}/hybrid_recommendation",
+        "method": "POST",
+        "function": "create_agent"
+      },
+      {
+        "path": "/api/v1/qlearning/agents/{session_id}/adaptive_recommendation",
+        "method": "POST",
+        "function": "create_agent"
+      },
+      {
+        "path": "/api/v1/qlearning/feedback",
+        "method": "POST",
+        "function": "create_agent"
+      },
+      {
+        "path": "/api/v1/qlearning/strategy_performance",
+        "method": "GET",
+        "function": "get_algorithm_info"
+      },
+      {
+        "path": "/api/v1/qlearning/optimize_weights",
+        "method": "POST",
+        "function": "create_agent"
+      },
+      {
+        "path": "/api/v1/qlearning/combination_modes",
+        "method": "GET",
+        "function": "get_algorithm_info"
+      },
+      {
+        "path": "/api/v1/qlearning/monitoring/start",
+        "method": "POST",
+        "function": "create_agent"
+      },
+      {
+        "path": "/api/v1/qlearning/monitoring/stop",
+        "method": "POST",
+        "function": "create_agent"
+      },
+      {
+        "path": "/api/v1/qlearning/monitoring/status",
+        "method": "GET",
+        "function": "get_algorithm_info"
+      },
+      {
+        "path": "/api/v1/qlearning/agents/{session_id}/summary",
+        "method": "GET",
+        "function": "get_algorithm_info"
+      },
+      {
+        "path": "/api/v1/qlearning/agents/{session_id}/actions",
+        "method": "GET",
+        "function": "get_algorithm_info"
+      },
+      {
+        "path": "/api/v1/qlearning/agents/{session_id}/performance_trend",
+        "method": "GET",
+        "function": "get_algorithm_info"
+      },
+      {
+        "path": "/api/v1/qlearning/monitoring/agents",
+        "method": "GET",
+        "function": "get_algorithm_info"
+      },
+      {
+        "path": "/api/v1/qlearning/agents/{session_id}/log_event",
+        "method": "POST",
+        "function": "create_agent"
+      },
+      {
+        "path": "/api/v1/qlearning/monitoring/statistics",
+        "method": "GET",
+        "function": "get_algorithm_info"
+      },
+      {
+        "path": "/api/v1/qlearning/monitoring/clear/{session_id}",
+        "method": "DELETE",
+        "function": "delete_agent"
+      },
+      {
+        "path": "/api/v1/qlearning/monitoring/clear_all",
+        "method": "DELETE",
+        "function": "delete_agent"
+      }
+    ]
+  },
+  "model_registry.py": {
+    "routes": [
+      {
+        "path": "/api/v1/model-registry/models",
+        "method": "GET",
+        "function": "list_models"
+      },
+      {
+        "path": "/api/v1/model-registry/models/{name}",
+        "method": "GET",
+        "function": "list_models"
+      },
+      {
+        "path": "/api/v1/model-registry/models/upload",
+        "method": "POST",
+        "function": "upload_and_register_model"
+      },
+      {
+        "path": "/api/v1/model-registry/models/{name}/register-from-hub",
+        "method": "POST",
+        "function": "upload_and_register_model"
+      },
+      {
+        "path": "/api/v1/model-registry/models/{name}",
+        "method": "DELETE",
+        "function": "remove_model"
+      },
+      {
+        "path": "/api/v1/model-registry/models/{name}/download",
+        "method": "GET",
+        "function": "list_models"
+      },
+      {
+        "path": "/api/v1/model-registry/models/{name}/export",
+        "method": "GET",
+        "function": "list_models"
+      },
+      {
+        "path": "/api/v1/model-registry/validate",
+        "method": "GET",
+        "function": "list_models"
+      },
+      {
+        "path": "/api/v1/model-registry/stats",
+        "method": "GET",
+        "function": "list_models"
+      }
+    ]
+  },
+  "hypothesis_testing.py": {
+    "routes": [
+      {
+        "path": "/api/v1/hypothesis-testing/t-test/one-sample",
+        "method": "POST",
+        "function": "one_sample_t_test"
+      },
+      {
+        "path": "/api/v1/hypothesis-testing/t-test/two-sample",
+        "method": "POST",
+        "function": "one_sample_t_test"
+      },
+      {
+        "path": "/api/v1/hypothesis-testing/t-test/paired",
+        "method": "POST",
+        "function": "one_sample_t_test"
+      },
+      {
+        "path": "/api/v1/hypothesis-testing/chi-square/goodness-of-fit",
+        "method": "POST",
+        "function": "one_sample_t_test"
+      },
+      {
+        "path": "/api/v1/hypothesis-testing/chi-square/independence",
+        "method": "POST",
+        "function": "one_sample_t_test"
+      },
+      {
+        "path": "/api/v1/hypothesis-testing/proportion-test",
+        "method": "POST",
+        "function": "one_sample_t_test"
+      },
+      {
+        "path": "/api/v1/hypothesis-testing/ab-test-comparison",
+        "method": "POST",
+        "function": "one_sample_t_test"
+      },
+      {
+        "path": "/api/v1/hypothesis-testing/health",
+        "method": "GET",
+        "function": "health_check"
+      }
+    ]
+  },
+  "multi_step_reasoning.py": {
+    "routes": [
+      {
+        "path": "/api/v1/multi-step-reasoning/decompose",
+        "method": "POST",
+        "function": "decompose_problem"
+      },
+      {
+        "path": "/api/v1/multi-step-reasoning/execute",
+        "method": "POST",
+        "function": "decompose_problem"
+      },
+      {
+        "path": "/api/v1/multi-step-reasoning/executions/{execution_id}",
+        "method": "GET",
+        "function": "get_execution_status"
+      },
+      {
+        "path": "/api/v1/multi-step-reasoning/executions/control",
+        "method": "POST",
+        "function": "decompose_problem"
+      },
+      {
+        "path": "/api/v1/multi-step-reasoning/system/metrics",
+        "method": "GET",
+        "function": "get_execution_status"
+      },
+      {
+        "path": "/api/v1/multi-step-reasoning/workflows",
+        "method": "GET",
+        "function": "get_execution_status"
+      },
+      {
+        "path": "/api/v1/multi-step-reasoning/executions",
+        "method": "GET",
+        "function": "get_execution_status"
+      },
+      {
+        "path": "/api/v1/multi-step-reasoning/executions/{execution_id}",
+        "method": "DELETE",
+        "function": "delete_execution"
+      },
+      {
+        "path": "/api/v1/multi-step-reasoning/executions/{execution_id}/results",
+        "method": "GET",
+        "function": "get_execution_status"
+      }
+    ]
+  },
+  "service_discovery.py": {
+    "routes": [
+      {
+        "path": "/api/v1/service-discovery/agents",
+        "method": "POST",
+        "function": "register_agent"
+      },
+      {
+        "path": "/api/v1/service-discovery/agents",
+        "method": "GET",
+        "function": "discover_agents"
+      },
+      {
+        "path": "/api/v1/service-discovery/agents/{agent_id}",
+        "method": "GET",
+        "function": "discover_agents"
+      },
+      {
+        "path": "/api/v1/service-discovery/agents/{agent_id}/status",
+        "method": "PUT",
+        "function": "update_agent_status"
+      },
+      {
+        "path": "/api/v1/service-discovery/agents/{agent_id}/metrics",
+        "method": "PUT",
+        "function": "update_agent_status"
+      },
+      {
+        "path": "/api/v1/service-discovery/agents/{agent_id}",
+        "method": "DELETE",
+        "function": "deregister_agent"
+      },
+      {
+        "path": "/api/v1/service-discovery/load-balancer/select",
+        "method": "POST",
+        "function": "register_agent"
+      },
+      {
+        "path": "/api/v1/service-discovery/stats",
+        "method": "GET",
+        "function": "discover_agents"
+      },
+      {
+        "path": "/api/v1/service-discovery/health",
+        "method": "GET",
+        "function": "discover_agents"
+      },
+      {
+        "path": "/api/v1/service-discovery/config",
+        "method": "GET",
+        "function": "discover_agents"
+      }
+    ]
+  },
+  "distributed_security.py": {
+    "routes": [
+      {
+        "path": "/api/v1/api/v1/distributed-security/authenticate",
+        "method": "POST",
+        "function": "authenticate_agent"
+      },
+      {
+        "path": "/api/v1/api/v1/distributed-security/authorize",
+        "method": "POST",
+        "function": "authenticate_agent"
+      },
+      {
+        "path": "/api/v1/api/v1/distributed-security/events",
+        "method": "POST",
+        "function": "authenticate_agent"
+      },
+      {
+        "path": "/api/v1/api/v1/distributed-security/dashboard",
+        "method": "GET",
+        "function": "get_security_dashboard"
+      },
+      {
+        "path": "/api/v1/api/v1/distributed-security/alerts",
+        "method": "GET",
+        "function": "get_security_dashboard"
+      },
+      {
+        "path": "/api/v1/api/v1/distributed-security/alerts/{alert_id}/resolve",
+        "method": "POST",
+        "function": "authenticate_agent"
+      },
+      {
+        "path": "/api/v1/api/v1/distributed-security/communication/encrypt",
+        "method": "POST",
+        "function": "authenticate_agent"
+      },
+      {
+        "path": "/api/v1/api/v1/distributed-security/policies",
+        "method": "POST",
+        "function": "authenticate_agent"
+      },
+      {
+        "path": "/api/v1/api/v1/distributed-security/policies",
+        "method": "GET",
+        "function": "get_security_dashboard"
+      },
+      {
+        "path": "/api/v1/api/v1/distributed-security/access-logs",
+        "method": "GET",
+        "function": "get_security_dashboard"
+      },
+      {
+        "path": "/api/v1/api/v1/distributed-security/revoke-access",
+        "method": "POST",
+        "function": "authenticate_agent"
+      },
+      {
+        "path": "/api/v1/api/v1/distributed-security/health",
+        "method": "GET",
+        "function": "get_security_dashboard"
+      },
+      {
+        "path": "/api/v1/api/v1/distributed-security/metrics",
+        "method": "GET",
+        "function": "get_security_dashboard"
+      }
+    ]
+  }
+}

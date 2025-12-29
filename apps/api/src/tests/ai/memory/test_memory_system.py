@@ -1,4 +1,5 @@
 """记忆系统单元测试"""
+
 import pytest
 import asyncio
 from datetime import datetime
@@ -6,11 +7,8 @@ from datetime import timedelta
 from src.core.utils.timezone_utils import utc_now, utc_factory
 from unittest.mock import Mock, AsyncMock, patch
 import uuid
-
 import sys
 import os
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))))
-
 from src.ai.memory.models import (
     Memory, MemoryType, MemoryStatus,
     MemoryCreateRequest, MemoryFilters
@@ -24,6 +22,7 @@ from src.ai.memory.hierarchy_manager import (
 )
 from src.ai.memory.config import MemoryConfig
 
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))))
 
 class TestMemoryModels:
     """测试记忆数据模型"""
@@ -69,7 +68,6 @@ class TestMemoryModels:
         assert MemoryType.SEMANTIC in filters.memory_types
         assert filters.min_importance == 0.5
         assert "knowledge" in filters.tags
-
 
 class TestWorkingMemoryBuffer:
     """测试工作记忆缓冲区"""
@@ -141,7 +139,6 @@ class TestWorkingMemoryBuffer:
         buffer.clear()
         assert len(buffer.get_all()) == 0
         assert buffer.get("mem0") is None
-
 
 @pytest.mark.asyncio
 class TestMemoryStorage:
@@ -253,7 +250,6 @@ class TestMemoryStorage:
         assert len(results) == 3
         assert all(m.type == MemoryType.SEMANTIC for m in results)
         assert all(m.importance >= 0.5 for m in results)
-
 
 @pytest.mark.asyncio
 class TestMemoryHierarchyManager:

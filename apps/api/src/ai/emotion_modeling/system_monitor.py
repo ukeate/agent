@@ -3,11 +3,11 @@
 提供系统健康检查、性能监控、异常检测和自动恢复功能
 """
 
+from src.core.utils.timezone_utils import utc_now
 import asyncio
 import json
 import time
 import psutil
-import logging
 from typing import Dict, Any, List, Optional, Tuple
 from datetime import datetime, timedelta
 from enum import Enum
@@ -15,18 +15,16 @@ from dataclasses import dataclass, asdict
 from abc import ABC, abstractmethod
 from concurrent.futures import ThreadPoolExecutor
 import traceback
-
 from .core_interfaces import EmotionalSystemMonitor
 from .communication_protocol import CommunicationProtocol, ModuleType, Priority
 
-
+from src.core.logging import get_logger
 class HealthStatus(str, Enum):
     """健康状态"""
     HEALTHY = "healthy"
     WARNING = "warning"
     CRITICAL = "critical"
     DOWN = "down"
-
 
 class AlertSeverity(str, Enum):
     """告警严重级别"""
@@ -35,14 +33,12 @@ class AlertSeverity(str, Enum):
     ERROR = "error"
     CRITICAL = "critical"
 
-
 class MetricType(str, Enum):
     """指标类型"""
     COUNTER = "counter"
     GAUGE = "gauge"
     HISTOGRAM = "histogram"
     TIMER = "timer"
-
 
 @dataclass
 class HealthCheckResult:
@@ -54,7 +50,6 @@ class HealthCheckResult:
     response_time: float
     details: Dict[str, Any] = None
 
-
 @dataclass
 class SystemMetric:
     """系统指标"""
@@ -64,7 +59,6 @@ class SystemMetric:
     timestamp: datetime
     tags: Dict[str, str] = None
     description: str = ""
-
 
 @dataclass
 class Alert:
@@ -79,13 +73,12 @@ class Alert:
     resolved_at: Optional[datetime] = None
     metadata: Dict[str, Any] = None
 
-
 class HealthChecker:
     """健康检查器"""
     
     def __init__(self, protocol: CommunicationProtocol):
         self._protocol = protocol
-        self._logger = logging.getLogger(__name__)
+        self._logger = get_logger(__name__)
         self._check_timeout = 10.0
     
     async def check_module_health(self, module_type: ModuleType) -> HealthCheckResult:
@@ -131,7 +124,7 @@ class HealthChecker:
             module_type=module_type,
             status=status,
             message=message,
-            timestamp=datetime.now(),
+            timestamp=utc_now(),
             response_time=response_time,
             details=details
         )
@@ -160,7 +153,7 @@ class HealthChecker:
                     module_type=module_type,
                     status=HealthStatus.CRITICAL,
                     message=f"Health check exception: {str(result)}",
-                    timestamp=datetime.now(),
+                    timestamp=utc_now(),
                     response_time=0.0,
                     details={"error": str(result)}
                 )
@@ -169,12 +162,11 @@ class HealthChecker:
         
         return results
 
-
 class MetricsCollector:
     """指标收集器"""
     
     def __init__(self):
-        self._logger = logging.getLogger(__name__)
+        self._logger = get_logger(__name__)
         self._metrics_history: Dict[str, List[SystemMetric]] = {}
         self._max_history_size = 1000
     
@@ -193,7 +185,7 @@ class MetricsCollector:
     
     def get_system_metrics(self) -> List[SystemMetric]:
         """获取系统资源指标"""
-        timestamp = datetime.now()
+        timestamp = utc_now()
         metrics = []
         
         try:
@@ -281,7 +273,7 @@ class MetricsCollector:
         window_minutes: int = 60
     ) -> Dict[str, float]:
         """计算指标统计信息"""
-        since = datetime.now() - timedelta(minutes=window_minutes)
+        since = utc_now() - timedelta(minutes=window_minutes)
         history = self.get_metric_history(metric_name, tags, since)
         
         if not history:
@@ -297,13 +289,12 @@ class MetricsCollector:
             "latest": values[-1] if values else 0.0
         }
 
-
 class AnomalyDetector:
     """异常检测器"""
     
     def __init__(self, metrics_collector: MetricsCollector):
         self._metrics_collector = metrics_collector
-        self._logger = logging.getLogger(__name__)
+        self._logger = get_logger(__name__)
         
         # 阈值配置
         self._thresholds = {
@@ -428,12 +419,11 @@ class AnomalyDetector:
         
         return anomalies
 
-
 class AlertManager:
     """告警管理器"""
     
     def __init__(self):
-        self._logger = logging.getLogger(__name__)
+        self._logger = get_logger(__name__)
         self._active_alerts: Dict[str, Alert] = {}
         self._alert_history: List[Alert] = []
         self._max_history_size = 10000
@@ -459,7 +449,7 @@ class AlertManager:
             title=title,
             description=description,
             source=source,
-            timestamp=datetime.now(),
+            timestamp=utc_now(),
             metadata=metadata or {}
         )
         
@@ -479,7 +469,7 @@ class AlertManager:
         if alert_id in self._active_alerts:
             alert = self._active_alerts[alert_id]
             alert.resolved = True
-            alert.resolved_at = datetime.now()
+            alert.resolved_at = utc_now()
             
             if resolution_note:
                 alert.metadata["resolution_note"] = resolution_note
@@ -519,13 +509,12 @@ class AlertManager:
             )
         }
 
-
 class RecoveryManager:
     """故障恢复管理器"""
     
     def __init__(self, protocol: CommunicationProtocol):
         self._protocol = protocol
-        self._logger = logging.getLogger(__name__)
+        self._logger = get_logger(__name__)
         self._recovery_strategies = {}
         self._recovery_history: List[Dict[str, Any]] = []
     
@@ -548,7 +537,7 @@ class RecoveryManager:
         recovery_record = {
             "module": module_type.value,
             "issue": issue_description,
-            "timestamp": datetime.now(),
+            "timestamp": utc_now(),
             "success": False,
             "actions_taken": []
         }
@@ -632,12 +621,11 @@ class RecoveryManager:
         
         return sorted(history, key=lambda x: x["timestamp"], reverse=True)[:limit]
 
-
 class EmotionalSystemMonitorImpl(EmotionalSystemMonitor):
     """情感系统监控器实现"""
     
     def __init__(self):
-        self._logger = logging.getLogger(__name__)
+        self._logger = get_logger(__name__)
         self._protocol = CommunicationProtocol(ModuleType.SYSTEM_MONITOR)
         
         # 核心组件
@@ -745,7 +733,7 @@ class EmotionalSystemMonitorImpl(EmotionalSystemMonitor):
             self._system_status = overall_status
             
             report = {
-                "timestamp": datetime.now().isoformat(),
+                "timestamp": utc_now().isoformat(),
                 "overall_status": overall_status.value,
                 "module_health": {
                     module.value: {
@@ -777,7 +765,7 @@ class EmotionalSystemMonitorImpl(EmotionalSystemMonitor):
             self._logger.error(f"Error generating health report: {e}")
             return {
                 "error": str(e),
-                "timestamp": datetime.now().isoformat(),
+                "timestamp": utc_now().isoformat(),
                 "overall_status": HealthStatus.CRITICAL.value
             }
     

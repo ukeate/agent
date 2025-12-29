@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException, BackgroundTasks, Depends, Query, UploadFile, File
 from fastapi.responses import FileResponse, HTMLResponse
 from typing import Dict, List, Optional, Any, Union
-from pydantic import BaseModel, Field
+from pydantic import Field
 from datetime import datetime
 from datetime import timedelta
 from src.core.utils.timezone_utils import utc_now, utc_factory
@@ -9,25 +9,22 @@ import asyncio
 import json
 import uuid
 from pathlib import Path
-import logging
 from contextlib import asynccontextmanager
-
-from ...ai.model_evaluation.evaluation_engine import (
-    ModelEvaluationEngine, EvaluationConfig, BenchmarkConfig, 
-    EvaluationResult, BatchEvaluationManager
-)
-from ...ai.model_evaluation.benchmark_manager import (
+from src.ai.model_evaluation.evaluation_engine import (
     BenchmarkManager, BenchmarkType, DifficultyLevel
 )
-from ...ai.model_evaluation.performance_monitor import PerformanceMonitor
-from ...ai.model_evaluation.report_generator import (
+from src.api.base_model import ApiBaseModel
+from src.ai.model_evaluation.performance_monitor import PerformanceMonitor
+from src.ai.model_evaluation.report_generator import (
     EvaluationReportGenerator, ReportConfig
+
 )
 
-logger = logging.getLogger(__name__)
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 # Pydantic模型定义
-class EvaluationRequest(BaseModel):
+class EvaluationRequest(ApiBaseModel):
     model_name: str = Field(..., description="模型名称")
     model_path: str = Field(..., description="模型路径")
     task_type: str = Field("text_generation", description="任务类型")
@@ -37,7 +34,7 @@ class EvaluationRequest(BaseModel):
     precision: str = Field("fp16", description="精度类型")
     enable_optimizations: bool = Field(True, description="启用优化")
 
-class BenchmarkRequest(BaseModel):
+class BenchmarkRequest(ApiBaseModel):
     name: str = Field(..., description="基准测试名称")
     tasks: List[str] = Field(..., description="任务列表")
     num_fewshot: int = Field(0, description="few-shot样本数")
@@ -45,12 +42,12 @@ class BenchmarkRequest(BaseModel):
     batch_size: int = Field(8, description="批次大小")
     device: str = Field("auto", description="设备")
 
-class BatchEvaluationRequest(BaseModel):
+class BatchEvaluationRequest(ApiBaseModel):
     models: List[EvaluationRequest] = Field(..., description="模型列表")
     benchmarks: List[BenchmarkRequest] = Field(..., description="基准测试列表")
     report_config: Optional[Dict[str, Any]] = Field(None, description="报告配置")
 
-class ReportGenerationRequest(BaseModel):
+class ReportGenerationRequest(ApiBaseModel):
     evaluation_ids: List[str] = Field(..., description="评估ID列表")
     title: str = Field("模型评估报告", description="报告标题")
     subtitle: Optional[str] = Field(None, description="报告副标题")
@@ -59,7 +56,7 @@ class ReportGenerationRequest(BaseModel):
     include_recommendations: bool = Field(True, description="包含建议")
     output_format: str = Field("html", description="输出格式")
 
-class EvaluationJob(BaseModel):
+class EvaluationJob(ApiBaseModel):
     job_id: str
     status: str  # "pending", "running", "completed", "failed"
     created_at: datetime
@@ -244,10 +241,64 @@ async def list_evaluation_jobs(
     jobs_list = jobs_list[offset:offset + limit]
     
     return {
-        "jobs": [job.dict() for job in jobs_list],
+        "jobs": [job.model_dump() for job in jobs_list],
         "total": total,
         "limit": limit,
         "offset": offset
+    }
+
+@router.get("/history", summary="获取评估历史")
+async def get_evaluation_history(
+    model_name: Optional[str] = Query(None, description="模型名称筛选"),
+    status: Optional[str] = Query(None, description="状态筛选"),
+    limit: int = Query(20, ge=1, le=100, description="返回数量限制"),
+    offset: int = Query(0, ge=0, description="偏移量")
+):
+    """获取评估历史记录"""
+    records: List[Dict[str, Any]] = []
+
+    for job in evaluation_jobs.values():
+        if job.results:
+            for result in job.results:
+                metrics = result.get("metrics") or {}
+                score = (
+                    metrics.get("accuracy")
+                    or metrics.get("f1_score")
+                    or metrics.get("bleu_score")
+                    or 0
+                )
+                records.append({
+                    "id": job.job_id,
+                    "model_name": result.get("model_name") or "unknown",
+                    "benchmark": result.get("benchmark_name"),
+                    "timestamp": result.get("timestamp") or job.created_at.isoformat(),
+                    "status": job.status,
+                    "score": score
+                })
+        else:
+            records.append({
+                "id": job.job_id,
+                "model_name": "unknown",
+                "benchmark": None,
+                "timestamp": job.created_at.isoformat(),
+                "status": job.status,
+                "score": 0
+            })
+
+    if model_name:
+        records = [r for r in records if r.get("model_name") == model_name]
+    if status:
+        records = [r for r in records if r.get("status") == status]
+
+    records.sort(key=lambda r: r.get("timestamp") or "", reverse=True)
+    total = len(records)
+    paged = records[offset:offset + limit]
+
+    return {
+        "evaluations": paged,
+        "total": total,
+        "page": (offset // limit) + 1 if limit else 1,
+        "limit": limit
     }
 
 @router.get("/jobs/{job_id}", summary="获取评估任务详情")
@@ -257,7 +308,7 @@ async def get_evaluation_job(job_id: str):
         raise HTTPException(status_code=404, detail="任务不存在")
     
     job = evaluation_jobs[job_id]
-    return job.dict()
+    return job.model_dump()
 
 @router.delete("/jobs/{job_id}", summary="取消评估任务")
 async def cancel_evaluation_job(job_id: str):
@@ -285,6 +336,9 @@ async def cancel_evaluation_job(job_id: str):
 @router.post("/generate-report", summary="生成评估报告")
 async def generate_evaluation_report(request: ReportGenerationRequest, background_tasks: BackgroundTasks):
     """生成评估报告"""
+    if request.output_format.lower() != "html":
+        raise HTTPException(status_code=400, detail="当前仅支持html格式报告")
+
     # 验证评估ID
     results = []
     for eval_id in request.evaluation_ids:
@@ -587,11 +641,47 @@ async def generate_report_task(report_job_id: str, results: List[Dict], request:
     """生成报告任务"""
     try:
         # 转换结果格式
-        evaluation_results = []
+        evaluation_results: List[EvaluationResult] = []
         for result_data in results:
-            # 这里需要根据实际数据结构转换
-            # 由于结构复杂，这里提供一个简化的示例
-            pass
+            if not isinstance(result_data, dict):
+                raise ValueError("评估结果格式错误")
+            model_name = result_data.get("model_name")
+            benchmark_name = result_data.get("benchmark_name")
+            task_name = result_data.get("task_name")
+            metrics_data = result_data.get("metrics")
+            if not model_name or not benchmark_name or not task_name or not isinstance(metrics_data, dict):
+                raise ValueError("评估结果缺少必要字段")
+
+            metrics = EvaluationMetrics(
+                accuracy=float(metrics_data.get("accuracy", 0.0)),
+                f1_score=metrics_data.get("f1_score"),
+                bleu_score=metrics_data.get("bleu_score"),
+                rouge_scores=metrics_data.get("rouge_scores"),
+                perplexity=metrics_data.get("perplexity"),
+                inference_time=float(metrics_data.get("inference_time", 0.0) or 0.0),
+                memory_usage=float(metrics_data.get("memory_usage", 0.0) or 0.0),
+                throughput=float(metrics_data.get("throughput", 0.0) or 0.0),
+            )
+
+            ts_raw = result_data.get("timestamp")
+            timestamp = datetime.fromisoformat(ts_raw) if isinstance(ts_raw, str) else utc_now()
+            duration = float(result_data.get("duration", 0.0) or 0.0)
+            samples_evaluated = int(result_data.get("samples_evaluated", 0) or 0)
+
+            evaluation_results.append(
+                EvaluationResult(
+                    model_name=str(model_name),
+                    benchmark_name=str(benchmark_name),
+                    task_name=str(task_name),
+                    metrics=metrics,
+                    config=EvaluationConfig(model_name=str(model_name)),
+                    timestamp=timestamp,
+                    duration=duration,
+                    error=result_data.get("error"),
+                    samples_evaluated=samples_evaluated,
+                    hardware_info=result_data.get("hardware_info"),
+                )
+            )
         
         # 创建报告配置
         report_config = ReportConfig(
@@ -615,7 +705,7 @@ async def generate_report_task(report_job_id: str, results: List[Dict], request:
         report_path = Path(f"reports/{report_job_id}.html")
         report_path.parent.mkdir(exist_ok=True)
         
-        report_generator.save_report(report_content, str(report_path), request.output_format)
+        report_generator.save_report(report_content, str(report_path), "html")
         
         logger.info(f"报告 {report_job_id} 生成完成")
         

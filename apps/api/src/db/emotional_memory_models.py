@@ -3,7 +3,7 @@ SQLAlchemy ORM Models for Emotional Memory Management System
 Defines database schema for emotional memory storage and analysis
 """
 
-from datetime import datetime
+from src.core.utils.timezone_utils import utc_now
 from typing import List, Optional, Dict, Any
 from uuid import uuid4
 from sqlalchemy import (
@@ -11,13 +11,12 @@ from sqlalchemy import (
     Enum, Index, CheckConstraint, UniqueConstraint, JSON
 )
 from sqlalchemy.dialects.postgresql import UUID, ARRAY, JSONB
-from sqlalchemy.orm import relationship, backref
-from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import relationship, backref, DeclarativeBase
 from sqlalchemy.ext.hybrid import hybrid_property
 import enum
 
-Base = declarative_base()
-
+class Base(DeclarativeBase):
+    ...
 
 class StorageLayerType(enum.Enum):
     """Storage tier enumeration"""
@@ -25,13 +24,11 @@ class StorageLayerType(enum.Enum):
     WARM = "warm"
     COLD = "cold"
 
-
 class PrivacyLevelType(enum.Enum):
     """Privacy level enumeration"""
     PUBLIC = "public"
     PROTECTED = "protected"
     PRIVATE = "private"
-
 
 class EmotionalMemory(Base):
     """
@@ -46,7 +43,7 @@ class EmotionalMemory(Base):
     # User and session tracking
     user_id = Column(String(255), nullable=False, index=True)
     session_id = Column(String(255), nullable=False, index=True)
-    timestamp = Column(DateTime(timezone=True), nullable=False, default=datetime.utcnow)
+    timestamp = Column(DateTime(timezone=True), nullable=False, default=utc_now)
     
     # Emotional content
     emotion_type = Column(String(50), nullable=False, index=True)
@@ -59,7 +56,7 @@ class EmotionalMemory(Base):
     # Storage management
     storage_layer = Column(Enum(StorageLayerType), nullable=False, default=StorageLayerType.HOT)
     access_count = Column(Integer, nullable=False, default=0)
-    last_accessed = Column(DateTime(timezone=True), nullable=False, default=datetime.utcnow)
+    last_accessed = Column(DateTime(timezone=True), nullable=False, default=utc_now)
     importance_score = Column(Float, nullable=False, default=0.5)
     decay_rate = Column(Float, nullable=False, default=0.1)
     
@@ -76,8 +73,8 @@ class EmotionalMemory(Base):
     expires_at = Column(DateTime(timezone=True), nullable=True)
     
     # Audit fields
-    created_at = Column(DateTime(timezone=True), nullable=False, default=datetime.utcnow)
-    updated_at = Column(DateTime(timezone=True), nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime(timezone=True), nullable=False, default=utc_now)
+    updated_at = Column(DateTime(timezone=True), nullable=False, default=utc_now, onupdate=utc_now)
     deleted_at = Column(DateTime(timezone=True), nullable=True)
     
     # Relationships
@@ -111,7 +108,6 @@ class EmotionalMemory(Base):
     def __repr__(self):
         return f"<EmotionalMemory(id={self.id}, user={self.user_id}, emotion={self.emotion_type}, intensity={self.intensity})>"
 
-
 class EmotionalEvent(Base):
     """
     Emotional event tracking model
@@ -130,7 +126,7 @@ class EmotionalEvent(Base):
     event_type = Column(String(100), nullable=False, index=True)
     trigger_source = Column(String(255), nullable=False)
     trigger_context = Column(JSONB, nullable=True)
-    timestamp = Column(DateTime(timezone=True), nullable=False, default=datetime.utcnow)
+    timestamp = Column(DateTime(timezone=True), nullable=False, default=utc_now)
     
     # Causal relationships
     parent_event_id = Column(UUID(as_uuid=True), ForeignKey('emotional_events.id', ondelete='SET NULL'), nullable=True)
@@ -148,8 +144,8 @@ class EmotionalEvent(Base):
     processing_result = Column(JSONB, nullable=True)
     
     # Metadata
-    created_at = Column(DateTime(timezone=True), nullable=False, default=datetime.utcnow)
-    updated_at = Column(DateTime(timezone=True), nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime(timezone=True), nullable=False, default=utc_now)
+    updated_at = Column(DateTime(timezone=True), nullable=False, default=utc_now, onupdate=utc_now)
     
     # Relationships
     memory = relationship("EmotionalMemory", back_populates="events")
@@ -164,7 +160,6 @@ class EmotionalEvent(Base):
     
     def __repr__(self):
         return f"<EmotionalEvent(id={self.id}, type={self.event_type}, impact={self.impact_score})>"
-
 
 class UserEmotionalPreference(Base):
     """
@@ -204,13 +199,12 @@ class UserEmotionalPreference(Base):
     anonymous_learning = Column(Boolean, nullable=False, default=True)
     
     # Metadata
-    created_at = Column(DateTime(timezone=True), nullable=False, default=datetime.utcnow)
-    updated_at = Column(DateTime(timezone=True), nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime(timezone=True), nullable=False, default=utc_now)
+    updated_at = Column(DateTime(timezone=True), nullable=False, default=utc_now, onupdate=utc_now)
     version = Column(Integer, nullable=False, default=1)
     
     def __repr__(self):
         return f"<UserEmotionalPreference(user={self.user_id}, accuracy={self.model_accuracy})>"
-
 
 class EmotionalTriggerPattern(Base):
     """
@@ -254,8 +248,8 @@ class EmotionalTriggerPattern(Base):
     next_expected = Column(DateTime(timezone=True), nullable=True)
     
     # Metadata
-    created_at = Column(DateTime(timezone=True), nullable=False, default=datetime.utcnow)
-    updated_at = Column(DateTime(timezone=True), nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime(timezone=True), nullable=False, default=utc_now)
+    updated_at = Column(DateTime(timezone=True), nullable=False, default=utc_now, onupdate=utc_now)
     
     # Indexes
     __table_args__ = (
@@ -265,7 +259,6 @@ class EmotionalTriggerPattern(Base):
     
     def __repr__(self):
         return f"<EmotionalTriggerPattern(name={self.pattern_name}, frequency={self.frequency})>"
-
 
 class MemoryAccessLog(Base):
     """
@@ -283,7 +276,7 @@ class MemoryAccessLog(Base):
     
     # Access details
     access_type = Column(String(50), nullable=False)  # read, write, update, delete
-    access_timestamp = Column(DateTime(timezone=True), nullable=False, default=datetime.utcnow)
+    access_timestamp = Column(DateTime(timezone=True), nullable=False, default=utc_now)
     access_duration_ms = Column(Integer, nullable=True)
     access_source = Column(String(100), nullable=True)
     
@@ -314,7 +307,6 @@ class MemoryAccessLog(Base):
     def __repr__(self):
         return f"<MemoryAccessLog(memory={self.memory_id}, type={self.access_type})>"
 
-
 class EmotionalMemoryCache(Base):
     """
     Memory cache model
@@ -335,7 +327,7 @@ class EmotionalMemoryCache(Base):
     compression_type = Column(String(20), nullable=True)
     
     # TTL management
-    created_at = Column(DateTime(timezone=True), nullable=False, default=datetime.utcnow)
+    created_at = Column(DateTime(timezone=True), nullable=False, default=utc_now)
     expires_at = Column(DateTime(timezone=True), nullable=False)
     hit_count = Column(Integer, nullable=False, default=0)
     last_hit = Column(DateTime(timezone=True), nullable=True)
@@ -356,11 +348,10 @@ class EmotionalMemoryCache(Base):
     @hybrid_property
     def is_expired(self) -> bool:
         """Check if cache entry is expired"""
-        return datetime.utcnow() > self.expires_at
+        return utc_now() > self.expires_at
     
     def __repr__(self):
         return f"<EmotionalMemoryCache(key={self.cache_key}, expires={self.expires_at})>"
-
 
 # Create additional indexes for vector similarity search
 # Note: These would be created using PostgreSQL's pgvector extension

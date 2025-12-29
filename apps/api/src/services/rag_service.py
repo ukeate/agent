@@ -2,9 +2,7 @@
 RAG系统业务逻辑层
 """
 
-import logging
 from typing import Dict, List, Optional
-
 from src.ai.rag.embeddings import embedding_service
 from src.ai.rag.hybrid_search import get_hybrid_search_engine, SearchStrategy
 from src.ai.rag.retriever import hybrid_retriever, query_classifier, semantic_retriever
@@ -12,10 +10,18 @@ from src.ai.rag.vectorizer import file_vectorizer
 from src.core.config import get_settings
 from src.core.qdrant import qdrant_manager
 
+from src.core.logging import get_logger
+logger = get_logger(__name__)
+
 settings = get_settings()
 
-logger = logging.getLogger(__name__)
-
+def _openai_key_configured() -> bool:
+    key = (settings.OPENAI_API_KEY or "").strip()
+    if not key:
+        return False
+    if key.startswith("sk-test"):
+        return False
+    return True
 
 class RAGService:
     """RAG服务类"""
@@ -25,7 +31,20 @@ class RAGService:
         self.semantic_retriever = semantic_retriever
         self.hybrid_retriever = hybrid_retriever
         self.query_classifier = query_classifier
-        self.bm42_search_engine = get_hybrid_search_engine()
+        self.bm42_search_engine = None
+
+    def _get_bm42_search_engine(self):
+        if self.bm42_search_engine is None:
+            self.bm42_search_engine = get_hybrid_search_engine()
+        return self.bm42_search_engine
+
+    def _qdrant_unavailable(self, error: Exception) -> Dict:
+        return {
+            "success": False,
+            "error": f"qdrant_unavailable: {error}",
+            "results": [],
+            "count": 0,
+        }
 
     async def initialize(self):
         """初始化RAG系统"""
@@ -69,11 +88,24 @@ class RAGService:
                     "adaptive": SearchStrategy.ADAPTIVE,
                 }
                 search_strategy = strategy_map.get(strategy)
+
+            if search_type == "hybrid":
+                search_type = "bm42_hybrid"
+            if search_type == "keyword":
+                search_type = "bm42_hybrid"
+                search_strategy = SearchStrategy.BM25_ONLY
+            if (
+                search_type in {"bm42_hybrid", "bm42_multi"}
+                and search_strategy is None
+                and not _openai_key_configured()
+            ):
+                search_strategy = SearchStrategy.BM25_ONLY
             
             # 执行检索
             if search_type == "bm42_hybrid":
                 # 使用新的BM42混合搜索引擎
-                search_results = await self.bm42_search_engine.search(
+                bm42_engine = self._get_bm42_search_engine()
+                search_results = await bm42_engine.search(
                     query=query,
                     collection=collection,
                     limit=limit,
@@ -97,7 +129,8 @@ class RAGService:
                     })
             elif search_type == "bm42_multi":
                 # 跨集合BM42搜索
-                search_results = await self.bm42_search_engine.multi_collection_search(
+                bm42_engine = self._get_bm42_search_engine()
+                search_results = await bm42_engine.multi_collection_search(
                     query=query,
                     collections=["documents", "code"],
                     limit=limit,
@@ -126,18 +159,6 @@ class RAGService:
                     score_threshold=score_threshold,
                     filter_dict=filter_dict,
                 )
-            elif search_type == "hybrid":
-                # 保留旧的混合搜索以向后兼容
-                results = await self.hybrid_retriever.hybrid_search(
-                    query=query,
-                    collection=collection,
-                    limit=limit,
-                    score_threshold=score_threshold,
-                )
-                # 重新排序以增加多样性
-                results = await self.hybrid_retriever.rerank_results(
-                    query, results
-                )
             elif search_type == "multi":
                 results = await self.semantic_retriever.multi_collection_search(
                     query=query,
@@ -156,6 +177,8 @@ class RAGService:
             }
         except Exception as e:
             logger.error(f"Query failed: {e}")
+            if isinstance(e, RuntimeError):
+                return self._qdrant_unavailable(e)
             return {
                 "success": False,
                 "error": str(e),
@@ -174,6 +197,8 @@ class RAGService:
             }
         except Exception as e:
             logger.error(f"Failed to index file {file_path}: {e}")
+            if isinstance(e, RuntimeError):
+                return self._qdrant_unavailable(e)
             return {
                 "success": False,
                 "error": str(e),
@@ -214,6 +239,8 @@ class RAGService:
             }
         except Exception as e:
             logger.error(f"Failed to index directory {directory}: {e}")
+            if isinstance(e, RuntimeError):
+                return self._qdrant_unavailable(e)
             return {
                 "success": False,
                 "error": str(e),
@@ -244,6 +271,8 @@ class RAGService:
             }
         except Exception as e:
             logger.error(f"Failed to update index: {e}")
+            if isinstance(e, RuntimeError):
+                return self._qdrant_unavailable(e)
             return {
                 "success": False,
                 "error": str(e),
@@ -289,46 +318,18 @@ class RAGService:
             
         except Exception as e:
             logger.error(f"Failed to add document {doc_id}: {e}")
+            if isinstance(e, RuntimeError):
+                return self._qdrant_unavailable(e)
             return {
                 "success": False,
                 "error": str(e)
             }
     
-    async def search(self, query: str, top_k: int = 3) -> List[Dict]:
-        """搜索文档"""
-        try:
-            # 使用现有的query方法进行搜索
-            result = await self.query(
-                query=query,
-                search_type="semantic",
-                limit=top_k,
-                score_threshold=0.1
-            )
-            
-            if result["success"]:
-                # 转换为简化格式
-                search_results = []
-                for item in result["results"]:
-                    search_results.append({
-                        "id": item.get("id", ""),
-                        "content": item.get("content", ""),
-                        "score": item.get("score", 0.0),
-                        "metadata": item.get("metadata", {}),
-                        "file_path": item.get("file_path", ""),
-                    })
-                return search_results
-            else:
-                return []
-                
-        except Exception as e:
-            logger.error(f"Search failed: {e}")
-            return []
-
     async def get_index_stats(self) -> Dict:
         """获取索引统计信息"""
         try:
             logger.info("RAG service: Starting to get index stats")
-            stats = self.vectorizer.get_index_stats()
+            stats = await self.vectorizer.get_index_stats()
             logger.info(f"RAG service: Got stats from vectorizer: {stats}")
             
             # 检查Qdrant健康状态
@@ -364,11 +365,18 @@ class RAGService:
                 "total_disk_size": total_disk_size,
                 "health": {
                     "qdrant": health,
-                    "openai": settings.OPENAI_API_KEY != "",
+                    "openai": _openai_key_configured(),
                 },
             }
         except Exception as e:
             logger.error(f"Failed to get index stats: {e}")
+            if isinstance(e, RuntimeError):
+                return {
+                    "success": False,
+                    "stats": {},
+                    "health": {"qdrant": False, "openai": _openai_key_configured()},
+                    "error": f"qdrant_unavailable: {e}",
+                }
             return {
                 "success": False,
                 "stats": {
@@ -389,7 +397,7 @@ class RAGService:
                 },
                 "health": {
                     "qdrant": False,
-                    "openai": settings.OPENAI_API_KEY != "",
+                    "openai": _openai_key_configured(),
                 },
                 "error": str(e),
             }
@@ -412,9 +420,8 @@ class RAGService:
                 for coll_name in ["documents", "code"]:
                     try:
                         client.delete_collection(coll_name)
-                        logger.info(f"Deleted collection: {coll_name}")
-                    except:
-                        pass
+                    except Exception:
+                        logger.warning("删除集合失败", collection=coll_name, exc_info=True)
                 
                 # 重新创建所有集合
                 await qdrant_manager.initialize_collections()
@@ -426,11 +433,12 @@ class RAGService:
             }
         except Exception as e:
             logger.error(f"Failed to reset index: {e}")
+            if isinstance(e, RuntimeError):
+                return self._qdrant_unavailable(e)
             return {
                 "success": False,
                 "error": str(e),
             }
-
 
 # 全局RAG服务实例
 rag_service = RAGService()

@@ -29,6 +29,8 @@ export interface Conversation {
   messages: Message[]
   createdAt: string
   updatedAt: string
+  messageCount?: number
+  userMessageCount?: number
 }
 
 export interface AgentStatus {
@@ -52,6 +54,12 @@ export interface ChatRequest {
 }
 
 export interface ChatResponse {
-  message: Message
-  conversationId: string
+  message: string
+  conversation_id?: string
+  message_id: string
+  reasoning_steps: string[]
+  tool_calls: any[]
+  metadata: Record<string, any>
+  response_time: number
+  token_usage?: Record<string, number> | null
 }

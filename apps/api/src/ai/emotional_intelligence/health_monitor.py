@@ -1,21 +1,20 @@
 """
 情感健康监测和仪表盘系统
 """
+
+from src.core.utils.timezone_utils import utc_now
 import asyncio
 from typing import Dict, List, Optional, Any, Tuple
 from datetime import datetime, timedelta
-import logging
 import numpy as np
 from dataclasses import dataclass
-
 from .models import (
     HealthDashboardData, RiskAssessment, RiskLevel, InterventionPlan
 )
 from ..emotion_modeling.models import EmotionState, PersonalityProfile
 
-
-logger = logging.getLogger(__name__)
-
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 @dataclass
 class HealthGoal:
@@ -36,7 +35,6 @@ class HealthGoal:
     def __post_init__(self):
         if self.milestones is None:
             self.milestones = []
-
 
 class HealthMonitoringSystem:
     """情感健康监测系统"""
@@ -97,7 +95,7 @@ class HealthMonitoringSystem:
         """
         try:
             if not time_period:
-                end_time = datetime.now()
+                end_time = utc_now()
                 start_time = end_time - timedelta(days=30)
                 time_period = (start_time, end_time)
             
@@ -496,31 +494,7 @@ class HealthMonitoringSystem:
     
     async def _get_health_goals_progress(self, user_id: str) -> Tuple[List[Dict[str, Any]], Dict[str, float]]:
         """获取健康目标进度"""
-        # 模拟健康目标数据
-        health_goals = [
-            {
-                'goal_id': 'goal_1',
-                'title': '提升情感稳定性',
-                'description': '减少情感波动，保持稳定状态',
-                'target_value': 0.8,
-                'current_value': 0.65,
-                'progress_percentage': 0.65,
-                'status': 'active'
-            },
-            {
-                'goal_id': 'goal_2',
-                'title': '降低焦虑水平',
-                'description': '通过练习和干预降低焦虑',
-                'target_value': 0.3,
-                'current_value': 0.5,
-                'progress_percentage': 0.4,
-                'status': 'active'
-            }
-        ]
-        
-        goal_progress = {goal['goal_id']: goal['progress_percentage'] for goal in health_goals}
-        
-        return health_goals, goal_progress
+        return [], {}
     
     async def _generate_health_insights(
         self,

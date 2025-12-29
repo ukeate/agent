@@ -5,26 +5,25 @@
 """
 
 import os
-import logging
 from typing import List, Dict, Any, Optional
-from fastapi import APIRouter, HTTPException, Depends, File, UploadFile, BackgroundTasks
+from fastapi import APIRouter, HTTPException, Depends, File, UploadFile, BackgroundTasks, Form, Query
 from fastapi.responses import FileResponse
-from pydantic import BaseModel, Field
+from pydantic import Field
 from datetime import datetime
-
 from src.ai.model_service.model_registry import (
     ModelRegistry, ModelMetadata, ModelEntry, ModelFormat, ModelType, CompressionType,
     model_registry
 )
+from src.api.base_model import ApiBaseModel
 
-logger = logging.getLogger(__name__)
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 # 创建路由器
 router = APIRouter(prefix="/model-registry", tags=["Model Registry"])
 
-
 # Pydantic模型定义
-class ModelMetadataRequest(BaseModel):
+class ModelMetadataRequest(ApiBaseModel):
     """模型元数据请求"""
     name: str = Field(..., description="模型名称")
     version: str = Field(default="1.0.0", description="模型版本")
@@ -56,8 +55,7 @@ class ModelMetadataRequest(BaseModel):
     repository_url: Optional[str] = Field(None, description="仓库URL")
     paper_url: Optional[str] = Field(None, description="论文URL")
 
-
-class ModelMetadataResponse(BaseModel):
+class ModelMetadataResponse(ApiBaseModel):
     """模型元数据响应"""
     name: str
     version: str
@@ -86,8 +84,7 @@ class ModelMetadataResponse(BaseModel):
     repository_url: Optional[str]
     paper_url: Optional[str]
 
-
-class ModelEntryResponse(BaseModel):
+class ModelEntryResponse(ApiBaseModel):
     """模型条目响应"""
     metadata: ModelMetadataResponse
     model_path: str
@@ -95,33 +92,28 @@ class ModelEntryResponse(BaseModel):
     tokenizer_path: Optional[str]
     checksum: Optional[str]
 
-
-class ModelListResponse(BaseModel):
+class ModelListResponse(ApiBaseModel):
     """模型列表响应"""
     models: List[ModelEntryResponse]
     total_count: int
 
-
-class ValidationResponse(BaseModel):
+class ValidationResponse(ApiBaseModel):
     """验证结果响应"""
     errors: List[str]
     warnings: List[str]
     total_models: int
     valid_models: int
 
-
-class RegisterModelResponse(BaseModel):
+class RegisterModelResponse(ApiBaseModel):
     """注册模型响应"""
     success: bool
     message: str
     model_id: str
     entry: ModelEntryResponse
 
-
 def get_model_registry() -> ModelRegistry:
     """获取模型注册表实例"""
     return model_registry
-
 
 def convert_metadata_to_response(metadata: ModelMetadata) -> ModelMetadataResponse:
     """转换元数据为响应格式"""
@@ -154,7 +146,6 @@ def convert_metadata_to_response(metadata: ModelMetadata) -> ModelMetadataRespon
         paper_url=metadata.paper_url
     )
 
-
 def convert_entry_to_response(entry: ModelEntry) -> ModelEntryResponse:
     """转换模型条目为响应格式"""
     return ModelEntryResponse(
@@ -164,7 +155,6 @@ def convert_entry_to_response(entry: ModelEntry) -> ModelEntryResponse:
         tokenizer_path=entry.tokenizer_path,
         checksum=entry.checksum
     )
-
 
 @router.get("/models", response_model=ModelListResponse)
 async def list_models(
@@ -192,7 +182,6 @@ async def list_models(
     except Exception as e:
         logger.error(f"列出模型失败: {e}")
         raise HTTPException(status_code=500, detail=f"列出模型失败: {str(e)}")
-
 
 @router.get("/models/{name}", response_model=ModelEntryResponse)
 async def get_model_info(
@@ -223,12 +212,11 @@ async def get_model_info(
         logger.error(f"获取模型信息失败: {e}")
         raise HTTPException(status_code=500, detail=f"获取模型信息失败: {str(e)}")
 
-
 @router.post("/models/upload", response_model=RegisterModelResponse)
 async def upload_and_register_model(
     background_tasks: BackgroundTasks,
     model_file: UploadFile = File(..., description="模型文件"),
-    metadata: str = Field(..., description="模型元数据JSON字符串"),
+    metadata: str = Form(..., description="模型元数据JSON字符串"),
     tokenizer_file: Optional[UploadFile] = File(None, description="可选的tokenizer文件"),
     config_file: Optional[UploadFile] = File(None, description="可选的配置文件"),
     registry: ModelRegistry = Depends(get_model_registry)
@@ -309,8 +297,8 @@ async def upload_and_register_model(
             import onnx
             model = onnx.load(temp_model_path)
         else:
-            # 对于其他格式，使用占位符
-            model = {"file_path": temp_model_path}
+            cleanup_temp_dir(temp_dir)
+            raise HTTPException(status_code=400, detail=f"暂不支持上传注册该格式: {detected_format.value}")
         
         # 注册模型
         entry = registry.register_model(
@@ -352,12 +340,11 @@ async def upload_and_register_model(
         logger.error(f"上传注册模型失败: {e}")
         raise HTTPException(status_code=500, detail=f"上传注册模型失败: {str(e)}")
 
-
 @router.post("/models/{name}/register-from-hub")
 async def register_from_hub(
     name: str,
     metadata: ModelMetadataRequest,
-    hub_model_id: str = Field(..., description="Hub模型ID"),
+    hub_model_id: str = Query(..., description="Hub模型ID"),
     registry: ModelRegistry = Depends(get_model_registry)
 ):
     """
@@ -397,7 +384,7 @@ async def register_from_hub(
             author=metadata.author,
             repository_url=f"https://huggingface.co/{hub_model_id}",
             tags=metadata.tags + ["huggingface", "hub"],
-            **metadata.dict(exclude={"name", "version", "format", "description", "author", "tags"})
+            **metadata.model_dump(exclude={"name", "version", "format", "description", "author", "tags"})
         )
         
         model_id = f"{name}:{metadata.version}"
@@ -414,7 +401,6 @@ async def register_from_hub(
     except Exception as e:
         logger.error(f"从Hub注册模型失败: {e}")
         raise HTTPException(status_code=500, detail=f"从Hub注册模型失败: {str(e)}")
-
 
 @router.delete("/models/{name}")
 async def remove_model(
@@ -449,7 +435,6 @@ async def remove_model(
     except Exception as e:
         logger.error(f"删除模型失败: {e}")
         raise HTTPException(status_code=500, detail=f"删除模型失败: {str(e)}")
-
 
 @router.get("/models/{name}/download")
 async def download_model(
@@ -514,7 +499,6 @@ async def download_model(
         logger.error(f"下载模型失败: {e}")
         raise HTTPException(status_code=500, detail=f"下载模型失败: {str(e)}")
 
-
 @router.get("/models/{name}/export")
 async def export_model(
     name: str,
@@ -558,11 +542,11 @@ async def export_model(
                         zipf.write(file_path, arcname)
             
             return FileResponse(zip_path, filename=f"{name}_exported.zip")
-            
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
         logger.error(f"导出模型失败: {e}")
         raise HTTPException(status_code=500, detail=f"导出模型失败: {str(e)}")
-
 
 @router.get("/validate", response_model=ValidationResponse)
 async def validate_registry(
@@ -590,7 +574,6 @@ async def validate_registry(
     except Exception as e:
         logger.error(f"验证注册表失败: {e}")
         raise HTTPException(status_code=500, detail=f"验证注册表失败: {str(e)}")
-
 
 @router.get("/stats")
 async def get_registry_stats(
@@ -644,7 +627,6 @@ async def get_registry_stats(
         logger.error(f"获取统计信息失败: {e}")
         raise HTTPException(status_code=500, detail=f"获取统计信息失败: {str(e)}")
 
-
 def cleanup_temp_dir(temp_dir: str):
     """清理临时目录"""
     try:
@@ -654,18 +636,3 @@ def cleanup_temp_dir(temp_dir: str):
     except Exception as e:
         logger.warning(f"清理临时目录失败: {e}")
 
-
-# 错误处理
-@router.exception_handler(ValueError)
-async def value_error_handler(request, exc):
-    return HTTPException(status_code=400, detail=str(exc))
-
-
-@router.exception_handler(FileNotFoundError)
-async def file_not_found_handler(request, exc):
-    return HTTPException(status_code=404, detail=str(exc))
-
-
-@router.exception_handler(PermissionError)
-async def permission_error_handler(request, exc):
-    return HTTPException(status_code=403, detail=str(exc))

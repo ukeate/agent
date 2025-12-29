@@ -1,0 +1,573 @@
+{
+  "summary": {
+    "total_api_modules": 82,
+    "covered_modules": 46,
+    "uncovered_modules": 81,
+    "coverage_rate": 56.09756097560976,
+    "total_pages": 16
+  },
+  "covered_apis": [
+    "获取实验模板失败，请检查网络连接或稍后重试",
+    "版本回滚失败:",
+    "断开连接失败:",
+    "Logout V1 API call failed:",
+    "RAG健康检查API调用失败，返回演示数据:",
+    "参数敏感性分析失败，请检查网络连接或稍后重试",
+    "获取 WebSocket 连接统计失败:",
+    "广播消息失败:",
+    "重播事件失败:",
+    "isolation_forest",
+    "批量上传失败:",
+    "发送消息失败:",
+    "文件查询失败:",
+    "获取系统状态失败:",
+    "获取事件统计失败:",
+    "清空缓存失败:",
+    "RAG索引统计API调用失败，返回演示数据:",
+    "message",
+    "获取监控指标失败:",
+    "获取连接日志失败:",
+    "单文档上传失败:",
+    "文档上传失败:",
+    "清空向量存储失败:",
+    "获取集群状态失败:",
+    "Failed to search entities, using fallback data:",
+    ".",
+    "保存实验模板失败，请检查网络连接或稍后重试",
+    "获取连接健康状态失败:",
+    "Logout API call failed:",
+    "Failed to fetch knowledge graph stats, using fallback data:",
+    "Failed to execute GraphRAG query, using fallback response:",
+    "{var}",
+    "获取 WebSocket 连接失败:",
+    "Failed to fetch streaming metrics, using fallback data:",
+    "multimodal_rag",
+    "获取事件列表失败:",
+    "提交事件失败:",
+    "access_control",
+    "获取支持格式失败:",
+    "断开所有连接失败:",
+    "获取版本历史失败:",
+    "标签生成失败:",
+    "简单查询失败:",
+    "文档关系分析失败:",
+    "cpu_optimization",
+    "performance"
+  ],
+  "uncovered_apis": [
+    "personalization",
+    "service_discovery",
+    "knowledge_management",
+    "model_registry",
+    "event_tracking",
+    "model_compression",
+    "hypothesis_testing",
+    "security",
+    "explainable_ai",
+    "cache",
+    "graphrag",
+    "multi_agents",
+    "memory_management",
+    "release_strategy",
+    "assignment_cache",
+    "fault_tolerance",
+    "training_data",
+    "async_agents",
+    "langgraph_features",
+    "empathy_response",
+    "distributed_security",
+    "report_generation",
+    "multiple_testing_correction",
+    "test",
+    "targeting_rules",
+    "enterprise",
+    "knowledge_graph_reasoning",
+    "social_emotion_api",
+    "fine_tuning",
+    "experiments",
+    "emotion_modeling",
+    "model_service",
+    "reasoning",
+    "pgvector",
+    "streaming",
+    "sparql_api",
+    "core_init",
+    "documents",
+    "power_analysis",
+    "social_emotional_understanding",
+    "unified",
+    "health",
+    "agent_interface",
+    "risk_assessment",
+    "multimodal",
+    "cluster_management",
+    "mcp",
+    "workflows",
+    "feedback",
+    "realtime_metrics",
+    "hyperparameter_optimization",
+    "alert_rules",
+    "distributed_task",
+    "events",
+    "files",
+    "emotional_intelligence",
+    "auto_scaling",
+    "knowledge_extraction",
+    "layered_experiments",
+    "statistical_analysis",
+    "batch",
+    "knowledge_graph",
+    "event_batch",
+    "anomaly_detection",
+    "auth",
+    "rag",
+    "memory_analytics",
+    "emotion_websocket",
+    "supervisor",
+    "emotional_memory",
+    "bandit_recommendations",
+    "multi_step_reasoning",
+    "emotion_recognition",
+    "traffic_ramp",
+    "testing",
+    "agents",
+    "emotion_intelligence",
+    "offline",
+    "model_evaluation",
+    "analytics",
+    "platform_integration"
+  ],
+  "page_api_mapping": {
+    "MemoryHierarchyPage": [
+      "{var}"
+    ],
+    "EventDashboardPage": [
+      "获取事件列表失败:",
+      "提交事件失败:",
+      "获取集群状态失败:",
+      "获取事件统计失败:",
+      "重播事件失败:",
+      "获取监控指标失败:"
+    ],
+    "KnowledgeGraphQueryEngine": [
+      "Failed to fetch knowledge graph stats, using fallback data:",
+      "Failed to execute GraphRAG query, using fallback response:",
+      "Failed to search entities, using fallback data:"
+    ],
+    "UnifiedMonitorPage": [
+      "message",
+      "Failed to fetch streaming metrics, using fallback data:"
+    ],
+    "HyperparameterOptimizationPageEnhanced": [
+      "获取实验模板失败，请检查网络连接或稍后重试",
+      "参数敏感性分析失败，请检查网络连接或稍后重试",
+      "保存实验模板失败，请检查网络连接或稍后重试"
+    ],
+    "WebSocketManagementPage": [
+      "获取 WebSocket 连接失败:",
+      "断开连接失败:",
+      "广播消息失败:",
+      "断开所有连接失败:",
+      "获取 WebSocket 连接统计失败:",
+      "获取连接健康状态失败:",
+      "获取连接日志失败:",
+      "发送消息失败:"
+    ],
+    "BehaviorAnalyticsPageEnhanced": [
+      "isolation_forest"
+    ],
+    "MultimodalRagManagementPage": [
+      "multimodal_rag",
+      "文件查询失败:",
+      "清空向量存储失败:",
+      "RAG健康检查API调用失败，返回演示数据:",
+      "获取系统状态失败:",
+      "清空缓存失败:",
+      "简单查询失败:",
+      "批量上传失败:",
+      "RAG索引统计API调用失败，返回演示数据:",
+      "单文档上传失败:"
+    ],
+    "GraphRAGPage": [
+      "multimodal_rag",
+      "文件查询失败:",
+      "清空向量存储失败:",
+      "RAG健康检查API调用失败，返回演示数据:",
+      "获取系统状态失败:",
+      "清空缓存失败:",
+      "简单查询失败:",
+      "批量上传失败:",
+      "RAG索引统计API调用失败，返回演示数据:",
+      "单文档上传失败:"
+    ],
+    "MemoryAnalyticsDashboard": [
+      "{var}"
+    ],
+    "AgentClusterManagementPageEnhanced": [
+      "cpu_optimization",
+      "performance",
+      "access_control"
+    ],
+    "DocumentProcessingPage": [
+      "版本回滚失败:",
+      "文档上传失败:",
+      "获取支持格式失败:",
+      "获取版本历史失败:",
+      "标签生成失败:",
+      "文档关系分析失败:",
+      "批量上传失败:"
+    ],
+    "MemoryRecallTestPage": [
+      "{var}"
+    ],
+    "MultimodalRagPage": [
+      "multimodal_rag",
+      "文件查询失败:",
+      "清空向量存储失败:",
+      "RAG健康检查API调用失败，返回演示数据:",
+      "获取系统状态失败:",
+      "清空缓存失败:",
+      "简单查询失败:",
+      "批量上传失败:",
+      "RAG索引统计API调用失败，返回演示数据:",
+      "单文档上传失败:"
+    ],
+    "AuthManagementPage": [
+      "Logout V1 API call failed:",
+      ".",
+      "Logout API call failed:"
+    ],
+    "DocumentManagementPageComplete": [
+      "版本回滚失败:",
+      "文档上传失败:",
+      "获取支持格式失败:",
+      "获取版本历史失败:",
+      "标签生成失败:",
+      "文档关系分析失败:",
+      "批量上传失败:"
+    ]
+  },
+  "service_apis": {
+    "realtimeAnalyticsService": [
+      ","
+    ],
+    "autoScalingService": [
+      "获取扩量建议失败:",
+      "获取触发器列表失败:",
+      "创建安全扩量模板失败:",
+      "模拟扩量失败:",
+      "获取扩量规则列表失败:",
+      "获取扩量模式列表失败:",
+      "获取扩量服务状态失败:",
+      "健康检查失败:",
+      "启动自动扩量失败:",
+      "停止自动扩量失败:",
+      "创建扩量规则失败:",
+      "添加扩量条件失败:",
+      "创建激进扩量模板失败:",
+      "获取扩量历史失败:"
+    ],
+    "analyticsServiceEnhanced": [
+      "isolation_forest"
+    ],
+    "experimentServiceEnhanced": [
+      "2024-01-15",
+      "Experiment shared (mock)",
+      "Comment added (mock)",
+      "Settings updated (mock)"
+    ],
+    "entityService": [
+      "获取实体类型失败:",
+      "更新实体失败，请检查输入数据或稍后重试",
+      "实体标签不能为空",
+      "创建实体失败，请检查输入数据或稍后重试",
+      "获取实体详情失败，请检查网络连接或稍后重试",
+      "删除实体失败，请检查网络连接或稍后重试",
+      "搜索实体失败，请检查搜索条件或稍后重试",
+      "导出实体数据失败，请稍后重试",
+      "获取实体列表失败，请检查网络连接或稍后重试",
+      "导入实体数据失败，请检查文件格式或稍后重试",
+      "批量创建实体失败，请检查输入数据或稍后重试"
+    ],
+    "statisticalAnalysisService": [
+      "样本量计算失败:",
+      "MDE计算失败:",
+      "优化分配失败:",
+      "获取指标趋势失败:",
+      "计算置信区间失败:",
+      "功效模拟失败:",
+      "计算相关性失败:",
+      "假设检验失败:",
+      "SRM验证失败:",
+      "获取描述性统计失败:",
+      "执行回归分析失败:",
+      "检测异常值失败:",
+      "多重检验校正失败:",
+      "序贯检验失败:",
+      "实验分析失败:",
+      "时间序列分析失败:",
+      "功效计算失败:"
+    ],
+    "supervisorService": [
+      "获取配置信息失败:",
+      "获取任务列表失败:",
+      "更新配置失败:",
+      "获取监督者日志失败:",
+      "控制代理失败:",
+      "获取监督者策略失败:",
+      "获取监督者统计失败:",
+      "创建策略失败，请检查输入数据或稍后重试",
+      "获取监督者指标失败:",
+      "获取决策记录失败:",
+      "获取代理详情失败:",
+      "获取监督者代理失败:",
+      "创建代理失败，请检查输入数据或稍后重试"
+    ],
+    "basicRagService": [
+      "获取RAG文档失败:",
+      "生成嵌入失败:",
+      "删除失败，请检查网络连接或稍后重试",
+      "获取RAG统计失败:",
+      "上传失败，请检查网络连接或稍后重试",
+      "重建RAG索引失败:",
+      "RAG搜索失败:"
+    ],
+    "memoryService": [
+      "{var}/search",
+      "{var}/{var}",
+      "{var}/analytics",
+      "{var}/analytics/patterns",
+      "{var}/{var}/related",
+      "{var}/analytics/trends",
+      "{var}/export",
+      "{var}/session/{var}"
+    ],
+    "anomalyDetectionService": [
+      "/api/v1/anomalies/health",
+      "/api/v1/anomalies/summary/{var}?{var}",
+      "/api/v1/anomalies/methods",
+      "/api/v1/anomalies/check-data-quality",
+      "/api/v1/anomalies/check-srm",
+      "/api/v1/anomalies/types",
+      "/api/v1/anomalies/detect",
+      "/api/v1/anomalies/configure",
+      "/api/v1/anomalies/batch-detect?{var}"
+    ],
+    "statisticalAnalysisServiceEnhanced": [
+      "健康检查失败:",
+      "计算基础统计失败:",
+      "计算均值失败:",
+      "计算方差失败:",
+      "计算多分组统计失败:",
+      "获取快速摘要失败:",
+      "计算转化率统计失败:",
+      "计算分位数失败:"
+    ],
+    "agenticRagService": [
+      "获取检索解释失败:",
+      "提交反馈失败:",
+      "/api/v1/rag/agentic/query/stream",
+      "获取统计信息失败:",
+      "健康检查失败:",
+      "Agentic RAG查询失败:"
+    ],
+    "feedbackService": [
+      "/feedback/process/batch",
+      "/feedback/explicit",
+      "/feedback/implicit"
+    ],
+    "documentsService": [
+      "版本回滚失败:",
+      "文档上传失败:",
+      "获取支持格式失败:",
+      "获取版本历史失败:",
+      "标签生成失败:",
+      "文档关系分析失败:",
+      "批量上传失败:"
+    ],
+    "multiStepReasoningApi": [
+      "List executions failed:",
+      "Execution control failed:",
+      "List workflows failed:",
+      "Problem decomposition failed:",
+      "Get execution status failed:",
+      "Execution start failed:",
+      "Get system metrics failed:",
+      "Delete execution failed:",
+      "Get execution results failed:"
+    ],
+    "multimodalRagService": [
+      "文件查询失败:",
+      "清空向量存储失败:",
+      "RAG健康检查API调用失败，返回演示数据:",
+      "获取系统状态失败:",
+      "/api/v1/multimodal-rag/stream-query",
+      "清空缓存失败:",
+      "简单查询失败:",
+      "批量上传失败:",
+      "RAG索引统计API调用失败，返回演示数据:",
+      "单文档上传失败:"
+    ],
+    "hyperparameterServiceEnhanced": [
+      "获取实验模板失败，请检查网络连接或稍后重试",
+      "参数敏感性分析失败，请检查网络连接或稍后重试",
+      "保存实验模板失败，请检查网络连接或稍后重试"
+    ],
+    "authService": [
+      "Logout V1 API call failed:",
+      ".",
+      "Logout API call failed:"
+    ],
+    "platformService": [
+      "获取平台状态失败:",
+      "获取平台模块失败:",
+      "创建模块失败，请检查输入数据或稍后重试",
+      "获取模块详情失败:",
+      "更新模块失败，请检查输入数据或稍后重试",
+      "获取平台健康状态失败:",
+      "删除模块失败，请稍后重试"
+    ],
+    "monitoringService": [
+      "/api/v1/monitoring/traces/${traceId}",
+      "/api/v1/monitoring/optimize",
+      "Failed to fetch dashboard data, using fallback data:",
+      "Failed to fetch metrics, using fallback data:"
+    ],
+    "riskAssessmentService": [
+      "获取风险等级列表失败:",
+      "评估风险失败:",
+      "获取风险类别列表失败:",
+      "健康检查失败:",
+      "获取回滚状态失败:",
+      "更新风险阈值失败:",
+      "创建回滚计划失败:",
+      "执行回滚失败:",
+      "获取回滚策略列表失败:",
+      "获取风险阈值失败:",
+      "获取风险历史失败:",
+      "启动风险监控失败:"
+    ],
+    "reasoningService": [
+      "验证推理失败，请检查网络连接或稍后重试",
+      "验证推理链失败，请检查网络连接或稍后重试",
+      "获取推理策略失败，请检查网络连接或稍后重试",
+      "推理执行失败，请检查网络连接或稍后重试",
+      "恢复推理链失败，请检查网络连接或稍后重试",
+      "获取推理统计失败，请检查网络连接或稍后重试",
+      "执行推理失败，请检查网络连接或稍后重试",
+      "获取推理链失败，请检查网络连接或稍后重试",
+      "删除推理链失败，请检查网络连接或稍后重试",
+      "获取推理详情失败，请检查网络连接或稍后重试",
+      "获取推理历史失败，请检查网络连接或稍后重试",
+      "创建分支失败，请检查网络连接或稍后重试"
+    ],
+    "cacheService": [
+      "获取缓存统计失败:",
+      "更新缓存策略失败:",
+      "获取缓存键列表失败:",
+      "清理缓存失败:",
+      "设置缓存条目失败:",
+      "删除缓存条目失败:",
+      "批量获取缓存失败:",
+      "获取缓存策略失败:",
+      "预热缓存失败:",
+      "获取缓存性能失败:",
+      "批量设置缓存失败:",
+      "失效节点缓存失败:",
+      "缓存健康检查失败:",
+      "获取缓存条目失败:"
+    ],
+    "loraTrainingService": [
+      "获取检查点列表失败:",
+      "获取训练指标失败:",
+      "获取训练任务列表失败:",
+      "创建LoRA训练任务失败:",
+      "获取训练进度失败:",
+      "获取模型信息失败:"
+    ],
+    "streamingService": [
+      "message",
+      "Failed to fetch streaming metrics, using fallback data:"
+    ],
+    "knowledgeGraphService": [
+      "Failed to execute GraphRAG query, using fallback response:",
+      "Failed to fetch knowledge graph stats, using fallback data:",
+      "Failed to search entities, using fallback data:"
+    ],
+    "clusterManagementServiceEnhanced": [
+      "cpu_optimization",
+      "performance",
+      "access_control"
+    ],
+    "emotionalIntelligenceService": [
+      "/api/v1/emotion/analyze"
+    ],
+    "multiAgentService": [
+      "Failed to fetch available agents, using fallback data:",
+      "Failed to fetch agents, using fallback data:",
+      "Failed to fetch multi-agent status, using fallback data:",
+      "Failed to create conversation, using fallback response:"
+    ],
+    "distributedTrainingService": [
+      "获取同步效率分析失败:",
+      "获取集群状态失败:",
+      "获取训练指标失败:",
+      "获取DeepSpeed配置失败:",
+      "创建训练任务失败:",
+      "获取GPU节点失败:",
+      "获取检查点失败:",
+      "获取训练任务失败:"
+    ],
+    "webSocketConnectionService": [
+      "获取 WebSocket 连接失败:",
+      "断开连接失败:",
+      "获取 WebSocket 连接统计失败:",
+      "断开所有连接失败:",
+      "广播消息失败:",
+      "获取连接健康状态失败:",
+      "获取连接日志失败:",
+      "发送消息失败:"
+    ],
+    "mcpService": [
+      "读取文件失败:",
+      "写入文件失败:",
+      "执行查询失败:",
+      "运行命令失败:",
+      "获取MCP工具列表失败:",
+      "列出目录失败:",
+      "MCP工具调用失败:",
+      "获取MCP指标失败:",
+      "MCP健康检查失败:"
+    ],
+    "eventService": [
+      "获取事件列表失败:",
+      "提交事件失败:",
+      "获取集群状态失败:",
+      "获取事件统计失败:",
+      "重播事件失败:",
+      "获取监控指标失败:"
+    ]
+  },
+  "recommendations": {
+    "high_priority": [
+      "experiments",
+      "workflows",
+      "rag",
+      "agents"
+    ],
+    "medium_priority": [
+      "streaming",
+      "events",
+      "cache",
+      "pgvector",
+      "explainable_ai",
+      "reasoning",
+      "unified"
+    ],
+    "low_priority": [
+      "test",
+      "health",
+      "core_init"
+    ]
+  }
+}

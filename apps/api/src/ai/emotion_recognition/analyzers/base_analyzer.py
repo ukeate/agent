@@ -4,12 +4,9 @@ from abc import ABC, abstractmethod
 from typing import Any, Dict, Optional, List
 import asyncio
 from datetime import datetime
-import logging
-
 from ..models.emotion_models import EmotionResult, EmotionDimension, Modality
 
-logger = logging.getLogger(__name__)
-
+logger = get_logger(__name__)
 
 class BaseEmotionAnalyzer(ABC):
     """情感分析器基类"""
@@ -39,7 +36,7 @@ class BaseEmotionAnalyzer(ABC):
     @abstractmethod
     async def _load_model(self):
         """加载模型和处理器"""
-        pass
+        raise NotImplementedError
         
     @abstractmethod
     async def analyze(self, input_data: Any) -> EmotionResult:
@@ -52,7 +49,7 @@ class BaseEmotionAnalyzer(ABC):
         Returns:
             EmotionResult: 情感分析结果
         """
-        pass
+        raise NotImplementedError
         
     @abstractmethod
     async def preprocess(self, input_data: Any) -> Any:
@@ -65,7 +62,7 @@ class BaseEmotionAnalyzer(ABC):
         Returns:
             预处理后的数据
         """
-        pass
+        raise NotImplementedError
         
     @abstractmethod
     async def postprocess(self, raw_output: Any) -> EmotionResult:
@@ -78,7 +75,7 @@ class BaseEmotionAnalyzer(ABC):
         Returns:
             EmotionResult: 格式化的情感结果
         """
-        pass
+        raise NotImplementedError
         
     def calculate_intensity(self, confidence: float, features: Dict[str, Any]) -> float:
         """
@@ -126,7 +123,7 @@ class BaseEmotionAnalyzer(ABC):
                     dominance=base_dimension.dominance * intensity
                 )
         except ValueError:
-            pass
+            logger.warning("捕获到ValueError，已继续执行", exc_info=True)
             
         # 默认维度(中性)
         return EmotionDimension(
@@ -197,3 +194,4 @@ class BaseEmotionAnalyzer(ABC):
         self.model = None
         self.processor = None
         self.is_initialized = False
+from src.core.logging import get_logger

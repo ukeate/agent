@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import {
+import { logger } from '../utils/logger'
   Card,
   Row,
   Col,
@@ -14,7 +15,9 @@ import {
   Timeline,
   List,
   Badge,
-  Tabs
+  Tabs,
+  message,
+  Spin
 } from 'antd'
 import {
   HeartOutlined,
@@ -25,6 +28,8 @@ import {
   ApiOutlined,
   ExclamationCircleOutlined
 } from '@ant-design/icons'
+import { healthService } from '../services/healthService'
+import type { HealthCheckResult, HealthAlert } from '../services/healthService'
 
 const { Title, Text } = Typography
 const { TabPane } = Tabs
@@ -56,110 +61,108 @@ interface Alert {
 }
 
 const HealthMonitorPage: React.FC = () => {
-  const [healthChecks, setHealthChecks] = useState<HealthCheck[]>([
-    {
-      service: 'PostgreSQL数据库',
-      status: 'healthy',
-      responseTime: 15,
-      lastCheck: '30秒前',
-      uptime: 99.8
-    },
-    {
-      service: 'Redis缓存',
-      status: 'healthy',
-      responseTime: 5,
-      lastCheck: '30秒前',
-      uptime: 99.9
-    },
-    {
-      service: 'Qdrant向量数据库',
-      status: 'healthy',
-      responseTime: 25,
-      lastCheck: '30秒前',
-      uptime: 99.5
-    },
-    {
-      service: 'OpenAI API',
-      status: 'degraded',
-      responseTime: 850,
-      lastCheck: '30秒前',
-      uptime: 98.2,
-      details: '响应时间较慢'
-    },
-    {
-      service: 'MCP服务',
-      status: 'healthy',
-      responseTime: 12,
-      lastCheck: '30秒前',
-      uptime: 99.7
-    },
-    {
-      service: '文件存储',
-      status: 'unhealthy',
-      responseTime: 0,
-      lastCheck: '2分钟前',
-      uptime: 95.1,
-      details: '连接超时'
-    }
-  ])
-
-  const [systemMetrics] = useState<SystemMetric[]>([
-    { name: 'CPU使用率', value: 45, unit: '%', status: 'normal', threshold: 80 },
-    { name: '内存使用率', value: 67, unit: '%', status: 'normal', threshold: 85 },
-    { name: '磁盘使用率', value: 52, unit: '%', status: 'normal', threshold: 90 },
-    { name: '网络延迟', value: 25, unit: 'ms', status: 'normal', threshold: 100 },
-    { name: '数据库连接数', value: 85, unit: '个', status: 'warning', threshold: 100 },
-    { name: '缓存命中率', value: 92, unit: '%', status: 'normal', threshold: 80 }
-  ])
-
-  const [alerts] = useState<Alert[]>([
-    {
-      id: '1',
-      level: 'error',
-      message: '文件存储服务连接失败',
-      service: '文件存储',
-      timestamp: '2分钟前',
-      resolved: false
-    },
-    {
-      id: '2',
-      level: 'warning',
-      message: 'OpenAI API响应时间超过阈值',
-      service: 'OpenAI API',
-      timestamp: '5分钟前',
-      resolved: false
-    },
-    {
-      id: '3',
-      level: 'warning',
-      message: '数据库连接数接近上限',
-      service: 'PostgreSQL数据库',
-      timestamp: '10分钟前',
-      resolved: false
-    },
-    {
-      id: '4',
-      level: 'info',
-      message: 'Redis缓存自动清理完成',
-      service: 'Redis缓存',
-      timestamp: '1小时前',
-      resolved: true
-    }
-  ])
-
+  const [healthChecks, setHealthChecks] = useState<HealthCheck[]>([])
+  const [systemMetrics, setSystemMetrics] = useState<SystemMetric[]>([])
+  const [alerts, setAlerts] = useState<Alert[]>([])
   const [autoRefresh, setAutoRefresh] = useState(true)
+  const [loading, setLoading] = useState(true)
+
+  // 加载健康状态数据
+  const loadHealthData = async () => {
+    try {
+      setLoading(true)
+      
+      // 并行调用多个API
+      const [healthStatus, systemMetrics, alerts] = await Promise.all([
+        healthService.getDetailedHealth(),
+        healthService.getSystemMetrics(),
+        healthService.getHealthAlerts()
+      ])
+
+      // 转换健康状态数据
+      if (healthStatus.components) {
+        const checks: HealthCheck[] = Object.entries(healthStatus.components).map(([service, data]: [string, any]) => ({
+          service: service,
+          status: data.status === 'healthy' ? 'healthy' : data.status === 'degraded' ? 'degraded' : 'unhealthy',
+          responseTime: data.response_time_ms || 0,
+          lastCheck: new Date(healthStatus.timestamp || Date.now()).toLocaleString(),
+          uptime: data.uptime_seconds || 0,
+          details: data.error || data.note
+        }))
+        setHealthChecks(checks)
+      }
+
+      // 转换系统指标数据  
+      if (systemMetrics) {
+        const metrics: SystemMetric[] = []
+        const processMetrics = (systemMetrics as any).process || {}
+        const systemInfo = (systemMetrics as any).system || {}
+        const cpuPercent = processMetrics.cpu_percent
+        const memoryRss = processMetrics.memory_rss_mb
+        const memoryTotal = systemInfo.memory_total_mb
+
+        if (typeof cpuPercent === 'number') {
+          metrics.push({
+            name: 'CPU使用率',
+            value: cpuPercent,
+            unit: '%',
+            status: cpuPercent >= 95 ? 'critical' : cpuPercent >= 80 ? 'warning' : 'normal',
+            threshold: 100
+          })
+        }
+
+        if (typeof memoryRss === 'number' && typeof memoryTotal === 'number' && memoryTotal > 0) {
+          const percent = (memoryRss / memoryTotal) * 100
+          metrics.push({
+            name: '内存使用率',
+            value: Number(percent.toFixed(1)),
+            unit: '%',
+            status: percent >= 95 ? 'critical' : percent >= 80 ? 'warning' : 'normal',
+            threshold: 100
+          })
+        }
+
+        setSystemMetrics(metrics)
+      }
+
+      // 转换告警数据
+      if (alerts.alerts) {
+        const alertList: Alert[] = alerts.alerts.map((alert: any) => ({
+          id: alert.id,
+          level: alert.level,
+          message: alert.message,
+          service: alert.service,
+          timestamp: new Date(alert.timestamp).toLocaleString(),
+          resolved: alert.resolved || false
+        }))
+        setAlerts(alertList)
+      }
+
+    } catch (error) {
+      logger.error('加载健康数据失败:', error)
+      message.error('获取健康数据失败')
+      setHealthChecks([])
+      setSystemMetrics([])
+      setAlerts([])
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // 手动刷新
+  const handleRefresh = async () => {
+    await loadHealthData()
+    message.success('数据已刷新')
+  }
+
+  // 初始加载和自动刷新
+  useEffect(() => {
+    loadHealthData()
+  }, [])
 
   useEffect(() => {
     if (autoRefresh) {
-      const interval = setInterval(() => {
-        setHealthChecks(prev => prev.map(check => ({
-          ...check,
-          responseTime: check.status === 'healthy' 
-            ? Math.max(1, check.responseTime + (Math.random() - 0.5) * 10)
-            : check.responseTime,
-          lastCheck: '刚刚'
-        })))
-      }, 30000)
+      const interval = setInterval(loadHealthData, 30000) // 30秒刷新一次
       return () => clearInterval(interval)
     }
   }, [autoRefresh])
@@ -294,7 +297,8 @@ const HealthMonitorPage: React.FC = () => {
             </Button>
             <Button 
               icon={<HeartOutlined />}
-              onClick={() => console.log('执行全面健康检查')}
+              onClick={handleRefresh}
+              loading={loading}
             >
               立即检查
             </Button>
@@ -378,6 +382,12 @@ const HealthMonitorPage: React.FC = () => {
         </TabPane>
 
         <TabPane tab="系统指标" key="metrics">
+          {loading ? (
+            <div style={{ textAlign: 'center', padding: '50px' }}>
+              <Spin size="large" />
+              <p>加载系统指标...</p>
+            </div>
+          ) : (
           <Row gutter={16}>
             {systemMetrics.map((metric, index) => (
               <Col span={8} key={index} className="mb-4">
@@ -403,6 +413,7 @@ const HealthMonitorPage: React.FC = () => {
               </Col>
             ))}
           </Row>
+          )}
         </TabPane>
 
         <TabPane tab={`告警 (${alerts.filter(a => !a.resolved).length})`} key="alerts">

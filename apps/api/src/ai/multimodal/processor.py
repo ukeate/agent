@@ -9,15 +9,12 @@ from datetime import datetime
 from src.core.utils.timezone_utils import utc_now, utc_factory, timezone
 from typing import Dict, Any, List, Optional, Union
 import hashlib
-
-import structlog
 import aiofiles
 import cv2
 import numpy as np
 from PIL import Image
 import PyPDF2
 from docx import Document
-
 from src.core.redis import get_redis
 from .client import OpenAIMultimodalClient
 from .types import (
@@ -26,8 +23,8 @@ from .types import (
 )
 from .config import ModelConfig
 
-logger = structlog.get_logger(__name__)
-
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 class MultimodalProcessor:
     """多模态内容处理器"""

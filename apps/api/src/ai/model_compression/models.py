@@ -11,10 +11,6 @@ from enum import Enum
 from dataclasses import dataclass, field
 from uuid import uuid4
 import torch
-import logging
-
-logger = logging.getLogger(__name__)
-
 
 class CompressionMethod(str, Enum):
     """压缩方法类型"""
@@ -22,7 +18,6 @@ class CompressionMethod(str, Enum):
     DISTILLATION = "distillation"
     PRUNING = "pruning"
     MIXED = "mixed"
-
 
 class QuantizationMethod(str, Enum):
     """量化方法"""
@@ -32,7 +27,6 @@ class QuantizationMethod(str, Enum):
     AWQ = "awq"
     SMOOTHQUANT = "smoothquant"
 
-
 class PrecisionType(str, Enum):
     """精度类型"""
     FP32 = "fp32"
@@ -41,14 +35,12 @@ class PrecisionType(str, Enum):
     INT8 = "int8"
     INT4 = "int4"
 
-
 class PruningType(str, Enum):
     """剪枝类型"""
     UNSTRUCTURED = "unstructured"
     STRUCTURED = "structured"
     MAGNITUDE = "magnitude_based"
     GRADIENT = "gradient_based"
-
 
 class InferenceEngine(str, Enum):
     """推理引擎类型"""
@@ -57,7 +49,6 @@ class InferenceEngine(str, Enum):
     OPENVINO = "openvino"
     TVM = "tvm"
     TORCHSCRIPT = "torchscript"
-
 
 @dataclass
 class QuantizationConfig:
@@ -88,7 +79,6 @@ class QuantizationConfig:
             "cache_calibration_data": self.cache_calibration_data,
         }
 
-
 @dataclass
 class DistillationConfig:
     """蒸馏配置"""
@@ -118,7 +108,6 @@ class DistillationConfig:
             "warmup_steps": self.warmup_steps,
         }
 
-
 @dataclass
 class PruningConfig:
     """剪枝配置"""
@@ -145,7 +134,6 @@ class PruningConfig:
             "recovery_learning_rate": self.recovery_learning_rate,
             "target_modules": self.target_modules,
         }
-
 
 @dataclass
 class CompressionJob:
@@ -189,7 +177,6 @@ class CompressionJob:
             "output_dir": self.output_dir,
             "save_intermediate": self.save_intermediate,
         }
-
 
 @dataclass
 class CompressionResult:
@@ -250,7 +237,6 @@ class CompressionResult:
             "compression_time": self.compression_time,
         }
 
-
 class HardwareBenchmark(TypedDict):
     """硬件基准测试"""
     device_name: str
@@ -263,7 +249,6 @@ class HardwareBenchmark(TypedDict):
     latency_p99: float  # ms
     memory_usage: float  # MB
     power_consumption: Optional[float]  # watts
-
 
 @dataclass
 class CompressionStrategy:
@@ -292,7 +277,6 @@ class CompressionStrategy:
             "config_template": self.config_template,
         }
 
-
 @dataclass
 class ModelInfo:
     """模型信息"""
@@ -315,7 +299,6 @@ class ModelInfo:
             "precision": self.precision.value,
             "supported_frameworks": self.supported_frameworks,
         }
-
 
 # 预定义的压缩策略模板
 DEFAULT_COMPRESSION_STRATEGIES = [

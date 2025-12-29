@@ -8,12 +8,11 @@ from typing import Any, Dict, Optional, List, Callable, AsyncIterator
 from dataclasses import dataclass, field
 import asyncio
 import time
-import logging
 from enum import Enum
 from collections import deque
 
-logger = logging.getLogger(__name__)
-
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 class BufferStatus(str, Enum):
     """缓冲区状态"""
@@ -21,7 +20,6 @@ class BufferStatus(str, Enum):
     HIGH_USAGE = "high_usage"
     FULL = "full"
     OVERFLOW = "overflow"
-
 
 @dataclass
 class BufferMetrics:
@@ -34,7 +32,6 @@ class BufferMetrics:
     high_watermark_hits: int = 0
     status: BufferStatus = BufferStatus.NORMAL
     last_updated: float = field(default_factory=time.time)
-
 
 class StreamBuffer:
     """流式数据缓冲器"""
@@ -271,7 +268,6 @@ class StreamBuffer:
             current_size=current_size,
             max_size=self.max_size
         )
-
 
 class MultiStreamBuffer:
     """多流缓冲管理器"""

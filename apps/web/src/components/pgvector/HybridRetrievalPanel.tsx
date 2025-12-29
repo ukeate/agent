@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import {
+import { logger } from '../../utils/logger'
   Card,
   Input,
   Button,
@@ -59,7 +60,7 @@ interface BenchmarkResult {
   avg_latency_ms: number;
   results_per_query: number;
   success_rate: number;
-  accuracy_score: number;
+  accuracy_score?: number | null;
 }
 
 const HybridRetrievalPanel: React.FC = () => {
@@ -92,7 +93,7 @@ const HybridRetrievalPanel: React.FC = () => {
       setSearchResults(results);
       setSearchMetrics(metrics);
     } catch (error) {
-      console.error('Search failed:', error);
+      logger.error('检索失败:', error);
     } finally {
       setSearching(false);
     }
@@ -111,7 +112,7 @@ const HybridRetrievalPanel: React.FC = () => {
       });
       setBenchmarkResults(results);
     } catch (error) {
-      console.error('Benchmark failed:', error);
+      logger.error('基准测试失败:', error);
     } finally {
       setBenchmarking(false);
     }
@@ -236,14 +237,19 @@ const HybridRetrievalPanel: React.FC = () => {
       )
     },
     {
-      title: '准确性评分',
+      title: '一致性评分',
       dataIndex: 'accuracy_score',
       key: 'accuracy_score',
-      render: (score: number) => (
-        <span style={{ color: score > 0.8 ? '#52c41a' : score > 0.6 ? '#faad14' : '#f5222d' }}>
-          {score.toFixed(3)}
-        </span>
-      )
+      render: (score: number | null | undefined) => {
+        if (score === null || score === undefined) {
+          return <span style={{ color: '#999' }}>-</span>;
+        }
+        return (
+          <span style={{ color: score > 0.8 ? '#52c41a' : score > 0.6 ? '#faad14' : '#f5222d' }}>
+            {score.toFixed(3)}
+          </span>
+        );
+      }
     }
   ];
 
@@ -459,11 +465,11 @@ const HybridRetrievalPanel: React.FC = () => {
                             <strong>{result.method.toUpperCase()}</strong>: 
                             平均延迟 {result.avg_latency_ms.toFixed(1)}ms, 
                             成功率 {(result.success_rate * 100).toFixed(1)}%, 
-                            准确性 {result.accuracy_score.toFixed(3)}
+                            一致性 {result.accuracy_score === null || result.accuracy_score === undefined ? '-' : result.accuracy_score.toFixed(3)}
                           </li>
                         ))}
                       </ul>
-                      <p><strong>建议：</strong>根据延迟、准确性和稳定性需求选择合适的检索策略。</p>
+                      <p><strong>建议：</strong>根据延迟、一致性和稳定性需求选择合适的检索策略。</p>
                     </div>
                   }
                   variant="default"

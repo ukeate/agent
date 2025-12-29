@@ -3,7 +3,6 @@ pgvector性能监控模块
 收集和分析向量数据库的性能指标
 """
 
-import logging
 import asyncio
 from typing import Dict, List, Any, Optional
 from datetime import datetime
@@ -13,12 +12,12 @@ import asyncpg
 import json
 from dataclasses import dataclass, asdict
 import time
-
 from ...core.config import get_settings
 
-logger = logging.getLogger(__name__)
-settings = get_settings()
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
+settings = get_settings()
 
 @dataclass
 class VectorQueryMetrics:
@@ -34,7 +33,6 @@ class VectorQueryMetrics:
     filters_applied: bool
     cache_hit: bool
     timestamp: datetime
-
 
 @dataclass
 class VectorIndexMetrics:
@@ -52,7 +50,6 @@ class VectorIndexMetrics:
     fragmentation_ratio: float
     timestamp: datetime
 
-
 @dataclass
 class VectorSystemMetrics:
     """向量系统整体指标"""
@@ -65,7 +62,6 @@ class VectorSystemMetrics:
     cache_hit_ratio: float
     error_rate: float
     timestamp: datetime
-
 
 class VectorMetricsCollector:
     """向量指标收集器"""
@@ -166,6 +162,9 @@ class VectorMetricsCollector:
             await self.initialize()
             
         try:
+            timestamp = metrics.timestamp
+            if isinstance(timestamp, datetime) and timestamp.tzinfo is not None:
+                timestamp = timestamp.replace(tzinfo=None)
             async with self.pool.acquire() as conn:
                 await conn.execute("""
                 INSERT INTO vector_query_metrics (
@@ -178,7 +177,7 @@ class VectorMetricsCollector:
                 metrics.query_vector_dimension, metrics.result_count,
                 metrics.execution_time_ms, metrics.index_scan_time_ms,
                 metrics.distance_metric, metrics.filters_applied,
-                metrics.cache_hit, metrics.timestamp
+                metrics.cache_hit, timestamp
                 )
                 
         except Exception as e:
@@ -195,7 +194,8 @@ class VectorMetricsCollector:
             
         try:
             async with self.pool.acquire() as conn:
-                since_time = utc_now() - timedelta(hours=time_range_hours)
+                end_time = utc_now().replace(tzinfo=None)
+                since_time = end_time - timedelta(hours=time_range_hours)
                 
                 # 查询性能统计
                 query_where = "WHERE timestamp >= $1"
@@ -211,7 +211,10 @@ class VectorMetricsCollector:
                     COUNT(*) as total_queries,
                     AVG(execution_time_ms) as avg_execution_time,
                     MIN(execution_time_ms) as min_execution_time,
-                    MAX(execution_time_ms) as max_execution_time
+                    MAX(execution_time_ms) as max_execution_time,
+                    percentile_cont(0.95) WITHIN GROUP (ORDER BY execution_time_ms) as p95_execution_time,
+                    percentile_cont(0.99) WITHIN GROUP (ORDER BY execution_time_ms) as p99_execution_time,
+                    AVG(CASE WHEN cache_hit THEN 1 ELSE 0 END) as cache_hit_ratio
                 FROM vector_query_metrics 
                 {query_where}
                 """, *params)
@@ -220,20 +223,26 @@ class VectorMetricsCollector:
                     "total_queries": 0,
                     "avg_execution_time": 0,
                     "min_execution_time": 0,
-                    "max_execution_time": 0
+                    "max_execution_time": 0,
+                    "p95_execution_time": 0,
+                    "p99_execution_time": 0,
+                    "cache_hit_ratio": 0
                 }
                 
                 return {
                     "report_period": {
                         "start_time": since_time.isoformat(),
-                        "end_time": utc_now().isoformat(),
+                        "end_time": end_time.isoformat(),
                         "collection_name": collection_name
                     },
                     "query_performance": {
                         "total_queries": query_stats["total_queries"] or 0,
                         "average_execution_time_ms": float(query_stats["avg_execution_time"] or 0),
                         "min_execution_time_ms": float(query_stats["min_execution_time"] or 0),
-                        "max_execution_time_ms": float(query_stats["max_execution_time"] or 0)
+                        "max_execution_time_ms": float(query_stats["max_execution_time"] or 0),
+                        "p95_execution_time_ms": float(query_stats["p95_execution_time"] or 0),
+                        "p99_execution_time_ms": float(query_stats["p99_execution_time"] or 0),
+                        "cache_hit_ratio": float(query_stats["cache_hit_ratio"] or 0)
                     }
                 }
                 
@@ -241,10 +250,8 @@ class VectorMetricsCollector:
             logger.error(f"生成性能报告失败: {e}")
             return {"error": str(e)}
 
-
 # 全局指标收集器实例
 metrics_collector = VectorMetricsCollector()
-
 
 async def get_metrics_collector() -> VectorMetricsCollector:
     """获取指标收集器实例"""

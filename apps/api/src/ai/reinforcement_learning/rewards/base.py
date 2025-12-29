@@ -10,7 +10,6 @@ from typing import Dict, List, Any, Optional, Tuple, Union
 import numpy as np
 from enum import Enum
 
-
 class RewardType(Enum):
     """奖励类型枚举"""
     LINEAR = "linear"
@@ -23,7 +22,6 @@ class RewardType(Enum):
     ADAPTIVE = "adaptive"
     PROGRESS_BASED = "progress_based"
     CURRICULUM = "curriculum"
-
 
 @dataclass
 class RewardConfig:
@@ -43,7 +41,6 @@ class RewardConfig:
     adaptation_window: int = 1000
     min_value: float = -10.0
     max_value: float = 10.0
-
 
 @dataclass
 class RewardMetrics:
@@ -66,7 +63,6 @@ class RewardMetrics:
     adaptation_history: List[float] = field(default_factory=list)
     reward_density: float = 0.0  # 非零奖励比例
     reward_sparsity: float = 1.0  # 奖励稀疏度
-
 
 class RewardFunction(ABC):
     """奖励函数抽象基类"""
@@ -101,7 +97,7 @@ class RewardFunction(ABC):
         Returns:
             float: 计算的奖励值
         """
-        pass
+        raise NotImplementedError
     
     def compute_multi_dimensional_reward(self, 
                                        state: np.ndarray, 

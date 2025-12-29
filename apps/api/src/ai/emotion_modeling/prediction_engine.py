@@ -3,19 +3,19 @@
 
 实现实时情感状态跟踪、轨迹预测和聚类分析
 """
+
+from src.core.utils.timezone_utils import utc_now
 import numpy as np
 from typing import Dict, List, Tuple, Optional, Any
 from datetime import datetime, timedelta
 from collections import deque, defaultdict
-import logging
-
 from .models import EmotionState, EmotionPrediction, PersonalityProfile
 from .transition_model import TransitionModelManager
 from .space_mapper import EmotionSpaceMapper
 from .personality_builder import PersonalityProfileBuilder
 
-logger = logging.getLogger(__name__)
-
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 class EmotionPredictionEngine:
     """情感预测引擎"""
@@ -160,7 +160,7 @@ class EmotionPredictionEngine:
                 predicted_emotions=time_adjusted_predictions,
                 confidence=confidence,
                 time_horizon=time_horizon,
-                prediction_time=datetime.now(),
+                prediction_time=utc_now(),
                 factors=factors
             )
             

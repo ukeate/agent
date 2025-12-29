@@ -10,7 +10,7 @@ interface ConversationContainerProps {
   loading: boolean
   error?: string | null
   onSendMessage: (message: string) => void
-  onClearHistory?: () => void
+  onClearHistory?: () => void | Promise<void>
 }
 
 const ConversationContainer: React.FC<ConversationContainerProps> = ({

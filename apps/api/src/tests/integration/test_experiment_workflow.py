@@ -1,6 +1,7 @@
 """
 实验工作流集成测试
 """
+
 import pytest
 import asyncio
 from datetime import datetime
@@ -9,20 +10,17 @@ from src.core.utils.timezone_utils import utc_now, utc_factory
 from httpx import AsyncClient
 import json
 import numpy as np
-
 from main import app
 from services.experiment_service import ExperimentService
 from services.event_tracking_service import EventTrackingService
 from services.statistical_analysis_service import StatisticalAnalysisService
 from services.realtime_metrics_service import RealtimeMetricsService
 
-
 @pytest.fixture
 async def async_client():
     """创建异步HTTP客户端"""
     async with AsyncClient(app=app, base_url="http://test") as client:
         yield client
-
 
 @pytest.fixture
 async def experiment_data():
@@ -60,7 +58,6 @@ async def experiment_data():
         "start_date": utc_now().isoformat(),
         "end_date": (utc_now() + timedelta(days=7)).isoformat()
     }
-
 
 class TestExperimentLifecycle:
     """实验生命周期集成测试"""
@@ -244,7 +241,6 @@ class TestExperimentLifecycle:
         )
         assert response.status_code == 200
 
-
 class TestTrafficManagement:
     """流量管理集成测试"""
     
@@ -368,7 +364,6 @@ class TestTrafficManagement:
         assert response.status_code == 200
         assert response.json()["variant"] is None
 
-
 class TestMonitoringAndAlerts:
     """监控和告警集成测试"""
     
@@ -462,7 +457,6 @@ class TestMonitoringAndAlerts:
         assert "risk_factors" in assessment["assessment"]
         assert "recommendations" in assessment["assessment"]
 
-
 class TestReportingAndAnalysis:
     """报告和分析集成测试"""
     
@@ -546,7 +540,6 @@ class TestReportingAndAnalysis:
         assert response.status_code == 200
         analysis = response.json()
         assert len(analysis["segments"]) == len(segments)
-
 
 class TestReleaseStrategy:
     """发布策略集成测试"""
@@ -632,7 +625,6 @@ class TestReleaseStrategy:
             }
         )
         assert response.status_code == 200
-
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

@@ -1,17 +1,14 @@
 """
 LangGraph节点定义
 """
+
 from abc import ABC, abstractmethod
 from typing import Any, Callable, Dict, List, Optional
 from dataclasses import dataclass
 import asyncio
-import logging
-
 from .state import GraphState, GraphExecutionState
 
-logger = logging.getLogger(__name__)
-
-
+from src.core.logging import get_logger
 @dataclass
 class NodeConfig:
     """节点配置"""
@@ -25,18 +22,17 @@ class NodeConfig:
         if self.metadata is None:
             self.metadata = {}
 
-
 class BaseNode(ABC):
     """基础节点抽象类"""
     
     def __init__(self, config: NodeConfig):
         self.config = config
-        self.logger = logging.getLogger(f"{__name__}.{config.name}")
+        self.logger = get_logger(f"{__name__}.{config.name}")
     
     @abstractmethod
     async def execute(self, state: GraphState) -> GraphState:
         """执行节点逻辑"""
-        pass
+        raise NotImplementedError
     
     async def run_with_error_handling(self, state: GraphState) -> GraphState:
         """带错误处理的执行"""
@@ -65,7 +61,6 @@ class BaseNode(ABC):
             state["error"] = error_msg
             state["is_complete"] = True
             return state
-
 
 class AgentNode(BaseNode):
     """智能体节点"""
@@ -117,7 +112,6 @@ class AgentNode(BaseNode):
             state["is_complete"] = True
         
         return state
-
 
 class ToolNode(BaseNode):
     """工具调用节点"""
@@ -171,7 +165,6 @@ class ToolNode(BaseNode):
         
         return state
 
-
 class ConditionNode(BaseNode):
     """条件判断节点"""
     
@@ -200,7 +193,6 @@ class ConditionNode(BaseNode):
         
         return state
 
-
 class StartNode(BaseNode):
     """开始节点"""
     
@@ -228,7 +220,6 @@ class StartNode(BaseNode):
         self.logger.info("图执行已开始")
         return state
 
-
 class EndNode(BaseNode):
     """结束节点"""
     
@@ -253,7 +244,6 @@ class EndNode(BaseNode):
         self.logger.info("图执行已完成")
         return state
 
-
 # 预定义的条件函数
 def message_count_condition(max_messages: int = 10) -> Callable[[GraphState], str]:
     """基于消息数量的条件判断"""
@@ -264,7 +254,6 @@ def message_count_condition(max_messages: int = 10) -> Callable[[GraphState], st
         return "continue"
     return condition
 
-
 def error_condition() -> Callable[[GraphState], str]:
     """错误状态条件判断"""
     def condition(state: GraphState) -> str:
@@ -272,7 +261,6 @@ def error_condition() -> Callable[[GraphState], str]:
             return "__end__"
         return "continue"
     return condition
-
 
 def step_limit_condition(max_steps: int = 50) -> Callable[[GraphState], str]:
     """步数限制条件判断"""

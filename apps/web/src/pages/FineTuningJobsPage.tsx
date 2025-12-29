@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { 
+import { logger } from '../utils/logger'
   Card, 
   Table, 
   Button, 
@@ -13,6 +14,7 @@ import {
   Modal,
   Form,
   Select,
+  AutoComplete,
   Input,
   Upload,
   message,
@@ -37,109 +39,103 @@ import {
   DatabaseOutlined,
   CheckCircleOutlined
 } from '@ant-design/icons';
+import { fineTuningService, TrainingJob, TrainingJobRequest, ModelInfo, Dataset } from '../services/fineTuningService';
 
 const { Title, Text } = Typography;
 const { Option } = Select;
 
-// 模拟训练任务数据
-const generateMockJobs = () => [
-  {
-    id: '1',
-    name: 'LLaMA-7B LoRA微调 - 对话数据',
-    model: 'meta-llama/Llama-2-7b-chat-hf',
-    type: 'LoRA',
-    status: 'running',
-    progress: 65,
-    currentEpoch: 2,
-    totalEpochs: 3,
-    currentLoss: 0.8423,
-    bestLoss: 0.7856,
-    startTime: '2025-08-23 14:30:00',
-    estimatedEndTime: '2025-08-23 16:45:00',
-    dataset: 'conversation_data_zh',
-    gpuMemory: '12.5 GB / 24.0 GB',
-    learningRate: '2e-4',
-    batchSize: 4,
-    loraRank: 16,
-    loraAlpha: 32
-  },
-  {
-    id: '2', 
-    name: 'Mistral-7B QLoRA微调 - 代码生成',
-    model: 'mistralai/Mistral-7B-Instruct-v0.1',
-    type: 'QLoRA',
-    status: 'completed',
-    progress: 100,
-    currentEpoch: 3,
-    totalEpochs: 3,
-    currentLoss: 0.6234,
-    bestLoss: 0.6234,
-    startTime: '2025-08-23 10:15:00',
-    endTime: '2025-08-23 13:22:00',
-    dataset: 'code_generation_data',
-    gpuMemory: '8.2 GB / 24.0 GB',
-    learningRate: '1e-4',
-    batchSize: 8,
-    loraRank: 8,
-    loraAlpha: 16,
-    quantization: '4-bit NF4'
-  },
-  {
-    id: '3',
-    name: 'Qwen-14B LoRA微调 - 文档问答',
-    model: 'Qwen/Qwen-14B-Chat',
-    type: 'LoRA',
-    status: 'failed',
-    progress: 23,
-    currentEpoch: 1,
-    totalEpochs: 5,
-    currentLoss: 1.2456,
-    bestLoss: 1.1892,
-    startTime: '2025-08-23 09:00:00',
-    errorTime: '2025-08-23 11:30:00',
-    dataset: 'document_qa_data',
-    error: 'CUDA out of memory error',
-    gpuMemory: '22.8 GB / 24.0 GB',
-    learningRate: '3e-4',
-    batchSize: 2,
-    loraRank: 32,
-    loraAlpha: 64
-  },
-  {
-    id: '4',
-    name: 'ChatGLM3-6B 分布式微调',
-    model: 'THUDM/chatglm3-6b',
-    type: 'Distributed LoRA',
-    status: 'pending',
-    progress: 0,
-    currentEpoch: 0,
-    totalEpochs: 4,
-    dataset: 'multi_domain_data',
-    gpuCount: 4,
-    learningRate: '1e-4',
-    batchSize: 16,
-    loraRank: 16,
-    loraAlpha: 32,
-    scheduledTime: '2025-08-23 18:00:00'
-  }
-];
+// 类型定义
+interface JobWithExtras extends TrainingJob {
+  model?: string;
+  type?: string;
+  dataset?: string;
+  learningRate?: string;
+  batchSize?: number;
+  loraRank?: number;
+  loraAlpha?: number;
+  gpuMemory?: string;
+  gpuCount?: number;
+  estimatedEndTime?: string;
+  endTime?: string;
+  errorTime?: string;
+  quantization?: string;
+  scheduledTime?: string;
+  error?: string;
+}
 
 const FineTuningJobsPage: React.FC = () => {
-  const [jobs, setJobs] = useState(generateMockJobs());
+  const [jobs, setJobs] = useState<JobWithExtras[]>([]);
   const [loading, setLoading] = useState(false);
-  const [selectedJob, setSelectedJob] = useState<any>(null);
+  const [selectedJob, setSelectedJob] = useState<JobWithExtras | null>(null);
   const [showJobModal, setShowJobModal] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [filterStatus, setFilterStatus] = useState<string>('all');
+  const [supportedModels, setSupportedModels] = useState<ModelInfo | null>(null);
+  const [datasets, setDatasets] = useState<Dataset[]>([]);
+  const [jobLogs, setJobLogs] = useState<string[]>([]);
+  const [jobMetrics, setJobMetrics] = useState<any>(null);
+  const [form] = Form.useForm();
+
+  // 加载任务列表
+  const loadJobs = async () => {
+    try {
+      setLoading(true);
+      const jobData = await fineTuningService.getTrainingJobs();
+      // 处理API返回的数据结构，支持 {jobs: [...]} 和直接数组格式
+      const jobsArray = Array.isArray(jobData) ? jobData : (jobData.jobs || []);
+      setJobs(jobsArray);
+    } catch (error) {
+      logger.error('加载任务列表失败:', error);
+      message.error('加载任务列表失败');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 加载支持的模型
+  const loadSupportedModels = async () => {
+    try {
+      const models = await fineTuningService.getSupportedModels();
+      setSupportedModels(models);
+    } catch (error) {
+      logger.error('加载支持的模型失败:', error);
+    }
+  };
+
+  // 加载数据集
+  const loadDatasets = async () => {
+    try {
+      const datasetsData = await fineTuningService.getDatasets();
+      setDatasets(datasetsData.datasets);
+    } catch (error) {
+      logger.error('加载数据集失败:', error);
+    }
+  };
+
+  // 加载任务日志
+  const loadJobLogs = async (jobId: string) => {
+    try {
+      const logs = await fineTuningService.getTrainingLogs(jobId);
+      setJobLogs(logs.logs);
+    } catch (error) {
+      logger.error('加载任务日志失败:', error);
+    }
+  };
+
+  // 加载任务指标
+  const loadJobMetrics = async (jobId: string) => {
+    try {
+      const metrics = await fineTuningService.getTrainingMetrics(jobId);
+      setJobMetrics(metrics.metrics);
+    } catch (error) {
+      logger.error('加载任务指标失败:', error);
+    }
+  };
 
   // 刷新任务列表
   const refreshJobs = () => {
-    setLoading(true);
-    setTimeout(() => {
-      setJobs(generateMockJobs());
-      setLoading(false);
-      message.success('任务列表已刷新');
-    }, 1000);
+    loadJobs();
+    message.success('正在刷新任务列表...');
   };
 
   // 获取状态标签
@@ -171,9 +167,81 @@ const FineTuningJobsPage: React.FC = () => {
   };
 
   // 任务操作
-  const handleJobAction = (action: string, jobId: string) => {
-    const job = jobs.find(j => j.id === jobId);
-    message.success(`${action} 任务: ${job?.name}`);
+  const handleJobAction = async (action: string, jobId: string) => {
+    const job = jobs.find(j => j.job_id === jobId);
+    try {
+      switch (action) {
+        case '暂停':
+          await fineTuningService.pauseTrainingJob(jobId);
+          break;
+        case '继续':
+          await fineTuningService.resumeTrainingJob(jobId);
+          break;
+        case '停止':
+          await fineTuningService.cancelTrainingJob(jobId);
+          break;
+        case '下载': {
+          const a = document.createElement('a');
+          a.href = `/api/v1/fine-tuning/jobs/${jobId}/download`;
+          a.rel = 'noopener';
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          break;
+        }
+        case '删除':
+          await fineTuningService.deleteTrainingJob(jobId);
+          break;
+        default:
+          break;
+      }
+      message.success(`${action} 任务: ${job?.job_name}`);
+    } catch (error) {
+      logger.error(`${action}任务失败:`, error);
+      const detail = (error as any)?.response?.data?.detail;
+      message.error(detail ? `${action}任务失败: ${detail}` : `${action}任务失败`);
+    } finally {
+      await loadJobs();
+    }
+  };
+
+  // 创建新任务
+  const handleCreateJob = async (values: any) => {
+    try {
+      const jobRequest: TrainingJobRequest = {
+        job_name: values.jobName,
+        model_name: values.model,
+        training_mode: values.trainingType,
+        dataset_path: values.dataset,
+        learning_rate: parseFloat(values.learningRate),
+        num_train_epochs: parseInt(values.epochs),
+        per_device_train_batch_size: parseInt(values.batchSize),
+        gradient_accumulation_steps: 1,
+        warmup_steps: 0,
+        max_seq_length: 2048,
+        lora_config: {
+          rank: parseInt(values.loraRank),
+          alpha: parseInt(values.loraAlpha),
+          dropout: 0.1,
+          bias: 'none'
+        },
+        use_distributed: values.trainingType === 'distributed',
+        use_deepspeed: false,
+        use_flash_attention: false,
+        use_gradient_checkpointing: true,
+        fp16: true,
+        bf16: false
+      };
+
+      await fineTuningService.createTrainingJob(jobRequest);
+      message.success('任务创建成功');
+      setShowCreateModal(false);
+      form.resetFields();
+      await loadJobs();
+    } catch (error) {
+      logger.error('创建任务失败:', error);
+      message.error('创建任务失败');
+    }
   };
 
   // 表格列定义
@@ -185,13 +253,13 @@ const FineTuningJobsPage: React.FC = () => {
       render: (_, record: any) => (
         <div>
           <div style={{ fontWeight: 'bold', marginBottom: 4 }}>
-            {record.name}
+            {record.job_name}
           </div>
           <div style={{ color: '#666', fontSize: '12px' }}>
-            {record.model}
+            {record.model || 'N/A'}
           </div>
           <div style={{ marginTop: 4 }}>
-            {getTypeTag(record.type)}
+            {record.type && getTypeTag(record.type)}
             {getStatusTag(record.status)}
           </div>
         </div>
@@ -209,11 +277,11 @@ const FineTuningJobsPage: React.FC = () => {
             status={record.status === 'failed' ? 'exception' : 'normal'}
           />
           <div style={{ fontSize: '12px', color: '#666', marginTop: 4 }}>
-            Epoch {record.currentEpoch}/{record.totalEpochs}
+            Epoch {record.current_epoch}/{record.total_epochs}
           </div>
-          {record.currentLoss && (
+          {record.current_loss && (
             <div style={{ fontSize: '12px', color: '#666' }}>
-              Loss: {record.currentLoss.toFixed(4)}
+              Loss: {record.current_loss.toFixed(4)}
             </div>
           )}
         </div>
@@ -242,16 +310,16 @@ const FineTuningJobsPage: React.FC = () => {
       width: 150,
       render: (_, record: any) => (
         <div style={{ fontSize: '12px' }}>
-          <div>开始: {record.startTime?.slice(11, 16)}</div>
+          <div>开始: {record.started_at?.slice(11, 16) || record.created_at?.slice(11, 16)}</div>
           {record.estimatedEndTime && (
             <div>预计结束: {record.estimatedEndTime.slice(11, 16)}</div>
           )}
-          {record.endTime && (
-            <div>结束: {record.endTime.slice(11, 16)}</div>
+          {record.completed_at && (
+            <div>结束: {record.completed_at.slice(11, 16)}</div>
           )}
-          {record.errorTime && (
+          {record.error_message && (
             <div style={{ color: '#ff4d4f' }}>
-              错误: {record.errorTime.slice(11, 16)}
+              错误时间: {record.created_at?.slice(11, 16)}
             </div>
           )}
         </div>
@@ -267,9 +335,11 @@ const FineTuningJobsPage: React.FC = () => {
             <Button 
               type="text" 
               icon={<EyeOutlined />}
-              onClick={() => {
+              onClick={async () => {
                 setSelectedJob(record);
                 setShowJobModal(true);
+                await loadJobLogs(record.job_id);
+                await loadJobMetrics(record.job_id);
               }}
             />
           </Tooltip>
@@ -280,13 +350,13 @@ const FineTuningJobsPage: React.FC = () => {
                 <Button 
                   type="text" 
                   icon={<PauseCircleOutlined />}
-                  onClick={() => handleJobAction('暂停', record.id)}
+                  onClick={() => handleJobAction('暂停', record.job_id)}
                 />
               </Tooltip>
               <Tooltip title="停止训练">
                 <Popconfirm
                   title="确定停止训练吗？"
-                  onConfirm={() => handleJobAction('停止', record.id)}
+                  onConfirm={() => handleJobAction('停止', record.job_id)}
                 >
                   <Button type="text" icon={<StopOutlined />} danger />
                 </Popconfirm>
@@ -299,7 +369,7 @@ const FineTuningJobsPage: React.FC = () => {
               <Button 
                 type="text" 
                 icon={<PlayCircleOutlined />}
-                onClick={() => handleJobAction('继续', record.id)}
+                onClick={() => handleJobAction('继续', record.job_id)}
               />
             </Tooltip>
           )}
@@ -309,7 +379,7 @@ const FineTuningJobsPage: React.FC = () => {
               <Button 
                 type="text" 
                 icon={<DownloadOutlined />}
-                onClick={() => handleJobAction('下载', record.id)}
+                onClick={() => handleJobAction('下载', record.job_id)}
               />
             </Tooltip>
           )}
@@ -317,7 +387,7 @@ const FineTuningJobsPage: React.FC = () => {
           <Tooltip title="删除任务">
             <Popconfirm
               title="确定删除这个任务吗？"
-              onConfirm={() => handleJobAction('删除', record.id)}
+              onConfirm={() => handleJobAction('删除', record.job_id)}
             >
               <Button type="text" icon={<DeleteOutlined />} danger />
             </Popconfirm>
@@ -337,6 +407,13 @@ const FineTuningJobsPage: React.FC = () => {
     completed: jobs.filter(j => j.status === 'completed').length,
     failed: jobs.filter(j => j.status === 'failed').length,
   };
+
+  // 组件初始化
+  useEffect(() => {
+    loadJobs();
+    loadSupportedModels();
+    loadDatasets();
+  }, []);
 
   return (
     <div style={{ padding: '24px' }}>
@@ -414,6 +491,7 @@ const FineTuningJobsPage: React.FC = () => {
                 onChange={setFilterStatus}
                 style={{ width: 120 }}
                 prefix={<FilterOutlined />}
+                name="jobStatusFilter"
               >
                 <Option value="all">全部状态</Option>
                 <Option value="running">运行中</Option>
@@ -437,7 +515,7 @@ const FineTuningJobsPage: React.FC = () => {
         <Table
           columns={columns}
           dataSource={filteredJobs}
-          rowKey="id"
+          rowKey="job_id"
           loading={loading}
           pagination={{
             showSizeChanger: true,
@@ -461,11 +539,11 @@ const FineTuningJobsPage: React.FC = () => {
             <Row gutter={16}>
               <Col span={12}>
                 <Card title="基本信息" size="small">
-                  <div><strong>任务名称：</strong>{selectedJob.name}</div>
-                  <div><strong>模型：</strong>{selectedJob.model}</div>
-                  <div><strong>类型：</strong>{getTypeTag(selectedJob.type)}</div>
+                  <div><strong>任务名称：</strong>{selectedJob.job_name}</div>
+                  <div><strong>模型：</strong>{selectedJob.model || 'N/A'}</div>
+                  <div><strong>类型：</strong>{selectedJob.type && getTypeTag(selectedJob.type)}</div>
                   <div><strong>状态：</strong>{getStatusTag(selectedJob.status)}</div>
-                  <div><strong>数据集：</strong>{selectedJob.dataset}</div>
+                  <div><strong>数据集：</strong>{selectedJob.dataset || 'N/A'}</div>
                 </Card>
               </Col>
               <Col span={12}>
@@ -483,19 +561,33 @@ const FineTuningJobsPage: React.FC = () => {
             <Card title="训练指标" size="small" style={{ marginTop: 16 }}>
               <Row gutter={16}>
                 <Col span={8}>
-                  <Statistic title="当前Epoch" value={`${selectedJob.currentEpoch}/${selectedJob.totalEpochs}`} />
+                  <Statistic title="当前Epoch" value={`${selectedJob.current_epoch}/${selectedJob.total_epochs}`} />
                 </Col>
                 <Col span={8}>
-                  <Statistic title="当前Loss" value={selectedJob.currentLoss?.toFixed(4) || 'N/A'} />
+                  <Statistic title="当前Loss" value={selectedJob.current_loss?.toFixed(4) || 'N/A'} />
                 </Col>
                 <Col span={8}>
-                  <Statistic title="最佳Loss" value={selectedJob.bestLoss?.toFixed(4) || 'N/A'} />
+                  <Statistic title="最佳Loss" value={selectedJob.best_loss?.toFixed(4) || 'N/A'} />
                 </Col>
               </Row>
             </Card>
-            {selectedJob.error && (
+            {selectedJob.error_message && (
               <Card title="错误信息" size="small" style={{ marginTop: 16 }}>
-                <Text type="danger">{selectedJob.error}</Text>
+                <Text type="danger">{selectedJob.error_message}</Text>
+              </Card>
+            )}
+            {jobLogs.length > 0 && (
+              <Card title="训练日志" size="small" style={{ marginTop: 16 }}>
+                <div style={{ maxHeight: 200, overflow: 'auto', background: '#f5f5f5', padding: 8, fontSize: '12px', fontFamily: 'monospace' }}>
+                  {jobLogs.map((log, index) => (
+                    <div key={index}>{log}</div>
+                  ))}
+                </div>
+              </Card>
+            )}
+            {jobMetrics && (
+              <Card title="训练指标" size="small" style={{ marginTop: 16 }}>
+                <pre style={{ fontSize: '12px' }}>{JSON.stringify(jobMetrics, null, 2)}</pre>
               </Card>
             )}
           </div>
@@ -510,16 +602,16 @@ const FineTuningJobsPage: React.FC = () => {
         width={800}
         footer={null}
       >
-        <Form layout="vertical">
+        <Form form={form} layout="vertical" onFinish={handleCreateJob}>
           <Row gutter={16}>
             <Col span={12}>
-              <Form.Item label="任务名称" required>
-                <Input placeholder="输入任务名称" />
+              <Form.Item label="任务名称" name="jobName" required rules={[{ required: true, message: '请输入任务名称' }]}>
+                <Input placeholder="输入任务名称" name="jobName" />
               </Form.Item>
             </Col>
             <Col span={12}>
-              <Form.Item label="训练类型" required>
-                <Select placeholder="选择训练类型">
+              <Form.Item label="训练类型" name="trainingType" required rules={[{ required: true, message: '请选择训练类型' }]}>
+                <Select placeholder="选择训练类型" name="trainingType">
                   <Option value="lora">LoRA</Option>
                   <Option value="qlora">QLoRA</Option>
                   <Option value="distributed">分布式LoRA</Option>
@@ -528,26 +620,31 @@ const FineTuningJobsPage: React.FC = () => {
             </Col>
           </Row>
           
-          <Form.Item label="基础模型" required>
-            <Select placeholder="选择基础模型">
-              <Option value="llama2-7b">LLaMA 2 7B</Option>
-              <Option value="llama2-13b">LLaMA 2 13B</Option>
-              <Option value="mistral-7b">Mistral 7B</Option>
-              <Option value="qwen-14b">Qwen 14B</Option>
-              <Option value="chatglm3-6b">ChatGLM3 6B</Option>
-            </Select>
+          <Form.Item label="基础模型" name="model" required rules={[{ required: true, message: '请输入基础模型' }]}>
+            <AutoComplete
+              placeholder="输入或选择基础模型"
+              options={supportedModels?.models?.flatMap(group => group.models.map(value => ({ value })))}
+              filterOption={(inputValue, option) =>
+                (option?.value ?? '').toLowerCase().includes(inputValue.toLowerCase())
+              }
+              name="model"
+            />
           </Form.Item>
 
-          <Form.Item label="训练数据集" required>
-            <Upload>
-              <Button icon={<UploadOutlined />}>上传数据集</Button>
-            </Upload>
+          <Form.Item label="训练数据集" name="dataset" required rules={[{ required: true, message: '请选择数据集' }]}>
+            <Select placeholder="选择数据集" name="dataset">
+              {datasets.map(dataset => (
+                <Option key={dataset.filename} value={dataset.path}>
+                  {dataset.filename}
+                </Option>
+              ))}
+            </Select>
           </Form.Item>
 
           <Row gutter={16}>
             <Col span={8}>
-              <Form.Item label="LoRA Rank">
-                <Select defaultValue="16">
+              <Form.Item label="LoRA Rank" name="loraRank" initialValue="16">
+                <Select name="loraRank">
                   <Option value="8">8</Option>
                   <Option value="16">16</Option>
                   <Option value="32">32</Option>
@@ -556,8 +653,8 @@ const FineTuningJobsPage: React.FC = () => {
               </Form.Item>
             </Col>
             <Col span={8}>
-              <Form.Item label="LoRA Alpha">
-                <Select defaultValue="32">
+              <Form.Item label="LoRA Alpha" name="loraAlpha" initialValue="32">
+                <Select name="loraAlpha">
                   <Option value="16">16</Option>
                   <Option value="32">32</Option>
                   <Option value="64">64</Option>
@@ -565,8 +662,8 @@ const FineTuningJobsPage: React.FC = () => {
               </Form.Item>
             </Col>
             <Col span={8}>
-              <Form.Item label="学习率">
-                <Select defaultValue="2e-4">
+              <Form.Item label="学习率" name="learningRate" initialValue="2e-4">
+                <Select name="learningRate">
                   <Option value="1e-4">1e-4</Option>
                   <Option value="2e-4">2e-4</Option>
                   <Option value="3e-4">3e-4</Option>
@@ -578,8 +675,8 @@ const FineTuningJobsPage: React.FC = () => {
 
           <Row gutter={16}>
             <Col span={12}>
-              <Form.Item label="训练轮数">
-                <Select defaultValue="3">
+              <Form.Item label="训练轮数" name="epochs" initialValue="3">
+                <Select name="epochs">
                   <Option value="1">1</Option>
                   <Option value="3">3</Option>
                   <Option value="5">5</Option>
@@ -588,8 +685,8 @@ const FineTuningJobsPage: React.FC = () => {
               </Form.Item>
             </Col>
             <Col span={12}>
-              <Form.Item label="批次大小">
-                <Select defaultValue="4">
+              <Form.Item label="批次大小" name="batchSize" initialValue="4">
+                <Select name="batchSize">
                   <Option value="2">2</Option>
                   <Option value="4">4</Option>
                   <Option value="8">8</Option>
@@ -601,7 +698,9 @@ const FineTuningJobsPage: React.FC = () => {
 
           <Divider />
           <Space>
-            <Button type="primary">创建任务</Button>
+            <Button type="primary" htmlType="submit" loading={loading}>
+              创建任务
+            </Button>
             <Button onClick={() => setShowCreateModal(false)}>取消</Button>
           </Space>
         </Form>

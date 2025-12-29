@@ -84,17 +84,17 @@ export const NodeDetailPanel: React.FC<NodeDetailPanelProps> = ({
           <Button 
             danger 
             icon={<StopOutlined />}
-            onClick={() => handleAction('stop')}
+            onClick={() => handleAction('cancel')}
           >
-            停止
+            取消
           </Button>
         )}
         {status === 'failed' && (
           <Button 
             type="primary" 
-            onClick={() => handleAction('retry')}
+            onClick={() => handleAction('restart')}
           >
-            重试
+            重新运行
           </Button>
         )}
       </Space>

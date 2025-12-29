@@ -1,7 +1,6 @@
 """MCP性能监控和指标收集"""
 
 import asyncio
-import logging
 import time
 from typing import Any, Dict, List, Optional
 from dataclasses import dataclass, field
@@ -11,8 +10,7 @@ from src.core.utils.timezone_utils import utc_now, utc_factory
 from collections import defaultdict, deque
 import threading
 
-logger = logging.getLogger(__name__)
-
+logger = get_logger(__name__)
 
 @dataclass
 class PerformanceMetrics:
@@ -24,7 +22,6 @@ class PerformanceMetrics:
     timestamp: datetime = field(default_factory=utc_factory)
     server_type: Optional[str] = None
     tool_name: Optional[str] = None
-
 
 @dataclass
 class AggregatedMetrics:
@@ -51,7 +48,6 @@ class AggregatedMetrics:
         if self.total_calls == 0:
             return 0.0
         return self.total_execution_time / self.total_calls
-
 
 class MCPMonitor:
     """MCP性能监控器"""
@@ -277,14 +273,12 @@ class MCPMonitor:
             try:
                 await self._cleanup_task
             except asyncio.CancelledError:
-                pass
+                raise
         
         logger.info("MCP monitor closed")
 
-
 # 全局监控实例
 _global_monitor: Optional[MCPMonitor] = None
-
 
 def get_mcp_monitor() -> MCPMonitor:
     """获取全局MCP监控实例"""
@@ -292,7 +286,6 @@ def get_mcp_monitor() -> MCPMonitor:
     if _global_monitor is None:
         _global_monitor = MCPMonitor()
     return _global_monitor
-
 
 class MonitoringContextManager:
     """监控上下文管理器"""
@@ -337,7 +330,6 @@ class MonitoringContextManager:
             tool_name=self.tool_name
         )
 
-
 def monitor_operation(
     operation_name: str,
     server_type: Optional[str] = None,
@@ -355,7 +347,7 @@ def monitor_operation(
         return wrapper
     return decorator
 
-
 async def get_monitor_dependency() -> MCPMonitor:
     """FastAPI依赖注入：获取监控器"""
     return get_mcp_monitor()
+from src.core.logging import get_logger

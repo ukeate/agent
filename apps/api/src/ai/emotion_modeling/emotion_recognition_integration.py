@@ -3,18 +3,17 @@
 整合Story 11.1的情感识别系统到统一架构中
 """
 
+from src.core.utils.timezone_utils import utc_now
 import asyncio
 import json
-import logging
 import numpy as np
 from typing import Dict, Any, List, Optional, Union, Tuple
-from datetime import datetime, timedelta
+from datetime import timedelta
 from abc import ABC, abstractmethod
 from dataclasses import asdict
 import base64
 import io
 from concurrent.futures import ThreadPoolExecutor
-
 from .core_interfaces import (
     EmotionRecognitionEngine, MultiModalEmotion, EmotionState,
     EmotionType, ModalityType, UnifiedEmotionalData
@@ -23,31 +22,30 @@ from .communication_protocol import (
     CommunicationProtocol, ModuleType, MessageHandler, Message
 )
 
-
+from src.core.logging import get_logger
 class ModalityProcessor(ABC):
     """模态处理器抽象基类"""
     
     @abstractmethod
     async def process(self, data: Any) -> EmotionState:
         """处理特定模态数据"""
-        pass
+        raise NotImplementedError
     
     @abstractmethod
     def validate_input(self, data: Any) -> bool:
         """验证输入数据格式"""
-        pass
+        raise NotImplementedError
     
     @abstractmethod
     def get_supported_formats(self) -> List[str]:
         """获取支持的数据格式"""
-        pass
-
+        raise NotImplementedError
 
 class TextEmotionProcessor(ModalityProcessor):
     """文本情感处理器"""
     
     def __init__(self):
-        self._logger = logging.getLogger(__name__)
+        self._logger = get_logger(__name__)
         # 这里可以集成具体的文本情感分析模型
         self._emotion_keywords = {
             EmotionType.HAPPINESS: ["happy", "joy", "excited", "glad", "pleased", "cheerful"],
@@ -80,7 +78,7 @@ class TextEmotionProcessor(ModalityProcessor):
                 arousal=0.0,
                 dominance=0.5,
                 confidence=0.3,
-                timestamp=datetime.now()
+                timestamp=utc_now()
             )
         
         # 选择得分最高的情感
@@ -97,7 +95,7 @@ class TextEmotionProcessor(ModalityProcessor):
             arousal=arousal,
             dominance=dominance,
             confidence=intensity,
-            timestamp=datetime.now()
+            timestamp=utc_now()
         )
     
     def validate_input(self, data: Any) -> bool:
@@ -121,12 +119,11 @@ class TextEmotionProcessor(ModalityProcessor):
         }
         return vad_mapping.get(emotion, (0.0, 0.0, 0.0))
 
-
 class AudioEmotionProcessor(ModalityProcessor):
     """音频情感处理器"""
     
     def __init__(self):
-        self._logger = logging.getLogger(__name__)
+        self._logger = get_logger(__name__)
         # 这里可以集成具体的音频情感分析模型
         self._supported_formats = ["audio/wav", "audio/mp3", "audio/flac"]
     
@@ -134,29 +131,7 @@ class AudioEmotionProcessor(ModalityProcessor):
         """处理音频数据"""
         if not self.validate_input(data):
             raise ValueError("Invalid audio input")
-        
-        # 模拟音频处理 - 实际实现需要使用专门的音频情感识别模型
-        await asyncio.sleep(0.1)  # 模拟处理时间
-        
-        # 简化的音频特征分析
-        # 实际实现会提取音频特征如音调、语速、音量等
-        features = self._extract_audio_features(data)
-        
-        # 基于特征预测情感
-        emotion, confidence = self._predict_emotion_from_features(features)
-        
-        # 根据情感设置VAD值
-        valence, arousal, dominance = self._get_vad_from_emotion(emotion)
-        
-        return EmotionState(
-            emotion=emotion,
-            intensity=confidence,
-            valence=valence,
-            arousal=arousal,
-            dominance=dominance,
-            confidence=confidence,
-            timestamp=datetime.now()
-        )
+        raise RuntimeError("audio emotion model not integrated; please configure real processor")
     
     def validate_input(self, data: Any) -> bool:
         """验证音频输入"""
@@ -170,28 +145,11 @@ class AudioEmotionProcessor(ModalityProcessor):
     
     def _extract_audio_features(self, data: Any) -> Dict[str, float]:
         """提取音频特征"""
-        # 这里是模拟实现，实际需要使用librosa等库
-        return {
-            "pitch_mean": np.random.uniform(100, 300),
-            "pitch_std": np.random.uniform(10, 50),
-            "energy": np.random.uniform(0.1, 1.0),
-            "speaking_rate": np.random.uniform(2, 8),
-            "spectral_centroid": np.random.uniform(1000, 4000)
-        }
+        raise RuntimeError("audio feature extraction not implemented")
     
     def _predict_emotion_from_features(self, features: Dict[str, float]) -> Tuple[EmotionType, float]:
         """基于特征预测情感"""
-        # 简化的规则基预测
-        if features["energy"] > 0.7 and features["pitch_mean"] > 250:
-            return EmotionType.ANGER, 0.8
-        elif features["energy"] < 0.3 and features["speaking_rate"] < 3:
-            return EmotionType.SADNESS, 0.7
-        elif features["pitch_std"] > 30 and features["energy"] > 0.6:
-            return EmotionType.SURPRISE, 0.6
-        elif features["energy"] > 0.8:
-            return EmotionType.HAPPINESS, 0.75
-        else:
-            return EmotionType.NEUTRAL, 0.5
+        raise RuntimeError("audio emotion prediction not implemented")
     
     def _get_vad_from_emotion(self, emotion: EmotionType) -> Tuple[float, float, float]:
         """从情感获取VAD值"""
@@ -206,40 +164,18 @@ class AudioEmotionProcessor(ModalityProcessor):
         }
         return vad_mapping.get(emotion, (0.0, 0.0, 0.0))
 
-
 class VideoEmotionProcessor(ModalityProcessor):
     """视频情感处理器（主要处理面部表情）"""
     
     def __init__(self):
-        self._logger = logging.getLogger(__name__)
+        self._logger = get_logger(__name__)
         self._supported_formats = ["video/mp4", "video/avi", "image/jpeg", "image/png"]
     
     async def process(self, data: Any) -> EmotionState:
         """处理视频/图像数据"""
         if not self.validate_input(data):
             raise ValueError("Invalid video/image input")
-        
-        # 模拟视频处理
-        await asyncio.sleep(0.2)  # 模拟处理时间
-        
-        # 简化的面部表情分析
-        facial_features = self._extract_facial_features(data)
-        
-        # 预测情感
-        emotion, confidence = self._predict_emotion_from_facial_features(facial_features)
-        
-        # 设置VAD值
-        valence, arousal, dominance = self._get_vad_from_emotion(emotion)
-        
-        return EmotionState(
-            emotion=emotion,
-            intensity=confidence,
-            valence=valence,
-            arousal=arousal,
-            dominance=dominance,
-            confidence=confidence,
-            timestamp=datetime.now()
-        )
+        raise RuntimeError("video/face emotion model not integrated; configure real processor")
     
     def validate_input(self, data: Any) -> bool:
         """验证视频/图像输入"""
@@ -253,31 +189,14 @@ class VideoEmotionProcessor(ModalityProcessor):
     
     def _extract_facial_features(self, data: Any) -> Dict[str, float]:
         """提取面部特征"""
-        # 模拟面部特征提取
-        return {
-            "eye_openness": np.random.uniform(0.1, 1.0),
-            "mouth_curvature": np.random.uniform(-1.0, 1.0),
-            "eyebrow_position": np.random.uniform(-0.5, 0.5),
-            "face_symmetry": np.random.uniform(0.7, 1.0),
-            "head_pose": np.random.uniform(-30, 30)
-        }
+        raise RuntimeError("facial feature extraction not implemented")
     
     def _predict_emotion_from_facial_features(
         self, 
         features: Dict[str, float]
     ) -> Tuple[EmotionType, float]:
         """基于面部特征预测情感"""
-        # 简化的规则基预测
-        if features["mouth_curvature"] > 0.5:
-            return EmotionType.HAPPINESS, 0.8
-        elif features["mouth_curvature"] < -0.3:
-            return EmotionType.SADNESS, 0.7
-        elif features["eyebrow_position"] < -0.2 and features["eye_openness"] < 0.3:
-            return EmotionType.ANGER, 0.75
-        elif features["eye_openness"] > 0.8 and features["mouth_curvature"] > 0.2:
-            return EmotionType.SURPRISE, 0.6
-        else:
-            return EmotionType.NEUTRAL, 0.5
+        raise RuntimeError("facial emotion prediction not implemented")
     
     def _get_vad_from_emotion(self, emotion: EmotionType) -> Tuple[float, float, float]:
         """从情感获取VAD值"""
@@ -292,12 +211,11 @@ class VideoEmotionProcessor(ModalityProcessor):
         }
         return vad_mapping.get(emotion, (0.0, 0.0, 0.0))
 
-
 class EmotionFusionEngine:
     """情感融合引擎"""
     
     def __init__(self):
-        self._logger = logging.getLogger(__name__)
+        self._logger = get_logger(__name__)
         # 模态权重配置
         self._modality_weights = {
             ModalityType.TEXT: 0.4,
@@ -319,7 +237,7 @@ class EmotionFusionEngine:
                 arousal=0.0,
                 dominance=0.0,
                 confidence=0.0,
-                timestamp=datetime.now()
+                timestamp=utc_now()
             )
         
         # 计算加权平均
@@ -357,7 +275,7 @@ class EmotionFusionEngine:
                 arousal=0.0,
                 dominance=0.0,
                 confidence=0.0,
-                timestamp=datetime.now()
+                timestamp=utc_now()
             )
         
         # 计算最终结果
@@ -379,7 +297,7 @@ class EmotionFusionEngine:
             arousal=final_arousal,
             dominance=final_dominance,
             confidence=final_confidence,
-            timestamp=datetime.now()
+            timestamp=utc_now()
         )
     
     def set_modality_weights(self, weights: Dict[ModalityType, float]):
@@ -392,12 +310,11 @@ class EmotionFusionEngine:
                 for modality, weight in weights.items()
             }
 
-
 class MultiModalEmotionRecognitionEngine(EmotionRecognitionEngine):
     """多模态情感识别引擎实现"""
     
     def __init__(self):
-        self._logger = logging.getLogger(__name__)
+        self._logger = get_logger(__name__)
         self._protocol = CommunicationProtocol(ModuleType.EMOTION_RECOGNITION)
         
         # 模态处理器
@@ -449,7 +366,7 @@ class MultiModalEmotionRecognitionEngine(EmotionRecognitionEngine):
         input_data: Dict[ModalityType, Any]
     ) -> MultiModalEmotion:
         """识别多模态情感"""
-        start_time = datetime.now()
+        start_time = utc_now()
         self._quality_metrics["total_recognitions"] += 1
         
         try:
@@ -489,7 +406,7 @@ class MultiModalEmotionRecognitionEngine(EmotionRecognitionEngine):
             fused_emotion = self._fusion_engine.fuse_emotions(modality_emotions)
             
             # 计算处理时间
-            processing_time = (datetime.now() - start_time).total_seconds()
+            processing_time = (utc_now() - start_time).total_seconds()
             
             # 创建多模态情感结果
             result = MultiModalEmotion(
@@ -512,7 +429,7 @@ class MultiModalEmotionRecognitionEngine(EmotionRecognitionEngine):
             self._quality_metrics["failed_recognitions"] += 1
             
             # 返回默认结果
-            processing_time = (datetime.now() - start_time).total_seconds()
+            processing_time = (utc_now() - start_time).total_seconds()
             default_emotion = EmotionState(
                 emotion=EmotionType.NEUTRAL,
                 intensity=0.0,
@@ -520,7 +437,7 @@ class MultiModalEmotionRecognitionEngine(EmotionRecognitionEngine):
                 arousal=0.0,
                 dominance=0.0,
                 confidence=0.0,
-                timestamp=datetime.now()
+                timestamp=utc_now()
             )
             
             return MultiModalEmotion(

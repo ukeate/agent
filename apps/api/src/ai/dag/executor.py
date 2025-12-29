@@ -2,17 +2,16 @@
 DAG任务执行引擎
 提供任务编排和并发执行能力
 """
+
 import asyncio
-import logging
 from typing import Any, Callable, Dict, List, Optional, Set
 from concurrent.futures import ThreadPoolExecutor, Future
 from datetime import datetime
 from src.core.utils.timezone_utils import utc_now, utc_factory
-
 from .models import DAGWorkflow, DAGTask, TaskStatus, DAGNode
 
-logger = logging.getLogger(__name__)
-
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 class DAGExecutor:
     """DAG执行引擎"""
@@ -126,7 +125,7 @@ class DAGExecutor:
                 )
             else:
                 # 在线程池中执行同步任务
-                loop = asyncio.get_event_loop()
+                loop = asyncio.get_running_loop()
                 result = await loop.run_in_executor(
                     self.executor, 
                     handler, 
@@ -186,18 +185,15 @@ class DAGExecutor:
         self.executor.shutdown(wait=True)
         logger.info("DAG执行器已关闭")
 
-
 # 默认任务处理器示例
 async def default_task_handler(params: Dict[str, Any]) -> Any:
     """默认任务处理器"""
     await asyncio.sleep(0.1)  # 模拟任务执行
     return {"status": "completed", "params": params}
 
-
 def echo_task_handler(params: Dict[str, Any]) -> Any:
     """回显任务处理器（同步）"""
     return {"echo": params.get("message", "Hello World")}
-
 
 # 预注册默认处理器
 def get_default_executor() -> DAGExecutor:

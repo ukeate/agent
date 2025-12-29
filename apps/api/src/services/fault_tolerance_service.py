@@ -4,20 +4,18 @@
 提供容错系统的业务逻辑和服务接口
 """
 
+from src.core.utils.timezone_utils import utc_now
 from typing import Dict, List, Optional, Any
-import logging
 from datetime import datetime
+from src.ai.fault_tolerance import FaultToleranceSystem, FaultType, BackupType
 
-from ai.fault_tolerance import FaultToleranceSystem, FaultType, BackupType
-
-logger = logging.getLogger(__name__)
-
+from src.core.logging import get_logger
 class FaultToleranceService:
     """容错系统服务"""
     
     def __init__(self, fault_tolerance_system: FaultToleranceSystem):
         self.fault_tolerance_system = fault_tolerance_system
-        self.logger = logging.getLogger(__name__)
+        self.logger = get_logger(__name__)
     
     async def get_system_overview(self) -> Dict[str, Any]:
         """获取系统概览"""
@@ -64,7 +62,7 @@ class FaultToleranceService:
             return {
                 "overall_status": "error",
                 "error": str(e),
-                "last_updated": datetime.now().isoformat()
+                "last_updated": utc_now().isoformat()
             }
     
     async def perform_health_assessment(self, component_ids: Optional[List[str]] = None) -> Dict[str, Any]:
@@ -85,24 +83,24 @@ class FaultToleranceService:
             return {
                 "assessment_results": assessment_results,
                 "recommendations": await self._generate_health_recommendations(assessment_results),
-                "assessed_at": datetime.now().isoformat()
+                "assessed_at": utc_now().isoformat()
             }
         except Exception as e:
             self.logger.error(f"Error performing health assessment: {e}")
             return {
                 "error": str(e),
-                "assessed_at": datetime.now().isoformat()
+                "assessed_at": utc_now().isoformat()
             }
     
     async def create_backup_plan(self, component_ids: List[str]) -> Dict[str, Any]:
         """创建备份计划"""
         try:
             backup_plan = {
-                "plan_id": f"backup_plan_{int(datetime.now().timestamp())}",
+                "plan_id": f"backup_plan_{int(utc_now().timestamp())}",
                 "components": component_ids,
                 "backup_strategy": await self._determine_backup_strategy(component_ids),
                 "estimated_duration": self._estimate_backup_duration(component_ids),
-                "created_at": datetime.now().isoformat()
+                "created_at": utc_now().isoformat()
             }
             
             return backup_plan
@@ -118,7 +116,7 @@ class FaultToleranceService:
             
             execution_result = {
                 "plan_id": plan["plan_id"],
-                "executed_at": datetime.now().isoformat(),
+                "executed_at": utc_now().isoformat(),
                 "results": backup_results,
                 "success_rate": len([r for r in backup_results.values() if r]) / len(backup_results),
                 "execution_summary": self._summarize_backup_execution(backup_results)
@@ -156,7 +154,7 @@ class FaultToleranceService:
                 "total_faults_analyzed": len(recent_faults),
                 "patterns": patterns,
                 "insights": self._generate_pattern_insights(patterns),
-                "analyzed_at": datetime.now().isoformat()
+                "analyzed_at": utc_now().isoformat()
             }
         except Exception as e:
             self.logger.error(f"Error analyzing fault patterns: {e}")
@@ -181,7 +179,7 @@ class FaultToleranceService:
                 "strategy_analysis": strategy_analysis,
                 "overall_recommendations": self._generate_optimization_recommendations(strategy_analysis),
                 "implementation_priority": self._prioritize_optimizations(strategy_analysis),
-                "analyzed_at": datetime.now().isoformat()
+                "analyzed_at": utc_now().isoformat()
             }
             
             return optimization_recommendations
@@ -212,7 +210,7 @@ class FaultToleranceService:
         """检查时间戳是否在最近N小时内"""
         try:
             timestamp = datetime.fromisoformat(timestamp_str.replace("Z", "+00:00"))
-            now = datetime.now()
+            now = utc_now()
             return (now - timestamp).total_seconds() < hours * 3600
         except:
             return False
@@ -221,7 +219,7 @@ class FaultToleranceService:
         """检查时间戳是否在最近N天内"""
         try:
             timestamp = datetime.fromisoformat(timestamp_str.replace("Z", "+00:00"))
-            now = datetime.now()
+            now = utc_now()
             return (now - timestamp).days < days
         except:
             return False

@@ -2,10 +2,10 @@
 分布式训练器实现
 支持PyTorch DDP、FSDP、DeepSpeed ZeRO等分布式训练策略
 """
+
 import os
 import torch
 import torch.distributed as dist
-import logging
 from typing import Dict, Any, Optional, List
 from pathlib import Path
 import json
@@ -13,7 +13,6 @@ from accelerate import Accelerator, DeepSpeedPlugin
 from accelerate.utils import set_seed
 from .lora_trainer import LoRATrainer
 from .models import TrainingConfig
-
 
 class DistributedTrainer(LoRATrainer):
     """分布式训练器"""
@@ -147,14 +146,14 @@ class DistributedTrainer(LoRATrainer):
             save_steps=self.config.save_steps,
             eval_steps=self.config.eval_steps if eval_dataset else None,
             save_strategy="steps",
-            evaluation_strategy="steps" if eval_dataset else "no",
+            eval_strategy="steps" if eval_dataset else "no",
             load_best_model_at_end=bool(eval_dataset),
             metric_for_best_model="eval_loss" if eval_dataset else None,
             greater_is_better=False,
             remove_unused_columns=False,
             dataloader_pin_memory=False,
             gradient_checkpointing=self.config.use_gradient_checkpointing,
-            report_to="wandb" if self._wandb_available() else "tensorboard",
+            report_to="wandb" if self._wandb_available() else "none",
             run_name=f"distributed-lora-{self.config.model_name.split('/')[-1]}",
             logging_dir=os.path.join(self.config.output_dir, "logs"),
             
@@ -306,7 +305,6 @@ class DistributedTrainer(LoRATrainer):
         
         return metrics
 
-
 class DistributedCustomTrainer:
     """自定义分布式训练器"""
     
@@ -381,7 +379,6 @@ class DistributedCustomTrainer:
             
             self.step_count += 1
 
-
 class DistributedTrainingArguments:
     """分布式训练参数"""
     
@@ -408,7 +405,6 @@ class DistributedTrainingArguments:
         for attr_name in dir(self.training_args):
             if not attr_name.startswith('_'):
                 setattr(self, attr_name, getattr(self.training_args, attr_name))
-
 
 def create_deepspeed_config(
     stage: int = 2,

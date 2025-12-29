@@ -1,12 +1,12 @@
 """
 测试情感空间映射器
 """
+
 import pytest
 import numpy as np
 from datetime import datetime
 from src.ai.emotion_modeling.space_mapper import EmotionSpaceMapper
 from src.ai.emotion_modeling.models import EmotionState, EmotionType
-
 
 class TestEmotionSpaceMapper:
     """测试EmotionSpaceMapper类"""
@@ -200,7 +200,6 @@ class TestEmotionSpaceMapper:
                 assert 'size' in cluster
                 assert 'dominant_emotions' in cluster
                 assert cluster['size'] >= 2
-
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

@@ -2,17 +2,16 @@
 类型验证器模块
 提供运行时类型检查和验证功能
 """
+
 from typing import Type, TypeVar, Any, Dict, List, get_origin, get_args, Union, Optional
 from pydantic import BaseModel, ValidationError
 import inspect
 from datetime import datetime
 from src.core.utils.timezone_utils import utc_now, utc_factory
 import json
-
 from .context import AgentContext, ContextVersion
 
 T = TypeVar('T')
-
 
 class TypeValidator:
     """类型验证器"""
@@ -181,7 +180,6 @@ class TypeValidator:
         
         return warnings
 
-
 class ContextTypeGuard:
     """上下文类型守卫"""
     
@@ -217,7 +215,6 @@ class ContextTypeGuard:
             return context  # type: ignore
         
         return None
-
 
 def validate_context(context: AgentContext) -> bool:
     """验证上下文是否有效"""

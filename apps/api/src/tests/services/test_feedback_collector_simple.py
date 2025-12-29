@@ -12,11 +12,8 @@ from datetime import datetime
 from datetime import timedelta
 from src.core.utils.timezone_utils import utc_now, utc_factory
 from unittest.mock import Mock, patch, AsyncMock
-
 import sys
 import os
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
-
 from src.services.feedback_collector import (
     FeedbackCollector,
     FeedbackBuffer,
@@ -27,6 +24,7 @@ from src.services.feedback_collector import (
 )
 from models.schemas.feedback import FeedbackType
 
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
 
 class TestEventPriority:
     """测试事件优先级枚举"""
@@ -36,7 +34,6 @@ class TestEventPriority:
         assert EventPriority.HIGH == "high"
         assert EventPriority.MEDIUM == "medium"
         assert EventPriority.LOW == "low"
-
 
 class TestCollectedEvent:
     """测试收集事件数据结构"""
@@ -60,7 +57,6 @@ class TestCollectedEvent:
         assert event.feedback_type == FeedbackType.CLICK
         assert event.priority == EventPriority.HIGH
         assert event.context["page"] == "home"
-
 
 class TestFeedbackBuffer:
     """测试反馈缓冲器"""
@@ -229,7 +225,6 @@ class TestFeedbackBuffer:
         assert events[1].priority == EventPriority.MEDIUM
         assert events[2].priority == EventPriority.LOW
 
-
 class TestEventDeduplicator:
     """测试事件去重器"""
     
@@ -321,8 +316,7 @@ class TestEventDeduplicator:
         assert len(deduplicator.seen_events) == 1
         
         # 等待一段时间让条目过期，然后测试清理
-        import time
-        time.sleep(1.1)  # 等待超过window_seconds
+        await asyncio.sleep(1.1)  # 等待超过window_seconds
         
         # 创建一个新的相同事件来触发清理
         new_event = CollectedEvent(
@@ -341,7 +335,6 @@ class TestEventDeduplicator:
         is_duplicate = await deduplicator.is_duplicate(new_event)
         assert is_duplicate is False
         assert len(deduplicator.seen_events) == 1  # 只有新事件
-
 
 class TestEventValidator:
     """测试事件验证器"""
@@ -469,7 +462,6 @@ class TestEventValidator:
         event.raw_value = "   "
         assert validator.validate_explicit_event(event) is False
 
-
 class TestFeedbackCollectorCore:
     """测试反馈收集器核心功能（不依赖配置）"""
     
@@ -532,7 +524,6 @@ class TestFeedbackCollectorCore:
             assert collector._running is False
             assert len(collector._background_tasks) == 0
 
-
 # 错误处理测试
 class TestErrorHandling:
     """错误处理测试"""
@@ -557,7 +548,6 @@ class TestErrorHandling:
         # 验证器应该优雅处理异常
         result = validator.validate_explicit_event(event)
         assert result is False
-
 
 # 边界情况测试
 class TestEdgeCases:
@@ -598,7 +588,6 @@ class TestEdgeCases:
         
         assert result_implicit is False
         assert result_explicit is False
-
 
 # 性能相关测试
 class TestPerformanceUnits:
@@ -665,7 +654,6 @@ class TestPerformanceUnits:
         # 100个事件应该在合理时间内添加完成
         assert duration < 0.5  # 0.5秒内完成
         assert len(buffer.buffer) == 100
-
 
 # 添加更多测试覆盖剩余代码
 class TestCollectorAdvancedFeatures:
@@ -744,7 +732,6 @@ class TestCollectorAdvancedFeatures:
             
             assert isinstance(stats["buffer_utilization_percent"], (int, float))
             assert stats["is_running"] in [True, False]
-
 
 class TestValidatorComprehensive:
     """验证器全面测试"""
@@ -845,7 +832,6 @@ class TestValidatorComprehensive:
         )
         assert validator.validate_explicit_event(share_event) is True
 
-
 class TestBufferEdgeCases:
     """缓冲器边界情况测试"""
     
@@ -887,7 +873,6 @@ class TestBufferEdgeCases:
         for priority_buffer in buffer.priority_buffers.values():
             assert len(priority_buffer) == 0
 
-
 class TestGlobalCollectorFunctions:
     """全局收集器函数测试"""
     
@@ -918,7 +903,6 @@ class TestGlobalCollectorFunctions:
         
         # 全局实例应该被清空
         assert services.feedback_collector._feedback_collector is None
-
 
 # 额外测试来覆盖剩余的代码分支
 class TestAdditionalCoverage:

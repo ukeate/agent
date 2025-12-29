@@ -3,13 +3,13 @@ Context API单元测试
 测试LangGraph v0.6.5 Context API的类型安全和功能
 包含新Context API、durability控制、Node Caching和Hooks测试
 """
+
 import pytest
 from datetime import datetime
 from src.core.utils.timezone_utils import utc_now, utc_factory
 from typing import Dict, Any
 from langgraph.graph import StateGraph, START, END
 from langgraph.types import RunnableConfig
-
 from src.ai.langgraph.context import (
     AgentContext,
     create_default_context,
@@ -34,8 +34,8 @@ from src.ai.langgraph.hooks import (
     MessageCompressionHook,
     ResponseFilterHook,
     with_hooks
-)
 
+)
 
 class TestAgentContext:
     """AgentContext类型测试"""
@@ -144,30 +144,21 @@ class TestAgentContext:
         assert validate_context(valid_context)
         
         # 无效上下文 - 缺少user_id  
-        try:
-            invalid_context = AgentContext(
+        with pytest.raises(ValueError):
+            AgentContext(
                 user_id="",
                 session_id=session_id,
                 session_context=SessionContext(session_id=session_id)
             )
-            # 如果创建成功，验证应该失败
-            assert not validate_context(invalid_context)
-        except Exception:
-            # 如果创建就失败了，说明验证起作用了
-            pass
         
         # 无效上下文 - 无效状态（这会在创建时就失败）
-        try:
-            invalid_context2 = AgentContext(
+        with pytest.raises(ValueError):
+            AgentContext(
                 user_id="test_user",
                 session_id=session_id,
                 session_context=SessionContext(session_id=session_id),
                 status="invalid_status"
             )
-            assert False, "应该抛出验证错误"
-        except Exception:
-            # 预期的验证失败
-            pass
     
     def test_create_default_context(self):
         """测试创建默认上下文"""
@@ -181,7 +172,6 @@ class TestAgentContext:
         )
         assert context.user_id == "custom_user"
         assert context.workflow_id == "550e8400-e29b-41d4-a716-446655440006"
-
 
 class TestWorkflowNodeWithContext:
     """测试工作流节点的Context支持"""
@@ -236,7 +226,6 @@ class TestWorkflowNodeWithContext:
         
         assert len(result["messages"]) > 0
         assert result["messages"][-1]["content"] == "Simple response"
-
 
 class TestLangGraphWorkflowBuilderWithContext:
     """测试工作流构建器的Context支持"""
@@ -353,7 +342,6 @@ class TestLangGraphWorkflowBuilderWithContext:
         assert context_info["user_id"] == "direct_user"
         assert result["metadata"]["status"] == "completed"
 
-
 class TestTypeSafety:
     """类型安全测试"""
     
@@ -392,7 +380,6 @@ class TestTypeSafety:
         assert context.thread_id is None
         assert context.current_node is None
         assert context.last_updated is None
-
 
 class TestLangGraphContextSchema:
     """测试LangGraph 0.6.5新Context Schema"""
@@ -444,7 +431,6 @@ class TestLangGraphContextSchema:
         assert schema.user_id == "test_user"
         assert schema.session_id == "550e8400-e29b-41d4-a716-446655440000"
         assert schema.timeout_seconds == 600
-
 
 class TestNewContextAPI:
     """测试LangGraph 0.6.5新Context API"""
@@ -508,7 +494,6 @@ class TestNewContextAPI:
         for durability in ["exit", "async", "sync"]:
             result = await builder.execute(initial_state, durability=durability)
             assert result["metadata"]["status"] == "completed"
-
 
 class TestNodeCaching:
     """测试Node Caching功能"""
@@ -598,7 +583,6 @@ class TestNodeCaching:
         context_aware = CachePolicy(ttl=300, cache_key_fields=["user_id", "session_id"])
         assert context_aware.cache_key_fields == ["user_id", "session_id"]
         assert context_aware.enabled is True
-
 
 class TestHooks:
     """测试Pre/Post Model Hooks"""
@@ -708,7 +692,6 @@ class TestHooks:
         
         # Pre Hook应该已经压缩了消息
         assert len(result["messages"]) <= 5  # 被压缩的消息 + AI响应
-
 
 class TestIntegration:
     """集成测试 - 测试所有新特性一起工作"""

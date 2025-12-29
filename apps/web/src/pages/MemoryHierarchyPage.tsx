@@ -3,8 +3,9 @@
  * 展示工作记忆、情景记忆、语义记忆的三层架构
  */
 import React, { useState, useEffect } from 'react'
-import { Card, Row, Col, Progress, Tag, List, Button, Tooltip, Badge, Statistic, Space, message } from 'antd'
+import { Card, Row, Col, Progress, Tag, List, Button, Tooltip, Badge, Statistic, Space, message, Input } from 'antd'
 import { 
+import { logger } from '../utils/logger'
   DatabaseOutlined, 
   ClockCircleOutlined, 
   BookOutlined,
@@ -12,7 +13,9 @@ import {
   RiseOutlined,
   SwapOutlined,
   DeleteOutlined,
-  SyncOutlined
+  SyncOutlined,
+  SearchOutlined,
+  DownloadOutlined
 } from '@ant-design/icons'
 import { memoryService } from '@/services/memoryService'
 import { Memory, MemoryType, MemoryAnalytics } from '@/types/memory'
@@ -24,6 +27,9 @@ const MemoryHierarchyPage: React.FC = () => {
   const [analytics, setAnalytics] = useState<MemoryAnalytics | null>(null)
   const [loading, setLoading] = useState(false)
   const [selectedMemory, setSelectedMemory] = useState<Memory | null>(null)
+  const [searchResults, setSearchResults] = useState<Memory[]>([])
+  const [searchQuery, setSearchQuery] = useState('')
+  const [searching, setSearching] = useState(false)
 
   useEffect(() => {
     loadMemories()
@@ -47,7 +53,7 @@ const MemoryHierarchyPage: React.FC = () => {
       setEpisodicMemories(episodic)
       setSemanticMemories(semantic)
     } catch (error) {
-      console.error('加载记忆失败:', error)
+      logger.error('加载记忆失败:', error)
       message.error('加载记忆失败')
     } finally {
       setLoading(false)
@@ -59,7 +65,7 @@ const MemoryHierarchyPage: React.FC = () => {
       const data = await memoryService.getMemoryAnalytics()
       setAnalytics(data)
     } catch (error) {
-      console.error('加载分析数据失败:', error)
+      logger.error('加载分析数据失败:', error)
     }
   }
 
@@ -90,6 +96,61 @@ const MemoryHierarchyPage: React.FC = () => {
       loadMemories()
     } catch (error) {
       message.error('记忆巩固失败')
+    }
+  }
+
+  const handleCleanupOldMemories = async () => {
+    try {
+      await memoryService.cleanupOldMemories(30, 0.3)
+      message.success('旧记忆清理完成')
+      loadMemories()
+      loadAnalytics()
+    } catch (error) {
+      logger.error('清理旧记忆失败:', error)
+      message.error('清理旧记忆失败')
+    }
+  }
+
+  const handleSearchMemories = async (query: string) => {
+    if (!query.trim()) {
+      setSearchResults([])
+      return
+    }
+    
+    setSearching(true)
+    try {
+      const results = await memoryService.searchMemories(query, {}, 20)
+      setSearchResults(results)
+      message.success(`找到 ${results.length} 条相关记忆`)
+    } catch (error) {
+      logger.error('搜索记忆失败:', error)
+      message.error('搜索记忆失败')
+    } finally {
+      setSearching(false)
+    }
+  }
+
+  const handleExportMemories = async () => {
+    try {
+      const sessionId = localStorage.getItem('current_session_id') || 'default'
+      const memories = await memoryService.exportMemories(sessionId)
+      
+      const blob = new Blob([JSON.stringify(memories, null, 2)], {
+        type: 'application/json'
+      })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `memories-${sessionId}-${new Date().toISOString().split('T')[0]}.json`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+      
+      message.success('记忆导出成功')
+    } catch (error) {
+      logger.error('导出记忆失败:', error)
+      message.error('导出记忆失败')
     }
   }
 
@@ -196,10 +257,11 @@ const MemoryHierarchyPage: React.FC = () => {
           <Col span={6}>
             <Card>
               <Statistic
-                title="平均访问次数"
-                value={analytics.avg_access_count}
-                precision={1}
-                prefix={<ClockCircleOutlined />}
+                title="记忆增长率"
+                value={analytics.memory_growth_rate}
+                precision={2}
+                suffix="条/天"
+                prefix={<RiseOutlined />}
               />
             </Card>
           </Col>
@@ -217,6 +279,21 @@ const MemoryHierarchyPage: React.FC = () => {
         </Row>
       )}
 
+      {/* 搜索框 */}
+      <div style={{ marginBottom: 16 }}>
+        <Input.Search
+          name="memorySearch"
+          placeholder="搜索记忆内容..."
+          allowClear
+          enterButton={<SearchOutlined />}
+          size="large"
+          loading={searching}
+          onSearch={handleSearchMemories}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          style={{ maxWidth: 400 }}
+        />
+      </div>
+
       {/* 操作按钮 */}
       <div style={{ marginBottom: 16 }}>
         <Space>
@@ -230,11 +307,49 @@ const MemoryHierarchyPage: React.FC = () => {
           <Button icon={<SyncOutlined />} onClick={loadMemories}>
             刷新
           </Button>
-          <Button icon={<DeleteOutlined />} danger>
+          <Button 
+            icon={<DeleteOutlined />} 
+            danger
+            onClick={handleCleanupOldMemories}
+          >
             清理旧记忆
+          </Button>
+          <Button 
+            icon={<DownloadOutlined />}
+            onClick={handleExportMemories}
+          >
+            导出记忆
           </Button>
         </Space>
       </div>
+
+      {/* 搜索结果 */}
+      {searchResults.length > 0 && (
+        <Card 
+          title={
+            <span>
+              <SearchOutlined style={{ color: '#1890ff' }} /> 搜索结果
+              <Badge 
+                count={searchResults.length} 
+                style={{ marginLeft: 8 }}
+                showZero
+              />
+            </span>
+          }
+          style={{ marginBottom: 16 }}
+        >
+          <List
+            dataSource={searchResults}
+            renderItem={(memory) => renderMemoryCard(
+              memory, 
+              memory.type || '未知', 
+              getMemoryTypeColor(memory.type || MemoryType.WORKING)
+            )}
+            loading={searching}
+            style={{ maxHeight: 300, overflow: 'auto' }}
+          />
+        </Card>
+      )}
 
       {/* 三层记忆架构 */}
       <Row gutter={16}>
@@ -256,10 +371,10 @@ const MemoryHierarchyPage: React.FC = () => {
             }
             style={{ height: '70vh', overflow: 'auto' }}
           >
-            <p style={{ fontSize: 12, color: '#666', marginBottom: 16 }}>
+            <div style={{ fontSize: 12, color: '#666', marginBottom: 16 }}>
               容量: {workingMemories.length} / 100 | 
               特点: 快速访问，容量有限，自动淘汰
-            </p>
+            </div>
             <List
               dataSource={workingMemories}
               renderItem={(memory) => renderMemoryCard(memory, '工作', '#52c41a')}
@@ -286,10 +401,10 @@ const MemoryHierarchyPage: React.FC = () => {
             }
             style={{ height: '70vh', overflow: 'auto' }}
           >
-            <p style={{ fontSize: 12, color: '#666', marginBottom: 16 }}>
+            <div style={{ fontSize: 12, color: '#666', marginBottom: 16 }}>
               容量: {episodicMemories.length} / 10000 | 
               特点: 时序记录，情境相关，可召回
-            </p>
+            </div>
             <List
               dataSource={episodicMemories}
               renderItem={(memory) => renderMemoryCard(memory, '情景', '#1890ff')}
@@ -316,10 +431,10 @@ const MemoryHierarchyPage: React.FC = () => {
             }
             style={{ height: '70vh', overflow: 'auto' }}
           >
-            <p style={{ fontSize: 12, color: '#666', marginBottom: 16 }}>
+            <div style={{ fontSize: 12, color: '#666', marginBottom: 16 }}>
               容量: {semanticMemories.length} / 5000 | 
               特点: 概念知识，永久存储，高度抽象
-            </p>
+            </div>
             <List
               dataSource={semanticMemories}
               renderItem={(memory) => renderMemoryCard(memory, '语义', '#722ed1')}
@@ -348,9 +463,9 @@ const MemoryHierarchyPage: React.FC = () => {
               <div>语义记忆</div>
             </div>
           </Space>
-          <p style={{ marginTop: 16, color: '#666' }}>
+          <div style={{ marginTop: 16, color: '#666' }}>
             记忆通过重要性评估和访问频率，逐级提升到更持久的存储层
-          </p>
+          </div>
         </div>
       </Card>
     </div>

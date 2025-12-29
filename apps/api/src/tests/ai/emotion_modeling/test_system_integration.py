@@ -3,6 +3,7 @@
 包括单元测试、集成测试和压力测试
 """
 
+from src.core.utils.timezone_utils import utc_now
 import asyncio
 import pytest
 import time
@@ -14,7 +15,6 @@ import numpy as np
 from concurrent.futures import ThreadPoolExecutor
 import aiohttp
 import psutil
-
 from ai.emotion_modeling.core_interfaces import (
     EmotionType, ModalityType, EmotionState, MultiModalEmotion,
     UnifiedEmotionalData, EmotionalIntelligenceResponse,
@@ -40,8 +40,8 @@ from ai.emotion_modeling.result_formatter import (
 )
 from ai.emotion_modeling.quality_monitor import (
     QualityMonitor, QualityThreshold, GroundTruthData
-)
 
+)
 
 class TestEmotionModelingCore:
     """核心接口测试"""
@@ -56,7 +56,7 @@ class TestEmotionModelingCore:
             arousal=0.6,
             dominance=0.5,
             confidence=0.9,
-            timestamp=datetime.now()
+            timestamp=utc_now()
         )
     
     @pytest.fixture
@@ -95,7 +95,7 @@ class TestEmotionModelingCore:
         """测试统一情感数据"""
         data = UnifiedEmotionalData(
             user_id="test_user",
-            timestamp=datetime.now(),
+            timestamp=utc_now(),
             recognition_result=sample_multimodal_emotion,
             confidence=0.9,
             processing_time=0.2,
@@ -107,7 +107,6 @@ class TestEmotionModelingCore:
         assert 0 <= data.confidence <= 1
         assert data.processing_time > 0
         assert 0 <= data.data_quality <= 1
-
 
 class TestCommunicationProtocol:
     """通信协议测试"""
@@ -198,7 +197,6 @@ class TestCommunicationProtocol:
         # 验证消息队列不为空
         assert len(communication_protocol.message_bus.message_queues) > 0
 
-
 class TestDataFlowManager:
     """数据流管理器测试"""
     
@@ -222,7 +220,7 @@ class TestDataFlowManager:
         # 有效数据
         valid_data = UnifiedEmotionalData(
             user_id="test_user",
-            timestamp=datetime.now(),
+            timestamp=utc_now(),
             confidence=0.9,
             processing_time=0.1,
             data_quality=0.95
@@ -234,7 +232,7 @@ class TestDataFlowManager:
         # 无效数据（置信度超出范围）
         invalid_data = UnifiedEmotionalData(
             user_id="test_user", 
-            timestamp=datetime.now(),
+            timestamp=utc_now(),
             confidence=1.5,  # 无效值
             processing_time=0.1,
             data_quality=0.95
@@ -248,7 +246,7 @@ class TestDataFlowManager:
         """测试数据路由"""
         data = UnifiedEmotionalData(
             user_id="test_user",
-            timestamp=datetime.now(),
+            timestamp=utc_now(),
             recognition_result=MultiModalEmotion(
                 emotions={},
                 fused_emotion=EmotionState(
@@ -258,7 +256,7 @@ class TestDataFlowManager:
                     arousal=0.6,
                     dominance=0.5,
                     confidence=0.9,
-                    timestamp=datetime.now()
+                    timestamp=utc_now()
                 ),
                 confidence=0.9,
                 processing_time=0.1
@@ -281,7 +279,6 @@ class TestDataFlowManager:
         
         # 在测试环境中，同步可能失败或成功
         assert isinstance(sync_result, bool)
-
 
 class TestSystemMonitor:
     """系统监控测试"""
@@ -343,7 +340,6 @@ class TestSystemMonitor:
         assert health_report["overall_status"] in [
             status.value for status in SystemHealthStatus
         ]
-
 
 class TestRealtimeStreamProcessor:
     """实时流处理器测试"""
@@ -434,7 +430,6 @@ class TestRealtimeStreamProcessor:
         
         await manager.stop_manager()
 
-
 class TestResultFormatter:
     """结果格式化器测试"""
     
@@ -453,12 +448,12 @@ class TestResultFormatter:
             arousal=0.6,
             dominance=0.5,
             confidence=0.9,
-            timestamp=datetime.now()
+            timestamp=utc_now()
         )
         
         return UnifiedEmotionalData(
             user_id="test_user",
-            timestamp=datetime.now(),
+            timestamp=utc_now(),
             emotional_state=emotion_state,
             confidence=0.9,
             processing_time=0.15,
@@ -507,7 +502,6 @@ class TestResultFormatter:
         assert isinstance(parsed, list)
         assert len(parsed) == 2
 
-
 class TestQualityMonitor:
     """质量监控测试"""
     
@@ -530,7 +524,7 @@ class TestQualityMonitor:
             arousal=0.6,
             dominance=0.5,
             confidence=0.9,
-            timestamp=datetime.now()
+            timestamp=utc_now()
         )
         
         await quality_monitor.record_prediction(
@@ -551,7 +545,7 @@ class TestQualityMonitor:
         """测试真实标签添加"""
         ground_truth = GroundTruthData(
             user_id="test_user",
-            timestamp=datetime.now(),
+            timestamp=utc_now(),
             true_emotion=EmotionState(
                 emotion=EmotionType.HAPPINESS,
                 intensity=0.8,
@@ -559,7 +553,7 @@ class TestQualityMonitor:
                 arousal=0.6,
                 dominance=0.5,
                 confidence=1.0,
-                timestamp=datetime.now()
+                timestamp=utc_now()
             ),
             modality=ModalityType.TEXT,
             source="expert_annotation",
@@ -582,7 +576,6 @@ class TestQualityMonitor:
         assert "performance" in report
         assert "recommendations" in report
 
-
 class TestStressAndPerformance:
     """压力测试和性能测试"""
     
@@ -600,7 +593,7 @@ class TestStressAndPerformance:
                 arousal=0.5,
                 dominance=0.5,
                 confidence=0.8,
-                timestamp=datetime.now()
+                timestamp=utc_now()
             ),
             confidence=0.8,
             processing_time=0.1
@@ -662,12 +655,12 @@ class TestStressAndPerformance:
                 arousal=np.random.random(),
                 dominance=np.random.random(),
                 confidence=np.random.random(),
-                timestamp=datetime.now()
+                timestamp=utc_now()
             )
             
             data = UnifiedEmotionalData(
                 user_id=f"user_{i}",
-                timestamp=datetime.now(),
+                timestamp=utc_now(),
                 emotional_state=emotion_state,
                 confidence=np.random.random(),
                 processing_time=np.random.random() * 0.5,
@@ -706,12 +699,12 @@ class TestStressAndPerformance:
                 arousal=0.6,
                 dominance=0.5,
                 confidence=0.9,
-                timestamp=datetime.now()
+                timestamp=utc_now()
             )
             
             data = UnifiedEmotionalData(
                 user_id=f"user_{i}",
-                timestamp=datetime.now(),
+                timestamp=utc_now(),
                 emotional_state=emotion_state,
                 confidence=0.9,
                 processing_time=0.1,
@@ -752,7 +745,7 @@ class TestStressAndPerformance:
                 arousal=np.random.random(),
                 dominance=np.random.random(),
                 confidence=np.random.random(),
-                timestamp=datetime.now()
+                timestamp=utc_now()
             )
             
             true_emotion = EmotionState(
@@ -762,7 +755,7 @@ class TestStressAndPerformance:
                 arousal=np.random.random(),
                 dominance=np.random.random(),
                 confidence=1.0,
-                timestamp=datetime.now()
+                timestamp=utc_now()
             )
             
             predictions.append(pred_emotion)
@@ -806,7 +799,7 @@ class TestStressAndPerformance:
             for i in range(100):
                 data = UnifiedEmotionalData(
                     user_id=f"load_test_user_{i}",
-                    timestamp=datetime.now(),
+                    timestamp=utc_now(),
                     confidence=0.8,
                     processing_time=0.1,
                     data_quality=0.9
@@ -842,7 +835,6 @@ class TestStressAndPerformance:
             await monitor.stop_monitoring()
             await data_flow_manager.shutdown()
             await protocol.stop()
-
 
 @pytest.mark.integration
 class TestEndToEndIntegration:
@@ -895,7 +887,7 @@ class TestEndToEndIntegration:
             arousal=0.6,
             dominance=0.5,
             confidence=0.9,
-            timestamp=datetime.now()
+            timestamp=utc_now()
         )
         
         multimodal_emotion = MultiModalEmotion(
@@ -907,7 +899,7 @@ class TestEndToEndIntegration:
         
         unified_data = UnifiedEmotionalData(
             user_id="e2e_test_user",
-            timestamp=datetime.now(),
+            timestamp=utc_now(),
             recognition_result=multimodal_emotion,
             emotional_state=emotion_state,
             confidence=0.9,
@@ -956,7 +948,7 @@ class TestEndToEndIntegration:
         # 注入无效数据
         invalid_data = UnifiedEmotionalData(
             user_id="",  # 空用户ID
-            timestamp=datetime.now(),
+            timestamp=utc_now(),
             confidence=1.5,  # 无效置信度
             processing_time=-0.1,  # 负处理时间
             data_quality=2.0  # 无效数据质量
@@ -985,12 +977,12 @@ class TestEndToEndIntegration:
                 arousal=np.random.random(),
                 dominance=np.random.random(),
                 confidence=np.random.random(),
-                timestamp=datetime.now()
+                timestamp=utc_now()
             )
             
             data = UnifiedEmotionalData(
                 user_id=f"scale_test_user_{i}",
-                timestamp=datetime.now(),
+                timestamp=utc_now(),
                 emotional_state=emotion_state,
                 confidence=np.random.random(),
                 processing_time=np.random.random() * 0.5,
@@ -1014,7 +1006,6 @@ class TestEndToEndIntegration:
         
         assert success_rate > 0.9  # 成功率应大于90%
         assert processing_time < 30.0  # 处理时间应在合理范围内
-
 
 if __name__ == "__main__":
     # 运行测试

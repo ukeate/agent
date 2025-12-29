@@ -9,13 +9,11 @@ from enum import Enum
 from typing import Dict, List, Optional, Set, Tuple, Any
 from datetime import datetime
 import json
-import logging
-
 from .models import EmotionVector, SocialContext
 from .core_interfaces import EmotionModelingInterface
 
-logger = logging.getLogger(__name__)
-
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 class SocialScenario(Enum):
     """社交场景类型"""
@@ -30,7 +28,6 @@ class SocialScenario(Enum):
     SOCIAL_GATHERING = "social_gathering"
     CRISIS_MANAGEMENT = "crisis_management"
 
-
 @dataclass
 class ContextRule:
     """上下文规则"""
@@ -41,7 +38,6 @@ class ContextRule:
     communication_style: str  # 沟通风格
     sensitivity_level: float  # 敏感度级别 0.0-1.0
     
-
 @dataclass
 class ContextualResponse:
     """上下文化响应"""
@@ -51,7 +47,6 @@ class ContextualResponse:
     adaptation_reason: str
     confidence_score: float
     suggested_actions: List[str]
-
 
 @dataclass
 class SocialEnvironment:
@@ -64,7 +59,6 @@ class SocialEnvironment:
     cultural_context: Optional[str] = None
     dominant_emotions: List[str] = None
     power_dynamics: Dict[str, float] = None  # 权力动态
-
 
 class SocialContextAdapter(EmotionModelingInterface):
     """社交场景适配器"""

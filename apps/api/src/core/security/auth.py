@@ -3,21 +3,23 @@
 """
 
 from datetime import datetime, timedelta
-from src.core.utils.timezone_utils import utc_now, utc_factory
+import uuid
+from src.core.utils.timezone_utils import from_timestamp, parse_iso_string, to_utc, utc_now
 from typing import Any, Dict, List, Optional, Union
-
-import structlog
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from jose import JWTError, jwt
 from passlib.context import CryptContext
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-
 from src.core.config import get_settings
-from src.core.database import get_session
+from src.core.database import get_db
+from src.core.redis import get_redis
+from src.models.database.user import AuthUser
 
-logger = structlog.get_logger(__name__)
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 # 密码哈希上下文
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -27,7 +29,6 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/token")
 
 settings = get_settings()
 
-
 class Token(BaseModel):
     """Token响应模型"""
     access_token: str
@@ -36,14 +37,14 @@ class Token(BaseModel):
     refresh_token: Optional[str] = None
     scope: Optional[str] = None
 
-
 class TokenData(BaseModel):
     """Token数据模型"""
     username: Optional[str] = None
     user_id: Optional[str] = None
-    scopes: List[str] = []
+    scopes: List[str] = Field(default_factory=list)
+    token_type: Optional[str] = None
+    jti: Optional[str] = None
     exp: Optional[datetime] = None
-
 
 class User(BaseModel):
     """用户模型"""
@@ -51,18 +52,17 @@ class User(BaseModel):
     username: str
     email: Optional[str] = None
     full_name: Optional[str] = None
-    disabled: bool = False
-    roles: List[str] = []
-    permissions: List[str] = []
-
+    is_active: bool = True
+    is_superuser: bool = False
+    roles: List[str] = Field(default_factory=list)
+    permissions: List[str] = Field(default_factory=list)
+    created_at: datetime
+    last_login: Optional[datetime] = None
 
 class UserInDB(User):
     """数据库用户模型"""
     hashed_password: str
-    created_at: datetime
     updated_at: datetime
-    last_login: Optional[datetime] = None
-
 
 class PasswordManager:
     """密码管理器"""
@@ -76,7 +76,6 @@ class PasswordManager:
     def verify_password(plain_password: str, hashed_password: str) -> bool:
         """验证密码"""
         return pwd_context.verify(plain_password, hashed_password)
-
 
 class JWTManager:
     """JWT管理器"""
@@ -103,7 +102,8 @@ class JWTManager:
         to_encode.update({
             "exp": expire,
             "type": "access",
-            "iat": utc_now()
+            "iat": utc_now(),
+            "jti": str(uuid.uuid4()),
         })
         
         encoded_jwt = jwt.encode(to_encode, self.secret_key, algorithm=self.algorithm)
@@ -125,7 +125,8 @@ class JWTManager:
         to_encode.update({
             "exp": expire,
             "type": "refresh",
-            "iat": utc_now()
+            "iat": utc_now(),
+            "jti": str(uuid.uuid4()),
         })
         
         encoded_jwt = jwt.encode(to_encode, self.secret_key, algorithm=self.algorithm)
@@ -143,6 +144,16 @@ class JWTManager:
             username: str = payload.get("sub")
             user_id: str = payload.get("user_id")
             scopes: List[str] = payload.get("scopes", [])
+            token_type: str = payload.get("type")
+            jti: str = payload.get("jti")
+            exp_value = payload.get("exp")
+            exp = None
+            if isinstance(exp_value, (int, float)):
+                exp = from_timestamp(exp_value)
+            elif isinstance(exp_value, str):
+                exp = parse_iso_string(exp_value)
+            elif isinstance(exp_value, datetime):
+                exp = to_utc(exp_value)
             
             if username is None and user_id is None:
                 raise JWTError("Invalid token payload")
@@ -151,13 +162,14 @@ class JWTManager:
                 username=username,
                 user_id=user_id,
                 scopes=scopes,
-                exp=payload.get("exp")
+                token_type=token_type,
+                jti=jti,
+                exp=exp
             )
             
         except JWTError as e:
             logger.error("JWT decode error", error=str(e))
             raise
-
 
 class RBACManager:
     """基于角色的访问控制管理器"""
@@ -213,12 +225,10 @@ class RBACManager:
         """检查是否有所有权限"""
         return all(perm in user_permissions for perm in required_permissions)
 
-
 # 全局实例
 password_manager = PasswordManager()
 jwt_manager = JWTManager()
 rbac_manager = RBACManager()
-
 
 async def authenticate_user(
     db: AsyncSession,
@@ -226,43 +236,58 @@ async def authenticate_user(
     password: str
 ) -> Optional[UserInDB]:
     """认证用户"""
-    # TODO: 实现从数据库获取用户
-    # 这里是示例实现
-    from src.db.models import User as DBUser
-    
-    # 查询用户
-    # user = await db.query(DBUser).filter(DBUser.username == username).first()
-    
-    # 临时硬编码用户（实际应从数据库读取）
-    fake_users_db = {
-        "admin": {
-            "id": "1",
-            "username": "admin",
-            "email": "admin@example.com",
-            "hashed_password": password_manager.hash_password("admin123"),
-            "roles": ["admin"],
-            "disabled": False
-        }
-    }
-    
-    user_dict = fake_users_db.get(username)
-    if not user_dict:
+    result = await db.execute(select(AuthUser).where(AuthUser.username == username))
+    user = result.scalar_one_or_none()
+    if not user or not user.is_active:
         return None
     
-    if not password_manager.verify_password(password, user_dict["hashed_password"]):
+    if not password_manager.verify_password(password, user.hashed_password):
         return None
-    
+
+    user.last_login = utc_now()
+    await db.commit()
+    await db.refresh(user)
+
+    roles = list(user.roles or [])
     return UserInDB(
-        **user_dict,
-        permissions=rbac_manager.get_user_permissions(user_dict["roles"]),
-        created_at=utc_now(),
-        updated_at=utc_now()
+        id=str(user.id),
+        username=user.username,
+        email=user.email,
+        full_name=user.full_name,
+        is_active=user.is_active,
+        is_superuser=user.is_superuser,
+        roles=roles,
+        permissions=rbac_manager.get_user_permissions(roles),
+        created_at=user.created_at,
+        updated_at=user.updated_at,
+        last_login=user.last_login,
+        hashed_password=user.hashed_password,
     )
 
+_REVOKED_JTI_PREFIX = "auth:revoked:jti:"
+
+async def is_token_revoked(jti: Optional[str]) -> bool:
+    if not jti:
+        return False
+    client = get_redis()
+    if not client:
+        return False
+    return await client.exists(f"{_REVOKED_JTI_PREFIX}{jti}") > 0
+
+async def revoke_token(token_data: TokenData) -> None:
+    if not token_data.jti or not token_data.exp:
+        return
+    client = get_redis()
+    if not client:
+        return
+    ttl = int((token_data.exp - utc_now()).total_seconds())
+    if ttl <= 0:
+        return
+    await client.setex(f"{_REVOKED_JTI_PREFIX}{token_data.jti}", ttl, "1")
 
 async def get_current_user(
     token: str = Depends(oauth2_scheme),
-    db: AsyncSession = Depends(get_session)
+    db: AsyncSession = Depends(get_db)
 ) -> User:
     """获取当前用户"""
     credentials_exception = HTTPException(
@@ -275,39 +300,50 @@ async def get_current_user(
         token_data = jwt_manager.decode_token(token)
     except JWTError:
         raise credentials_exception
-    
-    # TODO: 从数据库获取用户
-    # user = await db.query(User).filter(User.id == token_data.user_id).first()
-    
-    # 临时实现
-    if token_data.username == "admin":
-        user = User(
-            id="1",
-            username="admin",
-            email="admin@example.com",
-            roles=["admin"],
-            permissions=rbac_manager.get_user_permissions(["admin"])
-        )
-    else:
-        raise credentials_exception
-    
-    if user is None:
-        raise credentials_exception
-    
-    return user
 
+    if token_data.token_type != "access":
+        raise credentials_exception
+
+    if await is_token_revoked(token_data.jti):
+        raise credentials_exception
+    
+    if not token_data.user_id:
+        raise credentials_exception
+
+    try:
+        user_uuid = uuid.UUID(token_data.user_id)
+    except Exception:
+        raise credentials_exception
+
+    result = await db.execute(select(AuthUser).where(AuthUser.id == user_uuid))
+    db_user = result.scalar_one_or_none()
+    if not db_user:
+        raise credentials_exception
+
+    roles = list(db_user.roles or [])
+    return User(
+        id=str(db_user.id),
+        username=db_user.username,
+        email=db_user.email,
+        full_name=db_user.full_name,
+        is_active=db_user.is_active,
+        is_superuser=db_user.is_superuser,
+        roles=roles,
+        permissions=rbac_manager.get_user_permissions(roles),
+        created_at=db_user.created_at,
+        last_login=db_user.last_login,
+    )
 
 async def get_current_active_user(
     current_user: User = Depends(get_current_user)
 ) -> User:
     """获取当前活跃用户"""
-    if current_user.disabled:
+    if not current_user.is_active:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Inactive user"
         )
     return current_user
-
 
 class PermissionChecker:
     """权限检查器"""
@@ -347,17 +383,14 @@ class PermissionChecker:
         
         return user
 
-
 # 便捷函数
 def require_permission(permission: str):
     """需要单个权限"""
     return PermissionChecker(permission)
 
-
 def require_any_permission(permissions: List[str]):
     """需要任一权限"""
     return PermissionChecker(permissions, require_all=False)
-
 
 def require_all_permissions(permissions: List[str]):
     """需要所有权限"""

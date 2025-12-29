@@ -6,17 +6,17 @@ import asyncio
 import json
 import time
 from datetime import datetime
-from src.core.utils.timezone_utils import utc_now, utc_factory, timezone
+from src.core.utils.timezone_utils import utc_now, utc_factory
 from typing import Dict, List, Any, Optional, Set, Callable, AsyncIterator
 from dataclasses import dataclass, asdict
 from enum import Enum
 from collections import defaultdict, deque
-import logging
 import threading
 from concurrent.futures import ThreadPoolExecutor
+from src.core.logging import get_logger, setup_logging
 
-logger = logging.getLogger(__name__)
-
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 class EventType(Enum):
     """事件类型"""
@@ -36,14 +36,12 @@ class EventType(Enum):
     VERSION_CREATED = "version_created"
     VERSION_RESTORED = "version_restored"
 
-
 class Priority(Enum):
     """事件优先级"""
     LOW = 1
     NORMAL = 2
     HIGH = 3
     CRITICAL = 4
-
 
 @dataclass
 class ChangeEvent:
@@ -61,7 +59,6 @@ class ChangeEvent:
     source: str = "unknown"
     correlation_id: Optional[str] = None
 
-
 @dataclass
 class AuditEntry:
     """审计条目"""
@@ -71,7 +68,6 @@ class AuditEntry:
     success: bool
     error_message: Optional[str] = None
     additional_context: Optional[Dict[str, Any]] = None
-
 
 @dataclass
 class ChangeStatistics:
@@ -84,7 +80,6 @@ class ChangeStatistics:
     error_rate: float
     events_per_minute: float
     most_active_resources: List[str]
-
 
 class ChangeListener:
     """变更监听器基类"""
@@ -101,14 +96,13 @@ class ChangeListener:
         """判断是否应该处理此事件"""
         return self.enabled
 
-
 class DatabaseChangeListener(ChangeListener):
     """数据库变更监听器"""
     
     def __init__(self, connection_string: str = None):
         super().__init__("DatabaseListener")
         self.connection_string = connection_string
-        self.logger = logging.getLogger(f"{__name__}.{self.__class__.__name__}")
+        self.logger = get_logger(f"{__name__}.{self.__class__.__name__}")
     
     async def on_change(self, event: ChangeEvent) -> bool:
         """将变更保存到数据库"""
@@ -120,14 +114,13 @@ class DatabaseChangeListener(ChangeListener):
             self.logger.error(f"保存到数据库失败: {e}")
             return False
 
-
 class WebSocketChangeListener(ChangeListener):
     """WebSocket变更监听器"""
     
     def __init__(self):
         super().__init__("WebSocketListener")
         self.connections: Set[Any] = set()
-        self.logger = logging.getLogger(f"{__name__}.{self.__class__.__name__}")
+        self.logger = get_logger(f"{__name__}.{self.__class__.__name__}")
     
     async def on_change(self, event: ChangeEvent) -> bool:
         """通过WebSocket广播变更"""
@@ -145,14 +138,13 @@ class WebSocketChangeListener(ChangeListener):
             self.logger.error(f"WebSocket广播失败: {e}")
             return False
 
-
 class FileChangeListener(ChangeListener):
     """文件变更监听器"""
     
     def __init__(self, log_file: str = "/tmp/kg_changes.log"):
         super().__init__("FileListener")
         self.log_file = log_file
-        self.logger = logging.getLogger(f"{__name__}.{self.__class__.__name__}")
+        self.logger = get_logger(f"{__name__}.{self.__class__.__name__}")
     
     async def on_change(self, event: ChangeEvent) -> bool:
         """将变更写入文件"""
@@ -173,7 +165,6 @@ class FileChangeListener(ChangeListener):
         except Exception as e:
             self.logger.error(f"写入文件失败: {e}")
             return False
-
 
 class ChangeTracker:
     """变更追踪器"""
@@ -220,7 +211,7 @@ class ChangeTracker:
     
     def _setup_logging(self):
         """设置日志"""
-        self.logger = logging.getLogger(f"{__name__}.{self.__class__.__name__}")
+        self.logger = get_logger(f"{__name__}.{self.__class__.__name__}")
     
     async def start(self):
         """启动变更追踪器"""
@@ -245,7 +236,7 @@ class ChangeTracker:
             try:
                 await self.processing_task
             except asyncio.CancelledError:
-                pass
+                raise
         
         # 处理剩余事件
         await self._flush_batch_events()
@@ -566,7 +557,6 @@ class ChangeTracker:
         self.stats["events_by_user"][event.user_id] += 1
         self.stats["events_by_priority"][event.priority.value] += 1
 
-
 # 便捷函数
 async def create_change_tracker(
     listeners: List[ChangeListener] = None,
@@ -603,11 +593,11 @@ async def create_change_tracker(
     await tracker.start()
     return tracker
 
-
 if __name__ == "__main__":
     # 测试变更追踪器
     async def test_change_tracker():
-        print("测试变更追踪器...")
+        setup_logging()
+        logger.info("测试变更追踪器")
         
         # 创建追踪器
         tracker = ChangeTracker(max_events_in_memory=1000)
@@ -650,23 +640,27 @@ if __name__ == "__main__":
             
             # 获取事件
             events = await tracker.get_events(limit=10)
-            print(f"记录了 {len(events)} 个事件")
+            logger.info("记录事件数量", total=len(events))
             
             # 获取统计信息
             stats = await tracker.get_statistics()
-            print(f"统计信息: {stats.total_events} 总事件, {stats.events_per_minute:.2f} 事件/分钟")
+            logger.info(
+                "统计信息",
+                total_events=stats.total_events,
+                events_per_minute=stats.events_per_minute,
+            )
             
             # 搜索事件
             search_results = await tracker.search_events("John")
-            print(f"搜索 'John' 找到 {len(search_results)} 个事件")
+            logger.info("搜索结果", keyword="John", total=len(search_results))
             
             # 获取用户活动
             user_activity = await tracker.get_user_activity("test_user")
-            print(f"test_user 的活动: {len(user_activity)} 个事件")
+            logger.info("用户活动统计", user_id="test_user", total=len(user_activity))
             
         finally:
             await tracker.stop()
         
-        print("变更追踪器测试完成")
+        logger.info("变更追踪器测试完成")
     
     asyncio.run(test_change_tracker())

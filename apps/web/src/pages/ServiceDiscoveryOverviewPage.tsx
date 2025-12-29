@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { Card, Row, Col, Statistic, Progress, Table, Badge, Space, Button, Typography, Tag, Timeline, Alert } from 'antd'
 import { 
+import { logger } from '../utils/logger'
   CloudServerOutlined, 
   TeamOutlined, 
   ThunderboltOutlined, 
@@ -15,6 +16,8 @@ import {
   SettingOutlined
 } from '@ant-design/icons'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, AreaChart, Area } from 'recharts'
+import { serviceDiscoveryService } from '../services/serviceDiscoveryService'
+import { clusterManagementService } from '../services/clusterManagementService'
 
 const { Title, Paragraph, Text } = Typography
 
@@ -61,50 +64,34 @@ interface ClusterNode {
 }
 
 const ServiceDiscoveryOverviewPage: React.FC<ServiceDiscoveryOverviewPageProps> = () => {
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [systemStatus, setSystemStatus] = useState<string>('initializing')
   const [agentStats, setAgentStats] = useState<AgentStats>({
-    total: 125,
-    healthy: 118,
-    unhealthy: 4,
-    registering: 3,
-    activeConnections: 1247,
-    avgResponseTime: 45,
-    throughputPerSecond: 892,
-    uptime: 99.7
+    total: 0,
+    healthy: 0,
+    unhealthy: 0,
+    registering: 0,
+    activeConnections: 0,
+    avgResponseTime: 0,
+    throughputPerSecond: 0,
+    uptime: 0
   })
 
-  const [metrics, setMetrics] = useState<ServiceMetric[]>([
-    { timestamp: '10:00', registrations: 65, discoveries: 145, healthChecks: 289, responseTime: 42, errors: 2 },
-    { timestamp: '10:05', registrations: 72, discoveries: 156, healthChecks: 298, responseTime: 38, errors: 1 },
-    { timestamp: '10:10', registrations: 68, discoveries: 142, healthChecks: 305, responseTime: 46, errors: 3 },
-    { timestamp: '10:15', registrations: 75, discoveries: 168, healthChecks: 312, responseTime: 41, errors: 1 },
-    { timestamp: '10:20', registrations: 71, discoveries: 159, healthChecks: 295, responseTime: 44, errors: 2 },
-    { timestamp: '10:25', registrations: 78, divisions: 175, healthChecks: 321, responseTime: 39, errors: 0 }
-  ])
+  const [metrics, setMetrics] = useState<ServiceMetric[]>([])
 
   const [loadBalancerStats, setLoadBalancerStats] = useState<LoadBalancerStats>({
-    algorithm: 'Capability-Based',
-    requestsPerSecond: 1247,
-    avgLatency: 32,
-    successRate: 99.8,
-    activeNodes: 45
+    algorithm: 'capability_based',
+    requestsPerSecond: 0,
+    avgLatency: 0,
+    successRate: 0,
+    activeNodes: 0
   })
 
-  const [clusterNodes, setClusterNodes] = useState<ClusterNode[]>([
-    { id: 'node-1', name: 'etcd-master-1', status: 'healthy', ip: '192.168.1.101', port: 2379, role: 'leader', uptime: 99.9, load: 45, connections: 234 },
-    { id: 'node-2', name: 'etcd-master-2', status: 'healthy', ip: '192.168.1.102', port: 2379, role: 'follower', uptime: 99.8, load: 38, connections: 198 },
-    { id: 'node-3', name: 'etcd-master-3', status: 'healthy', ip: '192.168.1.103', port: 2379, role: 'follower', uptime: 99.7, load: 42, connections: 205 },
-    { id: 'node-4', name: 'etcd-backup-1', status: 'unhealthy', ip: '192.168.1.104', port: 2379, role: 'learner', uptime: 85.2, load: 0, connections: 0 },
-    { id: 'node-5', name: 'etcd-backup-2', status: 'joining', ip: '192.168.1.105', port: 2379, role: 'learner', uptime: 0, load: 0, connections: 0 }
-  ])
+  const [clusterNodes, setClusterNodes] = useState<ClusterNode[]>([])
 
-  const [recentEvents] = useState([
-    { time: '10:25', type: 'registration', message: 'Agent ml-processor-7 注册成功', status: 'success' },
-    { time: '10:23', type: 'health', message: 'Agent data-analyzer-3 健康检查失败', status: 'warning' },
-    { time: '10:21', type: 'discovery', message: '发现15个新的推荐引擎服务', status: 'info' },
-    { time: '10:19', type: 'load-balancing', message: '负载均衡策略切换为地理位置优先', status: 'info' },
-    { time: '10:17', type: 'cluster', message: 'etcd集群节点 node-5 正在加入', status: 'processing' },
-    { time: '10:15', type: 'alert', message: '检测到异常流量模式，自动扩容', status: 'warning' }
-  ])
+  const [recentEvents, setRecentEvents] = useState<Array<{ time: string; type: string; message: string; status: string }>>([])
+  const lastSnapshotRef = useRef<{ total: number; unhealthy: number; status: string } | null>(null)
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -131,6 +118,191 @@ const ServiceDiscoveryOverviewPage: React.FC<ServiceDiscoveryOverviewPageProps> 
       case 'error': return 'red'
       case 'processing': return 'blue'
       default: return 'default'
+    }
+  }
+
+  const loadData = async () => {
+    try {
+      setLoading(true)
+      setError(null)
+
+      const [stats, agents] = await Promise.all([
+        serviceDiscoveryService.getSystemStats(),
+        clusterManagementService.getAgents().catch(() => [])
+      ])
+      const statusFromApi = stats?.system_status || 'unknown'
+      const agentList = Array.isArray(agents) ? agents : []
+
+      const registry = stats?.registry || {}
+      const statusCounts = registry.agents_by_status || {}
+      const total = typeof registry.registered_agents === 'number'
+        ? registry.registered_agents
+        : (typeof registry.total_agents === 'number' ? registry.total_agents : 0)
+      const healthyFromStats = statusCounts.active || 0
+      const unhealthyFromStats = statusCounts.unhealthy || 0
+      const registeringFromStats = statusCounts.maintenance || 0
+      const derivedTotal = total || agentList.length
+      const derivedHealthy = healthyFromStats || agentList.filter((a: any) => a.is_healthy || a.status === 'online').length
+      const derivedUnhealthy = unhealthyFromStats || agentList.filter((a: any) => a.status === 'offline' || a.status === 'failed' || a.is_healthy === false).length
+      const derivedRegistering = registeringFromStats || agentList.filter((a: any) => a.status === 'starting' || a.status === 'registering').length
+
+      const lb = stats?.load_balancer || {}
+      const connectionStats = lb.connection_stats || {}
+      let activeConnections = 0
+      Object.values(connectionStats || {}).forEach((item: any) => {
+        if (item && typeof (item as any).active_connections === 'number') {
+          activeConnections += (item as any).active_connections
+        }
+      })
+      if (!activeConnections && agentList.length) {
+        activeConnections = agentList.reduce((sum: number, a: any) => {
+          const tasks = a.resource_usage && typeof a.resource_usage.active_tasks === 'number' ? a.resource_usage.active_tasks : 0
+          return sum + tasks
+        }, 0)
+      }
+
+      const avgResponseSeconds = registry.avg_response_time || 0
+      const healthChecks = registry.health_checks || 0
+      const failedHealth = registry.failed_health_checks || 0
+      let successRate = 100
+      if (healthChecks > 0) {
+        successRate = ((healthChecks - failedHealth) / healthChecks) * 100
+      } else if (derivedTotal > 0) {
+        successRate = (derivedHealthy / derivedTotal) * 100
+      }
+      const resolvedStatus = derivedTotal > 0
+        ? (derivedUnhealthy > 0 ? 'degraded' : 'healthy')
+        : (statusFromApi === 'unknown' ? 'no_agents' : statusFromApi)
+      setSystemStatus(resolvedStatus)
+
+      setAgentStats({
+        total: derivedTotal,
+        healthy: derivedHealthy,
+        unhealthy: derivedUnhealthy,
+        registering: derivedRegistering,
+        activeConnections,
+        avgResponseTime: Math.round((avgResponseSeconds || 0) * 1000),
+        throughputPerSecond: registry.discovery_requests || 0,
+        uptime: Math.round(successRate * 10) / 10
+      })
+
+      const newMetric: ServiceMetric = {
+        timestamp: new Date().toLocaleTimeString('zh-CN', { hour12: false, hour: '2-digit', minute: '2-digit' }),
+        registrations: derivedTotal,
+        discoveries: registry.discovery_requests || 0,
+        healthChecks: healthChecks || 0,
+        responseTime: Math.round((avgResponseSeconds || 0) * 1000),
+        errors: failedHealth || 0
+      }
+
+      setMetrics(prev => {
+        const next = [...prev, newMetric]
+        return next.length > 20 ? next.slice(next.length - 20) : next
+      })
+
+      setLoadBalancerStats({
+        algorithm: (lb.available_strategies && lb.available_strategies[0]) || 'capability_based',
+        requestsPerSecond: registry.discovery_requests || 0,
+        avgLatency: Math.round((avgResponseSeconds || 0) * 1000),
+        successRate: Math.round(successRate * 10) / 10,
+        activeNodes: derivedHealthy
+      })
+
+      const nowLabel = new Date().toLocaleTimeString('zh-CN', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' })
+      const nextEvents: Array<{ time: string; type: string; message: string; status: string }> = []
+      const lastSnapshot = lastSnapshotRef.current
+      if (!lastSnapshot) {
+        nextEvents.push({
+          time: nowLabel,
+          type: 'system',
+          message: `系统状态：${resolvedStatus}`,
+          status: resolvedStatus === 'healthy' ? 'success' : resolvedStatus === 'degraded' ? 'warning' : 'processing'
+        })
+      } else {
+        if (lastSnapshot.status !== resolvedStatus) {
+          nextEvents.push({
+            time: nowLabel,
+            type: 'system',
+            message: `系统状态变更：${lastSnapshot.status} → ${resolvedStatus}`,
+            status: resolvedStatus === 'healthy' ? 'success' : 'warning'
+          })
+        }
+        if (lastSnapshot.total !== derivedTotal) {
+          const diff = derivedTotal - lastSnapshot.total
+          nextEvents.push({
+            time: nowLabel,
+            type: 'agent',
+            message: diff > 0 ? `新增智能体 ${diff} 个` : `移除智能体 ${Math.abs(diff)} 个`,
+            status: diff > 0 ? 'success' : 'warning'
+          })
+        }
+        if (lastSnapshot.unhealthy !== derivedUnhealthy) {
+          const diff = derivedUnhealthy - lastSnapshot.unhealthy
+          nextEvents.push({
+            time: nowLabel,
+            type: 'health',
+            message: diff > 0 ? `不健康智能体增加 ${diff} 个` : `不健康智能体减少 ${Math.abs(diff)} 个`,
+            status: diff > 0 ? 'error' : 'success'
+          })
+        }
+      }
+      lastSnapshotRef.current = { total: derivedTotal, unhealthy: derivedUnhealthy, status: resolvedStatus }
+      setRecentEvents(prev => {
+        const merged = [...nextEvents, ...prev]
+        if (!merged.length) {
+          return [{ time: nowLabel, type: 'system', message: '暂无事件更新', status: 'processing' }]
+        }
+        return merged.slice(0, 6)
+      })
+
+      setClusterNodes(
+        agentList.map((agent: any, index: number) => {
+          const endpoint = agent.endpoint || ''
+          let ip = agent.node_id || 'unknown'
+          let port = 0
+          if (endpoint) {
+            try {
+              const url = new URL(endpoint)
+              ip = url.hostname
+              port = url.port ? parseInt(url.port, 10) : 80
+            } catch {
+              const parts = endpoint.split('://').pop() || ''
+              const hostPort = parts.split('/')[0] || ''
+              const split = hostPort.split(':')
+              if (split[0]) ip = split[0]
+              if (split[1]) port = parseInt(split[1], 10)
+            }
+          }
+          const status: 'healthy' | 'unhealthy' | 'joining' =
+            agent.is_healthy || agent.status === 'online' ? 'healthy' :
+            agent.status === 'starting' ? 'joining' : 'unhealthy'
+          const role: 'leader' | 'follower' | 'learner' =
+            index === 0 ? 'leader' : 'follower'
+          const uptimePercent = agent.uptime ? Math.min(100, Math.max(0, Math.round(agent.uptime / 36))) : 0
+          const load = typeof agent.current_load === 'number' ? agent.current_load : 0
+          const connections = agent.resource_usage && typeof agent.resource_usage.active_tasks === 'number'
+            ? agent.resource_usage.active_tasks
+            : 0
+
+          return {
+            id: agent.agent_id,
+            name: agent.name || agent.agent_id,
+            status,
+            ip,
+            port,
+            role,
+            uptime: uptimePercent,
+            load,
+            connections
+          }
+        })
+      )
+
+    } catch (err) {
+      logger.error('加载服务发现数据失败:', err)
+      setError((err as Error).message || '加载服务发现数据失败')
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -188,15 +360,8 @@ const ServiceDiscoveryOverviewPage: React.FC<ServiceDiscoveryOverviewPageProps> 
   ]
 
   useEffect(() => {
-    const interval = setInterval(() => {
-      setAgentStats(prev => ({
-        ...prev,
-        activeConnections: prev.activeConnections + Math.floor(Math.random() * 10) - 5,
-        avgResponseTime: prev.avgResponseTime + Math.floor(Math.random() * 6) - 3,
-        throughputPerSecond: prev.throughputPerSecond + Math.floor(Math.random() * 20) - 10
-      }))
-    }, 5000)
-
+    loadData()
+    const interval = setInterval(loadData, 30000)
     return () => clearInterval(interval)
   }, [])
 
@@ -212,17 +377,27 @@ const ServiceDiscoveryOverviewPage: React.FC<ServiceDiscoveryOverviewPageProps> 
             基于etcd的分布式智能代理服务发现系统，提供服务注册、发现、负载均衡和健康监控功能。
           </Paragraph>
           <Space>
-            <Button type="primary" icon={<ReloadOutlined />}>刷新数据</Button>
+            <Button type="primary" icon={<ReloadOutlined />} onClick={loadData} loading={loading}>刷新数据</Button>
             <Button icon={<SettingOutlined />}>系统配置</Button>
             <Button icon={<MonitorOutlined />}>监控面板</Button>
           </Space>
         </div>
 
+        {error && (
+          <Alert
+            message="加载服务发现数据失败"
+            description={error}
+            type="error"
+            showIcon
+            style={{ marginBottom: '16px' }}
+          />
+        )}
+
         {/* 系统状态告警 */}
         <Alert
-          message="系统运行正常"
-          description="所有关键服务运行正常，etcd集群状态健康，服务发现延迟在正常范围内。"
-          type="success"
+          message={systemStatus === 'healthy' ? '系统运行正常' : systemStatus === 'no_agents' ? '暂无已注册智能体' : `系统状态: ${systemStatus}`}
+          description={`已注册智能体: ${agentStats.total}，活跃: ${agentStats.healthy}，异常: ${agentStats.unhealthy}`}
+          type={systemStatus === 'healthy' ? 'success' : 'warning'}
           icon={<CheckCircleOutlined />}
           showIcon
           style={{ marginBottom: '24px' }}
@@ -266,7 +441,7 @@ const ServiceDiscoveryOverviewPage: React.FC<ServiceDiscoveryOverviewPageProps> 
                 valueStyle={{ color: '#faad14' }}
               />
               <div style={{ marginTop: '8px' }}>
-                <Text type="secondary">目标: &lt; 50ms</Text>
+                <Text type="secondary">目标: 未配置</Text>
               </div>
             </Card>
           </Col>
@@ -280,7 +455,7 @@ const ServiceDiscoveryOverviewPage: React.FC<ServiceDiscoveryOverviewPageProps> 
                 valueStyle={{ color: agentStats.uptime > 99 ? '#52c41a' : '#faad14' }}
               />
               <div style={{ marginTop: '8px' }}>
-                <Text type="secondary">SLA: &gt; 99.5%</Text>
+                <Text type="secondary">SLA: 未配置</Text>
               </div>
             </Card>
           </Col>

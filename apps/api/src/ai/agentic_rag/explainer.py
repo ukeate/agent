@@ -17,7 +17,6 @@ from dataclasses import dataclass, field
 from enum import Enum
 from datetime import datetime
 from src.core.utils.timezone_utils import utc_now, utc_factory
-
 from src.ai.agentic_rag.query_analyzer import QueryAnalysis, QueryIntent
 from src.ai.agentic_rag.retrieval_agents import RetrievalResult, RetrievalStrategy, MultiAgentRetriever
 from src.ai.agentic_rag.result_validator import ValidationResult, QualityScore, QualityDimension
@@ -25,14 +24,12 @@ from src.ai.agentic_rag.context_composer import ComposedContext
 from src.core.config import get_settings
 from src.ai.openai_client import get_openai_client
 
-
 class ExplanationLevel(Enum):
     """解释详细程度级别"""
     SIMPLE = "simple"      # 简单解释，适合普通用户
     DETAILED = "detailed"  # 详细解释，包含技术细节
     TECHNICAL = "technical"  # 技术解释，适合开发者
     DEBUG = "debug"        # 调试信息，包含完整过程
-
 
 class DecisionPoint(Enum):
     """关键决策点类型"""
@@ -43,7 +40,6 @@ class DecisionPoint(Enum):
     QUALITY_VALIDATION = "quality_validation"  # 质量验证决策
     CONTEXT_COMPOSITION = "context_composition"  # 上下文组合决策
 
-
 class ConfidenceLevel(Enum):
     """置信度级别"""
     VERY_HIGH = "very_high"  # 0.8-1.0
@@ -51,7 +47,6 @@ class ConfidenceLevel(Enum):
     MEDIUM = "medium"        # 0.4-0.6
     LOW = "low"              # 0.2-0.4
     VERY_LOW = "very_low"    # 0.0-0.2
-
 
 @dataclass
 class DecisionRecord:
@@ -68,7 +63,6 @@ class DecisionRecord:
     error_message: Optional[str] = None
     metadata: Dict[str, Any] = field(default_factory=dict)
 
-
 @dataclass  
 class RetrievalPath:
     """检索路径"""
@@ -80,7 +74,6 @@ class RetrievalPath:
     final_results_count: int = 0
     path_visualization: Dict[str, Any] = field(default_factory=dict)
 
-
 @dataclass
 class ConfidenceAnalysis:
     """置信度分析"""
@@ -90,7 +83,6 @@ class ConfidenceAnalysis:
     uncertainty_sources: List[str] = field(default_factory=list)
     confidence_explanation: str = ""
     reliability_factors: Dict[str, float] = field(default_factory=dict)
-
 
 @dataclass
 class ExplanationOutput:
@@ -117,7 +109,6 @@ class ExplanationOutput:
     
     generated_at: datetime = field(default_factory=utc_factory)
     generation_time: float = 0.0
-
 
 class RetrievalExplainer:
     """检索过程解释器"""

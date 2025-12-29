@@ -8,7 +8,6 @@ from datetime import datetime
 from datetime import timedelta
 from src.core.utils.timezone_utils import utc_now, utc_factory
 import threading
-import logging
 import json
 from pathlib import Path
 import matplotlib.pyplot as plt
@@ -17,7 +16,8 @@ from collections import defaultdict, deque
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
 
-logger = logging.getLogger(__name__)
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 @dataclass
 class MonitorConfig:
@@ -287,15 +287,20 @@ class PerformanceMonitor:
         """获取最新的系统指标"""
         return self.system_metrics_history[-1] if self.system_metrics_history else None
     
-    def get_system_metrics_summary(self) -> Dict[str, float]:
+    def get_system_metrics_summary(self, time_range_minutes: int = 60) -> Dict[str, float]:
         """获取系统指标摘要统计"""
-        if not self.system_metrics_history:
-            return {}
+        cutoff_time = utc_now() - timedelta(minutes=time_range_minutes)
+        recent_metrics = [m for m in self.system_metrics_history if m.timestamp > cutoff_time]
+        if not recent_metrics:
+            metrics = self._collect_system_metrics()
+            self.system_metrics_history.append(metrics)
+            recent_metrics = [metrics]
         
-        cpu_values = [m.cpu_percent for m in self.system_metrics_history]
-        memory_values = [m.memory_percent for m in self.system_metrics_history]
+        cpu_values = [m.cpu_percent for m in recent_metrics]
+        memory_values = [m.memory_percent for m in recent_metrics]
         
         return {
+            'time_range_minutes': time_range_minutes,
             'avg_cpu_percent': sum(cpu_values) / len(cpu_values),
             'max_cpu_percent': max(cpu_values),
             'min_cpu_percent': min(cpu_values),
@@ -392,7 +397,6 @@ class PerformanceMonitor:
         self.benchmark_metrics_history[f"{benchmark_name}_{model_name}"].append(metrics)
         self._check_benchmark_alerts(metrics)
     
-    
     def _check_model_alerts(self, metrics: ModelMetrics):
         """检查模型性能告警"""
         if metrics.inference_time_ms > self.alert_thresholds.get("inference_time_ms", float('inf')):
@@ -455,7 +459,6 @@ class PerformanceMonitor:
         # 保持告警列表大小
         if len(self.alerts) > 1000:
             self.alerts = self.alerts[-500:]  # 保留最近500个告警
-    
     
     def _get_gpu_summary(self, metrics: List[SystemMetrics]) -> Dict[str, Any]:
         """获取GPU指标摘要"""

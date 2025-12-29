@@ -7,7 +7,7 @@ import { Message } from '@/types'
 interface MessageListProps {
   messages: Message[]
   loading: boolean
-  onClearHistory?: () => void
+  onClearHistory?: () => void | Promise<void>
 }
 
 const MessageList: React.FC<MessageListProps> = ({

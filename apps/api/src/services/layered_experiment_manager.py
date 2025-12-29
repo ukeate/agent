@@ -1,6 +1,7 @@
 """
 分层实验管理器 - 实现多实验互斥组管理和分层流量分配
 """
+
 import hashlib
 from typing import List, Dict, Any, Optional, Set, Tuple
 from enum import Enum
@@ -8,12 +9,11 @@ from datetime import datetime
 from src.core.utils.timezone_utils import utc_now, utc_factory, timezone
 from dataclasses import dataclass, field
 from collections import defaultdict
+from src.models.schemas.experiment import TrafficAllocation
+from src.services.traffic_splitter import TrafficSplitter
 
-from models.schemas.experiment import TrafficAllocation
-from services.traffic_splitter import TrafficSplitter
-from repositories.experiment_repository import ExperimentRepository
-from core.logging import logger
-
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 class LayerType(Enum):
     """实验层类型"""
@@ -21,14 +21,12 @@ class LayerType(Enum):
     ORTHOGONAL = "orthogonal"  # 正交层
     HOLDBACK = "holdback"  # 保留层
 
-
 class ConflictResolution(Enum):
     """冲突解决策略"""
     PRIORITY_BASED = "priority_based"  # 基于优先级
     FIRST_COME_FIRST_SERVE = "first_come_first_serve"  # 先到先得
     ROUND_ROBIN = "round_robin"  # 轮转分配
     RANDOM = "random"  # 随机选择
-
 
 @dataclass
 class ExperimentLayer:
@@ -45,7 +43,6 @@ class ExperimentLayer:
     metadata: Dict[str, Any] = field(default_factory=dict)
     created_at: datetime = field(default_factory=lambda: utc_now())
 
-
 @dataclass
 class ExperimentGroup:
     """实验组（互斥组）"""
@@ -59,7 +56,6 @@ class ExperimentGroup:
     max_group_size: Optional[int] = None
     metadata: Dict[str, Any] = field(default_factory=dict)
 
-
 @dataclass
 class UserLayerAssignment:
     """用户层分配记录"""
@@ -71,17 +67,10 @@ class UserLayerAssignment:
     expires_at: Optional[datetime] = None
     metadata: Dict[str, Any] = field(default_factory=dict)
 
-
 class LayeredExperimentManager:
     """分层实验管理器"""
     
-    def __init__(self, experiment_repository: ExperimentRepository):
-        """
-        初始化分层实验管理器
-        Args:
-            experiment_repository: 实验仓库
-        """
-        self.experiment_repository = experiment_repository
+    def __init__(self):
         self.traffic_splitter = TrafficSplitter()
         
         # 内存存储（实际应该使用数据库）
@@ -113,7 +102,9 @@ class LayeredExperimentManager:
                 raise ValueError(f"Layer {layer.layer_id} already exists")
             
             # 检查总流量不超过100%
-            total_traffic = sum(l.traffic_percentage for l in self._layers.values()) + layer.traffic_percentage
+            total_traffic = sum(
+                l.traffic_percentage for l in self._layers.values() if l.is_active
+            ) + (layer.traffic_percentage if layer.is_active else 0)
             if total_traffic > 100:
                 raise ValueError(f"Total traffic allocation exceeds 100%: {total_traffic}%")
             
@@ -125,6 +116,79 @@ class LayeredExperimentManager:
         except Exception as e:
             logger.error(f"Error creating layer {layer.layer_id}: {str(e)}")
             raise
+
+    def list_layers(self) -> List[ExperimentLayer]:
+        return list(self._layers.values())
+
+    def get_layer(self, layer_id: str) -> ExperimentLayer:
+        layer = self._layers.get(layer_id)
+        if not layer:
+            raise ValueError(f"Layer {layer_id} not found")
+        return layer
+
+    def update_layer(self, layer_id: str, updates: Dict[str, Any]) -> ExperimentLayer:
+        layer = self._layers.get(layer_id)
+        if not layer:
+            raise ValueError(f"Layer {layer_id} not found")
+
+        new_is_active = updates.get("is_active", layer.is_active)
+        new_traffic_percentage = updates.get("traffic_percentage", layer.traffic_percentage)
+        if new_traffic_percentage <= 0 or new_traffic_percentage > 100:
+            raise ValueError(f"Invalid traffic percentage: {new_traffic_percentage}")
+
+        other_active_traffic = sum(
+            l.traffic_percentage
+            for lid, l in self._layers.items()
+            if lid != layer_id and l.is_active
+        )
+        total_traffic = other_active_traffic + (new_traffic_percentage if new_is_active else 0)
+        if total_traffic > 100:
+            raise ValueError(f"Total traffic allocation exceeds 100%: {total_traffic}%")
+
+        if "name" in updates:
+            layer.name = updates["name"]
+        if "description" in updates:
+            layer.description = updates["description"]
+        if "layer_type" in updates:
+            layer.layer_type = LayerType(updates["layer_type"])
+        if "traffic_percentage" in updates:
+            layer.traffic_percentage = new_traffic_percentage
+        if "priority" in updates:
+            layer.priority = int(updates["priority"])
+        if "is_active" in updates:
+            layer.is_active = bool(updates["is_active"])
+        if "max_experiments" in updates:
+            layer.max_experiments = updates["max_experiments"]
+        if "conflict_resolution" in updates:
+            layer.conflict_resolution = ConflictResolution(updates["conflict_resolution"])
+        if "metadata" in updates:
+            layer.metadata = updates["metadata"] or {}
+
+        return layer
+
+    def delete_layer(self, layer_id: str) -> None:
+        layer = self._layers.pop(layer_id, None)
+        if not layer:
+            raise ValueError(f"Layer {layer_id} not found")
+
+        # 删除层下的组，同时清理实验映射
+        for gid, group in list(self._groups.items()):
+            if group.layer_id != layer_id:
+                continue
+            for exp_id in group.experiments:
+                if self._experiment_layer_mapping.get(exp_id) == layer_id:
+                    del self._experiment_layer_mapping[exp_id]
+            del self._groups[gid]
+
+        # 清理用户分配与统计
+        for user_id in list(self._user_assignments.keys()):
+            if layer_id not in self._user_assignments[user_id]:
+                continue
+            del self._user_assignments[user_id][layer_id]
+            if not self._user_assignments[user_id]:
+                del self._user_assignments[user_id]
+        if layer_id in self._assignment_stats:
+            del self._assignment_stats[layer_id]
     
     def create_experiment_group(self, group: ExperimentGroup) -> ExperimentGroup:
         """

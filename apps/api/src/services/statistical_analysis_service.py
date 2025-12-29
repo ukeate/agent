@@ -1,6 +1,7 @@
 """
 统计分析服务 - A/B测试实验数据统计计算
 """
+
 from typing import List, Dict, Optional, Union, Any, Tuple
 import math
 import statistics
@@ -9,11 +10,6 @@ from src.core.utils.timezone_utils import utc_now, utc_factory, timezone
 from dataclasses import dataclass
 from enum import Enum
 
-from core.logging import get_logger
-
-logger = get_logger(__name__)
-
-
 class MetricType(str, Enum):
     """指标类型"""
     CONVERSION = "conversion"  # 转化率（二元指标）
@@ -21,14 +17,12 @@ class MetricType(str, Enum):
     COUNT = "count"  # 计数指标（页面浏览量等）
     RATIO = "ratio"  # 比率指标（CTR等）
 
-
 class DistributionType(str, Enum):
     """分布类型"""
     NORMAL = "normal"  # 正态分布
     BINOMIAL = "binomial"  # 二项分布
     POISSON = "poisson"  # 泊松分布
     UNKNOWN = "unknown"  # 未知分布
-
 
 @dataclass
 class DescriptiveStats:
@@ -63,7 +57,6 @@ class DescriptiveStats:
             "sum_value": self.sum_value
         }
 
-
 @dataclass
 class GroupStats:
     """分组统计结果"""
@@ -82,7 +75,6 @@ class GroupStats:
             "metric_type": self.metric_type.value,
             "distribution_type": self.distribution_type.value
         }
-
 
 class BasicStatisticsCalculator:
     """基础统计计算器"""
@@ -363,7 +355,6 @@ class BasicStatisticsCalculator:
             self.logger.error(f"Failed to calculate conversion rate stats: {e}")
             raise
 
-
 class ExperimentStatsCalculator:
     """实验统计计算器 - 整合实验数据的统计分析"""
     
@@ -524,7 +515,6 @@ class ExperimentStatsCalculator:
             self.logger.warning(f"Failed to infer distribution type: {e}")
             return DistributionType.UNKNOWN
 
-
 # 统计分析服务类
 class StatisticalAnalysisService:
     """统计分析服务 - 提供完整的统计分析功能"""
@@ -564,7 +554,6 @@ class StatisticalAnalysisService:
         except Exception as e:
             self.logger.error(f"Failed to calculate descriptive stats: {e}")
             raise
-
 
 # 全局实例
 _stats_calculator = None

@@ -1,77 +1,74 @@
 """
 多重检验校正API端点
 """
+
 from typing import List, Dict, Any, Optional
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel, Field, validator
-
-from core.logging import get_logger
-from services.multiple_testing_correction_service import (
+from pydantic import Field, field_validator
+from src.services.multiple_testing_correction_service import (
     get_multiple_testing_correction_service,
     CorrectionMethod,
     ErrorRateType
 )
+from src.api.base_model import ApiBaseModel
 
+from src.core.logging import get_logger
 logger = get_logger(__name__)
+
 router = APIRouter(prefix="/multiple-testing", tags=["多重检验校正"])
 
-
 # 请求模型
-class CorrectionRequest(BaseModel):
+class CorrectionRequest(ApiBaseModel):
     """多重检验校正请求"""
     pvalues: List[float] = Field(..., min_items=1, description="p值列表")
     method: CorrectionMethod = Field(..., description="校正方法")
     alpha: float = Field(0.05, ge=0.001, le=0.1, description="显著性水平")
     
-    @validator('pvalues')
+    @field_validator('pvalues')
     def validate_pvalues(cls, v):
         for p in v:
             if not (0 <= p <= 1):
                 raise ValueError(f"P-value {p} is not between 0 and 1")
         return v
 
-
-class ComparisonRequest(BaseModel):
+class ComparisonRequest(ApiBaseModel):
     """方法比较请求"""
     pvalues: List[float] = Field(..., min_items=1, description="p值列表")
     alpha: float = Field(0.05, ge=0.001, le=0.1, description="显著性水平")
     
-    @validator('pvalues')
+    @field_validator('pvalues')
     def validate_pvalues(cls, v):
         for p in v:
             if not (0 <= p <= 1):
                 raise ValueError(f"P-value {p} is not between 0 and 1")
         return v
 
-
-class MethodRecommendationRequest(BaseModel):
+class MethodRecommendationRequest(ApiBaseModel):
     """方法推荐请求"""
     num_tests: int = Field(..., gt=0, description="检验数量")
     study_type: str = Field("exploratory", description="研究类型")
     independence: bool = Field(True, description="检验是否独立")
     
-    @validator('study_type')
+    @field_validator('study_type')
     def validate_study_type(cls, v):
         allowed = ["exploratory", "confirmatory"]
         if v not in allowed:
             raise ValueError(f"Study type must be one of {allowed}")
         return v
 
-
-class PowerAdjustmentRequest(BaseModel):
+class PowerAdjustmentRequest(ApiBaseModel):
     """功效调整请求"""
     original_power: float = Field(..., ge=0, le=1, description="原始统计功效")
     num_tests: int = Field(..., gt=0, description="检验数量")
     method: CorrectionMethod = Field(..., description="校正方法")
 
-
-class ABTestMultipleComparisonRequest(BaseModel):
+class ABTestMultipleComparisonRequest(ApiBaseModel):
     """A/B测试多重比较请求"""
     comparison_pairs: List[Dict[str, Any]] = Field(..., min_items=2, description="比较对")
     correction_method: CorrectionMethod = Field(CorrectionMethod.HOLM, description="校正方法")
     alpha: float = Field(0.05, ge=0.001, le=0.1, description="显著性水平")
     
-    @validator('comparison_pairs')
+    @field_validator('comparison_pairs')
     def validate_pairs(cls, v):
         for pair in v:
             if 'p_value' not in pair:
@@ -80,9 +77,8 @@ class ABTestMultipleComparisonRequest(BaseModel):
                 raise ValueError(f"P-value {pair['p_value']} is not between 0 and 1")
         return v
 
-
 # 响应模型
-class CorrectionResponse(BaseModel):
+class CorrectionResponse(ApiBaseModel):
     """校正响应"""
     result: Dict[str, Any] = Field(..., description="校正结果")
     summary: Dict[str, Any] = Field(..., description="结果摘要")
@@ -90,22 +86,19 @@ class CorrectionResponse(BaseModel):
     recommendations: List[str] = Field(default_factory=list, description="建议")
     message: str = Field(default="Correction completed successfully")
 
-
-class ComparisonResponse(BaseModel):
+class ComparisonResponse(ApiBaseModel):
     """方法比较响应"""
     results: Dict[str, Dict[str, Any]] = Field(..., description="各方法结果")
     comparison_summary: Dict[str, Any] = Field(..., description="比较摘要")
     recommendations: List[str] = Field(default_factory=list, description="建议")
     message: str = Field(default="Comparison completed successfully")
 
-
-class MethodRecommendationResponse(BaseModel):
+class MethodRecommendationResponse(ApiBaseModel):
     """方法推荐响应"""
     recommended_method: str = Field(..., description="推荐方法")
     reasoning: Dict[str, str] = Field(..., description="推荐理由")
     alternatives: List[str] = Field(default_factory=list, description="备选方法")
     message: str = Field(default="Method recommendation completed")
-
 
 # 辅助函数
 def _interpret_correction_result(result: Dict[str, Any]) -> Dict[str, str]:
@@ -154,7 +147,6 @@ def _interpret_correction_result(result: Dict[str, Any]) -> Dict[str, str]:
     
     return interpretation
 
-
 def _generate_correction_recommendations(result: Dict[str, Any], method: str) -> List[str]:
     """生成校正建议"""
     recommendations = []
@@ -181,7 +173,6 @@ def _generate_correction_recommendations(result: Dict[str, Any], method: str) ->
     recommendations.append("记录所有检验结果，包括不显著的")
     
     return recommendations
-
 
 # API端点
 @router.post("/apply-correction", response_model=CorrectionResponse)
@@ -221,7 +212,6 @@ async def apply_correction(request: CorrectionRequest):
     except Exception as e:
         logger.error(f"Correction failed: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Correction failed: {str(e)}")
-
 
 @router.post("/compare-methods", response_model=ComparisonResponse)
 async def compare_correction_methods(request: ComparisonRequest):
@@ -276,7 +266,6 @@ async def compare_correction_methods(request: ComparisonRequest):
         logger.error(f"Method comparison failed: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Comparison failed: {str(e)}")
 
-
 @router.post("/recommend-method", response_model=MethodRecommendationResponse)
 async def recommend_correction_method(request: MethodRecommendationRequest):
     """推荐校正方法"""
@@ -327,7 +316,6 @@ async def recommend_correction_method(request: MethodRecommendationRequest):
         logger.error(f"Method recommendation failed: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Recommendation failed: {str(e)}")
 
-
 @router.post("/adjust-power", response_model=Dict[str, Any])
 async def calculate_adjusted_power(request: PowerAdjustmentRequest):
     """计算校正后的统计功效"""
@@ -359,7 +347,6 @@ async def calculate_adjusted_power(request: PowerAdjustmentRequest):
     except Exception as e:
         logger.error(f"Power adjustment failed: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Power adjustment failed: {str(e)}")
-
 
 @router.post("/ab-test-multiple-comparison", response_model=CorrectionResponse)
 async def handle_ab_test_multiple_comparisons(request: ABTestMultipleComparisonRequest):
@@ -419,7 +406,6 @@ async def handle_ab_test_multiple_comparisons(request: ABTestMultipleComparisonR
     except Exception as e:
         logger.error(f"A/B test multiple comparison failed: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"A/B test comparison failed: {str(e)}")
-
 
 @router.get("/correction-methods")
 async def get_correction_methods():
@@ -487,7 +473,6 @@ async def get_correction_methods():
     except Exception as e:
         logger.error(f"Failed to get correction methods: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Failed to get methods: {str(e)}")
-
 
 @router.get("/health")
 async def health_check():

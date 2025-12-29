@@ -1,14 +1,15 @@
 """
 A/B测试流量分配服务 - 实现确定性哈希分组算法和流量分配逻辑
 """
+
 import hashlib
 import struct
 from typing import List, Optional, Dict, Any
 import mmh3  # pip install mmh3
+from src.models.schemas.experiment import TrafficAllocation
 
-from models.schemas.experiment import TrafficAllocation
-from core.logging import logger
-
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 class TrafficSplitter:
     """流量分配器 - 基于Murmur3哈希算法的确定性用户分组"""

@@ -1,5 +1,6 @@
 import React, { useState } from 'react'
 import { 
+import { logger } from '../../utils/logger'
   Card, 
   Row, 
   Col, 
@@ -97,7 +98,7 @@ const QLearningAgentPanel: React.FC<QLearningAgentPanelProps> = ({
       setCreateModalVisible(false)
       form.resetFields()
     } catch (error) {
-      console.error('Failed to create agent:', error)
+      logger.error('创建智能体失败:', error)
     }
   }
 
@@ -109,7 +110,7 @@ const QLearningAgentPanel: React.FC<QLearningAgentPanelProps> = ({
         trainForm.resetFields()
       }
     } catch (error) {
-      console.error('Failed to start training:', error)
+      logger.error('启动训练失败:', error)
     }
   }
 

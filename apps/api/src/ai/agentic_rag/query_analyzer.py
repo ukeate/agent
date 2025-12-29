@@ -15,9 +15,7 @@ from enum import Enum
 from dataclasses import dataclass
 from datetime import datetime
 from src.core.utils.timezone_utils import utc_now, utc_factory
-
 from src.ai.openai_client import get_openai_client
-
 
 class QueryIntent(str, Enum):
     """查询意图类型"""
@@ -26,7 +24,6 @@ class QueryIntent(str, Enum):
     CODE = "code"             # 代码相关查询：编程问题
     CREATIVE = "creative"     # 创造性查询：需要生成内容
     EXPLORATORY = "exploratory"  # 探索性查询：开放性问题
-
 
 @dataclass
 class QueryAnalysis:
@@ -45,7 +42,6 @@ class QueryAnalysis:
     def __post_init__(self):
         if self.timestamp is None:
             self.timestamp = utc_now()
-
 
 class QueryAnalyzer:
     """查询分析器"""
@@ -368,7 +364,6 @@ class QueryAnalyzer:
         elif english_chars > 0:
             return "en"
         return "zh"  # 默认中文
-
 
 class QueryContext:
     """查询上下文管理器"""

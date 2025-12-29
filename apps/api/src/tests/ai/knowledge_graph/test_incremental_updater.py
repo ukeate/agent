@@ -6,7 +6,6 @@ import pytest
 from unittest.mock import Mock, AsyncMock
 from datetime import datetime
 from src.core.utils.timezone_utils import utc_now, utc_factory
-
 from src.ai.knowledge_graph.incremental_updater import (
     IncrementalUpdater,
     ConflictResolutionStrategy,
@@ -15,7 +14,6 @@ from src.ai.knowledge_graph.incremental_updater import (
     RelationUpdate,
     UpdateConflict
 )
-
 
 @pytest.mark.unit
 class TestEntityUpdate:
@@ -56,7 +54,6 @@ class TestEntityUpdate:
         assert update_dict["canonical_form"] == "张三"
         assert "timestamp" in update_dict
 
-
 @pytest.mark.unit
 class TestRelationUpdate:
     """关系更新测试"""
@@ -78,7 +75,6 @@ class TestRelationUpdate:
         assert update.source_entity_id == "entity_001"
         assert update.target_entity_id == "entity_002"
         assert update.confidence == 0.90
-
 
 @pytest.mark.unit
 class TestIncrementalUpdater:
@@ -347,7 +343,6 @@ class TestIncrementalUpdater:
         assert success
         mock_graph_db.execute_write_query.assert_called_once()
 
-
 @pytest.mark.integration  
 class TestIncrementalUpdaterIntegration:
     """增量更新器集成测试"""
@@ -404,7 +399,6 @@ class TestIncrementalUpdaterIntegration:
             
         finally:
             await db.close()
-
 
 @pytest.mark.performance
 class TestUpdaterPerformance:

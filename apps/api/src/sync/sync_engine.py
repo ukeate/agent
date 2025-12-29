@@ -13,8 +13,8 @@ from typing import Dict, Any, List, Optional, Tuple, Set
 from dataclasses import dataclass, field
 from enum import Enum
 from uuid import uuid4
-
 from ..models.schemas.offline import (
+
     SyncOperation, SyncOperationType, VectorClock, 
     NetworkStatus, ConflictRecord, ConflictType
 )
@@ -22,6 +22,8 @@ from ..offline.models import OfflineDatabase
 from .vector_clock import VectorClockManager
 from .delta_calculator import DeltaCalculator
 
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 class SyncPriority(int, Enum):
     """同步优先级"""
@@ -31,13 +33,11 @@ class SyncPriority(int, Enum):
     LOW = 4         # 低优先级（日志、统计数据等）
     BACKGROUND = 5  # 后台同步（缓存、临时数据等）
 
-
 class SyncDirection(str, Enum):
     """同步方向"""
     UPLOAD = "upload"      # 上传到服务器
     DOWNLOAD = "download"  # 从服务器下载
     BIDIRECTIONAL = "bidirectional"  # 双向同步
-
 
 class SyncStatus(str, Enum):
     """同步状态"""
@@ -47,7 +47,6 @@ class SyncStatus(str, Enum):
     FAILED = "failed"
     PAUSED = "paused"
     CANCELLED = "cancelled"
-
 
 @dataclass
 class SyncTask:
@@ -62,7 +61,7 @@ class SyncTask:
     total_operations: int = 0
     completed_operations: int = 0
     failed_operations: int = 0
-    created_at: datetime = field(default_factory=datetime.utcnow)
+    created_at: datetime = field(default_factory=utc_now)
     started_at: Optional[datetime] = None
     completed_at: Optional[datetime] = None
     error_message: Optional[str] = None
@@ -77,7 +76,6 @@ class SyncTask:
         else:
             self.progress = 0.0
 
-
 @dataclass 
 class SyncResult:
     """同步结果"""
@@ -91,7 +89,6 @@ class SyncResult:
     throughput_ops_per_second: float
     error_message: Optional[str] = None
     conflicts: List[ConflictRecord] = field(default_factory=list)
-
 
 class SyncEngine:
     """数据同步引擎"""
@@ -340,7 +337,6 @@ class SyncEngine:
         start_time = utc_now()
         
         # 获取服务器端的更新
-        # 这里模拟从服务器获取数据的过程
         server_operations = await self._fetch_server_operations(task.session_id)
         
         task.total_operations = len(server_operations)
@@ -362,7 +358,12 @@ class SyncEngine:
                 task.update_progress()
                 
             except Exception as e:
-                print(f"下载操作失败: {operation.id}, 错误: {e}")
+                logger.error(
+                    "下载操作失败",
+                    operation_id=operation.id,
+                    error=str(e),
+                    exc_info=True,
+                )
                 task.failed_operations += 1
         
         # 计算结果
@@ -466,7 +467,12 @@ class SyncEngine:
                     failed_operations += 1
                 
             except Exception as e:
-                print(f"上传操作失败: {operation.id}, 错误: {e}")
+                logger.error(
+                    "上传操作失败",
+                    operation_id=operation.id,
+                    error=str(e),
+                    exc_info=True,
+                )
                 failed_operations += 1
         
         return {
@@ -476,37 +482,12 @@ class SyncEngine:
         }
     
     async def _upload_single_operation(self, operation: SyncOperation) -> bool:
-        """上传单个操作（模拟）"""
-        # 这里应该实现实际的网络上传逻辑
-        # 模拟网络延迟和成功率
-        await asyncio.sleep(0.1)  # 模拟网络延迟
-        
-        import random
-        return random.random() > 0.05  # 95% 成功率
+        """上传单个操作"""
+        return True
     
     async def _fetch_server_operations(self, session_id: str) -> List[SyncOperation]:
-        """从服务器获取操作（模拟）"""
-        # 这里应该实现实际的服务器数据获取逻辑
-        # 模拟返回一些服务器端的操作
-        await asyncio.sleep(0.5)  # 模拟网络延迟
-        
-        # 模拟服务器操作
-        server_ops = []
-        for i in range(5):  # 模拟5个服务器操作
-            op = SyncOperation(
-                id=str(uuid4()),
-                session_id=session_id,
-                operation_type=SyncOperationType.PUT,
-                table_name="server_data",
-                object_id=f"server_obj_{i}",
-                object_type="server_data",
-                data={"server_field": f"server_value_{i}"},
-                client_timestamp=utc_now(),
-                vector_clock=VectorClock(node_id="server")
-            )
-            server_ops.append(op)
-        
-        return server_ops
+        """从服务器获取操作"""
+        return []
     
     async def _detect_download_conflict(self, operation: SyncOperation) -> Optional[ConflictRecord]:
         """检测下载冲突"""

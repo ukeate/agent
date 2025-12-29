@@ -7,11 +7,10 @@ import json
 from unittest.mock import Mock, AsyncMock, patch
 from fastapi.testclient import TestClient
 from fastapi import FastAPI
-
-# 假设我们有一个测试应用实例
 from src.api.v1.knowledge_graph import router as kg_router
 from src.ai.knowledge_graph.graph_database import GraphDatabaseError
 
+# 假设我们有一个测试应用实例
 
 @pytest.fixture
 def test_app():
@@ -20,12 +19,10 @@ def test_app():
     app.include_router(kg_router, prefix="/api/v1")
     return app
 
-
 @pytest.fixture
 def test_client(test_app):
     """测试客户端"""
     return TestClient(test_app)
-
 
 @pytest.fixture
 def mock_graph_operations():
@@ -42,7 +39,6 @@ def mock_graph_operations():
     ops.get_subgraph = AsyncMock()
     return ops
 
-
 @pytest.fixture
 def mock_incremental_updater():
     """Mock增量更新器"""
@@ -52,7 +48,6 @@ def mock_incremental_updater():
     updater.intelligent_entity_merge = AsyncMock()
     updater.batch_update = AsyncMock()
     return updater
-
 
 @pytest.fixture
 def mock_performance_optimizer():
@@ -65,7 +60,6 @@ def mock_performance_optimizer():
     optimizer.invalidate_cache = AsyncMock()
     optimizer.get_cache_stats = Mock()
     return optimizer
-
 
 @pytest.mark.api
 class TestEntityAPI:
@@ -177,7 +171,6 @@ class TestEntityAPI:
         assert len(response.json()) == 2
         assert all("张三" in item["canonical_form"] for item in response.json())
 
-
 @pytest.mark.api
 class TestRelationAPI:
     """关系API测试"""
@@ -221,7 +214,6 @@ class TestRelationAPI:
         assert response.status_code == 200
         assert len(response.json()) == 1
         assert response.json()[0]["type"] == "WORKS_FOR"
-
 
 @pytest.mark.api
 class TestGraphQueryAPI:
@@ -298,7 +290,6 @@ class TestGraphQueryAPI:
         assert len(response.json()["nodes"]) == 2
         assert len(response.json()["relationships"]) == 1
 
-
 @pytest.mark.api
 class TestIncrementalUpdateAPI:
     """增量更新API测试"""
@@ -364,7 +355,6 @@ class TestIncrementalUpdateAPI:
         assert len(response.json()["entity_results"]) == 1
         assert len(response.json()["relation_results"]) == 1
 
-
 @pytest.mark.api
 class TestQualityManagementAPI:
     """质量管理API测试"""
@@ -406,7 +396,6 @@ class TestQualityManagementAPI:
         assert response.status_code == 200
         assert len(response.json()) == 1
         assert response.json()[0]["issue_type"] == "missing_property"
-
 
 @pytest.mark.api
 class TestPerformanceAPI:
@@ -458,7 +447,6 @@ class TestPerformanceAPI:
         assert response.status_code == 200
         assert response.json()["message"] == "缓存清理成功"
 
-
 @pytest.mark.api
 class TestAdministrationAPI:
     """管理API测试"""
@@ -497,7 +485,6 @@ class TestAdministrationAPI:
         assert response.status_code == 503
         assert response.json()["status"] == "unhealthy"
 
-
 @pytest.mark.integration
 class TestKnowledgeGraphAPIIntegration:
     """知识图谱API集成测试"""
@@ -520,7 +507,6 @@ class TestKnowledgeGraphAPIIntegration:
         # 但展示了完整的测试逻辑
         with pytest.raises(Exception):
             response = test_client.post("/api/v1/entities/", json=entity_data)
-
 
 @pytest.mark.performance
 class TestAPIPerformance:

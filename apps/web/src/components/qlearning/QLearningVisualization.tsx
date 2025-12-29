@@ -11,9 +11,7 @@ import {
 } from 'antd'
 import {
   LineChartOutlined,
-  BarChartOutlined,
-  PieChartOutlined,
-  HeatMapOutlined
+  BarChartOutlined
 } from '@ant-design/icons'
 import {
   LineChart,
@@ -25,14 +23,8 @@ import {
   ResponsiveContainer,
   BarChart,
   Bar,
-  PieChart,
-  Pie,
   Cell,
-  ScatterChart,
-  Scatter,
-  Legend,
-  Area,
-  AreaChart
+  Legend
 } from 'recharts'
 
 const { Title, Text } = Typography
@@ -129,42 +121,6 @@ const QLearningVisualization: React.FC<QLearningVisualizationProps> = ({
   }
 
   // 探索率变化数据
-  const generateEpsilonDecayData = () => {
-    const selectedAgent = agents.find(a => a.agent_id === selectedAgentForChart)
-    if (!selectedAgent) return []
-
-    const data = []
-    const currentEpsilon = selectedAgent.current_epsilon
-    const episodes = selectedAgent.episode_count
-    
-    // 模拟epsilon衰减过程
-    for (let i = 0; i <= episodes; i += Math.max(1, Math.floor(episodes / 20))) {
-      const epsilon = Math.max(0.01, 1.0 * Math.pow(0.995, i))
-      data.push({
-        episode: i,
-        epsilon: epsilon,
-        explorationRate: epsilon * 100
-      })
-    }
-    
-    return data
-  }
-
-  // Q值分布数据（模拟）
-  const generateQValueDistribution = () => {
-    const data = []
-    const actions = ['Action 1', 'Action 2', 'Action 3', 'Action 4', 'Action 5']
-    
-    actions.forEach(action => {
-      data.push({
-        action: action,
-        qValue: Math.random() * 20 - 10,
-        visits: Math.floor(Math.random() * 1000) + 100
-      })
-    })
-    
-    return data
-  }
 
   const selectedAgentData = selectedAgentForChart 
     ? agents.find(a => a.agent_id === selectedAgentForChart) 
@@ -172,10 +128,6 @@ const QLearningVisualization: React.FC<QLearningVisualizationProps> = ({
 
   const rewardTrendData = selectedAgentData ? generateRewardTrendData(selectedAgentData) : []
   const algorithmComparisonData = generateAlgorithmComparisonData()
-  const epsilonDecayData = generateEpsilonDecayData()
-  const qValueDistribution = generateQValueDistribution()
-
-  const colors = ['#1890ff', '#52c41a', '#faad14', '#722ed1', '#13c2c2']
 
   return (
     <Row gutter={[16, 16]}>
@@ -215,8 +167,6 @@ const QLearningVisualization: React.FC<QLearningVisualizationProps> = ({
               <Select value={chartType} onChange={setChartType} style={{ width: 120 }}>
                 <Option value="rewards">奖励趋势</Option>
                 <Option value="comparison">算法对比</Option>
-                <Option value="epsilon">探索率</Option>
-                <Option value="qvalues">Q值分布</Option>
               </Select>
             </Space>
           </Space>
@@ -230,13 +180,9 @@ const QLearningVisualization: React.FC<QLearningVisualizationProps> = ({
             <Space>
               {chartType === 'rewards' && <LineChartOutlined />}
               {chartType === 'comparison' && <BarChartOutlined />}
-              {chartType === 'epsilon' && <LineChartOutlined />}
-              {chartType === 'qvalues' && <BarChartOutlined />}
               
               {chartType === 'rewards' && '奖励趋势分析'}
               {chartType === 'comparison' && '算法性能对比'}
-              {chartType === 'epsilon' && '探索率衰减'}
-              {chartType === 'qvalues' && 'Q值分布'}
             </Space>
           }
         >
@@ -268,7 +214,7 @@ const QLearningVisualization: React.FC<QLearningVisualizationProps> = ({
                 </LineChart>
               </ResponsiveContainer>
             ) : (
-              <Alert message="请选择一个智能体查看奖励趋势" variant="default" />
+              <Alert message="请选择一个智能体查看奖励趋势" type="info" />
             )
           )}
           
@@ -285,39 +231,6 @@ const QLearningVisualization: React.FC<QLearningVisualizationProps> = ({
                     <Cell key={`cell-${index}`} fill={entry.color} />
                   ))}
                 </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          )}
-          
-          {chartType === 'epsilon' && (
-            <ResponsiveContainer width="100%" height={400}>
-              <AreaChart data={epsilonDecayData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="episode" />
-                <YAxis />
-                <Tooltip />
-                <Legend />
-                <Area
-                  type="monotone"
-                  dataKey="explorationRate"
-                  stroke="#faad14"
-                  fill="#faad14"
-                  fillOpacity={0.3}
-                  name="探索率 (%)"
-                />
-              </AreaChart>
-            </ResponsiveContainer>
-          )}
-          
-          {chartType === 'qvalues' && (
-            <ResponsiveContainer width="100%" height={400}>
-              <BarChart data={qValueDistribution}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="action" />
-                <YAxis />
-                <Tooltip />
-                <Legend />
-                <Bar dataKey="qValue" fill="#722ed1" name="Q值" />
               </BarChart>
             </ResponsiveContainer>
           )}

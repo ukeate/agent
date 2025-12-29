@@ -1,6 +1,7 @@
 """
 工作流超时控制和取消机制
 """
+
 from typing import Any, Dict, Optional, Callable
 import asyncio
 from datetime import datetime
@@ -8,17 +9,17 @@ from datetime import timedelta
 from src.core.utils.timezone_utils import utc_now, utc_factory
 from dataclasses import dataclass, field
 from enum import Enum
-
 from .state import MessagesState
 from .checkpoints import checkpoint_manager
 
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 class TimeoutType(Enum):
     """超时类型"""
     NODE_TIMEOUT = "node_timeout"      # 节点级超时
     WORKFLOW_TIMEOUT = "workflow_timeout"  # 工作流级超时
     IDLE_TIMEOUT = "idle_timeout"      # 空闲超时
-
 
 @dataclass
 class TimeoutConfig:
@@ -27,7 +28,6 @@ class TimeoutConfig:
     workflow_timeout: float = 3600.0   # 整个工作流超时时间（秒）
     idle_timeout: float = 1800.0       # 空闲超时时间（秒）
     enable_timeout: bool = True        # 是否启用超时控制
-
 
 class CancellationToken:
     """取消令牌"""
@@ -65,7 +65,7 @@ class CancellationToken:
                 try:
                     callback(reason)
                 except Exception as e:
-                    print(f"取消回调执行失败: {e}")
+                    logger.error("取消回调执行失败", error=str(e), exc_info=True)
     
     def add_cancellation_callback(self, callback: Callable[[str], None]):
         """添加取消回调"""
@@ -75,7 +75,6 @@ class CancellationToken:
         """如果已取消则抛出异常"""
         if self._cancelled:
             raise asyncio.CancelledError(f"操作已取消: {self._cancellation_reason}")
-
 
 class TimeoutManager:
     """超时管理器"""
@@ -152,7 +151,7 @@ class TimeoutManager:
                     try:
                         await task
                     except asyncio.CancelledError:
-                        pass
+                        raise
                 
                 # 检查结果
                 completed_task = list(done)[0]
@@ -202,7 +201,7 @@ class TimeoutManager:
                 metadata={"type": "timeout_checkpoint", "timeout_type": timeout_type.value}
             )
         except Exception as e:
-            print(f"创建超时检查点失败: {e}")
+            logger.error("创建超时检查点失败", error=str(e), exc_info=True)
     
     async def _handle_cancellation(self, state: MessagesState, reason: str):
         """处理取消"""
@@ -229,7 +228,7 @@ class TimeoutManager:
                 metadata={"type": "cancellation_checkpoint", "reason": reason}
             )
         except Exception as e:
-            print(f"创建取消检查点失败: {e}")
+            logger.error("创建取消检查点失败", error=str(e), exc_info=True)
     
     async def start_workflow_timeout(self, workflow_id: str):
         """启动工作流级超时监控"""
@@ -242,7 +241,7 @@ class TimeoutManager:
                 # 超时，取消工作流
                 self.cancel_workflow(workflow_id, f"工作流超时 ({self.config.workflow_timeout}秒)")
             except asyncio.CancelledError:
-                pass  # 正常取消监控
+                raise  # 正常取消监控
         
         self.active_timeouts[workflow_id] = asyncio.create_task(workflow_timeout_monitor())
     
@@ -254,7 +253,7 @@ class TimeoutManager:
             try:
                 await timeout_task
             except asyncio.CancelledError:
-                pass
+                raise
             del self.active_timeouts[workflow_id]
     
     async def start_idle_timeout(self, workflow_id: str, reset_callback: Optional[Callable] = None):
@@ -272,11 +271,11 @@ class TimeoutManager:
                 token = self.get_cancellation_token(workflow_id)
                 if token and not token.is_cancelled:
                     # 可以选择暂停而不是取消
-                    print(f"工作流 {workflow_id} 空闲超时，建议暂停")
+                    logger.warning("工作流空闲超时，建议暂停", workflow_id=workflow_id)
                     if reset_callback:
                         await reset_callback()
             except asyncio.CancelledError:
-                pass
+                raise
         
         self.active_timeouts[idle_key] = asyncio.create_task(idle_timeout_monitor())
     
@@ -304,7 +303,6 @@ class TimeoutManager:
         # 清理取消令牌
         if workflow_id in self.cancellation_tokens:
             del self.cancellation_tokens[workflow_id]
-
 
 # 全局超时管理器实例
 timeout_manager = TimeoutManager()

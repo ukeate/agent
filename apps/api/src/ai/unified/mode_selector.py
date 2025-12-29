@@ -8,15 +8,14 @@ from typing import Dict, List, Any, Optional
 from dataclasses import dataclass, field
 import asyncio
 from enum import Enum
-import logging
 import time
 import statistics
 from datetime import datetime
 from datetime import timedelta
 from src.core.utils.timezone_utils import utc_now, utc_factory
 
-logger = logging.getLogger(__name__)
-
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 class SelectionStrategy(str, Enum):
     """选择策略"""
@@ -25,7 +24,6 @@ class SelectionStrategy(str, Enum):
     LOAD_AWARE = "load_aware"        # 负载感知
     ML_PREDICTED = "ml_predicted"    # 机器学习预测（未实现）
     HYBRID = "hybrid"                # 混合策略
-
 
 @dataclass
 class SystemLoadMetrics:
@@ -60,7 +58,6 @@ class SystemLoadMetrics:
         ]
         return sum(components) / len(components)
 
-
 @dataclass
 class ModePerformanceHistory:
     """模式性能历史"""
@@ -76,8 +73,8 @@ class ModePerformanceHistory:
     throughput: float = 0.0  # 请求/秒
     
     # 时间窗口
-    window_start: datetime = field(default_factory=datetime.utcnow)
-    last_updated: datetime = field(default_factory=datetime.utcnow)
+    window_start: datetime = field(default_factory=utc_now)
+    last_updated: datetime = field(default_factory=utc_now)
     
     def update_metrics(self, processing_time: float, success: bool):
         """更新性能指标"""
@@ -111,7 +108,6 @@ class ModePerformanceHistory:
         throughput_score = min(1, self.throughput / 100)  # 100请求/小时为基准
         
         return (self.success_rate * 0.4 + time_score * 0.3 + throughput_score * 0.3)
-
 
 class ModeSelector:
     """处理模式选择器"""
@@ -333,20 +329,14 @@ class ModeSelector:
     
     async def _update_system_load(self):
         """更新系统负载指标"""
-        # 这里应该集成实际的系统监控
-        # 目前使用模拟数据
-        
         import psutil
-        import random
-        
-        # 获取真实系统指标
+
         try:
             self.current_load.cpu_usage = psutil.cpu_percent() / 100.0
             self.current_load.memory_usage = psutil.virtual_memory().percent / 100.0
-        except:
-            # 如果无法获取真实数据，使用模拟数据
-            self.current_load.cpu_usage = random.uniform(0.1, 0.8)
-            self.current_load.memory_usage = random.uniform(0.2, 0.7)
+        except Exception as e:
+            logger.warning(f"更新系统负载失败: {e}")
+            return
         
         # 其他指标可以从相关服务获取
         # self.current_load.queue_depth = await self._get_queue_depth()

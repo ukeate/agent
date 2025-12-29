@@ -1,17 +1,19 @@
 """
 高级流量分配服务 - 支持多变体、分层实验、条件分配的流量分配算法
 """
+
 import hashlib
 from typing import List, Dict, Any, Optional, Tuple, Union
 from enum import Enum
 from datetime import datetime
 from src.core.utils.timezone_utils import utc_now, utc_factory, timezone
 from dataclasses import dataclass
+from src.models.schemas.experiment import TrafficAllocation
+from src.services.traffic_splitter import TrafficSplitter
+from src.core.security.expression import safe_eval_bool
 
-from models.schemas.experiment import TrafficAllocation
-from services.traffic_splitter import TrafficSplitter
-from core.logging import logger
-
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 class AllocationStrategy(Enum):
     """流量分配策略"""
@@ -21,13 +23,11 @@ class AllocationStrategy(Enum):
     STAGED = "staged"  # 阶段性分配
     ADAPTIVE = "adaptive"  # 自适应分配
 
-
 class AllocationPhase(Enum):
     """分配阶段"""
     RAMP_UP = "ramp_up"  # 爬坡阶段
     FULL_TRAFFIC = "full_traffic"  # 全流量阶段
     RAMP_DOWN = "ramp_down"  # 缩量阶段
-
 
 @dataclass
 class UserContext:
@@ -40,7 +40,6 @@ class UserContext:
     device_type: Optional[str] = None
     platform: Optional[str] = None
 
-
 @dataclass
 class AllocationRule:
     """分配规则"""
@@ -49,7 +48,6 @@ class AllocationRule:
     allocation_percentages: List[float]  # 对应的分配百分比
     priority: int = 0  # 优先级，数值越高优先级越高
     is_active: bool = True
-
 
 @dataclass
 class StageConfig:
@@ -60,7 +58,6 @@ class StageConfig:
     allocation_percentages: Dict[str, float]  # 变体ID到百分比的映射
     max_users_per_variant: Optional[int] = None
     phase: AllocationPhase = AllocationPhase.FULL_TRAFFIC
-
 
 class AdvancedTrafficAllocator:
     """高级流量分配器"""
@@ -361,15 +358,7 @@ class AdvancedTrafficAllocator:
                 'device_type': user_context.device_type,
                 'platform': user_context.platform,
             }
-            
-            # 为安全起见，只允许特定的条件格式
-            allowed_operators = ['==', '!=', 'in', 'not in', 'and', 'or']
-            if not any(op in condition for op in allowed_operators):
-                logger.warning(f"Unsafe condition expression: {condition}")
-                return False
-            
-            result = eval(condition, safe_globals, {})
-            return bool(result)
+            return safe_eval_bool(condition, safe_globals)
             
         except Exception as e:
             logger.error(f"Error evaluating condition '{condition}': {str(e)}")
@@ -382,12 +371,6 @@ class AdvancedTrafficAllocator:
             # 这里应该查询数据库获取实际分配计数
             # 为了演示，假设所有变体都未达到上限
             # 实际实现需要查询experiment_assignments表
-            for allocation in allocations:
-                # current_count = get_variant_user_count(experiment_id, allocation.variant_id)
-                # if current_count >= max_users_per_variant:
-                #     return False
-                pass
-            
             return True
             
         except Exception as e:

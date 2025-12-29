@@ -9,8 +9,8 @@ from datetime import datetime
 from src.core.utils.timezone_utils import utc_now, utc_factory
 from typing import Any, Dict, List, Optional, Union
 from jinja2 import Template
-
 from src.models.schemas.explanation import (
+
     DecisionExplanation,
     ExplanationComponent,
     ExplanationLevel,
@@ -19,6 +19,8 @@ from src.models.schemas.explanation import (
     CounterfactualScenario
 )
 
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 class ExplanationFormatter:
     """解释格式化器"""
@@ -696,7 +698,6 @@ class ExplanationFormatter:
         
         return lines
 
-
 class ExplanationExporter:
     """解释导出器"""
     
@@ -739,7 +740,7 @@ class ExplanationExporter:
             return True
             
         except Exception as e:
-            print(f"导出失败: {e}")
+            logger.error("导出失败", error=str(e), exc_info=True)
             return False
     
     def batch_export(

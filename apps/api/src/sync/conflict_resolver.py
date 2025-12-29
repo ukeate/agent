@@ -12,7 +12,6 @@ from typing import Dict, Any, List, Optional, Tuple, Callable
 from dataclasses import dataclass, field
 from enum import Enum
 from uuid import uuid4
-
 from ..models.schemas.offline import (
     SyncOperation, SyncOperationType, VectorClock,
     ConflictRecord, ConflictType, ConflictResolutionStrategy
@@ -20,6 +19,8 @@ from ..models.schemas.offline import (
 from .conflict_detector import ConflictContext, ConflictSeverity, ConflictCategory
 from .merge_strategies import MergeStrategies
 
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 class ResolutionMethod(str, Enum):
     """解决方法"""
@@ -28,7 +29,6 @@ class ResolutionMethod(str, Enum):
     MANUAL = "manual"           # 手动解决
     POLICY_BASED = "policy_based"  # 基于策略解决
 
-
 class ResolutionStatus(str, Enum):
     """解决状态"""
     PENDING = "pending"
@@ -36,7 +36,6 @@ class ResolutionStatus(str, Enum):
     RESOLVED = "resolved"
     FAILED = "failed"
     REQUIRES_MANUAL_INTERVENTION = "requires_manual_intervention"
-
 
 @dataclass
 class ResolutionResult:
@@ -47,10 +46,9 @@ class ResolutionResult:
     status: ResolutionStatus
     resolved_data: Optional[Dict[str, Any]] = None
     confidence_score: float = 0.0
-    resolution_time: datetime = field(default_factory=datetime.utcnow)
+    resolution_time: datetime = field(default_factory=utc_now)
     metadata: Dict[str, Any] = field(default_factory=dict)
     error_message: Optional[str] = None
-
 
 @dataclass
 class InteractionRequest:
@@ -61,7 +59,6 @@ class InteractionRequest:
     deadline: Optional[datetime] = None
     priority: int = 1  # 1-5, 5最高
     context_info: Dict[str, Any] = field(default_factory=dict)
-
 
 class ConflictResolver:
     """冲突解决器"""
@@ -374,7 +371,7 @@ class ConflictResolver:
             try:
                 callback(interaction_request)
             except Exception as e:
-                print(f"交互回调错误: {e}")
+                logger.error("交互回调错误", error=str(e), exc_info=True)
         
         return ResolutionResult(
             conflict_id=conflict_id,
@@ -414,7 +411,7 @@ class ConflictResolver:
                     {"description": "合并两个版本的更改", "preview": merged_data}
                 ))
             except Exception:
-                pass
+                logger.exception("自动合并失败", exc_info=True)
             
             # 建议客户端获胜
             suggestions.append((

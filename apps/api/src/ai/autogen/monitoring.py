@@ -2,6 +2,7 @@
 企业级AutoGen监控和调试工具
 实现智能体性能监控、对话追踪、调试功能和OpenTelemetry集成
 """
+
 import asyncio
 import json
 import time
@@ -17,7 +18,15 @@ from typing import Dict, List, Optional, Any, Callable, Union, Tuple
 from dataclasses import dataclass, field
 from collections import defaultdict, deque
 from enum import Enum
-import structlog
+from .events import Event, EventType, EventHandler, EventBus, EventPriority
+from .async_manager import AsyncAgentManager, AgentTask, TaskStatus
+from .event_processors import AsyncEventProcessingEngine, EventProcessor, EventContext, ProcessingResult
+from .event_store import EventStore, EventReplayService
+from .event_router import EventRouter, EventFilter
+from .distributed_events import DistributedEventCoordinator
+
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 # OpenTelemetry 导入
 try:
@@ -41,18 +50,8 @@ except ImportError:
     OTEL_AVAILABLE = False
     trace = None
     metrics = None
-    logger = structlog.get_logger(__name__)
+    logger = get_logger(__name__)
     logger.warning("OpenTelemetry不可用，将使用内置监控功能")
-
-from .events import Event, EventType, EventHandler, EventBus, EventPriority
-from .async_manager import AsyncAgentManager, AgentTask, TaskStatus
-from .event_processors import AsyncEventProcessingEngine, EventProcessor, EventContext, ProcessingResult
-from .event_store import EventStore, EventReplayService
-from .event_router import EventRouter, EventFilter
-from .distributed_events import DistributedEventCoordinator
-
-logger = structlog.get_logger(__name__)
-
 
 class DebugLevel(str, Enum):
     """调试级别"""
@@ -61,14 +60,12 @@ class DebugLevel(str, Enum):
     WARNING = "warning"
     ERROR = "error"
 
-
 class TraceType(str, Enum):
     """追踪类型"""
     CONVERSATION = "conversation"
     TASK_EXECUTION = "task_execution"
     AGENT_LIFECYCLE = "agent_lifecycle"
     EVENT_FLOW = "event_flow"
-
 
 @dataclass
 class PerformanceMetric:
@@ -89,7 +86,6 @@ class PerformanceMetric:
             "tags": self.tags,
             "metadata": self.metadata
         }
-
 
 @dataclass
 class TraceSpan:
@@ -134,7 +130,6 @@ class TraceSpan:
             "logs": self.logs
         }
 
-
 @dataclass
 class ConversationTrace:
     """对话追踪"""
@@ -176,7 +171,6 @@ class ConversationTrace:
             "event_count": len(self.events),
             "metadata": self.metadata
         }
-
 
 class PerformanceMonitor:
     """性能监控器"""
@@ -323,7 +317,6 @@ class PerformanceMonitor:
             "active_measurements": len(self.active_measurements),
             "thresholds": self.performance_thresholds
         }
-
 
 class ConversationTracker:
     """对话追踪器"""
@@ -511,7 +504,6 @@ class ConversationTracker:
             "avg_messages_per_conversation": avg_messages
         }
 
-
 class DebugConsole:
     """调试控制台"""
     
@@ -698,7 +690,6 @@ class DebugConsole:
         
         return sessions
 
-
 class AgentDashboard:
     """智能体仪表板"""
     
@@ -815,7 +806,6 @@ class AgentDashboard:
                 "last_check": utc_now().isoformat()
             }
 
-
 class MonitoringEventHandler(EventHandler):
     """监控事件处理器"""
     
@@ -852,7 +842,6 @@ class MonitoringEventHandler(EventHandler):
             
         except Exception as e:
             logger.error("监控事件处理失败", event_type=event.type, error=str(e))
-
 
 class EventProcessingMonitor:
     """事件处理监控器"""
@@ -1106,7 +1095,6 @@ class EventProcessingMonitor:
         
         return analysis
 
-
 class EventDebugger:
     """事件调试器"""
     
@@ -1277,14 +1265,12 @@ class EventDebugger:
             "max_captured_events": self.max_captured_events
         }
 
-
 class AuditLevel(str, Enum):
     """审计级别"""
     LOW = "low"
     MEDIUM = "medium"
     HIGH = "high"
     CRITICAL = "critical"
-
 
 class AuditEventType(str, Enum):
     """审计事件类型"""
@@ -1298,7 +1284,6 @@ class AuditEventType(str, Enum):
     AUTHORIZATION = "authorization"
     DATA_ACCESS = "data_access"
     SYSTEM_ERROR = "system_error"
-
 
 @dataclass
 class AuditEvent:
@@ -1340,7 +1325,6 @@ class AuditEvent:
     def log_message(self) -> str:
         """生成日志消息"""
         return f"[{self.event_type.value}] {self.action} - {self.result}"
-
 
 class OpenTelemetryProvider:
     """OpenTelemetry提供者"""
@@ -1465,7 +1449,6 @@ class OpenTelemetryProvider:
         except Exception as e:
             logger.error("记录指标失败", name=name, error=str(e))
 
-
 class EnterpriseAuditLogger:
     """企业级审计日志记录器"""
     
@@ -1488,6 +1471,7 @@ class EnterpriseAuditLogger:
         self.audit_events: List[AuditEvent] = []
         self.max_memory_events = 10000
         self.audit_handlers: List[Callable[[AuditEvent], None]] = []
+        self._db_initialized = False
         
         # 统计
         self.stats = {
@@ -1607,8 +1591,67 @@ class EnterpriseAuditLogger:
     
     async def _write_to_database(self, event: AuditEvent):
         """写入数据库"""
-        # TODO: 实现数据库写入逻辑
-        pass
+        from sqlalchemy import text
+        from src.core.database import get_db_session
+
+        if not self._db_initialized:
+            async with get_db_session() as session:
+                await session.execute(text("""
+                    CREATE TABLE IF NOT EXISTS autogen_audit_events (
+                        event_id TEXT PRIMARY KEY,
+                        event_type TEXT NOT NULL,
+                        timestamp TIMESTAMPTZ NOT NULL,
+                        level TEXT NOT NULL,
+                        user_id TEXT,
+                        session_id TEXT,
+                        agent_id TEXT,
+                        resource TEXT,
+                        action TEXT,
+                        result TEXT,
+                        details JSONB NOT NULL,
+                        source_ip TEXT,
+                        user_agent TEXT,
+                        request_id TEXT
+                    )
+                """))
+                await session.execute(text("CREATE INDEX IF NOT EXISTS idx_autogen_audit_events_timestamp ON autogen_audit_events(timestamp)"))
+                await session.execute(text("CREATE INDEX IF NOT EXISTS idx_autogen_audit_events_user_id ON autogen_audit_events(user_id)"))
+                await session.execute(text("CREATE INDEX IF NOT EXISTS idx_autogen_audit_events_event_type ON autogen_audit_events(event_type)"))
+                await session.commit()
+            self._db_initialized = True
+
+        data = event.to_dict()
+        async with get_db_session() as session:
+            await session.execute(
+                text("""
+                    INSERT INTO autogen_audit_events (
+                        event_id, event_type, timestamp, level, user_id, session_id, agent_id,
+                        resource, action, result, details, source_ip, user_agent, request_id
+                    )
+                    VALUES (
+                        :event_id, :event_type, :timestamp, :level, :user_id, :session_id, :agent_id,
+                        :resource, :action, :result, CAST(:details AS JSONB), :source_ip, :user_agent, :request_id
+                    )
+                    ON CONFLICT (event_id) DO NOTHING
+                """),
+                {
+                    "event_id": data["event_id"],
+                    "event_type": data["event_type"],
+                    "timestamp": data["timestamp"],
+                    "level": data["level"],
+                    "user_id": data.get("user_id"),
+                    "session_id": data.get("session_id"),
+                    "agent_id": data.get("agent_id"),
+                    "resource": data.get("resource"),
+                    "action": data.get("action", ""),
+                    "result": data.get("result", ""),
+                    "details": json.dumps(data.get("details") or {}, ensure_ascii=False),
+                    "source_ip": data.get("source_ip"),
+                    "user_agent": data.get("user_agent"),
+                    "request_id": data.get("request_id"),
+                },
+            )
+            await session.commit()
     
     def _calculate_checksum(self, data: Dict[str, Any]) -> str:
         """计算校验和"""
@@ -1674,7 +1717,6 @@ class EnterpriseAuditLogger:
             "storage_backend": self.storage_backend,
             "handlers_count": len(self.audit_handlers)
         }
-
 
 class EnterpriseMonitoringManager:
     """企业级监控管理器"""

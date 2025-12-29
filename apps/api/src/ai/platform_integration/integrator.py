@@ -2,16 +2,17 @@
 
 import asyncio
 import json
-import logging
+import time
 import traceback
 from datetime import datetime
 from typing import Dict, List, Any, Optional
-
+from collections.abc import AsyncGenerator
+from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException, Depends, BackgroundTasks
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 import redis
 import aiohttp
-
+from src.core.utils.timezone_utils import utc_now
 from .models import (
     ComponentType,
     ComponentStatus,
@@ -24,10 +25,9 @@ from .models import (
     PlatformHealthStatus
 )
 
-
 class PlatformIntegrator:
     """平台集成器"""
-    
+
     def __init__(self, config: Dict[str, Any]):
         self.config = config
         self.redis_client = redis.Redis(
@@ -41,32 +41,64 @@ class PlatformIntegrator:
         self.components: Dict[str, ComponentInfo] = {}
         self.component_dependencies: Dict[str, List[str]] = {}
         
-        # 设置日志
-        logging.basicConfig(level=logging.INFO)
-        self.logger = logging.getLogger(__name__)
+        self.logger = get_logger(__name__)
         
         # 健康监控任务
         self._health_monitor_task = None
+        self._load_components_from_redis()
+
+    @staticmethod
+    def _normalize_api_endpoint(api_endpoint: str) -> str:
+        base = (api_endpoint or "").rstrip("/")
+        if base.endswith("/api/v1"):
+            base = base[: -len("/api/v1")]
+        return base
+
+    def _load_components_from_redis(self) -> None:
+        for key in self.redis_client.scan_iter("component:*", count=1000):
+            raw = self.redis_client.get(key)
+            if not raw:
+                continue
+            try:
+                data = json.loads(raw)
+            except json.JSONDecodeError:
+                continue
+            try:
+                registered_at = data.get("registered_at")
+                last_heartbeat = data.get("last_heartbeat")
+                component_info = ComponentInfo(
+                    component_id=str(data.get("component_id") or ""),
+                    component_type=ComponentType(str(data.get("component_type") or ComponentType.CUSTOM.value)),
+                    name=str(data.get("name") or ""),
+                    version=str(data.get("version") or ""),
+                    status=ComponentStatus(str(data.get("status") or ComponentStatus.UNHEALTHY.value)),
+                    health_endpoint=str(data.get("health_endpoint") or ""),
+                    api_endpoint=self._normalize_api_endpoint(str(data.get("api_endpoint") or "")),
+                    metadata=data.get("metadata") or {},
+                    registered_at=datetime.fromisoformat(registered_at) if registered_at else utc_now(),
+                    last_heartbeat=datetime.fromisoformat(last_heartbeat) if last_heartbeat else utc_now(),
+                )
+                if component_info.component_id:
+                    self.components[component_info.component_id] = component_info
+            except Exception:
+                continue
     
     def create_app(self) -> FastAPI:
         """创建FastAPI应用"""
+        @asynccontextmanager
+        async def lifespan(_: FastAPI) -> AsyncGenerator[None, None]:
+            await self.start_health_monitor()
+            yield
+            await self.stop_health_monitor()
+
         app = FastAPI(
             title="Model Fine-tuning Platform",
             description="Integrated platform for model fine-tuning and optimization",
-            version="1.0.0"
+            version="1.0.0",
+            lifespan=lifespan
         )
         
         self._setup_routes(app)
-        
-        @app.on_event("startup")
-        async def startup_event():
-            """启动事件"""
-            await self.start_health_monitor()
-        
-        @app.on_event("shutdown")
-        async def shutdown_event():
-            """关闭事件"""
-            await self.stop_health_monitor()
         
         return app
     
@@ -86,8 +118,8 @@ class PlatformIntegrator:
                     health_endpoint=component.health_endpoint,
                     api_endpoint=component.api_endpoint,
                     metadata=component.metadata,
-                    registered_at=datetime.now(),
-                    last_heartbeat=datetime.now()
+                    registered_at=utc_now(),
+                    last_heartbeat=utc_now()
                 )
                 
                 await self._register_component(component_info)
@@ -130,7 +162,7 @@ class PlatformIntegrator:
         async def run_workflow(workflow: WorkflowRequest, background_tasks: BackgroundTasks):
             """执行端到端工作流"""
             try:
-                workflow_id = f"workflow_{int(datetime.now().timestamp())}"
+                workflow_id = f"workflow_{int(utc_now().timestamp())}"
                 
                 # 在后台任务中执行工作流
                 background_tasks.add_task(
@@ -184,10 +216,10 @@ class PlatformIntegrator:
             version=component.version,
             status=ComponentStatus.STARTING,
             health_endpoint=component.health_endpoint,
-            api_endpoint=component.api_endpoint,
+            api_endpoint=self._normalize_api_endpoint(component.api_endpoint),
             metadata=component.metadata,
-            registered_at=datetime.now(),
-            last_heartbeat=datetime.now()
+            registered_at=utc_now(),
+            last_heartbeat=utc_now()
         )
         
         await self._register_component(component_info)
@@ -208,17 +240,32 @@ class PlatformIntegrator:
     
     async def _check_component_health(self, component_info: ComponentInfo) -> bool:
         """检查组件健康状态"""
+        start = time.perf_counter()
+        ok = False
+        error = None
         try:
             async with aiohttp.ClientSession() as session:
                 async with session.get(
-                    component_info.health_endpoint, 
-                    timeout=aiohttp.ClientTimeout(total=5)
+                    component_info.health_endpoint,
+                    timeout=aiohttp.ClientTimeout(total=5),
                 ) as response:
-                    return response.status == 200
-                    
+                    ok = response.status == 200
         except Exception as e:
+            error = str(e)
             self.logger.warning(f"Health check failed for {component_info.component_id}: {e}")
-            return False
+
+        elapsed_ms = (time.perf_counter() - start) * 1000
+        meta = component_info.metadata or {}
+        meta["last_health_check_ms"] = round(elapsed_ms, 2)
+        meta["last_health_check_at"] = utc_now().isoformat()
+        meta["health_check_total"] = int(meta.get("health_check_total") or 0) + 1
+        meta["health_check_failures"] = int(meta.get("health_check_failures") or 0) + (0 if ok else 1)
+        if error:
+            meta["last_health_check_error"] = error
+        else:
+            meta.pop("last_health_check_error", None)
+        component_info.metadata = meta
+        return ok
     
     async def _save_component_to_redis(self, component_info: ComponentInfo):
         """保存组件信息到Redis"""
@@ -239,7 +286,7 @@ class PlatformIntegrator:
             try:
                 await self._health_monitor_task
             except asyncio.CancelledError:
-                pass
+                raise
             self._health_monitor_task = None
             self.logger.info("Health monitor stopped")
     
@@ -252,7 +299,7 @@ class PlatformIntegrator:
                     
                     if is_healthy:
                         component_info.status = ComponentStatus.HEALTHY
-                        component_info.last_heartbeat = datetime.now()
+                        component_info.last_heartbeat = utc_now()
                     else:
                         component_info.status = ComponentStatus.UNHEALTHY
                     
@@ -296,7 +343,7 @@ class PlatformIntegrator:
             healthy_components=healthy_count,
             total_components=total_count,
             components=component_status,
-            timestamp=datetime.now()
+            timestamp=utc_now()
         )
     
     async def _execute_workflow_background(self, workflow_id: str, workflow: WorkflowRequest):
@@ -318,72 +365,67 @@ class PlatformIntegrator:
             status=WorkflowStatus.RUNNING,
             steps=[],
             parameters=workflow.parameters,
-            started_at=datetime.now(),
+            started_at=utc_now(),
             current_step=None
         )
+        await self._save_workflow_state(workflow_id, workflow_state)
         
         try:
-            if workflow.workflow_type == "full_fine_tuning":
-                # 完整的微调工作流
-                steps = [
-                    "data_preparation",
-                    "hyperparameter_optimization", 
+            workflow_steps: Dict[str, List[str]] = {
+                "full_fine_tuning": [
+                    "hyperparameter_optimization",
                     "fine_tuning",
                     "evaluation",
                     "compression",
-                    "model_deployment"
-                ]
-                
-                for step in steps:
-                    workflow_state.current_step = step
-                    
-                    step_result = await self._execute_workflow_step(
-                        step, 
-                        workflow.parameters
-                    )
-                    
-                    workflow_step = WorkflowStep(
-                        step_name=step,
-                        status=WorkflowStatus.COMPLETED if step_result["success"] else WorkflowStatus.FAILED,
-                        started_at=datetime.now(),
-                        completed_at=datetime.now(),
-                        result=step_result.get("result"),
-                        error=step_result.get("error")
-                    )
-                    
-                    workflow_state.steps.append(workflow_step)
-                    
-                    if not step_result["success"]:
-                        workflow_state.status = WorkflowStatus.FAILED
-                        break
-                
-                if workflow_state.status != WorkflowStatus.FAILED:
-                    workflow_state.status = WorkflowStatus.COMPLETED
-            
-            elif workflow.workflow_type == "model_optimization":
-                # 模型优化工作流
-                steps = ["compression", "quantization", "evaluation"]
-                
-                for step in steps:
-                    workflow_state.current_step = step
-                    
-                    step_result = await self._execute_workflow_step(
-                        step,
-                        workflow.parameters
-                    )
-                    
-                    workflow_step = WorkflowStep(
-                        step_name=step,
-                        status=WorkflowStatus.COMPLETED if step_result["success"] else WorkflowStatus.FAILED,
-                        started_at=datetime.now(),
-                        completed_at=datetime.now(),
-                        result=step_result.get("result"),
-                        error=step_result.get("error")
-                    )
-                    
-                    workflow_state.steps.append(workflow_step)
-            
-            workflow_state.completed_at = datetime.now()
+                    "model_deployment",
+                ],
+                "model_optimization": ["compression", "evaluation"],
+                "evaluation_only": ["evaluation"],
+                "data_processing": ["data_processing"],
+            }
+
+            steps = workflow_steps.get(workflow.workflow_type, [])
+            if not steps:
+                raise ValueError("无效工作流类型")
+
+            for step in steps:
+                if self._is_workflow_cancelled(workflow_id):
+                    workflow_state.status = WorkflowStatus.CANCELLED
+                    workflow_state.completed_at = utc_now()
+                    workflow_state.error = "cancelled"
+                    workflow_state.current_step = None
+                    await self._save_workflow_state(workflow_id, workflow_state)
+                    return {"workflow_id": workflow_id, "status": workflow_state.status.value}
+
+                workflow_state.current_step = step
+                await self._save_workflow_state(workflow_id, workflow_state)
+
+                started_at = utc_now()
+                step_result = await self._execute_workflow_step(step, workflow.parameters)
+                completed_at = utc_now()
+
+                workflow_step = WorkflowStep(
+                    step_name=step,
+                    status=WorkflowStatus.COMPLETED if step_result.get("success") else WorkflowStatus.FAILED,
+                    started_at=started_at,
+                    completed_at=completed_at,
+                    result=step_result.get("result"),
+                    error=step_result.get("error"),
+                )
+
+                workflow_state.steps.append(workflow_step)
+                await self._save_workflow_state(workflow_id, workflow_state)
+
+                if not step_result.get("success"):
+                    workflow_state.status = WorkflowStatus.FAILED
+                    workflow_state.error = step_result.get("error") or "step_failed"
+                    break
+
+            if workflow_state.status == WorkflowStatus.RUNNING:
+                workflow_state.status = WorkflowStatus.COMPLETED
+
+            workflow_state.completed_at = utc_now()
+            workflow_state.current_step = None
             
             # 保存工作流状态到Redis
             await self._save_workflow_state(workflow_id, workflow_state)
@@ -411,64 +453,78 @@ class PlatformIntegrator:
         parameters: Dict[str, Any]
     ) -> Dict[str, Any]:
         """执行工作流步骤"""
-        
-        self.logger.info(f"Executing workflow step: {step}")
-        
+        step_map: Dict[str, Dict[str, Any]] = {
+            "hyperparameter_optimization": {
+                "component_type": ComponentType.HYPERPARAMETER,
+                "method": "GET",
+                "endpoint": "/api/v1/hyperparameter-optimization/health",
+            },
+            "fine_tuning": {
+                "component_type": ComponentType.FINE_TUNING,
+                "method": "GET",
+                "endpoint": "/api/v1/fine-tuning/jobs",
+            },
+            "evaluation": {
+                "component_type": ComponentType.EVALUATION,
+                "method": "GET",
+                "endpoint": "/api/v1/model-evaluation/performance/system",
+            },
+            "compression": {
+                "component_type": ComponentType.COMPRESSION,
+                "method": "GET",
+                "endpoint": "/api/v1/model-compression/health",
+            },
+            "model_deployment": {
+                "component_type": ComponentType.MODEL_SERVICE,
+                "method": "GET",
+                "endpoint": "/api/v1/model-service/health",
+            },
+            "data_processing": {
+                "component_type": ComponentType.DATA_MANAGEMENT,
+                "method": "GET",
+                "endpoint": "/api/v1/rag/health",
+            },
+        }
+
+        cfg = step_map.get(step)
+        if not cfg:
+            return {"success": False, "error": f"未知步骤: {step}"}
+
+        component = self._get_component_by_type(cfg["component_type"])
+        if not component:
+            return {"success": False, "error": f"无可用组件: {cfg['component_type'].value}"}
+
         try:
-            # 这里模拟调用各个组件服务
-            # 实际实现中需要根据组件类型调用对应的API
-            
-            if step == "data_preparation":
-                # 调用数据管理服务
-                await asyncio.sleep(1)  # 模拟处理时间
-                result = {"dataset_id": "dataset_001", "status": "prepared"}
-                
-            elif step == "hyperparameter_optimization":
-                # 调用超参数优化服务
-                await asyncio.sleep(2)  # 模拟处理时间
-                result = {"best_params": {"learning_rate": 0.001, "batch_size": 32}}
-                
-            elif step == "fine_tuning":
-                # 调用微调服务
-                await asyncio.sleep(3)  # 模拟处理时间
-                result = {"model_id": "model_001", "metrics": {"accuracy": 0.95}}
-                
-            elif step == "evaluation":
-                # 调用评估服务
-                await asyncio.sleep(1)  # 模拟处理时间
-                result = {"evaluation_score": 0.92, "benchmark_results": {}}
-                
-            elif step == "compression":
-                # 调用压缩服务
-                await asyncio.sleep(2)  # 模拟处理时间
-                result = {"compressed_model_id": "model_001_compressed", "size_reduction": "75%"}
-                
-            elif step == "model_deployment":
-                # 调用模型服务
-                await asyncio.sleep(1)  # 模拟处理时间
-                result = {"deployment_id": "deploy_001", "endpoint": "http://api.example.com/model"}
-                
-            elif step == "quantization":
-                # 量化处理
-                await asyncio.sleep(2)  # 模拟处理时间
-                result = {"quantized_model_id": "model_001_quantized", "precision": "int8"}
-                
-            else:
-                raise ValueError(f"Unknown workflow step: {step}")
-            
-            return {
-                "success": True,
-                "result": result,
-                "step": step
-            }
-            
+            result = await self._call_component_api(
+                component,
+                cfg["endpoint"],
+                data=parameters,
+                method=cfg["method"],
+            )
+            return {"success": True, "result": result}
         except Exception as e:
-            self.logger.error(f"Step {step} failed: {e}")
-            return {
-                "success": False,
-                "error": str(e),
-                "step": step
-            }
+            return {"success": False, "error": str(e)}
+
+    def _is_workflow_cancelled(self, workflow_id: str) -> bool:
+        return bool(self.redis_client.get(f"workflow_cancel:{workflow_id}"))
+
+    async def _cancel_workflow(self, workflow_id: str):
+        self.redis_client.setex(f"workflow_cancel:{workflow_id}", 86400, "1")
+
+        key = f"workflow:{workflow_id}"
+        value = self.redis_client.get(key)
+        if not value:
+            return
+        try:
+            state = json.loads(value)
+        except Exception:
+            return
+
+        if state.get("status") in {WorkflowStatus.RUNNING.value, WorkflowStatus.PENDING.value}:
+            state["status"] = WorkflowStatus.CANCELLED.value
+            state["completed_at"] = utc_now().isoformat()
+            state["error"] = "cancelled"
+            self.redis_client.setex(key, 86400, json.dumps(state, ensure_ascii=False, default=str))
     
     def _get_component_by_type(self, component_type: ComponentType) -> Optional[ComponentInfo]:
         """根据类型获取组件"""
@@ -480,29 +536,29 @@ class PlatformIntegrator:
         return None
     
     async def _call_component_api(
-        self, 
-        component: ComponentInfo, 
-        endpoint: str, 
-        data: Dict[str, Any]
+        self,
+        component: ComponentInfo,
+        endpoint: str,
+        data: Optional[Dict[str, Any]] = None,
+        method: str = "POST",
     ) -> Dict[str, Any]:
         """调用组件API"""
         
         url = f"{component.api_endpoint.rstrip('/')}{endpoint}"
         
         async with aiohttp.ClientSession() as session:
-            async with session.post(
-                url, 
-                json=data, 
-                timeout=aiohttp.ClientTimeout(total=300)
-            ) as response:
-                if response.status == 200:
+            timeout = aiohttp.ClientTimeout(total=300)
+            req_method = method.upper()
+            if req_method == "GET":
+                async with session.get(url, timeout=timeout) as response:
+                    if response.status != 200:
+                        raise HTTPException(status_code=response.status, detail=f"Component API call failed: {await response.text()}")
                     return await response.json()
-                else:
-                    error_text = await response.text()
-                    raise HTTPException(
-                        status_code=response.status,
-                        detail=f"Component API call failed: {error_text}"
-                    )
+
+            async with session.request(url=url, method=req_method, json=data or {}, timeout=timeout) as response:
+                if response.status != 200:
+                    raise HTTPException(status_code=response.status, detail=f"Component API call failed: {await response.text()}")
+                return await response.json()
     
     async def _save_workflow_state(self, workflow_id: str, state: WorkflowState):
         """保存工作流状态"""
@@ -519,3 +575,4 @@ class PlatformIntegrator:
             return json.loads(value)
         else:
             raise ValueError(f"Workflow {workflow_id} not found")
+from src.core.logging import get_logger

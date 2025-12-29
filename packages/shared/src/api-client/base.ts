@@ -35,7 +35,7 @@ export class ApiClient {
     const url = this.buildUrl(endpoint);
     const requestConfig = this.buildRequestConfig(method, data, options);
 
-    let lastError: Error;
+    let lastError: Error | undefined;
     for (let attempt = 0; attempt <= (options?.retries ?? this.config.retries ?? 0); attempt++) {
       try {
         const response = await this.executeRequest(url, requestConfig);
@@ -59,9 +59,9 @@ export class ApiClient {
     }
 
     if (this.config.onError) {
-      this.config.onError(lastError!);
+      this.config.onError(lastError ?? new Error('请求失败'));
     }
-    throw lastError!;
+    throw lastError ?? new Error('请求失败');
   }
 
   async get<T = any>(endpoint: string, options?: RequestConfig): Promise<ApiResponse<T>> {
@@ -99,12 +99,21 @@ export class ApiClient {
 
     const config: RequestInit = {
       method,
-      headers,
-      signal: this.createAbortSignal(options?.timeout ?? this.config.timeout)
+      headers
     };
 
-    if (data && method !== 'GET') {
-      config.body = JSON.stringify(data);
+    const signal = this.createAbortSignal(options?.timeout ?? this.config.timeout);
+    if (signal) {
+      config.signal = signal;
+    }
+
+    if (data !== undefined && method !== 'GET') {
+      if (data instanceof FormData) {
+        delete headers['Content-Type'];
+        config.body = data;
+      } else {
+        config.body = JSON.stringify(data);
+      }
     }
 
     return config;
@@ -138,11 +147,10 @@ export class ApiClient {
     }
 
     if (!response.ok) {
-      throw new ApiError(
-        data.error || `HTTP ${response.status}: ${response.statusText}`,
-        response.status,
-        data
-      );
+      const message = typeof data === 'object' && data
+        ? (data.error || data.message || `HTTP ${response.status}: ${response.statusText}`)
+        : `HTTP ${response.status}: ${response.statusText}`;
+      throw new ApiError(message, response.status, data);
     }
 
     return {
@@ -152,14 +160,11 @@ export class ApiClient {
     };
   }
 
-  private createAbortSignal(timeout?: number): AbortSignal {
+  private createAbortSignal(timeout?: number): AbortSignal | undefined {
     if (!timeout) {
-      return new AbortController().signal;
+      return undefined;
     }
-
-    const controller = new AbortController();
-    setTimeout(() => controller.abort(), timeout);
-    return controller.signal;
+    return AbortSignal.timeout(timeout);
   }
 
   private shouldNotRetry(error: Error): boolean {

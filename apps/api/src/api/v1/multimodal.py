@@ -6,8 +6,6 @@ import re
 from typing import List, Optional, Dict, Any
 from fastapi import APIRouter, UploadFile, File, HTTPException, Depends, BackgroundTasks, Query
 from fastapi.responses import JSONResponse
-import structlog
-
 from src.ai.multimodal import (
     OpenAIMultimodalClient,
     MultimodalProcessor,
@@ -18,6 +16,7 @@ from src.ai.multimodal import (
     ModelComplexity,
     StructuredDataExtractor
 )
+from src.ai.multimodal.config import ModelConfig
 from src.services.file_service import FileUploadService
 from src.models.schemas.multimodal import (
     ProcessingRequest,
@@ -26,9 +25,12 @@ from src.models.schemas.multimodal import (
     BatchProcessingResponse,
     FileUploadResponse,
     ProcessingStatusResponse
+
 )
 
-logger = structlog.get_logger(__name__)
+from src.core.logging import get_logger
+logger = get_logger(__name__)
+
 router = APIRouter(prefix="/multimodal", tags=["multimodal"])
 
 # 全局实例
@@ -36,7 +38,6 @@ _multimodal_client: Optional[OpenAIMultimodalClient] = None
 _processor: Optional[MultimodalProcessor] = None
 _pipeline: Optional[ProcessingPipeline] = None
 _file_service: Optional[FileUploadService] = None
-
 
 async def get_multimodal_client() -> OpenAIMultimodalClient:
     """获取多模态客户端"""
@@ -46,7 +47,6 @@ async def get_multimodal_client() -> OpenAIMultimodalClient:
         await _multimodal_client.__aenter__()
     return _multimodal_client
 
-
 async def get_processor() -> MultimodalProcessor:
     """获取处理器"""
     global _processor
@@ -54,7 +54,6 @@ async def get_processor() -> MultimodalProcessor:
         client = await get_multimodal_client()
         _processor = MultimodalProcessor(client)
     return _processor
-
 
 async def get_pipeline() -> ProcessingPipeline:
     """获取处理管道"""
@@ -65,7 +64,6 @@ async def get_pipeline() -> ProcessingPipeline:
         await _pipeline.start()
     return _pipeline
 
-
 async def get_file_service() -> FileUploadService:
     """获取文件服务"""
     global _file_service
@@ -74,6 +72,13 @@ async def get_file_service() -> FileUploadService:
         _file_service = FileUploadService(openai_client=client)
     return _file_service
 
+@router.get("/models")
+async def list_model_configs():
+    """获取多模态模型配置"""
+    models = []
+    for name, config in ModelConfig.MODEL_CONFIGS.items():
+        models.append({"name": name, **config})
+    return {"models": models, "total": len(models)}
 
 @router.post("/upload", response_model=FileUploadResponse)
 async def upload_file(
@@ -120,7 +125,6 @@ async def upload_file(
     except Exception as e:
         logger.error(f"文件上传失败: {e}")
         raise HTTPException(status_code=500, detail="文件上传失败")
-
 
 @router.post("/process", response_model=ProcessingResponse)
 async def process_content(
@@ -188,7 +192,6 @@ async def process_content(
         logger.error(f"处理内容失败: {e}")
         raise HTTPException(status_code=500, detail="处理失败")
 
-
 @router.post("/process/batch", response_model=BatchProcessingResponse)
 async def process_batch(
     request: BatchProcessingRequest,
@@ -241,7 +244,6 @@ async def process_batch(
         logger.error(f"批量处理失败: {e}")
         raise HTTPException(status_code=500, detail="批量处理失败")
 
-
 @router.get("/status/{content_id}", response_model=ProcessingStatusResponse)
 async def get_processing_status(
     content_id: str,
@@ -270,7 +272,6 @@ async def get_processing_status(
         logger.error(f"获取状态失败: {e}")
         raise HTTPException(status_code=500, detail="获取状态失败")
 
-
 @router.get("/queue/status")
 async def get_queue_status(
     pipeline: ProcessingPipeline = Depends(get_pipeline)
@@ -283,7 +284,6 @@ async def get_queue_status(
     except Exception as e:
         logger.error(f"获取队列状态失败: {e}")
         raise HTTPException(status_code=500, detail="获取队列状态失败")
-
 
 @router.post("/analyze/image")
 async def analyze_image(
@@ -336,7 +336,6 @@ async def analyze_image(
         logger.error(f"图像分析失败: {e}")
         raise HTTPException(status_code=500, detail="图像分析失败")
 
-
 @router.delete("/file/{content_id}")
 async def delete_file(
     content_id: str,
@@ -356,7 +355,6 @@ async def delete_file(
     except Exception as e:
         logger.error(f"删除文件失败: {e}")
         raise HTTPException(status_code=500, detail="删除文件失败")
-
 
 # 辅助函数
 def _is_safe_filename(filename: str) -> bool:
@@ -386,7 +384,6 @@ def _is_safe_filename(filename: str) -> bool:
     
     file_ext = '.' + filename.split('.')[-1].lower() if '.' in filename else ''
     return file_ext in allowed_extensions
-
 
 # 清理任务
 async def cleanup_on_shutdown():

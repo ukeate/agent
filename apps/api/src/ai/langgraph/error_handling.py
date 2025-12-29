@@ -1,23 +1,26 @@
 """
 工作流错误处理和重试策略
 """
+
 from typing import Any, Dict, List, Optional, Callable
 from dataclasses import dataclass, field
 from datetime import datetime
-from src.core.utils.timezone_utils import utc_now, utc_factory, timezone
+from src.core.utils.timezone_utils import utc_now, utc_factory
 from enum import Enum
 import asyncio
 import traceback
 from tenacity import (
+
     retry, 
     stop_after_attempt, 
     wait_exponential, 
     retry_if_exception_type,
     RetryError
 )
-
 from .state import MessagesState
 
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 class ErrorType(Enum):
     """错误类型枚举"""
@@ -28,14 +31,12 @@ class ErrorType(Enum):
     SYSTEM_ERROR = "system_error"
     UNKNOWN_ERROR = "unknown_error"
 
-
 class ErrorSeverity(Enum):
     """错误严重程度"""
     LOW = "low"
     MEDIUM = "medium"
     HIGH = "high"
     CRITICAL = "critical"
-
 
 @dataclass
 class WorkflowError:
@@ -53,7 +54,6 @@ class WorkflowError:
     retry_count: int = 0
     max_retries: int = 3
     is_recoverable: bool = True
-
 
 class ErrorHandler:
     """错误处理器"""
@@ -97,14 +97,14 @@ class ErrorHandler:
             try:
                 await self.error_handlers[workflow_error.error_type](workflow_error, state)
             except Exception as handler_error:
-                print(f"错误处理器执行失败: {handler_error}")
+                logger.error("错误处理器执行失败", error=str(handler_error), exc_info=True)
         
         # 执行全局回调
         for callback in self.global_error_callbacks:
             try:
                 await callback(workflow_error, state)
             except Exception as callback_error:
-                print(f"全局错误回调执行失败: {callback_error}")
+                logger.error("全局错误回调执行失败", error=str(callback_error), exc_info=True)
         
         return workflow_error
     
@@ -147,7 +147,6 @@ class ErrorHandler:
             is_recoverable=is_recoverable
         )
 
-
 class RetryStrategy:
     """重试策略"""
     
@@ -181,7 +180,6 @@ class RetryStrategy:
         delay = self.base_delay * (2 ** retry_count)
         return min(delay, self.max_delay)
 
-
 class WorkflowErrorRecovery:
     """工作流错误恢复"""
     
@@ -195,18 +193,18 @@ class WorkflowErrorRecovery:
         
         async def handle_network_error(error: WorkflowError, state: MessagesState):
             """处理网络错误"""
-            print(f"处理网络错误: {error.message}")
+            logger.warning("处理网络错误", message=error.message)
             state["context"]["recovery_action"] = "network_retry"
         
         async def handle_timeout_error(error: WorkflowError, state: MessagesState):
             """处理超时错误"""
-            print(f"处理超时错误: {error.message}")
+            logger.warning("处理超时错误", message=error.message)
             state["context"]["recovery_action"] = "timeout_recovery"
             # 可以选择降级处理或增加超时时间
         
         async def handle_validation_error(error: WorkflowError, state: MessagesState):
             """处理验证错误"""
-            print(f"处理验证错误: {error.message}")
+            logger.warning("处理验证错误", message=error.message)
             state["context"]["recovery_action"] = "validation_failed"
             state["metadata"]["status"] = "failed"  # 验证错误通常不可恢复
         
@@ -246,7 +244,12 @@ class WorkflowErrorRecovery:
                 # 如果不是最后一次尝试，等待重试延迟
                 if attempt < self.retry_strategy.max_attempts - 1:
                     delay = self.retry_strategy.get_retry_delay(attempt)
-                    print(f"第{attempt + 1}次尝试失败，{delay}秒后重试: {last_error.message}")
+                    logger.warning(
+                        "重试失败，准备重试",
+                        attempt=attempt + 1,
+                        delay_seconds=delay,
+                        message=last_error.message,
+                    )
                     await asyncio.sleep(delay)
         
         # 所有重试都失败了
@@ -262,7 +265,6 @@ class WorkflowErrorRecovery:
         else:
             raise RuntimeError("工作流执行失败，原因未知")
 
-
 # 装饰器形式的重试机制
 def workflow_retry(max_attempts: int = 3, delay: float = 1.0, exceptions: tuple = (Exception,)):
     """工作流重试装饰器"""
@@ -272,7 +274,6 @@ def workflow_retry(max_attempts: int = 3, delay: float = 1.0, exceptions: tuple 
         retry=retry_if_exception_type(exceptions),
         reraise=True
     )
-
 
 # 全局错误恢复实例
 error_recovery = WorkflowErrorRecovery()

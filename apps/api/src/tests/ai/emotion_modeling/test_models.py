@@ -1,13 +1,14 @@
 """
 测试情感状态建模系统的数据模型
 """
+
+from src.core.utils.timezone_utils import utc_now
 import pytest
-from datetime import datetime, timedelta
+from datetime import timedelta
 from src.ai.emotion_modeling.models import (
     EmotionState, PersonalityProfile, EmotionTransition, EmotionPrediction,
     EmotionStatistics, EmotionType, PersonalityTrait
 )
-
 
 class TestEmotionState:
     """测试EmotionState数据类"""
@@ -63,7 +64,7 @@ class TestEmotionState:
             'arousal': 0.9,
             'dominance': 0.8,
             'confidence': 0.85,
-            'timestamp': datetime.now().isoformat(),
+            'timestamp': utc_now().isoformat(),
             'triggers': ["injustice"],
             'context': {"event": "meeting"},
             'source': 'voice'
@@ -101,7 +102,6 @@ class TestEmotionState:
         
         assert high_arousal.is_high_arousal() == True
         assert low_arousal.is_high_arousal() == False
-
 
 class TestPersonalityProfile:
     """测试PersonalityProfile数据类"""
@@ -168,7 +168,6 @@ class TestPersonalityProfile:
         assert fast.is_fast_recovery() == True
         assert slow.is_fast_recovery() == False
 
-
 class TestEmotionTransition:
     """测试EmotionTransition数据类"""
     
@@ -213,7 +212,7 @@ class TestEmotionTransition:
             'transition_probability': 0.6,
             'occurrence_count': 2,
             'avg_duration': 600,  # 10分钟
-            'updated_at': datetime.now().isoformat(),
+            'updated_at': utc_now().isoformat(),
             'context_factors': ["support", "resolution"]
         }
         
@@ -222,7 +221,6 @@ class TestEmotionTransition:
         assert transition.to_emotion == "relief"
         assert transition.avg_duration == timedelta(seconds=600)
         assert transition.context_factors == ["support", "resolution"]
-
 
 class TestEmotionPrediction:
     """测试EmotionPrediction数据类"""
@@ -255,14 +253,13 @@ class TestEmotionPrediction:
         empty_prediction = EmotionPrediction()
         assert empty_prediction.get_most_likely_emotion() is None
 
-
 class TestEmotionStatistics:
     """测试EmotionStatistics数据类"""
     
     def test_create_statistics(self):
         """测试创建情感统计"""
-        start_time = datetime.now() - timedelta(days=7)
-        end_time = datetime.now()
+        start_time = utc_now() - timedelta(days=7)
+        end_time = utc_now()
         
         stats = EmotionStatistics(
             user_id="test_user",
@@ -278,8 +275,8 @@ class TestEmotionStatistics:
     
     def test_statistics_to_dict(self):
         """测试统计信息转字典"""
-        start_time = datetime.now() - timedelta(days=1)
-        end_time = datetime.now()
+        start_time = utc_now() - timedelta(days=1)
+        end_time = utc_now()
         
         stats = EmotionStatistics(
             user_id="test_user",
@@ -291,7 +288,6 @@ class TestEmotionStatistics:
         assert data['user_id'] == "test_user"
         assert len(data['time_period']) == 2
         assert data['intensity_stats'] == {"mean": 0.65, "std": 0.2}
-
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

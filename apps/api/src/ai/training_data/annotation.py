@@ -19,7 +19,6 @@ import numpy as np
 from scipy import stats
 from sqlalchemy import select, and_, or_, func
 from sqlalchemy.ext.asyncio import AsyncSession
-
 from .models import (
     AnnotationTaskModel, AnnotationModel, DataRecordModel,
     AnnotationTaskType, AnnotationStatus
@@ -27,8 +26,8 @@ from .models import (
 from .core import (
     AnnotationTask, Annotation, DataRecord, TaskStatistics, 
     AnnotationProgress
-)
 
+)
 
 class AssignmentStrategy(Enum):
     """标注分配策略"""
@@ -37,14 +36,12 @@ class AssignmentStrategy(Enum):
     EXPERTISE_BASED = "expertise_based"
     RANDOM = "random"
 
-
 class QualityMetric(Enum):
     """质量评估指标"""
     AGREEMENT = "agreement"
     CONFIDENCE = "confidence"
     CONSISTENCY = "consistency"
     SPEED = "speed"
-
 
 @dataclass
 class AnnotatorProfile:
@@ -58,7 +55,6 @@ class AnnotatorProfile:
     total_annotations: int
     accuracy_rate: float  # 0.0 - 1.0
 
-
 @dataclass
 class QualityReport:
     """质量报告"""
@@ -68,7 +64,6 @@ class QualityReport:
     consistency_metrics: Dict[str, float]
     annotator_performance: List[Dict[str, Any]]
     recommendations: List[str]
-
 
 class AnnotationManager:
     """标注管理器"""
@@ -386,7 +381,6 @@ class AnnotationManager:
         )
         
         return estimated_completion
-
 
 class QualityController:
     """质量控制器"""

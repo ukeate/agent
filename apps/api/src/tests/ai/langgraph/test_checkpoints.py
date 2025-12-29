@@ -2,6 +2,7 @@
 LangGraph检查点和状态恢复测试（修复版）
 测试工作流检查点的创建、保存、加载、恢复和清理功能
 """
+
 import pytest
 import asyncio
 from datetime import datetime
@@ -11,7 +12,6 @@ from typing import Dict, List, Any
 from unittest.mock import Mock, AsyncMock, patch, MagicMock
 import uuid
 import json
-
 from src.ai.langgraph.checkpoints import (
     Checkpoint,
     CheckpointStorage,
@@ -24,8 +24,8 @@ from src.ai.langgraph.state import (
     serialize_state,
     deserialize_state,
     validate_state
-)
 
+)
 
 @pytest.fixture
 def sample_state() -> MessagesState:
@@ -48,7 +48,6 @@ def sample_state() -> MessagesState:
         }
     }
 
-
 @pytest.fixture
 def sample_checkpoint(sample_state) -> Checkpoint:
     """创建示例检查点"""
@@ -65,12 +64,10 @@ def sample_checkpoint(sample_state) -> Checkpoint:
         version=1
     )
 
-
 @pytest.fixture
 def checkpoint_storage():
     """创建检查点存储实例"""
     return PostgreSQLCheckpointStorage()
-
 
 @pytest.fixture
 def mock_db_session():
@@ -81,7 +78,6 @@ def mock_db_session():
     session.rollback = AsyncMock()
     session.execute = AsyncMock()
     return session
-
 
 class TestCheckpointCreation:
     """检查点创建测试"""
@@ -123,7 +119,6 @@ class TestCheckpointCreation:
         invalid_state = {"invalid": "structure"}
         checkpoint_invalid = Checkpoint(state=invalid_state)
         assert validate_state(checkpoint_invalid.state) is False
-
 
 class TestCheckpointSaveLoad:
     """检查点保存和加载测试"""
@@ -216,7 +211,6 @@ class TestCheckpointSaveLoad:
             
             assert loaded is None
 
-
 class TestCheckpointManagement:
     """检查点管理测试"""
     
@@ -307,7 +301,6 @@ class TestCheckpointManagement:
             # 验证最新的10个保留
             for i in range(10):
                 assert mock_models[i].is_deleted is False
-
 
 class TestCheckpointErrorHandling:
     """检查点错误处理测试"""

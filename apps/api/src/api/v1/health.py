@@ -2,19 +2,17 @@
 
 from fastapi import APIRouter, Query
 from typing import Dict, Any
-
 from src.core.health import get_health_status, check_readiness, check_liveness, HealthStatus
-from src.core.monitoring import monitoring_service
-from src.core.logging import get_logger
+from src.core.monitoring import get_monitoring_service
 
 logger = get_logger(__name__)
 
 router = APIRouter(prefix="/health", tags=["health"])
 
-
 @router.get("")
 async def health_check(detailed: bool = Query(False, description="是否返回详细信息")) -> Dict[str, Any]:
     """
+
     基础健康检查端点
     
     Args:
@@ -40,7 +38,6 @@ async def health_check(detailed: bool = Query(False, description="是否返回�
             "error": str(e)
         }
 
-
 @router.get("/live")
 async def liveness_check() -> Dict[str, str]:
     """
@@ -63,7 +60,6 @@ async def liveness_check() -> Dict[str, str]:
     except Exception as e:
         logger.error(f"Liveness check failed: {e}")
         return {"status": "dead", "error": str(e)}
-
 
 @router.get("/ready")
 async def readiness_check() -> Dict[str, Any]:
@@ -94,7 +90,6 @@ async def readiness_check() -> Dict[str, Any]:
         logger.error(f"Readiness check failed: {e}")
         return {"status": "not_ready", "error": str(e)}
 
-
 @router.get("/metrics")
 async def get_metrics() -> Dict[str, Any]:
     """
@@ -104,13 +99,13 @@ async def get_metrics() -> Dict[str, Any]:
         系统性能和资源指标
     """
     try:
+        monitoring_service = get_monitoring_service()
         metrics = await monitoring_service.collect_all_metrics()
         return metrics
         
     except Exception as e:
         logger.error(f"Failed to collect metrics: {e}")
         return {"error": str(e)}
-
 
 @router.get("/alerts")
 async def get_alerts() -> Dict[str, Any]:
@@ -121,6 +116,7 @@ async def get_alerts() -> Dict[str, Any]:
         当前活动的系统告警
     """
     try:
+        monitoring_service = get_monitoring_service()
         alerts = await monitoring_service.alert_manager.get_active_alerts()
         
         return {
@@ -131,3 +127,4 @@ async def get_alerts() -> Dict[str, Any]:
     except Exception as e:
         logger.error(f"Failed to get alerts: {e}")
         return {"error": str(e)}
+from src.core.logging import get_logger

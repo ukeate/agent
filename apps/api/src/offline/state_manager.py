@@ -6,7 +6,7 @@
 
 import json
 import gzip
-import pickle
+from src.core.utils import secure_pickle as pickle
 from datetime import datetime
 from datetime import timedelta
 from src.core.utils.timezone_utils import utc_now, utc_factory
@@ -14,11 +14,10 @@ from typing import Dict, Any, List, Optional, Union
 from dataclasses import dataclass, asdict
 from enum import Enum
 from uuid import uuid4
-
 from ..models.schemas.offline import VectorClock, SyncOperation, SyncOperationType, StateSnapshot
 from .models import OfflineDatabase
 
-
+from src.core.logging import get_logger
 class SnapshotType(str, Enum):
     """快照类型"""
     MANUAL = "manual"
@@ -26,14 +25,12 @@ class SnapshotType(str, Enum):
     AUTO_CHECKPOINT = "auto_checkpoint"
     AUTO_SYNC = "auto_sync"
 
-
 class CompressionType(str, Enum):
     """压缩类型"""
     NONE = "none"
     GZIP = "gzip"
     PICKLE = "pickle"
     JSON_GZIP = "json_gzip"
-
 
 @dataclass
 class StateUpdate:
@@ -61,11 +58,11 @@ class StateUpdate:
             "vector_clock": self.vector_clock.model_dump()
         }
 
-
 class StateManager:
     """状态管理器"""
     
     def __init__(self, database: OfflineDatabase):
+        self.logger = get_logger(__name__)
         self.database = database
         self.current_states: Dict[str, Dict[str, Any]] = {}
         self.state_updates: Dict[str, List[StateUpdate]] = {}
@@ -297,7 +294,7 @@ class StateManager:
                 self._apply_operation_to_state(replayed_state, operation)
                 applied_operations.append(operation)
             except Exception as e:
-                print(f"重放操作失败: {operation.id}, 错误: {e}")
+                self.logger.error("重放操作失败", operation_id=operation.id, error=str(e))
         
         # 更新当前状态
         self.current_states[session_id] = replayed_state
@@ -420,9 +417,16 @@ class StateManager:
     
     def _cleanup_old_snapshots(self, session_id: str, snapshot_type: SnapshotType):
         """清理旧快照"""
-        # 这里应该调用数据库方法清理旧快照
-        # 简化实现，实际需要在数据库层面实现
-        pass
+        try:
+            deleted = self.database.cleanup_old_snapshots(
+                session_id=session_id,
+                snapshot_type=snapshot_type.value,
+                max_history=self.max_snapshot_history,
+            )
+            if deleted:
+                self.logger.debug("清理旧快照完成", session_id=session_id, deleted=deleted)
+        except Exception:
+            self.logger.exception("清理旧快照失败", exc_info=True)
     
     def get_state_statistics(self, session_id: str) -> Dict[str, Any]:
         """获取状态统计信息"""
@@ -493,5 +497,5 @@ class StateManager:
             
             return True
         except Exception as e:
-            print(f"导入状态失败: {e}")
+            self.logger.error("导入状态失败", error=str(e))
             return False

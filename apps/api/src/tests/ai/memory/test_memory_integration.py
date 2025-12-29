@@ -1,4 +1,5 @@
 """记忆系统集成测试"""
+
 import pytest
 import asyncio
 from datetime import datetime
@@ -6,11 +7,8 @@ from datetime import timedelta
 from src.core.utils.timezone_utils import utc_now, utc_factory
 from unittest.mock import AsyncMock, Mock, patch
 import json
-
 import sys
 import os
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))))
-
 from src.ai.memory.models import Memory, MemoryType, MemoryStatus, MemoryFilters
 from src.ai.memory.hierarchy_manager import MemoryHierarchyManager
 from src.ai.memory.context_recall import ContextAwareRecall
@@ -18,6 +16,7 @@ from src.ai.memory.association_graph import MemoryAssociationGraph
 from src.ai.memory.config import MemoryConfig
 from src.services.memory_service import MemoryService
 
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))))
 
 @pytest.mark.asyncio
 class TestMemoryIntegration:
@@ -292,7 +291,6 @@ class TestMemoryIntegration:
         # 验证删除被调用
         assert memory_service.hierarchy_manager.storage.delete_memory.call_count == 3
 
-
 @pytest.mark.asyncio 
 class TestContextAwareRecall:
     """上下文感知召回测试"""
@@ -373,7 +371,6 @@ class TestContextAwareRecall:
             
             assert len(chain) >= 1
             assert chain[0].id == "start"
-
 
 @pytest.mark.asyncio
 class TestMemoryAssociationGraph:

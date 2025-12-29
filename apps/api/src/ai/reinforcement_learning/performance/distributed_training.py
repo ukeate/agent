@@ -12,15 +12,16 @@ from typing import Dict, List, Optional, Any, Callable, Tuple
 from dataclasses import dataclass, asdict
 from enum import Enum
 import numpy as np
-import tensorflow as tf
+from src.core.tensorflow_config import tensorflow_lazy
 from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor, as_completed
 import queue
-import pickle
+from src.core.utils import secure_pickle as pickle
 import socket
 import struct
-
 from ..qlearning.base import Experience, QLearningAgent, QLearningConfig
 
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 class DistributionStrategy(Enum):
     """分布式策略类型"""
@@ -30,13 +31,11 @@ class DistributionStrategy(Enum):
     ALLREDUCE = "allreduce"                 # AllReduce
     ASYNC_UPDATES = "async_updates"          # 异步更新
 
-
 class NodeType(Enum):
     """节点类型"""
     CHIEF = "chief"          # 主节点
     WORKER = "worker"        # 工作节点
     PS = "parameter_server"  # 参数服务器
-
 
 @dataclass
 class DistributedConfig:
@@ -61,7 +60,6 @@ class DistributedConfig:
     use_xla: bool = True
     mixed_precision: bool = True
     gradient_clipping: float = 1.0
-
 
 class DistributedTrainingManager:
     """分布式训练管理器"""
@@ -91,7 +89,7 @@ class DistributedTrainingManager:
     def _setup_distribution_strategy(self):
         """设置分布式策略"""
         if self.config.cluster_spec:
-            self.cluster_resolver = tf.distribute.cluster_resolver.SimpleClusterResolver(
+            self.cluster_resolver = tensorflow_lazy.tf.distribute.cluster_resolver.SimpleClusterResolver(
                 cluster_spec=self.config.cluster_spec,
                 task_type=self.config.task_type.value,
                 task_id=self.config.task_index
@@ -99,29 +97,29 @@ class DistributedTrainingManager:
         
         if self.config.strategy == DistributionStrategy.DATA_PARALLEL:
             if self.cluster_resolver:
-                self.strategy = tf.distribute.MultiWorkerMirroredStrategy(
+                self.strategy = tensorflow_lazy.tf.distribute.MultiWorkerMirroredStrategy(
                     cluster_resolver=self.cluster_resolver
                 )
             else:
-                self.strategy = tf.distribute.MirroredStrategy()
+                self.strategy = tensorflow_lazy.tf.distribute.MirroredStrategy()
         
         elif self.config.strategy == DistributionStrategy.PARAMETER_SERVER:
             if self.cluster_resolver:
-                self.strategy = tf.distribute.experimental.ParameterServerStrategy(
+                self.strategy = tensorflow_lazy.tf.distribute.experimental.ParameterServerStrategy(
                     cluster_resolver=self.cluster_resolver
                 )
             else:
                 raise ValueError("参数服务器策略需要集群配置")
         
         elif self.config.strategy == DistributionStrategy.ALLREDUCE:
-            self.strategy = tf.distribute.MultiWorkerMirroredStrategy(
-                communication_options=tf.distribute.experimental.CommunicationOptions(
-                    implementation=tf.distribute.experimental.CommunicationImplementation.NCCL
+            self.strategy = tensorflow_lazy.tf.distribute.MultiWorkerMirroredStrategy(
+                communication_options=tensorflow_lazy.tf.distribute.experimental.CommunicationOptions(
+                    implementation=tensorflow_lazy.tf.distribute.experimental.CommunicationImplementation.NCCL
                 )
             )
         
-        print(f"设置分布式策略: {self.config.strategy.value}")
-        print(f"使用设备: {self.strategy.num_replicas_in_sync} 个副本")
+        logger.info("设置分布式策略", strategy=self.config.strategy.value)
+        logger.info("使用设备", replicas=self.strategy.num_replicas_in_sync)
     
     def _setup_cluster(self):
         """设置集群配置"""
@@ -178,7 +176,7 @@ class DistributedTrainingManager:
         aggregated_metrics = {}
         for key in per_replica_results.keys():
             aggregated_metrics[key] = self.strategy.reduce(
-                tf.distribute.ReduceOp.MEAN, per_replica_results[key], axis=None
+                tensorflow_lazy.tf.distribute.ReduceOp.MEAN, per_replica_results[key], axis=None
             ).numpy()
         
         training_time = time.time() - start_time
@@ -209,7 +207,11 @@ class DistributedTrainingManager:
             worker_process.start()
             self.workers.append(worker_process)
         
-        print(f"启动分布式训练: {self.config.num_workers} 工作进程, {self.config.num_ps} 参数服务器")
+        logger.info(
+            "启动分布式训练",
+            workers=self.config.num_workers,
+            parameter_servers=self.config.num_ps,
+        )
     
     def _run_parameter_server(self, ps_id: int, agent_factory: Callable, training_data_fn: Callable):
         """运行参数服务器"""
@@ -223,8 +225,8 @@ class DistributedTrainingManager:
             agent = agent_factory()
             
             # 参数服务器主要负责存储和更新参数
-            server = tf.distribute.Server(
-                tf.train.ClusterSpec(self.config.cluster_spec),
+            server = tensorflow_lazy.tf.distribute.Server(
+                tensorflow_lazy.tf.train.ClusterSpec(self.config.cluster_spec),
                 job_name="ps",
                 task_index=ps_id
             )
@@ -336,8 +338,10 @@ class DistributedTrainingManager:
     
     def _synchronize_parameters(self, agent: QLearningAgent):
         """同步参数（单个智能体）"""
-        # 在实际实现中，这里会与参数服务器通信
-        pass
+        # MirroredStrategy/AllReduce会在训练步骤中自动同步
+        if self.config.strategy in {DistributionStrategy.DATA_PARALLEL, DistributionStrategy.ALLREDUCE}:
+            return
+        logger.debug("参数同步尚未配置", strategy=self.config.strategy.value)
     
     def async_parameter_update(self, agent: QLearningAgent, gradients: List[np.ndarray]):
         """异步参数更新"""
@@ -358,7 +362,7 @@ class DistributedTrainingManager:
         try:
             self.communication_queue.put(update_data, timeout=1.0)
         except queue.Full:
-            print("通信队列已满，跳过此次更新")
+            logger.warning("通信队列已满，跳过此次更新")
     
     def _compress_gradients(self, gradients: List[np.ndarray]) -> List[np.ndarray]:
         """压缩梯度"""
@@ -401,7 +405,7 @@ class DistributedTrainingManager:
     
     def benchmark_communication(self) -> Dict[str, float]:
         """测试通信性能"""
-        print("开始通信性能测试...")
+        logger.info("开始通信性能测试")
         
         # 测试数据
         test_data_sizes = [1, 10, 100, 1000]  # KB
@@ -462,7 +466,7 @@ class DistributedTrainingManager:
         with open(config_path, 'w') as f:
             json.dump(asdict(self.config), f, indent=2)
         
-        print(f"保存检查点: {checkpoint_path}")
+        logger.info("保存检查点", path=str(checkpoint_path))
     
     def load_checkpoint(self, agent_factory: Callable, checkpoint_path: str) -> List[QLearningAgent]:
         """加载检查点"""
@@ -484,12 +488,16 @@ class DistributedTrainingManager:
             agents.append(agent)
             i += 1
         
-        print(f"加载检查点: {checkpoint_path}, 智能体数量: {len(agents)}")
+        logger.info(
+            "加载检查点",
+            path=str(checkpoint_path),
+            agent_count=len(agents),
+        )
         return agents
     
     def shutdown(self):
         """关闭分布式训练"""
-        print("关闭分布式训练...")
+        logger.info("关闭分布式训练")
         
         # 停止所有工作进程
         for worker in self.workers:
@@ -503,7 +511,6 @@ class DistributedTrainingManager:
         
         self.workers.clear()
         self.parameter_servers.clear()
-
 
 def create_distributed_config(
     strategy: str = "data_parallel",

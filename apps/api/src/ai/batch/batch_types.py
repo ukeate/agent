@@ -12,7 +12,6 @@ from src.core.utils.timezone_utils import utc_now, utc_factory
 import hashlib
 import json
 
-
 class BatchStatus(str, Enum):
     """批处理状态"""
     PENDING = "pending"
@@ -22,14 +21,12 @@ class BatchStatus(str, Enum):
     CANCELLED = "cancelled"
     PAUSED = "paused"
 
-
 class TaskPriority(int, Enum):
     """任务优先级"""
     LOW = 1
     NORMAL = 5
     HIGH = 8
     URGENT = 10
-
 
 @dataclass
 class BatchTask:
@@ -46,7 +43,7 @@ class BatchTask:
     
     # 状态信息
     status: BatchStatus = BatchStatus.PENDING
-    created_at: datetime = field(default_factory=datetime.utcnow)
+    created_at: datetime = field(default_factory=utc_now)
     started_at: Optional[datetime] = None
     completed_at: Optional[datetime] = None
     
@@ -104,7 +101,6 @@ class BatchTask:
                 return self.retry_delays[self.retry_count]
             return 30.0  # 默认30秒
 
-
 @dataclass
 class BatchJob:
     """批处理作业"""
@@ -124,7 +120,7 @@ class BatchJob:
     cancelled_tasks: int = 0
     
     # 时间信息
-    created_at: datetime = field(default_factory=datetime.utcnow)
+    created_at: datetime = field(default_factory=utc_now)
     started_at: Optional[datetime] = None
     completed_at: Optional[datetime] = None
     

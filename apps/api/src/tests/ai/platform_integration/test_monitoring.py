@@ -3,9 +3,7 @@
 import pytest
 from unittest.mock import Mock, AsyncMock, patch, MagicMock
 from datetime import datetime, timedelta
-
 from ai.platform_integration.monitoring import MonitoringSystem, PROMETHEUS_AVAILABLE
-
 
 @pytest.fixture
 def monitoring_config():
@@ -16,14 +14,12 @@ def monitoring_config():
         'redis_db': 0
     }
 
-
 @pytest.fixture
 def monitoring_system(monitoring_config):
     """监控系统实例"""
     with patch('redis.Redis'):
         system = MonitoringSystem(monitoring_config)
         return system
-
 
 class TestMonitoringSystem:
     """监控系统测试类"""
@@ -445,7 +441,6 @@ class TestMonitoringSystem:
         end_time = datetime.fromisoformat(result["end_time"])
         duration = end_time - start_time
         assert abs(duration.total_seconds() - 12 * 3600) < 60  # 允许1分钟误差
-
 
 class TestMonitoringSystemIntegration:
     """监控系统集成测试"""

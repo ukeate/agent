@@ -4,10 +4,11 @@
  * 提供流式处理、背压控制和队列监控的API接口
  */
 
-import { apiClient } from './apiClient';
+import { buildApiUrl, buildWsUrl } from '../utils/apiBase'
+import apiClient from './apiClient';
 
 export interface StreamingMetrics {
-  total_sessions: 0;
+  total_sessions: number;
   active_sessions: number;
   total_sessions_created: number;
   total_tokens_processed: number;
@@ -41,7 +42,7 @@ export interface BackpressureStatus {
 }
 
 export interface FlowControlMetrics {
-  backpressure_enabled: false;
+  backpressure_enabled: boolean;
   max_concurrent_sessions: number;
   current_sessions: number;
   backpressure_status?: BackpressureStatus;
@@ -144,7 +145,7 @@ class StreamingService {
 
   // 流量控制指标
   async getFlowControlMetrics(): Promise<{
-    flow_control_metrics: { buffer_size: 0, queue_depth: 0, processing_rate: 0 };
+    flow_control_metrics: FlowControlMetrics;
     timestamp: string;
   }> {
     const response = await apiClient.get(`${this.baseUrl}/flow-control/metrics`);
@@ -159,8 +160,8 @@ class StreamingService {
 
   // 会话管理
   async getSessions(): Promise<{
-    sessions: {};
-    total_sessions: 0;
+    sessions: Record<string, SessionMetrics>;
+    total_sessions: number;
     timestamp: string;
   }> {
     const response = await apiClient.get(`${this.baseUrl}/sessions`);
@@ -168,7 +169,7 @@ class StreamingService {
   }
 
   async getSessionMetrics(sessionId: string): Promise<{
-    session_metrics: { session_id: "", active: false, start_time: "", messages_count: 0 };
+    session_metrics: SessionMetrics;
     timestamp: string;
   }> {
     const response = await apiClient.get(`${this.baseUrl}/sessions/${sessionId}/metrics`);
@@ -208,7 +209,7 @@ class StreamingService {
     status: string;
     service: string;
     active_sessions: number;
-    total_sessions: 0;
+    total_sessions: number;
     uptime: number;
     timestamp: string;
     error?: string;
@@ -219,16 +220,14 @@ class StreamingService {
 
   // SSE流式连接
   createSSEConnection(sessionId: string, message: string): EventSource {
-    const url = new URL(`/api/v1${this.baseUrl}/sse/${sessionId}`, window.location.origin);
+    const url = new URL(buildApiUrl(`${this.baseUrl}/sse/${sessionId}`), window.location.origin);
     url.searchParams.set('message', message);
     return new EventSource(url.toString());
   }
 
   // WebSocket流式连接
   createWebSocketConnection(sessionId: string): WebSocket {
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const url = `${protocol}//${window.location.host}/api/v1${this.baseUrl}/ws/${sessionId}`;
-    return new WebSocket(url);
+    return new WebSocket(buildWsUrl(`${this.baseUrl}/ws/${sessionId}`));
   }
 }
 

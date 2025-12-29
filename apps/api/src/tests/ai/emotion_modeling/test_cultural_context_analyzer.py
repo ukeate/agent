@@ -7,7 +7,6 @@ import pytest
 import asyncio
 from typing import Dict, List, Any
 from unittest.mock import Mock, patch
-
 from ai.emotion_modeling.cultural_context_analyzer import (
     CulturalContextAnalyzer,
     CulturalDimension,
@@ -17,12 +16,10 @@ from ai.emotion_modeling.cultural_context_analyzer import (
 )
 from ai.emotion_modeling.models import EmotionVector, SocialContext
 
-
 @pytest.fixture
 def analyzer():
     """创建文化背景分析器实例"""
     return CulturalContextAnalyzer()
-
 
 @pytest.fixture
 def sample_emotion_vector():
@@ -38,7 +35,6 @@ def sample_emotion_vector():
         confidence=0.8,
         context={"interaction_type": "business"}
     )
-
 
 @pytest.fixture
 def sample_participants():
@@ -69,7 +65,6 @@ def sample_participants():
             }
         }
     ]
-
 
 class TestCulturalContextAnalyzer:
     """文化背景分析器基础功能测试"""
@@ -141,7 +136,6 @@ class TestCulturalContextAnalyzer:
         
         assert 0.0 <= score <= 1.0
         assert score > 0.5  # 应该是较好的匹配
-
 
 class TestCulturalAdaptation:
     """文化适配功能测试"""
@@ -280,7 +274,6 @@ class TestCulturalAdaptation:
         ]
         assert any(strategy in strategies for strategy in low_context_strategies)
 
-
 class TestCulturalMisunderstandingDetection:
     """文化误解检测测试"""
     
@@ -346,7 +339,6 @@ class TestCulturalMisunderstandingDetection:
         
         assert "emotional_expression_may_be_inappropriate" in misunderstandings
 
-
 class TestRecommendationSystem:
     """推荐系统测试"""
     
@@ -392,7 +384,6 @@ class TestRecommendationSystem:
         # 如果有适配，分数应该高于基础分数
         if sample_emotion_vector != adapted:
             assert score > 0.5
-
 
 class TestLearningSystem:
     """学习系统测试"""
@@ -473,7 +464,6 @@ class TestLearningSystem:
         top_combo = insights["most_successful_combinations"][0]
         assert top_combo["combination"] == "combo_3"
         assert top_combo["success_rate"] > 0.8
-
 
 class TestUtilityMethods:
     """工具方法测试"""
@@ -569,7 +559,6 @@ class TestUtilityMethods:
         assert "test_culture" in analyzer.cultural_profiles
         assert analyzer.cultural_profiles["test_culture"] == new_profile
 
-
 class TestErrorHandling:
     """错误处理测试"""
     
@@ -608,7 +597,6 @@ class TestErrorHandling:
         score = analyzer._calculate_cultural_match_score(indicators, profile)
         
         assert 0.0 <= score <= 1.0
-
 
 class TestPerformanceAndOptimization:
     """性能和优化测试"""
@@ -679,7 +667,6 @@ class TestPerformanceAndOptimization:
         # 验证内存使用合理增长
         assert new_size > original_size
         assert len(analyzer.cultural_profiles) >= 104  # 原有4个+新增100个
-
 
 class TestIntegrationScenarios:
     """集成场景测试"""
@@ -779,7 +766,6 @@ class TestIntegrationScenarios:
             "maintain_face_for_all"
         ]
         assert any(strategy in adaptation.adaptation_strategies for strategy in conflict_strategies)
-
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

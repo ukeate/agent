@@ -1,3 +1,4 @@
+import { buildWsUrl } from '../utils/apiBase'
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -6,6 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Progress } from '@/components/ui/progress';
 import {
+import { logger } from '../utils/logger'
   Heart,
   Brain,
   Activity,
@@ -317,9 +319,7 @@ export default function EmotionInteractionPage() {
     error,
     clearError
   } = useEmotionWebSocket({
-    url: process.env.NODE_ENV === 'production' 
-      ? 'wss://your-domain.com/ws'
-      : 'ws://localhost:8000/ws',
+    url: buildWsUrl('/ws'),
     userId: 'demo_user', // 在实际应用中应该从认证系统获取
     maxHistoryLength: 50,
     maxMemoryLength: 200,
@@ -380,7 +380,7 @@ export default function EmotionInteractionPage() {
   // 处理实时数据
   const handleRealTimeData = (data: Partial<EmotionalInputData>) => {
     // 这里可以实现实时数据的预处理或预览
-    console.log('Real-time data:', data);
+    logger.log('实时数据:', data);
   };
 
   return (
@@ -494,7 +494,7 @@ export default function EmotionInteractionPage() {
                       showTrajectory={true}
                       interactive={true}
                       onEmotionClick={(emotion) => {
-                        console.log('Clicked emotion:', emotion);
+                        logger.log('点击的情感:', emotion);
                         toast.info(`点击了情感: ${emotion.emotion} (强度: ${(emotion.intensity * 100).toFixed(1)}%)`);
                       }}
                     />

@@ -4,7 +4,6 @@ import pytest
 import asyncio
 from datetime import datetime
 from typing import Dict, Any
-
 from src.ai.distributed_task import (
     DistributedTaskCoordinationEngine,
     Task,
@@ -18,7 +17,7 @@ from src.ai.distributed_task import (
     Conflict,
     ConflictType
 )
-
+from src.core.utils.timezone_utils import utc_now
 
 @pytest.fixture
 def coordination_engine():
@@ -33,7 +32,6 @@ def coordination_engine():
     
     return _create_engine
 
-
 @pytest.fixture
 def sample_task():
     """创建示例任务"""
@@ -43,9 +41,8 @@ def sample_task():
         data={"input": "test_data", "processing_type": "transform"},
         requirements={"cpu": 0.5, "memory": 1024},
         priority=TaskPriority.HIGH,
-        created_at=datetime.now()
+        created_at=utc_now()
     )
-
 
 class TestTaskDecomposer:
     """测试任务分解器"""
@@ -67,7 +64,7 @@ class TestTaskDecomposer:
             },
             requirements={"decomposition_strategy": "parallel"},
             priority=TaskPriority.MEDIUM,
-            created_at=datetime.now()
+            created_at=utc_now()
         )
         
         subtasks = await decomposer.decompose_task(task)
@@ -93,7 +90,7 @@ class TestTaskDecomposer:
             },
             requirements={"decomposition_strategy": "sequential"},
             priority=TaskPriority.LOW,
-            created_at=datetime.now()
+            created_at=utc_now()
         )
         
         subtasks = await decomposer.decompose_task(task)
@@ -126,14 +123,13 @@ class TestTaskDecomposer:
             },
             requirements={"decomposition_strategy": "hierarchical"},
             priority=TaskPriority.CRITICAL,
-            created_at=datetime.now()
+            created_at=utc_now()
         )
         
         subtasks = await decomposer.decompose_task(task)
         
         assert len(subtasks) == 3  # 1个父节点 + 2个子节点
         assert any("phase1" in t.task_id for t in subtasks)
-
 
 class TestIntelligentAssigner:
     """测试智能分配器"""
@@ -149,7 +145,7 @@ class TestIntelligentAssigner:
             data={"type": "transform"},
             requirements={"cpu": 0.3, "memory": 512},
             priority=TaskPriority.MEDIUM,
-            created_at=datetime.now()
+            created_at=utc_now()
         )
         
         agent_id = await assigner.assign_task(task, strategy="capability_based")
@@ -172,7 +168,7 @@ class TestIntelligentAssigner:
                 data={"id": i},
                 requirements={},
                 priority=TaskPriority.MEDIUM,
-                created_at=datetime.now()
+                created_at=utc_now()
             )
             tasks.append(task)
         
@@ -195,7 +191,7 @@ class TestIntelligentAssigner:
             data={},
             requirements={},
             priority=TaskPriority.HIGH,
-            created_at=datetime.now()
+            created_at=utc_now()
         )
         
         # 首次分配
@@ -208,7 +204,6 @@ class TestIntelligentAssigner:
         # 应该分配给不同的智能体
         assert new_agent != first_agent
         assert task.retry_count == 1
-
 
 class TestDistributedStateManager:
     """测试分布式状态管理器"""
@@ -287,7 +282,6 @@ class TestDistributedStateManager:
         assert acquired3
         await state_manager.release_lock("test_lock")
 
-
 class TestConflictResolver:
     """测试冲突解决器"""
     
@@ -314,7 +308,7 @@ class TestConflictResolver:
             description="Test resource conflict",
             involved_tasks=["task1", "task2"],
             involved_agents=["agent1"],
-            timestamp=datetime.now()
+            timestamp=utc_now()
         )
         
         # 解决冲突
@@ -324,7 +318,6 @@ class TestConflictResolver:
         if success:
             assert conflict.resolved
             assert conflict.resolution_strategy == "priority_based"
-
 
 class TestRaftConsensus:
     """测试Raft共识引擎"""
@@ -365,7 +358,6 @@ class TestRaftConsensus:
         assert success or raft.state != raft.state.LEADER
         
         await raft.stop()
-
 
 class TestDistributedTaskCoordinationEngine:
     """测试分布式任务协调引擎"""
@@ -429,7 +421,6 @@ class TestDistributedTaskCoordinationEngine:
             assert "stats" in stats
         finally:
             await engine.stop()
-
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

@@ -6,7 +6,6 @@ from enum import Enum
 from typing import Optional, Dict, List, Any
 from pydantic import BaseModel, Field, ConfigDict
 
-
 class ComponentType(str, Enum):
     """组件类型枚举"""
     FINE_TUNING = "fine_tuning"
@@ -17,7 +16,6 @@ class ComponentType(str, Enum):
     MODEL_SERVICE = "model_service"
     CUSTOM = "custom"
 
-
 class ComponentStatus(str, Enum):
     """组件状态枚举"""
     HEALTHY = "healthy"
@@ -26,15 +24,14 @@ class ComponentStatus(str, Enum):
     STOPPING = "stopping"
     ERROR = "error"
 
-
 class WorkflowStatus(str, Enum):
     """工作流状态枚举"""
     PENDING = "pending"
     RUNNING = "running"
     COMPLETED = "completed"
+    CANCELLED = "cancelled"
     FAILED = "failed"
     ERROR = "error"
-
 
 @dataclass
 class ComponentInfo:
@@ -59,7 +56,6 @@ class ComponentInfo:
         data['last_heartbeat'] = self.last_heartbeat.isoformat()
         return data
 
-
 class ComponentRegistration(BaseModel):
     """组件注册请求模型"""
     component_id: str = Field(..., description="组件唯一标识")
@@ -69,9 +65,6 @@ class ComponentRegistration(BaseModel):
     health_endpoint: str = Field(..., description="健康检查端点")
     api_endpoint: str = Field(..., description="API端点")
     metadata: Dict[str, Any] = Field(default_factory=dict, description="组件元数据")
-    
-    model_config = ConfigDict(use_enum_values=True)
-
 
 class WorkflowRequest(BaseModel):
     """工作流请求模型"""
@@ -95,18 +88,16 @@ class WorkflowRequest(BaseModel):
         }
     )
 
-
 class WorkflowStep(BaseModel):
     """工作流步骤"""
     step_name: str = Field(..., description="步骤名称")
     status: WorkflowStatus = Field(..., description="步骤状态")
     started_at: Optional[datetime] = Field(None, description="开始时间")
     completed_at: Optional[datetime] = Field(None, description="完成时间")
-    result: Optional[Dict[str, Any]] = Field(None, description="步骤结果")
+    result: Optional[Any] = Field(None, description="步骤结果")
     error: Optional[str] = Field(None, description="错误信息")
     
     model_config = ConfigDict(use_enum_values=True)
-
 
 class WorkflowState(BaseModel):
     """工作流状态"""
@@ -121,7 +112,6 @@ class WorkflowState(BaseModel):
     error: Optional[str] = Field(None, description="错误信息")
     
     model_config = ConfigDict(use_enum_values=True)
-
 
 class PlatformHealthStatus(BaseModel):
     """平台健康状态"""
@@ -149,7 +139,6 @@ class PlatformHealthStatus(BaseModel):
         }
     )
 
-
 class PerformanceMetrics(BaseModel):
     """性能指标"""
     cpu_percent: float = Field(..., description="CPU使用率")
@@ -158,7 +147,6 @@ class PerformanceMetrics(BaseModel):
     network_usage: Dict[str, Any] = Field(..., description="网络使用情况")
     bottlenecks: List[str] = Field(default_factory=list, description="性能瓶颈")
     timestamp: datetime = Field(..., description="时间戳")
-
 
 class MonitoringConfig(BaseModel):
     """监控配置"""

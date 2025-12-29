@@ -8,9 +8,7 @@ UCB算法通过计算每个臂的置信上界来平衡探索与利用，
 import math
 from typing import Dict, Any, Optional
 import numpy as np
-
 from .base import MultiArmedBandit
-
 
 class UCBBandit(MultiArmedBandit):
     """Upper Confidence Bound (UCB) 多臂老虎机算法"""
@@ -83,7 +81,7 @@ class UCBBandit(MultiArmedBandit):
             context: 上下文信息
         """
         # UCB算法的状态更新已在基类的update方法中完成
-        pass
+        return None
     
     def _get_confidence_intervals(self) -> np.ndarray:
         """
@@ -107,7 +105,7 @@ class UCBBandit(MultiArmedBandit):
         
         UCB算法没有额外的状态需要重置
         """
-        pass
+        return None
     
     def get_algorithm_params(self) -> Dict[str, Any]:
         """

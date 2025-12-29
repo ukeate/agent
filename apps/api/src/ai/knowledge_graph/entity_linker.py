@@ -7,7 +7,6 @@
 
 import asyncio
 import aiohttp
-import logging
 import time
 import hashlib
 import json
@@ -17,12 +16,10 @@ from urllib.parse import quote
 import difflib
 import re
 from collections import defaultdict
-
 from .data_models import Entity, EntityType
 
-
-logger = logging.getLogger(__name__)
-
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 @dataclass
 class LinkedEntity:
@@ -41,7 +38,6 @@ class LinkedEntity:
             self.aliases = []
         if self.metadata is None:
             self.metadata = {}
-
 
 class WikidataAPI:
     """Wikidata API 客户端"""
@@ -167,7 +163,6 @@ class WikidataAPI:
         
         return None
 
-
 class DBpediaAPI:
     """DBpedia API 客户端"""
     
@@ -266,7 +261,6 @@ class DBpediaAPI:
         
         return mapping.get(entity_type, "")
 
-
 class EntityNormalizer:
     """实体规范化器"""
     
@@ -350,7 +344,6 @@ class EntityNormalizer:
         
         return aliases
 
-
 class EntityDeduplicator:
     """实体去重器"""
     
@@ -424,7 +417,6 @@ class EntityDeduplicator:
         
         # 综合相似度
         return 0.7 * text_similarity + 0.3 * position_similarity
-
 
 class EntityLinker:
     """实体链接器主类"""

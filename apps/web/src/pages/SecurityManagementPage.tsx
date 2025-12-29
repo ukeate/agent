@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import {
   Card,
   Table,
@@ -12,14 +12,14 @@ import {
   Switch,
   Form,
   Input,
-  Select,
   Modal,
   Tabs,
   List,
   Avatar,
   Tooltip,
   Progress,
-  Typography
+  Typography,
+  message
 } from 'antd'
 import {
   SafetyOutlined as ShieldOutlined,
@@ -35,8 +35,8 @@ import {
   EditOutlined,
   EyeOutlined
 } from '@ant-design/icons'
+import apiClient from '../services/apiClient'
 
-const { Option } = Select
 const { Text } = Typography
 const { TabPane } = Tabs
 
@@ -65,113 +65,14 @@ interface SecurityPolicy {
   description: string
   enabled: boolean
   rules: string[]
+  configKey?: string
 }
 
 const SecurityManagementPage: React.FC = () => {
-  const [users] = useState<User[]>([
-    {
-      id: '1',
-      username: 'admin',
-      role: '系统管理员',
-      status: 'active',
-      lastLogin: '2024-01-15 14:30:25',
-      permissions: ['read', 'write', 'delete', 'admin']
-    },
-    {
-      id: '2',
-      username: 'developer',
-      role: '开发者',
-      status: 'active',
-      lastLogin: '2024-01-15 13:45:10',
-      permissions: ['read', 'write']
-    },
-    {
-      id: '3',
-      username: 'analyst',
-      role: '分析师',
-      status: 'active',
-      lastLogin: '2024-01-15 12:20:30',
-      permissions: ['read']
-    },
-    {
-      id: '4',
-      username: 'guest',
-      role: '访客',
-      status: 'suspended',
-      lastLogin: '2024-01-14 16:15:45',
-      permissions: ['read']
-    }
-  ])
-
-  const [securityEvents] = useState<SecurityEvent[]>([
-    {
-      id: '1',
-      timestamp: '2024-01-15 14:35:20',
-      type: 'suspicious_activity',
-      user: 'unknown',
-      description: '检测到异常登录尝试',
-      severity: 'high',
-      ip: '192.168.1.100'
-    },
-    {
-      id: '2',
-      timestamp: '2024-01-15 14:30:15',
-      type: 'login',
-      user: 'admin',
-      description: '管理员登录成功',
-      severity: 'low',
-      ip: '192.168.1.50'
-    },
-    {
-      id: '3',
-      timestamp: '2024-01-15 14:25:45',
-      type: 'access_denied',
-      user: 'guest',
-      description: '尝试访问受限资源',
-      severity: 'medium',
-      ip: '192.168.1.75'
-    },
-    {
-      id: '4',
-      timestamp: '2024-01-15 14:20:30',
-      type: 'permission_change',
-      user: 'admin',
-      description: '修改了用户权限',
-      severity: 'medium',
-      ip: '192.168.1.50'
-    }
-  ])
-
-  const [securityPolicies, setSecurityPolicies] = useState<SecurityPolicy[]>([
-    {
-      id: '1',
-      name: '密码策略',
-      description: '强制使用复杂密码',
-      enabled: true,
-      rules: ['最少8位字符', '包含大小写字母', '包含数字和特殊字符']
-    },
-    {
-      id: '2',
-      name: '会话超时',
-      description: '自动注销非活跃用户',
-      enabled: true,
-      rules: ['30分钟无操作自动注销', '异地登录强制重新认证']
-    },
-    {
-      id: '3',
-      name: '访问控制',
-      description: '基于角色的访问控制',
-      enabled: true,
-      rules: ['严格的权限分离', '最小权限原则', '定期权限审核']
-    },
-    {
-      id: '4',
-      name: '审计日志',
-      description: '记录所有安全相关操作',
-      enabled: false,
-      rules: ['实时日志记录', '日志加密存储', '180天日志保留']
-    }
-  ])
+  const [users, setUsers] = useState<User[]>([])
+  const [securityEvents, setSecurityEvents] = useState<SecurityEvent[]>([])
+  const [securityPolicies, setSecurityPolicies] = useState<SecurityPolicy[]>([])
+  const [securityMetrics, setSecurityMetrics] = useState<any>(null)
 
   const [isUserModalVisible, setIsUserModalVisible] = useState(false)
   const [form] = Form.useForm()
@@ -214,6 +115,117 @@ const SecurityManagementPage: React.FC = () => {
     access_denied: '访问拒绝',
     permission_change: '权限变更',
     suspicious_activity: '可疑活动'
+  }
+
+  useEffect(() => {
+    const loadData = async () => {
+      await Promise.all([
+        loadUsers(),
+        loadSecurityAlerts(),
+        loadSecurityConfig(),
+        loadSecurityMetrics(),
+      ])
+    }
+    loadData()
+  }, [])
+
+  const loadUsers = async () => {
+    try {
+      const response = await apiClient.get('/auth/users')
+      const list = Array.isArray(response.data?.users) ? response.data.users : []
+      const mapped = list.map((user: any) => {
+        const roles = Array.isArray(user.roles) ? user.roles : []
+        const role = user.is_superuser ? '系统管理员' : roles[0] || '用户'
+        return {
+          id: String(user.id),
+          username: String(user.username || ''),
+          role,
+          status: user.is_active ? 'active' : 'inactive',
+          lastLogin: user.last_login ? new Date(user.last_login).toLocaleString() : '-',
+          permissions: Array.isArray(user.permissions) ? user.permissions : [],
+        }
+      })
+      setUsers(mapped)
+    } catch (error) {
+      setUsers([])
+    }
+  }
+
+  const loadSecurityAlerts = async () => {
+    try {
+      const response = await apiClient.get('/security/alerts')
+      const list = Array.isArray(response.data?.alerts) ? response.data.alerts : []
+      const mapped = list.map((alert: any) => {
+        const alertType = String(alert.alert_type || '')
+        const type: SecurityEvent['type'] =
+          alertType.includes('unauthorized') ? 'access_denied'
+          : alertType.includes('permission') ? 'permission_change'
+          : alertType.includes('login') ? 'login'
+          : 'suspicious_activity'
+        const severity = String(alert.threat_level || 'low') as SecurityEvent['severity']
+        return {
+          id: String(alert.id),
+          timestamp: alert.timestamp ? new Date(alert.timestamp).toLocaleString() : '-',
+          type,
+          user: alert.user_id || 'unknown',
+          description: alert.description || alert.alert_type || '',
+          severity,
+          ip: alert.source_ip || '-',
+        }
+      })
+      setSecurityEvents(mapped)
+    } catch (error) {
+      setSecurityEvents([])
+    }
+  }
+
+  const loadSecurityConfig = async () => {
+    try {
+      const response = await apiClient.get('/security/config')
+      const config = response.data || {}
+      setSecurityPolicies([
+        {
+          id: 'force_https',
+          name: '强制HTTPS',
+          description: '强制所有请求使用HTTPS',
+          enabled: Boolean(config.force_https),
+          rules: [`force_https=${Boolean(config.force_https)}`],
+          configKey: 'force_https',
+        },
+        {
+          id: 'csp_header',
+          name: 'CSP头策略',
+          description: '内容安全策略头配置',
+          enabled: Boolean(config.csp_header),
+          rules: [String(config.csp_header || '未配置')],
+        },
+        {
+          id: 'rate_limit',
+          name: '访问频率限制',
+          description: '限制每分钟最大请求数',
+          enabled: Number(config.max_requests_per_minute || 0) > 0,
+          rules: [`max_requests_per_minute=${config.max_requests_per_minute ?? '-'}`],
+        },
+        {
+          id: 'request_size',
+          name: '请求大小限制',
+          description: '限制单次请求最大大小',
+          enabled: Number(config.max_request_size || 0) > 0,
+          rules: [`max_request_size=${config.max_request_size ?? '-'}`],
+        },
+      ])
+    } catch (error) {
+      setSecurityPolicies([])
+    }
+  }
+
+  const loadSecurityMetrics = async () => {
+    try {
+      const response = await apiClient.get('/security/metrics')
+      setSecurityMetrics(response.data?.security_metrics || null)
+    } catch (error) {
+      setSecurityMetrics(null)
+    }
   }
 
   const userColumns = [
@@ -267,19 +279,20 @@ const SecurityManagementPage: React.FC = () => {
       render: (record: User) => (
         <Space>
           <Tooltip title="查看详情">
-            <Button size="small" icon={<EyeOutlined />} />
+            <Button size="small" icon={<EyeOutlined />} disabled />
           </Tooltip>
           <Tooltip title="编辑">
-            <Button size="small" icon={<EditOutlined />} />
+            <Button size="small" icon={<EditOutlined />} disabled />
           </Tooltip>
           <Tooltip title={record.status === 'active' ? '暂停' : '激活'}>
             <Button 
               size="small" 
               icon={record.status === 'active' ? <LockOutlined /> : <UnlockOutlined />}
+              disabled
             />
           </Tooltip>
           <Tooltip title="删除">
-            <Button size="small" danger icon={<DeleteOutlined />} />
+            <Button size="small" danger icon={<DeleteOutlined />} disabled />
           </Tooltip>
         </Space>
       )
@@ -335,19 +348,35 @@ const SecurityManagementPage: React.FC = () => {
   ]
 
   const togglePolicy = (policyId: string) => {
-    setSecurityPolicies(prev => 
-      prev.map(policy => 
-        policy.id === policyId 
-          ? { ...policy, enabled: !policy.enabled }
-          : policy
-      )
-    )
+    const target = securityPolicies.find((policy) => policy.id === policyId)
+    if (!target || !target.configKey) return
+    const nextEnabled = !target.enabled
+    apiClient
+      .put('/security/config', { [target.configKey]: nextEnabled })
+      .then(() => {
+        setSecurityPolicies(prev =>
+          prev.map(policy =>
+            policy.id === policyId ? { ...policy, enabled: nextEnabled } : policy
+          )
+        )
+        message.success('策略已更新')
+      })
+      .catch(() => {
+        message.error('策略更新失败')
+      })
   }
 
   const getSecurityScore = () => {
-    const enabledPolicies = securityPolicies.filter(p => p.enabled).length
-    const totalPolicies = securityPolicies.length
-    return Math.round((enabledPolicies / totalPolicies) * 100)
+    if (!securityMetrics) {
+      const enabledPolicies = securityPolicies.filter(p => p.enabled).length
+      const totalPolicies = securityPolicies.length || 1
+      return Math.round((enabledPolicies / totalPolicies) * 100)
+    }
+    const penalty =
+      (securityMetrics.active_alerts || 0) * 10 +
+      (securityMetrics.critical_alerts || 0) * 20 +
+      (securityMetrics.blocked_ips || 0) * 2
+    return Math.max(0, 100 - penalty)
   }
 
   const activeUsers = users.filter(u => u.status === 'active').length
@@ -425,7 +454,7 @@ const SecurityManagementPage: React.FC = () => {
             <Alert
               message="安全警告"
               description="当前安全评分较低，建议启用更多安全策略以提高系统安全性"
-              variant="warning"
+              type="warning"
               showIcon
               closable
               className="mb-4"
@@ -436,7 +465,7 @@ const SecurityManagementPage: React.FC = () => {
             <Alert
               message="安全提醒"
               description={`检测到 ${criticalEvents} 个高危安全事件，请及时处理`}
-              variant="destructive"
+              type="error"
               showIcon
               closable
               className="mb-4"
@@ -497,6 +526,7 @@ const SecurityManagementPage: React.FC = () => {
                           checked={policy.enabled}
                           onChange={() => togglePolicy(policy.id)}
                           size="small"
+                          disabled={!policy.configKey}
                         />
                       </Space>
                     }
@@ -523,7 +553,7 @@ const SecurityManagementPage: React.FC = () => {
             <Card title="权限矩阵">
               <div className="text-center text-gray-500 py-8">
                 <SettingOutlined style={{ fontSize: 48, marginBottom: 16 }} />
-                <div>权限管理功能开发中...</div>
+                <div>权限来自角色与API权限配置</div>
               </div>
             </Card>
           </TabPane>
@@ -540,11 +570,19 @@ const SecurityManagementPage: React.FC = () => {
           <Form
             form={form}
             layout="vertical"
-            onFinish={(values) => {
-              console.log('创建用户:', values)
-              setIsUserModalVisible(false)
-              form.resetFields()
-            }}
+          onFinish={(values) => {
+            apiClient
+              .post('/auth/register', values)
+              .then(() => {
+                message.success('用户已创建')
+                setIsUserModalVisible(false)
+                form.resetFields()
+                loadUsers()
+              })
+              .catch(() => {
+                message.error('用户创建失败')
+              })
+          }}
           >
             <Form.Item
               name="username"
@@ -554,28 +592,17 @@ const SecurityManagementPage: React.FC = () => {
               <Input placeholder="请输入用户名" />
             </Form.Item>
             <Form.Item
-              name="role"
-              label="角色"
-              rules={[{ required: true, message: '请选择角色' }]}
+              name="password"
+              label="密码"
+              rules={[{ required: true, message: '请输入密码' }]}
             >
-              <Select placeholder="请选择角色">
-                <Option value="admin">系统管理员</Option>
-                <Option value="developer">开发者</Option>
-                <Option value="analyst">分析师</Option>
-                <Option value="guest">访客</Option>
-              </Select>
+              <Input.Password placeholder="请输入密码" />
             </Form.Item>
-            <Form.Item
-              name="permissions"
-              label="权限"
-              rules={[{ required: true, message: '请选择权限' }]}
-            >
-              <Select mode="multiple" placeholder="请选择权限">
-                <Option value="read">读取</Option>
-                <Option value="write">写入</Option>
-                <Option value="delete">删除</Option>
-                <Option value="admin">管理</Option>
-              </Select>
+            <Form.Item name="email" label="邮箱">
+              <Input placeholder="请输入邮箱" />
+            </Form.Item>
+            <Form.Item name="full_name" label="姓名">
+              <Input placeholder="请输入姓名" />
             </Form.Item>
           </Form>
         </Modal>

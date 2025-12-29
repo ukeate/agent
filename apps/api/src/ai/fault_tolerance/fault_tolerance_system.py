@@ -1,14 +1,13 @@
+from src.core.utils.timezone_utils import utc_now
 import asyncio
 import time
 from typing import Dict, List, Optional, Any
-from datetime import datetime
-import logging
-
 from .fault_detector import FaultDetector, FaultEvent, FaultType, FaultSeverity
 from .recovery_manager import RecoveryManager
 from .backup_manager import BackupManager, BackupType
 from .consistency_manager import ConsistencyManager, ConsistencyCheckResult
 
+from src.core.logging import get_logger
 class FaultToleranceSystem:
     """容错和恢复系统主类"""
     
@@ -25,7 +24,7 @@ class FaultToleranceSystem:
         self.lifecycle_manager = lifecycle_manager
         self.metrics_collector = metrics_collector
         self.config = config
-        self.logger = logging.getLogger(__name__)
+        self.logger = get_logger(__name__)
         
         # 初始化核心组件
         self.fault_detector = FaultDetector(
@@ -133,14 +132,14 @@ class FaultToleranceSystem:
                     }
                     for fault in active_faults
                 ],
-                "last_updated": datetime.now().isoformat()
+                "last_updated": utc_now().isoformat()
             }
         except Exception as e:
             self.logger.error(f"Error getting system status: {e}")
             return {
                 "system_started": self.started,
                 "error": str(e),
-                "last_updated": datetime.now().isoformat()
+                "last_updated": utc_now().isoformat()
             }
     
     async def trigger_manual_backup(self, component_ids: List[str]) -> Dict[str, bool]:
@@ -191,7 +190,7 @@ class FaultToleranceSystem:
             fault_type=fault_type,
             severity=FaultSeverity.HIGH,
             affected_components=[component_id],
-            detected_at=datetime.now(),
+            detected_at=utc_now(),
             description=f"Injected fault for testing: {fault_type.value}",
             context={"injected": True, "duration": duration_seconds}
         )
@@ -203,7 +202,7 @@ class FaultToleranceSystem:
         async def auto_resolve():
             await asyncio.sleep(duration_seconds)
             fault_event.resolved = True
-            fault_event.resolved_at = datetime.now()
+            fault_event.resolved_at = utc_now()
             self.logger.info(f"Injected fault {fault_event.fault_id} auto-resolved")
         
         asyncio.create_task(auto_resolve())
@@ -230,7 +229,7 @@ class FaultToleranceSystem:
                 "component_id": component_id,
                 "status": "error",
                 "error": str(e),
-                "last_check": datetime.now().isoformat()
+                "last_check": utc_now().isoformat()
             }
     
     async def get_fault_events(
@@ -346,11 +345,11 @@ class FaultToleranceSystem:
                     "consistency_rate": status["consistency_statistics"]["consistency_rate"]
                 },
                 "system_availability": self._calculate_system_availability(),
-                "last_updated": datetime.now().isoformat()
+                "last_updated": utc_now().isoformat()
             }
         except Exception as e:
             self.logger.error(f"Error getting system metrics: {e}")
-            return {"error": str(e), "last_updated": datetime.now().isoformat()}
+            return {"error": str(e), "last_updated": utc_now().isoformat()}
     
     def _calculate_system_availability(self) -> float:
         """计算系统可用性"""
@@ -441,7 +440,7 @@ class FaultToleranceSystem:
             ]
             
             return {
-                "report_generated_at": datetime.now().isoformat(),
+                "report_generated_at": utc_now().isoformat(),
                 "system_status": status,
                 "system_metrics": metrics,
                 "recent_faults": recent_faults,
@@ -451,7 +450,7 @@ class FaultToleranceSystem:
         except Exception as e:
             self.logger.error(f"Error generating system report: {e}")
             return {
-                "report_generated_at": datetime.now().isoformat(),
+                "report_generated_at": utc_now().isoformat(),
                 "error": str(e)
             }
     

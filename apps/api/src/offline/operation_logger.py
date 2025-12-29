@@ -10,7 +10,7 @@
 
 import json
 import gzip
-import pickle
+from src.core.utils import secure_pickle as pickle
 from datetime import datetime
 from datetime import timedelta
 from src.core.utils.timezone_utils import utc_now, utc_factory
@@ -18,10 +18,8 @@ from typing import Dict, Any, List, Optional, Union
 from dataclasses import dataclass, asdict
 from enum import Enum
 from uuid import uuid4
-
 from ..models.schemas.offline import VectorClock, SyncOperation, SyncOperationType
 from .models import OfflineDatabase
-
 
 class OperationType(str, Enum):
     """操作类型"""
@@ -32,7 +30,6 @@ class OperationType(str, Enum):
     SYNC = "sync"
     LOGIN = "login"
     LOGOUT = "logout"
-
 
 @dataclass
 class Operation:
@@ -47,7 +44,6 @@ class Operation:
     vector_clock: VectorClock
     user_id: Optional[str] = None
     metadata: Dict[str, Any] = None
-
 
 class OperationLogger:
     """操作日志记录器"""
@@ -152,6 +148,5 @@ class OperationLogger:
             user_id=sync_op.metadata.get('user_id'),
             metadata=sync_op.metadata
         )
-
 
 # StateManager 已移动到独立的 state_manager.py 文件

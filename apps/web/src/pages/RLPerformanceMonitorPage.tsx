@@ -11,6 +11,7 @@ import {
   FireOutlined
 } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
+import { monitoringService } from '../services/monitoringService';
 
 const { RangePicker } = DatePicker;
 const { Option } = Select;
@@ -41,74 +42,32 @@ const RLPerformanceMonitorPage: React.FC = () => {
   const [algorithmMetrics, setAlgorithmMetrics] = useState<AlgorithmMetrics[]>([]);
   const [loading, setLoading] = useState(false);
 
-  // 生成模拟性能数据
-  const generatePerformanceData = () => {
-    const data: PerformanceData[] = [];
-    const now = Date.now();
-    const interval = timeRange === '1h' ? 60000 : timeRange === '6h' ? 360000 : 900000; // 1分钟、6分钟、15分钟间隔
-    const points = timeRange === '1h' ? 60 : timeRange === '6h' ? 60 : 96;
-
-    for (let i = points; i >= 0; i--) {
-      const timestamp = new Date(now - i * interval).toLocaleTimeString();
-      data.push({
-        timestamp,
-        qps: Math.floor(800 + Math.random() * 400 + Math.sin(i * 0.1) * 200),
-        latency: Math.floor(20 + Math.random() * 30 + Math.sin(i * 0.15) * 10),
-        errorRate: Math.random() * 2,
-        cacheHit: 85 + Math.random() * 10,
-        cpuUsage: 40 + Math.random() * 30 + Math.sin(i * 0.08) * 15,
-        memoryUsage: 60 + Math.random() * 20 + Math.sin(i * 0.12) * 10
-      });
-    }
-    return data;
-  };
-
-  const generateAlgorithmMetrics = (): AlgorithmMetrics[] => [
-    {
-      algorithm: 'UCB',
-      avgLatency: 12.3,
-      p95Latency: 28.5,
-      p99Latency: 45.2,
-      qps: 156.8,
-      errorRate: 0.08,
-      cacheHitRate: 94.2
-    },
-    {
-      algorithm: 'Thompson Sampling',
-      avgLatency: 15.7,
-      p95Latency: 32.1,
-      p99Latency: 48.9,
-      qps: 142.3,
-      errorRate: 0.12,
-      cacheHitRate: 91.8
-    },
-    {
-      algorithm: 'Epsilon Greedy',
-      avgLatency: 8.9,
-      p95Latency: 18.4,
-      p99Latency: 25.7,
-      qps: 198.5,
-      errorRate: 0.15,
-      cacheHitRate: 96.3
-    },
-    {
-      algorithm: 'Q-Learning',
-      avgLatency: 28.4,
-      p95Latency: 65.2,
-      p99Latency: 98.7,
-      qps: 89.2,
-      errorRate: 0.05,
-      cacheHitRate: 88.9
-    }
-  ];
-
   useEffect(() => {
-    setLoading(true);
-    setTimeout(() => {
-      setPerformanceData(generatePerformanceData());
-      setAlgorithmMetrics(generateAlgorithmMetrics());
-      setLoading(false);
-    }, 1000);
+    const load = async () => {
+      setLoading(true);
+      try {
+        const dashboard = await monitoringService.getDashboardData();
+        const metrics = dashboard.metrics || {};
+        const timeseries = metrics.qps?.points || [];
+        const mapped: PerformanceData[] = timeseries.map((p: any) => ({
+          timestamp: p.timestamp || '',
+          qps: p.value || 0,
+          latency: metrics.api_response_time?.current_value || 0,
+          errorRate: metrics.error_rate?.current_value || 0,
+          cacheHit: metrics.cache_hit_rate?.current_value || 0,
+          cpuUsage: metrics.cpu_usage?.current_value || 0,
+          memoryUsage: metrics.memory_usage?.current_value || 0
+        }));
+        setPerformanceData(mapped);
+        setAlgorithmMetrics([]);
+      } catch (e) {
+        setPerformanceData([]);
+        setAlgorithmMetrics([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+    load();
   }, [timeRange]);
 
   // QPS趋势图配置

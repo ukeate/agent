@@ -1,10 +1,12 @@
 """PDF文档解析器"""
 
 import io
-import logging
 from pathlib import Path
 from typing import List, Dict, Any, Optional
 import base64
+from .base_parser import BaseParser, ParsedDocument, ParsedElement
+
+logger = get_logger(__name__)
 
 try:
     import fitz  # PyMuPDF
@@ -23,11 +25,6 @@ try:
     TESSERACT_AVAILABLE = True
 except ImportError:
     TESSERACT_AVAILABLE = False
-
-from .base_parser import BaseParser, ParsedDocument, ParsedElement
-
-logger = logging.getLogger(__name__)
-
 
 class PDFParser(BaseParser):
     """PDF文档解析器
@@ -320,3 +317,4 @@ class PDFParser(BaseParser):
         except Exception as e:
             logger.warning(f"OCR failed: {e}")
             return ""
+from src.core.logging import get_logger

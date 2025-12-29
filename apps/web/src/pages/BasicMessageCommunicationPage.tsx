@@ -22,7 +22,8 @@ import {
   Switch,
   Slider,
   notification,
-  Radio
+  Radio,
+  message
 } from 'antd'
 import {
   MessageOutlined,
@@ -37,13 +38,15 @@ import {
   DeleteOutlined,
   ApiOutlined,
   ThunderboltOutlined,
-  NetworkOutlined,
+  ShareAltOutlined as NetworkOutlined,
   ClockCircleOutlined,
   CheckCircleOutlined,
   ExclamationCircleOutlined,
   UserOutlined,
   TeamOutlined
 } from '@ant-design/icons'
+import { streamingService } from '../services/streamingService'
+import { serviceDiscoveryService } from '../services/serviceDiscoveryService'
 
 const { Title, Text, Paragraph } = Typography
 const { Option } = Select
@@ -101,145 +104,96 @@ const BasicMessageCommunicationPage: React.FC = () => {
   const [testRunning, setTestRunning] = useState(false)
   
   const [metrics, setMetrics] = useState<CommunicationMetrics>({
-    totalMessages: 15647,
-    messagesPerSecond: 45.2,
-    averageLatency: 8.5,
-    successRate: 99.8,
-    failureRate: 0.2,
-    activeAgents: 8,
-    activeSubscriptions: 23
+    totalMessages: 0,
+    messagesPerSecond: 0,
+    averageLatency: 0,
+    successRate: 0,
+    failureRate: 0,
+    activeAgents: 0,
+    activeSubscriptions: 0
   })
 
-  const [messageLogs, setMessageLogs] = useState<MessageLog[]>([
-    {
-      id: 'msg-001',
-      timestamp: '2025-08-26 12:45:30',
-      sender: 'task-agent-01',
-      receiver: 'worker-agent-03',
-      subject: 'agents.tasks.process',
-      messageType: 'point-to-point',
-      payload: { taskId: 'task-123', type: 'image_analysis', data: { imageUrl: 'http://example.com/image.jpg' } },
-      status: 'delivered',
-      latency: 12.5,
-      size: 2048,
-      priority: 8
-    },
-    {
-      id: 'msg-002', 
-      timestamp: '2025-08-26 12:45:28',
-      sender: 'coordinator-agent',
-      receiver: 'all-workers',
-      subject: 'agents.broadcast.announcement',
-      messageType: 'publish-subscribe',
-      payload: { type: 'announcement', message: '系统维护通知' },
-      status: 'delivered',
-      latency: 15.2,
-      size: 1024,
-      priority: 5
-    },
-    {
-      id: 'msg-003',
-      timestamp: '2025-08-26 12:45:25',
-      sender: 'client-agent',
-      receiver: 'service-agent',
-      subject: 'agents.request.status',
-      messageType: 'request-reply',
-      payload: { requestId: 'req-456', operation: 'get_status' },
-      status: 'delivered',
-      latency: 6.8,
-      size: 512,
-      priority: 9
-    },
-    {
-      id: 'msg-004',
-      timestamp: '2025-08-26 12:45:20',
-      sender: 'monitor-agent',
-      receiver: 'alert-group',
-      subject: 'system.alerts.performance',
-      messageType: 'multicast',
-      payload: { type: 'performance_warning', metric: 'cpu_usage', value: 85.6 },
-      status: 'failed',
-      latency: 0,
-      size: 768,
-      priority: 10
-    }
-  ])
+  const [messageLogs, setMessageLogs] = useState<MessageLog[]>([])
 
-  const [agents, setAgents] = useState<Agent[]>([
-    {
-      id: 'task-agent-01',
-      name: '任务处理智能体',
-      status: 'online',
-      messagesSent: 1247,
-      messagesReceived: 983,
-      lastSeen: '2025-08-26 12:45:30',
-      subscriptions: ['agents.tasks.>', 'system.events.>']
-    },
-    {
-      id: 'worker-agent-03',
-      name: '工作执行智能体',
-      status: 'online',
-      messagesSent: 543,
-      messagesReceived: 1856,
-      lastSeen: '2025-08-26 12:45:29',
-      subscriptions: ['agents.tasks.process', 'agents.direct.worker-agent-03']
-    },
-    {
-      id: 'coordinator-agent',
-      name: '协调管理智能体', 
-      status: 'busy',
-      messagesSent: 2156,
-      messagesReceived: 678,
-      lastSeen: '2025-08-26 12:45:25',
-      subscriptions: ['agents.coordination.>', 'system.management.>']
-    },
-    {
-      id: 'client-agent',
-      name: '客户端智能体',
-      status: 'online',
-      messagesSent: 456,
-      messagesReceived: 234,
-      lastSeen: '2025-08-26 12:45:15',
-      subscriptions: ['agents.responses.>', 'client.notifications.>']
-    },
-    {
-      id: 'service-agent',
-      name: '服务提供智能体',
-      status: 'offline',
-      messagesSent: 123,
-      messagesReceived: 567,
-      lastSeen: '2025-08-26 12:40:00',
-      subscriptions: ['agents.request.>', 'service.commands.>']
-    }
-  ])
+  const [agents, setAgents] = useState<Agent[]>([])
 
-  const [subscriptions, setSubscriptions] = useState<Subscription[]>([
-    {
-      id: 'sub-001',
-      agentId: 'task-agent-01',
-      subject: 'agents.tasks.>',
-      messageCount: 2456,
-      lastMessage: '2025-08-26 12:45:30',
-      status: 'active'
-    },
-    {
-      id: 'sub-002',
-      agentId: 'worker-agent-03',
-      subject: 'agents.tasks.process',
-      queueGroup: 'worker-pool',
-      messageCount: 1834,
-      lastMessage: '2025-08-26 12:45:25',
-      status: 'active'
-    },
-    {
-      id: 'sub-003',
-      agentId: 'coordinator-agent',
-      subject: 'system.management.>',
-      messageCount: 567,
-      lastMessage: '2025-08-26 12:44:50',
-      status: 'active'
+  const [subscriptions, setSubscriptions] = useState<Subscription[]>([])
+
+  const loadMetrics = async () => {
+    const zero: CommunicationMetrics = {
+      totalMessages: 0,
+      messagesPerSecond: 0,
+      averageLatency: 0,
+      successRate: 0,
+      failureRate: 0,
+      activeAgents: 0,
+      activeSubscriptions: 0
     }
-  ])
+    try {
+      const data = await streamingService.getSystemMetrics()
+      const sys = data.system_metrics || ({} as any)
+      setMetrics({
+        totalMessages: sys.total_events_processed || 0,
+        messagesPerSecond: 0,
+        averageLatency: 0,
+        successRate: 0,
+        failureRate: 0,
+        activeAgents: sys.active_streamers || 0,
+        activeSubscriptions: sys.active_buffers || 0
+      })
+    } catch (err) {
+      setMetrics(zero)
+      message.error('加载通信指标失败')
+    }
+  }
+
+  const loadAgents = async () => {
+    try {
+      const list = await serviceDiscoveryService.getActiveAgents()
+      const mapped = (list || []).map(a => ({
+        id: a.agent_id,
+        name: a.name || a.agent_id,
+        status: (a.status as Agent['status']) || 'offline',
+        messagesSent: 0,
+        messagesReceived: 0,
+        lastSeen: a.last_heartbeat || '',
+        subscriptions: a.tags || []
+      }))
+      setAgents(mapped)
+    } catch (err) {
+      setAgents([])
+      message.error('加载智能体失败')
+    }
+  }
+
+  const loadSubscriptions = async () => {
+    try {
+      const data = await streamingService.getQueueStatus()
+      const queues = data.queue_metrics || {}
+      const mapped: Subscription[] = Object.entries(queues).map(([name, metric]: any, idx) => ({
+        id: name || `queue-${idx}`,
+        agentId: '',
+        subject: name,
+        queueGroup: undefined,
+        messageCount: metric.current_size || 0,
+        lastMessage: metric.timestamp || data.timestamp || '',
+        status: metric.is_overloaded ? 'inactive' : 'active'
+      }))
+      setSubscriptions(mapped)
+    } catch (err) {
+      setSubscriptions([])
+    }
+  }
+
+  const loadAll = async () => {
+    setLoading(true)
+    await Promise.all([loadMetrics(), loadAgents(), loadSubscriptions()])
+    setLoading(false)
+  }
+
+  useEffect(() => {
+    loadAll()
+  }, [])
 
   const messageColumns = [
     {
@@ -448,36 +402,25 @@ const BasicMessageCommunicationPage: React.FC = () => {
   const handleSendMessage = async (values: any) => {
     setLoading(true)
     
-    // 模拟发送消息
-    setTimeout(() => {
-      const newMessage: MessageLog = {
-        id: `msg-${Date.now()}`,
-        timestamp: new Date().toLocaleString('zh-CN'),
-        sender: values.sender || 'test-agent',
-        receiver: values.receiver || values.subject,
-        subject: values.subject,
-        messageType: values.messageType,
-        payload: JSON.parse(values.payload || '{}'),
-        status: 'sent',
-        latency: Math.random() * 20,
-        size: JSON.stringify(values.payload || '{}').length,
-        priority: values.priority || 5
-      }
-      
-      setMessageLogs(prev => [newMessage, ...prev])
-      setMetrics(prev => ({
-        ...prev,
-        totalMessages: prev.totalMessages + 1
-      }))
-      
+    try {
+      const payloadObj = values.payload ? JSON.parse(values.payload) : {}
+      await streamingService.createSession({
+        agent_id: values.sender || 'unknown',
+        message: JSON.stringify(payloadObj),
+        session_id: values.subject
+      })
       notification.success({
         message: '消息发送成功',
-        description: `消息已发送到 ${values.subject}`
+        description: `已提交到后端队列: ${values.subject}`
       })
-      
       form.resetFields()
+      await loadMetrics()
+      await loadSubscriptions()
+    } catch (err: any) {
+      message.error(err?.message || '消息发送失败')
+    } finally {
       setLoading(false)
-    }, 1000)
+    }
   }
 
   const handleViewMessage = (message: MessageLog) => {
@@ -540,35 +483,20 @@ const BasicMessageCommunicationPage: React.FC = () => {
     setTestRunning(true)
     notification.info({
       message: '开始压力测试',
-      description: '正在发送高并发消息进行系统压力测试...'
+      description: '已触发后端检查，请在指标中观察变化'
     })
-    
-    // 模拟压力测试
-    setTimeout(() => {
-      setTestRunning(false)
-      setMetrics(prev => ({
-        ...prev,
-        totalMessages: prev.totalMessages + 1000,
-        messagesPerSecond: prev.messagesPerSecond + 200,
-        averageLatency: prev.averageLatency + 5
-      }))
-      
-      notification.success({
-        message: '压力测试完成',
-        description: '已发送1000条测试消息，系统响应正常'
-      })
-    }, 5000)
+    streamingService.getSystemMetrics()
+      .catch(() => message.error('压力测试接口不可用'))
+      .finally(() => setTestRunning(false))
   }
 
   const refreshData = () => {
-    setLoading(true)
-    setTimeout(() => {
+    loadAll().then(() => {
       notification.success({
         message: '数据刷新成功',
-        description: '消息日志和统计信息已更新'
+        description: '通信指标已同步'
       })
-      setLoading(false)
-    }, 800)
+    })
   }
 
   return (

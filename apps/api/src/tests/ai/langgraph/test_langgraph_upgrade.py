@@ -2,12 +2,12 @@
 LangGraph 0.6.5升级功能测试
 测试新Context API、durability控制、Node Caching和Pre/Post Hooks
 """
+
 import pytest
 import asyncio
 from datetime import datetime
 from src.core.utils.timezone_utils import utc_now, utc_factory
 from unittest.mock import Mock, AsyncMock, patch
-
 from src.ai.langgraph.state_graph import (
     LangGraphWorkflowBuilder, 
     WorkflowNode,
@@ -34,8 +34,8 @@ from src.ai.langgraph.hooks import (
     QualityCheckHook,
     HookConfig,
     get_hook_manager
-)
 
+)
 
 class TestLangGraphContextSchema:
     """测试新Context API dataclass schema"""
@@ -75,7 +75,6 @@ class TestLangGraphContextSchema:
         assert new_context.user_id == "test_user"
         assert new_context.session_id == "550e8400-e29b-41d4-a716-446655440000"
         assert new_context.conversation_id == "550e8400-e29b-41d4-a716-446655440001"
-
 
 class TestWorkflowBuilderUpgrade:
     """测试工作流构建器的LangGraph 0.6.5升级"""
@@ -139,7 +138,6 @@ class TestWorkflowBuilderUpgrade:
             assert compiled_graph is not None
             assert builder.default_durability == durability
 
-
 class TestWorkflowNodeUpgrade:
     """测试节点执行的Context API升级"""
     
@@ -192,7 +190,6 @@ class TestWorkflowNodeUpgrade:
         
         assert result["context"]["received_context"] is True
         assert result["context"]["context_user_id"] == "legacy_user"
-
 
 class TestNodeCaching:
     """测试节点缓存功能"""
@@ -261,7 +258,6 @@ class TestNodeCaching:
         
         # 验证结果一致
         assert len(result1["messages"]) == len(result2["messages"])
-
 
 class TestPrePostHooks:
     """测试Pre/Post Model Hooks"""
@@ -397,7 +393,6 @@ class TestPrePostHooks:
             assert "priority" in hook_info
             assert "description" in hook_info
 
-
 class TestDurabilityControl:
     """测试durability控制功能"""
     
@@ -438,7 +433,6 @@ class TestDurabilityControl:
                 
                 if builder.use_context_api:
                     assert call_args[1]["config"]["durability"] == durability
-
 
 class TestIntegrationWorkflow:
     """集成测试：完整工作流测试"""
@@ -505,7 +499,6 @@ class TestIntegrationWorkflow:
         if "hook_logs" in final_state["context"]:
             assert len(final_state["context"]["hook_logs"]) > 0
 
-
 @pytest.mark.asyncio
 async def test_workflow_error_handling():
     """测试工作流错误处理"""
@@ -532,7 +525,6 @@ async def test_workflow_error_handling():
     with pytest.raises(Exception):
         await builder.execute(initial_state, context=context)
 
-
 def test_context_validation():
     """测试上下文验证功能"""
     # 有效上下文
@@ -546,7 +538,6 @@ def test_context_validation():
     )
     context = schema.to_agent_context()
     assert validate_context(context) is True
-
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

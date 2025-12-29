@@ -6,6 +6,7 @@
 import React, { useState, useCallback } from 'react';
 import { feedbackService } from '../../services/feedbackService';
 
+import { logger } from '../../utils/logger'
 interface BookmarkComponentProps {
   itemId?: string;
   userId: string;
@@ -82,7 +83,7 @@ export const BookmarkComponent: React.FC<BookmarkComponentProps> = ({
 
       onSubmitSuccess?.(newState);
     } catch (error) {
-      console.error('提交收藏反馈失败:', error);
+      logger.error('提交收藏反馈失败:', error);
       
       // 回滚状态
       setIsBookmarked(previousState);

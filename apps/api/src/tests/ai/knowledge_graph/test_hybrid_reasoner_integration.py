@@ -8,7 +8,6 @@ import pytest
 import asyncio
 from unittest.mock import Mock, patch, AsyncMock
 from typing import List, Dict, Any
-
 from ai.knowledge_graph.hybrid_reasoner import (
     HybridReasoner, ReasoningRequest, HybridReasoningResult,
     ReasoningStrategy, ConfidenceWeights, ReasoningEvidence
@@ -18,7 +17,6 @@ from ai.knowledge_graph.embedding_engine import EmbeddingEngine, SimilarityResul
 from ai.knowledge_graph.path_reasoning import PathReasoner, PathSearchResult, ReasoningPath
 from ai.knowledge_graph.uncertainty_reasoning import UncertaintyReasoner, UncertaintyQuantification
 from ai.knowledge_graph.reasoning_optimizer import ReasoningOptimizer
-
 
 @pytest.fixture
 def mock_rule_engine():
@@ -37,7 +35,6 @@ def mock_rule_engine():
     
     engine.forward_chaining = AsyncMock(side_effect=mock_forward_chaining)
     return engine
-
 
 @pytest.fixture
 def mock_embedding_engine():
@@ -63,7 +60,6 @@ def mock_embedding_engine():
     engine.find_similar_entities = AsyncMock(side_effect=mock_find_similar)
     return engine
 
-
 @pytest.fixture
 def mock_path_reasoner():
     """模拟路径推理引擎"""
@@ -88,7 +84,6 @@ def mock_path_reasoner():
     reasoner.find_reasoning_paths = AsyncMock(side_effect=mock_find_paths)
     return reasoner
 
-
 @pytest.fixture 
 def mock_uncertainty_reasoner():
     """模拟不确定性推理引擎"""
@@ -106,7 +101,6 @@ def mock_uncertainty_reasoner():
     reasoner.calculate_inference_confidence = AsyncMock(side_effect=mock_calculate_confidence)
     return reasoner
 
-
 @pytest.fixture
 def mock_optimizer():
     """模拟推理优化器"""
@@ -117,7 +111,6 @@ def mock_optimizer():
     
     optimizer.optimize_reasoning_request = AsyncMock(side_effect=mock_optimize)
     return optimizer
-
 
 @pytest.fixture
 def hybrid_reasoner(
@@ -135,7 +128,6 @@ def hybrid_reasoner(
         uncertainty_reasoner=mock_uncertainty_reasoner,
         optimizer=mock_optimizer
     )
-
 
 class TestHybridReasonerIntegration:
     """混合推理引擎集成测试类"""
@@ -466,7 +458,6 @@ class TestHybridReasonerIntegration:
             assert "accuracy_score" in stat
             assert "last_updated" in stat
 
-
 class TestReasoningRequestValidation:
     """推理请求验证测试"""
     
@@ -497,7 +488,6 @@ class TestReasoningRequestValidation:
         assert request.confidence_threshold == 0.5
         assert request.timeout == 30
 
-
 class TestReasoningEvidence:
     """推理证据测试"""
     
@@ -517,7 +507,6 @@ class TestReasoningEvidence:
         assert evidence.content == {"key": "value"}
         assert evidence.confidence == 0.85
         assert evidence.support_count == 0
-
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

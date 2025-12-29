@@ -1,23 +1,19 @@
 """数据库MCP工具实现"""
 
 import asyncio
-import logging
 import re
 from typing import Any, Dict, List, Optional, Union
 from sqlalchemy import text, inspect
 from sqlalchemy.exc import SQLAlchemyError
-
 from src.core.database import get_db_session
 from ..client import get_mcp_client_manager
 from ..exceptions import MCPConnectionError
 
-logger = logging.getLogger(__name__)
-
+logger = get_logger(__name__)
 
 class DatabaseSecurityError(Exception):
     """数据库安全异常"""
-    pass
-
+    ...
 
 class DatabaseTool:
     """数据库MCP工具实现"""
@@ -196,17 +192,12 @@ class DatabaseTool:
                     }
                     
         except RuntimeError as e:
-            if "Database not initialized" in str(e):
-                # 在测试环境下返回模拟结果
-                logger.warning(f"Database not initialized, returning mock result for testing")
-                return {
-                    "success": True,
-                    "rows": [{"test_value": 1}],
-                    "column_names": ["test_value"],
-                    "row_count": 1,
-                    "query": query
-                }
-            raise
+            logger.error(f"Database runtime error: {str(e)}")
+            return {
+                "success": False,
+                "error": str(e),
+                "error_type": "DatabaseNotInitialized"
+            }
         except Exception as e:
             logger.error(f"Error executing query: {str(e)}")
             return {
@@ -436,10 +427,8 @@ class DatabaseTool:
                 "error_type": "UnknownError"
             }
 
-
 # 全局数据库工具实例
 database_tool = DatabaseTool()
-
 
 async def call_database_tool(tool_name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
     """调用数据库工具的统一接口"""
@@ -472,3 +461,4 @@ async def call_database_tool(tool_name: str, arguments: Dict[str, Any]) -> Dict[
             "error": str(e),
             "error_type": "ToolError"
         }
+from src.core.logging import get_logger

@@ -2,6 +2,7 @@
 AutoGen异步事件驱动架构
 实现事件总线、消息队列和状态管理
 """
+
 import asyncio
 import json
 import uuid
@@ -11,10 +12,9 @@ from src.core.utils.timezone_utils import utc_now, utc_factory, timezone
 from enum import Enum
 from typing import Dict, List, Optional, Any, Callable, Union
 from dataclasses import dataclass, field, asdict
-import structlog
 
-logger = structlog.get_logger(__name__)
-
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 class EventType(str, Enum):
     """事件类型枚举"""
@@ -45,14 +45,12 @@ class EventType(str, Enum):
     ERROR_OCCURRED = "error.occurred"
     SYSTEM_STATUS_CHANGED = "system.status_changed"
 
-
 class EventPriority(str, Enum):
     """事件优先级"""
     LOW = "low"
     NORMAL = "normal"
     HIGH = "high"
     CRITICAL = "critical"
-
 
 @dataclass
 class Event:
@@ -86,21 +84,19 @@ class Event:
         data['priority'] = EventPriority(data['priority'])
         return cls(**data)
 
-
 class EventHandler(ABC):
     """事件处理器抽象基类"""
     
     @abstractmethod
     async def handle(self, event: Event) -> None:
         """处理事件"""
-        pass
+        raise NotImplementedError
     
     @property
     @abstractmethod
     def supported_events(self) -> List[EventType]:
         """支持的事件类型"""
-        pass
-
+        raise NotImplementedError
 
 class EventBus:
     """异步事件总线"""
@@ -214,7 +210,7 @@ class EventBus:
                 self.subscribers[event_type].remove(handler)
                 logger.info("取消事件订阅", event_type=event_type)
             except ValueError:
-                pass
+                logger.warning("事件订阅不存在，无法取消", event_type=event_type, exc_info=True)
     
     def add_filter(self, filter_func: Callable[[Event], bool]) -> None:
         """添加事件过滤器"""
@@ -333,7 +329,6 @@ class EventBus:
             "worker_count": len(self._worker_tasks)
         }
 
-
 class MessageQueue:
     """消息队列系统"""
     
@@ -378,7 +373,7 @@ class MessageQueue:
         priority: int
     ) -> None:
         """发送到Redis队列"""
-        # Redis实现（需要aioredis）
+        # Redis实现（使用redis.asyncio）
         serialized_message = json.dumps(message)
         await self.redis_client.lpush(f"queue:{queue_name}", serialized_message)
     
@@ -429,7 +424,6 @@ class MessageQueue:
                 logger.error("Redis消息处理失败", queue=queue_name, error=str(e))
                 await asyncio.sleep(1)  # 错误时等待一秒再重试
 
-
 class StateManager:
     """分布式状态管理器"""
     
@@ -462,8 +456,6 @@ class StateManager:
                 "capabilities": [],
                 "load": 0.0
             }
-            
-            await self.update_agent_state(agent_id, default_state)
             return default_state
             
         except Exception as e:
@@ -566,7 +558,6 @@ class StateManager:
             logger.error("列出智能体状态失败", error=str(e))
             return {}
 
-
 # 预定义的事件处理器
 class LoggingEventHandler(EventHandler):
     """日志事件处理器"""
@@ -585,7 +576,6 @@ class LoggingEventHandler(EventHandler):
             target=event.target,
             timestamp=event.timestamp.isoformat()
         )
-
 
 class MetricsEventHandler(EventHandler):
     """指标收集事件处理器"""

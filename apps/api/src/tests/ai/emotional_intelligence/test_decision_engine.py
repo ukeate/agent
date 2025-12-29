@@ -1,15 +1,19 @@
 """
 情感智能决策引擎测试
 """
-import pytest
-from datetime import datetime, timedelta
-from unittest.mock import AsyncMock, MagicMock, patch
 
+from src.core.utils.timezone_utils import utc_now
+import pytest
+from datetime import timedelta
+from unittest.mock import AsyncMock, MagicMock, patch
 from ....ai.emotional_intelligence.decision_engine import EmotionalDecisionEngine, DecisionStrategy
 from ....ai.emotional_intelligence.models import (
+
     DecisionContext, EmotionalDecision, RiskAssessment, RiskLevel, DecisionType
 )
 
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 class MockDecisionStrategy(DecisionStrategy):
     """测试用决策策略"""
@@ -27,7 +31,6 @@ class MockDecisionStrategy(DecisionStrategy):
     @property
     def strategy_name(self) -> str:
         return self._name
-
 
 class TestEmotionalDecisionEngine:
     """情感智能决策引擎测试类"""
@@ -61,13 +64,13 @@ class TestEmotionalDecisionEngine:
                     'emotion': 'anxiety',
                     'intensity': 0.8,
                     'valence': -0.7,
-                    'timestamp': (datetime.now() - timedelta(hours=1)).isoformat()
+                    'timestamp': (utc_now() - timedelta(hours=1)).isoformat()
                 },
                 {
                     'emotion': 'neutral',
                     'intensity': 0.5,
                     'valence': 0.0,
-                    'timestamp': (datetime.now() - timedelta(hours=2)).isoformat()
+                    'timestamp': (utc_now() - timedelta(hours=2)).isoformat()
                 }
             ],
             user_input='我感觉很沮丧，不知道该怎么办',
@@ -133,7 +136,7 @@ class TestEmotionalDecisionEngine:
                     'emotion': 'despair',
                     'intensity': 0.9,
                     'valence': -0.8,
-                    'timestamp': (datetime.now() - timedelta(hours=1)).isoformat()
+                    'timestamp': (utc_now() - timedelta(hours=1)).isoformat()
                 }
             ] * 10,  # 重复负面情感
             environmental_factors={'stress_level': 0.9, 'social_isolation_score': 0.8}
@@ -192,8 +195,8 @@ class TestEmotionalDecisionEngine:
         crisis_assessment = await decision_engine.detect_crisis(crisis_context)
         
         # 验证结果
-        print(f"Crisis detected: {crisis_assessment.crisis_detected}")
-        print(f"Indicators: {crisis_assessment.indicators}")
+        logger.info(f"Crisis detected: {crisis_assessment.crisis_detected}")
+        logger.info(f"Indicators: {crisis_assessment.indicators}")
         assert crisis_assessment.crisis_detected
         assert crisis_assessment.severity_level in ['severe', 'critical']
         assert crisis_assessment.risk_score > 0.7
@@ -304,7 +307,7 @@ class TestEmotionalDecisionEngine:
             emotion_history=[{
                 'emotion': 'anxiety',
                 'intensity': 0.8,
-                'timestamp': datetime.now().isoformat()
+                'timestamp': utc_now().isoformat()
             }] * 5,
             personality_profile={'extraversion': 0.3, 'neuroticism': 0.8}
         )
@@ -331,7 +334,6 @@ class TestEmotionalDecisionEngine:
         except Exception as e:
             # 如果抛出异常，应该是可预期的类型
             assert isinstance(e, (ValueError, TypeError))
-
 
 @pytest.mark.asyncio
 async def test_decision_engine_integration():
@@ -363,13 +365,13 @@ async def test_decision_engine_integration():
                 'emotion': 'happiness',
                 'intensity': 0.8,
                 'valence': 0.7,
-                'timestamp': (datetime.now() - timedelta(hours=3)).isoformat()
+                'timestamp': (utc_now() - timedelta(hours=3)).isoformat()
             },
             {
                 'emotion': 'sadness',
                 'intensity': 0.6,
                 'valence': -0.5,
-                'timestamp': (datetime.now() - timedelta(hours=1)).isoformat()
+                'timestamp': (utc_now() - timedelta(hours=1)).isoformat()
             }
         ],
         user_input='我的心情很复杂，有开心也有难过',

@@ -2,13 +2,12 @@
 Supervisor管理API路由
 提供Supervisor智能体的HTTP接口
 """
+
 from typing import List, Dict, Any, Optional
 from datetime import datetime
 from src.core.utils.timezone_utils import utc_now, utc_factory
 from fastapi import APIRouter, HTTPException, Depends, Query, Path, status
 from fastapi.responses import JSONResponse
-import structlog
-
 from src.services.supervisor_service import supervisor_service
 from src.models.schemas.supervisor import (
     TaskSubmissionRequest, TaskSubmissionResponse,
@@ -19,10 +18,35 @@ from src.models.schemas.supervisor import (
 from src.models.schemas.base import BaseResponse, ErrorResponse
 from src.api.exceptions import ValidationError, NotFoundError
 
-logger = structlog.get_logger(__name__)
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 router = APIRouter(prefix="/supervisor", tags=["supervisor"])
 
+def _serialize_supervisor_config(config: Any) -> Dict[str, Any]:
+    return {
+        "id": config.id,
+        "supervisor_id": config.supervisor_id,
+        "config_name": config.config_name,
+        "config_version": config.config_version,
+        "routing_strategy": config.routing_strategy,
+        "load_threshold": config.load_threshold,
+        "capability_weight": config.capability_weight,
+        "load_weight": config.load_weight,
+        "availability_weight": config.availability_weight,
+        "enable_quality_assessment": config.enable_quality_assessment,
+        "min_confidence_threshold": config.min_confidence_threshold,
+        "enable_learning": config.enable_learning,
+        "learning_rate": config.learning_rate,
+        "optimization_interval_hours": config.optimization_interval_hours,
+        "max_concurrent_tasks": config.max_concurrent_tasks,
+        "task_timeout_minutes": config.task_timeout_minutes,
+        "enable_fallback": config.enable_fallback,
+        "config_metadata": config.config_metadata,
+        "is_active": config.is_active,
+        "created_at": config.created_at,
+        "updated_at": config.updated_at,
+    }
 
 @router.post(
     "/tasks",
@@ -71,7 +95,6 @@ async def submit_task(
             detail=f"任务提交失败: {str(e)}"
         )
 
-
 @router.get(
     "/status",
     response_model=SupervisorStatusApiResponse,
@@ -94,15 +117,20 @@ async def get_supervisor_status(
         )
         
     except ValueError as e:
-        logger.error("Supervisor不存在", supervisor_id=supervisor_id, error=str(e))
-        raise NotFoundError(f"Supervisor {supervisor_id} 不存在")
+        logger.warning("Supervisor不存在，尝试自动初始化", supervisor_id=supervisor_id, error=str(e))
+        await supervisor_service.initialize_supervisor(supervisor_id)
+        status_data = await supervisor_service.get_supervisor_status(supervisor_id)
+        return SupervisorStatusApiResponse(
+            success=True,
+            message="状态查询成功（自动初始化）",
+            data=status_data
+        )
     except Exception as e:
         logger.error("状态查询失败", supervisor_id=supervisor_id, error=str(e))
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"状态查询失败: {str(e)}"
         )
-
 
 @router.get(
     "/decisions",
@@ -125,6 +153,7 @@ async def get_decision_history(
         decisions = await supervisor_service.get_decision_history(
             supervisor_id, limit, offset
         )
+        total = await supervisor_service.get_decision_history_total(supervisor_id)
         
         return SupervisorDecisionListResponse(
             success=True,
@@ -133,7 +162,7 @@ async def get_decision_history(
             pagination={
                 "limit": limit,
                 "offset": offset,
-                "total": len(decisions)  # 实际应该从数据库获取总数
+                "total": total
             }
         )
         
@@ -157,7 +186,6 @@ async def get_decision_history(
             detail=f"决策历史查询失败: {str(e)}"
         )
 
-
 @router.put(
     "/config",
     response_model=SupervisorConfigApiResponse,
@@ -172,16 +200,16 @@ async def update_supervisor_config(
     try:
         logger.info("更新Supervisor配置", 
                    supervisor_id=supervisor_id,
-                   config_updates=request.dict(exclude_unset=True))
+                   config_updates=request.model_dump(exclude_unset=True))
         
-        result = await supervisor_service.update_supervisor_config(
+        config = await supervisor_service.update_supervisor_config(
             supervisor_id, request
         )
         
         return SupervisorConfigApiResponse(
             success=True,
-            message=result["message"],
-            data=result
+            message="配置更新成功",
+            data=_serialize_supervisor_config(config)
         )
         
     except ValueError as e:
@@ -193,7 +221,6 @@ async def update_supervisor_config(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"配置更新失败: {str(e)}"
         )
-
 
 @router.post(
     "/initialize",
@@ -223,7 +250,6 @@ async def initialize_supervisor(
             detail=f"Supervisor初始化失败: {str(e)}"
         )
 
-
 @router.post(
     "/agents/{agent_name}",
     response_model=BaseResponse,
@@ -236,19 +262,28 @@ async def add_agent(
 ) -> BaseResponse:
     """添加智能体到Supervisor"""
     try:
-        logger.info("添加智能体到Supervisor", 
-                   supervisor_id=supervisor_id,
-                   agent_name=agent_name)
-        
-        # 这里需要从智能体池中获取智能体实例
-        # 暂时返回成功消息，实际实现需要智能体管理服务
-        
+        logger.info("添加智能体到Supervisor",
+                    supervisor_id=supervisor_id,
+                    agent_name=agent_name)
+        agent = supervisor_service._available_agents.get(agent_name)
+        if not agent:
+            agent_pool = supervisor_service._create_default_agent_pool()
+            agent = agent_pool.get(agent_name)
+            if not agent:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="智能体不存在",
+                )
+            supervisor_service._available_agents.update(agent_pool)
+
+        await supervisor_service.add_agent_to_supervisor(supervisor_id, agent_name, agent)
         return BaseResponse(
             success=True,
-            message=f"智能体 {agent_name} 添加成功",
-            data={"supervisor_id": supervisor_id, "agent_name": agent_name}
+            message="智能体添加成功",
+            data={"supervisor_id": supervisor_id, "agent_name": agent_name},
         )
-        
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error("添加智能体失败", 
                     supervisor_id=supervisor_id,
@@ -258,7 +293,6 @@ async def add_agent(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"添加智能体失败: {str(e)}"
         )
-
 
 @router.delete(
     "/agents/{agent_name}",
@@ -295,7 +329,6 @@ async def remove_agent(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"移除智能体失败: {str(e)}"
         )
-
 
 @router.post(
     "/tasks/{task_id}/complete",
@@ -338,7 +371,6 @@ async def update_task_completion(
             detail=f"任务状态更新失败: {str(e)}"
         )
 
-
 @router.get(
     "/stats",
     response_model=BaseResponse,
@@ -351,38 +383,53 @@ async def get_supervisor_stats(
     """获取Supervisor统计数据"""
     try:
         logger.info("查询Supervisor统计数据", supervisor_id=supervisor_id)
-        
-        # 返回符合SupervisorStats类型的统计数据
-        stats_data = {
-            "total_tasks": 23,
-            "completed_tasks": 18,
-            "failed_tasks": 2,
-            "pending_tasks": 2,
-            "running_tasks": 1,
-            "average_completion_time": 145.5,
-            "success_rate": 0.87,
-            "agent_utilization": {
-                "code_expert": 0.75,
-                "architect": 0.45,
-                "doc_expert": 0.35
-            },
-            "decision_accuracy": 0.92,
-            "recent_decisions": []
-        }
-        
+        from src.core.database import get_db_session
+        from src.repositories.supervisor_repository import (
+            SupervisorRepository,
+            SupervisorTaskRepository,
+            SupervisorDecisionRepository,
+            AgentLoadMetricsRepository,
+        )
+
+        async with get_db_session() as db:
+            supervisor_repo = SupervisorRepository(db)
+            supervisor = await supervisor_repo.get_by_id(supervisor_id)
+            if not supervisor:
+                supervisor = await supervisor_repo.get_by_name(supervisor_id)
+            if not supervisor:
+                created_id = await supervisor_service.initialize_supervisor(supervisor_id)
+                supervisor = await supervisor_repo.get_by_id(created_id)
+            if not supervisor:
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Supervisor不存在")
+
+            task_repo = SupervisorTaskRepository(db)
+            decision_repo = SupervisorDecisionRepository(db)
+            load_repo = AgentLoadMetricsRepository(db)
+
+            task_stats = await task_repo.get_task_statistics(supervisor.id)
+            decision_stats = await decision_repo.get_decision_statistics(supervisor.id)
+            current_loads = await load_repo.get_current_loads(supervisor.id)
+
         return BaseResponse(
             success=True,
             message="统计数据查询成功",
-            data=stats_data
+            data={
+                "supervisor_id": supervisor.id,
+                "supervisor_name": supervisor.name,
+                "task_statistics": task_stats,
+                "decision_statistics": decision_stats,
+                "agent_loads": current_loads,
+                "timestamp": utc_now().isoformat(),
+            },
         )
-        
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error("统计数据查询失败", supervisor_id=supervisor_id, error=str(e))
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"统计数据查询失败: {str(e)}"
         )
-
 
 @router.get(
     "/load-statistics",
@@ -396,30 +443,71 @@ async def get_load_statistics(
     """获取负载统计信息"""
     try:
         logger.info("查询负载统计", supervisor_id=supervisor_id)
-        
-        # 这里需要实现负载统计逻辑
-        # 暂时返回模拟数据
-        statistics = {
-            "total_tasks_assigned": 0,
-            "average_load": 0.0,
-            "agent_loads": {},
-            "task_counts": {},
-            "busiest_agent": {"name": "", "load": 0.0},
-            "least_busy_agent": {"name": "", "load": 0.0},
-            "last_update": "2025-01-01T00:00:00Z",
-            "load_distribution": {
-                "low_load": 0,
-                "medium_load": 0,
-                "high_load": 0
-            }
-        }
-        
+        from sqlalchemy import select, func
+
+        from src.core.database import get_db_session
+        from src.models.database.supervisor import SupervisorTask
+        from src.repositories.supervisor_repository import (
+            SupervisorRepository,
+            AgentLoadMetricsRepository,
+        )
+
+        async with get_db_session() as db:
+            supervisor_repo = SupervisorRepository(db)
+            supervisor = await supervisor_repo.get_by_id(supervisor_id)
+            if not supervisor:
+                supervisor = await supervisor_repo.get_by_name(supervisor_id)
+            if not supervisor:
+                created_id = await supervisor_service.initialize_supervisor(supervisor_id)
+                supervisor = await supervisor_repo.get_by_id(created_id)
+            if not supervisor:
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Supervisor不存在")
+
+            load_repo = AgentLoadMetricsRepository(db)
+            agent_loads = await load_repo.get_current_loads(supervisor.id)
+
+            stmt = (
+                select(SupervisorTask.assigned_agent_name, func.count(SupervisorTask.id))
+                .where(SupervisorTask.supervisor_id == supervisor.id)
+                .group_by(SupervisorTask.assigned_agent_name)
+            )
+            rows = await db.execute(stmt)
+            task_counts = {name or "未分配": int(count) for name, count in rows.all()}
+
+        loads = list(agent_loads.values())
+        average_load = float(sum(loads) / len(loads)) if loads else 0.0
+        busiest_name, busiest_load = max(agent_loads.items(), key=lambda x: x[1], default=("", 0.0))
+        least_name, least_load = min(agent_loads.items(), key=lambda x: x[1], default=("", 0.0))
+
+        buckets = {"0-0.25": 0, "0.25-0.5": 0, "0.5-0.75": 0, "0.75-1.0": 0}
+        for load in loads:
+            if load < 0.25:
+                buckets["0-0.25"] += 1
+            elif load < 0.5:
+                buckets["0.25-0.5"] += 1
+            elif load < 0.75:
+                buckets["0.5-0.75"] += 1
+            else:
+                buckets["0.75-1.0"] += 1
+
+        total_tasks_assigned = int(sum(v for k, v in task_counts.items() if k != "未分配"))
+
         return LoadStatisticsApiResponse(
             success=True,
             message="负载统计查询成功",
-            data=statistics
+            data={
+                "total_tasks_assigned": total_tasks_assigned,
+                "average_load": average_load,
+                "agent_loads": agent_loads,
+                "task_counts": task_counts,
+                "busiest_agent": {"agent_name": busiest_name, "current_load": busiest_load},
+                "least_busy_agent": {"agent_name": least_name, "current_load": least_load},
+                "last_update": utc_now(),
+                "load_distribution": buckets,
+            },
         )
-        
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error("负载统计查询失败", supervisor_id=supervisor_id, error=str(e))
         raise HTTPException(
@@ -427,57 +515,78 @@ async def get_load_statistics(
             detail=f"负载统计查询失败: {str(e)}"
         )
 
-
 @router.get(
     "/metrics",
-    response_model=LoadStatisticsApiResponse,
+    response_model=BaseResponse,
     summary="获取智能体指标",
     description="获取Supervisor管理的智能体负载指标"
 )
 async def get_agent_metrics(
     supervisor_id: str = Query(..., description="Supervisor ID")
-) -> LoadStatisticsApiResponse:
+) -> BaseResponse:
     """获取智能体指标"""
     try:
         logger.info("查询智能体指标", supervisor_id=supervisor_id)
-        
-        # 返回模拟的指标数据
-        metrics = {
-            "total_tasks_assigned": 15,
-            "average_load": 0.65,
-            "agent_loads": {
-                "code_agent": 0.8,
-                "architect_agent": 0.5,
-                "doc_agent": 0.3
-            },
-            "task_counts": {
-                "pending": 2,
-                "running": 5,
-                "completed": 8
-            },
-            "busiest_agent": {"name": "code_agent", "load": 0.8},
-            "least_busy_agent": {"name": "doc_agent", "load": 0.3},
-            "last_update": "2025-08-06T12:00:00Z",
-            "load_distribution": {
-                "low_load": 1,
-                "medium_load": 1,
-                "high_load": 1
-            }
-        }
-        
-        return LoadStatisticsApiResponse(
-            success=True,
-            message="智能体指标查询成功",
-            data=metrics
-        )
-        
+        from sqlalchemy import select
+        from sqlalchemy import desc as sql_desc
+
+        from src.core.database import get_db_session
+        from src.models.database.supervisor import AgentLoadMetrics
+        from src.repositories.supervisor_repository import SupervisorRepository
+
+        async with get_db_session() as db:
+            supervisor_repo = SupervisorRepository(db)
+            supervisor = await supervisor_repo.get_by_id(supervisor_id)
+            if not supervisor:
+                supervisor = await supervisor_repo.get_by_name(supervisor_id)
+            if not supervisor:
+                created_id = await supervisor_service.initialize_supervisor(supervisor_id)
+                supervisor = await supervisor_repo.get_by_id(created_id)
+            if not supervisor:
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Supervisor不存在")
+
+            stmt = (
+                select(AgentLoadMetrics)
+                .where(AgentLoadMetrics.supervisor_id == supervisor.id)
+                .order_by(sql_desc(AgentLoadMetrics.updated_at))
+            )
+            result = await db.execute(stmt)
+            rows = result.scalars().all()
+
+        metrics = []
+        seen = set()
+        for m in rows:
+            if m.agent_name in seen:
+                continue
+            seen.add(m.agent_name)
+            metrics.append(
+                {
+                    "id": m.id,
+                    "agent_name": m.agent_name,
+                    "supervisor_id": m.supervisor_id,
+                    "current_load": m.current_load,
+                    "task_count": m.task_count,
+                    "average_task_time": m.average_task_time,
+                    "success_rate": m.success_rate,
+                    "response_time_avg": m.response_time_avg,
+                    "error_rate": m.error_rate,
+                    "availability_score": m.availability_score,
+                    "window_start": m.window_start.isoformat(),
+                    "window_end": m.window_end.isoformat(),
+                    "created_at": m.created_at.isoformat(),
+                    "updated_at": m.updated_at.isoformat(),
+                }
+            )
+
+        return BaseResponse(success=True, message="智能体指标查询成功", data=metrics)
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error("智能体指标查询失败", supervisor_id=supervisor_id, error=str(e))
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"智能体指标查询失败: {str(e)}"
         )
-
 
 @router.get(
     "/tasks",
@@ -510,6 +619,7 @@ async def get_tasks(
             tasks = await task_repo.get_tasks_by_supervisor(
                 supervisor_id, limit, offset, status_filter
             )
+            total = await task_repo.count_tasks_by_supervisor(supervisor_id, status_filter)
             
             # 转换为API响应格式
             task_list = []
@@ -519,12 +629,18 @@ async def get_tasks(
                     "name": task.name,
                     "description": task.description,
                     "task_type": task.task_type,  # 修正字段名
-                    "status": task.status,
-                    "assigned_agent_name": task.assigned_agent_name or "未分配",  # 修正字段名
-                    "created_at": task.created_at.isoformat() if task.created_at else None,
                     "priority": task.priority,
+                    "status": task.status,
                     "complexity_score": task.complexity_score,
-                    "estimated_time_seconds": task.estimated_time_seconds  # 修正字段名
+                    "estimated_time_seconds": task.estimated_time_seconds,  # 修正字段名
+                    "actual_time_seconds": task.actual_time_seconds,
+                    "assigned_agent_id": task.assigned_agent_id,
+                    "assigned_agent_name": task.assigned_agent_name,
+                    "supervisor_id": task.supervisor_id,
+                    "created_at": task.created_at.isoformat(),
+                    "updated_at": task.updated_at.isoformat(),
+                    "started_at": task.started_at.isoformat() if task.started_at else None,
+                    "completed_at": task.completed_at.isoformat() if task.completed_at else None,
                 })
         
         return BaseResponse(
@@ -535,7 +651,7 @@ async def get_tasks(
                 "pagination": {
                     "limit": limit,
                     "offset": offset,
-                    "total": len(task_list)  # TODO: 应该从数据库获取总数
+                    "total": total
                 }
             }
         )
@@ -546,7 +662,6 @@ async def get_tasks(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"任务列表查询失败: {str(e)}"
         )
-
 
 @router.get(
     "/config",
@@ -560,44 +675,38 @@ async def get_supervisor_config(
     """获取Supervisor配置"""
     try:
         logger.info("查询Supervisor配置", supervisor_id=supervisor_id)
-        
-        # 返回模拟的配置数据
-        from src.models.schemas.supervisor import RoutingStrategy
-        config_data = {
-            "id": "config_001",
-            "supervisor_id": supervisor_id,
-            "config_name": "default",
-            "config_version": "1.0",
-            "routing_strategy": RoutingStrategy.HYBRID,
-            "load_threshold": 0.8,
-            "capability_weight": 0.5,
-            "load_weight": 0.3,
-            "availability_weight": 0.2,
-            "enable_quality_assessment": True,
-            "min_confidence_threshold": 0.7,
-            "enable_learning": True,
-            "learning_rate": 0.1,
-            "max_concurrent_tasks": 10,
-            "task_timeout_minutes": 30,
-            "enable_fallback": True,
-            "is_active": True,
-            "created_at": utc_now(),
-            "updated_at": utc_now()
-        }
-        
+        from src.core.database import get_db_session
+        from src.repositories.supervisor_repository import SupervisorConfigRepository, SupervisorRepository
+
+        async with get_db_session() as db:
+            supervisor_repo = SupervisorRepository(db)
+            supervisor = await supervisor_repo.get_by_id(supervisor_id)
+            if not supervisor:
+                supervisor = await supervisor_repo.get_by_name(supervisor_id)
+            if not supervisor:
+                created_id = await supervisor_service.initialize_supervisor(supervisor_id)
+                supervisor = await supervisor_repo.get_by_id(created_id)
+            if not supervisor:
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Supervisor不存在")
+
+            config_repo = SupervisorConfigRepository(db)
+            config = await config_repo.get_active_config(supervisor.id)
+            if not config:
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="未找到活跃配置")
+
         return SupervisorConfigApiResponse(
             success=True,
             message="配置查询成功",
-            data=config_data
+            data=_serialize_supervisor_config(config),
         )
-        
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error("配置查询失败", supervisor_id=supervisor_id, error=str(e))
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"配置查询失败: {str(e)}"
         )
-
 
 @router.get(
     "/health",
@@ -613,7 +722,7 @@ async def health_check() -> BaseResponse:
             message="Supervisor服务运行正常",
             data={
                 "status": "healthy",
-                "timestamp": "2025-08-06T12:00:00Z",
+                "timestamp": utc_now().isoformat(),
                 "version": "1.0.0"
             }
         )
@@ -623,7 +732,6 @@ async def health_check() -> BaseResponse:
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"健康检查失败: {str(e)}"
         )
-
 
 @router.post(
     "/tasks/{task_id}/execute",
@@ -661,7 +769,6 @@ async def execute_task(
             detail=f"任务执行失败: {str(e)}"
         )
 
-
 @router.post(
     "/scheduler/force-execution",
     response_model=BaseResponse,
@@ -689,7 +796,6 @@ async def force_task_execution() -> BaseResponse:
             detail=f"强制任务调度失败: {str(e)}"
         )
 
-
 @router.get(
     "/scheduler/status",
     response_model=BaseResponse,
@@ -714,7 +820,6 @@ async def get_scheduler_status() -> BaseResponse:
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"查询调度器状态失败: {str(e)}"
         )
-
 
 @router.get(
     "/tasks/{task_id}/details",
@@ -780,9 +885,7 @@ async def get_task_details(
             detail=f"任务详细信息查询失败: {str(e)}"
         )
 
-
 # 错误处理器
 # Exception handlers removed - handled by global handlers
-
 
 # Exception handlers removed - handled by global handlers

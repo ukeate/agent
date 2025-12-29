@@ -4,7 +4,6 @@ import pytest
 import asyncio
 from unittest.mock import Mock, AsyncMock, patch
 from uuid import uuid4
-
 from src.ai.reasoning.cot_engine import (
     BaseCoTEngine,
     ReasoningChainBuilder,
@@ -20,8 +19,8 @@ from models.schemas.reasoning import (
     ReasoningChain,
     ThoughtStepType,
     ThoughtStep
-)
 
+)
 
 class TestZeroShotCoTEngine:
     """测试Zero-shot CoT引擎"""
@@ -74,7 +73,6 @@ class TestZeroShotCoTEngine:
         assert len(reasoning) > 0
         assert 0 <= confidence <= 1
 
-
 class TestFewShotCoTEngine:
     """测试Few-shot CoT引擎"""
 
@@ -113,7 +111,6 @@ class TestFewShotCoTEngine:
         assert "示例" in prompt
         assert "概率" in prompt  # 默认示例中包含概率问题
 
-
 class TestAutoCoTEngine:
     """测试Auto-CoT引擎"""
 
@@ -150,7 +147,6 @@ class TestAutoCoTEngine:
         assert "数学类型" in prompt
         assert "策略" in prompt
         assert "计算两个数的和" in prompt
-
 
 class TestReasoningChainBuilder:
     """测试推理链构建器"""
@@ -194,7 +190,6 @@ class TestReasoningChainBuilder:
         assert len(chain.branches) == 1
         assert chain.branches[0].branch_reason == "探索替代方案"
 
-
 class TestStepExecutor:
     """测试步骤执行器"""
 
@@ -228,7 +223,6 @@ class TestStepExecutor:
         assert step.step_type == ThoughtStepType.ANALYSIS
         assert step.confidence == 0.8
 
-
 class TestUtilityFunctions:
     """测试工具函数"""
 
@@ -255,7 +249,6 @@ class TestUtilityFunctions:
         assert key1 == key2  # 相同输入应该生成相同的键
         assert key1 != key3  # 不同输入应该生成不同的键
         assert len(key1) == 64  # SHA256的十六进制长度
-
 
 class TestBaseCoTEngineIntegration:
     """测试BaseCoTEngine集成"""

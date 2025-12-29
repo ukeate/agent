@@ -6,11 +6,10 @@
 
 import os
 import json
-import pickle
+from src.core.utils import secure_pickle as pickle
 import asyncio
 import hashlib
 import time
-import logging
 from typing import Dict, List, Any, Optional, Union
 from dataclasses import dataclass, field, asdict
 from datetime import datetime
@@ -19,12 +18,12 @@ from src.core.utils.timezone_utils import utc_now, utc_factory
 from pathlib import Path
 import sqlite3
 from contextlib import asynccontextmanager
-
-# Import from shared types to avoid circular dependency
 from .batch_types import BatchJob, BatchTask, BatchStatus
 
-logger = logging.getLogger(__name__)
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
+# Import from shared types to avoid circular dependency
 
 @dataclass
 class CheckpointMetadata:
@@ -43,7 +42,6 @@ class CheckpointMetadata:
     dependencies: List[str] = field(default_factory=list)
     tags: Dict[str, str] = field(default_factory=dict)
 
-
 @dataclass
 class CheckpointConfig:
     """检查点配置"""
@@ -55,7 +53,6 @@ class CheckpointConfig:
     encryption_enabled: bool = False
     cleanup_older_than_days: int = 7
     incremental_threshold: float = 0.1  # 10%任务变化触发增量检查点
-
 
 class CheckpointStorage:
     """检查点存储引擎"""
@@ -257,7 +254,6 @@ class CheckpointStorage:
             logger.error(f"删除检查点失败: {checkpoint_id} - {e}")
             return False
 
-
 class CheckpointManager:
     """检查点管理器"""
     
@@ -290,7 +286,7 @@ class CheckpointManager:
             try:
                 await self._auto_save_task
             except asyncio.CancelledError:
-                pass
+                raise
         logger.info("停止自动检查点保存")
     
     async def _auto_save_loop(self):
@@ -543,7 +539,6 @@ class CheckpointManager:
             stats['newest_checkpoint'] = sorted_checkpoints[-1].created_at.isoformat()
         
         return stats
-
 
 # 全局检查点管理器实例
 checkpoint_manager = CheckpointManager()

@@ -3,23 +3,22 @@
 提供对话情感流分析、社交网络情感地图和社交情感统计
 """
 
+from src.core.utils.timezone_utils import utc_now
 import asyncio
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Dict, List, Optional, Set, Tuple, Any, Union
 from datetime import datetime, timedelta
 import json
-import logging
 import numpy as np
 from collections import defaultdict, Counter
-
 from .models import EmotionVector, SocialContext
 from .core_interfaces import EmotionModelingInterface
 from .group_emotion_analyzer import GroupEmotionAnalyzer
-from .relationship_analyzer import RelationshipAnalyzer
+from .relationship_analyzer import RelationshipDynamicsAnalyzer
 
-logger = logging.getLogger(__name__)
-
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 class AnalysisType(Enum):
     """分析类型"""
@@ -27,7 +26,6 @@ class AnalysisType(Enum):
     NETWORK_MAP = "network_map"
     STATISTICS = "statistics"
     TREND_ANALYSIS = "trend_analysis"
-
 
 @dataclass
 class EmotionFlowPoint:
@@ -39,7 +37,6 @@ class EmotionFlowPoint:
     valence: float
     arousal: float
     context: Optional[Dict[str, Any]] = None
-
 
 @dataclass
 class EmotionFlow:
@@ -55,7 +52,6 @@ class EmotionFlow:
     overall_trend: str
     dominant_emotions: Dict[str, float]
 
-
 @dataclass
 class NetworkNode:
     """网络节点"""
@@ -64,7 +60,6 @@ class NetworkNode:
     connection_strength: Dict[str, float]  # 与其他节点的连接强度
     emotion_state: EmotionVector
     role: str  # 网络中的角色：influencer, supporter, neutral, etc.
-
 
 @dataclass
 class EmotionNetwork:
@@ -77,7 +72,6 @@ class EmotionNetwork:
     influence_paths: Dict[str, List[str]]  # 影响传播路径
     network_cohesion: float  # 网络凝聚力
     polarization_level: float  # 极化程度
-
 
 @dataclass
 class SocialEmotionStats:
@@ -96,13 +90,12 @@ class SocialEmotionStats:
     conflict_involvement: int  # 冲突参与次数
     scenario_performance: Dict[str, float]  # 不同场景下的表现
 
-
 class SocialAnalyticsTools(EmotionModelingInterface):
     """社交情感分析工具"""
     
     def __init__(self):
         self.group_analyzer = GroupEmotionAnalyzer()
-        self.relationship_analyzer = RelationshipAnalyzer()
+        self.relationship_analyzer = RelationshipDynamicsAnalyzer()
         self.analysis_cache: Dict[str, Any] = {}
         self.flow_history: Dict[str, EmotionFlow] = {}
         self.network_history: Dict[str, EmotionNetwork] = {}
@@ -162,8 +155,8 @@ class SocialAnalyticsTools(EmotionModelingInterface):
             emotion_flow = EmotionFlow(
                 session_id=session_id,
                 participants=participants,
-                start_time=flow_points[0].timestamp if flow_points else datetime.now(),
-                end_time=flow_points[-1].timestamp if flow_points else datetime.now(),
+                start_time=flow_points[0].timestamp if flow_points else utc_now(),
+                end_time=flow_points[-1].timestamp if flow_points else utc_now(),
                 flow_points=flow_points,
                 emotional_peaks=emotional_peaks,
                 emotional_valleys=emotional_valleys,
@@ -371,7 +364,7 @@ class SocialAnalyticsTools(EmotionModelingInterface):
     ) -> EmotionNetwork:
         """构建社交网络情感地图"""
         try:
-            network_id = f"network_{datetime.now().isoformat()}"
+            network_id = f"network_{utc_now().isoformat()}"
             
             # 提取参与者
             participants = list(set(
@@ -913,8 +906,8 @@ class SocialAnalyticsTools(EmotionModelingInterface):
         return EmotionFlow(
             session_id=session_id,
             participants=participants,
-            start_time=datetime.now(),
-            end_time=datetime.now(),
+            start_time=utc_now(),
+            end_time=utc_now(),
             flow_points=[],
             emotional_peaks=[],
             emotional_valleys=[],
@@ -1011,7 +1004,7 @@ class SocialAnalyticsTools(EmotionModelingInterface):
     
     async def cleanup_old_data(self, max_age_hours: int = 24) -> None:
         """清理旧数据"""
-        cutoff_time = datetime.now() - timedelta(hours=max_age_hours)
+        cutoff_time = utc_now() - timedelta(hours=max_age_hours)
         
         # 清理流历史
         expired_flows = [

@@ -6,6 +6,7 @@
 import React, { useState, useCallback } from 'react';
 import { feedbackService } from '../../services/feedbackService';
 
+import { logger } from '../../utils/logger'
 interface LikeDislikeComponentProps {
   itemId?: string;
   userId: string;
@@ -109,7 +110,7 @@ export const LikeDislikeComponent: React.FC<LikeDislikeComponentProps> = ({
 
       onSubmitSuccess?.(newState === 'none' ? 'remove' : newState);
     } catch (error) {
-      console.error('提交反馈失败:', error);
+      logger.error('提交反馈失败:', error);
       
       // 回滚状态
       setCurrentState(previousState);

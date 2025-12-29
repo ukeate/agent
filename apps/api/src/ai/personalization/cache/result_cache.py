@@ -6,12 +6,10 @@ from datetime import timedelta
 from src.core.utils.timezone_utils import utc_now, utc_factory
 from redis.asyncio import Redis
 import asyncio
-import logging
+from src.models.schemas.personalization import RecommendationResponse, RecommendationRequest
 
-from models.schemas.personalization import RecommendationResponse, RecommendationRequest
-
-logger = logging.getLogger(__name__)
-
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 class ResultCacheManager:
     """推荐结果缓存管理器"""
@@ -338,7 +336,6 @@ class ResultCacheManager:
         
         logger.info(f"预热了 {warmed_count} 个缓存项")
         return warmed_count
-
 
 class CacheInvalidator:
     """缓存失效器"""

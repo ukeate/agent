@@ -8,7 +8,6 @@ import pytest
 from datetime import datetime
 from src.core.utils.timezone_utils import utc_now, utc_factory
 from uuid import uuid4
-
 from ai.knowledge_graph.data_models import (
     Entity, Relation, KnowledgeGraph, TripleStore,
     EntityType, RelationType,
@@ -16,7 +15,6 @@ from ai.knowledge_graph.data_models import (
     ExtractionRequest, ExtractionResponse,
     BatchProcessingResult, BatchProcessingRequest, BatchProcessingResponse
 )
-
 
 class TestEntityType:
     """实体类型测试"""
@@ -35,7 +33,6 @@ class TestEntityType:
             assert hasattr(EntityType, entity_type)
             assert EntityType[entity_type].value == entity_type
 
-
 class TestRelationType:
     """关系类型测试"""
     
@@ -48,7 +45,6 @@ class TestRelationType:
         
         for relation_type in basic_types:
             assert hasattr(RelationType, relation_type)
-
 
 class TestEntity:
     """实体测试"""
@@ -108,7 +104,6 @@ class TestEntity:
         assert entity_dict["end"] == 2
         assert entity_dict["confidence"] == 0.9
         assert "entity_id" in entity_dict
-
 
 class TestRelation:
     """关系测试"""
@@ -181,7 +176,6 @@ class TestRelation:
         assert "subject" in relation_dict
         assert "object" in relation_dict
         assert "relation_id" in relation_dict
-
 
 class TestTripleStore:
     """三元组存储测试"""
@@ -264,7 +258,6 @@ class TestTripleStore:
         # 查询特定谓词的关系
         works_relations = store.query_triples(predicate="WORKS_FOR")
         assert len(works_relations) == 2
-
 
 class TestKnowledgeGraph:
     """知识图谱测试"""
@@ -400,7 +393,6 @@ class TestKnowledgeGraph:
         assert stats["relation_types"]["WORKS_FOR"] == 2
         assert stats["relation_types"]["LOCATED_IN"] == 1
 
-
 class TestPydanticModels:
     """Pydantic模型测试"""
     
@@ -491,7 +483,6 @@ class TestPydanticModels:
                 documents=[{"text": "test"}] * 1001
             )
 
-
 class TestBatchProcessingResult:
     """批处理结果测试"""
     
@@ -553,7 +544,6 @@ class TestBatchProcessingResult:
         assert result_dict["success_rate"] == 0.8  # 8/10
         assert result_dict["processing_time"] == 25.3
         assert "created_at" in result_dict
-
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

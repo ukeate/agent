@@ -5,17 +5,31 @@ AI微调模块
 
 from .lora_trainer import LoRATrainer
 from .qlora_trainer import QLoRATrainer
-from .model_adapters import ModelAdapter
-from .training_config import TrainingConfig, LoRAConfig, QuantizationConfig
+from .distributed_trainer import DistributedTrainer
+from .model_adapters import BaseModelAdapter, ModelAdapterFactory
+from .models import (
+    TrainingConfig,
+    LoRAConfig,
+    QuantizationConfig,
+    ModelArchitecture,
+    TrainingMode,
+    QuantizationType,
+)
+from .training_config import ConfigManager
 from .training_monitor import TrainingMonitor
-from .models import *
 
 __all__ = [
     "LoRATrainer",
-    "QLoRATrainer", 
-    "ModelAdapter",
+    "QLoRATrainer",
+    "DistributedTrainer",
+    "BaseModelAdapter",
+    "ModelAdapterFactory",
+    "ConfigManager",
     "TrainingConfig",
     "LoRAConfig",
     "QuantizationConfig", 
+    "ModelArchitecture",
+    "TrainingMode",
+    "QuantizationType",
     "TrainingMonitor",
 ]

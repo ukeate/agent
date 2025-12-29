@@ -1,8 +1,8 @@
+from src.core.utils.timezone_utils import utc_now
 import pytest
 import asyncio
-from datetime import datetime, timedelta
+from datetime import timedelta
 from unittest.mock import Mock, AsyncMock
-
 from ...services.fault_tolerance_service import FaultToleranceService
 from ...ai.fault_tolerance import FaultToleranceSystem, BackupType
 
@@ -52,17 +52,17 @@ def sample_system_status():
         },
         "backup_statistics": {
             "components": {
-                "agent-1": {"last_backup": datetime.now().isoformat()},
-                "agent-2": {"last_backup": datetime.now().isoformat()}
+                "agent-1": {"last_backup": utc_now().isoformat()},
+                "agent-2": {"last_backup": utc_now().isoformat()}
             }
         },
         "active_faults": [
             {
                 "fault_id": "fault-1",
-                "detected_at": datetime.now().isoformat()
+                "detected_at": utc_now().isoformat()
             }
         ],
-        "last_updated": datetime.now().isoformat()
+        "last_updated": utc_now().isoformat()
     }
 
 @pytest.fixture
@@ -82,7 +82,7 @@ def sample_system_metrics():
             "consistency_rate": 0.98
         },
         "system_availability": 0.96,
-        "last_updated": datetime.now().isoformat()
+        "last_updated": utc_now().isoformat()
     }
 
 @pytest.fixture
@@ -90,7 +90,7 @@ def sample_component_health():
     return {
         "component_id": "agent-1",
         "status": "healthy",
-        "last_check": datetime.now().isoformat(),
+        "last_check": utc_now().isoformat(),
         "response_time": 0.5,
         "error_rate": 0.01,
         "resource_usage": {
@@ -218,7 +218,7 @@ class TestFaultToleranceService:
             "plan_id": "test_plan",
             "components": ["agent-1", "agent-2"],
             "backup_strategy": {"backup_type": "full"},
-            "created_at": datetime.now().isoformat()
+            "created_at": utc_now().isoformat()
         }
         
         backup_results = {"agent-1": True, "agent-2": False}
@@ -242,7 +242,7 @@ class TestFaultToleranceService:
     async def test_analyze_fault_patterns(self, service, mock_fault_tolerance_system):
         """测试分析故障模式"""
         # 创建测试故障数据
-        now = datetime.now()
+        now = utc_now()
         fault_events = [
             {
                 "fault_id": "fault-1",
@@ -395,7 +395,7 @@ class TestFaultToleranceService:
     
     def test_time_utilities(self, service):
         """测试时间工具方法"""
-        now = datetime.now()
+        now = utc_now()
         
         # 测试最近时间检查
         recent_time = (now - timedelta(hours=1)).isoformat()
@@ -485,7 +485,7 @@ class TestFaultToleranceService:
     
     def test_recovery_effectiveness_analysis_with_data(self, service):
         """测试有数据的恢复效果分析"""
-        now = datetime.now()
+        now = utc_now()
         faults = [
             {
                 "resolved": True,

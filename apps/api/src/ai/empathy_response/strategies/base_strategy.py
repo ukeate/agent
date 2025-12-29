@@ -1,11 +1,11 @@
 """
 共情策略抽象基类
 """
+
 from abc import ABC, abstractmethod
 from typing import Dict, Any, Optional
 from ..models import EmpathyResponse, EmpathyRequest, DialogueContext, EmpathyType
 from ...emotion_modeling.models import EmotionState, PersonalityProfile
-
 
 class EmpathyStrategy(ABC):
     """共情策略抽象基类"""
@@ -30,7 +30,7 @@ class EmpathyStrategy(ABC):
         Returns:
             EmpathyResponse: 生成的共情响应
         """
-        pass
+        raise NotImplementedError
     
     @abstractmethod
     def is_suitable(
@@ -50,7 +50,7 @@ class EmpathyStrategy(ABC):
         Returns:
             float: 适合度评分 [0,1]
         """
-        pass
+        raise NotImplementedError
     
     def calculate_comfort_level(
         self,
@@ -129,7 +129,7 @@ class EmpathyStrategy(ABC):
         openness = personality.emotional_traits.get("openness", 0.5)
         if openness > 0.7:
             # 可以添加更有创意的表达
-            pass
+            response += " 也许我们可以从新的角度来理解这件事。"
             
         return response
     

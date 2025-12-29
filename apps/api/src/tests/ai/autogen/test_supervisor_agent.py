@@ -2,13 +2,13 @@
 Supervisor智能体决策引擎测试
 测试任务分析、智能体匹配和任务分配决策流程
 """
+
 import pytest
 import asyncio
 from datetime import datetime
 from src.core.utils.timezone_utils import utc_now, utc_factory, timezone
 from unittest.mock import Mock, AsyncMock, patch, MagicMock
 import structlog
-
 from src.ai.autogen.supervisor_agent import (
     SupervisorAgent,
     TaskType,
@@ -23,7 +23,6 @@ from src.ai.autogen.supervisor_agent import (
 )
 from src.ai.autogen.config import AgentConfig, AgentRole, AGENT_CONFIGS
 from src.ai.autogen.agents import BaseAutoGenAgent
-
 
 @pytest.fixture
 def mock_agents():
@@ -76,24 +75,20 @@ def mock_agents():
     
     return agents
 
-
 @pytest.fixture
 def supervisor_agent(mock_agents):
     """创建Supervisor智能体实例"""
     return SupervisorAgent(available_agents=mock_agents)
-
 
 @pytest.fixture
 def complexity_analyzer():
     """创建任务复杂度分析器实例"""
     return TaskComplexityAnalyzer()
 
-
 @pytest.fixture
 def capability_matcher(mock_agents):
     """创建智能体能力匹配器实例"""
     return AgentCapabilityMatcher(mock_agents)
-
 
 class TestTaskComplexityAnalyzer:
     """任务复杂度分析器测试"""
@@ -178,7 +173,6 @@ class TestTaskComplexityAnalyzer:
             assert complexity.score == 0.5  # 默认复杂度
             assert complexity.factors.get("error") == 1.0
             assert complexity.estimated_time == 600
-
 
 class TestAgentCapabilityMatcher:
     """智能体能力匹配器测试"""
@@ -297,7 +291,6 @@ class TestAgentCapabilityMatcher:
         
         # 即使没有完美匹配，也应该返回一些候选
         assert len(matches) > 0
-
 
 class TestSupervisorAgent:
     """Supervisor智能体决策引擎测试"""
@@ -486,7 +479,6 @@ class TestSupervisorAgent:
         assert assignment is not None
         # 约束应该被记录在元数据中（即使当前实现可能未完全使用）
         assert assignment.decision_metadata is not None
-
 
 class TestIntegration:
     """集成测试"""

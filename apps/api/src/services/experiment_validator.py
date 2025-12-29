@@ -1,19 +1,17 @@
 """
 A/B测试实验配置验证服务 - 提供全面的实验配置验证逻辑
 """
+
 from typing import List, Dict, Any, Optional, Tuple
 from datetime import datetime
 from datetime import timedelta
 from src.core.utils.timezone_utils import utc_now, utc_factory
 import re
 from dataclasses import dataclass
-
-from models.schemas.experiment import (
+from src.models.schemas.experiment import (
     CreateExperimentRequest, ExperimentVariant, TrafficAllocation,
     TargetingRule, ExperimentConfig, ExperimentStatus
 )
-from core.logging import logger
-
 
 @dataclass
 class ValidationError:
@@ -22,7 +20,6 @@ class ValidationError:
     code: str
     message: str
     severity: str = "error"  # error, warning, info
-
 
 @dataclass
 class ValidationResult:
@@ -36,7 +33,6 @@ class ValidationResult:
     
     def has_warnings(self) -> bool:
         return len(self.warnings) > 0
-
 
 class ExperimentConfigValidator:
     """实验配置验证器"""

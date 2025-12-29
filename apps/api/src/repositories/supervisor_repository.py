@@ -2,14 +2,13 @@
 Supervisor数据访问层实现
 提供Supervisor相关数据库操作
 """
+
 from typing import List, Optional, Dict, Any
 from datetime import datetime
 from datetime import timedelta
 from src.core.utils.timezone_utils import utc_now, utc_factory
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import desc, and_, or_, func
-import structlog
-
 from src.repositories.base import BaseRepository
 from src.models.database.supervisor import (
     SupervisorAgent, SupervisorTask, SupervisorDecision, 
@@ -17,8 +16,8 @@ from src.models.database.supervisor import (
 )
 from src.models.schemas.supervisor import TaskStatus, TaskType, TaskPriority, AgentStatus
 
-logger = structlog.get_logger(__name__)
-
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 class SupervisorRepository(BaseRepository[SupervisorAgent, str]):
     """Supervisor智能体仓储"""
@@ -97,7 +96,6 @@ class SupervisorRepository(BaseRepository[SupervisorAgent, str]):
             await self.session.rollback()
             return False
 
-
 class SupervisorTaskRepository(BaseRepository[SupervisorTask, str]):
     """Supervisor任务仓储"""
     
@@ -162,6 +160,34 @@ class SupervisorTaskRepository(BaseRepository[SupervisorTask, str]):
         except Exception as e:
             logger.error("获取任务列表失败", supervisor_id=supervisor_id, error=str(e))
             return []
+
+    async def count_tasks_by_supervisor(
+        self,
+        supervisor_id: str,
+        status_filter: Optional[str] = None,
+    ) -> int:
+        """获取任务总数（用于分页）"""
+        try:
+            from sqlalchemy import func, select
+
+            conditions = [SupervisorTask.supervisor_id == supervisor_id]
+
+            supervisor_repo = SupervisorRepository(self.session)
+            supervisor = await supervisor_repo.get_by_name(supervisor_id)
+            if supervisor:
+                conditions.append(SupervisorTask.supervisor_id == supervisor.id)
+
+            where_condition = or_(*conditions) if len(conditions) > 1 else conditions[0]
+
+            stmt = select(func.count()).select_from(SupervisorTask).where(where_condition)
+            if status_filter:
+                stmt = stmt.where(SupervisorTask.status == status_filter)
+
+            result = await self.session.execute(stmt)
+            return int(result.scalar() or 0)
+        except Exception as e:
+            logger.error("统计任务总数失败", supervisor_id=supervisor_id, error=str(e))
+            return 0
     
     async def get_pending_tasks(self, supervisor_id: str) -> List[SupervisorTask]:
         """获取待处理任务"""
@@ -213,6 +239,28 @@ class SupervisorTaskRepository(BaseRepository[SupervisorTask, str]):
             return list(result.scalars().all())
         except Exception as e:
             logger.error("按状态获取任务失败", supervisor_id=supervisor_id, status=status.value, error=str(e))
+            return []
+
+    async def get_all_tasks_by_status(
+        self,
+        status: TaskStatus,
+        limit: int = 200,
+        offset: int = 0,
+    ) -> List[SupervisorTask]:
+        """获取全局指定状态的任务列表"""
+        try:
+            from sqlalchemy import select
+            stmt = (
+                select(SupervisorTask)
+                .where(SupervisorTask.status == status.value)
+                .order_by(desc(SupervisorTask.created_at))
+                .limit(limit)
+                .offset(offset)
+            )
+            result = await self.session.execute(stmt)
+            return list(result.scalars().all())
+        except Exception as e:
+            logger.error("获取全局任务列表失败", status=status.value, error=str(e))
             return []
     
     async def get_tasks_by_agent(
@@ -385,16 +433,26 @@ class SupervisorTaskRepository(BaseRepository[SupervisorTask, str]):
             ).group_by(SupervisorTask.priority)
             priority_result = await self.session.execute(priority_stmt)
             priority_counts = priority_result.fetchall()
+
+            avg_stmt = select(func.avg(SupervisorTask.actual_time_seconds)).where(
+                and_(
+                    SupervisorTask.supervisor_id == supervisor_id,
+                    SupervisorTask.status == TaskStatus.COMPLETED.value,
+                    SupervisorTask.actual_time_seconds > 0,
+                )
+            )
+            avg_result = await self.session.execute(avg_stmt)
+            avg_completion_time = float(avg_result.scalar() or 0.0)
             
             return {
                 "status_distribution": {status: count for status, count in status_counts},
                 "type_distribution": {task_type: count for task_type, count in type_counts},
-                "priority_distribution": {priority: count for priority, count in priority_counts}
+                "priority_distribution": {priority: count for priority, count in priority_counts},
+                "average_completion_time_seconds": avg_completion_time,
             }
         except Exception as e:
             logger.error("获取任务统计失败", supervisor_id=supervisor_id, error=str(e))
             return {}
-
 
 class SupervisorDecisionRepository(BaseRepository[SupervisorDecision, str]):
     """Supervisor决策记录仓储"""
@@ -434,6 +492,32 @@ class SupervisorDecisionRepository(BaseRepository[SupervisorDecision, str]):
         except Exception as e:
             logger.error("获取决策历史失败", supervisor_id=supervisor_id, error=str(e))
             return []
+
+    async def count_by_supervisor_id(self, supervisor_id: str) -> int:
+        """获取Supervisor决策总数"""
+        try:
+            from sqlalchemy import select
+
+            stmt = select(func.count(SupervisorDecision.id)).where(
+                SupervisorDecision.supervisor_id == supervisor_id
+            )
+            result = await self.session.execute(stmt)
+            count = int(result.scalar() or 0)
+
+            if count == 0:
+                supervisor_repo = SupervisorRepository(self.session)
+                supervisor = await supervisor_repo.get_by_name(supervisor_id)
+                if supervisor:
+                    stmt = select(func.count(SupervisorDecision.id)).where(
+                        SupervisorDecision.supervisor_id == supervisor.id
+                    )
+                    result = await self.session.execute(stmt)
+                    count = int(result.scalar() or 0)
+
+            return count
+        except Exception as e:
+            logger.error("获取决策总数失败", supervisor_id=supervisor_id, error=str(e))
+            return 0
     
     async def get_by_task_id(self, task_id: str) -> Optional[SupervisorDecision]:
         """根据任务ID获取决策记录"""
@@ -559,7 +643,6 @@ class SupervisorDecisionRepository(BaseRepository[SupervisorDecision, str]):
             logger.error("获取决策统计失败", supervisor_id=supervisor_id, error=str(e))
             return {}
 
-
 class AgentLoadMetricsRepository(BaseRepository[AgentLoadMetrics, str]):
     """智能体负载指标仓储"""
     
@@ -637,7 +720,6 @@ class AgentLoadMetricsRepository(BaseRepository[AgentLoadMetrics, str]):
             logger.error("更新智能体负载失败", agent_name=agent_name, error=str(e))
             await self.session.rollback()
             return False
-
 
 class SupervisorConfigRepository(BaseRepository[SupervisorConfig, str]):
     """Supervisor配置仓储"""

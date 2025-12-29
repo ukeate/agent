@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
+import { logger } from '../utils/logger'
   Card,
   Tabs,
   Button,
@@ -57,6 +58,7 @@ import {
   HandshakeOutlined,
   SecurityScanOutlined
 } from '@ant-design/icons';
+import apiClient from '../services/apiClient';
 
 const { Title, Text, Paragraph } = Typography;
 const { TextArea } = Input;
@@ -116,344 +118,48 @@ interface CrossCulturalComparison {
 // API 客户端
 const culturalAnalysisApi = {
   async analyzeCulturalContext(emotionData: any, culturalContext: string) {
-    try {
-      const response = await fetch(`http://localhost:8000/api/v1/social-emotion/analyze`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          user_id: 'current_user',
-          emotion_data: emotionData,
-          social_context: { cultural_context: culturalContext },
-          analysis_type: ['cultural_analysis'],
-          cultural_context: culturalContext,
-          privacy_consent: true
-        })
-      });
-      
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      const result = await response.json();
-      
-      return {
-        success: true,
-        data: {
-          cultural_analysis: result.results?.cultural_analysis || generateMockCulturalAnalysis(culturalContext)
-        }
-      };
-    } catch (error) {
-      console.error('文化背景分析失败:', error);
-      return {
-        success: false,
-        error: error.message,
-        data: {
-          cultural_analysis: generateMockCulturalAnalysis(culturalContext)
-        }
-      };
+    const response = await apiClient.post('/social-emotion/analyze', {
+      user_id: 'current_user',
+      emotion_data: emotionData,
+      social_context: { cultural_context: culturalContext },
+      analysis_type: ['cultural_analysis'],
+      cultural_context: culturalContext,
+      privacy_consent: true
+    })
+    return {
+      success: true,
+      data: {
+        cultural_analysis: response.data.results?.cultural_analysis || null
+      }
     }
   },
 
   async compareCultures(cultures: string[]) {
-    try {
-      return {
-        success: true,
-        data: generateMockCrossCulturalComparison(cultures)
-      };
-    } catch (error) {
-      return {
-        success: false,
-        data: generateMockCrossCulturalComparison(cultures)
-      };
-    }
+    const response = await apiClient.post('/social-emotion/compare', { cultures })
+    return { success: true, data: response.data }
   },
 
   async getCulturalProfiles() {
-    try {
-      const response = await fetch(`http://localhost:8000/api/v1/social-emotion/status`);
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      
-      return {
-        success: true,
-        data: getMockCulturalProfiles()
-      };
-    } catch (error) {
-      return {
-        success: false,
-        data: getMockCulturalProfiles()
-      };
-    }
+    const response = await apiClient.get('/social-emotion/status')
+    return { success: true, data: response.data }
   },
 
   async generateCulturalRecommendations(profiles: CulturalProfile[], scenario: string) {
-    try {
-      return {
-        success: true,
-        data: {
-          recommendations: generateMockRecommendations(profiles, scenario),
-          risk_assessment: generateMockRiskAssessment(profiles),
-          best_practices: generateMockBestPractices(scenario)
-        }
-      };
-    } catch (error) {
-      return {
-        success: false,
-        data: {
-          recommendations: [],
-          risk_assessment: {},
-          best_practices: []
-        }
-      };
-    }
+    const response = await apiClient.post('/social-emotion/recommendations', {
+      profiles,
+      scenario
+    })
+    return { success: true, data: response.data }
   }
 };
-
-// 模拟数据生成函数
-const generateMockCulturalAnalysis = (culturalContext: string): CulturalAnalysisResult => {
-  const culturalProfiles = {
-    'zh-CN': {
-      culture_code: 'zh-CN',
-      culture_name: '中国文化',
-      hofstede_dimensions: {
-        power_distance: 0.8,
-        individualism: 0.2,
-        masculinity: 0.6,
-        uncertainty_avoidance: 0.6,
-        long_term_orientation: 0.9,
-        indulgence: 0.3
-      },
-      communication_patterns: {
-        directness: 0.3,
-        context_sensitivity: 0.8,
-        formal_register: 0.7,
-        silence_comfort: 0.6
-      },
-      emotional_norms: {
-        emotional_expression: 0.4,
-        harmony_priority: 0.8,
-        face_saving: 0.9,
-        empathy_emphasis: 0.7
-      },
-      social_structures: {
-        hierarchy_respect: 0.8,
-        group_orientation: 0.8,
-        relationship_focus: 0.9,
-        authority_deference: 0.7
-      },
-      value_orientations: {
-        family_priority: 0.9,
-        education_value: 0.9,
-        tradition_respect: 0.7,
-        achievement_focus: 0.8
-      },
-      behavioral_expectations: [
-        '保持礼貌和尊重',
-        '避免直接冲突',
-        '重视面子和尊严',
-        '尊重权威和长者',
-        '维护群体和谐'
-      ],
-      taboos_and_sensitivities: [
-        '避免公开批评',
-        '不要忽视等级关系',
-        '尊重传统价值观',
-        '注意政治敏感话题'
-      ],
-      preferred_interaction_styles: [
-        '间接沟通',
-        '委婉表达',
-        '关系导向',
-        '长期合作'
-      ]
-    },
-    'en-US': {
-      culture_code: 'en-US',
-      culture_name: '美国文化',
-      hofstede_dimensions: {
-        power_distance: 0.4,
-        individualism: 0.9,
-        masculinity: 0.6,
-        uncertainty_avoidance: 0.5,
-        long_term_orientation: 0.3,
-        indulgence: 0.7
-      },
-      communication_patterns: {
-        directness: 0.8,
-        context_sensitivity: 0.3,
-        formal_register: 0.5,
-        silence_comfort: 0.3
-      },
-      emotional_norms: {
-        emotional_expression: 0.7,
-        harmony_priority: 0.5,
-        face_saving: 0.4,
-        empathy_emphasis: 0.6
-      },
-      social_structures: {
-        hierarchy_respect: 0.4,
-        group_orientation: 0.3,
-        relationship_focus: 0.5,
-        authority_deference: 0.4
-      },
-      value_orientations: {
-        family_priority: 0.7,
-        education_value: 0.8,
-        tradition_respect: 0.4,
-        achievement_focus: 0.9
-      },
-      behavioral_expectations: [
-        '直接表达观点',
-        '个人主义导向',
-        '平等对待他人',
-        '注重效率',
-        '鼓励创新'
-      ],
-      taboos_and_sensitivities: [
-        '避免种族歧视',
-        '尊重个人隐私',
-        '政治正确性',
-        '宗教敏感性'
-      ],
-      preferred_interaction_styles: [
-        '直接沟通',
-        '任务导向',
-        '快速决策',
-        '竞争合作'
-      ]
-    }
-  };
-
-  const profile = culturalProfiles[culturalContext as keyof typeof culturalProfiles] || culturalProfiles['en-US'];
-  
-  return {
-    cultural_profile: profile,
-    adaptation_recommendations: [
-      '根据文化背景调整沟通方式',
-      '注意非言语沟通的差异',
-      '理解和尊重价值观差异',
-      '适应不同的决策流程'
-    ],
-    sensitivity_score: 0.7 + Math.random() * 0.3,
-    communication_style: profile.communication_patterns.directness > 0.6 ? 'direct' : 'indirect',
-    potential_conflicts: [
-      {
-        area: '沟通方式',
-        severity: 0.6,
-        description: '直接vs间接沟通方式可能导致误解',
-        mitigation: '明确沟通偏好，建立共同理解'
-      },
-      {
-        area: '决策模式',
-        severity: 0.4,
-        description: '个人vs集体决策方式差异',
-        mitigation: '建立混合决策流程，兼顾不同文化需求'
-      }
-    ],
-    compatibility_matrix: {
-      communication: 0.8,
-      values: 0.7,
-      behavior: 0.6,
-      expectations: 0.5
-    }
-  };
-};
-
-const generateMockCrossCulturalComparison = (cultures: string[]): CrossCulturalComparison => {
-  const dimensions = ['power_distance', 'individualism', 'masculinity', 'uncertainty_avoidance'];
-  const dimensionsComparison: Record<string, Record<string, number>> = {};
-  
-  cultures.forEach(culture => {
-    dimensionsComparison[culture] = {};
-    dimensions.forEach(dim => {
-      dimensionsComparison[culture][dim] = Math.random();
-    });
-  });
-
-  return {
-    cultures,
-    dimensions_comparison: dimensionsComparison,
-    communication_gaps: [
-      {
-        dimension: 'directness',
-        gap_size: 0.5,
-        impact_level: 'medium',
-        recommendations: ['建立明确的沟通规范', '提供跨文化培训']
-      },
-      {
-        dimension: 'hierarchy',
-        gap_size: 0.3,
-        impact_level: 'low',
-        recommendations: ['讨论权力距离差异', '建立扁平化沟通渠道']
-      }
-    ],
-    collaboration_strategies: [
-      '建立文化桥梁角色',
-      '定期进行文化敏感性培训',
-      '创建多元化团队',
-      '实施文化导师制度'
-    ],
-    conflict_risks: [
-      '沟通方式误解',
-      '价值观冲突',
-      '决策速度不匹配',
-      '权威认知差异'
-    ]
-  };
-};
-
-const getMockCulturalProfiles = () => ([
-  { code: 'zh-CN', name: '中国', flag: '🇨🇳' },
-  { code: 'en-US', name: '美国', flag: '🇺🇸' },
-  { code: 'ja-JP', name: '日本', flag: '🇯🇵' },
-  { code: 'de-DE', name: '德国', flag: '🇩🇪' },
-  { code: 'fr-FR', name: '法国', flag: '🇫🇷' },
-  { code: 'en-GB', name: '英国', flag: '🇬🇧' },
-  { code: 'ko-KR', name: '韩国', flag: '🇰🇷' },
-  { code: 'es-ES', name: '西班牙', flag: '🇪🇸' }
-]);
-
-const generateMockRecommendations = (profiles: CulturalProfile[], scenario: string) => [
-  {
-    category: '沟通建议',
-    items: [
-      '使用中性、尊重的语言',
-      '提供多种沟通渠道选择',
-      '建立清晰的反馈机制'
-    ]
-  },
-  {
-    category: '协作策略',
-    items: [
-      '建立跨文化工作小组',
-      '实施轮换领导制度',
-      '创建文化分享活动'
-    ]
-  }
-];
-
-const generateMockRiskAssessment = (profiles: CulturalProfile[]) => ({
-  high_risk_areas: ['直接反馈', '权威挑战', '时间观念差异'],
-  medium_risk_areas: ['决策流程', '团队合作方式'],
-  low_risk_areas: ['技术讨论', '目标设定'],
-  mitigation_strategies: [
-    '建立文化敏感性指南',
-    '提供跨文化沟通培训',
-    '设置文化协调员角色'
-  ]
-});
-
-const generateMockBestPractices = (scenario: string) => [
-  '尊重文化差异，避免价值判断',
-  '建立包容性的沟通环境',
-  '提供文化背景解释',
-  '鼓励开放式对话',
-  '定期检查理解程度'
-];
 
 const CulturalContextAnalysisPage: React.FC = () => {
   const [currentAnalysis, setCurrentAnalysis] = useState<CulturalAnalysisResult | null>(null);
   const [crossCulturalComparison, setCrossCulturalComparison] = useState<CrossCulturalComparison | null>(null);
-  const [culturalProfiles, setCulturalProfiles] = useState<any[]>([]);
+  const [culturalProfiles, setCulturalProfiles] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
-  const [selectedCulture, setSelectedCulture] = useState('zh-CN');
-  const [comparisonCultures, setComparisonCultures] = useState<string[]>(['zh-CN', 'en-US']);
+  const [selectedCulture, setSelectedCulture] = useState('');
+  const [comparisonCultures, setComparisonCultures] = useState<string[]>([]);
   const [showAnalysisModal, setShowAnalysisModal] = useState(false);
   const [showComparisonModal, setShowComparisonModal] = useState(false);
   const [currentStep, setCurrentStep] = useState(0);
@@ -475,11 +181,16 @@ const CulturalContextAnalysisPage: React.FC = () => {
     setLoading(true);
     try {
       const profilesResult = await culturalAnalysisApi.getCulturalProfiles();
-      if (profilesResult.data) {
-        setCulturalProfiles(profilesResult.data);
+      const contexts = profilesResult.data?.cultural_contexts || [];
+      setCulturalProfiles(contexts);
+      if (!selectedCulture && contexts.length) {
+        setSelectedCulture(contexts[0]);
+      }
+      if (comparisonCultures.length < 2 && contexts.length) {
+        setComparisonCultures(contexts.slice(0, 2));
       }
     } catch (error) {
-      console.error('加载初始数据失败:', error);
+      logger.error('加载初始数据失败:', error);
     } finally {
       setLoading(false);
     }
@@ -495,12 +206,11 @@ const CulturalContextAnalysisPage: React.FC = () => {
       
       if (result.data?.cultural_analysis) {
         setCurrentAnalysis(result.data.cultural_analysis);
-        if (!result.success) {
-          message.warning('使用模拟数据显示');
-        }
+      } else {
+        setCurrentAnalysis(null);
       }
     } catch (error) {
-      console.error('文化分析失败:', error);
+      logger.error('文化分析失败:', error);
       message.error('分析失败');
     } finally {
       setLoading(false);
@@ -931,11 +641,8 @@ const CulturalContextAnalysisPage: React.FC = () => {
           rules={[{ required: true, message: '请选择要分析的文化' }]}
         >
           <Select placeholder="选择文化背景">
-            {culturalProfiles.map(profile => (
-              <Option key={profile.code} value={profile.code}>
-                <span style={{ marginRight: 8 }}>{profile.flag}</span>
-                {profile.name}
-              </Option>
+            {culturalProfiles.map(code => (
+              <Option key={code} value={code}>{code}</Option>
             ))}
           </Select>
         </Form.Item>
@@ -1016,10 +723,7 @@ const CulturalContextAnalysisPage: React.FC = () => {
             maxTagCount={4}
           >
             {culturalProfiles.map(profile => (
-              <Option key={profile.code} value={profile.code}>
-                <span style={{ marginRight: 8 }}>{profile.flag}</span>
-                {profile.name}
-              </Option>
+              <Option key={profile} value={profile}>{profile}</Option>
             ))}
           </Select>
         </Form.Item>
@@ -1056,10 +760,7 @@ const CulturalContextAnalysisPage: React.FC = () => {
             placeholder="选择文化"
           >
             {culturalProfiles.map(profile => (
-              <Option key={profile.code} value={profile.code}>
-                <span style={{ marginRight: 8 }}>{profile.flag}</span>
-                {profile.name}
-              </Option>
+              <Option key={profile} value={profile}>{profile}</Option>
             ))}
           </Select>
           <Button 

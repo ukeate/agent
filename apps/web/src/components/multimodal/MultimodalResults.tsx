@@ -14,9 +14,6 @@ import {
   Empty,
   Collapse,
   Badge,
-  Progress,
-  Alert,
-  Divider,
   Row,
   Col,
   Statistic
@@ -26,13 +23,12 @@ import {
   FileImageOutlined,
   TableOutlined,
   CheckCircleOutlined,
-  InfoCircleOutlined,
   CodeOutlined,
   ThunderboltOutlined,
   DatabaseOutlined
 } from '@ant-design/icons';
 
-const { Text, Title, Paragraph } = Typography;
+const { Text, Paragraph } = Typography;
 const { TabPane } = Tabs;
 const { Panel } = Collapse;
 
@@ -51,18 +47,16 @@ interface RetrievalResultsData {
   texts: RetrievalItem[];
   images: RetrievalItem[];
   tables: RetrievalItem[];
-  totalResults: number;
-  retrievalTimeMs: number;
+  total_results: number;
+  retrieval_time_ms: number;
   sources: string[];
 }
 
 interface QAResponseData {
   answer: string;
   confidence: number;
-  processingTime: number;
-  tokensUsed: number;
-  modelUsed: string;
-  contextLength: number;
+  processing_time_ms: number;
+  context_used: Record<string, number>;
 }
 
 interface MultimodalResultsProps {
@@ -180,38 +174,23 @@ const MultimodalResults: React.FC<MultimodalResultsProps> = ({
                 <Col span={6}>
                   <Statistic
                     title="处理时间"
-                    value={qaResponse.processingTime}
+                    value={qaResponse.processing_time_ms}
                     suffix="ms"
                   />
                 </Col>
                 <Col span={6}>
                   <Statistic
-                    title="Token使用"
-                    value={qaResponse.tokensUsed}
+                    title="文本块"
+                    value={qaResponse.context_used?.text_chunks || 0}
                   />
                 </Col>
                 <Col span={6}>
                   <Statistic
-                    title="上下文长度"
-                    value={qaResponse.contextLength}
+                    title="结果数"
+                    value={retrievalResults?.total_results || 0}
                   />
                 </Col>
               </Row>
-
-              {/* 技术细节 */}
-              <Alert
-                message="生成技术细节"
-                description={
-                  <Space direction="vertical" size="small">
-                    <Text>• 模型: {qaResponse.modelUsed || 'GPT-4o'}</Text>
-                    <Text>• 温度参数: 0.7</Text>
-                    <Text>• 上下文窗口: 128K tokens</Text>
-                    <Text>• 流式响应: 启用</Text>
-                  </Space>
-                }
-                variant="default"
-                icon={<InfoCircleOutlined />}
-              />
             </Space>
           ) : (
             <Empty description="等待答案生成..." />
@@ -235,14 +214,14 @@ const MultimodalResults: React.FC<MultimodalResultsProps> = ({
                   <Col span={8}>
                     <Statistic
                       title="总结果数"
-                      value={retrievalResults.totalResults}
+                      value={retrievalResults.total_results}
                       prefix={<DatabaseOutlined />}
                     />
                   </Col>
                   <Col span={8}>
                     <Statistic
                       title="检索耗时"
-                      value={retrievalResults.retrievalTimeMs}
+                      value={retrievalResults.retrieval_time_ms}
                       suffix="ms"
                       prefix={<ThunderboltOutlined />}
                     />
@@ -325,67 +304,6 @@ const MultimodalResults: React.FC<MultimodalResultsProps> = ({
           ) : (
             <Empty description="等待检索结果..." />
           )}
-        </TabPane>
-
-        <TabPane 
-          tab={
-            <span>
-              <CodeOutlined />
-              技术追踪
-            </span>
-          } 
-          key="technical"
-        >
-          <Space direction="vertical" style={{ width: '100%' }} size="middle">
-            <Alert
-              message="RAG Pipeline执行路径"
-              variant="default"
-              description={
-                <ol style={{ paddingLeft: 20 }}>
-                  <li>查询分析 (Query Analyzer) - 识别查询类型</li>
-                  <li>检索策略选择 (Retrieval Strategy) - 动态权重分配</li>
-                  <li>向量检索 (Vector Search) - Chroma多路召回</li>
-                  <li>结果重排序 (Reranking) - MMR多样性优化</li>
-                  <li>上下文组装 (Context Assembly) - 多模态内容整合</li>
-                  <li>LLM生成 (GPT-4o Generation) - 流式响应输出</li>
-                </ol>
-              }
-            />
-
-            <Card size="small" title="性能分析">
-              <Space direction="vertical" style={{ width: '100%' }}>
-                <div>
-                  <Text>查询分析</Text>
-                  <Progress percent={100} size="small" steps={6} />
-                </div>
-                <div>
-                  <Text>向量检索</Text>
-                  <Progress percent={100} size="small" steps={6} strokeColor="#52c41a" />
-                </div>
-                <div>
-                  <Text>上下文组装</Text>
-                  <Progress percent={100} size="small" steps={6} strokeColor="#1890ff" />
-                </div>
-                <div>
-                  <Text>LLM生成</Text>
-                  <Progress percent={100} size="small" steps={6} strokeColor="#722ed1" />
-                </div>
-              </Space>
-            </Card>
-
-            <Alert
-              message="优化建议"
-              type="success"
-              description={
-                <ul style={{ paddingLeft: 20, marginBottom: 0 }}>
-                  <li>启用查询缓存以减少重复计算</li>
-                  <li>使用批量嵌入处理提高吞吐量</li>
-                  <li>实施向量索引预热策略</li>
-                  <li>优化chunk size和overlap参数</li>
-                </ul>
-              }
-            />
-          </Space>
         </TabPane>
       </Tabs>
     </Card>

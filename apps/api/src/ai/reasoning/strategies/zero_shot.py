@@ -2,13 +2,10 @@
 
 import re
 from typing import Optional, Tuple
-
 from src.ai.reasoning.cot_engine import BaseCoTEngine
-from models.schemas.reasoning import ThoughtStepType
-from src.core.logging import get_logger
+from src.models.schemas.reasoning import ThoughtStepType
 
 logger = get_logger(__name__)
-
 
 class ZeroShotCoTEngine(BaseCoTEngine):
     """Zero-shot链式思考推理引擎"""
@@ -92,3 +89,4 @@ class ZeroShotCoTEngine(BaseCoTEngine):
         
         # 默认返回分析类型
         return ThoughtStepType.ANALYSIS
+from src.core.logging import get_logger

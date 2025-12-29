@@ -22,6 +22,8 @@ import {
   LineChartOutlined
 } from '@ant-design/icons'
 import { Line, Column, Gauge, Area } from '@ant-design/plots'
+import { monitoringService } from '../services/monitoringService'
+import { personalizationService } from '../services/personalizationService'
 
 const { Title, Text, Paragraph } = Typography
 
@@ -57,109 +59,83 @@ interface KeyMetrics {
 const PersonalizationProductionPage: React.FC = () => {
   const [systemStatus, setSystemStatus] = useState<SystemStatus>({
     overall_status: 'healthy',
-    uptime_seconds: 86400,
-    timestamp: new Date().toISOString()
+    uptime_seconds: 0,
+    timestamp: ''
   })
 
   const [healthChecks, setHealthChecks] = useState<HealthCheck[]>([])
   const [systemMetrics, setSystemMetrics] = useState<SystemMetrics>({
-    cpu_percent: 45.2,
-    memory_percent: 62.8,
-    disk_percent: 35.4,
-    process_memory_mb: 1024.5
+    cpu_percent: 0,
+    memory_percent: 0,
+    disk_percent: 0,
+    process_memory_mb: 0
   })
 
   const [keyMetrics, setKeyMetrics] = useState<KeyMetrics>({
-    recommendation_latency_p99: 82.5,
-    feature_computation_latency_avg: 7.8,
-    cache_hit_rate: 0.87,
-    error_rate: 0.002,
-    requests_per_second: 1250.3
+    recommendation_latency_p99: 0,
+    feature_computation_latency_avg: 0,
+    cache_hit_rate: 0,
+    error_rate: 0,
+    requests_per_second: 0
   })
 
   const [metricHistory, setMetricHistory] = useState<any[]>([])
-  const [activeAlerts, setActiveAlerts] = useState(2)
+  const [activeAlerts, setActiveAlerts] = useState(0)
   const [autoRefresh, setAutoRefresh] = useState(true)
 
-  // 模拟数据
-  useEffect(() => {
-    const generateHealthChecks = () => {
-      setHealthChecks([
-        {
-          service: 'redis',
-          status: 'healthy',
-          latency_ms: 2.1,
-          last_check: new Date().toISOString()
-        },
-        {
-          service: 'personalization_engine',
-          status: 'healthy',
-          latency_ms: 45.6,
-          last_check: new Date().toISOString()
-        },
-        {
-          service: 'feature_engine',
-          status: 'healthy',
-          latency_ms: 8.9,
-          last_check: new Date().toISOString()
-        },
-        {
-          service: 'model_service',
-          status: 'degraded',
-          latency_ms: 95.2,
-          last_check: new Date().toISOString()
-        },
-        {
-          service: 'cache',
-          status: 'healthy',
-          latency_ms: 12.3,
-          last_check: new Date().toISOString()
-        }
-      ])
+  const loadData = async () => {
+    try {
+      const dashboard = await monitoringService.getDashboardData()
+      const m = dashboard.metrics || {}
+      setKeyMetrics({
+        recommendation_latency_p99: m.recommendation_latency_p99?.current_value || 0,
+        feature_computation_latency_avg: m.feature_computation_latency_avg?.current_value || 0,
+        cache_hit_rate: m.cache_hit_rate?.current_value || 0,
+        error_rate: m.error_rate?.current_value || 0,
+        requests_per_second: m.requests_per_second?.current_value || 0
+      })
+      setSystemMetrics({
+        cpu_percent: m.cpu_percent?.current_value || 0,
+        memory_percent: m.memory_percent?.current_value || 0,
+        disk_percent: m.disk_percent?.current_value || 0,
+        process_memory_mb: m.process_memory_mb?.current_value || 0
+      })
+      setSystemStatus({
+        overall_status: dashboard.summary?.system_status || 'healthy',
+        uptime_seconds: 0,
+        timestamp: dashboard.timestamp
+      })
+      setMetricHistory(
+        (m.qps?.points || []).map((p: any) => ({
+          timestamp: p.timestamp,
+          latency: m.recommendation_latency_p99?.current_value || 0,
+          qps: p.value,
+          error_rate: m.error_rate?.current_value || 0,
+          cache_hit_rate: m.cache_hit_rate?.current_value || 0
+        }))
+      )
+    } catch (err) {
+      setMetricHistory([])
+      setHealthChecks([])
     }
 
-    const generateMetricHistory = () => {
-      const now = Date.now()
-      const history = []
-      for (let i = 59; i >= 0; i--) {
-        const timestamp = new Date(now - i * 60000).toLocaleTimeString()
-        history.push({
-          timestamp,
-          latency: 80 + Math.random() * 40,
-          qps: 1200 + Math.random() * 100,
-          error_rate: 0.001 + Math.random() * 0.004,
-          cache_hit_rate: 0.85 + Math.random() * 0.1
-        })
+    try {
+      const health = await personalizationService.getHealthChecks?.()
+      if (health && Array.isArray(health)) {
+        setHealthChecks(health as any)
+      } else {
+        setHealthChecks([])
       }
-      setMetricHistory(history)
+    } catch (err) {
+      setHealthChecks([])
     }
+  }
 
-    generateHealthChecks()
-    generateMetricHistory()
-
+  useEffect(() => {
+    loadData()
     if (autoRefresh) {
-      const interval = setInterval(() => {
-        generateHealthChecks()
-        generateMetricHistory()
-        
-        // 模拟指标变化
-        setKeyMetrics(prev => ({
-          recommendation_latency_p99: prev.recommendation_latency_p99 + (Math.random() - 0.5) * 10,
-          feature_computation_latency_avg: Math.max(5, prev.feature_computation_latency_avg + (Math.random() - 0.5) * 2),
-          cache_hit_rate: Math.min(1, Math.max(0.7, prev.cache_hit_rate + (Math.random() - 0.5) * 0.05)),
-          error_rate: Math.max(0, prev.error_rate + (Math.random() - 0.5) * 0.001),
-          requests_per_second: Math.max(1000, prev.requests_per_second + (Math.random() - 0.5) * 50)
-        }))
-
-        setSystemMetrics(prev => ({
-          cpu_percent: Math.min(100, Math.max(20, prev.cpu_percent + (Math.random() - 0.5) * 5)),
-          memory_percent: Math.min(100, Math.max(40, prev.memory_percent + (Math.random() - 0.5) * 3)),
-          disk_percent: prev.disk_percent + (Math.random() - 0.5) * 0.1,
-          process_memory_mb: Math.max(512, prev.process_memory_mb + (Math.random() - 0.5) * 50)
-        }))
-      }, 5000)
-
-      return () => clearInterval(interval)
+      const id = setInterval(loadData, 10000)
+      return () => clearInterval(id)
     }
   }, [autoRefresh])
 

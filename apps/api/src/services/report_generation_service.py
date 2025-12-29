@@ -1,6 +1,7 @@
 """
 实验报告自动生成服务
 """
+
 from datetime import datetime
 from datetime import timedelta
 from src.core.utils.timezone_utils import utc_now, utc_factory
@@ -11,14 +12,19 @@ import asyncio
 from dataclasses import dataclass, asdict
 import numpy as np
 from scipy import stats
-
+from src.core.config import get_settings
 from ..core.database import get_db_session
 from ..services.statistical_analysis_service import StatisticalAnalysisService
 from ..services.hypothesis_testing_service import HypothesisTestingService
 from ..services.confidence_interval_service import ConfidenceIntervalService
-from ..services.realtime_metrics_service import RealtimeMetricsService
+from ..services.realtime_metrics_service import get_realtime_metrics_service, TimeWindow
 from ..services.multiple_testing_correction_service import MultipleTestingCorrectionService
 
+from src.core.logging import get_logger
+logger = get_logger(__name__)
+
+class ExperimentNotFoundError(RuntimeError):
+    """实验不存在"""
 
 class ReportFormat(str, Enum):
     """报告格式"""
@@ -26,7 +32,6 @@ class ReportFormat(str, Enum):
     HTML = "html"
     MARKDOWN = "markdown"
     PDF = "pdf"
-
 
 class ReportSection(str, Enum):
     """报告章节"""
@@ -37,7 +42,6 @@ class ReportSection(str, Enum):
     SEGMENT_ANALYSIS = "segment_analysis"
     RECOMMENDATIONS = "recommendations"
     APPENDIX = "appendix"
-
 
 @dataclass
 class MetricResult:
@@ -54,7 +58,6 @@ class MetricResult:
     sample_size_control: int
     sample_size_treatment: int
     
-    
 @dataclass
 class SegmentResult:
     """细分结果"""
@@ -63,7 +66,6 @@ class SegmentResult:
     metrics: List[MetricResult]
     sample_size: int
     
-
 @dataclass
 class ExperimentSummary:
     """实验摘要"""
@@ -80,7 +82,6 @@ class ExperimentSummary:
     recommendation: str
     risk_level: str  # low, medium, high
 
-
 @dataclass
 class ReportData:
     """报告数据"""
@@ -92,7 +93,6 @@ class ReportData:
     warnings: List[str]
     metadata: Dict[str, Any]
 
-
 class ReportGenerationService:
     """报告生成服务"""
     
@@ -100,7 +100,6 @@ class ReportGenerationService:
         self.stats_service = StatisticalAnalysisService()
         self.hypothesis_service = HypothesisTestingService()
         self.confidence_service = ConfidenceIntervalService()
-        self.metrics_service = RealtimeMetricsService()
         self.correction_service = MultipleTestingCorrectionService()
         
     async def generate_report(
@@ -174,7 +173,7 @@ class ReportGenerationService:
         
         # 获取指标结果
         metric_results = await self._calculate_metric_results(
-            experiment_id,
+            experiment_info,
             confidence_level
         )
         
@@ -222,84 +221,149 @@ class ReportGenerationService:
             metadata={
                 "generated_at": utc_now().isoformat(),
                 "confidence_level": confidence_level,
-                "report_version": "1.0"
+                "report_version": "1.0",
+                "experiment_hypothesis": experiment_info.get("hypothesis"),
+                "experiment_allocation": experiment_info.get("allocation"),
             }
         )
         
     async def _get_experiment_info(self, experiment_id: str) -> Dict[str, Any]:
         """获取实验信息"""
-        # 这里应该从数据库获取实验配置
-        # 简化示例
+        from sqlalchemy import func, select
+
+        from src.models.database.experiment import Experiment, ExperimentAssignment, ExperimentVariant
+
+        async with get_db_session() as session:
+            experiment = await session.get(Experiment, experiment_id)
+            if not experiment:
+                raise ExperimentNotFoundError(f"实验不存在: {experiment_id}")
+
+            variants = (
+                await session.execute(
+                    select(
+                        ExperimentVariant.variant_id,
+                        ExperimentVariant.name,
+                        ExperimentVariant.is_control,
+                        ExperimentVariant.traffic_percentage,
+                    ).where(ExperimentVariant.experiment_id == experiment_id)
+                )
+            ).all()
+            allocation = {vid: float(pct) / 100.0 for vid, _, _, pct in variants}
+            control_variant_id = next((vid for vid, _, is_control, _ in variants if is_control), None)
+
+            total_users = (
+                await session.execute(
+                    select(func.count(func.distinct(ExperimentAssignment.user_id))).where(
+                        ExperimentAssignment.experiment_id == experiment_id
+                    )
+                )
+            ).scalar_one()
+
         return {
-            "id": experiment_id,
-            "name": f"Experiment {experiment_id}",
-            "status": "running",
-            "start_date": utc_now() - timedelta(days=14),
-            "end_date": None,
-            "variants": ["control", "treatment"],
-            "allocation": {"control": 0.5, "treatment": 0.5},
-            "total_users": 100000
+            "id": experiment.id,
+            "name": experiment.name,
+            "description": experiment.description,
+            "hypothesis": experiment.hypothesis,
+            "owner": experiment.owner,
+            "status": experiment.status,
+            "start_date": experiment.start_date,
+            "end_date": experiment.end_date,
+            "variants": [vid for vid, _, _, _ in variants],
+            "control_variant_id": control_variant_id,
+            "allocation": allocation,
+            "success_metrics": list(experiment.success_metrics or []),
+            "guardrail_metrics": list(experiment.guardrail_metrics or []),
+            "total_users": int(total_users or 0),
         }
         
     async def _calculate_metric_results(
         self,
-        experiment_id: str,
+        experiment_info: Dict[str, Any],
         confidence_level: float
     ) -> List[MetricResult]:
         """计算指标结果"""
-        results = []
-        
-        # 获取实时指标数据
-        metrics_data = await self.metrics_service.get_experiment_metrics(experiment_id)
-        
-        for metric_name, metric_data in metrics_data.items():
-            control_data = metric_data.get("control", {})
-            treatment_data = metric_data.get("treatment", {})
-            
-            # 计算统计量
-            control_value = control_data.get("mean", 0)
-            treatment_value = treatment_data.get("mean", 0)
-            absolute_diff = treatment_value - control_value
-            relative_diff = (absolute_diff / control_value * 100) if control_value != 0 else 0
-            
-            # 进行假设检验
-            test_result = await self.hypothesis_service.independent_two_sample_t_test(
-                control_data.get("values", []),
-                treatment_data.get("values", [])
+        experiment_id = str(experiment_info["id"])
+        metric_names = list(
+            dict.fromkeys(
+                (experiment_info.get("success_metrics") or []) + (experiment_info.get("guardrail_metrics") or [])
             )
-            
-            # 计算置信区间
-            ci_result = await self.confidence_service.calculate_difference_confidence_interval(
-                control_data.get("values", []),
-                treatment_data.get("values", []),
-                confidence_level
+        )
+        if not metric_names:
+            return []
+
+        metrics_service = await get_realtime_metrics_service()
+        group_metrics = await metrics_service.calculate_metrics(experiment_id, time_window=TimeWindow.CUMULATIVE)
+
+        control_variant_id = experiment_info.get("control_variant_id")
+        if not control_variant_id:
+            control_variant_id = next(iter(group_metrics.keys()), None)
+
+        treatment_variant_id = None
+        for vid in experiment_info.get("variants") or []:
+            if vid and vid != control_variant_id:
+                treatment_variant_id = vid
+                break
+
+        if not control_variant_id or not treatment_variant_id:
+            return []
+
+        control_group = group_metrics.get(control_variant_id)
+        treatment_group = group_metrics.get(treatment_variant_id)
+        if not control_group or not treatment_group:
+            return []
+
+        results: List[MetricResult] = []
+        for metric_name in metric_names:
+            metric_def = metrics_service._metrics_definitions.get(metric_name)
+            if not metric_def:
+                continue
+
+            control_snapshot = control_group.metrics.get(metric_name)
+            treatment_snapshot = treatment_group.metrics.get(metric_name)
+            if not control_snapshot or not treatment_snapshot:
+                continue
+
+            comparison = await metrics_service.calculator.compare_metrics(
+                control_snapshot,
+                treatment_snapshot,
+                metric_def.metric_type,
             )
-            
-            results.append(MetricResult(
-                name=metric_name,
-                type=metric_data.get("type", "secondary"),
-                control_value=control_value,
-                treatment_value=treatment_value,
-                absolute_diff=absolute_diff,
-                relative_diff=relative_diff,
-                p_value=test_result["p_value"],
-                confidence_interval=(ci_result["lower"], ci_result["upper"]),
-                is_significant=test_result["p_value"] < (1 - confidence_level),
-                sample_size_control=len(control_data.get("values", [])),
-                sample_size_treatment=len(treatment_data.get("values", []))
-            ))
+            if comparison.p_value is None or comparison.confidence_interval is None:
+                continue
+
+            metric_type = "secondary"
+            if metric_name in set(experiment_info.get("success_metrics") or []):
+                metric_type = "primary"
+            elif metric_name in set(experiment_info.get("guardrail_metrics") or []):
+                metric_type = "guardrail"
+
+            results.append(
+                MetricResult(
+                    name=metric_name,
+                    type=metric_type,
+                    control_value=comparison.control_value,
+                    treatment_value=comparison.treatment_value,
+                    absolute_diff=comparison.absolute_difference,
+                    relative_diff=comparison.relative_difference,
+                    p_value=float(comparison.p_value),
+                    confidence_interval=tuple(comparison.confidence_interval),
+                    is_significant=bool(comparison.is_significant),
+                    sample_size_control=control_snapshot.sample_size,
+                    sample_size_treatment=treatment_snapshot.sample_size,
+                )
+            )
             
         # 应用多重检验校正
-        p_values = [r.p_value for r in results]
-        corrected_results = await self.correction_service.apply_correction(
-            p_values,
-            method="fdr_bh",
-            alpha=1 - confidence_level
-        )
-        
-        for i, result in enumerate(results):
-            result.p_value = corrected_results["corrected_p_values"][i]
-            result.is_significant = corrected_results["rejected"][i]
+        if results:
+            p_values = [r.p_value for r in results]
+            corrected_results = await self.correction_service.apply_correction(
+                p_values,
+                method="fdr_bh",
+                alpha=1 - confidence_level
+            )
+            for i, result in enumerate(results):
+                result.p_value = corrected_results["corrected_p_values"][i]
+                result.is_significant = corrected_results["rejected"][i]
             
         return results
         
@@ -309,31 +373,7 @@ class ReportGenerationService:
         confidence_level: float
     ) -> List[SegmentResult]:
         """计算细分结果"""
-        segments = []
-        
-        # 定义细分维度
-        segment_dimensions = [
-            ("device_type", ["mobile", "desktop", "tablet"]),
-            ("user_type", ["new", "returning"]),
-            ("region", ["north", "south", "east", "west"])
-        ]
-        
-        for dimension, values in segment_dimensions:
-            for value in values:
-                # 获取细分数据并计算指标
-                segment_metrics = await self._calculate_metric_results(
-                    f"{experiment_id}_{dimension}_{value}",
-                    confidence_level
-                )
-                
-                segments.append(SegmentResult(
-                    segment_name=dimension,
-                    segment_value=value,
-                    metrics=segment_metrics[:3],  # 只包含主要指标
-                    sample_size=10000  # 示例值
-                ))
-                
-        return segments
+        return []
         
     async def _run_statistical_tests(
         self,
@@ -346,17 +386,21 @@ class ReportGenerationService:
         # SRM (Sample Ratio Mismatch) 检验
         control_size = sum(r.sample_size_control for r in metric_results[:1])
         treatment_size = sum(r.sample_size_treatment for r in metric_results[:1])
-        
-        chi2_result = await self.hypothesis_service.chi_square_goodness_of_fit(
-            [control_size, treatment_size],
-            [0.5, 0.5]
-        )
-        
-        tests["srm_test"] = {
-            "chi2_statistic": chi2_result["chi2_statistic"],
-            "p_value": chi2_result["p_value"],
-            "has_srm": chi2_result["p_value"] < 0.01
-        }
+        total_size = control_size + treatment_size
+        if total_size <= 0:
+            tests["srm_test"] = {"chi2_statistic": 0.0, "p_value": 1.0, "has_srm": False}
+        else:
+            chi2_result = self.hypothesis_service.run_chi_square_test(
+                test_type="goodness_of_fit",
+                observed=[control_size, treatment_size],
+                expected=[total_size * 0.5, total_size * 0.5],
+                alpha=0.01,
+            )
+            tests["srm_test"] = {
+                "chi2_statistic": chi2_result.statistic,
+                "p_value": chi2_result.p_value,
+                "has_srm": chi2_result.p_value < 0.01,
+            }
         
         # 新奇效应检验
         tests["novelty_effect"] = await self._check_novelty_effect(experiment_id)
@@ -394,12 +438,12 @@ class ReportGenerationService:
         return {
             "experiment_id": summary.experiment_id,
             "experiment_name": summary.experiment_name,
-            "hypothesis": "Treatment will improve primary metric",
+            "hypothesis": report_data.metadata.get("experiment_hypothesis"),
             "start_date": summary.start_date.isoformat(),
             "end_date": summary.end_date.isoformat() if summary.end_date else None,
             "status": summary.status,
             "variants": summary.variants,
-            "allocation": {v: 1/len(summary.variants) for v in summary.variants},
+            "allocation": report_data.metadata.get("experiment_allocation"),
             "total_users": summary.total_users,
             "metrics_tracked": len(report_data.metric_results)
         }
@@ -671,13 +715,7 @@ class ReportGenerationService:
         
     async def _check_novelty_effect(self, experiment_id: str) -> Dict[str, Any]:
         """检查新奇效应"""
-        # 简化示例：比较前后两周的效果
-        return {
-            "detected": False,
-            "week1_lift": 5.2,
-            "week2_lift": 4.8,
-            "decay_rate": -0.4
-        }
+        return {"detected": False}
         
     def _calculate_observed_power(self, metric: MetricResult) -> float:
         """计算观察到的统计功效"""
@@ -731,11 +769,10 @@ class ReportGenerationService:
             }
             
         elif format == ReportFormat.PDF:
-            # PDF生成需要额外的库
-            return {
-                "pdf_url": "https://example.com/reports/report.pdf",
-                "data": report
-            }
+            import base64
+
+            pdf_bytes = self._generate_pdf_report(report, report_data)
+            return {"pdf_base64": base64.b64encode(pdf_bytes).decode("ascii"), "data": report}
             
         return report
         
@@ -819,6 +856,32 @@ class ReportGenerationService:
         """
         
         return html
+
+    def _generate_pdf_report(self, report: Dict[str, Any], report_data: ReportData) -> bytes:
+        from io import BytesIO
+
+        from reportlab.lib.pagesizes import A4
+        from reportlab.pdfgen import canvas
+
+        buf = BytesIO()
+        c = canvas.Canvas(buf, pagesize=A4)
+        _, height = A4
+
+        y = height - 40
+        c.setFont("Helvetica-Bold", 16)
+        c.drawString(40, y, f"实验报告 - {report_data.summary.experiment_name}")
+        y -= 28
+
+        c.setFont("Helvetica", 11)
+        summary = report.get("executive_summary") or {}
+        for k in ("status", "duration", "total_users", "primary_metric_lift", "recommendation"):
+            if k in summary:
+                c.drawString(40, y, f"{k}: {summary[k]}")
+                y -= 16
+
+        c.showPage()
+        c.save()
+        return buf.getvalue()
         
     def _generate_markdown_report(self, report: Dict[str, Any], report_data: ReportData) -> str:
         """生成Markdown报告"""
@@ -860,7 +923,6 @@ class ReportGenerationService:
                 md += f"- {warning}\n"
                 
         return md
-
 
 class ReportScheduler:
     """报告调度器"""
@@ -907,10 +969,55 @@ class ReportScheduler:
             
     async def _wait_until_time(self, target_time: str):
         """等待到指定时间"""
-        # 简化实现
-        await asyncio.sleep(1)
+        try:
+            hour, minute = [int(v) for v in target_time.split(":")]
+            now = datetime.now()
+            target = now.replace(hour=hour, minute=minute, second=0, microsecond=0)
+            if target <= now:
+                target += timedelta(days=1)
+            await asyncio.sleep((target - now).total_seconds())
+        except Exception:
+            logger.exception("解析发送时间失败，使用默认等待", exc_info=True)
+            await asyncio.sleep(1)
         
     async def _send_report(self, report: Dict[str, Any], recipients: List[str]):
         """发送报告"""
-        # 这里应该实现邮件发送逻辑
-        pass
+        settings = get_settings()
+        if not settings.SMTP_HOST or not settings.SMTP_FROM:
+            raise RuntimeError("SMTP配置不完整")
+
+        subject = "实验报告"
+        report_data = report.get("data") if isinstance(report, dict) else None
+        if report_data and isinstance(report_data, dict):
+            overview = report_data.get("experiment_overview", {})
+            name = overview.get("name") or overview.get("experiment_name")
+            if name:
+                subject = f"实验报告 - {name}"
+
+        html_body = report.get("html") if isinstance(report, dict) else None
+        markdown_body = report.get("markdown") if isinstance(report, dict) else None
+        text_body = markdown_body or json.dumps(report, ensure_ascii=False, indent=2)
+
+        def _send() -> None:
+            import smtplib
+            from email.mime.multipart import MIMEMultipart
+            from email.mime.text import MIMEText
+
+            message = MIMEMultipart("alternative")
+            message["From"] = settings.SMTP_FROM
+            message["To"] = ", ".join(recipients)
+            message["Subject"] = subject
+
+            if text_body:
+                message.attach(MIMEText(text_body, "plain", "utf-8"))
+            if html_body:
+                message.attach(MIMEText(html_body, "html", "utf-8"))
+
+            with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT, timeout=10) as server:
+                if settings.SMTP_USE_TLS:
+                    server.starttls()
+                if settings.SMTP_USERNAME:
+                    server.login(settings.SMTP_USERNAME, settings.SMTP_PASSWORD)
+                server.sendmail(settings.SMTP_FROM, recipients, message.as_string())
+
+        await asyncio.to_thread(_send)

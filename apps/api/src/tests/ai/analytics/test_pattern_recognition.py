@@ -8,12 +8,10 @@ from datetime import datetime
 from datetime import timedelta
 from src.core.utils.timezone_utils import utc_now, utc_factory
 from unittest.mock import MagicMock, patch
-
 from src.ai.analytics.models import BehaviorEvent, BehaviorPattern
 from src.ai.analytics.behavior.pattern_recognition import (
     SequencePatternMiner, BehaviorClustering, PatternRecognitionEngine
 )
-
 
 class TestSequencePatternMiner:
     """序列模式挖掘测试"""
@@ -122,7 +120,6 @@ class TestSequencePatternMiner:
         similarity2 = self.miner.calculate_sequence_similarity(seq1, seq3)
         assert similarity2 < 0.5
 
-
 class TestBehaviorClustering:
     """行为聚类测试"""
     
@@ -204,7 +201,6 @@ class TestBehaviorClustering:
         # 验证轮廓系数
         silhouette_score = analysis["silhouette_score"]
         assert -1 <= silhouette_score <= 1
-
 
 class TestPatternRecognitionEngine:
     """模式识别引擎测试"""

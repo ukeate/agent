@@ -5,6 +5,7 @@ Revises: 001_pgvector_0_8_upgrade
 Create Date: 2025-01-20 10:00:00.000000
 
 """
+
 from alembic import op
 import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
@@ -14,7 +15,6 @@ revision = '002'
 down_revision = '001_pgvector_0_8_upgrade'
 branch_labels = None
 depends_on = None
-
 
 def upgrade():
     """Create experiment tables and indexes"""
@@ -186,7 +186,6 @@ def upgrade():
     # Create indexes for experiment_layer_conflicts table
     op.create_index('ix_layer_conflicts_layer', 'experiment_layer_conflicts', ['layer'])
     op.create_index('ix_layer_conflicts_detected', 'experiment_layer_conflicts', ['detected_at'])
-
 
 def downgrade():
     """Drop experiment tables"""

@@ -1,19 +1,19 @@
 """
 训练数据管理系统数据模型
 """
+
 from datetime import datetime
 from src.core.utils.timezone_utils import utc_now, utc_factory, timezone
 from typing import Dict, Any, Optional, List
 from dataclasses import dataclass, field
 from enum import Enum
-
 from sqlalchemy import Column, String, DateTime, Text, Integer, Float, Boolean, Index
-from sqlalchemy.orm import declarative_base
+from sqlalchemy.orm import DeclarativeBase
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 import uuid
 
-Base = declarative_base()
-
+class Base(DeclarativeBase):
+    ...
 
 @dataclass
 class DataSource:
@@ -29,7 +29,6 @@ class DataSource:
     def __post_init__(self):
         if self.created_at is None:
             self.created_at = utc_now()
-
 
 @dataclass
 class DataRecord:
@@ -50,7 +49,6 @@ class DataRecord:
         if self.metadata is None:
             self.metadata = {}
 
-
 class AnnotationTaskType(Enum):
     """标注任务类型"""
     TEXT_CLASSIFICATION = "text_classification"
@@ -58,7 +56,6 @@ class AnnotationTaskType(Enum):
     QUESTION_ANSWERING = "question_answering"
     TEXT_GENERATION = "text_generation"
     SENTIMENT_ANALYSIS = "sentiment_analysis"
-
 
 class AnnotationStatus(Enum):
     """标注状态"""
@@ -70,7 +67,6 @@ class AnnotationStatus(Enum):
     APPROVED = "approved"
     REJECTED = "rejected"
 
-
 class AnnotationTaskStatus(Enum):
     """标注任务状态"""
     DRAFT = "draft"
@@ -78,7 +74,6 @@ class AnnotationTaskStatus(Enum):
     PAUSED = "paused"
     COMPLETED = "completed"
     CANCELLED = "cancelled"
-
 
 @dataclass
 class AnnotationTask:
@@ -90,6 +85,8 @@ class AnnotationTask:
     record_ids: List[str]  # record IDs 
     schema: Dict[str, Any]  # annotation schema
     annotators: List[str]  # user IDs
+    created_by: str
+    guidelines: str
     status: AnnotationTaskStatus = AnnotationTaskStatus.DRAFT
     created_at: Optional[datetime] = None
     deadline: Optional[datetime] = None
@@ -97,7 +94,6 @@ class AnnotationTask:
     def __post_init__(self):
         if self.created_at is None:
             self.created_at = utc_now()
-
 
 @dataclass
 class Annotation:
@@ -116,7 +112,6 @@ class Annotation:
     def __post_init__(self):
         if self.created_at is None:
             self.created_at = utc_now()
-
 
 @dataclass
 class DataVersion:
@@ -138,7 +133,6 @@ class DataVersion:
             self.changes_summary = {}
         if self.metadata is None:
             self.metadata = {}
-
 
 # SQLAlchemy模型
 
@@ -162,7 +156,6 @@ class DataSourceModel(Base):
         Index('idx_data_sources_is_active', 'is_active'),
         Index('idx_data_sources_created_at', 'created_at'),
     )
-
 
 class DataRecordModel(Base):
     """数据记录表模型"""
@@ -190,7 +183,6 @@ class DataRecordModel(Base):
         Index('idx_data_records_composite', 'source_id', 'status', 'created_at'),
     )
 
-
 class AnnotationTaskModel(Base):
     """标注任务表模型"""
     __tablename__ = "annotation_tasks"
@@ -210,7 +202,6 @@ class AnnotationTaskModel(Base):
     deadline = Column(DateTime(timezone=True))
     updated_at = Column(DateTime(timezone=True), default=utc_now, onupdate=utc_now)
 
-
 class AnnotationModel(Base):
     """标注结果表模型"""
     __tablename__ = "annotations"
@@ -226,7 +217,6 @@ class AnnotationModel(Base):
     status = Column(String(20), default='submitted')
     created_at = Column(DateTime(timezone=True), default=lambda: utc_now())
     updated_at = Column(DateTime(timezone=True), default=lambda: utc_now(), onupdate=lambda: utc_now())
-
 
 class DataVersionModel(Base):
     """数据版本表模型"""

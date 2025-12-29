@@ -1,5 +1,8 @@
+import { buildApiUrl, apiFetch } from '../utils/apiBase'
 import React, { useState, useEffect } from 'react';
+import { buildApiUrl } from '../utils/apiBase';
 import { 
+import { logger } from '../utils/logger'
   Card, 
   Tabs, 
   Button, 
@@ -127,145 +130,77 @@ interface RelationshipMilestone {
 }
 
 // 真实API客户端
+const buildInteractionHistory = (participants: string[], raw?: string) => {
+  if (!raw || !raw.trim()) return [];
+  if (Array.isArray(raw)) return raw;
+  const [senderId, receiverId] = participants;
+  return [
+    {
+      sender_id: senderId,
+      receiver_id: receiverId,
+      content: raw,
+      timestamp: new Date().toISOString()
+    }
+  ];
+};
+
 const relationshipApi = {
-  async analyzeRelationship(participants: string[], interactionHistory?: any) {
+  async analyzeRelationship(participants: string[], interactionHistory?: string) {
     try {
       const participantsData = participants.map(userId => ({
-        user_id: userId,
-        emotion_data: { collaborative: 0.7, trusting: 0.6 },
-        context: { relationship_analysis: true }
+        participant_id: userId,
+        name: userId,
+        emotion_data: {
+          emotions: { neutral: 0.6 },
+          intensity: 0.5,
+          confidence: 0.3
+        },
+        relationship_history: buildInteractionHistory(participants, interactionHistory)
       }));
-      
-      const response = await fetch('http://localhost:8000/api/v1/social-emotional/relationships', {
+
+      const response = await apiFetch(buildApiUrl('/social-emotional-understanding/analyze/relationships'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          session_id: `session_${Date.now()}`,
           participants: participantsData,
-          context: { analysis_type: 'relationship_dynamics', interaction_history: interactionHistory }
+          social_environment: {
+            scenario: 'relationship_dynamics',
+            participants_count: participantsData.length,
+            formality_level: 0.5,
+            emotional_intensity: 0.5,
+            time_pressure: 0.3
+          },
+          analysis_types: ['relationships'],
+          real_time: false
         })
       });
-      
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
       return await response.json();
     } catch (error) {
-      console.error('关系分析失败:', error);
-      return { success: false, error: error.message };
+      logger.error('关系分析失败:', error);
+      return { success: false, error: (error as Error).message };
     }
   },
-  
-  async getRelationshipHistory(relationshipId: string) {
+
+  async getRelationshipHistory(participant1: string, participant2: string, limit: number = 20) {
     try {
-      const response = await fetch('http://localhost:8000/api/v1/social-emotional/analytics');
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      
-      const data = await response.json();
-      // 基于真实统计生成关系历史
-      return {
-        success: true,
-        data: {
-          history: Array.from({ length: 7 }, (_, i) => ({
-            date: new Date(Date.now() - i * 24 * 60 * 60 * 1000).toISOString(),
-            trust_level: 0.6 + Math.random() * 0.3,
-            communication_quality: 0.7 + Math.random() * 0.2,
-            conflict_count: Math.floor(Math.random() * 3)
-          }))
-        }
-      };
+      const params = new URLSearchParams({
+        participant1,
+        participant2,
+        limit: String(limit)
+      });
+      const response = await apiFetch(
+        buildApiUrl(`/social-emotional-understanding/relationships/history?${params.toString()}`)
+      );
+      return await response.json();
     } catch (error) {
-      console.error('获取关系历史失败:', error);
-      return { success: false, error: error.message };
-    }
-  },
-  
-  async detectConflicts(relationshipId: string) {
-    try {
-      const response = await fetch('http://localhost:8000/api/v1/social-emotional/analytics');
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      
-      return {
-        success: true,
-        data: {
-          conflicts: [
-            {
-              indicator_id: 'conflict_1',
-              participants: ['user1', 'user2'],
-              conflict_type: 'COMMUNICATION',
-              severity_level: 0.4,
-              escalation_risk: 0.3,
-              resolution_potential: 0.8,
-              timestamp: new Date().toISOString(),
-              verbal_disagreement: true,
-              emotional_tension: false
-            }
-          ]
-        }
-      };
-    } catch (error) {
-      console.error('检测冲突失败:', error);
-      return { success: false, error: error.message };
-    }
-  },
-  
-  async getSupportPatterns(relationshipId: string) {
-    try {
-      const response = await fetch('http://localhost:8000/api/v1/social-emotional/health');
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      
-      return {
-        success: true,
-        data: {
-          patterns: [
-            {
-              support_id: 'support_1',
-              giver_id: 'user1',
-              receiver_id: 'user2',
-              support_type: 'EMOTIONAL',
-              frequency: 0.85,
-              intensity: 0.7,
-              reciprocity_score: 0.75,
-              effectiveness_score: 0.9,
-              timestamp: new Date().toISOString(),
-              verbal_affirmation: true,
-              active_listening: true,
-              empathy_expression: true
-            }
-          ]
-        }
-      };
-    } catch (error) {
-      console.error('获取支持模式失败:', error);
-      return { success: false, error: error.message };
-    }
-  },
-  
-  async getRelationshipMilestones(relationshipId: string) {
-    try {
-      const response = await fetch('http://localhost:8000/api/v1/social-emotional/analytics');
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      
-      const data = await response.json();
-      return {
-        success: true,
-        data: {
-          milestones: [
-            {
-              milestone_id: 'milestone_1',
-              relationship_id: relationshipId,
-              milestone_type: 'TRUST_BREAKTHROUGH',
-              achievement_date: new Date().toISOString(),
-              description: '建立深度信任关系',
-              significance_score: 0.9,
-              participants: ['user1', 'user2']
-            }
-          ]
-        }
-      };
-    } catch (error) {
-      console.error('获取关系里程碑失败:', error);
-      return { success: false, error: error.message };
+      logger.error('获取关系历史失败:', error);
+      return { history: [] };
     }
   }
 };
+
 
 const RelationshipDynamicsPage: React.FC = () => {
   const [relationshipData, setRelationshipData] = useState<RelationshipDynamics | null>(null);
@@ -279,29 +214,23 @@ const RelationshipDynamicsPage: React.FC = () => {
   // 分析表单
   const [showAnalysisModal, setShowAnalysisModal] = useState(false);
   const [analysisForm] = Form.useForm();
-  const [relationshipParams, setRelationshipParams] = useState({
-    participant1: '',
-    participant2: '',
-    relationship_type: 'friendship',
-    interaction_history: []
-  });
 
   const relationshipTypes = [
-    'romantic', 'family', 'friendship', 'professional', 'mentorship', 'acquaintance'
+    'romantic', 'family', 'friendship', 'professional', 'mentorship', 'acquaintance', 'stranger'
   ];
 
   const intimacyLevels = {
-    'VERY_HIGH': { color: '#f5222d', label: '极高' },
-    'HIGH': { color: '#fa8c16', label: '高' },
-    'MEDIUM': { color: '#1890ff', label: '中等' },
-    'LOW': { color: '#52c41a', label: '低' },
-    'VERY_LOW': { color: '#8c8c8c', label: '极低' }
+    very_high: { color: '#f5222d', label: '极高' },
+    high: { color: '#fa8c16', label: '高' },
+    medium: { color: '#1890ff', label: '中等' },
+    low: { color: '#52c41a', label: '低' },
+    very_low: { color: '#8c8c8c', label: '极低' }
   };
 
   const powerDynamicsColors = {
-    'DOMINANT': '#f5222d',
-    'BALANCED': '#52c41a',
-    'SUBMISSIVE': '#1890ff'
+    dominant: '#f5222d',
+    balanced: '#52c41a',
+    submissive: '#1890ff'
   };
 
   const supportTypes = {
@@ -312,10 +241,11 @@ const RelationshipDynamicsPage: React.FC = () => {
   };
 
   const conflictTypes = {
-    'task': '任务冲突',
-    'relationship': '关系冲突',
-    'process': '过程冲突',
-    'value': '价值观冲突'
+    disagreement: '意见分歧',
+    criticism: '批评指责',
+    defensive: '防御反应',
+    withdrawal: '回避退缩',
+    escalation: '冲突升级'
   };
 
   useEffect(() => {
@@ -325,239 +255,40 @@ const RelationshipDynamicsPage: React.FC = () => {
   const loadData = async () => {
     setLoading(true);
     try {
-      await Promise.all([
-        loadRelationshipData(),
-        loadRelationshipHistory(),
-        loadConflictIndicators(),
-        loadSupportPatterns(),
-        loadMilestones()
-      ]);
+      await loadRelationshipHistory();
     } catch (error) {
-      console.error('加载数据失败:', error);
+      logger.error('加载数据失败:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  const loadRelationshipData = async () => {
-    try {
-      const participants = selectedRelationshipId.split('_').slice(1, 3);
-      const response = await relationshipApi.analyzeRelationship(participants);
-      
-      if (response.success && response.data) {
-        setRelationshipData(response.data);
-      } else {
-        // 模拟数据
-        const mockData: RelationshipDynamics = {
-          relationship_id: selectedRelationshipId,
-          participants,
-          relationship_type: 'friendship',
-          intimacy_level: 'HIGH',
-          intimacy_score: 0.75,
-          trust_level: 0.8,
-          vulnerability_sharing: 0.6,
-          power_balance: 0.1,
-          power_dynamics: 'BALANCED',
-          influence_patterns: {
-            [participants[0]]: 0.55,
-            [participants[1]]: 0.45
-          },
-          emotional_reciprocity: 0.85,
-          support_balance: 0.1,
-          empathy_symmetry: 0.9,
-          support_patterns: [],
-          conflict_indicators: [],
-          conflict_frequency: 0.2,
-          conflict_resolution_rate: 0.8,
-          relationship_health: 0.82,
-          stability_score: 0.9,
-          satisfaction_level: 0.85,
-          development_trend: 'improving',
-          future_outlook: 'positive',
-          data_quality_score: 0.9,
-          confidence_level: 0.85,
-          harmony_indicators: ['mutual_support', 'shared_values', 'effective_communication'],
-          relationship_trajectory: [0.7, 0.75, 0.8, 0.82],
-          analysis_timestamp: new Date().toISOString()
-        };
-        setRelationshipData(mockData);
-      }
-    } catch (error) {
-      console.error('获取关系数据失败:', error);
-    }
-  };
-
   const loadRelationshipHistory = async () => {
     try {
-      const response = await relationshipApi.getRelationshipHistory(selectedRelationshipId);
-      if (response.success && response.data) {
-        setRelationshipHistory(response.data);
-      } else {
-        // 模拟历史数据
-        const participants = selectedRelationshipId.split('_').slice(1, 3);
-        const history = Array.from({ length: 5 }, (_, i) => ({
-          relationship_id: selectedRelationshipId,
-          participants,
-          relationship_type: 'friendship',
-          intimacy_level: ['HIGH', 'MEDIUM', 'HIGH'][i % 3],
-          intimacy_score: 0.6 + Math.random() * 0.3,
-          trust_level: 0.7 + Math.random() * 0.3,
-          vulnerability_sharing: 0.5 + Math.random() * 0.4,
-          power_balance: -0.2 + Math.random() * 0.4,
-          power_dynamics: ['BALANCED', 'DOMINANT', 'SUBMISSIVE'][Math.floor(Math.random() * 3)],
-          influence_patterns: {},
-          emotional_reciprocity: 0.7 + Math.random() * 0.3,
-          support_balance: -0.1 + Math.random() * 0.2,
-          empathy_symmetry: 0.8 + Math.random() * 0.2,
-          support_patterns: [],
-          conflict_indicators: [],
-          conflict_frequency: Math.random() * 0.4,
-          conflict_resolution_rate: 0.6 + Math.random() * 0.4,
-          relationship_health: 0.6 + Math.random() * 0.4,
-          stability_score: 0.7 + Math.random() * 0.3,
-          satisfaction_level: 0.6 + Math.random() * 0.4,
-          development_trend: ['improving', 'stable', 'declining'][Math.floor(Math.random() * 3)],
-          future_outlook: 'positive',
-          data_quality_score: 0.8 + Math.random() * 0.2,
-          confidence_level: 0.7 + Math.random() * 0.3,
-          harmony_indicators: [],
-          relationship_trajectory: [],
-          analysis_timestamp: new Date(Date.now() - i * 86400000).toISOString()
-        }));
-        setRelationshipHistory(history);
+      const participants = selectedRelationshipId ? selectedRelationshipId.split('_').slice(1, 3) : [];
+      if (participants.length < 2) {
+        setRelationshipHistory([]);
+        setRelationshipData(null);
+        setSupportPatterns([]);
+        setConflictIndicators([]);
+        setMilestones([]);
+        return;
       }
+      const response = await relationshipApi.getRelationshipHistory(participants[0], participants[1], 20);
+      const history = response?.history || [];
+      setRelationshipHistory(history);
+      const latest = history[history.length - 1] || null;
+      setRelationshipData(latest);
+      setSupportPatterns(latest?.support_patterns || []);
+      setConflictIndicators(latest?.conflict_indicators || []);
+      setMilestones(latest?.milestones || []);
     } catch (error) {
-      console.error('获取关系历史失败:', error);
-    }
-  };
-
-  const loadConflictIndicators = async () => {
-    try {
-      const response = await relationshipApi.detectConflicts(selectedRelationshipId);
-      if (response.success && response.data) {
-        setConflictIndicators(response.data);
-      } else {
-        // 模拟冲突数据
-        const participants = selectedRelationshipId.split('_').slice(1, 3);
-        const conflicts: ConflictIndicator[] = [
-          {
-            indicator_id: 'conflict_1',
-            participants,
-            conflict_type: 'task',
-            severity_level: 0.4,
-            escalation_risk: 0.3,
-            resolution_potential: 0.8,
-            timestamp: new Date(Date.now() - 86400000).toISOString(),
-            verbal_disagreement: true,
-            emotional_tension: false,
-            communication_breakdown: false,
-            value_conflict: false,
-            resource_competition: true,
-            conflict_styles: {
-              [participants[0]]: 'collaborating',
-              [participants[1]]: 'compromising'
-            }
-          }
-        ];
-        setConflictIndicators(conflicts);
-      }
-    } catch (error) {
-      console.error('获取冲突指标失败:', error);
-    }
-  };
-
-  const loadSupportPatterns = async () => {
-    try {
-      const response = await relationshipApi.getSupportPatterns(selectedRelationshipId);
-      if (response.success && response.data) {
-        setSupportPatterns(response.data);
-      } else {
-        // 模拟支持模式数据
-        const participants = selectedRelationshipId.split('_').slice(1, 3);
-        const patterns: EmotionalSupportPattern[] = [
-          {
-            support_id: 'support_1',
-            giver_id: participants[0],
-            receiver_id: participants[1],
-            support_type: 'emotional',
-            frequency: 8,
-            intensity: 0.8,
-            reciprocity_score: 0.9,
-            effectiveness_score: 0.85,
-            timestamp: new Date().toISOString(),
-            verbal_affirmation: true,
-            active_listening: true,
-            empathy_expression: true,
-            problem_solving: false,
-            resource_sharing: false
-          },
-          {
-            support_id: 'support_2', 
-            giver_id: participants[1],
-            receiver_id: participants[0],
-            support_type: 'informational',
-            frequency: 5,
-            intensity: 0.7,
-            reciprocity_score: 0.8,
-            effectiveness_score: 0.9,
-            timestamp: new Date(Date.now() - 3600000).toISOString(),
-            verbal_affirmation: false,
-            active_listening: false,
-            empathy_expression: false,
-            problem_solving: true,
-            resource_sharing: true
-          }
-        ];
-        setSupportPatterns(patterns);
-      }
-    } catch (error) {
-      console.error('获取支持模式失败:', error);
-    }
-  };
-
-  const loadMilestones = async () => {
-    try {
-      const response = await relationshipApi.getRelationshipMilestones(selectedRelationshipId);
-      if (response.success && response.data) {
-        setMilestones(response.data);
-      } else {
-        // 模拟里程碑数据
-        const mockMilestones: RelationshipMilestone[] = [
-          {
-            milestone_id: 'milestone_1',
-            relationship_id: selectedRelationshipId,
-            milestone_type: 'trust_building',
-            significance_level: 0.9,
-            emotional_impact: 0.8,
-            relationship_change: 0.7,
-            timestamp: new Date(Date.now() - 2592000000).toISOString(),
-            description: '建立深度信任关系',
-            positive_milestone: true,
-            relationship_deepening: true,
-            trust_building: true,
-            boundary_setting: false,
-            conflict_resolution: false
-          },
-          {
-            milestone_id: 'milestone_2',
-            relationship_id: selectedRelationshipId,
-            milestone_type: 'conflict_resolution',
-            significance_level: 0.7,
-            emotional_impact: 0.6,
-            relationship_change: 0.5,
-            timestamp: new Date(Date.now() - 1296000000).toISOString(),
-            description: '成功解决重要分歧',
-            positive_milestone: true,
-            relationship_deepening: false,
-            trust_building: false,
-            boundary_setting: true,
-            conflict_resolution: true
-          }
-        ];
-        setMilestones(mockMilestones);
-      }
-    } catch (error) {
-      console.error('获取里程碑失败:', error);
+      logger.error('获取关系历史失败:', error);
+      setRelationshipHistory([]);
+      setRelationshipData(null);
+      setSupportPatterns([]);
+      setConflictIndicators([]);
+      setMilestones([]);
     }
   };
 
@@ -569,54 +300,17 @@ const RelationshipDynamicsPage: React.FC = () => {
         participants, 
         values.interaction_history
       );
-      
-      if (response.success && response.data) {
-        setRelationshipData(response.data);
-        message.success('关系分析完成');
-        setShowAnalysisModal(false);
-        await loadData();
-      } else {
-        // 生成模拟分析结果
-        const mockAnalysis: RelationshipDynamics = {
-          relationship_id: `rel_${values.participant1}_${values.participant2}`,
-          participants,
-          relationship_type: values.relationship_type,
-          intimacy_level: ['HIGH', 'MEDIUM', 'LOW'][Math.floor(Math.random() * 3)],
-          intimacy_score: 0.5 + Math.random() * 0.5,
-          trust_level: 0.6 + Math.random() * 0.4,
-          vulnerability_sharing: 0.4 + Math.random() * 0.6,
-          power_balance: -0.3 + Math.random() * 0.6,
-          power_dynamics: ['BALANCED', 'DOMINANT', 'SUBMISSIVE'][Math.floor(Math.random() * 3)],
-          influence_patterns: {
-            [participants[0]]: 0.4 + Math.random() * 0.2,
-            [participants[1]]: 0.4 + Math.random() * 0.2
-          },
-          emotional_reciprocity: 0.7 + Math.random() * 0.3,
-          support_balance: -0.2 + Math.random() * 0.4,
-          empathy_symmetry: 0.6 + Math.random() * 0.4,
-          support_patterns: [],
-          conflict_indicators: [],
-          conflict_frequency: Math.random() * 0.5,
-          conflict_resolution_rate: 0.5 + Math.random() * 0.5,
-          relationship_health: 0.5 + Math.random() * 0.5,
-          stability_score: 0.6 + Math.random() * 0.4,
-          satisfaction_level: 0.5 + Math.random() * 0.5,
-          development_trend: ['improving', 'stable', 'declining'][Math.floor(Math.random() * 3)],
-          future_outlook: ['positive', 'neutral', 'concerning'][Math.floor(Math.random() * 3)],
-          data_quality_score: 0.8,
-          confidence_level: 0.75,
-          harmony_indicators: ['effective_communication', 'shared_values'],
-          relationship_trajectory: [],
-          analysis_timestamp: new Date().toISOString()
-        };
-
-        setRelationshipData(mockAnalysis);
-        setSelectedRelationshipId(mockAnalysis.relationship_id);
-        message.success('关系分析完成（使用模拟数据）');
-        setShowAnalysisModal(false);
-      }
+      const payload = (response as any).data ?? response;
+      const detail = payload?.relationships?.[0] || null;
+      setRelationshipData(detail);
+      setSupportPatterns(detail?.support_patterns || []);
+      setConflictIndicators(detail?.conflict_indicators || []);
+      setMilestones(detail?.milestones || []);
+      message.success('关系分析完成');
+      setShowAnalysisModal(false);
+      await loadRelationshipHistory();
     } catch (error) {
-      console.error('分析失败:', error);
+      logger.error('分析失败:', error);
       message.error('分析失败，请重试');
     } finally {
       setLoading(false);
@@ -634,8 +328,10 @@ const RelationshipDynamicsPage: React.FC = () => {
 
   const getOutlookColor = (outlook: string) => {
     const colors = {
-      'positive': '#52c41a',
-      'neutral': '#fa8c16',
+      'very_positive': '#52c41a',
+      'positive': '#73d13d',
+      'stable': '#1890ff',
+      'cautious': '#fa8c16',
       'concerning': '#f5222d'
     };
     return colors[outlook as keyof typeof colors] || '#8c8c8c';

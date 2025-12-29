@@ -1,7 +1,6 @@
 """智能内容分块系统"""
 
 import re
-import logging
 from typing import List, Dict, Any, Optional, Tuple
 from dataclasses import dataclass
 from enum import Enum
@@ -15,7 +14,7 @@ from langchain.text_splitter import (
     Language
 )
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 # 尝试下载NLTK数据
 try:
@@ -24,7 +23,6 @@ try:
 except:
     logger.warning("Failed to download NLTK data")
 
-
 class ChunkStrategy(Enum):
     """分块策略枚举"""
     SEMANTIC = "semantic"  # 语义分块
@@ -32,7 +30,6 @@ class ChunkStrategy(Enum):
     ADAPTIVE = "adaptive"  # 自适应分块
     SLIDING_WINDOW = "sliding_window"  # 滑动窗口
     HIERARCHICAL = "hierarchical"  # 层次分块
-
 
 @dataclass
 class DocumentChunk:
@@ -48,7 +45,6 @@ class DocumentChunk:
     child_chunk_ids: Optional[List[str]] = None
     overlap_with_previous: int = 0
     overlap_with_next: int = 0
-
 
 class IntelligentChunker:
     """智能内容分块器
@@ -695,3 +691,4 @@ class IntelligentChunker:
                 return text1[-i:]
         
         return ""
+from src.core.logging import get_logger

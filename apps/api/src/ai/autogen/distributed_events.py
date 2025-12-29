@@ -2,6 +2,7 @@
 分布式事件处理系统
 实现跨节点的事件分发、协调和负载均衡
 """
+
 import asyncio
 import json
 import hashlib
@@ -12,21 +13,13 @@ from datetime import timedelta
 from src.core.utils.timezone_utils import utc_now, utc_factory
 from dataclasses import dataclass, field
 from enum import Enum
-import structlog
-try:
-    import redis.asyncio as aioredis
-except ImportError:
-    try:
-        import aioredis
-    except ImportError:
-        aioredis = None
-
+import redis.asyncio as redis_async
 from .events import Event, EventType, EventPriority
 from .event_processors import AsyncEventProcessingEngine, EventContext
 from .event_store import EventStore
 
-logger = structlog.get_logger(__name__)
-
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 class NodeStatus(str, Enum):
     """节点状态"""
@@ -36,13 +29,11 @@ class NodeStatus(str, Enum):
     OFFLINE = "offline"
     FAILED = "failed"
 
-
 class NodeRole(str, Enum):
     """节点角色"""
     LEADER = "leader"
     FOLLOWER = "follower"
     CANDIDATE = "candidate"
-
 
 @dataclass
 class NodeInfo:
@@ -93,7 +84,6 @@ class NodeInfo:
             last_heartbeat=datetime.fromisoformat(data["last_heartbeat"]),
             metadata=data.get("metadata", {})
         )
-
 
 class ConsistentHash:
     """一致性哈希环"""
@@ -197,14 +187,13 @@ class ConsistentHash:
         
         return nodes
 
-
 class DistributedEventCoordinator:
     """分布式事件协调器"""
     
     def __init__(
         self,
         node_id: str,
-        redis_client=None,
+        redis_client: Optional[redis_async.Redis] = None,
         event_store: Optional[EventStore] = None,
         processing_engine: Optional[AsyncEventProcessingEngine] = None
     ):
@@ -382,14 +371,14 @@ class DistributedEventCoordinator:
                 if not current_leader:
                     # 没有领导者，尝试成为领导者
                     await self._try_become_leader()
-                elif current_leader.decode() == self.node_id:
+                elif current_leader == self.node_id:
                     # 自己是领导者，续约
                     await self.redis.setex(self.leader_key, self.leader_lease_time, self.node_id)
                 else:
                     # 其他节点是领导者
                     if self.node_info.role != NodeRole.FOLLOWER:
                         self.node_info.role = NodeRole.FOLLOWER
-                        logger.info(f"成为追随者", node_id=self.node_id, leader=current_leader.decode())
+                        logger.info(f"成为追随者", node_id=self.node_id, leader=current_leader)
                 
             except Exception as e:
                 logger.error(f"领导选举失败", error=str(e))
@@ -428,7 +417,7 @@ class DistributedEventCoordinator:
         """成为领导者时的处理"""
         # 这里可以执行一些只有领导者才能做的任务
         # 比如：重新平衡负载、清理过期数据等
-        pass
+        await self.rebalance_load()
     
     async def _sync_nodes_loop(self) -> None:
         """节点同步循环"""
@@ -447,8 +436,8 @@ class DistributedEventCoordinator:
                 
                 for node_id_bytes, node_data_bytes in nodes_data.items():
                     try:
-                        node_id = node_id_bytes.decode()
-                        node_data = json.loads(node_data_bytes.decode())
+                        node_id = node_id_bytes
+                        node_data = json.loads(node_data_bytes)
                         node_info = NodeInfo.from_dict(node_data)
                         
                         # 检查节点是否存活
@@ -566,7 +555,7 @@ class DistributedEventCoordinator:
                 
                 if result:
                     _, event_data_bytes = result
-                    event_data = json.loads(event_data_bytes.decode())
+                    event_data = json.loads(event_data_bytes)
                     
                     # 重建事件对象
                     event = Event(
@@ -617,9 +606,18 @@ class DistributedEventCoordinator:
             return
         
         try:
-            # 计算平均负载
-            total_load = sum(node.load for node in self.nodes.values())
-            avg_load = total_load / len(self.nodes) if self.nodes else 0
+            if not self.redis or not self.nodes:
+                return
+
+            # 使用各节点队列长度作为实时负载
+            queue_lengths: Dict[str, int] = {}
+            for node_id in list(self.nodes.keys()):
+                qlen = await self.redis.llen(f"{self.event_queue_prefix}{node_id}")
+                queue_lengths[node_id] = int(qlen or 0)
+                self.nodes[node_id].load = float(queue_lengths[node_id])
+
+            total_load = sum(queue_lengths.values())
+            avg_load = total_load / len(queue_lengths) if queue_lengths else 0.0
             
             # 找出高负载和低负载节点
             high_load_nodes = [
@@ -638,8 +636,36 @@ class DistributedEventCoordinator:
                 high_load_nodes=high_load_nodes,
                 low_load_nodes=low_load_nodes
             )
-            
-            # TODO: 实现实际的负载迁移逻辑
+
+            if not high_load_nodes or not low_load_nodes:
+                return
+
+            moved = 0
+            for src in high_load_nodes:
+                src_q = f"{self.event_queue_prefix}{src}"
+                while low_load_nodes and queue_lengths.get(src, 0) > avg_load:
+                    dst = min(low_load_nodes, key=lambda nid: queue_lengths.get(nid, 0))
+                    dst_q = f"{self.event_queue_prefix}{dst}"
+
+                    transferable = max(1, int((queue_lengths[src] - avg_load) // 2))
+                    transferable = min(transferable, max(1, int(avg_load - queue_lengths.get(dst, 0))))
+                    transferable = min(transferable, 100)
+
+                    for _ in range(transferable):
+                        ev = await self.redis.rpop(src_q)
+                        if not ev:
+                            break
+                        await self.redis.lpush(dst_q, ev)
+                        moved += 1
+                        queue_lengths[src] -= 1
+                        queue_lengths[dst] = queue_lengths.get(dst, 0) + 1
+
+                    if queue_lengths.get(dst, 0) >= avg_load * 0.8:
+                        low_load_nodes = [nid for nid in low_load_nodes if nid != dst]
+
+            if moved:
+                self.stats["events_forwarded"] += moved
+                logger.info("负载迁移完成", moved=moved)
             
         except Exception as e:
             logger.error(f"负载平衡失败", error=str(e))
@@ -647,7 +673,6 @@ class DistributedEventCoordinator:
     def get_stats(self) -> Dict[str, Any]:
         """获取统计信息"""
         return self.stats.copy()
-
 
 @dataclass
 class DistributedEvent:
@@ -662,11 +687,10 @@ class DistributedEvent:
     retry_count: int = 0
     max_retries: int = 3
 
-
 class DistributedEventBus:
     """企业级分布式事件总线"""
     
-    def __init__(self, redis_client, node_id: str):
+    def __init__(self, redis_client: redis_async.Redis, node_id: str):
         self.redis_client = redis_client
         self.node_id = node_id
         self.subscribers: Dict[str, List[Callable]] = {}
@@ -694,7 +718,7 @@ class DistributedEventBus:
             try:
                 await self._listen_task
             except asyncio.CancelledError:
-                pass
+                raise
         logger.info("分布式事件总线停止", node_id=self.node_id)
     
     async def publish(self, event: DistributedEvent) -> bool:
@@ -771,7 +795,7 @@ class DistributedEventBus:
                 
                 if result:
                     _, notification_data = result
-                    notification = json.loads(notification_data.decode())
+                    notification = json.loads(notification_data)
                     
                     # 处理事件通知
                     await self._handle_event_notification(notification)

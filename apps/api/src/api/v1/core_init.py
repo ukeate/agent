@@ -6,37 +6,37 @@ from fastapi import APIRouter
 
 # 仅导入核心和基础的路由，避免复杂依赖
 try:
-    from .auth import router as auth_router
+    from src.api.v1.auth import router as auth_router
 except ImportError:
     auth_router = APIRouter()
 
 try:
-    from .rag import router as rag_router
+    from src.api.v1.rag import router as rag_router
 except ImportError:
     rag_router = APIRouter()
 
 try:
-    from .workflows import router as workflows_router
+    from src.api.v1.workflows import router as workflows_router
 except ImportError:
     workflows_router = APIRouter()
 
 try:
-    from .supervisor import router as supervisor_router
+    from src.api.v1.supervisor import router as supervisor_router
 except ImportError:
     supervisor_router = APIRouter()
 
 try:
-    from .events import router as events_router
+    from src.api.v1.events import router as events_router
 except ImportError:
     events_router = APIRouter()
 
 try:
-    from .streaming import router as streaming_router
+    from src.api.v1.streaming import router as streaming_router
 except ImportError:
     streaming_router = APIRouter()
 
 try:
-    from .multi_agents import router as multi_agents_router
+    from src.api.v1.multi_agents import router as multi_agents_router
 except ImportError:
     multi_agents_router = APIRouter()
 

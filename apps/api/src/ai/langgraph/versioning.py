@@ -2,13 +2,12 @@
 上下文版本管理模块
 处理不同版本上下文的迁移和兼容性
 """
+
 from typing import Dict, Any, Tuple, Callable, Optional, List
 from datetime import datetime
 from src.core.utils.timezone_utils import utc_now, utc_factory, timezone
 import copy
-
 from .context import ContextVersion
-
 
 class ContextMigrator:
     """上下文版本迁移器"""
@@ -150,7 +149,6 @@ class ContextMigrator:
         
         return data
 
-
 class VersionCompatibilityChecker:
     """版本兼容性检查器"""
     
@@ -214,7 +212,6 @@ class VersionCompatibilityChecker:
         
         # 如果没有版本支持所有功能，返回最新版本
         return "1.2"
-
 
 class ContextVersionManager:
     """上下文版本管理器"""

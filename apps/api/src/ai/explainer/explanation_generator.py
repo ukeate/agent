@@ -8,7 +8,6 @@ from datetime import datetime
 from src.core.utils.timezone_utils import utc_now, utc_factory, timezone
 from typing import Any, Dict, List, Optional, Union, Tuple
 from uuid import uuid4
-
 from src.ai.openai_client import OpenAIClient
 from src.ai.explainer.decision_tracker import DecisionTracker
 from src.ai.explainer.confidence_calculator import ConfidenceCalculator
@@ -24,7 +23,6 @@ from src.models.schemas.explanation import (
     ConfidenceMetrics,
     CounterfactualScenario
 )
-
 
 class ExplanationGenerator:
     """解释生成引擎"""

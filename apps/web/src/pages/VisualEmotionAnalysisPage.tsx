@@ -3,8 +3,10 @@
  * Story 11.1: 视觉情感识别器
  */
 
+import { buildApiUrl, apiFetch } from '../utils/apiBase'
 import React, { useState, useRef, useCallback } from 'react'
 import {
+import { logger } from '../utils/logger'
   Card,
   Row,
   Col,
@@ -155,32 +157,39 @@ const VisualEmotionAnalysisPage: React.FC = () => {
 
   // 实时分析
   const startRealtimeAnalysis = () => {
-    const analyzeFrame = () => {
-      if (!streaming) return
-      
-      // 模拟实时分析
-      const emotions = ['happy', 'neutral', 'sad', 'surprise']
-      const faces = Math.floor(Math.random() * 3) + 1
-      
-      const detectedEmotions = Array.from({ length: faces }, (_, i) => ({
-        id: i,
-        emotion: emotions[Math.floor(Math.random() * emotions.length)],
-        confidence: Math.random() * 0.4 + 0.6,
-        position: {
-          x: Math.random() * 500,
-          y: Math.random() * 400,
-          width: 80 + Math.random() * 40,
-          height: 80 + Math.random() * 40
+    const analyzeFrame = async () => {
+      if (!streaming || !videoRef.current) return
+      try {
+        const canvas = document.createElement('canvas')
+        canvas.width = videoRef.current.videoWidth
+        canvas.height = videoRef.current.videoHeight
+        const ctx = canvas.getContext('2d')
+        if (ctx) {
+          ctx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height)
+          const blob: Blob = await new Promise(resolve => canvas.toBlob(b => resolve(b as Blob), 'image/jpeg'))
+          const formData = new FormData()
+          formData.append('image_file', blob)
+          const res = await apiFetch(buildApiUrl('/api/v1/emotion-recognition/analyze/visual'), {
+            method: 'POST',
+            body: formData
+          })
+          const data = await res.json()
+          const faces = (data?.faces || []).map((f: any, idx: number) => ({
+            id: idx,
+            emotion: f.primary_emotion || f.emotion,
+            confidence: f.confidence || f.score || 0,
+            position: f.bounding_box || {}
+          }))
+          setDetectedFaces(faces)
         }
-      }))
-      
-      setDetectedFaces(detectedEmotions)
-      
-      if (streaming) {
-        setTimeout(analyzeFrame, 1000 / settings.frameRate)
+      } catch (e) {
+        logger.error('实时视觉分析失败', e)
+      } finally {
+        if (streaming) {
+          setTimeout(analyzeFrame, 1000 / settings.frameRate)
+        }
       }
     }
-    
     analyzeFrame()
   }
 
@@ -193,70 +202,23 @@ const VisualEmotionAnalysisPage: React.FC = () => {
 
     setAnalyzing(true)
 
-    // 模拟API调用
-    setTimeout(() => {
-      const mockResult = {
-        primaryEmotion: 'happy',
-        confidence: 0.91,
-        intensity: 0.78,
-        numFaces: 2,
-        faces: [
-          {
-            id: 1,
-            emotion: 'happy',
-            confidence: 0.91,
-            intensity: 0.78,
-            boundingBox: { x: 120, y: 80, width: 150, height: 180 },
-            landmarks: {
-              leftEye: { x: 145, y: 120 },
-              rightEye: { x: 195, y: 118 },
-              nose: { x: 170, y: 150 },
-              mouth: { x: 172, y: 180 }
-            },
-            features: {
-              brightness: 0.72,
-              contrast: 0.65,
-              edgeDensity: 0.45
-            }
-          },
-          {
-            id: 2,
-            emotion: 'neutral',
-            confidence: 0.76,
-            intensity: 0.42,
-            boundingBox: { x: 320, y: 100, width: 140, height: 170 },
-            landmarks: {
-              leftEye: { x: 345, y: 140 },
-              rightEye: { x: 395, y: 138 },
-              nose: { x: 370, y: 170 },
-              mouth: { x: 372, y: 200 }
-            },
-            features: {
-              brightness: 0.68,
-              contrast: 0.58,
-              edgeDensity: 0.38
-            }
-          }
-        ],
-        aggregatedEmotion: {
-          emotion: 'happy',
-          confidence: 0.84
-        },
-        emotions: [
-          { label: 'happy', count: 1, avgConfidence: 0.91 },
-          { label: 'neutral', count: 1, avgConfidence: 0.76 },
-          { label: 'sad', count: 0, avgConfidence: 0 },
-          { label: 'angry', count: 0, avgConfidence: 0 },
-          { label: 'surprise', count: 0, avgConfidence: 0 }
-        ],
-        processingTime: 285,
-        timestamp: new Date().toISOString()
-      }
-
-      setAnalysisResult(mockResult)
-      setAnalyzing(false)
+    try {
+      const formData = new FormData()
+      if (imageFile) formData.append('image_file', imageFile)
+      if (imageUrl) formData.append('image_url', imageUrl)
+      const res = await apiFetch(buildApiUrl('/api/v1/emotion-recognition/analyze/visual'), {
+        method: 'POST',
+        body: formData
+      })
+      const data = await res.json()
+      setAnalysisResult(data)
       message.success('视觉情感分析完成')
-    }, 2000)
+    } catch (error: any) {
+      message.error(error?.message || '视觉情感分析失败')
+      setAnalysisResult(null)
+    } finally {
+      setAnalyzing(false)
+    }
   }, [imageFile, imageUrl])
 
   // 上传配置

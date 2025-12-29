@@ -10,7 +10,6 @@ import asyncio
 from enum import Enum
 import time
 import heapq
-import logging
 from datetime import datetime
 from datetime import timedelta
 from src.core.utils.timezone_utils import utc_now, utc_factory
@@ -19,11 +18,10 @@ import psutil
 import gc
 from collections import deque
 import threading
-
 from .batch_types import BatchTask, BatchJob, BatchStatus, TaskPriority
 
-logger = logging.getLogger(__name__)
-
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 class SchedulingStrategy(str, Enum):
     """调度策略"""
@@ -33,7 +31,6 @@ class SchedulingStrategy(str, Enum):
     FAIR_SHARE = "fair_share"   # 公平共享
     LOAD_BALANCED = "load_balanced"  # 负载均衡
     ADAPTIVE = "adaptive"       # 自适应调度
-
 
 @dataclass
 class SystemResources:
@@ -59,9 +56,10 @@ class SystemResources:
             self.disk_io = disk_io.read_bytes + disk_io.write_bytes if disk_io else 0
             net_io = psutil.net_io_counters()
             self.network_io = net_io.bytes_sent + net_io.bytes_recv if net_io else 0
-        except:
-            pass
-
+        except Exception:
+            logger.exception("获取磁盘/网络IO失败", exc_info=True)
+            self.disk_io = 0
+            self.network_io = 0
 
 @dataclass
 class SLARequirement:
@@ -70,7 +68,6 @@ class SLARequirement:
     max_failure_rate: float = 0.05  # 最大失败率 5%
     min_throughput: float = 0.0  # 最小吞吐量（任务/秒）
     priority_multiplier: float = 1.0  # 优先级倍数
-
 
 @dataclass
 class WorkerMetrics:
@@ -141,7 +138,6 @@ class WorkerMetrics:
         load_factor = 1.0 + (self.current_load * 0.2)
         return self.average_task_time * task_complexity * load_factor
 
-
 @dataclass
 class SchedulingContext:
     """调度上下文"""
@@ -149,8 +145,7 @@ class SchedulingContext:
     worker_metrics: Dict[str, WorkerMetrics]
     system_load: float
     queue_length: int
-    current_time: datetime = field(default_factory=datetime.utcnow)
-
+    current_time: datetime = field(default_factory=utc_now)
 
 class PredictiveModel:
     """预测性调度模型"""
@@ -239,7 +234,6 @@ class PredictiveModel:
         
         # 限制最大工作者数量
         return min(optimal_workers, 50, pending_tasks)
-
 
 class TaskScheduler:
     """任务调度器"""

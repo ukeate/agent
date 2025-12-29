@@ -1,6 +1,7 @@
 """
 实验指标实时计算服务 - 实时监控和分析A/B测试指标
 """
+
 import asyncio
 import math
 from typing import Dict, List, Optional, Any, Tuple, Union
@@ -12,25 +13,22 @@ from enum import Enum
 from collections import defaultdict, deque
 import json
 import redis.asyncio as redis
+from src.core.database import get_db_session
+from src.core.config import get_settings
+from src.services.statistical_analysis_service import (
 
-from core.logging import get_logger
-from core.database import get_db
-from services.statistical_analysis_service import (
     get_stats_calculator,
     MetricType,
-    DescriptiveStats
 )
-from services.hypothesis_testing_service import (
+from src.services.hypothesis_testing_service import (
     get_hypothesis_testing_service,
     HypothesisType
 )
-from services.confidence_interval_service import (
+from src.services.confidence_interval_service import (
     get_confidence_interval_service,
     ParameterType
+
 )
-
-logger = get_logger(__name__)
-
 
 class MetricCategory(str, Enum):
     """指标类别"""
@@ -38,7 +36,6 @@ class MetricCategory(str, Enum):
     SECONDARY = "secondary"  # 次要指标
     GUARDRAIL = "guardrail"  # 护栏指标
     DIAGNOSTIC = "diagnostic"  # 诊断指标
-
 
 class AggregationType(str, Enum):
     """聚合类型"""
@@ -49,7 +46,6 @@ class AggregationType(str, Enum):
     PERCENTILE = "percentile"
     UNIQUE = "unique"
 
-
 class TimeWindow(str, Enum):
     """时间窗口"""
     REALTIME = "realtime"  # 实时（最近1分钟）
@@ -57,7 +53,6 @@ class TimeWindow(str, Enum):
     DAILY = "daily"  # 每天
     WEEKLY = "weekly"  # 每周
     CUMULATIVE = "cumulative"  # 累计
-
 
 @dataclass
 class MetricDefinition:
@@ -92,7 +87,6 @@ class MetricDefinition:
             "threshold_upper": self.threshold_upper
         }
 
-
 @dataclass
 class MetricSnapshot:
     """指标快照"""
@@ -114,7 +108,6 @@ class MetricSnapshot:
             "variance": self.variance
         }
 
-
 @dataclass
 class GroupMetrics:
     """分组指标"""
@@ -133,7 +126,6 @@ class GroupMetrics:
             "user_count": self.user_count,
             "event_count": self.event_count
         }
-
 
 @dataclass
 class MetricComparison:
@@ -160,7 +152,6 @@ class MetricComparison:
             "confidence_interval": self.confidence_interval
         }
 
-
 class MetricsCalculator:
     """指标计算器"""
     
@@ -170,12 +161,12 @@ class MetricsCalculator:
         self.hypothesis_service = get_hypothesis_testing_service()
         self.confidence_service = get_confidence_interval_service()
     
-    async def calculate_conversion_rate(self, conversions: int, total_users: int) -> MetricSnapshot:
+    async def calculate_conversion_rate(self, conversions: int, total_users: int, metric_name: str) -> MetricSnapshot:
         """计算转化率"""
         try:
             if total_users == 0:
                 return MetricSnapshot(
-                    metric_name="conversion_rate",
+                    metric_name=metric_name,
                     timestamp=utc_now(),
                     value=0.0,
                     sample_size=0
@@ -192,7 +183,7 @@ class MetricsCalculator:
             )
             
             return MetricSnapshot(
-                metric_name="conversion_rate",
+                metric_name=metric_name,
                 timestamp=utc_now(),
                 value=rate,
                 sample_size=total_users,
@@ -269,6 +260,8 @@ class MetricsCalculator:
                             metric_type: MetricType) -> MetricComparison:
         """比较两组指标"""
         try:
+            from scipy import stats
+
             absolute_diff = treatment_snapshot.value - control_snapshot.value
             
             # 计算相对差异
@@ -306,6 +299,37 @@ class MetricsCalculator:
                         confidence_level=0.95
                     )
                     confidence_interval = (ci_result.lower_bound, ci_result.upper_bound)
+
+                elif metric_type == MetricType.CONTINUOUS:
+                    if (
+                        control_snapshot.sample_size > 1
+                        and treatment_snapshot.sample_size > 1
+                        and control_snapshot.variance is not None
+                        and treatment_snapshot.variance is not None
+                    ):
+                        control_std = math.sqrt(max(control_snapshot.variance, 0.0))
+                        treatment_std = math.sqrt(max(treatment_snapshot.variance, 0.0))
+                        t_stat, p_val = stats.ttest_ind_from_stats(
+                            mean1=control_snapshot.value,
+                            std1=control_std,
+                            nobs1=control_snapshot.sample_size,
+                            mean2=treatment_snapshot.value,
+                            std2=treatment_std,
+                            nobs2=treatment_snapshot.sample_size,
+                            equal_var=False,
+                        )
+                        p_value = float(p_val) if p_val == p_val else None
+                        is_significant = bool(p_value is not None and p_value < 0.05)
+
+                        se = math.sqrt(
+                            (control_snapshot.variance / control_snapshot.sample_size)
+                            + (treatment_snapshot.variance / treatment_snapshot.sample_size)
+                        )
+                        if se > 0:
+                            confidence_interval = (
+                                absolute_diff - 1.96 * se,
+                                absolute_diff + 1.96 * se,
+                            )
             
             return MetricComparison(
                 metric_name=control_snapshot.metric_name,
@@ -321,7 +345,6 @@ class MetricsCalculator:
         except Exception as e:
             self.logger.error(f"Metric comparison failed: {e}")
             raise
-
 
 class RealtimeMetricsService:
     """实时指标服务"""
@@ -340,8 +363,9 @@ class RealtimeMetricsService:
         try:
             # 初始化Redis连接
             if not self.redis_client:
+                settings = get_settings()
                 self.redis_client = await redis.from_url(
-                    "redis://localhost:6379",
+                    settings.REDIS_URL,
                     encoding="utf-8",
                     decode_responses=True
                 )
@@ -464,6 +488,32 @@ class RealtimeMetricsService:
         except Exception as e:
             self.logger.error(f"Failed to calculate metrics for experiment {experiment_id}: {e}")
             raise
+
+    async def get_experiment_metrics(
+        self,
+        experiment_id: str,
+        group_id: Optional[str] = None,
+        time_window: TimeWindow = TimeWindow.CUMULATIVE,
+    ) -> Dict[str, Dict[str, Any]]:
+        """获取实验核心指标摘要（供上层策略服务使用）"""
+        group_metrics = await self.calculate_metrics(experiment_id, time_window)
+        if not group_metrics:
+            return {}
+
+        group = group_metrics.get(group_id) if group_id else next(iter(group_metrics.values()), None)
+        if not group:
+            return {}
+
+        summary: Dict[str, Dict[str, Any]] = {}
+        for name, snapshot in (group.metrics or {}).items():
+            summary[name] = {
+                "value": snapshot.value,
+                "sample_size": snapshot.sample_size,
+                "timestamp": snapshot.timestamp,
+                "confidence_interval": snapshot.confidence_interval,
+                "is_significant": snapshot.is_significant,
+            }
+        return summary
     
     async def _calculate_single_metric(self, metric_def: MetricDefinition,
                                      group_events: Dict[str, Any]) -> Optional[MetricSnapshot]:
@@ -476,16 +526,16 @@ class RealtimeMetricsService:
                 if metric_def.numerator_event and metric_def.denominator_event:
                     numerator_count = sum(
                         1 for e in events 
-                        if e.get("event_type") == metric_def.numerator_event
+                        if e.get("event_name") == metric_def.numerator_event
                     )
                     denominator_count = sum(
                         1 for e in events 
-                        if e.get("event_type") == metric_def.denominator_event
+                        if e.get("event_name") == metric_def.denominator_event
                     )
                     
                     if denominator_count > 0:
                         return await self.calculator.calculate_conversion_rate(
-                            numerator_count, denominator_count
+                            numerator_count, denominator_count, metric_def.name
                         )
             
             elif metric_def.metric_type == MetricType.CONTINUOUS:
@@ -582,30 +632,76 @@ class RealtimeMetricsService:
     async def _fetch_events_data(self, experiment_id: str,
                                time_window: TimeWindow) -> Dict[str, Any]:
         """获取事件数据"""
-        # 这里应该从数据库获取实际数据
-        # 暂时返回模拟数据
-        return {
-            "control": {
-                "name": "Control Group",
-                "events": [
-                    {"event_type": "exposure", "user_id": f"user_{i}"}
-                    for i in range(100)
-                ] + [
-                    {"event_type": "conversion", "user_id": f"user_{i}"}
-                    for i in range(15)
-                ]
-            },
-            "treatment": {
-                "name": "Treatment Group",
-                "events": [
-                    {"event_type": "exposure", "user_id": f"user_{i}"}
-                    for i in range(100, 200)
-                ] + [
-                    {"event_type": "conversion", "user_id": f"user_{i}"}
-                    for i in range(100, 119)
-                ]
-            }
-        }
+        from sqlalchemy import select
+
+        from src.models.database.event_tracking import EventStream
+        from src.models.database.experiment import ExperimentVariant
+
+        now = utc_now()
+        start_time = None
+        if time_window == TimeWindow.REALTIME:
+            start_time = now - timedelta(minutes=1)
+        elif time_window == TimeWindow.HOURLY:
+            start_time = now - timedelta(hours=1)
+        elif time_window == TimeWindow.DAILY:
+            start_time = now - timedelta(days=1)
+        elif time_window == TimeWindow.WEEKLY:
+            start_time = now - timedelta(days=7)
+
+        async with get_db_session() as session:
+            variants = (
+                await session.execute(
+                    select(ExperimentVariant.variant_id, ExperimentVariant.name).where(
+                        ExperimentVariant.experiment_id == experiment_id
+                    )
+                )
+            ).all()
+            variant_name_map = {row[0]: row[1] for row in variants}
+
+            stmt = select(
+                EventStream.variant_id,
+                EventStream.user_id,
+                EventStream.event_type,
+                EventStream.event_name,
+                EventStream.event_timestamp,
+                EventStream.properties,
+            ).where(EventStream.experiment_id == experiment_id)
+
+            if start_time is not None:
+                stmt = stmt.where(EventStream.event_timestamp >= start_time)
+
+            rows = (await session.execute(stmt)).all()
+
+        events_data: Dict[str, Any] = {}
+        for variant_id, user_id, event_type, event_name, event_ts, props in rows:
+            if not variant_id:
+                continue
+            group = events_data.setdefault(
+                variant_id,
+                {"name": variant_name_map.get(variant_id) or variant_id, "events": []},
+            )
+
+            value = None
+            if isinstance(props, dict):
+                raw = props.get("value")
+                if isinstance(raw, (int, float)):
+                    value = float(raw)
+
+            group["events"].append(
+                {
+                    "user_id": user_id,
+                    "event_type": event_type,
+                    "event_name": event_name,
+                    "timestamp": event_ts,
+                    "metric_name": event_name,
+                    "value": value,
+                }
+            )
+
+        for variant_id, name in variant_name_map.items():
+            events_data.setdefault(variant_id, {"name": name or variant_id, "events": []})
+
+        return events_data
     
     async def _cache_metrics(self, experiment_id: str, metrics: Dict[str, GroupMetrics]):
         """缓存指标"""
@@ -629,23 +725,115 @@ class RealtimeMetricsService:
     async def _calculate_metric_trends(self, experiment_id: str, metric_name: str,
                                      granularity: TimeWindow) -> List[MetricSnapshot]:
         """计算指标趋势"""
-        # 这里应该根据粒度从数据库聚合数据
-        # 暂时返回模拟数据
-        trends = []
+        from sqlalchemy import select
+
+        from src.models.database.event_tracking import EventStream
+
+        metric_def = self._metrics_definitions.get(metric_name)
         now = utc_now()
-        
-        for i in range(24):
-            timestamp = now - timedelta(hours=23 - i)
-            value = 0.15 + (i * 0.002) + (0.01 * (i % 3))  # 模拟上升趋势
-            
-            trends.append(MetricSnapshot(
-                metric_name=metric_name,
-                timestamp=timestamp,
-                value=value,
-                sample_size=100 + i * 10
-            ))
-        
-        return trends
+        if granularity == TimeWindow.REALTIME:
+            start_time = now - timedelta(hours=1)
+        elif granularity == TimeWindow.HOURLY:
+            start_time = now - timedelta(days=7)
+        elif granularity == TimeWindow.DAILY:
+            start_time = now - timedelta(days=30)
+        elif granularity == TimeWindow.WEEKLY:
+            start_time = now - timedelta(weeks=12)
+        else:
+            start_time = None
+
+        stmt = select(
+            EventStream.event_timestamp,
+            EventStream.event_name,
+            EventStream.properties,
+        ).where(EventStream.experiment_id == experiment_id)
+
+        if start_time is not None:
+            stmt = stmt.where(EventStream.event_timestamp >= start_time)
+
+        if metric_def and metric_def.metric_type == MetricType.CONVERSION:
+            event_names = [n for n in (metric_def.numerator_event, metric_def.denominator_event) if n]
+            if event_names:
+                stmt = stmt.where(EventStream.event_name.in_(event_names))
+        else:
+            stmt = stmt.where(EventStream.event_name == metric_name)
+
+        async with get_db_session() as session:
+            rows = (await session.execute(stmt)).all()
+
+        buckets: Dict[datetime, Dict[str, Any]] = {}
+        for ts, event_name, props in rows:
+            if not isinstance(ts, datetime):
+                continue
+
+            if granularity == TimeWindow.REALTIME:
+                bucket = ts.replace(second=0, microsecond=0)
+            elif granularity == TimeWindow.HOURLY:
+                bucket = ts.replace(minute=0, second=0, microsecond=0)
+            elif granularity == TimeWindow.DAILY:
+                bucket = ts.replace(hour=0, minute=0, second=0, microsecond=0)
+            elif granularity == TimeWindow.WEEKLY:
+                day = ts.replace(hour=0, minute=0, second=0, microsecond=0)
+                bucket = day - timedelta(days=day.weekday())
+            else:
+                bucket = now.replace(second=0, microsecond=0)
+
+            slot = buckets.setdefault(bucket, {"numerator": 0, "denominator": 0, "values": []})
+
+            if metric_def and metric_def.metric_type == MetricType.CONVERSION:
+                if event_name == metric_def.numerator_event:
+                    slot["numerator"] += 1
+                if event_name == metric_def.denominator_event:
+                    slot["denominator"] += 1
+            else:
+                if isinstance(props, dict):
+                    raw = props.get("value")
+                    if isinstance(raw, (int, float)):
+                        slot["values"].append(float(raw))
+
+        snapshots: List[MetricSnapshot] = []
+        for bucket_ts in sorted(buckets.keys()):
+            slot = buckets[bucket_ts]
+            if metric_def and metric_def.metric_type == MetricType.CONVERSION:
+                denom = int(slot["denominator"])
+                numer = int(slot["numerator"])
+                if denom <= 0:
+                    continue
+                ci = self.calculator.confidence_service.calculate_confidence_interval(
+                    parameter_type=ParameterType.PROPORTION,
+                    successes=numer,
+                    total=denom,
+                    confidence_level=0.95,
+                )
+                snapshots.append(
+                    MetricSnapshot(
+                        metric_name=metric_name,
+                        timestamp=bucket_ts,
+                        value=numer / denom,
+                        sample_size=denom,
+                        confidence_interval=(ci.lower_bound, ci.upper_bound),
+                    )
+                )
+            else:
+                values = slot["values"]
+                if not values:
+                    continue
+                if metric_def and metric_def.aggregation == AggregationType.PERCENTILE:
+                    value = self.calculator.stats_calculator.basic_calculator.calculate_percentiles(
+                        values, [95.0]
+                    )[0]
+                else:
+                    value = sum(values) / len(values)
+                snapshots.append(
+                    MetricSnapshot(
+                        metric_name=metric_name,
+                        timestamp=bucket_ts,
+                        value=float(value),
+                        sample_size=len(values),
+                    )
+                )
+
+        return snapshots
     
     async def start_background_updates(self, experiment_id: str):
         """启动后台更新任务"""
@@ -678,8 +866,7 @@ class RealtimeMetricsService:
         await self.stop_background_updates()
         
         if self.redis_client:
-            await self.redis_client.close()
-
+            await self.redis_client.aclose()
 
 # 全局实例
 _realtime_metrics_service = None

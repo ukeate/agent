@@ -9,13 +9,11 @@ import re
 from enum import Enum
 from typing import Any, Dict, List, Optional, Union, AsyncGenerator
 from dataclasses import dataclass, field
-import structlog
-
 from src.ai.openai_client import get_openai_client
 from src.ai.mcp.client import get_mcp_client_manager
 
-logger = structlog.get_logger(__name__)
-
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 class ReActStepType(Enum):
     """ReAct步骤类型"""
@@ -24,7 +22,6 @@ class ReActStepType(Enum):
     OBSERVATION = "observation"
     FINAL_ANSWER = "final_answer"
     STREAMING_TOKEN = "streaming_token"
-
 
 @dataclass
 class ReActStep:
@@ -38,7 +35,6 @@ class ReActStep:
     timestamp: float = field(default_factory=lambda: __import__('time').time())
     metadata: Optional[Dict[str, Any]] = None
 
-
 @dataclass
 class ReActSession:
     """ReAct会话状态"""
@@ -47,7 +43,6 @@ class ReActSession:
     context: Dict[str, Any] = field(default_factory=dict)
     max_steps: int = 10
     current_step: int = 0
-
 
 class ReActAgent:
     """ReAct智能体类"""
@@ -180,7 +175,6 @@ Final Answer: [你的完整答案]
             step_type=ReActStepType.THOUGHT,
             content=response
         )
-
 
     async def _execute_tool(self, tool_name: str, tool_args: Dict[str, Any]) -> Any:
         """执行工具调用"""

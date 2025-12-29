@@ -2,13 +2,13 @@
 分布式安全框架简化集成测试
 """
 
+from src.core.utils.timezone_utils import utc_now
 import pytest
 import asyncio
 import uuid
-from datetime import datetime, timedelta
+from datetime import timedelta
 from typing import Dict, Any
 from unittest.mock import Mock, AsyncMock, patch
-
 from src.db.models import (
     AgentIdentity,
     SecurityRole,
@@ -21,7 +21,6 @@ from src.db.models import (
     AlertStatusEnum,
     SecurityEventTypeEnum
 )
-
 
 class TestSecurityFrameworkSimple:
     """简化的安全框架集成测试"""
@@ -175,7 +174,7 @@ class TestSecurityFrameworkSimple:
             "context_attributes": {
                 "ip_address": "10.0.1.100",
                 "user_agent": "AIAgent/1.0",
-                "timestamp": datetime.utcnow().isoformat()
+                "timestamp": utc_now().isoformat()
             }
         }
 
@@ -190,7 +189,7 @@ class TestSecurityFrameworkSimple:
                         "agent_id": agent_identity.agent_id,
                         "session_token": f"jwt_token_{uuid.uuid4().hex[:16]}",
                         "trust_score": agent_identity.trust_score,
-                        "session_expires_at": datetime.utcnow() + timedelta(hours=1),
+                        "session_expires_at": utc_now() + timedelta(hours=1),
                         "permissions": ["read:data", "write:response", "execute:task"]
                     }
             
@@ -221,7 +220,7 @@ class TestSecurityFrameworkSimple:
                 "ip_address": "10.0.1.100",
                 "user_agent": "AIAgent/1.0",
                 "session_id": "session_123456",
-                "timestamp": datetime.utcnow().isoformat()
+                "timestamp": utc_now().isoformat()
             }
         }
 
@@ -270,7 +269,7 @@ class TestSecurityFrameworkSimple:
         """测试威胁检测模拟"""
         # 创建可疑事件序列
         suspicious_events = []
-        base_time = datetime.utcnow()
+        base_time = utc_now()
         
         for i in range(5):
             event = SecurityEvent(
@@ -421,7 +420,7 @@ class TestSecurityFrameworkSimple:
             "initiator_agent_id": mock_agent_identity.agent_id,
             "target_agent_id": "agent_002",
             "encryption_algorithm": "aes_256_gcm",
-            "established_at": datetime.utcnow(),
+            "established_at": utc_now(),
             "is_active": True
         }
         workflow_results["communication"] = comm_session
@@ -543,7 +542,6 @@ class TestSecurityFrameworkSimple:
         assert any("访问控制评估时间符合要求" in result for result in validation_results)
         assert any("加密开销符合要求" in result for result in validation_results)
         assert any("威胁检测准确率符合要求" in result for result in validation_results)
-
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

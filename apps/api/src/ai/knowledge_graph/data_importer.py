@@ -20,12 +20,15 @@ from typing import Dict, List, Any, Optional, Union, AsyncGenerator
 from dataclasses import dataclass, field
 from enum import Enum
 from io import StringIO, BytesIO
-import logging
 import uuid
 import time
 from datetime import datetime
 from src.core.utils.timezone_utils import utc_now, utc_factory
 import re
+
+from src.core.security.expression import safe_eval_bool
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 try:
     import rdflib
@@ -41,9 +44,6 @@ try:
 except ImportError:
     PANDAS_AVAILABLE = False
 
-logger = logging.getLogger(__name__)
-
-
 class ImportFormat(str, Enum):
     """导入数据格式"""
     RDF_XML = "rdf_xml"
@@ -55,7 +55,6 @@ class ImportFormat(str, Enum):
     TSV = "tsv"
     AUTO = "auto"  # 自动检测
 
-
 class ImportMode(str, Enum):
     """导入模式"""
     FULL = "full"
@@ -63,7 +62,6 @@ class ImportMode(str, Enum):
     REPLACE = "replace"
     MERGE = "merge"
     VALIDATE_ONLY = "validate_only"
-
 
 class ConflictResolution(str, Enum):
     """冲突解决策略"""
@@ -73,7 +71,6 @@ class ConflictResolution(str, Enum):
     ERROR = "error"
     PROMPT = "prompt"
 
-
 class ImportStatus(str, Enum):
     """导入状态"""
     PENDING = "pending"
@@ -81,7 +78,6 @@ class ImportStatus(str, Enum):
     COMPLETED = "completed"
     FAILED = "failed"
     CANCELLED = "cancelled"
-
 
 @dataclass
 class ImportJob:
@@ -103,7 +99,6 @@ class ImportJob:
     def __post_init__(self):
         if not self.job_id:
             self.job_id = str(uuid.uuid4())
-
 
 @dataclass
 class ImportResult:
@@ -145,7 +140,6 @@ class ImportResult:
             "timestamp": utc_now().isoformat()
         })
 
-
 @dataclass
 class ValidationRule:
     """数据验证规则"""
@@ -156,7 +150,6 @@ class ValidationRule:
     error_message: str = ""
     warning_only: bool = False
     enabled: bool = True
-
 
 class FormatDetector:
     """格式检测器"""
@@ -204,7 +197,7 @@ class FormatDetector:
                     json.loads(content)
                     return ImportFormat.JSON_LD
                 except json.JSONDecodeError:
-                    pass
+                    logger.debug("JSON解析失败，无法判定为JSON-LD", exc_info=True)
             
             # Turtle格式检测
             if '@prefix' in content or '@base' in content:
@@ -225,8 +218,8 @@ class FormatDetector:
                     return ImportFormat.TSV
                 elif comma_count > 0:
                     return ImportFormat.CSV
-            except:
-                pass
+            except Exception:
+                logger.exception("CSV/TSV格式检测失败", exc_info=True)
             
             # 默认返回Turtle
             return ImportFormat.TURTLE
@@ -234,7 +227,6 @@ class FormatDetector:
         except Exception as e:
             logger.warning(f"格式检测失败: {e}")
             return ImportFormat.TURTLE
-
 
 class BaseFormatProcessor:
     """格式处理器基类"""
@@ -268,7 +260,6 @@ class BaseFormatProcessor:
             })
         
         return errors
-
 
 class RDFXMLProcessor(BaseFormatProcessor):
     """RDF/XML格式处理器"""
@@ -371,7 +362,6 @@ class RDFXMLProcessor(BaseFormatProcessor):
                 return "literal"
         else:
             return "literal"
-
 
 class TurtleProcessor(BaseFormatProcessor):
     """Turtle格式处理器"""
@@ -532,7 +522,6 @@ class TurtleProcessor(BaseFormatProcessor):
         else:
             return "literal"
 
-
 class JSONLDProcessor(BaseFormatProcessor):
     """JSON-LD格式处理器"""
     
@@ -666,7 +655,6 @@ class JSONLDProcessor(BaseFormatProcessor):
         else:
             return "literal"
 
-
 class CSVProcessor(BaseFormatProcessor):
     """CSV格式处理器"""
     
@@ -774,7 +762,6 @@ class CSVProcessor(BaseFormatProcessor):
             "source_row": row_index + 1
         }
 
-
 class ExcelProcessor(BaseFormatProcessor):
     """Excel格式处理器"""
     
@@ -810,7 +797,6 @@ class ExcelProcessor(BaseFormatProcessor):
         except Exception as e:
             logger.error(f"Excel解析失败: {e}")
             raise ValueError(f"Excel格式错误: {str(e)}")
-
 
 class NTriplesProcessor(BaseFormatProcessor):
     """N-Triples格式处理器"""
@@ -918,7 +904,6 @@ class NTriplesProcessor(BaseFormatProcessor):
             return "bnode"
         else:
             return "literal"
-
 
 class DataImporter:
     """数据导入器主类"""
@@ -1197,8 +1182,9 @@ class DataImporter:
                         # 简单的约束表达式评估
                         try:
                             # 这里可以实现更复杂的约束检查逻辑
-                            pass
-                        except:
+                            if not safe_eval_bool(rule.rule_expression, record):
+                                valid = False
+                        except Exception:
                             valid = False
                 
                 if not valid:
@@ -1388,10 +1374,8 @@ class DataImporter:
         """获取支持的格式列表"""
         return [fmt.value for fmt in ImportFormat if fmt != ImportFormat.AUTO]
 
-
 # 创建默认导入器实例
 default_data_importer = DataImporter()
-
 
 async def import_knowledge_data(
     data: Union[str, bytes, Dict],

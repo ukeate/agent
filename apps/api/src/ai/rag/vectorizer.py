@@ -1,20 +1,18 @@
 """文件内容向量化处理器"""
 
 import hashlib
-import logging
 import os
 from datetime import datetime
 from src.core.utils.timezone_utils import utc_now, utc_factory
 from pathlib import Path
 from typing import Dict, List, Optional
-
 from qdrant_client.models import PointStruct, Filter, FieldCondition, MatchValue
-
 from src.ai.rag.embeddings import embedding_service, text_chunker
+from functools import partial
 from src.core.qdrant import get_qdrant_client
+from src.core.utils.async_utils import run_sync_io
 
-logger = logging.getLogger(__name__)
-
+logger = get_logger(__name__)
 
 class FileVectorizer:
     """文件向量化处理器"""
@@ -39,9 +37,15 @@ class FileVectorizer:
     }
 
     def __init__(self):
-        self.client = get_qdrant_client()
         self.embedding_service = embedding_service
         self.chunker = text_chunker
+        self.client = None
+
+    def _get_client(self):
+        """获取有效的Qdrant客户端"""
+        if self.client is None:
+            self.client = get_qdrant_client()
+        return self.client
 
     def _get_file_hash(self, file_path: str) -> str:
         """计算文件哈希值"""
@@ -62,21 +66,25 @@ class FileVectorizer:
                 "csharp", "go", "rust"
             ] else "documents"
             
-            result = self.client.scroll(
-                collection_name=collection_name,
-                scroll_filter=Filter(
-                    must=[
-                        FieldCondition(
-                            key="file_path",
-                            match=MatchValue(value=file_path),
-                        ),
-                        FieldCondition(
-                            key="file_hash",
-                            match=MatchValue(value=file_hash),
-                        ),
-                    ]
-                ),
-                limit=1,
+            client = self._get_client()
+            result = await run_sync_io(
+                partial(
+                    client.scroll,
+                    collection_name=collection_name,
+                    scroll_filter=Filter(
+                        must=[
+                            FieldCondition(
+                                key="file_path",
+                                match=MatchValue(value=file_path),
+                            ),
+                            FieldCondition(
+                                key="file_hash",
+                                match=MatchValue(value=file_hash),
+                            ),
+                        ]
+                    ),
+                    limit=1,
+                )
             )
             
             return len(result[0]) > 0
@@ -169,24 +177,32 @@ class FileVectorizer:
         # 删除旧的索引（如果存在）
         if force:
             try:
-                self.client.delete(
-                    collection_name=collection_name,
-                    points_selector=Filter(
-                        must=[
-                            FieldCondition(
-                                key="file_path",
-                                match=MatchValue(value=file_path),
-                            )
-                        ]
-                    ),
+                client = self._get_client()
+                await run_sync_io(
+                    partial(
+                        client.delete,
+                        collection_name=collection_name,
+                        points_selector=Filter(
+                            must=[
+                                FieldCondition(
+                                    key="file_path",
+                                    match=MatchValue(value=file_path),
+                                )
+                            ]
+                        ),
+                    )
                 )
             except Exception as e:
                 logger.warning(f"Failed to delete old index: {e}")
 
         # 上传到Qdrant
-        self.client.upsert(
-            collection_name=collection_name,
-            points=points,
+        client = self._get_client()
+        await run_sync_io(
+            partial(
+                client.upsert,
+                collection_name=collection_name,
+                points=points,
+            )
         )
 
         logger.info(
@@ -306,13 +322,14 @@ class FileVectorizer:
             except Exception as e:
                 logger.warning(f"Failed to remove {file_path} from {collection_name}: {e}")
 
-    def get_index_stats(self) -> Dict:
+    async def get_index_stats(self) -> Dict:
         """获取索引统计信息"""
         stats = {}
         
         for collection_name in ["documents", "code"]:
             try:
-                info = self.client.get_collection(collection_name)
+                client = self._get_client()
+                info = await run_sync_io(partial(client.get_collection, collection_name))
                 
                 # 估算存储大小：1536维 float32向量 + 元数据开销
                 # 每个向量: 1536 * 4 bytes = 6,144 bytes
@@ -341,6 +358,6 @@ class FileVectorizer:
         
         return stats
 
-
 # 全局向量化器实例
 file_vectorizer = FileVectorizer()
+from src.core.logging import get_logger

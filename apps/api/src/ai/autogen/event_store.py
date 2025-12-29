@@ -2,6 +2,7 @@
 事件持久化和重播系统
 实现事件存储、检索和重播功能
 """
+
 import asyncio
 import json
 import uuid
@@ -10,29 +11,22 @@ from datetime import timedelta
 from src.core.utils.timezone_utils import utc_now, utc_factory
 from typing import Dict, List, Optional, Any, Tuple
 from dataclasses import asdict
-import structlog
+import redis.asyncio as redis_async
+from .events import Event, EventType, EventPriority
+from .event_processors import AsyncEventProcessingEngine, EventContext
+
+from src.core.logging import get_logger
+logger = get_logger(__name__)
+
 try:
     import asyncpg
 except ImportError:
     asyncpg = None
-try:
-    import redis.asyncio as aioredis
-except ImportError:
-    try:
-        import aioredis
-    except ImportError:
-        aioredis = None
-
-from .events import Event, EventType, EventPriority
-from .event_processors import AsyncEventProcessingEngine, EventContext
-
-logger = structlog.get_logger(__name__)
-
 
 class EventStore:
     """事件存储系统"""
     
-    def __init__(self, redis_client=None, postgres_pool=None):
+    def __init__(self, redis_client: Optional[redis_async.Redis] = None, postgres_pool=None):
         self.redis = redis_client
         self.postgres = postgres_pool
         self.stream_prefix = "events:"
@@ -63,8 +57,9 @@ class EventStore:
         """创建事件存储表"""
         try:
             async with self.postgres.acquire() as conn:
-                await conn.execute("""
-                    CREATE TABLE IF NOT EXISTS events (
+                await conn.execute(
+                    """
+                    CREATE TABLE IF NOT EXISTS autogen_events (
                         id UUID PRIMARY KEY,
                         type VARCHAR(100) NOT NULL,
                         source VARCHAR(200),
@@ -76,27 +71,38 @@ class EventStore:
                         data JSONB,
                         timestamp TIMESTAMP WITH TIME ZONE NOT NULL,
                         version VARCHAR(10) DEFAULT '1.0',
-                        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-                        INDEX idx_events_timestamp (timestamp),
-                        INDEX idx_events_type (type),
-                        INDEX idx_events_conversation (conversation_id),
-                        INDEX idx_events_correlation (correlation_id)
+                        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
                     )
-                """)
+                    """
+                )
+                await conn.execute(
+                    "CREATE INDEX IF NOT EXISTS idx_autogen_events_timestamp ON autogen_events (timestamp)"
+                )
+                await conn.execute("CREATE INDEX IF NOT EXISTS idx_autogen_events_type ON autogen_events (type)")
+                await conn.execute(
+                    "CREATE INDEX IF NOT EXISTS idx_autogen_events_conversation ON autogen_events (conversation_id)"
+                )
+                await conn.execute(
+                    "CREATE INDEX IF NOT EXISTS idx_autogen_events_correlation ON autogen_events (correlation_id)"
+                )
                 
                 # 创建事件快照表（用于长期存储）
-                await conn.execute("""
+                await conn.execute(
+                    """
                     CREATE TABLE IF NOT EXISTS event_snapshots (
                         id UUID PRIMARY KEY,
                         aggregate_id VARCHAR(200) NOT NULL,
                         aggregate_type VARCHAR(100) NOT NULL,
                         snapshot_data JSONB NOT NULL,
                         event_sequence BIGINT NOT NULL,
-                        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-                        INDEX idx_snapshots_aggregate (aggregate_id, aggregate_type),
-                        INDEX idx_snapshots_sequence (event_sequence)
+                        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
                     )
-                """)
+                    """
+                )
+                await conn.execute(
+                    "CREATE INDEX IF NOT EXISTS idx_snapshots_aggregate ON event_snapshots (aggregate_id, aggregate_type)"
+                )
+                await conn.execute("CREATE INDEX IF NOT EXISTS idx_snapshots_sequence ON event_snapshots (event_sequence)")
                 
                 # 创建死信队列表
                 await conn.execute("""
@@ -136,6 +142,12 @@ class EventStore:
             
             if tasks:
                 await asyncio.gather(*tasks)
+
+            if self.redis:
+                await self.redis.publish(
+                    f"{self.stream_prefix}pubsub",
+                    json.dumps(event.to_dict(), ensure_ascii=False, default=str),
+                )
             
             self.stats["events_stored"] += 1
             
@@ -157,7 +169,8 @@ class EventStore:
         try:
             # 使用Redis Streams存储实时事件
             stream_key = f"{self.stream_prefix}{event.type.value if hasattr(event.type, 'value') else event.type}"
-            
+
+            event_data = {k: v for k, v in event_data.items() if v is not None}
             await self.redis.xadd(
                 stream_key,
                 event_data,
@@ -182,7 +195,7 @@ class EventStore:
         try:
             async with self.postgres.acquire() as conn:
                 await conn.execute("""
-                    INSERT INTO events (
+                    INSERT INTO autogen_events (
                         id, type, source, target, conversation_id, session_id,
                         correlation_id, priority, data, timestamp, version
                     ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
@@ -220,7 +233,7 @@ class EventStore:
             "session_id": getattr(event, 'session_id', None),
             "correlation_id": getattr(event, 'correlation_id', None),
             "priority": event.priority.value if hasattr(event, 'priority') and hasattr(event.priority, 'value') else 'normal',
-            "data": event.data if hasattr(event, 'data') else {},
+            "data": json.dumps(getattr(event, "data", {}) or {}, ensure_ascii=False, default=str),
             "timestamp": event.timestamp.isoformat() if hasattr(event, 'timestamp') else utc_now().isoformat(),
             "version": self.event_version
         }
@@ -236,7 +249,7 @@ class EventStore:
             if self.postgres:
                 async with self.postgres.acquire() as conn:
                     row = await conn.fetchrow(
-                        "SELECT * FROM events WHERE id = $1",
+                        "SELECT * FROM autogen_events WHERE id = $1",
                         uuid.UUID(event_id)
                     )
                     
@@ -268,7 +281,7 @@ class EventStore:
             if self.postgres:
                 async with self.postgres.acquire() as conn:
                     rows = await conn.fetch(
-                        "SELECT * FROM events WHERE correlation_id = $1 ORDER BY timestamp",
+                        "SELECT * FROM autogen_events WHERE correlation_id = $1 ORDER BY timestamp",
                         uuid.UUID(correlation_id)
                     )
                     
@@ -302,7 +315,7 @@ class EventStore:
             async with self.postgres.acquire() as conn:
                 # 构建查询
                 query = """
-                    SELECT * FROM events 
+                    SELECT * FROM autogen_events 
                     WHERE timestamp BETWEEN $1 AND $2
                 """
                 params = [start_time, end_time]
@@ -504,7 +517,6 @@ class EventStore:
     def get_stats(self) -> Dict[str, Any]:
         """获取存储统计信息"""
         return self.stats.copy()
-
 
 class EventReplayService:
     """事件重播服务"""

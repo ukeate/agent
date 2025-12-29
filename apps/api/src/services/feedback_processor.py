@@ -5,7 +5,6 @@
 """
 
 import math
-import logging
 import asyncio
 from datetime import datetime
 from datetime import timedelta
@@ -14,10 +13,10 @@ from typing import Dict, List, Optional, Tuple, Any
 from dataclasses import dataclass, field
 from enum import Enum
 import numpy as np
-
 from .sentiment_analysis_service import sentiment_service, SentimentType
 
-logger = logging.getLogger(__name__)
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 class FeedbackType(str, Enum):
     """反馈类型枚举"""

@@ -2,23 +2,19 @@
 LangGraph检查点系统
 支持PostgreSQL持久化的检查点存储和恢复
 """
+
 from typing import Any, Dict, List, Optional, Protocol
-from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime
 from src.core.utils.timezone_utils import utc_now, utc_factory
-import json
 import uuid
 from sqlalchemy import Column, String, DateTime, Text, Integer, Boolean, JSON, select
-from sqlalchemy.orm import declarative_base
-from sqlalchemy.orm import sessionmaker
 from sqlalchemy.exc import SQLAlchemyError
+from .state import MessagesState
+from src.core.database import Base, get_db_session
 
-from .state import MessagesState, serialize_state, deserialize_state
-from src.core.database import get_db_session
-
-Base = declarative_base()
-
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 class CheckpointModel(Base):
     """检查点数据库模型"""
@@ -30,9 +26,8 @@ class CheckpointModel(Base):
     version = Column(Integer, nullable=False, default=1)
     state_data = Column(JSON, nullable=False)
     checkpoint_metadata = Column(JSON, nullable=True)
-    created_at = Column(DateTime, default=datetime.now)
+    created_at = Column(DateTime, default=utc_now)
     is_deleted = Column(Boolean, default=False)
-
 
 @dataclass
 class Checkpoint:
@@ -43,7 +38,6 @@ class Checkpoint:
     metadata: Dict[str, Any] = field(default_factory=dict)
     created_at: datetime = field(default_factory=utc_factory)
     version: int = 1
-
 
 class CheckpointStorage(Protocol):
     """检查点存储接口"""
@@ -68,12 +62,8 @@ class CheckpointStorage(Protocol):
         """清理旧检查点，保留最新的指定数量"""
         ...
 
-
 class PostgreSQLCheckpointStorage:
     """PostgreSQL检查点存储实现"""
-    
-    def __init__(self):
-        self.session_factory = sessionmaker()
     
     async def save_checkpoint(self, checkpoint: Checkpoint) -> bool:
         """保存检查点到PostgreSQL"""
@@ -109,7 +99,7 @@ class PostgreSQLCheckpointStorage:
                 return True
                 
         except SQLAlchemyError as e:
-            print(f"保存检查点失败: {e}")
+            logger.error("保存检查点失败", error=str(e), exc_info=True)
             return False
     
     async def load_checkpoint(self, workflow_id: str, checkpoint_id: str) -> Optional[Checkpoint]:
@@ -137,7 +127,7 @@ class PostgreSQLCheckpointStorage:
                 )
                 
         except SQLAlchemyError as e:
-            print(f"加载检查点失败: {e}")
+            logger.error("加载检查点失败", error=str(e), exc_info=True)
             return None
     
     async def list_checkpoints(self, workflow_id: str) -> List[Checkpoint]:
@@ -164,7 +154,7 @@ class PostgreSQLCheckpointStorage:
                 ]
                 
         except SQLAlchemyError as e:
-            print(f"列出检查点失败: {e}")
+            logger.error("列出检查点失败", error=str(e), exc_info=True)
             return []
     
     async def delete_checkpoint(self, workflow_id: str, checkpoint_id: str) -> bool:
@@ -186,7 +176,7 @@ class PostgreSQLCheckpointStorage:
                 return False
                 
         except SQLAlchemyError as e:
-            print(f"删除检查点失败: {e}")
+            logger.error("删除检查点失败", error=str(e), exc_info=True)
             return False
     
     async def cleanup_old_checkpoints(self, workflow_id: str, keep_count: int = 10) -> int:
@@ -216,9 +206,8 @@ class PostgreSQLCheckpointStorage:
                 return deleted_count
                 
         except SQLAlchemyError as e:
-            print(f"清理检查点失败: {e}")
+            logger.error("清理检查点失败", error=str(e), exc_info=True)
             return 0
-
 
 class CheckpointManager:
     """检查点管理器"""
@@ -253,7 +242,6 @@ class CheckpointManager:
     async def cleanup_workflow_checkpoints(self, workflow_id: str, keep_count: int = 10) -> int:
         """清理工作流检查点"""
         return await self.storage.cleanup_old_checkpoints(workflow_id, keep_count)
-
 
 # 全局检查点管理器实例
 checkpoint_manager = CheckpointManager()

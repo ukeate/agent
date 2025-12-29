@@ -7,14 +7,13 @@ from datetime import datetime
 from src.core.utils.timezone_utils import utc_now, utc_factory, timezone
 from typing import Dict, Any, Optional, List
 from dataclasses import dataclass
-import structlog
-
-# 移除不需要的数据库导入，该项目使用dataclass而非SQLAlchemy
 from .processor import MultimodalProcessor
 from .types import MultimodalContent, ProcessingResult, ProcessingStatus, ProcessingOptions
 
-logger = structlog.get_logger(__name__)
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
+# 移除不需要的数据库导入，该项目使用dataclass而非SQLAlchemy
 
 @dataclass
 class ProcessingTask:
@@ -25,7 +24,6 @@ class ProcessingTask:
     submitted_at: Optional[datetime] = None
     retry_count: int = 0
     max_retries: int = 3
-
 
 class ProcessingPipeline:
     """多模态处理管道"""
@@ -42,6 +40,7 @@ class ProcessingPipeline:
         self.is_running = False
         self.active_tasks = 0
         self.processing_results: Dict[str, ProcessingResult] = {}
+        self.submission_times: Dict[str, datetime] = {}
         self._workers: List[asyncio.Task] = []
         
     async def start(self):
@@ -87,6 +86,7 @@ class ProcessingPipeline:
         )
         
         # 根据优先级插入队列
+        self.submission_times[content.content_id] = task.submitted_at
         await self._add_to_priority_queue(task)
         
         logger.info(
@@ -132,9 +132,9 @@ class ProcessingPipeline:
         timeout: float = 300
     ) -> Optional[ProcessingResult]:
         """等待处理完成"""
-        start_time = asyncio.get_event_loop().time()
+        start_time = asyncio.get_running_loop().time()
         
-        while asyncio.get_event_loop().time() - start_time < timeout:
+        while asyncio.get_running_loop().time() - start_time < timeout:
             result = self.processing_results.get(content_id)
             if result and result.status in [ProcessingStatus.COMPLETED, ProcessingStatus.FAILED]:
                 return result
@@ -256,26 +256,48 @@ class ProcessingPipeline:
                 return self.priority_queue.pop(0)
             
         except asyncio.TimeoutError:
-            pass
+            self.logger.debug("等待任务超时", exc_info=True)
         
         return None
     
     def get_queue_status(self) -> Dict[str, Any]:
         """获取队列状态"""
+        completed_results = [
+            r for r in self.processing_results.values()
+            if r.status == ProcessingStatus.COMPLETED
+        ]
+        failed_results = [
+            r for r in self.processing_results.values()
+            if r.status == ProcessingStatus.FAILED
+        ]
+        completed_jobs = len(completed_results)
+        failed_jobs = len(failed_results)
+        pending_jobs = len(self.priority_queue)
+        processing_jobs = self.active_tasks
+        total_jobs = pending_jobs + processing_jobs + completed_jobs + failed_jobs
+        wait_times: List[float] = []
+        
+        for result in completed_results:
+            submitted_at = self.submission_times.get(result.content_id)
+            if submitted_at and result.created_at:
+                wait_times.append(max(0.0, (result.created_at - submitted_at).total_seconds()))
+        
+        average_wait_time = sum(wait_times) / len(wait_times) if wait_times else 0.0
+        average_processing_time = (
+            sum(r.processing_time for r in completed_results) / len(completed_results)
+            if completed_results else 0.0
+        )
+        
         return {
+            "total_jobs": total_jobs,
+            "pending_jobs": pending_jobs,
+            "processing_jobs": processing_jobs,
+            "completed_jobs": completed_jobs,
+            "failed_jobs": failed_jobs,
+            "average_wait_time": average_wait_time,
+            "average_processing_time": average_processing_time,
             "is_running": self.is_running,
-            "active_tasks": self.active_tasks,
-            "queued_tasks": len(self.priority_queue),
-            "completed_tasks": len([
-                r for r in self.processing_results.values()
-                if r.status == ProcessingStatus.COMPLETED
-            ]),
-            "failed_tasks": len([
-                r for r in self.processing_results.values()
-                if r.status == ProcessingStatus.FAILED
-            ])
         }
-
 
 class BatchProcessor:
     """批量处理器"""
@@ -299,15 +321,24 @@ class BatchProcessor:
         )
         
         if not wait_for_completion:
-            # 不等待完成，返回空结果
-            return []
+            return [
+                ProcessingResult(
+                    content_id=content_id,
+                    status=ProcessingStatus.PENDING,
+                    extracted_data={},
+                    confidence_score=0.0,
+                    processing_time=0.0,
+                    created_at=utc_now(),
+                )
+                for content_id in content_ids
+            ]
         
         # 等待所有任务完成
         results = []
-        start_time = asyncio.get_event_loop().time()
+        start_time = asyncio.get_running_loop().time()
         
         for content_id in content_ids:
-            remaining_timeout = timeout - (asyncio.get_event_loop().time() - start_time)
+            remaining_timeout = timeout - (asyncio.get_running_loop().time() - start_time)
             if remaining_timeout <= 0:
                 logger.warning(f"批量处理超时")
                 break

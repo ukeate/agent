@@ -35,6 +35,7 @@ import {
   ExclamationCircleOutlined,
   InfoCircleOutlined
 } from '@ant-design/icons';
+import { pgvectorApi } from '../../services/pgvectorApi';
 
 const { Option } = Select;
 const { Text, Title } = Typography;
@@ -67,39 +68,32 @@ const IndexManagerPanel: React.FC = () => {
   const loadIndexes = async () => {
     setLoading(true);
     try {
-      // Mock data - 在实际应用中调用相应的API
-      const mockIndexes: IndexConfig[] = [
-        {
-          type: 'hnsw',
-          name: 'embeddings_hnsw_idx',
-          table: 'documents',
-          column: 'embedding',
-          parameters: { m: 16, ef_construction: 200, ef_search: 100 },
+      const list = await pgvectorApi.listIndexes();
+      const mapped = list.map((item: any, idx: number): IndexConfig => {
+        const def: string = item.indexdef || '';
+        const type =
+          def.toLowerCase().includes('hnsw') ? 'hnsw' :
+          def.toLowerCase().includes('ivfflat') ? 'ivf' :
+          def.toLowerCase().includes('ls_hnsw') ? 'lsh' : 'flat';
+        return {
+          type,
+          name: item.indexname || `idx_${idx}`,
+          table: item.tablename || '',
+          column: def.split('(').pop()?.split(')')[0]?.split(',')[0]?.trim() || '',
+          parameters: {},
           status: 'active',
-          performance: { latency_p50: 0.8, latency_p95: 2.1, recall: 0.95, memory_usage: 245 }
-        },
-        {
-          type: 'ivf',
-          name: 'embeddings_ivf_idx',
-          table: 'documents',
-          column: 'embedding',
-          parameters: { lists: 100, probes: 10 },
-          status: 'active',
-          performance: { latency_p50: 1.2, latency_p95: 3.5, recall: 0.92, memory_usage: 180 }
-        },
-        {
-          type: 'lsh',
-          name: 'embeddings_lsh_idx',
-          table: 'documents',
-          column: 'embedding',
-          parameters: { n_tables: 8, n_bits: 12 },
-          status: 'building',
-          performance: { latency_p50: 0.5, latency_p95: 1.8, recall: 0.88, memory_usage: 120 }
-        }
-      ];
-      setIndexes(mockIndexes);
+          performance: {
+            latency_p50: NaN,
+            latency_p95: NaN,
+            recall: NaN,
+            memory_usage: NaN,
+          },
+        };
+      });
+      setIndexes(mapped);
     } catch (error) {
       message.error('加载索引信息失败');
+      setIndexes([]);
     } finally {
       setLoading(false);
     }
@@ -108,9 +102,14 @@ const IndexManagerPanel: React.FC = () => {
   const handleCreateIndex = async (values: any) => {
     setLoading(true);
     try {
-      // Mock API call
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      message.success('索引创建任务已提交');
+      const { type, name, table, column, parameters } = values;
+      await pgvectorApi.createOptimizedIndex({
+        table_name: table,
+        vector_column: column,
+        index_type: type,
+        config: parameters,
+      });
+      message.success('索引创建成功');
       loadIndexes();
     } catch (error) {
       message.error('创建索引失败');
@@ -122,10 +121,8 @@ const IndexManagerPanel: React.FC = () => {
   const handleOptimizeIndex = async (indexName: string) => {
     setLoading(true);
     try {
-      // Mock API call
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      message.success(`索引 ${indexName} 优化完成`);
-      loadIndexes();
+      // 后端暂未提供单独优化接口，复用创建逻辑为占位
+      message.info('索引优化需后端支持，目前未实现');
     } catch (error) {
       message.error('优化索引失败');
     } finally {
@@ -155,13 +152,13 @@ const IndexManagerPanel: React.FC = () => {
 
   const renderHNSWParameters = () => (
     <Card size="small" title="HNSW 参数配置">
-      <Form.Item label="M (连接数)" name={['parameters', 'm']}>
+      <Form.Item label="M (连接数)" name={['parameters', 'm']} htmlFor={undefined}>
         <Slider min={4} max={64} step={4} marks={{ 16: '16', 32: '32', 48: '48' }} />
       </Form.Item>
-      <Form.Item label="ef_construction" name={['parameters', 'ef_construction']}>
+      <Form.Item label="ef_construction" name={['parameters', 'ef_construction']} htmlFor={undefined}>
         <Slider min={100} max={800} step={50} marks={{ 200: '200', 400: '400', 600: '600' }} />
       </Form.Item>
-      <Form.Item label="ef_search" name={['parameters', 'ef_search']}>
+      <Form.Item label="ef_search" name={['parameters', 'ef_search']} htmlFor={undefined}>
         <Slider min={50} max={400} step={25} marks={{ 100: '100', 200: '200', 300: '300' }} />
       </Form.Item>
     </Card>
@@ -169,10 +166,10 @@ const IndexManagerPanel: React.FC = () => {
 
   const renderIVFParameters = () => (
     <Card size="small" title="IVF 参数配置">
-      <Form.Item label="Lists (聚类数)" name={['parameters', 'lists']}>
+      <Form.Item label="Lists (聚类数)" name={['parameters', 'lists']} htmlFor={undefined}>
         <Slider min={50} max={500} step={25} marks={{ 100: '100', 200: '200', 300: '300' }} />
       </Form.Item>
-      <Form.Item label="Probes (探测数)" name={['parameters', 'probes']}>
+      <Form.Item label="Probes (探测数)" name={['parameters', 'probes']} htmlFor={undefined}>
         <Slider min={5} max={50} step={5} marks={{ 10: '10', 20: '20', 30: '30' }} />
       </Form.Item>
     </Card>
@@ -180,10 +177,10 @@ const IndexManagerPanel: React.FC = () => {
 
   const renderLSHParameters = () => (
     <Card size="small" title="LSH 参数配置">
-      <Form.Item label="Hash Tables" name={['parameters', 'n_tables']}>
+      <Form.Item label="Hash Tables" name={['parameters', 'n_tables']} htmlFor={undefined}>
         <Slider min={4} max={16} step={2} marks={{ 8: '8', 12: '12', 16: '16' }} />
       </Form.Item>
-      <Form.Item label="Hash Bits" name={['parameters', 'n_bits']}>
+      <Form.Item label="Hash Bits" name={['parameters', 'n_bits']} htmlFor={undefined}>
         <Slider min={8} max={20} step={2} marks={{ 12: '12', 16: '16', 20: '20' }} />
       </Form.Item>
     </Card>
@@ -226,8 +223,12 @@ const IndexManagerPanel: React.FC = () => {
       key: 'performance',
       render: (record: IndexConfig) => (
         <Space direction="vertical" size="small">
-          <Text type="secondary">P50: {record.performance.latency_p50}ms</Text>
-          <Text type="secondary">召回: {(record.performance.recall * 100).toFixed(1)}%</Text>
+          <Text type="secondary">
+            P50: {Number.isFinite(record.performance.latency_p50) ? `${record.performance.latency_p50}ms` : '—'}
+          </Text>
+          <Text type="secondary">
+            召回: {Number.isFinite(record.performance.recall) ? `${(record.performance.recall * 100).toFixed(1)}%` : '—'}
+          </Text>
         </Space>
       ),
     },
@@ -235,11 +236,9 @@ const IndexManagerPanel: React.FC = () => {
       title: '内存使用',
       key: 'memory',
       render: (record: IndexConfig) => (
-        <Statistic
-          value={record.performance.memory_usage}
-          suffix="MB"
-          valueStyle={{ fontSize: 14 }}
-        />
+        Number.isFinite(record.performance.memory_usage)
+          ? <Statistic value={record.performance.memory_usage} suffix="MB" valueStyle={{ fontSize: 14 }} />
+          : <Text type="secondary">—</Text>
       ),
     },
     {
@@ -335,37 +334,16 @@ const IndexManagerPanel: React.FC = () => {
             </Form>
           </Card>
 
-          {/* 性能比较 */}
-          <Card title="索引性能对比" size="small" style={{ marginTop: 16 }}>
+          <Card title="索引概览" size="small" style={{ marginTop: 16 }}>
             <Row gutter={16}>
-              <Col span={8}>
-                <Statistic
-                  title="HNSW"
-                  value="0.8"
-                  suffix="ms"
-                  valueStyle={{ color: '#3f8600' }}
-                />
-                <Progress percent={95} size="small" strokeColor="#52c41a" />
+              <Col span={12}>
+                <Statistic title="索引数量" value={indexes.length} />
               </Col>
-              <Col span={8}>
-                <Statistic
-                  title="IVF"
-                  value="1.2"
-                  suffix="ms"
-                  valueStyle={{ color: '#1890ff' }}
-                />
-                <Progress percent={92} size="small" strokeColor="#1890ff" />
-              </Col>
-              <Col span={8}>
-                <Statistic
-                  title="LSH"
-                  value="0.5"
-                  suffix="ms"
-                  valueStyle={{ color: '#fa8c16' }}
-                />
-                <Progress percent={88} size="small" strokeColor="#fa8c16" />
+              <Col span={12}>
+                <Statistic title="最新刷新" valueStyle={{ fontSize: 12 }} value={new Date().toLocaleTimeString()} />
               </Col>
             </Row>
+            <Text type="secondary">数据直接来源于 /pgvector/indexes/list，无模拟值。</Text>
           </Card>
         </Col>
 

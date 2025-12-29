@@ -9,7 +9,6 @@ import asyncio
 from unittest.mock import Mock, AsyncMock, patch
 from fastapi.testclient import TestClient
 from fastapi import FastAPI
-
 from ai.knowledge_graph.knowledge_extraction import router
 from ai.knowledge_graph.data_models import (
     Entity, Relation, EntityType, RelationType,
@@ -17,13 +16,11 @@ from ai.knowledge_graph.data_models import (
     BatchProcessingRequest, BatchProcessingResponse
 )
 
-
 # 创建测试应用
 app = FastAPI()
 app.include_router(router)
 
 client = TestClient(app)
-
 
 class TestHealthEndpoint:
     """健康检查端点测试"""
@@ -59,7 +56,6 @@ class TestHealthEndpoint:
             assert "entity_recognizer" in data["components"]
             assert data["components"]["entity_recognizer"] == "not_initialized"
 
-
 class TestMetricsEndpoint:
     """系统指标端点测试"""
     
@@ -84,7 +80,6 @@ class TestMetricsEndpoint:
             assert data["successful_requests"] == 95
             assert data["failed_requests"] == 5
             assert data["average_response_time"] == 1.5
-
 
 class TestExtractionEndpoint:
     """知识抽取端点测试"""
@@ -261,7 +256,6 @@ class TestExtractionEndpoint:
             assert response.status_code == 500
             assert "知识抽取处理失败" in response.json()["detail"]
 
-
 class TestBatchProcessingEndpoints:
     """批处理端点测试"""
     
@@ -434,7 +428,6 @@ class TestBatchProcessingEndpoints:
             assert "cache_stats" in data
             assert data["memory_usage_mb"] == 512.5
 
-
 class TestSearchEndpoints:
     """搜索端点测试"""
     
@@ -470,7 +463,6 @@ class TestSearchEndpoints:
             assert data["limit"] == 100
             assert data["results"] == []  # 当前实现返回空结果
             assert data["total"] == 0
-
 
 class TestCacheManagement:
     """缓存管理测试"""
@@ -508,7 +500,6 @@ class TestCacheManagement:
             assert response.status_code == 500
             assert "清空缓存失败" in response.json()["detail"]
 
-
 class TestComponentDependency:
     """组件依赖测试"""
     
@@ -522,7 +513,6 @@ class TestComponentDependency:
             
             assert response.status_code == 503
             assert "知识抽取服务尚未初始化完成" in response.json()["detail"]
-
 
 class TestRequestValidation:
     """请求验证测试"""
@@ -558,7 +548,6 @@ class TestRequestValidation:
             "priority": 15  # 超过10
         })
         assert response.status_code == 422
-
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

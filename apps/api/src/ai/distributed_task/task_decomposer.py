@@ -1,18 +1,16 @@
 """任务分解器实现"""
 
-import logging
 import uuid
 from datetime import datetime
 from typing import Dict, List, Optional, Any
-
 from .models import Task, TaskStatus, TaskPriority
-
+from src.core.utils.timezone_utils import utc_now
 
 class TaskDecomposer:
     """任务分解器"""
     
     def __init__(self):
-        self.logger = logging.getLogger(__name__)
+        self.logger = get_logger(__name__)
         self.decomposition_strategies = {
             "parallel": self._parallel_decomposition,
             "sequential": self._sequential_decomposition,
@@ -75,7 +73,7 @@ class TaskDecomposer:
                 data=chunk,
                 requirements=task.requirements.copy(),
                 priority=task.priority,
-                created_at=datetime.now(),
+                created_at=utc_now(),
                 parent_task_id=task.task_id,
                 resource_requirements=self._scale_requirements(
                     task.resource_requirements, 
@@ -103,7 +101,7 @@ class TaskDecomposer:
                 data=step.get("data", {}),
                 requirements=step.get("requirements", task.requirements.copy()),
                 priority=task.priority,
-                created_at=datetime.now(),
+                created_at=utc_now(),
                 parent_task_id=task.task_id,
                 timeout_seconds=step.get("timeout", task.timeout_seconds // len(steps))
             )
@@ -153,7 +151,7 @@ class TaskDecomposer:
                 data=stage.get("data", {}),
                 requirements=stage.get("requirements", {}),
                 priority=task.priority,
-                created_at=datetime.now(),
+                created_at=utc_now(),
                 parent_task_id=task.task_id
             )
             
@@ -227,7 +225,7 @@ class TaskDecomposer:
                     data=value.get("data", {}),
                     requirements=value.get("requirements", {}),
                     priority=value.get("priority", parent_task.priority),
-                    created_at=datetime.now(),
+                    created_at=utc_now(),
                     parent_task_id=parent_id,
                     timeout_seconds=value.get("timeout", parent_task.timeout_seconds)
                 )
@@ -248,7 +246,7 @@ class TaskDecomposer:
                     data=value if isinstance(value, dict) else {"content": value},
                     requirements=parent_task.requirements.copy(),
                     priority=parent_task.priority,
-                    created_at=datetime.now(),
+                    created_at=utc_now(),
                     parent_task_id=parent_id
                 )
                 subtasks.append(subtask)
@@ -453,3 +451,4 @@ class TaskDecomposer:
                     return False
         
         return True
+from src.core.logging import get_logger

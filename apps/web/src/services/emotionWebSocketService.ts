@@ -5,6 +5,7 @@
 
 import { EventEmitter } from 'events';
 
+import { logger } from '../utils/logger'
 // 消息类型枚举
 export enum MessageType {
   CONNECT = 'connect',
@@ -161,8 +162,8 @@ export class EmotionWebSocketService extends EventEmitter {
   private config: WebSocketConfig;
   private state: ConnectionState = ConnectionState.DISCONNECTED;
   private reconnectAttempts = 0;
-  private reconnectTimer: NodeJS.Timeout | null = null;
-  private heartbeatTimer: NodeJS.Timeout | null = null;
+  private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+  private heartbeatTimer: ReturnType<typeof setTimeout> | null = null;
   private messageQueue: WebSocketMessage[] = [];
   private stats = {
     messagesSent: 0,
@@ -402,7 +403,7 @@ export class EmotionWebSocketService extends EventEmitter {
           break;
 
         default:
-          console.warn('Unknown message type:', message.type);
+          logger.warn('未知消息类型:', message.type);
       }
 
       this.emit('message', message);

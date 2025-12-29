@@ -22,7 +22,6 @@ import {
   FileImageOutlined,
   TableOutlined,
   ClusterOutlined,
-  ThunderboltOutlined,
   InfoCircleOutlined
 } from '@ant-design/icons';
 
@@ -37,47 +36,28 @@ interface VectorStoreStats {
   cacheHitRate: number;
 }
 
-interface CollectionInfo {
-  name: string;
-  count: number;
-  dimension: number;
-  indexType: string;
-  memoryUsage: number;
-}
-
 interface VectorStoreStatusProps {
   stats: VectorStoreStats;
 }
 
 const VectorStoreStatus: React.FC<VectorStoreStatusProps> = ({ stats }) => {
-  // 模拟的collection信息
-  const collections: CollectionInfo[] = [
+  const collections = [
     {
       name: 'multimodal_text',
       count: stats.textChunks,
-      dimension: 768,
-      indexType: 'HNSW',
-      memoryUsage: stats.textChunks * 0.003 // 每个向量约3KB
+      dimension: stats.embeddingDimension,
     },
     {
       name: 'multimodal_image',
       count: stats.images,
-      dimension: 768,
-      indexType: 'HNSW',
-      memoryUsage: stats.images * 0.003
+      dimension: stats.embeddingDimension,
     },
     {
       name: 'multimodal_table',
       count: stats.tables,
-      dimension: 768,
-      indexType: 'HNSW',
-      memoryUsage: stats.tables * 0.003
+      dimension: stats.embeddingDimension,
     }
   ];
-
-  const totalMemory = collections.reduce((sum, col) => sum + col.memoryUsage, 0);
-  const indexingSpeed = 1000; // 向量/秒
-  const queryLatency = 5; // ms
 
   const columns = [
     {
@@ -104,18 +84,6 @@ const VectorStoreStatus: React.FC<VectorStoreStatusProps> = ({ stats }) => {
       dataIndex: 'dimension',
       key: 'dimension',
       render: (dim: number) => <Text>{dim}D</Text>
-    },
-    {
-      title: '索引类型',
-      dataIndex: 'indexType',
-      key: 'indexType',
-      render: (type: string) => <Tag color="blue">{type}</Tag>
-    },
-    {
-      title: '内存占用',
-      dataIndex: 'memoryUsage',
-      key: 'memoryUsage',
-      render: (usage: number) => <Text>{usage.toFixed(2)} MB</Text>
     }
   ];
 
@@ -131,7 +99,7 @@ const VectorStoreStatus: React.FC<VectorStoreStatusProps> = ({ stats }) => {
       <Space direction="vertical" style={{ width: '100%' }} size="large">
         {/* 总体统计 */}
         <Row gutter={16}>
-          <Col span={6}>
+          <Col span={8}>
             <Card>
               <Statistic
                 title="总向量数"
@@ -141,27 +109,17 @@ const VectorStoreStatus: React.FC<VectorStoreStatusProps> = ({ stats }) => {
               />
             </Card>
           </Col>
-          <Col span={6}>
+          <Col span={8}>
             <Card>
               <Statistic
                 title="嵌入维度"
                 value={stats.embeddingDimension}
                 suffix="D"
-                prefix={<ThunderboltOutlined />}
+                prefix={<InfoCircleOutlined />}
               />
             </Card>
           </Col>
-          <Col span={6}>
-            <Card>
-              <Statistic
-                title="内存使用"
-                value={totalMemory}
-                suffix="MB"
-                precision={2}
-              />
-            </Card>
-          </Col>
-          <Col span={6}>
+          <Col span={8}>
             <Card>
               <Statistic
                 title="缓存命中率"
@@ -191,40 +149,6 @@ const VectorStoreStatus: React.FC<VectorStoreStatusProps> = ({ stats }) => {
             rowKey="name"
           />
         </div>
-
-        {/* 性能指标 */}
-        <Row gutter={16}>
-          <Col span={8}>
-            <Card size="small">
-              <Statistic
-                title="索引速度"
-                value={indexingSpeed}
-                suffix="vectors/s"
-                prefix={<ThunderboltOutlined />}
-              />
-            </Card>
-          </Col>
-          <Col span={8}>
-            <Card size="small">
-              <Statistic
-                title="查询延迟"
-                value={queryLatency}
-                suffix="ms"
-                prefix={<ClusterOutlined />}
-                valueStyle={{ color: queryLatency < 10 ? '#52c41a' : '#faad14' }}
-              />
-            </Card>
-          </Col>
-          <Col span={8}>
-            <Card size="small">
-              <Statistic
-                title="相似度算法"
-                value="Cosine"
-                prefix={<InfoCircleOutlined />}
-              />
-            </Card>
-          </Col>
-        </Row>
 
         {/* 内容分布 */}
         <div>
@@ -271,14 +195,11 @@ const VectorStoreStatus: React.FC<VectorStoreStatusProps> = ({ stats }) => {
           message="向量存储技术栈"
           description={
             <Space direction="vertical" size="small">
-              <Text>• 数据库: Chroma DB (持久化存储)</Text>
-              <Text>• 索引算法: HNSW (分层可导航小世界)</Text>
-              <Text>• 嵌入模型: Nomic Embed v1.5</Text>
-              <Text>• 相似度度量: 余弦相似度</Text>
-              <Text>• 缓存层: Redis (查询结果缓存)</Text>
+              <Text>• 向量库: Chroma</Text>
+              <Text>• 嵌入维度: {stats.embeddingDimension}D</Text>
             </Space>
           }
-          variant="default"
+          type="info"
           showIcon
         />
       </Space>

@@ -4,6 +4,7 @@
  */
 import React, { useState, useEffect } from 'react'
 import { 
+import { logger } from '../utils/logger'
   Card, 
   Row, 
   Col, 
@@ -69,7 +70,7 @@ const MemoryAnalyticsDashboard: React.FC = () => {
       setTrends(trendsData)
       setGraphStats(graphData)
     } catch (error) {
-      console.error('加载数据失败:', error)
+      logger.error('加载数据失败:', error)
     } finally {
       setLoading(false)
     }
@@ -88,9 +89,9 @@ const MemoryAnalyticsDashboard: React.FC = () => {
   // 准备趋势图数据
   const getTrendData = () => {
     if (!trends) return []
-    return Object.entries(trends.daily_counts).map(([date, count]) => ({
+    return Object.entries(trends.daily_trends).map(([date, data]) => ({
       date,
-      count
+      count: data.memory_count
     }))
   }
 
@@ -207,16 +208,16 @@ const MemoryAnalyticsDashboard: React.FC = () => {
           <Card>
             <Statistic
               title="记忆增长率"
-              value={trends?.growth_rate_percentage || 0}
+              value={trends?.summary.growth_rate || 0}
               precision={2}
-              suffix="%"
-              prefix={trends?.growth_rate_percentage > 0 ? <RiseOutlined /> : <FallOutlined />}
+              suffix="条/天"
+              prefix={<RiseOutlined />}
               valueStyle={{ 
-                color: trends?.growth_rate_percentage > 0 ? '#cf1322' : '#3f8600' 
+                color: '#cf1322'
               }}
             />
             <div style={{ fontSize: 12, color: '#666', marginTop: 8 }}>
-              日均新增: {trends?.avg_daily_memories || 0}
+              日均新增: {trends?.summary.avg_daily_creation || 0}
             </div>
           </Card>
         </Col>
@@ -272,25 +273,25 @@ const MemoryAnalyticsDashboard: React.FC = () => {
               <Col span={8}>
                 <Statistic
                   title="30天总计"
-                  value={trends?.total_memories || 0}
+                  value={trends?.summary.total_memories || 0}
                   prefix={<DatabaseOutlined />}
                 />
               </Col>
               <Col span={8}>
                 <Statistic
                   title="日均增长"
-                  value={trends?.avg_daily_memories || 0}
+                  value={trends?.summary.avg_daily_creation || 0}
                   precision={1}
                 />
               </Col>
               <Col span={8}>
                 <Statistic
                   title="增长率"
-                  value={trends?.growth_rate_percentage || 0}
-                  suffix="%"
+                  value={trends?.summary.growth_rate || 0}
+                  suffix="条/天"
                   precision={2}
                   valueStyle={{
-                    color: trends?.growth_rate_percentage > 0 ? '#3f8600' : '#cf1322'
+                    color: '#3f8600'
                   }}
                 />
               </Col>
@@ -304,7 +305,7 @@ const MemoryAnalyticsDashboard: React.FC = () => {
               <Card title="高频访问记忆">
                 <List
                   size="small"
-                  dataSource={analytics?.most_accessed_memories.slice(0, 5) || []}
+                  dataSource={(analytics?.most_accessed_memories || []).slice(0, 5)}
                   renderItem={item => (
                     <List.Item>
                       <div style={{ width: '100%' }}>
@@ -329,7 +330,7 @@ const MemoryAnalyticsDashboard: React.FC = () => {
             <Col span={12}>
               <Card title="最近创建记忆">
                 <Timeline>
-                  {analytics?.recent_memories.slice(0, 5).map(memory => (
+                  {(analytics?.recent_memories || []).slice(0, 5).map(memory => (
                     <Timeline.Item 
                       key={memory.id}
                       color={getTypeColor(memory.type)}
@@ -361,7 +362,7 @@ const MemoryAnalyticsDashboard: React.FC = () => {
               <Card>
                 <Statistic
                   title="节点总数"
-                  value={graphStats?.node_count || 0}
+                  value={graphStats?.graph_overview?.total_nodes || 0}
                   prefix={<ClusterOutlined />}
                 />
               </Card>
@@ -370,7 +371,7 @@ const MemoryAnalyticsDashboard: React.FC = () => {
               <Card>
                 <Statistic
                   title="关联边数"
-                  value={graphStats?.edge_count || 0}
+                  value={graphStats?.graph_overview?.total_edges || 0}
                   prefix={<LinkOutlined />}
                 />
               </Card>
@@ -379,7 +380,7 @@ const MemoryAnalyticsDashboard: React.FC = () => {
               <Card>
                 <Statistic
                   title="平均连接度"
-                  value={graphStats?.avg_degree || 0}
+                  value={graphStats?.node_statistics?.avg_connections || 0}
                   precision={2}
                 />
               </Card>
@@ -390,18 +391,18 @@ const MemoryAnalyticsDashboard: React.FC = () => {
             <Card title="记忆访问模式" style={{ marginTop: 16 }}>
               <Row gutter={16}>
                 <Col span={12}>
-                  <h4>频繁访问</h4>
+                  <h4>高峰时段</h4>
                   <Space wrap>
-                    {patterns.frequently_accessed.slice(0, 5).map(id => (
-                      <Tag key={id} color="blue">{id.substring(0, 8)}...</Tag>
+                    {patterns.usage_patterns.peak_hours.slice(0, 5).map(([hour, count]) => (
+                      <Tag key={hour} color="blue">{hour}:00 ({count})</Tag>
                     ))}
                   </Space>
                 </Col>
                 <Col span={12}>
-                  <h4>中心记忆</h4>
+                  <h4>活跃日期</h4>
                   <Space wrap>
-                    {patterns.central_memories.slice(0, 5).map(id => (
-                      <Tag key={id} color="purple">{id.substring(0, 8)}...</Tag>
+                    {patterns.usage_patterns.most_active_days.slice(0, 5).map(([day, count]) => (
+                      <Tag key={day} color="purple">{day} ({count})</Tag>
                     ))}
                   </Space>
                 </Col>

@@ -1,12 +1,11 @@
 """基于上下文的记忆召回系统"""
+
 import asyncio
 from typing import List, Optional, Dict, Any, Tuple
 from datetime import datetime
 from datetime import timedelta
 from src.core.utils.timezone_utils import utc_now, utc_factory
 import numpy as np
-import logging
-
 from qdrant_client.models import Filter, FieldCondition, MatchValue, Range
 from .models import Memory, MemoryType, MemoryStatus
 from .storage import MemoryStorage
@@ -18,8 +17,7 @@ from src.offline.memory_manager import (
 )
 from src.models.schemas.offline import OfflineMode, NetworkStatus
 
-logger = logging.getLogger(__name__)
-
+logger = get_logger(__name__)
 
 class ContextAwareRecall:
     """基于上下文的记忆召回器"""
@@ -509,3 +507,4 @@ class ContextAwareRecall:
                 break
                 
         return result_chain
+from src.core.logging import get_logger

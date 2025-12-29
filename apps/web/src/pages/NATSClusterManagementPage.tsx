@@ -35,7 +35,7 @@ import {
   WarningOutlined,
   CheckCircleOutlined,
   MonitorOutlined,
-  NetworkOutlined,
+  ShareAltOutlined as NetworkOutlined,
   ThunderboltOutlined,
   SafetyCertificateOutlined,
   ExclamationCircleOutlined,

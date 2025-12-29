@@ -11,16 +11,14 @@ from datetime import timedelta
 from src.core.utils.timezone_utils import utc_now, utc_factory
 from dataclasses import dataclass
 import json
-import logging
-
 from ..models import BehaviorPattern, AnomalyDetection
 from ..storage.event_store import EventStore
 from .pattern_recognition import PatternRecognitionEngine
 from .anomaly_detection import AnomalyDetectionEngine
 from ..models.forecasting import TrendAnalyzer
 
-logger = logging.getLogger(__name__)
-
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 @dataclass
 class ReportSection:
@@ -30,7 +28,6 @@ class ReportSection:
     charts: List[Dict[str, Any]]
     insights: List[str]
     recommendations: List[str]
-
 
 @dataclass
 class AnalyticsReport:
@@ -43,7 +40,6 @@ class AnalyticsReport:
     sections: List[ReportSection]
     appendix: Dict[str, Any]
     metadata: Dict[str, Any]
-
 
 class ReportGenerator:
     """报告生成器"""
@@ -201,7 +197,7 @@ class ReportGenerator:
             # 分析序列模式
             if 'sequence' in pattern_results:
                 sequence_patterns = pattern_results['sequence'].patterns
-                content['sequence_patterns'] = [p.dict() for p in sequence_patterns]
+                content['sequence_patterns'] = [p.model_dump(mode="json") for p in sequence_patterns]
                 
                 if sequence_patterns:
                     top_pattern = max(sequence_patterns, key=lambda p: p.support)
@@ -224,7 +220,7 @@ class ReportGenerator:
             # 分析聚类模式
             if 'clustering' in pattern_results:
                 clustering_patterns = pattern_results['clustering'].patterns
-                content['clustering_patterns'] = [p.dict() for p in clustering_patterns]
+                content['clustering_patterns'] = [p.model_dump(mode="json") for p in clustering_patterns]
                 
                 if clustering_patterns:
                     largest_cluster = max(clustering_patterns, key=lambda p: p.users_count)
@@ -416,7 +412,7 @@ class ReportGenerator:
                                     user_id=user_ids[0] if user_ids and len(user_ids) == 1 else None
                                 )
                                 
-                                content[f'{metric_name}_forecast'] = forecast.dict()
+                                content[f'{metric_name}_forecast'] = forecast.model_dump(mode="json")
                                 
                                 # 预测图表
                                 charts.append({
@@ -598,7 +594,6 @@ class ReportGenerator:
                 'trend_direction': '基于线性回归确定的总体趋势方向'
             }
         }
-
 
 class ReportExporter:
     """报告导出器"""

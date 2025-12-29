@@ -4,34 +4,36 @@
 提供数据版本控制、变更追踪、增量更新等功能
 """
 
+import asyncio
 import hashlib
-import shutil
 import json
-import logging
 from pathlib import Path
-from datetime import datetime
-from src.core.utils.timezone_utils import utc_now, utc_factory, timezone
-from typing import List, Dict, Any, Optional
-from sqlalchemy import create_engine, func
-from sqlalchemy.orm import sessionmaker
+from src.core.utils.timezone_utils import utc_now
+from typing import List, Dict, Any, Optional, Callable, AsyncContextManager
+import aiofiles
+from sqlalchemy import func, select
+from sqlalchemy.ext.asyncio import AsyncSession
+from .models import DataVersion, DataVersionModel
+from src.core.database import get_db_session
 
-from .models import Base, DataVersion, DataVersionModel
-
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 class DataVersionManager:
     """数据版本管理器"""
     
-    def __init__(self, database_url: str, storage_path: str = "./data_versions"):
-        self.engine = create_engine(database_url)
-        Base.metadata.create_all(self.engine)
-        self.SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=self.engine)
-        
+    def __init__(
+        self,
+        storage_path: str = "./data_versions",
+        session_factory: Callable[[], AsyncContextManager[AsyncSession]] = get_db_session,
+    ):
+        self.session_factory = session_factory
         self.storage_path = Path(storage_path)
         self.storage_path.mkdir(parents=True, exist_ok=True)
         
-        self.logger = logging.getLogger(__name__)
+        self.logger = get_logger(__name__)
     
-    def create_version(
+    async def create_version(
         self, 
         dataset_name: str,
         version_number: str,
@@ -52,18 +54,19 @@ class DataVersionManager:
         
         # 保存数据文件
         data_file = version_dir / "data.jsonl"
-        with open(data_file, 'w', encoding='utf-8') as f:
+        async with aiofiles.open(data_file, 'w', encoding='utf-8') as f:
             for record in data_records:
-                f.write(json.dumps(record, ensure_ascii=False) + '\n')
+                await f.write(json.dumps(record, ensure_ascii=False) + '\n')
         
         # 计算数据哈希
-        data_hash = self._calculate_file_hash(data_file)
-        file_size = data_file.stat().st_size
+        data_hash = await asyncio.to_thread(self._calculate_file_hash, data_file)
+        file_stat = await asyncio.to_thread(data_file.stat)
+        file_size = file_stat.st_size
         
         # 计算变更摘要
         changes_summary = {}
         if parent_version:
-            changes_summary = self._calculate_changes(dataset_name, parent_version, data_records)
+            changes_summary = await self._calculate_changes(dataset_name, parent_version, data_records)
         
         # 创建版本记录
         version = DataVersion(
@@ -77,14 +80,15 @@ class DataVersionManager:
             metadata=metadata or {}
         )
         
-        with self.SessionLocal() as db:
+        async with self.session_factory() as db:
             # 检查版本号是否已存在
-            existing = db.query(DataVersionModel).filter(
-                DataVersionModel.dataset_name == dataset_name,
-                DataVersionModel.version_number == version_number
-            ).first()
-            
-            if existing:
+            existing_result = await db.execute(
+                select(DataVersionModel).where(
+                    DataVersionModel.dataset_name == dataset_name,
+                    DataVersionModel.version_number == version_number,
+                )
+            )
+            if existing_result.scalar_one_or_none():
                 raise ValueError(f"Version {version_number} already exists for dataset {dataset_name}")
             
             db_version = DataVersionModel(
@@ -95,27 +99,28 @@ class DataVersionManager:
                 created_by=version.created_by,
                 parent_version=version.parent_version,
                 changes_summary=version.changes_summary,
-                metadata=version.metadata,
+                version_metadata=version.metadata,
                 data_path=str(data_file),
                 data_hash=data_hash,
                 record_count=len(data_records),
-                size_bytes=file_size
+                size_bytes=file_size,
             )
             
             db.add(db_version)
-            db.commit()
-            db.refresh(db_version)
+            await db.commit()
+            await db.refresh(db_version)
         
         self.logger.info(f"Created data version: {dataset_name} v{version_number}")
         return version_id
     
-    def get_version_data(self, version_id: str) -> List[Dict[str, Any]]:
+    async def get_version_data(self, version_id: str) -> List[Dict[str, Any]]:
         """获取版本数据"""
         
-        with self.SessionLocal() as db:
-            version = db.query(DataVersionModel).filter(
-                DataVersionModel.version_id == version_id
-            ).first()
+        async with self.session_factory() as db:
+            result = await db.execute(
+                select(DataVersionModel).where(DataVersionModel.version_id == version_id)
+            )
+            version = result.scalar_one_or_none()
             
             if not version:
                 raise ValueError(f"Version {version_id} not found")
@@ -125,21 +130,23 @@ class DataVersionManager:
                 raise FileNotFoundError(f"Data file not found: {version.data_path}")
             
             data_records = []
-            with open(data_file, 'r', encoding='utf-8') as f:
-                for line in f:
+            async with aiofiles.open(data_file, 'r', encoding='utf-8') as f:
+                async for line in f:
                     if line.strip():
                         data_records.append(json.loads(line))
             
             return data_records
     
-    def list_versions(self, dataset_name: str) -> List[Dict[str, Any]]:
+    async def list_versions(self, dataset_name: str) -> List[Dict[str, Any]]:
         """列出数据集的所有版本"""
         
-        with self.SessionLocal() as db:
-            versions = db.query(DataVersionModel).filter(
-                DataVersionModel.dataset_name == dataset_name
-            ).order_by(DataVersionModel.created_at.desc()).all()
-            
+        async with self.session_factory() as db:
+            result = await db.execute(
+                select(DataVersionModel)
+                .where(DataVersionModel.dataset_name == dataset_name)
+                .order_by(DataVersionModel.created_at.desc())
+            )
+            versions = result.scalars().all()
             return [
                 {
                     'version_id': version.version_id,
@@ -152,30 +159,34 @@ class DataVersionManager:
                     'data_hash': version.data_hash,
                     'created_at': version.created_at,
                     'changes_summary': version.changes_summary,
-                    'metadata': version.metadata
+                    'metadata': version.version_metadata,
                 }
                 for version in versions
             ]
     
-    def list_datasets(self) -> List[Dict[str, Any]]:
+    async def list_datasets(self) -> List[Dict[str, Any]]:
         """列出所有数据集"""
         
-        with self.SessionLocal() as db:
-            # 按数据集分组统计
-            dataset_stats = db.query(
-                DataVersionModel.dataset_name,
-                func.count(DataVersionModel.id).label('version_count'),
-                func.max(DataVersionModel.created_at).label('latest_version_date'),
-                func.sum(DataVersionModel.record_count).label('total_records'),
-                func.sum(DataVersionModel.size_bytes).label('total_size')
-            ).group_by(DataVersionModel.dataset_name).all()
+        async with self.session_factory() as db:
+            dataset_stats = await db.execute(
+                select(
+                    DataVersionModel.dataset_name,
+                    func.count(DataVersionModel.id).label('version_count'),
+                    func.max(DataVersionModel.created_at).label('latest_version_date'),
+                    func.sum(DataVersionModel.record_count).label('total_records'),
+                    func.sum(DataVersionModel.size_bytes).label('total_size'),
+                ).group_by(DataVersionModel.dataset_name)
+            )
             
             datasets = []
-            for stat in dataset_stats:
-                # 获取最新版本信息
-                latest_version = db.query(DataVersionModel).filter(
-                    DataVersionModel.dataset_name == stat.dataset_name
-                ).order_by(DataVersionModel.created_at.desc()).first()
+            for stat in dataset_stats.all():
+                latest_result = await db.execute(
+                    select(DataVersionModel)
+                    .where(DataVersionModel.dataset_name == stat.dataset_name)
+                    .order_by(DataVersionModel.created_at.desc())
+                    .limit(1)
+                )
+                latest_version = latest_result.scalar_one_or_none()
                 
                 datasets.append({
                     'dataset_name': stat.dataset_name,
@@ -184,29 +195,31 @@ class DataVersionManager:
                         'version_number': latest_version.version_number,
                         'version_id': latest_version.version_id,
                         'created_at': latest_version.created_at,
-                        'created_by': latest_version.created_by
+                        'created_by': latest_version.created_by,
                     } if latest_version else None,
                     'total_records': stat.total_records or 0,
                     'total_size_bytes': stat.total_size or 0,
-                    'latest_activity': stat.latest_version_date
+                    'latest_activity': stat.latest_version_date,
                 })
             
             return datasets
     
-    def compare_versions(self, version_id1: str, version_id2: str) -> Dict[str, Any]:
+    async def compare_versions(self, version_id1: str, version_id2: str) -> Dict[str, Any]:
         """比较两个版本"""
         
-        data1 = self.get_version_data(version_id1)
-        data2 = self.get_version_data(version_id2)
+        data1 = await self.get_version_data(version_id1)
+        data2 = await self.get_version_data(version_id2)
         
         # 获取版本信息
-        with self.SessionLocal() as db:
-            v1 = db.query(DataVersionModel).filter(
-                DataVersionModel.version_id == version_id1
-            ).first()
-            v2 = db.query(DataVersionModel).filter(
-                DataVersionModel.version_id == version_id2
-            ).first()
+        async with self.session_factory() as db:
+            v1_result = await db.execute(
+                select(DataVersionModel).where(DataVersionModel.version_id == version_id1)
+            )
+            v2_result = await db.execute(
+                select(DataVersionModel).where(DataVersionModel.version_id == version_id2)
+            )
+            v1 = v1_result.scalar_one_or_none()
+            v2 = v2_result.scalar_one_or_none()
         
         # 创建记录索引
         records1 = {self._record_hash(record): record for record in data1}
@@ -255,7 +268,7 @@ class DataVersionManager:
         
         return comparison
     
-    def create_incremental_version(
+    async def create_incremental_version(
         self,
         base_version_id: str,
         changes: Dict[str, List[Dict[str, Any]]],
@@ -274,13 +287,14 @@ class DataVersionManager:
         """
         
         # 获取基础版本数据
-        base_data = self.get_version_data(base_version_id)
+        base_data = await self.get_version_data(base_version_id)
         
         # 获取基础版本信息
-        with self.SessionLocal() as db:
-            base_version = db.query(DataVersionModel).filter(
-                DataVersionModel.version_id == base_version_id
-            ).first()
+        async with self.session_factory() as db:
+            base_result = await db.execute(
+                select(DataVersionModel).where(DataVersionModel.version_id == base_version_id)
+            )
+            base_version = base_result.scalar_one_or_none()
             
             if not base_version:
                 raise ValueError(f"Base version {base_version_id} not found")
@@ -310,7 +324,7 @@ class DataVersionManager:
         # 创建新版本
         new_data = list(base_records.values())
         
-        return self.create_version(
+        return await self.create_version(
             dataset_name=base_version.dataset_name,
             version_number=version_number,
             data_records=new_data,
@@ -319,24 +333,29 @@ class DataVersionManager:
             parent_version=base_version_id
         )
     
-    def rollback_to_version(self, dataset_name: str, target_version_id: str, created_by: str) -> str:
+    async def rollback_to_version(self, dataset_name: str, target_version_id: str, created_by: str) -> str:
         """回滚到指定版本"""
         
         # 获取目标版本数据
-        target_data = self.get_version_data(target_version_id)
+        target_data = await self.get_version_data(target_version_id)
         
-        with self.SessionLocal() as db:
-            target_version = db.query(DataVersionModel).filter(
-                DataVersionModel.version_id == target_version_id
-            ).first()
+        async with self.session_factory() as db:
+            target_result = await db.execute(
+                select(DataVersionModel).where(DataVersionModel.version_id == target_version_id)
+            )
+            target_version = target_result.scalar_one_or_none()
             
             if not target_version:
                 raise ValueError(f"Target version {target_version_id} not found")
             
             # 获取最新版本号并生成回滚版本号
-            latest_version = db.query(DataVersionModel).filter(
-                DataVersionModel.dataset_name == dataset_name
-            ).order_by(DataVersionModel.created_at.desc()).first()
+            latest_result = await db.execute(
+                select(DataVersionModel)
+                .where(DataVersionModel.dataset_name == dataset_name)
+                .order_by(DataVersionModel.created_at.desc())
+                .limit(1)
+            )
+            latest_version = latest_result.scalar_one_or_none()
             
             if latest_version:
                 # 解析版本号生成新版本
@@ -352,7 +371,7 @@ class DataVersionManager:
                 new_version_number = "1.0"
         
         # 创建回滚版本
-        return self.create_version(
+        return await self.create_version(
             dataset_name=dataset_name,
             version_number=new_version_number,
             data_records=target_data,
@@ -366,7 +385,7 @@ class DataVersionManager:
             }
         )
     
-    def _calculate_changes(
+    async def _calculate_changes(
         self, 
         dataset_name: str, 
         parent_version_id: str, 
@@ -375,7 +394,7 @@ class DataVersionManager:
         """计算相对于父版本的变更"""
         
         try:
-            parent_data = self.get_version_data(parent_version_id)
+            parent_data = await self.get_version_data(parent_version_id)
             
             # 创建记录索引
             parent_records = {self._record_hash(record): record for record in parent_data}
@@ -430,39 +449,41 @@ class DataVersionManager:
                 hash_md5.update(chunk)
         return hash_md5.hexdigest()
     
-    def export_version(self, version_id: str, export_path: str, format: str = 'jsonl') -> str:
+    async def export_version(self, version_id: str, export_path: str, format: str = 'jsonl') -> str:
         """导出版本数据"""
         
-        data = self.get_version_data(version_id)
+        data = await self.get_version_data(version_id)
         export_file = Path(export_path)
         export_file.parent.mkdir(parents=True, exist_ok=True)
         
         if format == 'jsonl':
-            with open(export_file, 'w', encoding='utf-8') as f:
+            async with aiofiles.open(export_file, 'w', encoding='utf-8') as f:
                 for record in data:
-                    f.write(json.dumps(record, ensure_ascii=False) + '\n')
+                    await f.write(json.dumps(record, ensure_ascii=False) + '\n')
         
         elif format == 'json':
-            with open(export_file, 'w', encoding='utf-8') as f:
-                json.dump(data, f, ensure_ascii=False, indent=2)
+            async with aiofiles.open(export_file, 'w', encoding='utf-8') as f:
+                await f.write(json.dumps(data, ensure_ascii=False, indent=2))
         
         elif format == 'csv':
-            import pandas as pd
-            
-            # 展开嵌套字典
-            flattened_data = []
-            for record in data:
-                flat_record = self._flatten_dict(record)
-                flattened_data.append(flat_record)
-            
-            df = pd.DataFrame(flattened_data)
-            df.to_csv(export_file, index=False, encoding='utf-8')
+            await asyncio.to_thread(self._export_csv, data, export_file)
         
         else:
             raise ValueError(f"Unsupported export format: {format}")
         
         self.logger.info(f"Exported version {version_id} to {export_file}")
         return str(export_file)
+
+    def _export_csv(self, data: List[Dict[str, Any]], export_file: Path) -> None:
+        import pandas as pd
+
+        flattened_data = []
+        for record in data:
+            flat_record = self._flatten_dict(record)
+            flattened_data.append(flat_record)
+
+        df = pd.DataFrame(flattened_data)
+        df.to_csv(export_file, index=False, encoding='utf-8')
     
     def _flatten_dict(self, d: Dict[str, Any], parent_key: str = '', sep: str = '_') -> Dict[str, Any]:
         """展开嵌套字典"""
@@ -478,17 +499,18 @@ class DataVersionManager:
                 items.append((new_key, v))
         return dict(items)
     
-    def get_version_history(self, dataset_name: str, version_id: str) -> List[Dict[str, Any]]:
+    async def get_version_history(self, version_id: str) -> List[Dict[str, Any]]:
         """获取版本历史链"""
         
-        with self.SessionLocal() as db:
+        async with self.session_factory() as db:
             history = []
             current_id = version_id
             
             while current_id:
-                version = db.query(DataVersionModel).filter(
-                    DataVersionModel.version_id == current_id
-                ).first()
+                result = await db.execute(
+                    select(DataVersionModel).where(DataVersionModel.version_id == current_id)
+                )
+                version = result.scalar_one_or_none()
                 
                 if not version:
                     break
@@ -509,21 +531,23 @@ class DataVersionManager:
             
             return history
     
-    def delete_version(self, version_id: str, remove_files: bool = True) -> bool:
+    async def delete_version(self, version_id: str, remove_files: bool = True) -> bool:
         """删除版本"""
         
-        with self.SessionLocal() as db:
-            version = db.query(DataVersionModel).filter(
-                DataVersionModel.version_id == version_id
-            ).first()
+        async with self.session_factory() as db:
+            result = await db.execute(
+                select(DataVersionModel).where(DataVersionModel.version_id == version_id)
+            )
+            version = result.scalar_one_or_none()
             
             if not version:
                 return False
             
             # 检查是否有子版本依赖
-            children = db.query(DataVersionModel).filter(
-                DataVersionModel.parent_version == version_id
-            ).all()
+            children_result = await db.execute(
+                select(DataVersionModel).where(DataVersionModel.parent_version == version_id)
+            )
+            children = children_result.scalars().all()
             
             if children:
                 raise ValueError(f"Cannot delete version {version_id}: has {len(children)} dependent versions")
@@ -532,33 +556,33 @@ class DataVersionManager:
             if remove_files and version.data_path:
                 data_path = Path(version.data_path)
                 if data_path.exists():
-                    data_path.unlink()
+                    await asyncio.to_thread(data_path.unlink)
                     
                     # 尝试删除空的版本目录
                     version_dir = data_path.parent
                     try:
                         if version_dir.exists() and not any(version_dir.iterdir()):
-                            version_dir.rmdir()
+                            await asyncio.to_thread(version_dir.rmdir)
                     except OSError:
-                        pass  # 目录可能不为空
+                        self.logger.debug("版本目录非空或删除失败", exc_info=True)
             
             # 删除数据库记录
             db.delete(version)
-            db.commit()
+            await db.commit()
             
             self.logger.info(f"Deleted version {version_id}")
             return True
     
-    def get_version_statistics(self, dataset_name: Optional[str] = None) -> Dict[str, Any]:
+    async def get_version_statistics(self, dataset_name: Optional[str] = None) -> Dict[str, Any]:
         """获取版本统计信息"""
         
-        with self.SessionLocal() as db:
-            query = db.query(DataVersionModel)
-            
+        async with self.session_factory() as db:
+            stmt = select(DataVersionModel)
             if dataset_name:
-                query = query.filter(DataVersionModel.dataset_name == dataset_name)
+                stmt = stmt.where(DataVersionModel.dataset_name == dataset_name)
             
-            versions = query.all()
+            result = await db.execute(stmt)
+            versions = result.scalars().all()
             
             if not versions:
                 return {
@@ -568,14 +592,12 @@ class DataVersionManager:
                     'total_size_bytes': 0
                 }
             
-            # 基础统计
             total_versions = len(versions)
             total_datasets = len(set(v.dataset_name for v in versions))
             total_records = sum(v.record_count or 0 for v in versions)
             total_size = sum(v.size_bytes or 0 for v in versions)
             
-            # 按数据集分组
-            by_dataset = {}
+            by_dataset: Dict[str, Dict[str, Any]] = {}
             for version in versions:
                 dataset = version.dataset_name
                 if dataset not in by_dataset:
@@ -598,7 +620,6 @@ class DataVersionManager:
                         'created_at': version.created_at
                     }
             
-            # 时间统计
             creation_dates = [v.created_at for v in versions if v.created_at]
             time_stats = {}
             if creation_dates:
@@ -607,7 +628,7 @@ class DataVersionManager:
                     'latest_version': max(creation_dates),
                     'versions_last_30_days': len([
                         d for d in creation_dates 
-                        if (utc_now() - d.replace(tzinfo=timezone.utc)).days <= 30
+                        if (utc_now() - d).days <= 30
                     ])
                 }
             

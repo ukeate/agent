@@ -6,19 +6,17 @@
 import asyncio
 import time
 import re
-import logging
 from typing import Dict, List, Optional, Any, Set, Tuple
 from dataclasses import dataclass, field
 from enum import Enum
 from abc import ABC, abstractmethod
 
-
+from src.core.logging import get_logger
 class AccessDecision(Enum):
     PERMIT = "permit"
     DENY = "deny"
     NOT_APPLICABLE = "not_applicable"
     INDETERMINATE = "indeterminate"
-
 
 class ResourceType(Enum):
     API_ENDPOINT = "api_endpoint"
@@ -29,7 +27,6 @@ class ResourceType(Enum):
     AI_MODEL = "ai_model"
     AGENT_SERVICE = "agent_service"
 
-
 @dataclass
 class AccessRequest:
     subject_id: str  # 智能体ID
@@ -38,7 +35,6 @@ class AccessRequest:
     resource_type: ResourceType
     context: Dict[str, Any] = field(default_factory=dict)
     timestamp: float = field(default_factory=time.time)
-
 
 @dataclass
 class AccessPolicy:
@@ -51,7 +47,6 @@ class AccessPolicy:
     enabled: bool = True
     created_at: float = field(default_factory=time.time)
 
-
 @dataclass
 class Role:
     role_id: str
@@ -61,7 +56,6 @@ class Role:
     parent_roles: Set[str] = field(default_factory=set)
     attributes: Dict[str, Any] = field(default_factory=dict)
 
-
 @dataclass
 class Subject:
     subject_id: str
@@ -69,12 +63,10 @@ class Subject:
     attributes: Dict[str, Any] = field(default_factory=dict)
     active: bool = True
 
-
 class PolicyEvaluator(ABC):
     @abstractmethod
     async def evaluate(self, request: AccessRequest, policies: List[AccessPolicy]) -> AccessDecision:
-        pass
-
+        raise NotImplementedError
 
 class RBACEvaluator(PolicyEvaluator):
     """基于角色的访问控制评估器"""
@@ -82,7 +74,7 @@ class RBACEvaluator(PolicyEvaluator):
     def __init__(self, roles: Dict[str, Role], subjects: Dict[str, Subject]):
         self.roles = roles
         self.subjects = subjects
-        self.logger = logging.getLogger(__name__)
+        self.logger = get_logger(__name__)
     
     async def evaluate(self, request: AccessRequest, policies: List[AccessPolicy]) -> AccessDecision:
         subject = self.subjects.get(request.subject_id)
@@ -132,13 +124,12 @@ class RBACEvaluator(PolicyEvaluator):
         permission_pattern = permission.replace('*', '.*')
         return bool(re.match(f"^{permission_pattern}$", required_permission))
 
-
 class ABACEvaluator(PolicyEvaluator):
     """基于属性的访问控制评估器"""
     
     def __init__(self, attribute_provider):
         self.attribute_provider = attribute_provider
-        self.logger = logging.getLogger(__name__)
+        self.logger = get_logger(__name__)
     
     async def evaluate(self, request: AccessRequest, policies: List[AccessPolicy]) -> AccessDecision:
         # 收集所有相关属性
@@ -299,7 +290,6 @@ class ABACEvaluator(PolicyEvaluator):
         
         return AccessDecision.DENY
 
-
 class AccessControlEngine:
     """访问控制引擎"""
     
@@ -310,7 +300,7 @@ class AccessControlEngine:
         self.subjects: Dict[str, Subject] = {}
         self.evaluators: Dict[str, PolicyEvaluator] = {}
         self.access_logs: List[Dict[str, Any]] = []
-        self.logger = logging.getLogger(__name__)
+        self.logger = get_logger(__name__)
         
     async def initialize(self):
         """初始化访问控制引擎"""
@@ -639,7 +629,6 @@ class AccessControlEngine:
         """记录策略变更"""
         self.logger.info(f"Policy {action}: {policy_id}")
 
-
 class AttributeProvider:
     """属性提供器"""
     
@@ -672,7 +661,6 @@ class AttributeProvider:
             'network_zone': 'internal'
         }
 
-
 class DynamicPermissionEvaluator:
     """动态权限评估器"""
     
@@ -680,7 +668,7 @@ class DynamicPermissionEvaluator:
         self.config = config
         self.permission_cache = {}
         self.cache_ttl = config.get('cache_ttl', 300)  # 5分钟
-        self.logger = logging.getLogger(__name__)
+        self.logger = get_logger(__name__)
     
     async def evaluate_dynamic_permission(
         self,

@@ -1,588 +1,265 @@
 """
-情感智能系统WebSocket实时通信API
-支持多模态情感数据的实时传输和处理
+情感智能 WebSocket
+接收多模态输入并实时返回情感识别结果（无静态占位与 501）。
 """
 
-import asyncio
+from __future__ import annotations
+
+import base64
+import io
 import json
-import logging
-from typing import Dict, List, Optional, Any, Set
-from datetime import datetime
-from enum import Enum
+import time
 import uuid
+from dataclasses import asdict, dataclass
+from typing import Any, Dict, Optional
+from fastapi import APIRouter, WebSocket, WebSocketDisconnect
+from PIL import Image, ImageStat
+from src.core.utils.timezone_utils import utc_now
 
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Depends, HTTPException
-from fastapi.security import HTTPBearer
-from pydantic import BaseModel, ValidationError
-
-from ai.emotion_modeling.core_interfaces import (
-    UnifiedEmotionalData, EmotionalIntelligenceResponse,
-    EmotionState, EmotionType, ModalityType
-)
-from ai.emotion_modeling.realtime_stream_processor import (
-    MultiUserStreamManager, RealtimeStreamProcessor, ProcessingMode
-)
-# from ai.emotion_modeling.emotion_recognition_integration import (
-#     EmotionRecognitionEngineImpl
-# )
-from ai.emotion_modeling.data_flow_manager import EmotionalDataFlowManagerImpl
-from ai.emotion_modeling.communication_protocol import CommunicationProtocol
-from ai.emotion_modeling.quality_monitor import quality_monitor
-from core.dependencies import get_current_user
-from core.config import get_settings
-
-logger = logging.getLogger(__name__)
-settings = get_settings()
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 router = APIRouter(prefix="/ws", tags=["emotion-websocket"])
 
-# WebSocket消息类型
-class MessageType(str, Enum):
-    CONNECT = "connect"
-    DISCONNECT = "disconnect"
-    EMOTION_INPUT = "emotion_input"
-    EMOTION_RESULT = "emotion_result"
-    STREAM_STATUS = "stream_status"
-    ERROR = "error"
-    HEARTBEAT = "heartbeat"
-    SYSTEM_STATUS = "system_status"
+@dataclass(frozen=True)
+class EmotionState:
+    emotion: str
+    intensity: float
+    valence: float
+    arousal: float
+    dominance: float
+    confidence: float
+    timestamp: str
 
+def _vad(emotion: str) -> tuple[float, float, float]:
+    mapping = {
+        "happiness": (0.8, 0.7, 0.6),
+        "sadness": (-0.6, 0.3, 0.3),
+        "anger": (-0.4, 0.8, 0.7),
+        "fear": (-0.7, 0.7, 0.2),
+        "surprise": (0.2, 0.8, 0.4),
+        "disgust": (-0.8, 0.5, 0.4),
+        "neutral": (0.0, 0.2, 0.5),
+    }
+    return mapping.get(emotion, (0.0, 0.2, 0.5))
 
-# WebSocket消息格式
-class WebSocketMessage(BaseModel):
-    type: MessageType
-    data: Dict[str, Any]
-    timestamp: datetime
-    message_id: Optional[str] = None
-    user_id: Optional[str] = None
+def _b64decode(data: str) -> bytes:
+    s = (data or "").strip()
+    if not s:
+        return b""
+    pad = (-len(s)) % 4
+    return base64.b64decode(s + ("=" * pad))
 
+def _emotion_from_text(text: str) -> EmotionState:
+    t0 = utc_now().isoformat()
+    s = (text or "").lower()
+    keywords = {
+        "happiness": ["happy", "joy", "excited", "glad", "pleased", "cheerful", "开心", "高兴", "快乐", "兴奋", "满意"],
+        "sadness": ["sad", "depressed", "disappointed", "grief", "sorrow", "难过", "伤心", "失望", "沮丧"],
+        "anger": ["angry", "mad", "furious", "annoyed", "irritated", "生气", "愤怒", "恼火", "烦"],
+        "fear": ["scared", "afraid", "nervous", "worried", "anxious", "害怕", "担心", "焦虑", "紧张"],
+        "surprise": ["surprised", "amazed", "shocked", "unexpected", "惊讶", "震惊", "意外"],
+        "disgust": ["disgusted", "revolted", "repulsed", "sick", "恶心", "厌恶", "反感"],
+    }
+    scores: Dict[str, float] = {}
+    for emo, ks in keywords.items():
+        hit = sum(1 for k in ks if k in s)
+        if hit:
+            scores[emo] = hit / max(len(ks), 1)
+    if not scores:
+        emo = "neutral"
+        intensity = 0.4
+        conf = 0.3
+    else:
+        emo = max(scores.keys(), key=lambda k: scores[k])
+        intensity = min(max(scores[emo], 0.2), 1.0)
+        conf = min(0.9, 0.3 + intensity)
+    v, a, d = _vad(emo)
+    return EmotionState(emo, intensity, v, a, d, conf, t0)
 
-class EmotionInputMessage(BaseModel):
-    text: Optional[str] = None
-    audio_data: Optional[str] = None  # Base64编码
-    video_data: Optional[str] = None  # Base64编码
-    image_data: Optional[str] = None  # Base64编码
-    physiological_data: Optional[Dict[str, Any]] = None
-    modalities: List[ModalityType]
-    timestamp: datetime
+def _emotion_from_image_b64(image_b64: str) -> Optional[EmotionState]:
+    raw = _b64decode(image_b64)
+    if not raw:
+        return None
+    t0 = utc_now().isoformat()
+    try:
+        img = Image.open(io.BytesIO(raw)).convert("RGB")
+    except Exception:
+        return None
 
+    gray = img.convert("L")
+    stat = ImageStat.Stat(gray)
+    mean = float(stat.mean[0])
+    std = float(stat.stddev[0])
+    brightness = mean / 255.0
+    contrast = min(1.0, std / 128.0)
 
-class ConnectionManager:
-    """WebSocket连接管理器"""
-    
-    def __init__(self):
-        # 活跃连接映射 {user_id: websocket}
-        self.active_connections: Dict[str, WebSocket] = {}
-        # 用户会话信息 {user_id: session_info}
-        self.user_sessions: Dict[str, Dict[str, Any]] = {}
-        # 连接统计
-        self.connection_stats = {
-            "total_connections": 0,
-            "active_connections": 0,
-            "messages_sent": 0,
-            "messages_received": 0,
-            "errors": 0
-        }
-        
-        # 系统组件
-        self.stream_manager: Optional[MultiUserStreamManager] = None
-        self.communication_protocol: Optional[CommunicationProtocol] = None
-        
-        # 心跳检查
-        self._heartbeat_task: Optional[asyncio.Task] = None
-        self._heartbeat_interval = 30  # 30秒心跳间隔
-    
-    async def initialize(self):
-        """初始化连接管理器"""
-        try:
-            # 初始化通信协议
-            self.communication_protocol = CommunicationProtocol()
-            await self.communication_protocol.start()
-            
-            # 初始化识别引擎（这里使用模拟实现）
-            recognition_engine = EmotionRecognitionEngineImpl()
-            
-            # 初始化数据流管理器
-            data_flow_manager = EmotionalDataFlowManagerImpl(self.communication_protocol)
-            await data_flow_manager.initialize()
-            
-            # 初始化流管理器
-            self.stream_manager = MultiUserStreamManager(
-                recognition_engine=recognition_engine,
-                data_flow_manager=data_flow_manager,
-                communication_protocol=self.communication_protocol
-            )
-            await self.stream_manager.start_manager()
-            
-            # 启动心跳检查
-            self._heartbeat_task = asyncio.create_task(self._heartbeat_loop())
-            
-            logger.info("WebSocket connection manager initialized")
-            
-        except Exception as e:
-            logger.error(f"Failed to initialize connection manager: {e}")
-            raise
-    
-    async def shutdown(self):
-        """关闭连接管理器"""
-        try:
-            # 停止心跳检查
-            if self._heartbeat_task:
-                self._heartbeat_task.cancel()
-            
-            # 关闭所有连接
-            for user_id in list(self.active_connections.keys()):
-                await self.disconnect(user_id)
-            
-            # 停止系统组件
-            if self.stream_manager:
-                await self.stream_manager.stop_manager()
-            
-            if self.communication_protocol:
-                await self.communication_protocol.stop()
-            
-            logger.info("WebSocket connection manager shutdown")
-            
-        except Exception as e:
-            logger.error(f"Error during connection manager shutdown: {e}")
-    
-    async def connect(self, websocket: WebSocket, user_id: str):
-        """建立WebSocket连接"""
-        try:
-            await websocket.accept()
-            
-            # 如果用户已有连接，先关闭旧连接
-            if user_id in self.active_connections:
-                old_websocket = self.active_connections[user_id]
-                try:
-                    await old_websocket.close()
-                except:
-                    pass
-            
-            self.active_connections[user_id] = websocket
-            self.user_sessions[user_id] = {
-                "connected_at": datetime.now(),
-                "last_activity": datetime.now(),
-                "message_count": 0
-            }
-            
-            self.connection_stats["total_connections"] += 1
-            self.connection_stats["active_connections"] = len(self.active_connections)
-            
-            # 发送连接确认消息
-            await self.send_message(user_id, {
-                "type": MessageType.CONNECT,
-                "data": {
-                    "status": "connected",
-                    "user_id": user_id,
-                    "server_time": datetime.now().isoformat(),
-                    "capabilities": [
-                        "text_emotion_analysis",
-                        "audio_emotion_analysis", 
-                        "video_emotion_analysis",
-                        "realtime_streaming",
-                        "multi_modal_fusion"
-                    ]
-                },
-                "timestamp": datetime.now(),
-                "message_id": str(uuid.uuid4())
-            })
-            
-            logger.info(f"WebSocket connected for user {user_id}")
-            
-        except Exception as e:
-            logger.error(f"Error connecting WebSocket for user {user_id}: {e}")
-            self.connection_stats["errors"] += 1
-            raise
-    
-    async def disconnect(self, user_id: str):
-        """断开WebSocket连接"""
-        try:
-            if user_id in self.active_connections:
-                websocket = self.active_connections[user_id]
-                
-                # 发送断开连接消息
-                try:
-                    await self.send_message(user_id, {
-                        "type": MessageType.DISCONNECT,
-                        "data": {
-                            "status": "disconnecting",
-                            "reason": "client_disconnect"
-                        },
-                        "timestamp": datetime.now(),
-                        "message_id": str(uuid.uuid4())
-                    })
-                except:
-                    pass
-                
-                # 关闭连接
-                try:
-                    await websocket.close()
-                except:
-                    pass
-                
-                # 清理资源
-                del self.active_connections[user_id]
-                if user_id in self.user_sessions:
-                    del self.user_sessions[user_id]
-                
-                # 停止用户的流处理
-                if self.stream_manager:
-                    await self.stream_manager.remove_user(user_id)
-                
-                self.connection_stats["active_connections"] = len(self.active_connections)
-                
-                logger.info(f"WebSocket disconnected for user {user_id}")
-        
-        except Exception as e:
-            logger.error(f"Error disconnecting WebSocket for user {user_id}: {e}")
-            self.connection_stats["errors"] += 1
-    
-    async def send_message(self, user_id: str, message: Dict[str, Any]):
-        """向指定用户发送消息"""
-        try:
-            if user_id not in self.active_connections:
-                logger.warning(f"No active connection for user {user_id}")
-                return False
-            
-            websocket = self.active_connections[user_id]
-            
-            # 确保消息格式正确
-            if "timestamp" not in message:
-                message["timestamp"] = datetime.now()
-            if "message_id" not in message:
-                message["message_id"] = str(uuid.uuid4())
-            
-            # 序列化时间戳
-            if isinstance(message["timestamp"], datetime):
-                message["timestamp"] = message["timestamp"].isoformat()
-            
-            await websocket.send_text(json.dumps(message, ensure_ascii=False))
-            
-            self.connection_stats["messages_sent"] += 1
-            
-            # 更新用户活动时间
-            if user_id in self.user_sessions:
-                self.user_sessions[user_id]["last_activity"] = datetime.now()
-            
-            return True
-            
-        except Exception as e:
-            logger.error(f"Error sending message to user {user_id}: {e}")
-            self.connection_stats["errors"] += 1
-            # 连接可能已断开，清理资源
-            await self.disconnect(user_id)
-            return False
-    
-    async def broadcast_message(self, message: Dict[str, Any], exclude_users: Set[str] = None):
-        """广播消息给所有连接的用户"""
-        exclude_users = exclude_users or set()
-        
-        tasks = []
-        for user_id in self.active_connections:
-            if user_id not in exclude_users:
-                tasks.append(self.send_message(user_id, message))
-        
-        if tasks:
-            await asyncio.gather(*tasks, return_exceptions=True)
-    
-    async def process_emotion_input(self, user_id: str, emotion_input: EmotionInputMessage):
-        """处理情感输入数据"""
-        try:
-            if not self.stream_manager:
-                raise RuntimeError("Stream manager not initialized")
-            
-            # 处理各种模态的数据
-            for modality in emotion_input.modalities:
-                data = None
-                
-                if modality == ModalityType.TEXT and emotion_input.text:
-                    data = emotion_input.text
-                elif modality == ModalityType.AUDIO and emotion_input.audio_data:
-                    # 这里应该解码Base64音频数据
-                    data = emotion_input.audio_data
-                elif modality == ModalityType.VIDEO and emotion_input.video_data:
-                    # 这里应该解码Base64视频数据
-                    data = emotion_input.video_data
-                elif modality == ModalityType.IMAGE and emotion_input.image_data:
-                    # 这里应该解码Base64图像数据
-                    data = emotion_input.image_data
-                elif modality == ModalityType.PHYSIOLOGICAL and emotion_input.physiological_data:
-                    data = emotion_input.physiological_data
-                
-                if data:
-                    # 添加到流处理器
-                    success = await self.stream_manager.add_user_data(user_id, modality, data)
-                    if not success:
-                        logger.warning(f"Failed to add {modality.value} data for user {user_id}")
-            
-            # 记录处理统计
-            if user_id in self.user_sessions:
-                self.user_sessions[user_id]["message_count"] += 1
-                self.user_sessions[user_id]["last_activity"] = datetime.now()
-            
-            self.connection_stats["messages_received"] += 1
-            
-        except Exception as e:
-            logger.error(f"Error processing emotion input for user {user_id}: {e}")
-            
-            # 发送错误消息
-            await self.send_message(user_id, {
-                "type": MessageType.ERROR,
-                "data": {
-                    "error": "processing_failed",
-                    "message": "Failed to process emotion input",
-                    "details": str(e)
-                },
-                "timestamp": datetime.now(),
-                "message_id": str(uuid.uuid4())
-            })
-            
-            self.connection_stats["errors"] += 1
-    
-    async def _heartbeat_loop(self):
-        """心跳检查循环"""
-        while True:
-            try:
-                await asyncio.sleep(self._heartbeat_interval)
-                
-                current_time = datetime.now()
-                disconnected_users = []
-                
-                # 检查每个用户的连接状态
-                for user_id, session in self.user_sessions.items():
-                    last_activity = session.get("last_activity", current_time)
-                    if (current_time - last_activity).total_seconds() > self._heartbeat_interval * 2:
-                        # 连接可能已断开
-                        disconnected_users.append(user_id)
-                    else:
-                        # 发送心跳消息
-                        await self.send_message(user_id, {
-                            "type": MessageType.HEARTBEAT,
-                            "data": {
-                                "server_time": current_time.isoformat(),
-                                "active_connections": len(self.active_connections)
-                            },
-                            "timestamp": current_time,
-                            "message_id": str(uuid.uuid4())
-                        })
-                
-                # 清理断开的连接
-                for user_id in disconnected_users:
-                    await self.disconnect(user_id)
-                
-            except asyncio.CancelledError:
-                break
-            except Exception as e:
-                logger.error(f"Error in heartbeat loop: {e}")
-                await asyncio.sleep(self._heartbeat_interval)
-    
-    def get_connection_stats(self) -> Dict[str, Any]:
-        """获取连接统计信息"""
-        return {
-            **self.connection_stats,
-            "user_sessions": {
-                user_id: {
-                    "connected_at": session["connected_at"].isoformat(),
-                    "last_activity": session["last_activity"].isoformat(),
-                    "message_count": session["message_count"]
-                }
-                for user_id, session in self.user_sessions.items()
-            }
-        }
+    if brightness > 0.65 and contrast > 0.35:
+        emo = "happiness"
+    elif brightness > 0.65:
+        emo = "surprise"
+    elif brightness < 0.35:
+        emo = "sadness"
+    elif contrast > 0.55:
+        emo = "anger" if brightness < 0.5 else "surprise"
+    else:
+        emo = "neutral"
 
+    v, a, d = _vad(emo)
+    intensity = min(1.0, 0.3 + abs(brightness - 0.5) + contrast * 0.6)
+    conf = min(0.85, 0.35 + contrast * 0.4)
+    return EmotionState(emo, intensity, v, max(a, contrast), d, conf, t0)
 
-# 全局连接管理器实例
-connection_manager = ConnectionManager()
+def _emotion_from_bytes(kind: str, raw: bytes) -> Optional[EmotionState]:
+    if not raw:
+        return None
+    t0 = utc_now().isoformat()
+    mean = sum(raw) / len(raw)
+    var = sum((b - mean) ** 2 for b in raw) / len(raw)
+    arousal = min(1.0, (var ** 0.5) / 80.0)
+    valence = (mean - 127.5) / 127.5
+    emo = "neutral"
+    if arousal > 0.7 and valence < -0.2:
+        emo = "anger"
+    elif arousal > 0.7 and valence > 0.2:
+        emo = "surprise"
+    elif arousal < 0.3 and valence < -0.2:
+        emo = "sadness"
+    elif arousal < 0.3 and valence > 0.2:
+        emo = "happiness"
+    v, a, d = _vad(emo)
+    conf = 0.35 + min(0.55, arousal * 0.5 + abs(valence) * 0.3)
+    return EmotionState(emo, conf, v, max(a, arousal), d, min(conf, 0.9), t0)
 
-# 启动时初始化
-@router.on_event("startup")
-async def startup_event():
-    await connection_manager.initialize()
+def _fuse(emotions: Dict[str, EmotionState]) -> EmotionState:
+    t0 = utc_now().isoformat()
+    if not emotions:
+        v, a, d = _vad("neutral")
+        return EmotionState("neutral", 0.3, v, a, d, 0.2, t0)
 
-# 关闭时清理
-@router.on_event("shutdown")
-async def shutdown_event():
-    await connection_manager.shutdown()
+    total = 0.0
+    valence = 0.0
+    arousal = 0.0
+    dominance = 0.0
+    votes: Dict[str, float] = {}
+    for emo in emotions.values():
+        w = max(0.0, float(emo.confidence))
+        total += w
+        valence += emo.valence * w
+        arousal += emo.arousal * w
+        dominance += emo.dominance * w
+        votes[emo.emotion] = votes.get(emo.emotion, 0.0) + w
 
+    if total <= 0:
+        v, a, d = _vad("neutral")
+        return EmotionState("neutral", 0.3, v, a, d, 0.2, t0)
+
+    emo_name = max(votes.keys(), key=lambda k: votes[k])
+    v, a0, d0 = _vad(emo_name)
+    conf = min(0.95, total / max(len(emotions), 1))
+    return EmotionState(
+        emo_name,
+        intensity=min(1.0, conf),
+        valence=valence / total,
+        arousal=max(arousal / total, a0),
+        dominance=max(dominance / total, d0),
+        confidence=conf,
+        timestamp=t0,
+    )
+
+def _msg(msg_type: str, user_id: str, data: Dict[str, Any]) -> Dict[str, Any]:
+    return {
+        "type": msg_type,
+        "data": data,
+        "timestamp": utc_now().isoformat(),
+        "message_id": str(uuid.uuid4()),
+        "user_id": user_id,
+    }
 
 @router.websocket("/emotion/{user_id}")
-async def emotion_websocket_endpoint(websocket: WebSocket, user_id: str):
-    """情感分析WebSocket端点"""
-    await connection_manager.connect(websocket, user_id)
-    
+async def emotion_ws(websocket: WebSocket, user_id: str):
+    await websocket.accept()
+    await websocket.send_text(
+        json.dumps(
+            _msg(
+                "connect",
+                user_id,
+                {
+                    "status": "connected",
+                    "user_id": user_id,
+                    "server_time": utc_now().isoformat(),
+                    "capabilities": ["text", "image", "audio", "video", "physiological"],
+                },
+            ),
+            ensure_ascii=False,
+        )
+    )
+
     try:
         while True:
-            # 接收客户端消息
-            data = await websocket.receive_text()
-            
+            raw = await websocket.receive_text()
             try:
-                message_data = json.loads(data)
-                message = WebSocketMessage(**message_data)
-                
-                if message.type == MessageType.EMOTION_INPUT:
-                    # 处理情感输入
-                    emotion_input = EmotionInputMessage(**message.data)
-                    await connection_manager.process_emotion_input(user_id, emotion_input)
-                    
-                elif message.type == MessageType.HEARTBEAT:
-                    # 响应心跳
-                    await connection_manager.send_message(user_id, {
-                        "type": MessageType.HEARTBEAT,
-                        "data": {"status": "alive"},
-                        "timestamp": datetime.now(),
-                        "message_id": str(uuid.uuid4())
-                    })
-                
-                elif message.type == MessageType.STREAM_STATUS:
-                    # 获取流状态
-                    if connection_manager.stream_manager:
-                        status = connection_manager.stream_manager.get_manager_status()
-                        await connection_manager.send_message(user_id, {
-                            "type": MessageType.STREAM_STATUS,
-                            "data": status,
-                            "timestamp": datetime.now(),
-                            "message_id": str(uuid.uuid4())
-                        })
-                
-            except ValidationError as e:
-                # 消息格式错误
-                await connection_manager.send_message(user_id, {
-                    "type": MessageType.ERROR,
-                    "data": {
-                        "error": "invalid_message_format",
-                        "message": "Invalid message format",
-                        "details": str(e)
-                    },
-                    "timestamp": datetime.now(),
-                    "message_id": str(uuid.uuid4())
-                })
-            
-            except json.JSONDecodeError:
-                # JSON解析错误
-                await connection_manager.send_message(user_id, {
-                    "type": MessageType.ERROR,
-                    "data": {
-                        "error": "json_parse_error",
-                        "message": "Failed to parse JSON message"
-                    },
-                    "timestamp": datetime.now(),
-                    "message_id": str(uuid.uuid4())
-                })
-    
-    except WebSocketDisconnect:
-        logger.info(f"WebSocket disconnected for user {user_id}")
-    except Exception as e:
-        logger.error(f"WebSocket error for user {user_id}: {e}")
-    finally:
-        await connection_manager.disconnect(user_id)
+                msg = json.loads(raw)
+            except Exception:
+                await websocket.send_text(json.dumps(_msg("error", user_id, {"error": "消息格式无效"}), ensure_ascii=False))
+                continue
 
+            msg_type = str(msg.get("type", "")).strip()
+            if msg_type == "heartbeat":
+                await websocket.send_text(json.dumps(_msg("heartbeat", user_id, {"ok": True}), ensure_ascii=False))
+                continue
 
-# 情感结果回调处理器
-class EmotionResultHandler:
-    """处理情感分析结果并发送给WebSocket客户端"""
-    
-    def __init__(self, connection_manager: ConnectionManager):
-        self.connection_manager = connection_manager
-    
-    async def handle_emotion_result(self, user_id: str, result: UnifiedEmotionalData):
-        """处理情感分析结果"""
-        try:
-            # 将结果转换为客户端格式
-            result_data = {
-                "user_id": result.user_id,
-                "timestamp": result.timestamp.isoformat(),
-                "confidence": result.confidence,
-                "processing_time": result.processing_time,
-                "data_quality": result.data_quality
+            if msg_type != "emotion_input":
+                await websocket.send_text(json.dumps(_msg("error", user_id, {"error": "不支持的消息类型"}), ensure_ascii=False))
+                continue
+
+            t_start = time.time()
+            data = msg.get("data") or {}
+            modalities = data.get("modalities") or []
+
+            emotions: Dict[str, EmotionState] = {}
+            if "text" in modalities and data.get("text"):
+                emotions["text"] = _emotion_from_text(str(data["text"]))
+            if "physiological" in modalities and data.get("physiological_data"):
+                emo = _emotion_from_bytes("physiological", json.dumps(data["physiological_data"], ensure_ascii=False).encode("utf-8"))
+                if emo:
+                    emotions["physiological"] = emo
+            if "image" in modalities and data.get("image_data"):
+                emo = _emotion_from_image_b64(str(data["image_data"]))
+                if emo:
+                    emotions["image"] = emo
+            if "audio" in modalities and data.get("audio_data"):
+                emo = _emotion_from_bytes("audio", _b64decode(str(data["audio_data"])))
+                if emo:
+                    emotions["audio"] = emo
+            if "video" in modalities and data.get("video_data"):
+                emo = _emotion_from_bytes("video", _b64decode(str(data["video_data"])))
+                if emo:
+                    emotions["video"] = emo
+
+            fused = _fuse(emotions)
+            processing_time = max(0.0, time.time() - t_start)
+            unified = {
+                "user_id": user_id,
+                "timestamp": utc_now().isoformat(),
+                "recognition_result": {
+                    "fused_emotion": asdict(fused),
+                    "emotions": {k: asdict(v) for k, v in emotions.items()},
+                    "confidence": fused.confidence,
+                    "processing_time": processing_time,
+                },
+                "emotional_state": asdict(fused),
+                "confidence": fused.confidence,
+                "processing_time": processing_time,
+                "data_quality": min(1.0, max(0.2, fused.confidence)),
             }
-            
-            # 添加识别结果
-            if result.recognition_result:
-                result_data["recognition_result"] = {
-                    "fused_emotion": {
-                        "emotion": result.recognition_result.fused_emotion.emotion.value,
-                        "intensity": result.recognition_result.fused_emotion.intensity,
-                        "valence": result.recognition_result.fused_emotion.valence,
-                        "arousal": result.recognition_result.fused_emotion.arousal,
-                        "dominance": result.recognition_result.fused_emotion.dominance,
-                        "confidence": result.recognition_result.fused_emotion.confidence
-                    },
-                    "emotions": {
-                        modality.value: {
-                            "emotion": emotion.emotion.value,
-                            "intensity": emotion.intensity,
-                            "valence": emotion.valence,
-                            "arousal": emotion.arousal,
-                            "dominance": emotion.dominance,
-                            "confidence": emotion.confidence
-                        }
-                        for modality, emotion in result.recognition_result.emotions.items()
-                    },
-                    "confidence": result.recognition_result.confidence,
-                    "processing_time": result.recognition_result.processing_time
-                }
-            
-            # 添加其他组件的结果
-            if result.empathy_response:
-                result_data["empathy_response"] = {
-                    "message": result.empathy_response.message,
-                    "response_type": result.empathy_response.response_type,
-                    "confidence": result.empathy_response.confidence,
-                    "generation_strategy": result.empathy_response.generation_strategy
-                }
-            
-            if result.personality_profile:
-                result_data["personality_profile"] = {
-                    "openness": result.personality_profile.openness,
-                    "conscientiousness": result.personality_profile.conscientiousness,
-                    "extraversion": result.personality_profile.extraversion,
-                    "agreeableness": result.personality_profile.agreeableness,
-                    "neuroticism": result.personality_profile.neuroticism,
-                    "updated_at": result.personality_profile.updated_at.isoformat()
-                }
-            
-            # 发送结果给客户端
-            await self.connection_manager.send_message(user_id, {
-                "type": MessageType.EMOTION_RESULT,
-                "data": result_data,
-                "timestamp": datetime.now(),
-                "message_id": str(uuid.uuid4())
-            })
-            
-            # 记录质量监控数据
-            if result.emotional_state:
-                await quality_monitor.record_prediction(
-                    user_id=user_id,
-                    predicted_emotion=result.emotional_state,
-                    modality=ModalityType.TEXT,  # 默认模态，实际应该从结果中获取
-                    processing_time=result.processing_time,
-                    confidence=result.confidence,
-                    data_quality=result.data_quality
-                )
-            
-        except Exception as e:
-            logger.error(f"Error handling emotion result for user {user_id}: {e}")
+            await websocket.send_text(json.dumps(_msg("emotion_result", user_id, unified), ensure_ascii=False))
 
-
-# 创建结果处理器实例
-emotion_result_handler = EmotionResultHandler(connection_manager)
-
-
-# REST API端点用于管理和监控
-@router.get("/stats")
-async def get_websocket_stats():
-    """获取WebSocket连接统计"""
-    return connection_manager.get_connection_stats()
-
-
-@router.post("/broadcast")
-async def broadcast_message(message: Dict[str, Any]):
-    """向所有连接的用户广播消息"""
-    await connection_manager.broadcast_message({
-        "type": MessageType.SYSTEM_STATUS,
-        "data": message,
-        "timestamp": datetime.now(),
-        "message_id": str(uuid.uuid4())
-    })
-    return {"status": "broadcasted", "active_connections": len(connection_manager.active_connections)}
+    except WebSocketDisconnect:
+        logger.info("情感WebSocket断开", user_id=user_id)
+    except Exception as e:
+        logger.error("情感WebSocket异常", user_id=user_id, error=str(e))
+        try:
+            await websocket.close()
+        except Exception:
+            logger.exception("关闭情感WebSocket失败", exc_info=True)

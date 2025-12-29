@@ -112,7 +112,7 @@ const BatchProcessor: React.FC<BatchProcessorProps> = ({
               className="mt-4"
               message={`有 ${failedCount} 个文件处理失败`}
               description="失败的文件可以选择重试或查看错误详情"
-              variant="destructive"
+              type="error"
               showIcon
             />
           )}

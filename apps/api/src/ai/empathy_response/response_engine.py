@@ -3,11 +3,10 @@
 
 统筹协调整个共情响应生成流程
 """
-import time
-import logging
-from typing import Optional, Dict, Any, List
-from datetime import datetime
 
+from src.core.utils.timezone_utils import utc_now
+import time
+from typing import Optional, Dict, Any, List
 from .models import (
     EmpathyRequest, EmpathyResponse, DialogueContext, 
     EmpathyType, CulturalContext, ResponseTone
@@ -19,8 +18,8 @@ from .personalization_engine import PersonalizationEngine
 from ..emotion_modeling.models import EmotionState, PersonalityProfile
 from ..emotion_recognition.models.emotion_models import MultiModalEmotion
 
-logger = logging.getLogger(__name__)
-
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 class EmpathyResponseEngine:
     """共情响应生成引擎"""
@@ -281,7 +280,7 @@ class EmpathyResponseEngine:
         # 添加元数据
         response.metadata.update({
             "engine_version": "1.0.0",
-            "processing_timestamp": datetime.now().isoformat(),
+            "processing_timestamp": utc_now().isoformat(),
             "request_id": getattr(request, 'request_id', None)
         })
         
@@ -302,7 +301,7 @@ class EmpathyResponseEngine:
             metadata={
                 "fallback": True,
                 "error": error_msg,
-                "timestamp": datetime.now().isoformat()
+                "timestamp": utc_now().isoformat()
             }
         )
     
@@ -377,7 +376,7 @@ class EmpathyResponseEngine:
                 "healthy": is_healthy,
                 "response_time_ms": round(response_time, 2),
                 "test_response_length": len(test_response.response_text),
-                "timestamp": datetime.now().isoformat(),
+                "timestamp": utc_now().isoformat(),
                 "stats": self.get_performance_stats()
             }
             
@@ -386,5 +385,5 @@ class EmpathyResponseEngine:
             return {
                 "healthy": False,
                 "error": str(e),
-                "timestamp": datetime.now().isoformat()
+                "timestamp": utc_now().isoformat()
             }

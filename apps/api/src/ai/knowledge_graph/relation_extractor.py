@@ -8,18 +8,15 @@
 
 import re
 import spacy
-import logging
 import time
 from typing import List, Dict, Optional, Any, Tuple, Set
 from dataclasses import dataclass, field
 from collections import defaultdict
 import itertools
-
 from .data_models import Entity, Relation, RelationType, EntityType
 
-
-logger = logging.getLogger(__name__)
-
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 @dataclass
 class RelationPattern:
@@ -39,7 +36,6 @@ class RelationPattern:
         if self.object_types and obj.label not in self.object_types:
             return False
         return True
-
 
 class PatternBasedExtractor:
     """基于模式的关系抽取器"""
@@ -285,7 +281,6 @@ class PatternBasedExtractor:
         
         return None
 
-
 class DependencyBasedExtractor:
     """基于依存句法的关系抽取器"""
     
@@ -505,7 +500,6 @@ class DependencyBasedExtractor:
                             return True
         
         return False
-
 
 class RelationExtractor:
     """关系抽取器主类 - 集成多种抽取方法"""

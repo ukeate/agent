@@ -3,26 +3,20 @@
 import re
 from typing import List, Optional, Tuple, Dict, Any
 from abc import ABC, abstractmethod
-
-from models.schemas.reasoning import (
+from src.models.schemas.reasoning import (
     ThoughtStep,
     ThoughtStepType,
     ReasoningChain,
     ReasoningValidation
 )
-from src.core.logging import get_logger
-
-logger = get_logger(__name__)
-
 
 class BaseValidator(ABC):
     """验证器基类"""
-    
+
     @abstractmethod
     async def validate(self, step: ThoughtStep, chain: ReasoningChain) -> ReasoningValidation:
         """验证推理步骤"""
-        pass
-
+        raise NotImplementedError
 
 class ConsistencyValidator(BaseValidator):
     """一致性验证器"""
@@ -128,7 +122,6 @@ class ConsistencyValidator(BaseValidator):
         
         return True
 
-
 class ConfidenceValidator(BaseValidator):
     """置信度验证器"""
     
@@ -185,7 +178,6 @@ class ConfidenceValidator(BaseValidator):
             return "increasing"
         else:
             return "stable"
-
 
 class SelfCheckValidator(BaseValidator):
     """自我检查验证器"""
@@ -274,7 +266,6 @@ class SelfCheckValidator(BaseValidator):
         
         return len(intersection) / len(union) if union else 0.0
 
-
 class CompositeValidator(BaseValidator):
     """组合验证器"""
     
@@ -319,7 +310,6 @@ class CompositeValidator(BaseValidator):
             issues=all_issues,
             suggestions=all_suggestions
         )
-
 
 def calculate_chain_quality_score(chain: ReasoningChain) -> float:
     """计算推理链的总体质量分数"""

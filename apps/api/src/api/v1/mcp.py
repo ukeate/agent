@@ -1,29 +1,26 @@
 """MCP API路由"""
 
-import logging
 from typing import Any, Dict, List, Optional
-
 from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel, Field
-
+from pydantic import Field
 from src.ai.mcp.client import get_mcp_client_manager, MCPClientManager
 from src.ai.mcp.exceptions import MCPError, create_mcp_error_response
 from src.ai.mcp.monitoring import get_monitor_dependency, MCPMonitor
+from src.core.security.auth import User, require_permission
+from src.api.base_model import ApiBaseModel
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 router = APIRouter(prefix="/mcp", tags=["MCP"])
 
-
 # Pydantic模型定义
-class ToolCallRequest(BaseModel):
+class ToolCallRequest(ApiBaseModel):
     """工具调用请求"""
     server_type: str = Field(..., description="MCP服务器类型 (filesystem, database, system)")
     tool_name: str = Field(..., description="工具名称")
     arguments: Dict[str, Any] = Field(default_factory=dict, description="工具参数")
 
-
-class ToolCallResponse(BaseModel):
+class ToolCallResponse(ApiBaseModel):
     """工具调用响应"""
     success: bool = Field(..., description="调用是否成功")
     result: Optional[Any] = Field(None, description="调用结果")
@@ -32,29 +29,24 @@ class ToolCallResponse(BaseModel):
     tool_name: str = Field(..., description="工具名称")
     server_type: str = Field(..., description="服务器类型")
 
-
-class HealthCheckResponse(BaseModel):
+class HealthCheckResponse(ApiBaseModel):
     """健康检查响应"""
     initialized: bool = Field(..., description="是否初始化")
     overall_healthy: bool = Field(..., description="整体健康状态")
     servers: Dict[str, Dict[str, Any]] = Field(..., description="各服务器状态")
 
-
-class AvailableToolsResponse(BaseModel):
+class AvailableToolsResponse(ApiBaseModel):
     """可用工具响应"""
     tools: Dict[str, List[Dict[str, Any]]] = Field(..., description="按服务器类型分组的工具列表")
 
-
-class MetricsResponse(BaseModel):
+class MetricsResponse(ApiBaseModel):
     """指标响应"""
     monitoring_stats: Dict[str, Any] = Field(..., description="监控统计")
     retry_stats: Dict[str, Any] = Field(..., description="重试统计")
 
-
-@router.post("/tools/call", response_model=ToolCallResponse)
-async def call_tool(
+async def _call_tool_internal(
     request: ToolCallRequest,
-    mcp_manager: MCPClientManager = Depends(get_mcp_client_manager)
+    mcp_manager: MCPClientManager,
 ) -> ToolCallResponse:
     """调用MCP工具
     
@@ -105,11 +97,19 @@ async def call_tool(
             detail=f"Internal server error: {str(e)}"
         )
 
+@router.post("/tools/call", response_model=ToolCallResponse)
+async def call_tool(
+    request: ToolCallRequest,
+    mcp_manager: MCPClientManager = Depends(get_mcp_client_manager),
+    _: User = Depends(require_permission("tools:execute")),
+) -> ToolCallResponse:
+    return await _call_tool_internal(request, mcp_manager)
 
 @router.get("/tools", response_model=AvailableToolsResponse)
 async def list_available_tools(
     server_type: Optional[str] = None,
-    mcp_manager: MCPClientManager = Depends(get_mcp_client_manager)
+    mcp_manager: MCPClientManager = Depends(get_mcp_client_manager),
+    _: User = Depends(require_permission("tools:read")),
 ) -> AvailableToolsResponse:
     """列出可用的MCP工具
     
@@ -136,7 +136,6 @@ async def list_available_tools(
             detail=f"Failed to list tools: {str(e)}"
         )
 
-
 @router.get("/health", response_model=HealthCheckResponse)
 async def health_check(
     mcp_manager: MCPClientManager = Depends(get_mcp_client_manager)
@@ -158,11 +157,10 @@ async def health_check(
             detail=f"Health check failed: {str(e)}"
         )
 
-
 @router.get("/metrics", response_model=MetricsResponse)
 async def get_metrics(
     mcp_manager: MCPClientManager = Depends(get_mcp_client_manager),
-    monitor: MCPMonitor = Depends(get_monitor_dependency)
+    monitor: MCPMonitor = Depends(get_monitor_dependency),
 ) -> MetricsResponse:
     """获取MCP系统指标"""
     try:
@@ -181,12 +179,12 @@ async def get_metrics(
             detail=f"Failed to get metrics: {str(e)}"
         )
 
-
 @router.post("/tools/filesystem/read")
 async def read_file(
     path: str,
     encoding: str = "utf-8",
-    mcp_manager: MCPClientManager = Depends(get_mcp_client_manager)
+    mcp_manager: MCPClientManager = Depends(get_mcp_client_manager),
+    _: User = Depends(require_permission("tools:read")),
 ) -> Dict[str, Any]:
     """读取文件 - 文件系统工具的便捷接口"""
     request = ToolCallRequest(
@@ -194,7 +192,7 @@ async def read_file(
         tool_name="read_file",
         arguments={"path": path, "encoding": encoding}
     )
-    response = await call_tool(request, mcp_manager)
+    response = await _call_tool_internal(request, mcp_manager)
     
     if not response.success:
         raise HTTPException(
@@ -204,13 +202,13 @@ async def read_file(
     
     return response.result
 
-
 @router.post("/tools/filesystem/write")
 async def write_file(
     path: str,
     content: str,
     encoding: str = "utf-8",
-    mcp_manager: MCPClientManager = Depends(get_mcp_client_manager)
+    mcp_manager: MCPClientManager = Depends(get_mcp_client_manager),
+    _: User = Depends(require_permission("tools:write")),
 ) -> Dict[str, Any]:
     """写入文件 - 文件系统工具的便捷接口"""
     request = ToolCallRequest(
@@ -218,7 +216,7 @@ async def write_file(
         tool_name="write_file",
         arguments={"path": path, "content": content, "encoding": encoding}
     )
-    response = await call_tool(request, mcp_manager)
+    response = await _call_tool_internal(request, mcp_manager)
     
     if not response.success:
         raise HTTPException(
@@ -228,12 +226,12 @@ async def write_file(
     
     return response.result
 
-
 @router.get("/tools/filesystem/list")
 async def list_directory(
     path: str,
     include_hidden: bool = False,
-    mcp_manager: MCPClientManager = Depends(get_mcp_client_manager)
+    mcp_manager: MCPClientManager = Depends(get_mcp_client_manager),
+    _: User = Depends(require_permission("tools:read")),
 ) -> Dict[str, Any]:
     """列出目录 - 文件系统工具的便捷接口"""
     request = ToolCallRequest(
@@ -241,7 +239,7 @@ async def list_directory(
         tool_name="list_directory",
         arguments={"path": path, "include_hidden": include_hidden}
     )
-    response = await call_tool(request, mcp_manager)
+    response = await _call_tool_internal(request, mcp_manager)
     
     if not response.success:
         raise HTTPException(
@@ -251,12 +249,12 @@ async def list_directory(
     
     return response.result
 
-
 @router.post("/tools/database/query")
 async def execute_query(
     query: str,
     parameters: Optional[Dict[str, Any]] = None,
-    mcp_manager: MCPClientManager = Depends(get_mcp_client_manager)
+    mcp_manager: MCPClientManager = Depends(get_mcp_client_manager),
+    _: User = Depends(require_permission("tools:execute")),
 ) -> Dict[str, Any]:
     """执行数据库查询 - 数据库工具的便捷接口"""
     arguments = {"query": query}
@@ -268,7 +266,7 @@ async def execute_query(
         tool_name="execute_query",
         arguments=arguments
     )
-    response = await call_tool(request, mcp_manager)
+    response = await _call_tool_internal(request, mcp_manager)
     
     if not response.success:
         raise HTTPException(
@@ -283,12 +281,12 @@ async def execute_query(
     
     return result
 
-
 @router.post("/tools/system/command")
 async def run_command(
     command: str,
     timeout: Optional[int] = None,
-    mcp_manager: MCPClientManager = Depends(get_mcp_client_manager)
+    mcp_manager: MCPClientManager = Depends(get_mcp_client_manager),
+    _: User = Depends(require_permission("system:admin")),
 ) -> Dict[str, Any]:
     """执行系统命令 - 系统工具的便捷接口"""
     arguments = {"command": command}
@@ -300,7 +298,7 @@ async def run_command(
         tool_name="run_command",
         arguments=arguments
     )
-    response = await call_tool(request, mcp_manager)
+    response = await _call_tool_internal(request, mcp_manager)
     
     if not response.success:
         raise HTTPException(
@@ -314,3 +312,4 @@ async def run_command(
         result["output"] = result["stdout"]
     
     return result
+from src.core.logging import get_logger

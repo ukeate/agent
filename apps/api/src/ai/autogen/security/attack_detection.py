@@ -2,6 +2,7 @@
 对抗攻击检测器集合
 实现Prompt注入、数据泄露、模型中毒等攻击检测机制
 """
+
 import re
 import asyncio
 import hashlib
@@ -12,14 +13,12 @@ from src.core.utils.timezone_utils import utc_now, utc_factory
 from typing import Dict, Any, List, Optional, Tuple, Set
 from dataclasses import dataclass
 from enum import Enum
-import structlog
 import numpy as np
 from collections import defaultdict, deque
-
 from .trism import ThreatLevel, SecurityEvent
 
-logger = structlog.get_logger(__name__)
-
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 class AttackType(str, Enum):
     """攻击类型"""
@@ -29,7 +28,6 @@ class AttackType(str, Enum):
     ADVERSARIAL_INPUT = "adversarial_input"
     JAILBREAK = "jailbreak"
     EVASION = "evasion"
-
 
 @dataclass
 class DetectionResult:
@@ -52,7 +50,6 @@ class DetectionResult:
             "evidence": self.evidence,
             "mitigation_suggestions": self.mitigation_suggestions
         }
-
 
 class PromptInjectionDetector:
     """Prompt注入攻击检测器"""
@@ -381,7 +378,6 @@ class PromptInjectionDetector:
         }
         self.detection_history.append(record)
 
-
 class DataLeakageDetector:
     """数据泄露检测器"""
     
@@ -703,7 +699,6 @@ class DataLeakageDetector:
             "confidence": confidence
         }
         self.leakage_history.append(record)
-
 
 class ModelPoisoningDetector:
     """模型中毒检测器"""
@@ -1065,7 +1060,6 @@ class ModelPoisoningDetector:
             "confidence": confidence
         }
         self.poisoning_history.append(record)
-
 
 class AttackDetectionManager:
     """攻击检测管理器"""

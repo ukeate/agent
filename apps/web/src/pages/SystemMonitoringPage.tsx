@@ -1,5 +1,7 @@
+import { buildApiUrl, apiFetch } from '../utils/apiBase'
 import React, { useState, useEffect } from 'react'
 import {
+import { logger } from '../utils/logger'
   Card,
   Row,
   Col,
@@ -105,7 +107,7 @@ const SystemMonitoringPage: React.FC = () => {
 
   useEffect(() => {
     fetchMonitoringData()
-    let interval: NodeJS.Timeout
+    let interval: ReturnType<typeof setTimeout>
     if (realTimeMode) {
       interval = setInterval(fetchMonitoringData, 5000)
     }
@@ -117,34 +119,34 @@ const SystemMonitoringPage: React.FC = () => {
   const fetchMonitoringData = async () => {
     setLoading(true)
     try {
-      const [metricsRes, alertsRes, rulesRes, servicesRes] = await Promise.all([
-        fetch('/api/v1/platform-integration/monitoring/metrics'),
-        fetch('/api/v1/platform-integration/monitoring/alerts'),
-        fetch('/api/v1/platform-integration/monitoring/rules'),
-        fetch('/api/v1/platform-integration/monitoring/services')
+      const [metricsRes, alertsRes, rulesRes, servicesRes] = await Promise.allSettled([
+        apiFetch(buildApiUrl('/api/v1/platform/monitoring/metrics')),
+        apiFetch(buildApiUrl('/api/v1/platform/monitoring/alerts')),
+        apiFetch(buildApiUrl('/api/v1/platform/monitoring/rules')),
+        apiFetch(buildApiUrl('/api/v1/platform/monitoring/services'))
       ])
 
-      if (metricsRes.ok) {
-        const data = await metricsRes.json()
+      if (metricsRes.status === 'fulfilled') {
+        const data = await metricsRes.value.json()
         setMetrics(data.metrics || [])
       }
 
-      if (alertsRes.ok) {
-        const data = await alertsRes.json()
+      if (alertsRes.status === 'fulfilled') {
+        const data = await alertsRes.value.json()
         setAlerts(data.alerts || [])
       }
 
-      if (rulesRes.ok) {
-        const data = await rulesRes.json()
+      if (rulesRes.status === 'fulfilled') {
+        const data = await rulesRes.value.json()
         setRules(data.rules || [])
       }
 
-      if (servicesRes.ok) {
-        const data = await servicesRes.json()
+      if (servicesRes.status === 'fulfilled') {
+        const data = await servicesRes.value.json()
         setServices(data.services || [])
       }
     } catch (error) {
-      console.error('获取监控数据失败:', error)
+      logger.error('获取监控数据失败:', error)
     } finally {
       setLoading(false)
     }
@@ -152,20 +154,16 @@ const SystemMonitoringPage: React.FC = () => {
 
   const handleCreateRule = async (values: any) => {
     try {
-      const response = await fetch('/api/v1/platform-integration/monitoring/rules', {
+      const response = await apiFetch(buildApiUrl('/api/v1/platform/monitoring/rules'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(values)
       })
-
-      if (response.ok) {
-        message.success('监控规则创建成功')
-        setRuleModalVisible(false)
-        form.resetFields()
-        fetchMonitoringData()
-      } else {
-        message.error('创建失败')
-      }
+      await response.json().catch(() => null)
+      message.success('监控规则创建成功')
+      setRuleModalVisible(false)
+      form.resetFields()
+      fetchMonitoringData()
     } catch (error) {
       message.error('创建失败')
     }
@@ -173,18 +171,14 @@ const SystemMonitoringPage: React.FC = () => {
 
   const handleToggleRule = async (ruleId: string, enabled: boolean) => {
     try {
-      const response = await fetch(`/api/v1/platform-integration/monitoring/rules/${ruleId}`, {
+      const response = await apiFetch(buildApiUrl(`/api/v1/platform/monitoring/rules/${ruleId}`), {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ enabled })
       })
-
-      if (response.ok) {
-        message.success(enabled ? '规则已启用' : '规则已禁用')
-        fetchMonitoringData()
-      } else {
-        message.error('操作失败')
-      }
+      await response.json().catch(() => null)
+      message.success(enabled ? '规则已启用' : '规则已禁用')
+      fetchMonitoringData()
     } catch (error) {
       message.error('操作失败')
     }
@@ -192,16 +186,12 @@ const SystemMonitoringPage: React.FC = () => {
 
   const handleResolveAlert = async (alertId: string) => {
     try {
-      const response = await fetch(`/api/v1/platform-integration/monitoring/alerts/${alertId}/resolve`, {
+      const response = await apiFetch(buildApiUrl(`/api/v1/platform/monitoring/alerts/${alertId}/resolve`), {
         method: 'POST'
       })
-
-      if (response.ok) {
-        message.success('告警已解决')
-        fetchMonitoringData()
-      } else {
-        message.error('操作失败')
-      }
+      await response.json().catch(() => null)
+      message.success('告警已解决')
+      fetchMonitoringData()
     } catch (error) {
       message.error('操作失败')
     }

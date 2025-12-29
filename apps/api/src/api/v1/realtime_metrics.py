@@ -1,15 +1,19 @@
 """
 实时指标API端点
 """
+
 from typing import List, Dict, Any, Optional
-from fastapi import APIRouter, HTTPException, Query, BackgroundTasks
-from pydantic import BaseModel, Field, validator
+from fastapi import APIRouter, HTTPException, Query, BackgroundTasks, Request, Depends
+from pydantic import Field, field_validator, ConfigDict
 from datetime import datetime
 from src.core.utils.timezone_utils import utc_now, utc_factory
-
-from core.logging import get_logger
-from services.realtime_metrics_service import (
+from src.ai.cluster import MetricsCollector
+from src.services.realtime_metrics_service import (
     get_realtime_metrics_service,
+    MetricDefinition,
+    MetricCategory,
+    MetricType,
+    AggregationType,
     MetricDefinition,
     MetricCategory,
     MetricType,
@@ -17,12 +21,60 @@ from services.realtime_metrics_service import (
     TimeWindow
 )
 
+from src.core.logging import get_logger
 logger = get_logger(__name__)
+
 router = APIRouter(prefix="/realtime-metrics", tags=["实时指标"])
 
+async def get_metrics_collector(request: Request) -> MetricsCollector:
+    metrics_collector = getattr(request.app.state, "metrics_collector", None)
+    if metrics_collector is None:
+        raise HTTPException(status_code=503, detail="Metrics collector not initialized")
+    return metrics_collector
+
+def _pick_metric_value(summary: Dict[str, Any], name: str) -> Optional[float]:
+    metric = summary.get(name)
+    if not metric:
+        return None
+    latest = metric.get("latest")
+    return latest if latest is not None else metric.get("average")
+
+def _format_timestamp() -> str:
+    return utc_now().isoformat()
+
+def _metric_unit(name: str) -> str:
+    unit_map = {
+        "cpu_usage_percent": "%",
+        "memory_usage_percent": "%",
+        "storage_usage_percent": "%",
+        "gpu_usage_percent": "%",
+        "network_io_mbps": "Mbps",
+        "avg_response_time": "ms",
+        "error_rate": "%",
+        "total_requests": "req",
+        "failed_requests": "req",
+        "active_tasks": "tasks",
+    }
+    return unit_map.get(name, "")
+
+def _compute_series_rate(series: Any, duration_seconds: float = 300) -> Optional[float]:
+    if not series or not getattr(series, "points", None):
+        return None
+    cutoff = utc_now().timestamp() - duration_seconds
+    points = [p for p in series.points if p.timestamp >= cutoff]
+    if len(points) < 2:
+        return None
+    points.sort(key=lambda p: p.timestamp)
+    elapsed = points[-1].timestamp - points[0].timestamp
+    if elapsed <= 0:
+        return None
+    delta = points[-1].value - points[0].value
+    if delta < 0:
+        return None
+    return delta / elapsed
 
 # 请求模型
-class MetricDefinitionRequest(BaseModel):
+class MetricDefinitionRequest(ApiBaseModel):
     """指标定义请求"""
     name: str = Field(..., description="指标名称")
     display_name: str = Field(..., description="显示名称")
@@ -37,37 +89,34 @@ class MetricDefinitionRequest(BaseModel):
     threshold_lower: Optional[float] = Field(None, description="下限阈值")
     threshold_upper: Optional[float] = Field(None, description="上限阈值")
     
-    @validator('metric_type')
+    @field_validator('metric_type')
     def validate_metric_type(cls, v):
         allowed = ["conversion", "continuous", "count", "ratio"]
         if v not in allowed:
             raise ValueError(f"Metric type must be one of {allowed}")
         return v
-    
-    @validator('category')
+
+    @field_validator('category')
     def validate_category(cls, v):
         allowed = ["primary", "secondary", "guardrail", "diagnostic"]
         if v not in allowed:
             raise ValueError(f"Category must be one of {allowed}")
         return v
 
-
-class MetricsCalculationRequest(BaseModel):
+class MetricsCalculationRequest(ApiBaseModel):
     """指标计算请求"""
     experiment_id: str = Field(..., description="实验ID")
     time_window: TimeWindow = Field(TimeWindow.CUMULATIVE, description="时间窗口")
     metrics: Optional[List[str]] = Field(None, description="指定计算的指标")
 
-
-class GroupComparisonRequest(BaseModel):
+class GroupComparisonRequest(ApiBaseModel):
     """分组比较请求"""
     experiment_id: str = Field(..., description="实验ID")
     control_group: str = Field(..., description="对照组ID")
     treatment_group: str = Field(..., description="实验组ID")
     metrics: Optional[List[str]] = Field(None, description="指定比较的指标")
 
-
-class MetricTrendsRequest(BaseModel):
+class MetricTrendsRequest(ApiBaseModel):
     """指标趋势请求"""
     experiment_id: str = Field(..., description="实验ID")
     metric_name: str = Field(..., description="指标名称")
@@ -75,9 +124,8 @@ class MetricTrendsRequest(BaseModel):
     start_time: Optional[datetime] = Field(None, description="开始时间")
     end_time: Optional[datetime] = Field(None, description="结束时间")
 
-
 # 响应模型
-class MetricSnapshotResponse(BaseModel):
+class MetricSnapshotResponse(ApiBaseModel):
     """指标快照响应"""
     metric_name: str
     value: float
@@ -85,8 +133,8 @@ class MetricSnapshotResponse(BaseModel):
     confidence_interval: Optional[List[float]]
     timestamp: str
     
-    class Config:
-        schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "metric_name": "conversion_rate",
                 "value": 0.15,
@@ -95,9 +143,9 @@ class MetricSnapshotResponse(BaseModel):
                 "timestamp": "2024-01-15T10:30:00Z"
             }
         }
+    )
 
-
-class GroupMetricsResponse(BaseModel):
+class GroupMetricsResponse(ApiBaseModel):
     """分组指标响应"""
     group_id: str
     group_name: str
@@ -105,8 +153,8 @@ class GroupMetricsResponse(BaseModel):
     user_count: int
     event_count: int
     
-    class Config:
-        schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "group_id": "control",
                 "group_name": "Control Group",
@@ -121,9 +169,9 @@ class GroupMetricsResponse(BaseModel):
                 "event_count": 1500
             }
         }
+    )
 
-
-class MetricComparisonResponse(BaseModel):
+class MetricComparisonResponse(ApiBaseModel):
     """指标比较响应"""
     metric_name: str
     control_value: float
@@ -134,8 +182,8 @@ class MetricComparisonResponse(BaseModel):
     is_significant: bool
     confidence_interval: Optional[List[float]]
     
-    class Config:
-        schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "metric_name": "conversion_rate",
                 "control_value": 0.15,
@@ -147,9 +195,9 @@ class MetricComparisonResponse(BaseModel):
                 "confidence_interval": [0.01, 0.05]
             }
         }
+    )
 
-
-class RealtimeMetricsResponse(BaseModel):
+class RealtimeMetricsResponse(ApiBaseModel):
     """实时指标响应"""
     experiment_id: str
     groups: Dict[str, GroupMetricsResponse]
@@ -157,16 +205,63 @@ class RealtimeMetricsResponse(BaseModel):
     time_window: str
     message: str = Field(default="Metrics calculated successfully")
 
-
-class MetricTrendsResponse(BaseModel):
+class MetricTrendsResponse(ApiBaseModel):
     """指标趋势响应"""
     metric_name: str
     trends: List[MetricSnapshotResponse]
     granularity: str
     message: str = Field(default="Trends retrieved successfully")
 
-
 # API端点
+@router.get("/overview")
+async def get_realtime_overview(
+    metrics_collector: MetricsCollector = Depends(get_metrics_collector),
+):
+    """获取实时指标总览（真实采集）"""
+    summary = await metrics_collector.get_metrics_summary()
+    timestamp = _format_timestamp()
+    metrics = []
+    for name in sorted(summary.keys()):
+        value = _pick_metric_value(summary, name)
+        if value is None:
+            continue
+        metrics.append(
+            {
+                "name": name,
+                "value": value,
+                "unit": _metric_unit(name),
+                "timestamp": timestamp,
+            }
+        )
+    return {"metrics": metrics}
+
+@router.get("/services")
+async def get_service_metrics(
+    metrics_collector: MetricsCollector = Depends(get_metrics_collector),
+):
+    """获取服务级别指标（基于智能体实时指标）"""
+    topology = await metrics_collector.cluster_manager.get_cluster_topology()
+    services = []
+    for agent_id, agent in topology.agents.items():
+        summary = await metrics_collector.get_metrics_summary(agent_id=agent_id)
+        payload: Dict[str, Any] = {"service": agent.name or agent.agent_id}
+
+        latency = _pick_metric_value(summary, "avg_response_time")
+        if latency is not None:
+            payload["latency_ms"] = latency
+
+        error_rate = _pick_metric_value(summary, "error_rate")
+        if error_rate is not None:
+            payload["error_rate"] = error_rate
+
+        series = metrics_collector.metric_series.get("total_requests", {}).get(agent_id)
+        throughput = _compute_series_rate(series)
+        if throughput is not None:
+            payload["throughput"] = throughput
+
+        services.append(payload)
+    return {"services": services}
+
 @router.post("/register-metric")
 async def register_metric_definition(request: MetricDefinitionRequest):
     """注册新的指标定义"""
@@ -200,7 +295,6 @@ async def register_metric_definition(request: MetricDefinitionRequest):
     except Exception as e:
         logger.error(f"Failed to register metric: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Failed to register metric: {str(e)}")
-
 
 @router.post("/calculate", response_model=RealtimeMetricsResponse)
 async def calculate_experiment_metrics(request: MetricsCalculationRequest):
@@ -247,7 +341,6 @@ async def calculate_experiment_metrics(request: MetricsCalculationRequest):
     except Exception as e:
         logger.error(f"Failed to calculate metrics: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Failed to calculate metrics: {str(e)}")
-
 
 @router.post("/compare-groups")
 async def compare_experiment_groups(request: GroupComparisonRequest):
@@ -301,11 +394,13 @@ async def compare_experiment_groups(request: GroupComparisonRequest):
             },
             "message": f"Compared {len(comparison_results)} metrics between groups"
         }
-        
+    except HTTPException:
+        raise
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         logger.error(f"Failed to compare groups: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Failed to compare groups: {str(e)}")
-
 
 @router.post("/trends", response_model=MetricTrendsResponse)
 async def get_metric_trends(request: MetricTrendsRequest):
@@ -354,7 +449,6 @@ async def get_metric_trends(request: MetricTrendsRequest):
         logger.error(f"Failed to get metric trends: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Failed to get trends: {str(e)}")
 
-
 @router.post("/start-monitoring/{experiment_id}")
 async def start_realtime_monitoring(
     experiment_id: str,
@@ -380,7 +474,6 @@ async def start_realtime_monitoring(
         logger.error(f"Failed to start monitoring: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Failed to start monitoring: {str(e)}")
 
-
 @router.post("/stop-monitoring")
 async def stop_realtime_monitoring():
     """停止实时监控"""
@@ -397,7 +490,6 @@ async def stop_realtime_monitoring():
     except Exception as e:
         logger.error(f"Failed to stop monitoring: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Failed to stop monitoring: {str(e)}")
-
 
 @router.get("/metrics-catalog")
 async def get_metrics_catalog():
@@ -429,7 +521,6 @@ async def get_metrics_catalog():
         logger.error(f"Failed to get metrics catalog: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Failed to get catalog: {str(e)}")
 
-
 @router.get("/metric-definition/{metric_name}")
 async def get_metric_definition(metric_name: str):
     """获取指标定义"""
@@ -451,7 +542,6 @@ async def get_metric_definition(metric_name: str):
     except Exception as e:
         logger.error(f"Failed to get metric definition: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Failed to get definition: {str(e)}")
-
 
 @router.get("/experiment/{experiment_id}/summary")
 async def get_experiment_metrics_summary(
@@ -514,7 +604,6 @@ async def get_experiment_metrics_summary(
     except Exception as e:
         logger.error(f"Failed to get experiment summary: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Failed to get summary: {str(e)}")
-
 
 @router.get("/health")
 async def health_check():

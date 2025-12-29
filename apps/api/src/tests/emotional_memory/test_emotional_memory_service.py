@@ -3,13 +3,13 @@ Test suite for Emotional Memory Service
 Tests business logic, orchestration, and LangGraph integration
 """
 
+from src.core.utils.timezone_utils import utc_now
 import pytest
 import asyncio
 from datetime import datetime, timedelta
 from uuid import uuid4
 from unittest.mock import Mock, AsyncMock, patch, MagicMock
 import numpy as np
-
 from src.services.emotional_memory_service import EmotionalMemoryService
 from src.repositories.emotional_memory_repository import (
     EmotionalMemoryRepository,
@@ -26,7 +26,6 @@ from src.db.emotional_memory_models import (
 from src.ai.memory.models import MemoryContext
 from src.core.exceptions import ServiceException, ValidationException
 
-
 @pytest.fixture
 def mock_memory_repo():
     """Mock EmotionalMemoryRepository"""
@@ -38,7 +37,6 @@ def mock_memory_repo():
     repo.archive_old_memories = AsyncMock(return_value=10)
     return repo
 
-
 @pytest.fixture
 def mock_event_repo():
     """Mock EmotionalEventRepository"""
@@ -46,7 +44,6 @@ def mock_event_repo():
     repo.create_event = AsyncMock()
     repo.analyze_causal_relationships = AsyncMock(return_value={})
     return repo
-
 
 @pytest.fixture
 def mock_preference_repo():
@@ -56,7 +53,6 @@ def mock_preference_repo():
     repo.update_preferences = AsyncMock()
     return repo
 
-
 @pytest.fixture
 def mock_pattern_repo():
     """Mock TriggerPatternRepository"""
@@ -65,12 +61,10 @@ def mock_pattern_repo():
     repo.get_active_patterns = AsyncMock(return_value=[])
     return repo
 
-
 @pytest.fixture
 def mock_redis_client():
     """Mock Redis client"""
     return AsyncMock()
-
 
 @pytest.fixture
 def emotional_memory_service(
@@ -89,7 +83,6 @@ def emotional_memory_service(
         redis_client=mock_redis_client,
         postgres_url="postgresql://test"
     )
-
 
 class TestEmotionalMemoryService:
     """Test suite for EmotionalMemoryService"""
@@ -186,7 +179,7 @@ class TestEmotionalMemoryService:
                 id=uuid4(),
                 emotion_type='joy',
                 intensity=0.8,
-                timestamp=datetime.utcnow(),
+                timestamp=utc_now(),
                 importance_score=0.7,
                 decay_rate=0.1
             )
@@ -226,7 +219,7 @@ class TestEmotionalMemoryService:
                 emotion_type='joy',
                 intensity=0.9,
                 importance_score=0.8,
-                timestamp=datetime.utcnow()
+                timestamp=utc_now()
             )
         ]
         mock_memory_repo.search_memories.return_value = (mock_memories, 1)
@@ -258,7 +251,7 @@ class TestEmotionalMemoryService:
                 emotion_type='sadness',
                 intensity=0.3,
                 valence=-0.5,
-                timestamp=datetime.utcnow() - timedelta(hours=2)
+                timestamp=utc_now() - timedelta(hours=2)
             ),
             Mock(
                 spec=EmotionalMemory,
@@ -266,7 +259,7 @@ class TestEmotionalMemoryService:
                 emotion_type='joy',
                 intensity=0.9,
                 valence=0.8,
-                timestamp=datetime.utcnow()
+                timestamp=utc_now()
             )
         ]
         mock_memory_repo.search_memories.return_value = (mock_memories, 2)
@@ -313,19 +306,19 @@ class TestEmotionalMemoryService:
                 spec=EmotionalMemory,
                 emotion_type='joy',
                 intensity=0.8,
-                timestamp=datetime.utcnow()
+                timestamp=utc_now()
             ),
             Mock(
                 spec=EmotionalMemory,
                 emotion_type='joy',
                 intensity=0.7,
-                timestamp=datetime.utcnow()
+                timestamp=utc_now()
             ),
             Mock(
                 spec=EmotionalMemory,
                 emotion_type='contentment',
                 intensity=0.6,
-                timestamp=datetime.utcnow()
+                timestamp=utc_now()
             )
         ]
         mock_memory_repo.search_memories.return_value = (mock_memories, 3)
@@ -482,7 +475,6 @@ class TestEmotionalMemoryService:
         assert result['importance_score'] > 0.8
         assert result['storage_tier'] == 'hot'  # High importance = hot storage
 
-
 class TestEmotionalMemoryServiceIntegration:
     """Integration tests for EmotionalMemoryService"""
     
@@ -497,13 +489,61 @@ class TestEmotionalMemoryServiceIntegration:
         mock_pattern_repo
     ):
         """Test complete memory lifecycle from creation to pattern detection"""
-        # This would test the full flow:
-        # 1. Create memory
-        # 2. Detect events
-        # 3. Update preferences
-        # 4. Identify patterns
-        # 5. Optimize storage
-        pass
+        user_id = "integration_user"
+        emotion_data = {
+            'emotion_type': 'joy',
+            'intensity': 0.9,
+            'content': '重大成就达成！',
+            'valence': 0.8,
+            'arousal': 0.7
+        }
+        mock_memory = Mock(
+            spec=EmotionalMemory,
+            id=uuid4(),
+            user_id=user_id,
+            emotion_type='joy',
+            intensity=0.9,
+            valence=0.8,
+            arousal=0.7,
+            content='重大成就达成！',
+            storage_layer='hot',
+            importance_score=0.9,
+            access_count=0,
+            last_accessed=utc_now(),
+            decay_rate=0.05,
+            timestamp=utc_now(),
+            privacy_level='public',
+            tags=[],
+            is_encrypted=False
+        )
+        mock_memory_repo.create_memory.return_value = mock_memory
+
+        mock_preferences = Mock(
+            user_id=user_id,
+            emotion_weights={},
+            learning_rate=0.5
+        )
+        mock_preference_repo.get_or_create_preferences.return_value = mock_preferences
+        mock_pattern_repo.get_active_patterns.return_value = []
+        mock_event = Mock(
+            spec=EmotionalEvent,
+            id=uuid4(),
+            memory_id=mock_memory.id,
+            event_type="high_intensity",
+            trigger_source="intensity_threshold",
+            timestamp=utc_now(),
+            impact_score=mock_memory.intensity,
+            affected_emotions=[mock_memory.emotion_type],
+            causal_strength=0.5
+        )
+        mock_event_repo.create_event.return_value = mock_event
+
+        result = await emotional_memory_service.create_memory(user_id, emotion_data)
+
+        assert result["event_detected"] is True
+        assert result["patterns_triggered"] is False
+        mock_event_repo.create_event.assert_called_once()
+        mock_preference_repo.update_preferences.assert_called_once()
     
     @pytest.mark.asyncio
     @pytest.mark.integration
@@ -536,7 +576,6 @@ class TestEmotionalMemoryServiceIntegration:
         # Assert - Should get no results
         assert len(result) == 0
 
-
 class TestPerformanceOptimization:
     """Performance and optimization tests"""
     
@@ -545,11 +584,54 @@ class TestPerformanceOptimization:
     async def test_batch_memory_creation_performance(
         self,
         emotional_memory_service,
-        mock_memory_repo
+        mock_memory_repo,
+        mock_preference_repo
     ):
         """Test performance of batch memory creation"""
-        # This would test creating many memories efficiently
-        pass
+        user_id = "batch_user"
+        batch_size = 5
+        emotion_data = {
+            'emotion_type': 'joy',
+            'intensity': 0.4,
+            'content': 'batch content',
+            'valence': 0.2,
+            'arousal': 0.3
+        }
+        mock_memory_repo.create_memory.side_effect = [
+            Mock(
+                spec=EmotionalMemory,
+                id=uuid4(),
+                user_id=user_id,
+                emotion_type='joy',
+                intensity=0.4,
+                valence=0.2,
+                arousal=0.3,
+                content='batch content',
+                storage_layer='warm',
+                importance_score=0.4,
+                access_count=0,
+                last_accessed=utc_now(),
+                decay_rate=0.05,
+                timestamp=utc_now(),
+                privacy_level='public',
+                tags=[],
+                is_encrypted=False
+            )
+            for _ in range(batch_size)
+        ]
+        mock_preferences = Mock(
+            user_id=user_id,
+            emotion_weights={},
+            learning_rate=0.5
+        )
+        mock_preference_repo.get_or_create_preferences.return_value = mock_preferences
+        tasks = [
+            emotional_memory_service.create_memory(user_id, emotion_data)
+            for _ in range(batch_size)
+        ]
+        results = await asyncio.gather(*tasks)
+        assert len(results) == batch_size
+        assert mock_memory_repo.create_memory.call_count == batch_size
     
     @pytest.mark.asyncio
     @pytest.mark.performance
@@ -557,8 +639,40 @@ class TestPerformanceOptimization:
         self,
         emotional_memory_service,
         mock_memory_repo,
-        mock_redis_client
+        mock_preference_repo
     ):
-        """Test cache hit rate for frequently accessed memories"""
-        # This would test that hot memories are properly cached
-        pass
+        """Test memory retrieval consistency for repeated access"""
+        user_id = "cache_user"
+        mock_memory = Mock(
+            spec=EmotionalMemory,
+            id=uuid4(),
+            user_id=user_id,
+            emotion_type='joy',
+            intensity=0.7,
+            valence=0.5,
+            arousal=0.4,
+            content='cached content',
+            storage_layer='hot',
+            importance_score=0.7,
+            access_count=1,
+            last_accessed=utc_now(),
+            decay_rate=0.05,
+            timestamp=utc_now(),
+            privacy_level='public',
+            tags=[],
+            is_encrypted=False
+        )
+        mock_memory_repo.search_memories.return_value = ([mock_memory], 1)
+        mock_preferences = Mock(
+            user_id=user_id,
+            emotion_weights={},
+            learning_rate=0.5
+        )
+        mock_preference_repo.get_or_create_preferences.return_value = mock_preferences
+
+        first = await emotional_memory_service.get_memories(user_id, {})
+        second = await emotional_memory_service.get_memories(user_id, {})
+
+        assert len(first) == 1
+        assert len(second) == 1
+        assert mock_memory_repo.search_memories.await_count == 2

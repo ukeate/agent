@@ -10,14 +10,12 @@ from datetime import datetime
 from src.core.utils.timezone_utils import utc_now, utc_factory, timezone
 from typing import Optional, BinaryIO, Dict, Any
 import aiofiles
-import structlog
-
 from src.ai.multimodal.types import MultimodalContent, ContentType
 from src.ai.multimodal.validators import ContentValidator
 from src.ai.multimodal.client import OpenAIMultimodalClient
 
-logger = structlog.get_logger(__name__)
-
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 class FileUploadService:
     """文件上传服务"""
@@ -56,7 +54,7 @@ class FileUploadService:
         
         # 生成唯一文件名
         file_extension = Path(safe_filename).suffix
-        final_filename = f"{file_hash[:16]}_{safe_filename}"
+        final_filename = f"{file_hash}_{safe_filename}"
         file_path = save_dir / final_filename
         
         # 保存文件

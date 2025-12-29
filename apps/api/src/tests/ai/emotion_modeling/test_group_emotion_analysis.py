@@ -3,12 +3,12 @@ Unit tests for Group Emotion Analysis System
 群体情感分析系统单元测试
 """
 
+from src.core.utils.timezone_utils import utc_now
 import pytest
 import asyncio
-from datetime import datetime, timedelta
+from datetime import timedelta
 from typing import Dict, List, Any
 import numpy as np
-
 from ai.emotion_modeling.group_emotion_models import (
     EmotionState,
     GroupEmotionalState,
@@ -18,7 +18,6 @@ from ai.emotion_modeling.group_emotion_models import (
 )
 from ai.emotion_modeling.group_emotion_analyzer import GroupEmotionAnalyzer
 from ai.emotion_modeling.contagion_detector import EmotionContagionDetector
-
 
 class TestGroupEmotionModels:
     """测试群体情感数据模型"""
@@ -32,7 +31,7 @@ class TestGroupEmotionModels:
             valence=0.9,
             arousal=0.7,
             dominance=0.6,
-            timestamp=datetime.now(),
+            timestamp=utc_now(),
             confidence=0.85
         )
         
@@ -51,7 +50,7 @@ class TestGroupEmotionModels:
         
         group_state = GroupEmotionalState(
             group_id="test_group",
-            timestamp=datetime.now(),
+            timestamp=utc_now(),
             participants=participants,
             dominant_emotion="joy",
             emotion_distribution=emotion_distribution,
@@ -73,7 +72,6 @@ class TestGroupEmotionModels:
         assert abs(sum(group_state.emotion_distribution.values()) - 1.0) < 0.001
         assert group_state.consensus_level == 0.8
         assert group_state.group_cohesion == GroupCohesionLevel.HIGH
-
 
 class TestGroupEmotionAnalyzer:
     """测试群体情感分析器"""
@@ -101,7 +99,7 @@ class TestGroupEmotionAnalyzer:
                 valence=0.9,
                 arousal=0.7,
                 dominance=0.8,
-                timestamp=datetime.now()
+                timestamp=utc_now()
             ),
             "user_2": EmotionState(
                 participant_id="user_2",
@@ -110,7 +108,7 @@ class TestGroupEmotionAnalyzer:
                 valence=0.8,
                 arousal=0.6,
                 dominance=0.7,
-                timestamp=datetime.now()
+                timestamp=utc_now()
             ),
             "user_3": EmotionState(
                 participant_id="user_3",
@@ -119,14 +117,14 @@ class TestGroupEmotionAnalyzer:
                 valence=0.9,
                 arousal=0.9,
                 dominance=0.8,
-                timestamp=datetime.now()
+                timestamp=utc_now()
             )
         }
     
     @pytest.fixture
     def sample_interaction_history(self):
         """创建示例交互历史"""
-        base_time = datetime.now() - timedelta(minutes=10)
+        base_time = utc_now() - timedelta(minutes=10)
         return [
             {
                 "sender_id": "user_1",
@@ -191,7 +189,7 @@ class TestGroupEmotionAnalyzer:
                 valence=0.9,
                 arousal=0.7,
                 dominance=0.8,
-                timestamp=datetime.now()
+                timestamp=utc_now()
             )
         }
         
@@ -217,7 +215,7 @@ class TestGroupEmotionAnalyzer:
                 valence=1.0,
                 arousal=0.8,
                 dominance=0.9,
-                timestamp=datetime.now()
+                timestamp=utc_now()
             ),
             "user_2": EmotionState(
                 participant_id="user_2",
@@ -226,7 +224,7 @@ class TestGroupEmotionAnalyzer:
                 valence=-1.0,
                 arousal=0.9,
                 dominance=0.8,
-                timestamp=datetime.now()
+                timestamp=utc_now()
             )
         }
         
@@ -248,7 +246,6 @@ class TestGroupEmotionAnalyzer:
         # 中等水平 -> 中等凝聚力
         cohesion = analyzer._determine_group_cohesion(0.6, 0.4)
         assert cohesion == GroupCohesionLevel.MEDIUM
-
 
 class TestEmotionContagionDetector:
     """测试情感传染检测器"""
@@ -273,7 +270,7 @@ class TestEmotionContagionDetector:
                 valence=0.9,
                 arousal=0.9,
                 dominance=0.8,
-                timestamp=datetime.now()
+                timestamp=utc_now()
             ),
             "user_2": EmotionState(
                 participant_id="user_2",
@@ -282,7 +279,7 @@ class TestEmotionContagionDetector:
                 valence=0.8,
                 arousal=0.8,
                 dominance=0.7,
-                timestamp=datetime.now()
+                timestamp=utc_now()
             ),
             "user_3": EmotionState(
                 participant_id="user_3",
@@ -291,14 +288,14 @@ class TestEmotionContagionDetector:
                 valence=0.7,
                 arousal=0.7,
                 dominance=0.6,
-                timestamp=datetime.now()
+                timestamp=utc_now()
             )
         }
     
     @pytest.fixture
     def contagion_interaction_history(self):
         """创建传染交互历史"""
-        base_time = datetime.now() - timedelta(minutes=5)
+        base_time = utc_now() - timedelta(minutes=5)
         return [
             {
                 "sender_id": "user_1",
@@ -359,14 +356,14 @@ class TestEmotionContagionDetector:
                 "participant_id": "user_1",
                 "emotion": "joy",
                 "intensity": 0.8,
-                "timestamp": datetime.now() - timedelta(minutes=2),
+                "timestamp": utc_now() - timedelta(minutes=2),
                 "type": "emotion_state"
             },
             {
                 "participant_id": "user_2",
                 "emotion": "joy",
                 "intensity": 0.7,
-                "timestamp": datetime.now() - timedelta(minutes=1),
+                "timestamp": utc_now() - timedelta(minutes=1),
                 "type": "emotion_state"
             }
         ]
@@ -386,25 +383,25 @@ class TestEmotionContagionDetector:
         
         # 放大型传染
         chain_amplification = [
-            {"intensity": 0.5, "timestamp": datetime.now()},
-            {"intensity": 0.7, "timestamp": datetime.now() + timedelta(seconds=30)},
-            {"intensity": 0.8, "timestamp": datetime.now() + timedelta(seconds=60)}
+            {"intensity": 0.5, "timestamp": utc_now()},
+            {"intensity": 0.7, "timestamp": utc_now() + timedelta(seconds=30)},
+            {"intensity": 0.8, "timestamp": utc_now() + timedelta(seconds=60)}
         ]
         contagion_type = detector._determine_contagion_type_from_chain(chain_amplification)
         assert contagion_type in [EmotionContagionType.AMPLIFICATION, EmotionContagionType.CASCADE, EmotionContagionType.VIRAL]
         
         # 衰减型传染
         chain_dampening = [
-            {"intensity": 0.8, "timestamp": datetime.now()},
-            {"intensity": 0.6, "timestamp": datetime.now() + timedelta(seconds=30)},
-            {"intensity": 0.4, "timestamp": datetime.now() + timedelta(seconds=60)}
+            {"intensity": 0.8, "timestamp": utc_now()},
+            {"intensity": 0.6, "timestamp": utc_now() + timedelta(seconds=30)},
+            {"intensity": 0.4, "timestamp": utc_now() + timedelta(seconds=60)}
         ]
         contagion_type = detector._determine_contagion_type_from_chain(chain_dampening)
         assert contagion_type == EmotionContagionType.DAMPENING
     
     def test_validate_contagion_chain(self, detector):
         """测试传染链条验证"""
-        base_time = datetime.now()
+        base_time = utc_now()
         
         # 有效链条
         valid_chain = [
@@ -466,7 +463,6 @@ class TestEmotionContagionDetector:
         assert stats["total_affected_participants"] == 0
         assert stats["average_coverage_rate"] == 0.0
 
-
 class TestIntegration:
     """集成测试"""
     
@@ -486,7 +482,7 @@ class TestIntegration:
                 valence=0.9,
                 arousal=0.8,
                 dominance=0.8,
-                timestamp=datetime.now()
+                timestamp=utc_now()
             ),
             "user_2": EmotionState(
                 participant_id="user_2",
@@ -495,7 +491,7 @@ class TestIntegration:
                 valence=0.8,
                 arousal=0.7,
                 dominance=0.7,
-                timestamp=datetime.now()
+                timestamp=utc_now()
             ),
             "user_3": EmotionState(
                 participant_id="user_3",
@@ -504,7 +500,7 @@ class TestIntegration:
                 valence=0.7,
                 arousal=0.6,
                 dominance=0.6,
-                timestamp=datetime.now()
+                timestamp=utc_now()
             )
         }
         
@@ -513,7 +509,7 @@ class TestIntegration:
                 "sender_id": "user_1",
                 "detected_emotion": "joy",
                 "emotion_intensity": 0.9,
-                "timestamp": datetime.now() - timedelta(minutes=2),
+                "timestamp": utc_now() - timedelta(minutes=2),
                 "has_responses": True,
                 "responders": ["user_2", "user_3"]
             }
@@ -555,7 +551,7 @@ class TestIntegration:
                 valence=0.5,
                 arousal=0.5,
                 dominance=0.5,
-                timestamp=datetime.now()
+                timestamp=utc_now()
             )
         
         # 测量分析时间
@@ -568,7 +564,6 @@ class TestIntegration:
         # 验证性能要求：5人以内群体分析 < 300ms
         assert analysis_time < 300, f"分析时间 {analysis_time}ms 超过300ms要求"
         assert isinstance(result, GroupEmotionalState)
-
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

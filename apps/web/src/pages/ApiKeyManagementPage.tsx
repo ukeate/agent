@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import {
+import { logger } from '../utils/logger'
   Card,
   CardContent,
   CardDescription,
@@ -21,27 +22,16 @@ import {
 } from '../components/ui/dialog'
 import { Plus, Eye, EyeOff, Copy, Trash2, Key, Shield, Clock } from 'lucide-react'
 import { toast } from 'react-hot-toast'
+import { apiKeyService, type APIKey as APIKeyType, type CreateAPIKeyRequest as CreateAPIKeyRequestType } from '../services/apiKeyService'
+import authService from '../services/authService'
 
-interface APIKey {
-  id: string
-  name: string
-  key: string
-  created_at: string
-  expires_at: string | null
-  permissions: string[]
-  status: 'active' | 'expired' | 'revoked'
-}
-
-interface CreateAPIKeyRequest {
-  name: string
-  description?: string
-  expires_in_days?: number
-  permissions: string[]
-}
+type APIKey = APIKeyType
+type CreateAPIKeyRequest = CreateAPIKeyRequestType
 
 const ApiKeyManagementPage: React.FC = () => {
   const [apiKeys, setApiKeys] = useState<APIKey[]>([])
-  const [loading, setLoading] = useState(false)
+  const [loading, setLoading] = useState(true)
+  const [isAuthenticated, setIsAuthenticated] = useState(authService.isAuthenticated())
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
   const [visibleKeys, setVisibleKeys] = useState<Set<string>>(new Set())
   const [newKey, setNewKey] = useState<CreateAPIKeyRequest>({
@@ -51,70 +41,48 @@ const ApiKeyManagementPage: React.FC = () => {
     permissions: []
   })
 
-  const availablePermissions = [
-    'system:read',
-    'system:write',
-    'system:admin',
-    'memory:read',
-    'memory:write',
-    'rag:search',
-    'agent:execute',
-    'experiment:read',
-    'experiment:write'
-  ]
+  const [availablePermissions, setAvailablePermissions] = useState<string[]>([])
 
-  // 模拟数据初始化
   useEffect(() => {
+    setIsAuthenticated(authService.isAuthenticated())
     loadApiKeys()
   }, [])
 
   const loadApiKeys = async () => {
+    if (!authService.isAuthenticated()) {
+      setIsAuthenticated(false)
+      setLoading(false)
+      toast.error('请先登录后查看API密钥')
+      setApiKeys([])
+      setAvailablePermissions([])
+      return
+    }
+
     setLoading(true)
     try {
-      // 模拟API调用
-      await new Promise(resolve => setTimeout(resolve, 800))
-      
-      // 模拟数据
-      const mockKeys: APIKey[] = [
-        {
-          id: '1',
-          name: 'Production API Key',
-          key: 'sk_prod_1a2b3c4d5e6f7g8h9i0j',
-          created_at: '2025-08-20T10:00:00Z',
-          expires_at: '2025-11-20T10:00:00Z',
-          permissions: ['system:read', 'memory:read', 'rag:search'],
-          status: 'active'
-        },
-        {
-          id: '2',
-          name: 'Development Key',
-          key: 'sk_dev_a1b2c3d4e5f6g7h8i9j0',
-          created_at: '2025-08-15T14:30:00Z',
-          expires_at: null,
-          permissions: ['system:admin'],
-          status: 'active'
-        },
-        {
-          id: '3',
-          name: 'Legacy Key',
-          key: 'sk_legacy_z9y8x7w6v5u4t3s2r1q0',
-          created_at: '2025-07-01T09:00:00Z',
-          expires_at: '2025-08-01T09:00:00Z',
-          permissions: ['system:read'],
-          status: 'expired'
-        }
-      ]
-      
-      setApiKeys(mockKeys)
+      // 同时加载API密钥和可用权限
+      const [apiKeysData, permissionsData] = await Promise.all([
+        apiKeyService.listApiKeys(),
+        apiKeyService.getApiKeyPermissions()
+      ])
+      setApiKeys(apiKeysData)
+      setAvailablePermissions(permissionsData)
     } catch (error) {
-      console.error('Failed to load API keys:', error)
+      logger.error('加载API密钥失败:', error)
       toast.error('加载API密钥失败')
+      setApiKeys([])
     } finally {
       setLoading(false)
     }
   }
 
   const createApiKey = async () => {
+    if (!authService.isAuthenticated()) {
+      setIsAuthenticated(false)
+      toast.error('请先登录后创建API密钥')
+      return
+    }
+
     if (!newKey.name.trim()) {
       toast.error('请输入API密钥名称')
       return
@@ -122,21 +90,7 @@ const ApiKeyManagementPage: React.FC = () => {
 
     setLoading(true)
     try {
-      // 模拟API调用
-      await new Promise(resolve => setTimeout(resolve, 1000))
-      
-      const createdKey: APIKey = {
-        id: Date.now().toString(),
-        name: newKey.name,
-        key: `sk_${Math.random().toString(36).substring(2, 15)}${Math.random().toString(36).substring(2, 15)}`,
-        created_at: new Date().toISOString(),
-        expires_at: newKey.expires_in_days 
-          ? new Date(Date.now() + newKey.expires_in_days * 24 * 60 * 60 * 1000).toISOString()
-          : null,
-        permissions: newKey.permissions,
-        status: 'active'
-      }
-
+      const createdKey = await apiKeyService.createApiKey(newKey)
       setApiKeys(prev => [...prev, createdKey])
       setIsCreateDialogOpen(false)
       setNewKey({
@@ -147,7 +101,7 @@ const ApiKeyManagementPage: React.FC = () => {
       })
       toast.success('API密钥创建成功')
     } catch (error) {
-      console.error('Failed to create API key:', error)
+      logger.error('创建API密钥失败:', error)
       toast.error('创建API密钥失败')
     } finally {
       setLoading(false)
@@ -155,15 +109,19 @@ const ApiKeyManagementPage: React.FC = () => {
   }
 
   const revokeApiKey = async (keyId: string) => {
+    if (!authService.isAuthenticated()) {
+      setIsAuthenticated(false)
+      toast.error('请先登录后撤销API密钥')
+      return
+    }
+
     if (!confirm('确定要撤销这个API密钥吗？此操作不可撤销。')) {
       return
     }
 
     setLoading(true)
     try {
-      // 模拟API调用
-      await new Promise(resolve => setTimeout(resolve, 500))
-      
+      await apiKeyService.revokeApiKey(keyId)
       setApiKeys(prev => 
         prev.map(key => 
           key.id === keyId 
@@ -173,7 +131,7 @@ const ApiKeyManagementPage: React.FC = () => {
       )
       toast.success('API密钥已撤销')
     } catch (error) {
-      console.error('Failed to revoke API key:', error)
+      logger.error('撤销API密钥失败:', error)
       toast.error('撤销API密钥失败')
     } finally {
       setLoading(false)
@@ -302,6 +260,7 @@ const ApiKeyManagementPage: React.FC = () => {
                         type="checkbox"
                         checked={newKey.permissions.includes(permission)}
                         onChange={() => togglePermission(permission)}
+                        name={`permission-${permission}`}
                         className="rounded"
                       />
                       <span>{permission}</span>
@@ -328,6 +287,12 @@ const ApiKeyManagementPage: React.FC = () => {
           </DialogContent>
         </Dialog>
       </div>
+
+      {!isAuthenticated && (
+        <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-red-700">
+          当前未登录，无法访问API密钥管理功能。
+        </div>
+      )}
 
       {/* 统计卡片 */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">

@@ -6,13 +6,11 @@ import pytest
 import asyncio
 from typing import AsyncIterator
 import time
-
 import sys
 import os
-sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
-
 from src.ai.streaming.token_streamer import TokenStreamer, StreamType, StreamEvent
 
+sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 class TestTokenStreamer:
     """Token流式处理器测试"""
@@ -84,11 +82,12 @@ class TestTokenStreamer:
         test_text = "测试 指标 收集"
         
         # 处理流式响应
+        event_count = 0
         async for event in streamer.stream_tokens(
             self.mock_llm_response(test_text),
             session_id=session_id
         ):
-            pass
+            event_count += 1
         
         # 验证指标
         metrics = streamer.get_session_metrics(session_id)
@@ -96,6 +95,7 @@ class TestTokenStreamer:
         assert metrics["token_count"] == len(test_text.split())
         assert metrics["event_count"] > 0
         assert "start_time" in metrics
+        assert event_count > 0
     
     @pytest.mark.asyncio
     async def test_subscriber_broadcasting(self, streamer):
@@ -143,7 +143,7 @@ class TestTokenStreamer:
             self.mock_llm_response(text),
             session_id="broadcast_test"
         ):
-            pass
+            continue
     
     @pytest.mark.asyncio
     async def test_error_handling(self, streamer):
@@ -219,7 +219,7 @@ class TestTokenStreamer:
             llm_response,
             session_id="heartbeat_test"
         ):
-            pass
+            continue
     
     @pytest.mark.asyncio
     async def test_cleanup_and_unsubscribe(self, streamer):

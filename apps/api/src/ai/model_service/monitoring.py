@@ -2,7 +2,6 @@
 
 import asyncio
 import json
-import logging
 import statistics
 import time
 from collections import defaultdict, deque
@@ -12,12 +11,11 @@ from enum import Enum
 from typing import Dict, List, Optional, Any, Union, Callable, Tuple
 import threading
 from pathlib import Path
-
 import numpy as np
 from sklearn.cluster import DBSCAN
 from sklearn.preprocessing import StandardScaler
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 class AlertSeverity(str, Enum):
     """告警严重级别"""
@@ -307,8 +305,12 @@ class AlertManager:
         """解除告警"""
         logger.info(f"告警解除: {alert.name}")
         
-        # 可以添加解除告警的回调
-        pass
+        # 调用回调函数（由回调根据resolved状态处理）
+        for callback in self.alert_callbacks:
+            try:
+                callback(alert)
+            except Exception as e:
+                logger.error(f"解除告警回调失败: {e}")
     
     def add_alert_callback(self, callback: Callable[[Alert], None]):
         """添加告警回调"""
@@ -375,8 +377,6 @@ class ResourceMonitor:
             except Exception as e:
                 logger.debug(f"网络指标收集失败: {e}")
             
-        except ImportError:
-            logger.warning("psutil不可用，无法收集系统指标")
         except Exception as e:
             logger.error(f"收集系统指标失败: {e}")
     
@@ -420,8 +420,8 @@ class ResourceMonitor:
                         temp,
                         labels={"device": str(i)}
                     )
-                except:
-                    pass
+                except Exception:
+                    logger.exception("获取GPU温度失败", exc_info=True)
             
         except ImportError:
             logger.debug("pynvml不可用，无法收集GPU指标")
@@ -597,7 +597,7 @@ class MonitoringSystem:
             try:
                 await self._background_task
             except asyncio.CancelledError:
-                pass
+                raise
         
         logger.info("监控系统已停止")
     
@@ -845,3 +845,4 @@ class MonitoringSystem:
             "critical_alerts": len(critical_alerts),
             "monitored_models": len(self.model_monitor.performance_data)
         }
+from src.core.logging import get_logger

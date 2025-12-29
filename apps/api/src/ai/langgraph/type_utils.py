@@ -2,6 +2,7 @@
 类型工具模块
 提供类型安全的序列化、反序列化和类型操作工具
 """
+
 from typing import Type, TypeVar, Any, Dict, List, Optional, get_origin, get_args
 from pydantic import BaseModel, ValidationError
 import json
@@ -9,12 +10,13 @@ from datetime import datetime
 from src.core.utils.timezone_utils import utc_now, utc_factory, timezone
 import uuid
 import importlib
-
 from .context import AgentContext, ContextVersion
 from .validators import TypeValidator
 
-T = TypeVar('T')
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
+T = TypeVar('T')
 
 class TypeSafeSerializer:
     """类型安全序列化器"""
@@ -94,8 +96,7 @@ class TypeSafeSerializer:
                             if issubclass(model_class, BaseModel):
                                 context.custom_data = model_class(**context.custom_data)
                         except (ImportError, AttributeError, TypeError):
-                            # 如果重构失败，保持字典形式
-                            pass
+                            logger.debug("动态导入失败，保持字典形式", exc_info=True)
             
             # 验证类型匹配
             if not TypeValidator.validate_context_type(context, target_type):
@@ -146,7 +147,6 @@ class TypeSafeSerializer:
         # 序列化为JSON字符串（排序键以保证一致性）
         json_str = json.dumps(data, sort_keys=True, default=str)
         return hashlib.sha256(json_str.encode()).hexdigest()[:16]
-
 
 class TypeSafeCachedNode:
     """类型安全的缓存节点"""
@@ -222,10 +222,12 @@ class TypeSafeCachedNode:
             cached_data = await self.cache_client.get(cache_key)
             if cached_data:
                 # 反序列化缓存数据
+                if isinstance(cached_data, (bytes, bytearray)):
+                    cached_data = cached_data.decode("utf-8", errors="ignore")
                 return json.loads(cached_data)
         except Exception:
             # 缓存错误不应影响正常执行
-            pass
+            logger.debug("读取缓存失败", exc_info=True)
         
         return None
     
@@ -238,11 +240,10 @@ class TypeSafeCachedNode:
             # 序列化数据
             serialized = json.dumps(data, default=str)
             # 设置1小时过期
-            await self.cache_client.set(cache_key, serialized, expire=3600)
+            await self.cache_client.set(cache_key, serialized, ex=3600)
         except Exception:
             # 缓存错误不应影响正常执行
-            pass
-
+            logger.debug("保存缓存失败", exc_info=True)
 
 class TypeRegistry:
     """类型注册表 - 管理自定义类型"""
@@ -271,10 +272,11 @@ class TypeRegistry:
         # 尝试动态导入
         if "module" in type_info and "class" in type_info:
             try:
+                import importlib
                 module = importlib.import_module(type_info["module"])
                 return getattr(module, type_info["class"])
             except (ImportError, AttributeError):
-                pass
+                logger.debug("动态导入失败，已继续执行", exc_info=True)
         
         return None
     
@@ -282,7 +284,6 @@ class TypeRegistry:
     def list_registered(cls) -> List[str]:
         """列出所有注册的类型"""
         return list(cls._registry.keys())
-
 
 def create_typed_context(
     user_id: str,
@@ -305,7 +306,6 @@ def create_typed_context(
         context.custom_data = custom_data
     
     return context
-
 
 def cast_context(
     context: AgentContext,

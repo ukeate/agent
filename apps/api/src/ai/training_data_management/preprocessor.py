@@ -12,11 +12,9 @@ from datetime import datetime
 from src.core.utils.timezone_utils import utc_now, utc_factory, timezone
 from typing import Dict, List, Any, Optional, Callable
 from dataclasses import dataclass
-import logging
-
 from .models import DataRecord
 
-
+from src.core.logging import get_logger
 @dataclass
 class PreprocessingRule:
     """预处理规则定义"""
@@ -25,12 +23,11 @@ class PreprocessingRule:
     description: str
     enabled: bool = True
 
-
 class DataPreprocessor:
     """数据预处理器"""
     
     def __init__(self):
-        self.logger = logging.getLogger(__name__)
+        self.logger = get_logger(__name__)
         
         # 预处理规则映射
         self.preprocessing_rules = {

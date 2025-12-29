@@ -7,6 +7,7 @@ import React, { useEffect, useState } from 'react'
 import { useSupervisorStore } from '../../stores/supervisorStore'
 import { SupervisorConfig as ConfigType, RoutingStrategy } from '../../types/supervisor'
 
+import { logger } from '../../utils/logger'
 export const SupervisorConfig: React.FC = () => {
   const {
     config,
@@ -47,7 +48,7 @@ export const SupervisorConfig: React.FC = () => {
       setIsEditing(false)
       setEditingConfig(null)
     } catch (err) {
-      console.error('Failed to update config:', err)
+      logger.error('更新配置失败:', err)
     } finally {
       setSaving(false)
     }

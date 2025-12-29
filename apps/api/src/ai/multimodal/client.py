@@ -8,20 +8,17 @@ import json
 import time
 from typing import Dict, Any, List, Optional, Union, BinaryIO
 from pathlib import Path
-
-import structlog
 from openai import AsyncOpenAI
 from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
 import openai
 import aiohttp
-
 from src.core.config import get_settings
 from src.ai.openai_client import OpenAIClient
 from .types import ModelPriority, ModelComplexity, ContentType
 from .config import ModelConfig
 
-logger = structlog.get_logger(__name__)
-
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 class ModelSelector:
     """智能模型选择器"""
@@ -75,7 +72,6 @@ class ModelSelector:
         input_cost = (input_tokens / 1000) * config["cost_per_1k_tokens"]["input"]
         output_cost = (output_tokens / 1000) * config["cost_per_1k_tokens"]["output"]
         return input_cost + output_cost
-
 
 class OpenAIMultimodalClient(OpenAIClient):
     """OpenAI GPT-4o多模态API客户端（继承并扩展基础客户端）"""

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { 
+import { logger } from '../utils/logger'
   Card, 
   Row, 
   Col, 
@@ -13,11 +14,15 @@ import {
   Timeline,
   Descriptions,
   Table,
-  Badge
+  Badge,
+  message,
+  Modal,
+  Form,
+  Input
 } from 'antd';
 import {
   SafetyOutlined,
-  ExclamationTriangleOutlined,
+  ExclamationCircleOutlined,
   CheckCircleOutlined,
   CloseCircleOutlined,
   SyncOutlined,
@@ -29,6 +34,7 @@ import {
   ClusterOutlined,
   HeartOutlined
 } from '@ant-design/icons';
+import { faultToleranceService } from '../services/faultToleranceService';
 
 interface SystemStatus {
   system_started: boolean;
@@ -93,94 +99,70 @@ const FaultToleranceSystemPage: React.FC = () => {
   const [components, setComponents] = useState<ComponentHealth[]>([]);
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('overview');
+  const [repairModalVisible, setRepairModalVisible] = useState(false);
+  const [repairForm] = Form.useForm();
 
   const fetchSystemStatus = async () => {
     setLoading(true);
     try {
-      const response = await fetch('/api/v1/fault-tolerance/status');
-      if (response.ok) {
-        const data = await response.json();
-        setSystemStatus(data);
-      }
+      const data = await faultToleranceService.getSystemStatus();
+      setSystemStatus(data);
     } catch (error) {
-      console.error('获取系统状态失败:', error);
+      logger.error('获取系统状态失败:', error);
     }
   };
 
   const fetchSystemMetrics = async () => {
     try {
-      const response = await fetch('/api/v1/fault-tolerance/metrics');
-      if (response.ok) {
-        const data = await response.json();
-        setSystemMetrics(data);
-      }
+      const data = await faultToleranceService.getMetrics();
+      setSystemMetrics(data);
     } catch (error) {
-      console.error('获取系统指标失败:', error);
+      logger.error('获取系统指标失败:', error);
     }
   };
 
   const fetchComponentsList = async () => {
     try {
-      const response = await fetch('/api/v1/fault-tolerance/health');
-      if (response.ok) {
-        const data = await response.json();
-        // 模拟组件列表，实际应该从API获取
-        const mockComponents: ComponentHealth[] = [
-          {
-            component_id: 'agent-1',
-            status: 'healthy',
-            last_check: new Date().toISOString(),
-            response_time: 0.5,
-            error_rate: 0.01,
-            resource_usage: { cpu: 45, memory: 60 }
-          },
-          {
-            component_id: 'agent-2',
-            status: 'degraded',
-            last_check: new Date().toISOString(),
-            response_time: 1.2,
-            error_rate: 0.05,
-            resource_usage: { cpu: 75, memory: 80 }
-          },
-          {
-            component_id: 'agent-3',
-            status: 'unhealthy',
-            last_check: new Date().toISOString(),
-            response_time: 5.0,
-            error_rate: 0.15,
-            resource_usage: { cpu: 95, memory: 90 }
-          }
-        ];
-        setComponents(mockComponents);
-      }
+      const healthData = await faultToleranceService.getHealth();
+      
+      // 转换健康数据为组件列表格式
+      const componentsList: ComponentHealth[] = healthData.services
+        ? healthData.services.map((service: any) => ({
+            component_id: service.service_id || service.component_id,
+            status: service.status,
+            last_check: service.last_check,
+            response_time: service.response_time_ms ? service.response_time_ms / 1000 : service.response_time || 0,
+            error_rate: service.error_rate || 0,
+            resource_usage: {
+              cpu: service.resource_usage?.cpu || 0,
+              memory: service.resource_usage?.memory || 0,
+            },
+          }))
+        : [];
+      
+      setComponents(componentsList);
     } catch (error) {
-      console.error('获取组件列表失败:', error);
+      logger.error('获取组件列表失败:', error);
     }
   };
 
   const startSystem = async () => {
     try {
-      const response = await fetch('/api/v1/fault-tolerance/system/start', {
-        method: 'POST'
-      });
-      if (response.ok) {
-        await fetchSystemStatus();
-      }
+      await faultToleranceService.startSystem();
+      await fetchSystemStatus();
+      message.success('系统已启动');
     } catch (error) {
-      console.error('启动系统失败:', error);
+      logger.error('启动系统失败:', error);
     }
   };
 
   const stopSystem = async () => {
     try {
-      const response = await fetch('/api/v1/fault-tolerance/system/stop', {
-        method: 'POST'
-      });
-      if (response.ok) {
-        await fetchSystemStatus();
-      }
+      await faultToleranceService.stopSystem();
+      await fetchSystemStatus();
+      message.success('系统已停止');
     } catch (error) {
-      console.error('停止系统失败:', error);
+      logger.error('停止系统失败:', error);
     }
   };
 
@@ -214,7 +196,7 @@ const FaultToleranceSystemPage: React.FC = () => {
       case 'healthy': return <CheckCircleOutlined style={{ color: '#52c41a' }} />;
       case 'degraded': return <WarningOutlined style={{ color: '#faad14' }} />;
       case 'unhealthy': return <CloseCircleOutlined style={{ color: '#ff4d4f' }} />;
-      default: return <ExclamationTriangleOutlined style={{ color: '#d9d9d9' }} />;
+      default: return <ExclamationCircleOutlined style={{ color: '#d9d9d9' }} />;
     }
   };
 
@@ -317,11 +299,11 @@ const FaultToleranceSystemPage: React.FC = () => {
           <Card>
             <Statistic
               title="系统可用性"
-              value={systemMetrics?.system_availability || 0}
+              value={(systemMetrics?.system_availability || 0) * 100}
               suffix="%"
               precision={2}
               valueStyle={{ 
-                color: (systemMetrics?.system_availability || 0) > 99 ? '#3f8600' : '#cf1322' 
+                color: ((systemMetrics?.system_availability || 0) * 100) > 99 ? '#3f8600' : '#cf1322' 
               }}
               prefix={<SafetyOutlined />}
             />
@@ -363,7 +345,7 @@ const FaultToleranceSystemPage: React.FC = () => {
               valueStyle={{ 
                 color: (systemStatus?.active_faults.length || 0) === 0 ? '#3f8600' : '#cf1322' 
               }}
-              prefix={<ExclamationTriangleOutlined />}
+              prefix={<ExclamationCircleOutlined />}
             />
           </Card>
         </Col>
@@ -462,7 +444,7 @@ const FaultToleranceSystemPage: React.FC = () => {
           <Timeline.Item
             key={index}
             color={fault.severity === 'high' ? 'red' : fault.severity === 'medium' ? 'orange' : 'blue'}
-            dot={<ExclamationTriangleOutlined />}
+            dot={<ExclamationCircleOutlined />}
           >
             <div>
               <strong>{fault.fault_type}</strong> - {fault.description}
@@ -488,6 +470,214 @@ const FaultToleranceSystemPage: React.FC = () => {
     </Card>
   );
 
+  // 新增：备份管理Tab - 使用未使用的API
+  const backupManagementTab = (
+    <div>
+      <Row gutter={16} className="mb-4">
+        <Col span={6}>
+          <Card title="备份操作" size="small">
+            <Space direction="vertical" style={{ width: '100%' }}>
+              <Button 
+                type="primary" 
+                icon={<DatabaseOutlined />}
+                onClick={async () => {
+                  try {
+                    setLoading(true);
+                    if (!components.length) {
+                      message.error('暂无可备份组件');
+                      return;
+                    }
+                    const componentIds = components.map((component) => component.component_id);
+                    const result = await faultToleranceService.triggerManualBackup(componentIds);
+                    message.success(`备份完成，成功 ${result.success_count}/${result.total_count}`);
+                  } catch (error) {
+                    message.error('启动备份失败: ' + error.message);
+                  } finally {
+                    setLoading(false);
+                  }
+                }}
+                loading={loading}
+                block
+              >
+                手动备份
+              </Button>
+              <Button 
+                icon={<SyncOutlined />}
+                onClick={async () => {
+                  try {
+                    setLoading(true);
+                    const stats = await faultToleranceService.getBackupStatistics();
+                    message.success(`备份统计已刷新，共${stats.total_backups}个备份`);
+                  } catch (error) {
+                    message.error('获取备份统计失败: ' + error.message);
+                  } finally {
+                    setLoading(false);
+                  }
+                }}
+                loading={loading}
+                block
+              >
+                刷新统计
+              </Button>
+            </Space>
+          </Card>
+        </Col>
+        <Col span={6}>
+          <Card title="一致性检查" size="small">
+            <Space direction="vertical" style={{ width: '100%' }}>
+              <Button 
+                type="primary" 
+                icon={<CheckCircleOutlined />}
+                onClick={async () => {
+                  try {
+                    setLoading(true);
+                    const result = await faultToleranceService.checkDataConsistency();
+                    message.success(`一致性检查已启动，ID: ${result.check_id}`);
+                  } catch (error) {
+                    message.error('启动一致性检查失败: ' + error.message);
+                  } finally {
+                    setLoading(false);
+                  }
+                }}
+                loading={loading}
+                block
+              >
+                数据一致性检查
+              </Button>
+              <Button 
+                icon={<WarningOutlined />}
+                onClick={() => setRepairModalVisible(true)}
+                loading={loading}
+                block
+              >
+                强制修复
+              </Button>
+            </Space>
+          </Card>
+        </Col>
+        <Col span={6}>
+          <Card title="系统控制" size="small">
+            <Space direction="vertical" style={{ width: '100%' }}>
+              <Button 
+                type="primary" 
+                icon={<SyncOutlined />}
+                onClick={async () => {
+                  try {
+                    setLoading(true);
+                    const result = await faultToleranceService.startSystem();
+                    message.success(`系统已启动: ${result.message}`);
+                  } catch (error) {
+                    message.error('启动系统失败: ' + error.message);
+                  } finally {
+                    setLoading(false);
+                  }
+                }}
+                loading={loading}
+                block
+              >
+                启动系统
+              </Button>
+              <Button 
+                danger
+                icon={<CloseCircleOutlined />}
+                onClick={async () => {
+                  try {
+                    setLoading(true);
+                    const result = await faultToleranceService.stopSystem();
+                    message.success(`系统已停止: ${result.message}`);
+                  } catch (error) {
+                    message.error('停止系统失败: ' + error.message);
+                  } finally {
+                    setLoading(false);
+                  }
+                }}
+                loading={loading}
+                block
+              >
+                停止系统
+              </Button>
+            </Space>
+          </Card>
+        </Col>
+        <Col span={6}>
+          <Card title="故障测试" size="small">
+            <Space direction="vertical" style={{ width: '100%' }}>
+              <Button 
+                type="dashed" 
+                icon={<ExclamationCircleOutlined />}
+                onClick={async () => {
+                  try {
+                    setLoading(true);
+                    if (!components.length) {
+                      message.error('暂无可注入故障的组件');
+                      return;
+                    }
+                    const faultTypes = await faultToleranceService.getFaultTypes();
+                    if (!faultTypes.length) {
+                      message.error('未获取到可用故障类型');
+                      return;
+                    }
+                    const target = components[0].component_id;
+                    const result = await faultToleranceService.injectFault(faultTypes[0], target, 5000);
+                    message.success(`故障注入已启动，ID: ${result.fault_id}`);
+                  } catch (error) {
+                    message.error('故障注入失败: ' + error.message);
+                  } finally {
+                    setLoading(false);
+                  }
+                }}
+                loading={loading}
+                block
+              >
+                注入测试故障
+              </Button>
+              <Button 
+                icon={<ReloadOutlined />}
+                onClick={async () => {
+                  try {
+                    setLoading(true);
+                    const faultTypes = await faultToleranceService.getFaultTypes();
+                    message.success(`支持的故障类型: ${faultTypes.join(', ')}`);
+                  } catch (error) {
+                    message.error('获取故障类型失败: ' + error.message);
+                  } finally {
+                    setLoading(false);
+                  }
+                }}
+                loading={loading}
+                block
+              >
+                查看故障类型
+              </Button>
+            </Space>
+          </Card>
+        </Col>
+      </Row>
+
+      <Card title="系统报告">
+        <Button 
+          type="primary"
+          icon={<DatabaseOutlined />}
+          onClick={async () => {
+            try {
+              setLoading(true);
+              const report = await faultToleranceService.getFaultToleranceReport();
+              message.success('系统报告获取成功');
+              logger.log('容错系统报告:', report);
+            } catch (error) {
+              message.error('获取系统报告失败: ' + error.message);
+            } finally {
+              setLoading(false);
+            }
+          }}
+          loading={loading}
+        >
+          生成容错系统报告
+        </Button>
+      </Card>
+    </div>
+  );
+
   const tabItems = [
     {
       key: 'overview',
@@ -503,11 +693,21 @@ const FaultToleranceSystemPage: React.FC = () => {
       key: 'faults',
       label: (
         <span>
-          <ExclamationTriangleOutlined />
+          <ExclamationCircleOutlined />
           故障历史
         </span>
       ),
       children: faultHistoryTab
+    },
+    {
+      key: 'backup',
+      label: (
+        <span>
+          <DatabaseOutlined />
+          备份管理
+        </span>
+      ),
+      children: backupManagementTab
     }
   ];
 
@@ -534,6 +734,50 @@ const FaultToleranceSystemPage: React.FC = () => {
         items={tabItems}
         size="large"
       />
+      <Modal
+        title="强制一致性修复"
+        open={repairModalVisible}
+        onCancel={() => {
+          setRepairModalVisible(false);
+          repairForm.resetFields();
+        }}
+        onOk={async () => {
+          try {
+            const values = await repairForm.validateFields();
+            setLoading(true);
+            const result = await faultToleranceService.forceRepairConsistency(
+              values.dataKey,
+              values.authoritativeComponentId
+            );
+            message.success(`强制修复完成: ${result.data_key}`);
+            setRepairModalVisible(false);
+            repairForm.resetFields();
+          } catch (error) {
+            message.error('强制修复失败: ' + error.message);
+          } finally {
+            setLoading(false);
+          }
+        }}
+        confirmLoading={loading}
+        destroyOnClose
+      >
+        <Form form={repairForm} layout="vertical">
+          <Form.Item
+            name="dataKey"
+            label="数据键"
+            rules={[{ required: true, message: '请输入数据键' }]}
+          >
+            <Input placeholder="例如: user_profile:123" />
+          </Form.Item>
+          <Form.Item
+            name="authoritativeComponentId"
+            label="权威组件ID"
+            rules={[{ required: true, message: '请输入权威组件ID' }]}
+          >
+            <Input placeholder="例如: agent-1" />
+          </Form.Item>
+        </Form>
+      </Modal>
     </div>
   );
 };

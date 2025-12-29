@@ -1,5 +1,7 @@
+import { buildApiUrl, apiFetch } from '../utils/apiBase'
 import React, { useState, useEffect, useRef } from 'react';
 import {
+import { logger } from '../utils/logger'
   Card,
   Tabs,
   Button,
@@ -18,46 +20,22 @@ import {
   Table,
   Modal,
   Form,
-  InputNumber,
-  Switch,
-  Slider,
-  List,
   Avatar,
-  Rate,
-  Checkbox,
-  Tooltip,
   Spin,
-  Radio,
-  TreeSelect
+  Radio
 } from 'antd';
 import {
   NodeIndexOutlined,
   ShareAltOutlined,
-  TeamOutlined,
   ExperimentOutlined,
   SyncOutlined,
-  AlertOutlined,
-  BulbOutlined,
-  SettingOutlined,
-  EyeOutlined,
-  ThunderboltOutlined,
-  PlayCircleOutlined,
-  PauseCircleOutlined,
-  DownloadOutlined,
-  UploadOutlined,
-  FireOutlined,
-  TrophyOutlined,
-  HeartOutlined,
-  ClockCircleOutlined,
-  ArrowUpOutlined,
   ArrowDownOutlined,
-  MinusOutlined,
   UsergroupAddOutlined,
   UserOutlined,
-  GlobalOutlined,
   LinkOutlined,
   ClusterOutlined,
-  RadarChartOutlined
+  RadarChartOutlined,
+  BarChartOutlined
 } from '@ant-design/icons';
 import * as d3 from 'd3';
 
@@ -113,214 +91,23 @@ interface NetworkAnalytics {
 
 // API 客户端
 const socialNetworkApi = {
-  async buildEmotionNetwork(sessionData: any[]) {
-    try {
-      const response = await fetch(`http://localhost:8000/api/v1/social-emotion/analyze`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          user_id: 'current_user',
-          session_id: 'network_session',
-          emotion_data: { emotions: { neutral: 0.5 }, intensity: 0.5, confidence: 0.8 },
-          social_context: { participants: ['user1', 'user2', 'user3', 'user4'] },
-          analysis_type: ['network_analysis'],
-          cultural_context: 'zh-CN',
-          privacy_consent: true
-        })
-      });
-      
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      const result = await response.json();
-      
-      return {
-        success: true,
-        data: {
-          emotion_network: result.results?.network_analysis || generateMockEmotionNetwork()
-        }
-      };
-    } catch (error) {
-      console.error('社交网络构建失败:', error);
-      return {
-        success: false,
-        error: error.message,
-        data: {
-          emotion_network: generateMockEmotionNetwork()
-        }
-      };
-    }
-  },
-
-  async getNetworkAnalytics(networkId: string) {
-    try {
-      const response = await fetch(`http://localhost:8000/api/v1/social-emotion/dashboard`);
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      
-      return {
-        success: true,
-        data: generateMockNetworkAnalytics()
-      };
-    } catch (error) {
-      return {
-        success: false,
-        data: generateMockNetworkAnalytics()
-      };
-    }
-  },
-
-  async updateNetworkLayout(networkId: string, layoutType: string) {
-    try {
-      // 模拟布局更新
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      return {
-        success: true,
-        data: { layout_updated: true, layout_type: layoutType }
-      };
-    } catch (error) {
-      return {
-        success: false,
-        error: error.message
-      };
-    }
-  },
-
-  async detectCommunities(networkId: string, algorithm: string) {
-    try {
-      return {
-        success: true,
-        data: {
-          communities: generateMockCommunities(),
-          algorithm_used: algorithm,
-          modularity_score: 0.75 + Math.random() * 0.2
-        }
-      };
-    } catch (error) {
-      return {
-        success: false,
-        error: error.message
-      };
-    }
-  }
-};
-
-// 模拟数据生成函数
-const generateMockEmotionNetwork = (): EmotionNetwork => {
-  const userIds = ['Alice', 'Bob', 'Charlie', 'Diana', 'Eve', 'Frank', 'Grace', 'Henry'];
-  const emotions = ['happy', 'excited', 'calm', 'nervous', 'confident', 'focused'];
-  const roles = ['influencer', 'supporter', 'connector', 'neutral', 'independent'];
-  
-  const nodes: Record<string, NetworkNode> = {};
-  
-  // 生成节点
-  userIds.forEach(userId => {
-    const emotionState = {};
-    emotions.forEach(emotion => {
-      emotionState[emotion] = Math.random();
+  async buildEmotionNetwork(payload: any) {
+    const response = await apiFetch(buildApiUrl(`/api/v1/social-emotion/analyze`), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
     });
-    
-    const connectionStrength: Record<string, number> = {};
-    userIds.forEach(otherId => {
-      if (otherId !== userId) {
-        connectionStrength[otherId] = Math.random();
+    const result = await response.json();
+    return {
+      success: true,
+      data: {
+        emotion_network: result.results?.network_analysis || null
       }
-    });
-    
-    nodes[userId] = {
-      user_id: userId,
-      emotional_influence: Math.random(),
-      connection_strength: connectionStrength,
-      emotion_state: {
-        emotions: emotionState,
-        intensity: Math.random(),
-        confidence: 0.5 + Math.random() * 0.5
-      },
-      role: roles[Math.floor(Math.random() * roles.length)]
     };
-  });
-  
-  // 生成边
-  const edges: Record<string, number> = {};
-  userIds.forEach(user1 => {
-    userIds.forEach(user2 => {
-      if (user1 !== user2 && Math.random() > 0.4) {
-        const edgeKey = user1 < user2 ? `${user1}-${user2}` : `${user2}-${user1}`;
-        if (!edges[edgeKey]) {
-          edges[edgeKey] = 0.2 + Math.random() * 0.8;
-        }
-      }
-    });
-  });
-  
-  // 生成聚类
-  const clusters = [
-    userIds.slice(0, 3),
-    userIds.slice(3, 6),
-    userIds.slice(6)
-  ];
-  
-  // 识别中心节点
-  const centralNodes = Object.keys(nodes)
-    .sort((a, b) => nodes[b].emotional_influence - nodes[a].emotional_influence)
-    .slice(0, 3);
-  
-  // 生成影响路径
-  const influencePaths: Record<string, string[][]> = {};
-  centralNodes.forEach(central => {
-    influencePaths[central] = [
-      [central, userIds[Math.floor(Math.random() * userIds.length)], userIds[Math.floor(Math.random() * userIds.length)]],
-      [central, userIds[Math.floor(Math.random() * userIds.length)]]
-    ];
-  });
-  
-  return {
-    network_id: `network_${Date.now()}`,
-    nodes,
-    edges,
-    clusters,
-    central_nodes: centralNodes,
-    influence_paths: influencePaths,
-    network_cohesion: 0.6 + Math.random() * 0.3,
-    polarization_level: Math.random() * 0.7
-  };
+  }
 };
 
-const generateMockNetworkAnalytics = (): NetworkAnalytics => ({
-  total_connections: 15 + Math.floor(Math.random() * 20),
-  average_strength: 0.5 + Math.random() * 0.4,
-  clustering_coefficient: 0.3 + Math.random() * 0.5,
-  network_diameter: 3 + Math.floor(Math.random() * 3),
-  community_count: 2 + Math.floor(Math.random() * 3),
-  influence_distribution: {
-    high: 0.2 + Math.random() * 0.3,
-    medium: 0.4 + Math.random() * 0.2,
-    low: 0.3 + Math.random() * 0.3
-  },
-  emotion_synchrony: 0.4 + Math.random() * 0.5,
-  stability_score: 0.6 + Math.random() * 0.3
-});
-
-const generateMockCommunities = () => [
-  {
-    id: 'community_1',
-    name: '核心讨论组',
-    members: ['Alice', 'Bob', 'Charlie'],
-    cohesion: 0.8,
-    dominant_emotion: 'confident'
-  },
-  {
-    id: 'community_2',
-    name: '支持团队',
-    members: ['Diana', 'Eve', 'Frank'],
-    cohesion: 0.7,
-    dominant_emotion: 'supportive'
-  },
-  {
-    id: 'community_3',
-    name: '观察者',
-    members: ['Grace', 'Henry'],
-    cohesion: 0.6,
-    dominant_emotion: 'neutral'
-  }
-];
+// 已移除本地随机生成逻辑，依赖真实API
 
 const SocialNetworkEmotionMapPage: React.FC = () => {
   const [currentNetwork, setCurrentNetwork] = useState<EmotionNetwork | null>(null);
@@ -329,11 +116,10 @@ const SocialNetworkEmotionMapPage: React.FC = () => {
   const [selectedLayout, setSelectedLayout] = useState('force');
   const [selectedNode, setSelectedNode] = useState<string | null>(null);
   const [showBuildModal, setShowBuildModal] = useState(false);
-  const [showAnalysisModal, setShowAnalysisModal] = useState(false);
   const [viewMode, setViewMode] = useState<'network' | 'clusters' | 'influence'>('network');
+  const [lastBuildPayload, setLastBuildPayload] = useState<any | null>(null);
   
   const [buildForm] = Form.useForm();
-  const [analysisForm] = Form.useForm();
   const networkRef = useRef<SVGSVGElement>(null);
   const simulation = useRef<d3.Simulation<any, any> | null>(null);
 
@@ -344,9 +130,131 @@ const SocialNetworkEmotionMapPage: React.FC = () => {
     { value: 'grid', label: '网格布局' }
   ];
 
+  const parseJsonInput = (value: string, fieldLabel: string) => {
+    if (!value) {
+      throw new Error(`${fieldLabel}不能为空`);
+    }
+    try {
+      return JSON.parse(value);
+    } catch (error) {
+      throw new Error(`${fieldLabel}不是有效的JSON`);
+    }
+  };
+
+  const computeNetworkAnalytics = (network: EmotionNetwork): NetworkAnalytics => {
+    const edgeEntries = Object.entries(network.edges);
+    const totalConnections = edgeEntries.length;
+    const averageStrength = totalConnections
+      ? edgeEntries.reduce((sum, [, weight]) => sum + weight, 0) / totalConnections
+      : 0;
+
+    const nodeIds = Object.keys(network.nodes);
+    const adjacency: Record<string, Set<string>> = {};
+    nodeIds.forEach((id) => {
+      adjacency[id] = new Set();
+    });
+
+    edgeEntries.forEach(([key]) => {
+      const [source, target] = key.split('-');
+      if (source && target) {
+        adjacency[source]?.add(target);
+        adjacency[target]?.add(source);
+      }
+    });
+
+    const clusteringCoefficients = nodeIds.map((id) => {
+      const neighbors = Array.from(adjacency[id] || []);
+      if (neighbors.length < 2) return 0;
+      let connections = 0;
+      for (let i = 0; i < neighbors.length; i += 1) {
+        for (let j = i + 1; j < neighbors.length; j += 1) {
+          if (adjacency[neighbors[i]]?.has(neighbors[j])) {
+            connections += 1;
+          }
+        }
+      }
+      const possible = (neighbors.length * (neighbors.length - 1)) / 2;
+      return possible ? connections / possible : 0;
+    });
+
+    const clusteringCoefficient = clusteringCoefficients.length
+      ? clusteringCoefficients.reduce((sum, value) => sum + value, 0) / clusteringCoefficients.length
+      : 0;
+
+    const bfsDistances = (start: string) => {
+      const distances: Record<string, number> = {};
+      const queue: string[] = [];
+      distances[start] = 0;
+      queue.push(start);
+      while (queue.length) {
+        const current = queue.shift() as string;
+        const currentDistance = distances[current];
+        adjacency[current]?.forEach((neighbor) => {
+          if (distances[neighbor] === undefined) {
+            distances[neighbor] = currentDistance + 1;
+            queue.push(neighbor);
+          }
+        });
+      }
+      return distances;
+    };
+
+    let networkDiameter = 0;
+    nodeIds.forEach((id) => {
+      const distances = bfsDistances(id);
+      const maxDistance = Object.values(distances).reduce((max, value) => Math.max(max, value), 0);
+      networkDiameter = Math.max(networkDiameter, maxDistance);
+    });
+
+    const influenceCounts = { low: 0, medium: 0, high: 0 };
+    nodeIds.forEach((id) => {
+      const influence = network.nodes[id]?.emotional_influence || 0;
+      if (influence >= 0.66) {
+        influenceCounts.high += 1;
+      } else if (influence >= 0.33) {
+        influenceCounts.medium += 1;
+      } else {
+        influenceCounts.low += 1;
+      }
+    });
+    const influenceDistribution = nodeIds.length
+      ? {
+          low: influenceCounts.low / nodeIds.length,
+          medium: influenceCounts.medium / nodeIds.length,
+          high: influenceCounts.high / nodeIds.length
+        }
+      : { low: 0, medium: 0, high: 0 };
+
+    const dominantScores = nodeIds.map((id) => {
+      const emotions = network.nodes[id]?.emotion_state?.emotions || {};
+      const values = Object.values(emotions);
+      return values.length ? Math.max(...values) : 0;
+    });
+    const avgDominant = dominantScores.length
+      ? dominantScores.reduce((sum, value) => sum + value, 0) / dominantScores.length
+      : 0;
+    const variance = dominantScores.length
+      ? dominantScores.reduce((sum, value) => sum + (value - avgDominant) ** 2, 0) / dominantScores.length
+      : 0;
+    const emotionSynchrony = Math.max(0, Math.min(1, 1 - variance));
+
+    return {
+      total_connections: totalConnections,
+      average_strength: averageStrength,
+      clustering_coefficient: clusteringCoefficient,
+      network_diameter: networkDiameter,
+      community_count: network.clusters?.length || 0,
+      influence_distribution: influenceDistribution,
+      emotion_synchrony: emotionSynchrony,
+      stability_score: Math.max(0, Math.min(1, 1 - (network.polarization_level || 0)))
+    };
+  };
+
   useEffect(() => {
-    loadNetworkData();
-  }, []);
+    if (lastBuildPayload && !currentNetwork) {
+      loadNetworkData();
+    }
+  }, [lastBuildPayload]);
 
   useEffect(() => {
     if (currentNetwork && networkRef.current) {
@@ -354,29 +262,31 @@ const SocialNetworkEmotionMapPage: React.FC = () => {
     }
   }, [currentNetwork, selectedLayout, viewMode]);
 
+  useEffect(() => {
+    if (currentNetwork) {
+      setNetworkAnalytics(computeNetworkAnalytics(currentNetwork));
+    } else {
+      setNetworkAnalytics(null);
+    }
+  }, [currentNetwork]);
+
   const loadNetworkData = async () => {
+    if (!lastBuildPayload) {
+      message.warning('请先构建网络');
+      return;
+    }
     setLoading(true);
     try {
-      const [networkResult, analyticsResult] = await Promise.all([
-        socialNetworkApi.buildEmotionNetwork([]),
-        socialNetworkApi.getNetworkAnalytics('current')
-      ]);
-      
+      const networkResult = await socialNetworkApi.buildEmotionNetwork(lastBuildPayload);
       if (networkResult.data?.emotion_network) {
         setCurrentNetwork(networkResult.data.emotion_network);
-      }
-      
-      if (analyticsResult.data) {
-        setNetworkAnalytics(analyticsResult.data);
-      }
-      
-      if (!networkResult.success) {
-        message.warning('使用模拟数据显示');
+        message.success('网络数据加载完成');
       } else {
-        message.success('网络数据加载成功');
+        setCurrentNetwork(null);
+        message.warning('未返回网络数据');
       }
     } catch (error) {
-      console.error('加载失败:', error);
+      logger.error('加载失败:', error);
       message.error('数据加载失败');
     } finally {
       setLoading(false);
@@ -625,15 +535,31 @@ const SocialNetworkEmotionMapPage: React.FC = () => {
   const buildNewNetwork = async (values: any) => {
     setLoading(true);
     try {
-      const result = await socialNetworkApi.buildEmotionNetwork([]);
+      const payload = {
+        user_id: values.user_id?.trim(),
+        session_id: values.session_id?.trim() || undefined,
+        emotion_data: parseJsonInput(values.emotion_data, '情感数据'),
+        social_context: {
+          scenario: values.scenario || 'casual',
+          cultural_context: values.cultural_context?.trim() || undefined,
+          session_data: parseJsonInput(values.session_data, '会话数据'),
+          interaction_history: parseJsonInput(values.interaction_history, '交互历史')
+        },
+        analysis_type: ['network_analysis'],
+        cultural_context: values.cultural_context?.trim() || undefined,
+        privacy_consent: true
+      };
+      const result = await socialNetworkApi.buildEmotionNetwork(payload);
       
       if (result.data?.emotion_network) {
         setCurrentNetwork(result.data.emotion_network);
+        setLastBuildPayload(payload);
         message.success('网络构建完成');
         setShowBuildModal(false);
       }
     } catch (error) {
-      message.error('网络构建失败');
+      const errorMessage = (error as Error)?.message || '网络构建失败';
+      message.error(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -641,19 +567,7 @@ const SocialNetworkEmotionMapPage: React.FC = () => {
 
   const performCommunityDetection = async () => {
     if (!currentNetwork) return;
-    
-    setLoading(true);
-    try {
-      const result = await socialNetworkApi.detectCommunities(currentNetwork.network_id, 'louvain');
-      if (result.success) {
-        message.success(`检测到 ${result.data.communities.length} 个社区`);
-        // 这里应该更新网络数据以显示社区
-      }
-    } catch (error) {
-      message.error('社区检测失败');
-    } finally {
-      setLoading(false);
-    }
+    message.success(`检测到 ${currentNetwork.clusters.length} 个社区`);
   };
 
   const renderOverviewCards = () => (
@@ -1060,56 +974,73 @@ const SocialNetworkEmotionMapPage: React.FC = () => {
         />
 
         <Form.Item
-          label="数据源"
-          name="data_source"
-          rules={[{ required: true, message: '请选择数据源' }]}
+          label="用户ID"
+          name="user_id"
+          rules={[{ required: true, message: '请输入用户ID' }]}
         >
-          <Select placeholder="选择用于构建网络的数据">
-            <Option value="current_session">当前会话</Option>
-            <Option value="recent_interactions">最近交互</Option>
-            <Option value="historical_data">历史数据</Option>
-            <Option value="custom_dataset">自定义数据集</Option>
+          <Input placeholder="输入用于构建网络的用户ID" />
+        </Form.Item>
+
+        <Form.Item
+          label="会话ID"
+          name="session_id"
+        >
+          <Input placeholder="可选，用于标识会话" />
+        </Form.Item>
+
+        <Form.Item
+          label="场景类型"
+          name="scenario"
+          rules={[{ required: true, message: '请选择场景类型' }]}
+          initialValue="casual"
+        >
+          <Select placeholder="选择社交场景">
+            <Option value="meeting">正式会议</Option>
+            <Option value="casual">日常沟通</Option>
+            <Option value="brainstorm">头脑风暴</Option>
+            <Option value="conflict">冲突协调</Option>
+            <Option value="presentation">公开表达</Option>
           </Select>
         </Form.Item>
 
         <Form.Item
-          label="连接阈值"
-          name="connection_threshold"
-          initialValue={0.3}
+          label="文化背景"
+          name="cultural_context"
         >
-          <Slider
-            min={0.1}
-            max={0.9}
-            step={0.1}
-            marks={{
-              0.1: '松散',
-              0.3: '适中',
-              0.5: '紧密',
-              0.9: '极紧'
-            }}
+          <Input placeholder="可选，例如地区或文化标签" />
+        </Form.Item>
+
+        <Form.Item
+          label="情感数据（JSON）"
+          name="emotion_data"
+          rules={[{ required: true, message: '请输入情感数据JSON' }]}
+        >
+          <TextArea
+            rows={4}
+            placeholder="请输入情感数据JSON，包含emotions、intensity、confidence等字段"
           />
         </Form.Item>
 
         <Form.Item
-          label="分析维度"
-          name="analysis_dimensions"
+          label="会话数据（JSON数组）"
+          name="session_data"
+          rules={[{ required: true, message: '请输入会话数据JSON数组' }]}
         >
-          <Checkbox.Group>
-            <Row>
-              <Col span={12}><Checkbox value="emotional_similarity">情感相似性</Checkbox></Col>
-              <Col span={12}><Checkbox value="interaction_frequency">交互频率</Checkbox></Col>
-              <Col span={12}><Checkbox value="response_patterns">响应模式</Checkbox></Col>
-              <Col span={12}><Checkbox value="influence_strength">影响强度</Checkbox></Col>
-            </Row>
-          </Checkbox.Group>
+          <TextArea
+            rows={4}
+            placeholder="请输入会话数据JSON数组，包含user_id、timestamp、emotion_data等字段"
+          />
         </Form.Item>
 
-        <Form.Item name="enable_community_detection" valuePropName="checked">
-          <Checkbox>启用社区检测</Checkbox>
-        </Form.Item>
-
-        <Form.Item name="track_temporal_changes" valuePropName="checked">
-          <Checkbox>跟踪时间变化</Checkbox>
+        <Form.Item
+          label="交互历史（JSON数组）"
+          name="interaction_history"
+          rules={[{ required: true, message: '请输入交互历史JSON数组' }]}
+        >
+          <TextArea
+            rows={4}
+            placeholder="请输入交互历史JSON数组，包含参与者交互的结构化数据"
+          />
         </Form.Item>
       </Form>
     </Modal>

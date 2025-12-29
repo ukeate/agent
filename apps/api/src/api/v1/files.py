@@ -6,17 +6,16 @@ import os
 from typing import List, Optional
 from fastapi import APIRouter, UploadFile, File, HTTPException, Depends, Query
 from fastapi.responses import JSONResponse, FileResponse
-import structlog
-
 from src.services.file_service import FileUploadService
 from src.ai.multimodal.client import OpenAIMultimodalClient
 
-logger = structlog.get_logger(__name__)
+from src.core.logging import get_logger
+logger = get_logger(__name__)
+
 router = APIRouter(prefix="/files", tags=["files"])
 
 # 全局实例
 _file_service: Optional[FileUploadService] = None
-
 
 async def get_file_service() -> FileUploadService:
     """获取文件服务实例"""
@@ -29,7 +28,6 @@ async def get_file_service() -> FileUploadService:
             openai_client=openai_client
         )
     return _file_service
-
 
 @router.post("/upload")
 async def upload_file(
@@ -83,7 +81,6 @@ async def upload_file(
         logger.error(f"文件上传失败: {e}")
         raise HTTPException(status_code=500, detail="文件上传失败")
 
-
 @router.post("/upload/batch")
 async def upload_multiple_files(
     files: List[UploadFile] = File(...),
@@ -130,7 +127,6 @@ async def upload_multiple_files(
         "results": results,
         "errors": errors
     })
-
 
 @router.get("/list")
 async def list_files(
@@ -185,7 +181,6 @@ async def list_files(
         logger.error(f"获取文件列表失败: {e}")
         raise HTTPException(status_code=500, detail="获取文件列表失败")
 
-
 @router.get("/{file_id}")
 async def get_file_info(
     file_id: str,
@@ -200,7 +195,6 @@ async def get_file_info(
         "success": True,
         "data": file_info
     })
-
 
 @router.get("/{file_id}/download")
 async def download_file(
@@ -229,7 +223,6 @@ async def download_file(
         media_type='application/octet-stream'
     )
 
-
 @router.delete("/{file_id}")
 async def delete_file(
     file_id: str,
@@ -244,7 +237,6 @@ async def delete_file(
         "success": True,
         "message": "文件删除成功"
     })
-
 
 @router.post("/cleanup")
 async def cleanup_old_files(
@@ -262,7 +254,6 @@ async def cleanup_old_files(
     except Exception as e:
         logger.error(f"清理文件失败: {e}")
         raise HTTPException(status_code=500, detail="清理文件失败")
-
 
 @router.get("/stats/summary")
 async def get_file_stats(

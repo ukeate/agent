@@ -5,7 +5,6 @@ import asyncio
 from pathlib import Path
 import tempfile
 import os
-
 from src.ai.rag.multimodal_config import (
     MultimodalConfig,
     QueryType,
@@ -18,7 +17,6 @@ from src.ai.rag.multimodal_vectorstore import MultimodalVectorStore
 from src.ai.rag.retrieval_strategy import SmartRetrievalStrategy
 from src.ai.rag.context_assembler import MultimodalContextAssembler
 from src.ai.rag.multimodal_qa_chain import MultimodalQAChain
-
 
 class TestMultimodalQueryAnalyzer:
     """查询分析器测试"""
@@ -69,7 +67,6 @@ class TestMultimodalQueryAnalyzer:
         # 测试相似度阈值
         context = analyzer.analyze_query("相似度大于0.8的结果")
         assert context.similarity_threshold == 0.8
-
 
 class TestMultimodalDocumentProcessor:
     """文档处理器测试"""
@@ -129,7 +126,6 @@ class TestMultimodalDocumentProcessor:
             for temp_file in temp_files:
                 os.unlink(temp_file)
 
-
 class TestMultimodalVectorStore:
     """向量存储测试"""
     
@@ -183,7 +179,6 @@ class TestMultimodalVectorStore:
         assert "table_documents" in stats
         assert "embedding_dimension" in stats
 
-
 class TestSmartRetrievalStrategy:
     """检索策略测试"""
     
@@ -233,7 +228,6 @@ class TestSmartRetrievalStrategy:
         assert hasattr(results, "texts")
         assert hasattr(results, "images")
         assert hasattr(results, "tables")
-
 
 class TestMultimodalContextAssembler:
     """上下文组装器测试"""
@@ -296,7 +290,6 @@ class TestMultimodalContextAssembler:
         assert len(context.texts) <= assembler.max_context_length
         assert context.metadata.get("truncated") is True
 
-
 class TestMultimodalQAChain:
     """问答链测试"""
     
@@ -353,7 +346,6 @@ class TestMultimodalQAChain:
         qa_chain.clear_cache()
         assert len(qa_chain._query_cache) == 0
 
-
 @pytest.mark.integration
 class TestIntegration:
     """集成测试"""
@@ -393,7 +385,6 @@ class TestIntegration:
         finally:
             os.unlink(temp_file)
             vector_store.clear_all()
-
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

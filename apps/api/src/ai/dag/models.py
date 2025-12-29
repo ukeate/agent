@@ -1,13 +1,13 @@
 """
 DAG任务编排数据模型
 """
+
 from enum import Enum
 from typing import Any, Dict, List, Optional, Set
 from dataclasses import dataclass, field
 from datetime import datetime
 from src.core.utils.timezone_utils import utc_now, utc_factory
 import uuid
-
 
 class TaskStatus(str, Enum):
     """任务状态枚举"""
@@ -17,7 +17,6 @@ class TaskStatus(str, Enum):
     FAILED = "failed"
     CANCELLED = "cancelled"
     SKIPPED = "skipped"
-
 
 @dataclass
 class DAGNode:
@@ -35,7 +34,6 @@ class DAGNode:
     def remove_dependency(self, node_id: str):
         """移除依赖节点"""
         self.dependencies.discard(node_id)
-
 
 @dataclass  
 class DAGTask:
@@ -78,7 +76,6 @@ class DAGTask:
             self.start_time = None
             self.end_time = None
             self.error = None
-
 
 @dataclass
 class DAGWorkflow:

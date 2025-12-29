@@ -24,7 +24,6 @@ from .gpu_accelerator import (
     PerformanceMonitor,
     create_optimized_gpu_config
 )
-
 from .optimized_replay_buffer import (
     OptimizedReplayBuffer,
     BufferConfig,
@@ -32,7 +31,6 @@ from .optimized_replay_buffer import (
     CompressionType,
     create_optimized_buffer_config
 )
-
 from .distributed_training import (
     DistributedTrainingManager,
     DistributedConfig,
@@ -40,7 +38,6 @@ from .distributed_training import (
     NodeType,
     create_distributed_config
 )
-
 from .integration_test import (
     IntegrationTestSuite,
     TestConfig,
@@ -48,7 +45,6 @@ from .integration_test import (
     TestEnvironment,
     run_integration_tests
 )
-
 from .benchmark_optimizer import (
     HyperparameterOptimizer,
     PerformanceBenchmark,
@@ -58,6 +54,10 @@ from .benchmark_optimizer import (
     BenchmarkMetric,
     run_hyperparameter_optimization,
     run_performance_benchmark
+)
+from src.ai.reinforcement_learning.performance import (
+    GPUAccelerator, OptimizedReplayBuffer, create_performance_config
+
 )
 
 __all__ = [
@@ -164,7 +164,6 @@ PERFORMANCE_PRESETS = {
     }
 }
 
-
 def create_performance_config(preset: str = "high_performance") -> dict:
     """
     创建性能配置预设
@@ -186,7 +185,6 @@ def create_performance_config(preset: str = "high_performance") -> dict:
         "distributed_config": DistributedConfig(**preset_config["distributed_config"])
     }
 
-
 def optimize_for_hardware() -> dict:
     """
     根据当前硬件自动优化配置
@@ -194,10 +192,14 @@ def optimize_for_hardware() -> dict:
     Returns:
         优化后的配置字典
     """
-    import tensorflow as tf
+    from src.core.tensorflow_config import tensorflow_lazy
     import psutil
     
+    if not tensorflow_lazy.available:
+        return create_performance_config("development")
+    
     # 检测硬件
+    tf = tensorflow_lazy.tf
     gpu_count = len(tf.config.list_physical_devices('GPU'))
     cpu_count = psutil.cpu_count()
     memory_gb = psutil.virtual_memory().total / (1024**3)
@@ -227,7 +229,6 @@ def optimize_for_hardware() -> dict:
     
     return config
 
-
 # 便捷函数
 def quick_performance_test(episodes: int = 100) -> dict:
     """
@@ -244,7 +245,6 @@ def quick_performance_test(episodes: int = 100) -> dict:
     scenarios = ["basic_training", "performance_benchmark"]
     return run_integration_tests(scenarios)
 
-
 def quick_optimization(target: str = "final_performance", trials: int = 20) -> dict:
     """
     快速超参数优化
@@ -258,13 +258,9 @@ def quick_optimization(target: str = "final_performance", trials: int = 20) -> d
     """
     return run_hyperparameter_optimization(target=target, n_trials=trials)
 
-
 # 使用示例
 """
 # 基础使用
-from src.ai.reinforcement_learning.performance import (
-    GPUAccelerator, OptimizedReplayBuffer, create_performance_config
-)
 
 # 创建高性能配置
 config = create_performance_config("high_performance")

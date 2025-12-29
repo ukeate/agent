@@ -3,9 +3,9 @@ import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { Badge } from '../../components/ui/badge';
-import { Alert } from '../../components/ui/alert';
 import { behaviorAnalyticsService } from '../../services/behaviorAnalyticsService';
 
+import { logger } from '../../utils/logger'
 interface BehaviorEvent {
   event_id: string;
   user_id: string;
@@ -29,7 +29,6 @@ interface EventFilter {
 export const EventDataManagePage: React.FC = () => {
   const [events, setEvents] = useState<BehaviorEvent[]>([]);
   const [loading, setLoading] = useState(false);
-  const [selectedEvents, setSelectedEvents] = useState<string[]>([]);
   const [filter, setFilter] = useState<EventFilter>({
     limit: 50,
     offset: 0
@@ -49,7 +48,7 @@ export const EventDataManagePage: React.FC = () => {
       const types = [...new Set(response.events?.map(e => e.event_type) || [])];
       setEventTypes(types);
     } catch (error) {
-      console.error('获取事件数据失败:', error);
+      logger.error('获取事件数据失败:', error);
     } finally {
       setLoading(false);
     }
@@ -76,35 +75,26 @@ export const EventDataManagePage: React.FC = () => {
     return colors[eventType] || 'bg-gray-100 text-gray-800';
   };
 
-  // 处理事件选择
-  const handleEventSelect = (eventId: string) => {
-    setSelectedEvents(prev => 
-      prev.includes(eventId) 
-        ? prev.filter(id => id !== eventId)
-        : [...prev, eventId]
-    );
-  };
-
-  // 批量删除事件
-  const handleBatchDelete = async () => {
-    if (selectedEvents.length === 0) return;
-    
-    try {
-      // TODO: 调用删除API
-      setEvents(prev => prev.filter(event => !selectedEvents.includes(event.event_id)));
-      setSelectedEvents([]);
-      Alert({ type: 'success', children: `成功删除 ${selectedEvents.length} 个事件` });
-    } catch (error) {
-      console.error('删除失败:', error);
-    }
-  };
-
   // 导出事件数据
   const handleExport = async () => {
     try {
-      await behaviorAnalyticsService.exportEvents(filter, 'csv');
+      const blob = await behaviorAnalyticsService.exportEvents('csv', {
+        user_id: filter.user_id,
+        start_time: filter.start_time,
+        end_time: filter.end_time,
+        limit: filter.limit
+      });
+
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `events_${new Date().toISOString()}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
     } catch (error) {
-      console.error('导出失败:', error);
+      logger.error('导出失败:', error);
     }
   };
 
@@ -130,16 +120,11 @@ export const EventDataManagePage: React.FC = () => {
           <Button onClick={handleExport} variant="outline">
             📥 导出数据
           </Button>
-          {selectedEvents.length > 0 && (
-            <Button onClick={handleBatchDelete} variant="danger">
-              🗑️ 删除选中 ({selectedEvents.length})
-            </Button>
-          )}
         </div>
       </div>
 
       {/* 统计卡片 */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card className="p-4">
           <div className="text-center">
             <p className="text-2xl font-bold text-blue-600">{totalEvents}</p>
@@ -156,12 +141,6 @@ export const EventDataManagePage: React.FC = () => {
           <div className="text-center">
             <p className="text-2xl font-bold text-purple-600">{events.length}</p>
             <p className="text-sm text-gray-600">当前显示</p>
-          </div>
-        </Card>
-        <Card className="p-4">
-          <div className="text-center">
-            <p className="text-2xl font-bold text-orange-600">{selectedEvents.length}</p>
-            <p className="text-sm text-gray-600">已选择</p>
           </div>
         </Card>
       </div>
@@ -224,7 +203,6 @@ export const EventDataManagePage: React.FC = () => {
             variant="outline"
             onClick={() => {
               setFilter({ limit: 50, offset: 0 });
-              setSelectedEvents([]);
             }}
           >
             🔄 重置
@@ -236,22 +214,6 @@ export const EventDataManagePage: React.FC = () => {
       <Card className="p-6">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-semibold">事件列表</h3>
-          <div className="flex items-center space-x-2">
-            <label className="flex items-center space-x-2">
-              <input
-                type="checkbox"
-                checked={selectedEvents.length === events.length && events.length > 0}
-                onChange={(e) => {
-                  if (e.target.checked) {
-                    setSelectedEvents(events.map(event => event.event_id));
-                  } else {
-                    setSelectedEvents([]);
-                  }
-                }}
-              />
-              <span className="text-sm text-gray-600">全选</span>
-            </label>
-          </div>
         </div>
 
         {loading ? (
@@ -264,20 +226,10 @@ export const EventDataManagePage: React.FC = () => {
             {events.map((event) => (
               <div
                 key={event.event_id}
-                className={`p-4 border rounded-md transition-colors ${
-                  selectedEvents.includes(event.event_id) 
-                    ? 'border-blue-500 bg-blue-50' 
-                    : 'border-gray-200 hover:border-gray-300'
-                }`}
+                className="p-4 border rounded-md transition-colors border-gray-200 hover:border-gray-300"
               >
                 <div className="flex items-start justify-between">
                   <div className="flex items-start space-x-3">
-                    <input
-                      type="checkbox"
-                      checked={selectedEvents.includes(event.event_id)}
-                      onChange={() => handleEventSelect(event.event_id)}
-                      className="mt-1"
-                    />
                     <div className="flex-1">
                       <div className="flex items-center space-x-2 mb-2">
                         <Badge className={getEventTypeColor(event.event_type)}>

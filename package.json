@@ -11,7 +11,7 @@
   "scripts": {
     "dev": "concurrently \"npm run dev:api\" \"npm run dev:web\"",
     "dev:web": "npm run dev --workspace=apps/web",
-    "dev:api": "cd apps/api/src && uv run uvicorn main:app --host 0.0.0.0 --port 8000 --reload",
+    "dev:api": "cd apps/api && .venv/bin/python -m uvicorn src.main:app --host 0.0.0.0 --port 8000 --reload",
     "dev:shared": "npm run dev --workspace=packages/shared",
     "build": "npm run build:shared && npm run build --workspaces --if-present",
     "build:shared": "npm run build --workspace=packages/shared",

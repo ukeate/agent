@@ -5,7 +5,7 @@
 
 import time
 import numpy as np
-import tensorflow as tf
+from src.core.tensorflow_config import tensorflow_lazy
 from typing import Dict, List, Optional, Any, Tuple, Callable
 from dataclasses import dataclass, asdict
 from enum import Enum
@@ -16,7 +16,6 @@ import optuna
 import matplotlib.pyplot as plt
 import seaborn as sns
 from concurrent.futures import ThreadPoolExecutor, as_completed
-
 from ..qlearning.base import QLearningConfig, AlgorithmType
 from ..qlearning.dqn import DQNAgent
 from ..qlearning.double_dqn import DoubleDQNAgent
@@ -24,7 +23,10 @@ from ..qlearning.dueling_dqn import DuelingDQNAgent
 from .gpu_accelerator import GPUAccelerator, GPUConfig
 from .optimized_replay_buffer import OptimizedReplayBuffer, BufferConfig
 from .integration_test import TestEnvironment
+from src.core.logging import setup_logging
 
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 class OptimizationTarget(Enum):
     """优化目标类型"""
@@ -35,7 +37,6 @@ class OptimizationTarget(Enum):
     MEMORY_EFFICIENCY = "memory_efficiency"
     STABILITY = "stability"
 
-
 class BenchmarkMetric(Enum):
     """基准测试指标"""
     EPISODE_REWARD = "episode_reward"
@@ -45,7 +46,6 @@ class BenchmarkMetric(Enum):
     MEMORY_USAGE = "memory_usage"
     GPU_UTILIZATION = "gpu_utilization"
     SAMPLE_EFFICIENCY = "sample_efficiency"
-
 
 @dataclass
 class HyperparameterSpace:
@@ -73,7 +73,6 @@ class HyperparameterSpace:
                 [256, 128, 64]
             ]
 
-
 @dataclass
 class BenchmarkConfig:
     """基准测试配置"""
@@ -85,7 +84,6 @@ class BenchmarkConfig:
     parallel_runs: int = 2
     save_detailed_logs: bool = True
     output_dir: str = "./benchmark_results"
-
 
 class HyperparameterOptimizer:
     """超参数优化器"""
@@ -106,11 +104,11 @@ class HyperparameterOptimizer:
         self.best_params = None
         self.optimization_history = []
         
-        print(f"初始化超参数优化器，目标: {optimization_target.value}")
+        logger.info("初始化超参数优化器", target=optimization_target.value)
     
     def optimize(self, n_trials: int = 100) -> Dict[str, Any]:
         """执行超参数优化"""
-        print(f"开始超参数优化，试验次数: {n_trials}")
+        logger.info("开始超参数优化", n_trials=n_trials)
         
         # 创建Optuna study
         self.study = optuna.create_study(
@@ -129,8 +127,8 @@ class HyperparameterOptimizer:
         self.best_params = self.study.best_params
         best_value = self.study.best_value
         
-        print(f"优化完成！最佳目标值: {best_value:.4f}")
-        print(f"最佳参数: {self.best_params}")
+        logger.info("优化完成", best_value=round(best_value, 4))
+        logger.info("最佳参数", params=self.best_params)
         
         # 保存优化结果
         self._save_optimization_results()
@@ -237,7 +235,7 @@ class HyperparameterOptimizer:
         
         for seed in range(self.benchmark_config.num_seeds):
             np.random.seed(seed)
-            tf.random.set_seed(seed)
+            tensorflow_lazy.tf.random.set_seed(seed)
             
             result = self._single_benchmark_run(config, seed)
             all_results.append(result)
@@ -392,7 +390,7 @@ class HyperparameterOptimizer:
         # 生成可视化
         self._create_optimization_plots()
         
-        print(f"优化结果已保存到: {result_file}")
+        logger.info("优化结果已保存", path=str(result_file))
     
     def _create_optimization_plots(self):
         """创建优化过程可视化"""
@@ -457,8 +455,7 @@ class HyperparameterOptimizer:
         plt.savefig(plot_file, dpi=300, bbox_inches='tight')
         plt.close()
         
-        print(f"优化可视化已保存到: {plot_file}")
-
+        logger.info("优化可视化已保存", path=str(plot_file))
 
 class PerformanceBenchmark:
     """性能基准测试"""
@@ -471,7 +468,7 @@ class PerformanceBenchmark:
     
     def run_algorithm_comparison(self) -> Dict[str, Any]:
         """运行算法对比基准测试"""
-        print("开始算法对比基准测试...")
+        logger.info("开始算法对比基准测试")
         
         algorithms = [
             ("DQN", DQNAgent),
@@ -482,7 +479,7 @@ class PerformanceBenchmark:
         algorithm_results = {}
         
         for name, agent_class in algorithms:
-            print(f"测试 {name} 算法...")
+            logger.info("测试算法", name=name)
             
             config = QLearningConfig(
                 algorithm_type=AlgorithmType.DQN,
@@ -506,14 +503,14 @@ class PerformanceBenchmark:
     
     def run_scalability_benchmark(self) -> Dict[str, Any]:
         """运行可扩展性基准测试"""
-        print("开始可扩展性基准测试...")
+        logger.info("开始可扩展性基准测试")
         
         # 测试不同的状态空间大小
         state_sizes = [4, 8, 16, 32, 64]
         scalability_results = {}
         
         for state_size in state_sizes:
-            print(f"测试状态空间大小: {state_size}")
+            logger.info("测试状态空间大小", state_size=state_size)
             
             env = TestEnvironment(state_size=state_size, action_size=4)
             config = QLearningConfig(batch_size=32, buffer_size=10000)
@@ -574,7 +571,7 @@ class PerformanceBenchmark:
     
     def run_gpu_benchmark(self) -> Dict[str, Any]:
         """运行GPU性能基准测试"""
-        print("开始GPU性能基准测试...")
+        logger.info("开始GPU性能基准测试")
         
         try:
             gpu_config = GPUConfig(
@@ -587,16 +584,16 @@ class PerformanceBenchmark:
             
             # 创建测试模型
             def create_test_model():
-                return tf.keras.Sequential([
-                    tf.keras.layers.Dense(128, activation='relu', input_shape=(8,)),
-                    tf.keras.layers.Dense(64, activation='relu'),
-                    tf.keras.layers.Dense(4)
+                return tensorflow_lazy.tf.keras.Sequential([
+                    tensorflow_lazy.tf.keras.layers.Dense(128, activation='relu', input_shape=(8,)),
+                    tensorflow_lazy.tf.keras.layers.Dense(64, activation='relu'),
+                    tensorflow_lazy.tf.keras.layers.Dense(4)
                 ])
             
             model = accelerator.create_distributed_model(create_test_model)
             
             # 性能基准测试
-            test_data = tf.random.normal((1000, 8))
+            test_data = tensorflow_lazy.tf.random.normal((1000, 8))
             benchmark_results = accelerator.benchmark_performance(model, test_data)
             
             # 设备信息
@@ -612,13 +609,13 @@ class PerformanceBenchmark:
             return gpu_results
             
         except Exception as e:
-            print(f"GPU基准测试失败: {e}")
+            logger.exception("GPU基准测试失败")
             return {"error": str(e)}
     
     def _run_single_algorithm_test(self, agent_class, config: QLearningConfig, seed: int) -> Dict[str, Any]:
         """运行单个算法测试"""
         np.random.seed(seed)
-        tf.random.set_seed(seed)
+        tensorflow_lazy.tf.random.set_seed(seed)
         
         env = TestEnvironment()
         agent = agent_class(
@@ -697,41 +694,48 @@ class PerformanceBenchmark:
     
     def generate_benchmark_report(self):
         """生成基准测试报告"""
-        print("\n" + "="*60)
-        print("性能基准测试报告")
-        print("="*60)
+        logger.info("性能基准测试报告")
+        logger.info("报告分隔线", line="=" * 60)
         
         # 算法对比
         if "algorithm_comparison" in self.results:
-            print("\n算法性能对比:")
+            logger.info("算法性能对比")
             for algo, results in self.results["algorithm_comparison"].items():
-                print(f"\n{algo}:")
-                print(f"  平均最终性能: {results['mean_final_performance']:.3f} ± {results['std_final_performance']:.3f}")
-                print(f"  收敛率: {results['convergence_rate']*100:.1f}%")
-                print(f"  平均训练时间: {results['mean_training_time']:.2f}s")
+                logger.info(
+                    "算法结果",
+                    algorithm=algo,
+                    mean_final_performance=round(results["mean_final_performance"], 3),
+                    std_final_performance=round(results["std_final_performance"], 3),
+                    convergence_rate=round(results["convergence_rate"] * 100, 1),
+                    mean_training_time=round(results["mean_training_time"], 2),
+                )
         
         # 可扩展性
         if "scalability" in self.results:
-            print("\n可扩展性测试:")
+            logger.info("可扩展性测试")
             for state_size, results in self.results["scalability"].items():
-                print(f"  状态空间 {state_size}: 推理FPS {results['inference_fps']:.2f}, 训练时间 {results['training_time']:.2f}s")
+                logger.info(
+                    "可扩展性结果",
+                    state_size=state_size,
+                    inference_fps=round(results["inference_fps"], 2),
+                    training_time=round(results["training_time"], 2),
+                )
         
         # GPU性能
         if "gpu_benchmark" in self.results:
             gpu_results = self.results["gpu_benchmark"]
             if "error" not in gpu_results:
-                print(f"\nGPU性能:")
+                logger.info("GPU性能")
                 benchmark = gpu_results["benchmark_results"]
-                print(f"  吞吐量: {benchmark['throughput']:.2f} samples/sec")
-                print(f"  内存使用: {benchmark['memory_usage']:.2f} MB")
+                logger.info("吞吐量", samples_per_sec=round(benchmark["throughput"], 2))
+                logger.info("内存使用", mb=round(benchmark["memory_usage"], 2))
         
         # 保存报告
         report_file = Path(self.config.output_dir) / "benchmark_report.json"
         with open(report_file, 'w') as f:
             json.dump(self.results, f, indent=2, default=str)
         
-        print(f"\n基准测试报告已保存到: {report_file}")
-
+        logger.info("基准测试报告已保存", path=str(report_file))
 
 def run_hyperparameter_optimization(
     target: str = "final_performance",
@@ -751,7 +755,6 @@ def run_hyperparameter_optimization(
     
     results = optimizer.optimize(n_trials=n_trials)
     return results
-
 
 def run_performance_benchmark() -> Dict[str, Any]:
     """运行性能基准测试"""
@@ -774,14 +777,14 @@ def run_performance_benchmark() -> Dict[str, Any]:
     
     return benchmark.results
 
-
 if __name__ == "__main__":
     # 运行超参数优化
-    print("开始超参数优化...")
+    setup_logging()
+    logger.info("开始超参数优化")
     optimization_results = run_hyperparameter_optimization(n_trials=20)
     
     # 运行性能基准测试
-    print("\n开始性能基准测试...")
+    logger.info("开始性能基准测试")
     benchmark_results = run_performance_benchmark()
     
-    print("\n所有测试完成！")
+    logger.info("所有测试完成")

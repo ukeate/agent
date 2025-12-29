@@ -6,15 +6,13 @@
 import asyncio
 import uuid
 import time
-import logging
 from typing import Dict, List, Optional, Any, Callable
-
 from .models import Message, MessageType, MessagePriority, DeliveryMode
 from .message_bus import DistributedMessageBus
 from .protocol import MessageProtocol
 
-logger = logging.getLogger(__name__)
-
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 class AgentCommunicationSystem:
     """智能体通信系统主类"""

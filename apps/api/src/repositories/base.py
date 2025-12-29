@@ -7,16 +7,15 @@ from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Optional, Generic, TypeVar, Union
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import DeclarativeBase
-from sqlalchemy import select, update, delete, and_, or_
+from sqlalchemy import select, update, delete, and_, func
 from sqlalchemy.sql import Select
-import logging
 
-logger = logging.getLogger(__name__)
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 # 泛型类型变量
 T = TypeVar('T', bound=DeclarativeBase)
 ID = TypeVar('ID', bound=Union[str, int])
-
 
 class BaseRepository(Generic[T, ID], ABC):
     """基础仓储抽象类"""
@@ -142,7 +141,7 @@ class BaseRepository(Generic[T, ID], ABC):
     async def count(self, filters: Optional[Dict[str, Any]] = None) -> int:
         """统计实体数量"""
         try:
-            query = select(self.model_class)
+            query = select(func.count()).select_from(self.model_class)
             
             if filters:
                 conditions = []
@@ -154,7 +153,7 @@ class BaseRepository(Generic[T, ID], ABC):
                     query = query.where(and_(*conditions))
             
             result = await self.session.execute(query)
-            count = len(result.scalars().all())
+            count = int(result.scalar() or 0)
             logger.debug(f"统计 {self.model_class.__name__} 数量: {count}")
             return count
         except Exception as e:
@@ -200,7 +199,6 @@ class BaseRepository(Generic[T, ID], ABC):
             logger.error(f"执行自定义查询失败: {str(e)}")
             raise
 
-
 class UnitOfWork:
     """工作单元模式"""
     
@@ -223,7 +221,6 @@ class UnitOfWork:
             await self.rollback()
         else:
             await self.commit()
-
 
 # 仓储工厂
 class RepositoryFactory:

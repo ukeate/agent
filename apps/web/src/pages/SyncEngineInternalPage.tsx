@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Card, Row, Col, Progress, Badge, Timeline, Tag, Table, Alert, Switch, Button, Select, Space, Statistic } from 'antd';
 import { SyncOutlined, ClockCircleOutlined, WarningOutlined, CheckCircleOutlined, LoadingOutlined, PauseCircleOutlined, StopOutlined } from '@ant-design/icons';
+import { offlineService, OfflineOperation } from '../services/offlineService';
 
 interface SyncTask {
   id: string;
@@ -25,144 +26,122 @@ interface SyncTask {
 
 interface SyncOperation {
   id: string;
-  type: 'PUT' | 'DELETE' | 'PATCH';
+  type: 'PUT' | 'DELETE' | 'PATCH' | 'CLEAR';
   tableName: string;
   objectId: string;
   timestamp: string;
-  size: number;
-  conflicted: boolean;
+  isSynced: boolean;
+  retryCount: number;
 }
 
 const SyncEngineInternalPage: React.FC = () => {
   const [activeTasks, setActiveTasks] = useState<SyncTask[]>([]);
   const [queuedTasks, setQueuedTasks] = useState<SyncTask[]>([]);
   const [operations, setOperations] = useState<SyncOperation[]>([]);
+  const [error, setError] = useState<string | null>(null);
   const [syncStats, setSyncStats] = useState({
-    totalSynced: 1247,
-    totalFailed: 23,
-    totalConflicts: 8,
-    efficiency: 98.2,
-    avgThroughput: 156.7
+    totalSynced: 0,
+    pendingOperations: 0,
+    totalConflicts: 0,
+    efficiency: 0,
+    avgRetryCount: 0
   });
   const [engineConfig, setEngineConfig] = useState({
-    maxConcurrentTasks: 3,
-    batchSize: 100,
-    checkpointInterval: 50,
-    retryDelay: 30
+    maxConcurrentTasks: 0,
+    batchSize: 0,
+    syncIntervalSeconds: 0,
+    retryMaxCount: 0
   });
   const [realTimeMode, setRealTimeMode] = useState(true);
 
-  // 模拟数据生成
   useEffect(() => {
-    generateMockData();
-    
-    const interval = setInterval(() => {
-      if (realTimeMode) {
-        updateTaskProgress();
+    let alive = true;
+
+    const toOperation = (op: OfflineOperation): SyncOperation => ({
+      id: op.id,
+      type: (op.operation_type || '').toUpperCase() as SyncOperation['type'],
+      tableName: op.table_name,
+      objectId: op.object_id,
+      timestamp: op.timestamp,
+      isSynced: op.is_synced,
+      retryCount: op.retry_count,
+    });
+
+    const refresh = async () => {
+      try {
+        setError(null);
+        const [config, status, stats, ops, conflictList] = await Promise.all([
+          offlineService.getConfig(),
+          offlineService.getOfflineStatus(),
+          offlineService.getStatistics(),
+          offlineService.getOperations(100, 0),
+          offlineService.getConflicts(),
+        ]);
+        if (!alive) return;
+
+        setEngineConfig({
+          maxConcurrentTasks: config.max_concurrent_tasks,
+          batchSize: config.batch_size,
+          syncIntervalSeconds: config.sync_interval_seconds,
+          retryMaxCount: config.retry_max_count,
+        });
+
+        setOperations(ops.map(toOperation));
+
+        const totalOperations = Number(stats?.total_operations || 0);
+        const syncedOperations = Number(stats?.synced_operations || 0);
+        const pendingOperations = Number(stats?.pending_operations || 0);
+        const efficiency = totalOperations > 0 ? (syncedOperations / totalOperations) * 100 : 0;
+        const avgRetryCount = Number(stats?.avg_retry_count || 0);
+
+        setSyncStats({
+          totalSynced: syncedOperations,
+          pendingOperations,
+          totalConflicts: conflictList.length,
+          efficiency,
+          avgRetryCount,
+        });
+
+        const taskStatus: SyncTask['status'] = status?.sync_in_progress
+          ? 'in_progress'
+          : pendingOperations > 0
+            ? 'pending'
+            : 'completed';
+
+        setActiveTasks(
+          taskStatus === 'completed'
+            ? []
+            : [
+                {
+                  id: String(stats?.session_id || 'offline'),
+                  sessionId: String(stats?.session_id || 'offline'),
+                  direction: 'upload',
+                  priority: 3,
+                  status: taskStatus,
+                  progress: totalOperations > 0 ? syncedOperations / totalOperations : 0,
+                  totalOperations,
+                  completedOperations: syncedOperations,
+                  failedOperations: 0,
+                  createdAt: String(status?.last_sync_at || ''),
+                  retryCount: 0,
+                },
+              ],
+        );
+        setQueuedTasks([]);
+      } catch (e: any) {
+        if (!alive) return;
+        setError(e?.message || '获取同步引擎状态失败');
       }
-    }, 2000);
-    
-    return () => clearInterval(interval);
+    };
+
+    refresh();
+    if (!realTimeMode) return () => { alive = false; };
+    const timer = window.setInterval(refresh, 5000);
+    return () => {
+      alive = false;
+      window.clearInterval(timer);
+    };
   }, [realTimeMode]);
-
-  const generateMockData = () => {
-    // 生成活跃任务
-    const activeTasksData: SyncTask[] = [
-      {
-        id: 'task-001',
-        sessionId: 'session-123',
-        direction: 'upload',
-        priority: 1,
-        status: 'in_progress',
-        progress: 0.67,
-        totalOperations: 250,
-        completedOperations: 168,
-        failedOperations: 3,
-        createdAt: '2024-01-15T10:30:00Z',
-        startedAt: '2024-01-15T10:32:00Z',
-        retryCount: 0,
-        checkpointData: {
-          completedBatches: 3,
-          completedOperations: 150,
-          lastCheckpoint: '2024-01-15T10:45:00Z'
-        }
-      },
-      {
-        id: 'task-002',
-        sessionId: 'session-124',
-        direction: 'bidirectional',
-        priority: 2,
-        status: 'in_progress',
-        progress: 0.23,
-        totalOperations: 450,
-        completedOperations: 103,
-        failedOperations: 1,
-        createdAt: '2024-01-15T10:25:00Z',
-        startedAt: '2024-01-15T10:35:00Z',
-        retryCount: 1
-      }
-    ];
-
-    // 生成队列任务
-    const queuedTasksData: SyncTask[] = [
-      {
-        id: 'task-003',
-        sessionId: 'session-125',
-        direction: 'download',
-        priority: 3,
-        status: 'pending',
-        progress: 0,
-        totalOperations: 180,
-        completedOperations: 0,
-        failedOperations: 0,
-        createdAt: '2024-01-15T10:40:00Z',
-        retryCount: 0
-      },
-      {
-        id: 'task-004',
-        sessionId: 'session-126',
-        direction: 'upload',
-        priority: 4,
-        status: 'pending',
-        progress: 0,
-        totalOperations: 75,
-        completedOperations: 0,
-        failedOperations: 0,
-        createdAt: '2024-01-15T10:42:00Z',
-        retryCount: 0
-      }
-    ];
-
-    // 生成操作数据
-    const operationsData: SyncOperation[] = Array.from({ length: 20 }, (_, i) => ({
-      id: `op-${i + 1}`,
-      type: ['PUT', 'DELETE', 'PATCH'][Math.floor(Math.random() * 3)] as any,
-      tableName: ['users', 'documents', 'settings', 'cache'][Math.floor(Math.random() * 4)],
-      objectId: `obj-${i + 1}`,
-      timestamp: new Date(Date.now() - Math.random() * 3600000).toISOString(),
-      size: Math.floor(Math.random() * 10000) + 1000,
-      conflicted: Math.random() < 0.1
-    }));
-
-    setActiveTasks(activeTasksData);
-    setQueuedTasks(queuedTasksData);
-    setOperations(operationsData);
-  };
-
-  const updateTaskProgress = () => {
-    setActiveTasks(prev => prev.map(task => {
-      if (task.status === 'in_progress') {
-        const newProgress = Math.min(task.progress + Math.random() * 0.1, 1);
-        const newCompleted = Math.floor(newProgress * task.totalOperations);
-        return {
-          ...task,
-          progress: newProgress,
-          completedOperations: newCompleted
-        };
-      }
-      return task;
-    }));
-  };
 
   const getStatusIcon = (status: string) => {
     switch (status) {
@@ -272,7 +251,7 @@ const SyncEngineInternalPage: React.FC = () => {
       dataIndex: 'type',
       key: 'type',
       render: (type: string) => {
-        const colors = { PUT: 'green', DELETE: 'red', PATCH: 'orange' };
+        const colors = { PUT: 'green', DELETE: 'red', PATCH: 'orange', CLEAR: 'default' };
         return <Tag color={colors[type as keyof typeof colors]}>{type}</Tag>;
       }
     },
@@ -287,16 +266,9 @@ const SyncEngineInternalPage: React.FC = () => {
       key: 'objectId'
     },
     {
-      title: '大小',
-      dataIndex: 'size',
-      key: 'size',
-      render: (size: number) => `${(size / 1024).toFixed(1)} KB`
-    },
-    {
       title: '状态',
       key: 'status',
-      render: (record: SyncOperation) => record.conflicted ? 
-        <Tag color="red">冲突</Tag> : <Tag color="green">正常</Tag>
+      render: (record: SyncOperation) => record.isSynced ? <Tag color="green">已同步</Tag> : <Tag color="orange">待同步</Tag>
     }
   ];
 
@@ -309,6 +281,15 @@ const SyncEngineInternalPage: React.FC = () => {
 
       {/* 控制面板 */}
       <Card title="引擎控制面板" style={{ marginBottom: '24px' }}>
+        {error && (
+          <Alert
+            message="同步引擎状态获取失败"
+            description={error}
+            type="error"
+            showIcon
+            style={{ marginBottom: 16 }}
+          />
+        )}
         <Row gutter={16}>
           <Col span={6}>
             <Space direction="vertical">
@@ -319,7 +300,7 @@ const SyncEngineInternalPage: React.FC = () => {
           <Col span={6}>
             <Space direction="vertical">
               <span>最大并发任务</span>
-              <Select value={engineConfig.maxConcurrentTasks} style={{ width: '100%' }}>
+              <Select value={engineConfig.maxConcurrentTasks} style={{ width: '100%' }} disabled>
                 <Select.Option value={1}>1</Select.Option>
                 <Select.Option value={2}>2</Select.Option>
                 <Select.Option value={3}>3</Select.Option>
@@ -330,7 +311,7 @@ const SyncEngineInternalPage: React.FC = () => {
           <Col span={6}>
             <Space direction="vertical">
               <span>批处理大小</span>
-              <Select value={engineConfig.batchSize} style={{ width: '100%' }}>
+              <Select value={engineConfig.batchSize} style={{ width: '100%' }} onChange={(v) => setEngineConfig((prev) => ({ ...prev, batchSize: v }))}>
                 <Select.Option value={50}>50</Select.Option>
                 <Select.Option value={100}>100</Select.Option>
                 <Select.Option value={200}>200</Select.Option>
@@ -339,15 +320,28 @@ const SyncEngineInternalPage: React.FC = () => {
           </Col>
           <Col span={6}>
             <Space direction="vertical">
-              <span>检查点间隔</span>
-              <Select value={engineConfig.checkpointInterval} style={{ width: '100%' }}>
-                <Select.Option value={25}>25 操作</Select.Option>
-                <Select.Option value={50}>50 操作</Select.Option>
-                <Select.Option value={100}>100 操作</Select.Option>
+              <span>同步间隔</span>
+              <Select value={engineConfig.syncIntervalSeconds} style={{ width: '100%' }} disabled>
+                <Select.Option value={engineConfig.syncIntervalSeconds}>{engineConfig.syncIntervalSeconds} 秒</Select.Option>
               </Select>
             </Space>
           </Col>
         </Row>
+        <div style={{ marginTop: 16 }}>
+          <Button
+            onClick={async () => {
+              try {
+                setError(null);
+                await offlineService.manualSync({ force: true, batch_size: engineConfig.batchSize });
+              } catch (e: any) {
+                setError(e?.message || '同步失败');
+              }
+            }}
+            icon={<SyncOutlined />}
+          >
+            立即同步
+          </Button>
+        </div>
       </Card>
 
       {/* 引擎统计 */}
@@ -364,10 +358,10 @@ const SyncEngineInternalPage: React.FC = () => {
         <Col span={4}>
           <Card>
             <Statistic 
-              title="失败操作" 
-              value={syncStats.totalFailed} 
-              valueStyle={{ color: '#cf1322' }}
-              prefix={<WarningOutlined />}
+              title="待同步操作" 
+              value={syncStats.pendingOperations} 
+              valueStyle={{ color: '#faad14' }}
+              prefix={<ClockCircleOutlined />}
             />
           </Card>
         </Col>
@@ -394,10 +388,9 @@ const SyncEngineInternalPage: React.FC = () => {
         <Col span={4}>
           <Card>
             <Statistic 
-              title="平均吞吐量" 
-              value={syncStats.avgThroughput} 
-              precision={1}
-              suffix="ops/s" 
+              title="平均重试次数" 
+              value={syncStats.avgRetryCount} 
+              precision={2}
             />
           </Card>
         </Col>

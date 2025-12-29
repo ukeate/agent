@@ -1,20 +1,25 @@
 """
 实验报告生成API端点
 """
-from fastapi import APIRouter, HTTPException, Query, BackgroundTasks
+
+from fastapi import APIRouter, HTTPException, Query, BackgroundTasks, status
 from typing import Dict, Any, List, Optional
-from pydantic import BaseModel, Field
+from pydantic import Field
 from datetime import datetime
 from src.core.utils.timezone_utils import utc_now, utc_factory
 from enum import Enum
-
-from ...services.report_generation_service import (
+import json
+import uuid
+from src.services.report_generation_service import (
     ReportGenerationService,
     ReportFormat,
     ReportSection,
+    ExperimentNotFoundError,
+    ReportFormat,
+    ReportSection,
+    ExperimentNotFoundError,
     ReportScheduler
 )
-
 
 router = APIRouter(prefix="/reports", tags=["Report Generation"])
 
@@ -22,8 +27,92 @@ router = APIRouter(prefix="/reports", tags=["Report Generation"])
 report_service = ReportGenerationService()
 report_scheduler = ReportScheduler(report_service)
 
+# 模板存储（Redis）
+_REPORT_TEMPLATE_INDEX_KEY = "reports:template:index"
+_REPORT_TEMPLATE_KEY_PREFIX = "reports:template:"
 
-class GenerateReportRequest(BaseModel):
+async def _require_redis():
+    redis = get_redis()
+    if not redis:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Redis未初始化，报告模板不可用",
+        )
+    return redis
+
+def _template_key(template_id: str) -> str:
+    return f"{_REPORT_TEMPLATE_KEY_PREFIX}{template_id}"
+
+def _serialize_sections(sections: List[ReportSection]) -> List[str]:
+    return [section.value for section in sections]
+
+async def _load_templates(redis) -> List[Dict[str, Any]]:
+    ids = await redis.smembers(_REPORT_TEMPLATE_INDEX_KEY)
+    if not ids:
+        return []
+    keys = [_template_key(template_id) for template_id in ids]
+    raw_list = await redis.mget(keys)
+    templates: List[Dict[str, Any]] = []
+    for raw in raw_list:
+        if not raw:
+            continue
+        try:
+            templates.append(json.loads(raw))
+        except Exception:
+            continue
+    return templates
+
+async def _ensure_default_templates(redis) -> None:
+    existing = await redis.smembers(_REPORT_TEMPLATE_INDEX_KEY)
+    if existing:
+        return
+    now = utc_now().isoformat()
+    defaults = [
+        {
+            "id": "standard",
+            "name": "标准报告",
+            "description": "包含所有标准章节的完整报告",
+            "sections": _serialize_sections(list(ReportSection)),
+            "default_format": ReportFormat.JSON.value,
+            "custom_settings": {},
+            "created_at": now,
+            "system": True,
+        },
+        {
+            "id": "executive",
+            "name": "执行摘要",
+            "description": "仅包含执行摘要和关键结果",
+            "sections": _serialize_sections(
+                [ReportSection.EXECUTIVE_SUMMARY, ReportSection.RECOMMENDATIONS]
+            ),
+            "default_format": ReportFormat.HTML.value,
+            "custom_settings": {},
+            "created_at": now,
+            "system": True,
+        },
+        {
+            "id": "technical",
+            "name": "技术报告",
+            "description": "包含详细统计分析的技术报告",
+            "sections": _serialize_sections(
+                [
+                    ReportSection.EXPERIMENT_OVERVIEW,
+                    ReportSection.METRIC_RESULTS,
+                    ReportSection.STATISTICAL_ANALYSIS,
+                    ReportSection.APPENDIX,
+                ]
+            ),
+            "default_format": ReportFormat.JSON.value,
+            "custom_settings": {},
+            "created_at": now,
+            "system": True,
+        },
+    ]
+    for template in defaults:
+        await redis.set(_template_key(template["id"]), json.dumps(template, ensure_ascii=False))
+        await redis.sadd(_REPORT_TEMPLATE_INDEX_KEY, template["id"])
+
+class GenerateReportRequest(ApiBaseModel):
     """生成报告请求"""
     experiment_id: str = Field(..., description="实验ID")
     sections: Optional[List[ReportSection]] = Field(
@@ -45,8 +134,7 @@ class GenerateReportRequest(BaseModel):
         description="置信水平"
     )
 
-
-class ScheduleReportRequest(BaseModel):
+class ScheduleReportRequest(ApiBaseModel):
     """调度报告请求"""
     experiment_id: str = Field(..., description="实验ID")
     frequency: str = Field(..., description="报告频率: daily, weekly, on_demand")
@@ -54,8 +142,7 @@ class ScheduleReportRequest(BaseModel):
     recipients: List[str] = Field([], description="接收人邮箱列表")
     format: ReportFormat = Field(ReportFormat.HTML, description="报告格式")
 
-
-class ReportTemplateRequest(BaseModel):
+class ReportTemplateRequest(ApiBaseModel):
     """报告模板请求"""
     name: str = Field(..., description="模板名称")
     description: str = Field(..., description="模板描述")
@@ -63,13 +150,11 @@ class ReportTemplateRequest(BaseModel):
     default_format: ReportFormat = Field(ReportFormat.JSON, description="默认格式")
     custom_settings: Dict[str, Any] = Field({}, description="自定义设置")
 
-
-class BatchReportRequest(BaseModel):
+class BatchReportRequest(ApiBaseModel):
     """批量报告请求"""
     experiment_ids: List[str] = Field(..., description="实验ID列表")
     format: ReportFormat = Field(ReportFormat.JSON, description="报告格式")
     merge_results: bool = Field(False, description="是否合并结果")
-
 
 @router.post("/generate")
 async def generate_report(request: GenerateReportRequest) -> Dict[str, Any]:
@@ -93,9 +178,12 @@ async def generate_report(request: GenerateReportRequest) -> Dict[str, Any]:
             "generated_at": utc_now().isoformat()
         }
         
+    except ExperimentNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-
 
 @router.post("/generate-summary")
 async def generate_summary(experiment_id: str) -> Dict[str, Any]:
@@ -118,9 +206,12 @@ async def generate_summary(experiment_id: str) -> Dict[str, Any]:
             "generated_at": utc_now().isoformat()
         }
         
+    except ExperimentNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-
 
 @router.post("/schedule")
 async def schedule_report(
@@ -148,9 +239,12 @@ async def schedule_report(
             "recipients": request.recipients
         }
         
+    except ExperimentNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-
 
 @router.get("/export/{experiment_id}")
 async def export_report(
@@ -167,29 +261,18 @@ async def export_report(
             experiment_id=experiment_id,
             format=format
         )
-        
-        # 根据格式返回不同的响应
-        if format == ReportFormat.PDF:
-            return {
-                "success": True,
-                "download_url": f"/reports/download/{experiment_id}.pdf",
-                "expires_at": utc_now().isoformat()
-            }
-        elif format == ReportFormat.HTML:
-            return {
-                "success": True,
-                "html_content": report.get("html", ""),
-                "preview_url": f"/reports/preview/{experiment_id}"
-            }
-        else:
-            return {
-                "success": True,
-                "data": report
-            }
+        return {
+            "success": True,
+            "report": report,
+            "generated_at": utc_now().isoformat(),
+        }
             
+    except ExperimentNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-
 
 @router.post("/batch-generate")
 async def batch_generate_reports(request: BatchReportRequest) -> Dict[str, Any]:
@@ -221,68 +304,47 @@ async def batch_generate_reports(request: BatchReportRequest) -> Dict[str, Any]:
                 "reports": reports
             }
             
+    except ExperimentNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-
 
 @router.get("/templates")
 async def list_templates() -> Dict[str, Any]:
     """
     列出可用的报告模板
     """
-    templates = [
-        {
-            "id": "standard",
-            "name": "标准报告",
-            "description": "包含所有标准章节的完整报告",
-            "sections": list(ReportSection)
-        },
-        {
-            "id": "executive",
-            "name": "执行摘要",
-            "description": "仅包含执行摘要和关键结果",
-            "sections": [ReportSection.EXECUTIVE_SUMMARY, ReportSection.RECOMMENDATIONS]
-        },
-        {
-            "id": "technical",
-            "name": "技术报告",
-            "description": "包含详细统计分析的技术报告",
-            "sections": [
-                ReportSection.EXPERIMENT_OVERVIEW,
-                ReportSection.METRIC_RESULTS,
-                ReportSection.STATISTICAL_ANALYSIS,
-                ReportSection.APPENDIX
-            ]
-        }
-    ]
-    
-    return {
-        "success": True,
-        "templates": templates
-    }
-
+    redis = await _require_redis()
+    await _ensure_default_templates(redis)
+    templates = await _load_templates(redis)
+    templates.sort(key=lambda item: item.get("created_at", ""), reverse=True)
+    return {"success": True, "templates": templates, "total": len(templates)}
 
 @router.post("/templates")
 async def create_template(request: ReportTemplateRequest) -> Dict[str, Any]:
     """
     创建自定义报告模板
     """
-    # 这里应该保存到数据库
+    redis = await _require_redis()
+    template_id = f"tpl_{uuid.uuid4().hex[:8]}"
     template = {
-        "id": request.name.lower().replace(" ", "_"),
+        "id": template_id,
         "name": request.name,
         "description": request.description,
-        "sections": request.sections,
-        "default_format": request.default_format,
+        "sections": _serialize_sections(request.sections),
+        "default_format": request.default_format.value,
         "custom_settings": request.custom_settings,
         "created_at": utc_now().isoformat()
     }
+    await redis.set(_template_key(template_id), json.dumps(template, ensure_ascii=False))
+    await redis.sadd(_REPORT_TEMPLATE_INDEX_KEY, template_id)
     
     return {
         "success": True,
         "template": template
     }
-
 
 @router.get("/preview/{experiment_id}")
 async def preview_report(experiment_id: str) -> Dict[str, Any]:
@@ -306,10 +368,11 @@ async def preview_report(experiment_id: str) -> Dict[str, Any]:
             "preview": report.get("html", ""),
             "experiment_id": experiment_id
         }
-        
+
+    except ExperimentNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-
 
 @router.post("/compare")
 async def compare_experiments(
@@ -343,7 +406,6 @@ async def compare_experiments(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-
 def _merge_reports(reports: Dict[str, Any]) -> Dict[str, Any]:
     """合并多个报告"""
     merged = {
@@ -365,7 +427,6 @@ def _merge_reports(reports: Dict[str, Any]) -> Dict[str, Any]:
             )
             
     return merged
-
 
 def _generate_comparison_table(comparison_data: Dict[str, Any]) -> List[Dict[str, Any]]:
     """生成比较表"""
@@ -399,7 +460,6 @@ def _generate_comparison_table(comparison_data: Dict[str, Any]) -> List[Dict[str
         table.append(row)
         
     return table
-
 
 @router.get("/health")
 async def health_check() -> Dict[str, Any]:

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import {
+import { logger } from '../utils/logger'
   Card,
   Table,
   Tag,
@@ -121,7 +122,7 @@ const EventDashboardPage: React.FC = () => {
           setStats(statsData)
           setClusterStatus(clusterData)
         } catch (error) {
-          console.error('刷新数据失败:', error)
+          logger.error('刷新数据失败:', error)
         }
       }, 30000) // 每30秒刷新一次
       

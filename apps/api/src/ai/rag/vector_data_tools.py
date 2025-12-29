@@ -9,12 +9,11 @@ from typing import Dict, Any, List, Optional, Tuple, Union, BinaryIO, TextIO
 from enum import Enum
 from dataclasses import dataclass, asdict
 import asyncio
-import logging
 from datetime import datetime
 from src.core.utils.timezone_utils import utc_now, utc_factory, timezone
 import json
 import csv
-import pickle
+from src.core.utils import secure_pickle as pickle
 import h5py
 import struct
 import gzip
@@ -26,8 +25,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 import aiofiles
 import io
 
-logger = logging.getLogger(__name__)
-
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 class DataFormat(str, Enum):
     """数据格式"""
@@ -42,7 +41,6 @@ class DataFormat(str, Enum):
     ONNX = "onnx"
     BINARY = "binary"
 
-
 class CompressionType(str, Enum):
     """压缩类型"""
     NONE = "none"
@@ -50,7 +48,6 @@ class CompressionType(str, Enum):
     BZIP2 = "bzip2"
     LZ4 = "lz4"
     ZSTD = "zstd"
-
 
 @dataclass
 class ImportConfig:
@@ -64,7 +61,6 @@ class ImportConfig:
     compression: CompressionType = CompressionType.NONE
     encoding: str = "utf-8"
 
-
 @dataclass
 class ExportConfig:
     """导出配置"""
@@ -75,7 +71,6 @@ class ExportConfig:
     split_files: bool = False
     max_file_size_mb: int = 100
 
-
 @dataclass
 class MigrationConfig:
     """迁移配置"""
@@ -84,7 +79,6 @@ class MigrationConfig:
     batch_size: int = 1000
     parallel_workers: int = 4
     verify_after: bool = True
-
 
 class VectorDataImporter:
     """向量数据导入器"""
@@ -595,7 +589,6 @@ class VectorDataImporter:
         
         return decompressed_path
 
-
 class VectorDataExporter:
     """向量数据导出器"""
     
@@ -830,7 +823,6 @@ class VectorDataExporter:
         
         return compressed_files
 
-
 class VectorDataMigrator:
     """向量数据迁移器"""
     
@@ -984,7 +976,6 @@ class VectorDataMigrator:
             
             if target_row and np.array_equal(row.embedding, target_row.embedding):
                 self.migration_stats["verified"] += 1
-
 
 class VectorBackupRestore:
     """向量备份恢复工具"""

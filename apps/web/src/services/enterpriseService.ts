@@ -97,7 +97,7 @@ export interface EnterpriseOverview {
 }
 
 class EnterpriseService {
-  private baseUrl = '/api/v1/enterprise';
+  private baseUrl = '/enterprise';
 
   /**
    * 获取企业架构总览

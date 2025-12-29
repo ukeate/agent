@@ -31,7 +31,7 @@ export const useSmartAutoScroll = ({
   const containerRef = useRef<HTMLDivElement>(null)
   const isUserScrollingRef = useRef(false)
   const lastScrollTopRef = useRef(0)
-  const scrollTimeoutRef = useRef<NodeJS.Timeout>()
+  const scrollTimeoutRef = useRef<ReturnType<typeof setTimeout>>()
 
   // 检查是否在底部附近
   const isNearBottom = useCallback(() => {

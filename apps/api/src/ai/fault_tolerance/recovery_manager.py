@@ -1,11 +1,13 @@
+from src.core.utils.timezone_utils import utc_now
 import asyncio
 import time
 from typing import Dict, List, Optional, Any
-from datetime import datetime
 from enum import Enum
-import logging
 from .fault_detector import FaultEvent, FaultType, FaultSeverity
+from src.ai.cluster.topology import AgentStatus
+from src.ai.distributed_task.models import TaskStatus
 
+from src.core.logging import get_logger
 class RecoveryStrategy(Enum):
     """恢复策略枚举"""
     IMMEDIATE_RESTART = "immediate_restart"      # 立即重启
@@ -28,7 +30,7 @@ class RecoveryManager:
         self.task_coordinator = task_coordinator
         self.lifecycle_manager = lifecycle_manager
         self.config = config
-        self.logger = logging.getLogger(__name__)
+        self.logger = get_logger(__name__)
         
         # 恢复策略配置
         self.recovery_strategies = {
@@ -111,7 +113,7 @@ class RecoveryManager:
     async def _execute_recovery(self, fault_event: FaultEvent):
         """执行恢复操作"""
         
-        start_time = datetime.now()
+        start_time = utc_now()
         recovery_success = False
         recovery_actions = []
         
@@ -130,7 +132,7 @@ class RecoveryManager:
                 recovery_actions.append({
                     "strategy": strategy.value,
                     "success": success,
-                    "timestamp": datetime.now().isoformat()
+                    "timestamp": utc_now().isoformat()
                 })
                 
                 if success:
@@ -143,7 +145,7 @@ class RecoveryManager:
             # 更新故障事件状态
             if recovery_success:
                 fault_event.resolved = True
-                fault_event.resolved_at = datetime.now()
+                fault_event.resolved_at = utc_now()
                 fault_event.recovery_actions = [action["strategy"] for action in recovery_actions if action["success"]]
             
             # 记录恢复历史
@@ -152,10 +154,10 @@ class RecoveryManager:
                 "fault_type": fault_event.fault_type.value,
                 "affected_components": fault_event.affected_components,
                 "recovery_start": start_time.isoformat(),
-                "recovery_end": datetime.now().isoformat(),
+                "recovery_end": utc_now().isoformat(),
                 "recovery_success": recovery_success,
                 "recovery_actions": recovery_actions,
-                "recovery_time": (datetime.now() - start_time).total_seconds()
+                "recovery_time": (utc_now() - start_time).total_seconds()
             }
             
             self.recovery_history.append(recovery_record)
@@ -213,17 +215,20 @@ class RecoveryManager:
             
             try:
                 # 停止智能体
-                await self.lifecycle_manager.stop_agent(component_id, graceful=False)
+                stop_result = await self.lifecycle_manager.stop_agent(component_id, graceful=False)
+                if not stop_result.success:
+                    self.logger.warning(f"Failed to stop agent {component_id}: {stop_result.message}")
+                    continue
                 await asyncio.sleep(2)
                 
                 # 启动智能体
-                success = await self.lifecycle_manager.start_agent(component_id)
+                start_result = await self.lifecycle_manager.start_agent(component_id)
                 
-                if success:
+                if start_result.success:
                     success_count += 1
                     self.logger.info(f"Successfully restarted agent {component_id}")
                 else:
-                    self.logger.warning(f"Failed to restart agent {component_id}")
+                    self.logger.warning(f"Failed to restart agent {component_id}: {start_result.message}")
                 
             except Exception as e:
                 self.logger.error(f"Immediate restart failed for {component_id}: {e}")
@@ -243,17 +248,20 @@ class RecoveryManager:
             
             try:
                 # 优雅停止智能体
-                await self.lifecycle_manager.stop_agent(component_id, graceful=True)
+                stop_result = await self.lifecycle_manager.stop_agent(component_id, graceful=True)
+                if not stop_result.success:
+                    self.logger.warning(f"Failed to stop agent {component_id}: {stop_result.message}")
+                    continue
                 await asyncio.sleep(5)  # 等待更长时间
                 
                 # 启动智能体
-                success = await self.lifecycle_manager.start_agent(component_id)
+                start_result = await self.lifecycle_manager.start_agent(component_id)
                 
-                if success:
+                if start_result.success:
                     success_count += 1
                     self.logger.info(f"Successfully gracefully restarted agent {component_id}")
                 else:
-                    self.logger.warning(f"Failed to gracefully restart agent {component_id}")
+                    self.logger.warning(f"Failed to gracefully restart agent {component_id}: {start_result.message}")
                 
             except Exception as e:
                 self.logger.error(f"Graceful restart failed for {component_id}: {e}")
@@ -286,7 +294,7 @@ class RecoveryManager:
                 # 将智能体标记为维护状态
                 await self.cluster_manager.update_agent_status(
                     component_id, 
-                    "maintenance"  # 这需要在AgentStatus枚举中添加
+                    AgentStatus.MAINTENANCE
                 )
                 
             except Exception as e:
@@ -327,7 +335,7 @@ class RecoveryManager:
             "severity": fault_event.severity.value,
             "affected_components": fault_event.affected_components,
             "description": fault_event.description,
-            "created_at": datetime.now().isoformat(),
+            "created_at": utc_now().isoformat(),
             "status": "pending_manual_intervention"
         }
         
@@ -344,7 +352,8 @@ class RecoveryManager:
         try:
             # 从任务协调器获取活跃任务
             tasks = await self.task_coordinator.get_agent_tasks(agent_id)
-            return [task.id for task in tasks if task.status in ["running", "pending"]]
+            active_statuses = {TaskStatus.PENDING, TaskStatus.ASSIGNED, TaskStatus.IN_PROGRESS, TaskStatus.RETRY}
+            return [task.task_id for task in tasks if task.status in active_statuses]
         except Exception as e:
             self.logger.error(f"Failed to get active tasks for agent {agent_id}: {e}")
             return []

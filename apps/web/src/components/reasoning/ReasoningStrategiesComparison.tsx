@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import {
+import { logger } from '../../utils/logger'
   Card,
   Row,
   Col,
@@ -197,7 +198,7 @@ export const ReasoningStrategiesComparison: React.FC = () => {
         ));
 
       } catch (error) {
-        console.error(`策略 ${comp.strategy} 执行失败:`, error);
+        logger.error(`策略 ${comp.strategy} 执行失败:`, error);
         setComparisons(prev => prev.map((c, i) => 
           i === index ? { 
             ...c, 

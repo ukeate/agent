@@ -10,7 +10,6 @@
 
 import asyncio
 import math
-import logging
 from typing import Dict, List, Optional, Any, Tuple, Set
 from dataclasses import dataclass
 from enum import Enum
@@ -18,13 +17,12 @@ from collections import defaultdict
 import re
 import json
 from difflib import SequenceMatcher
-
 from src.ai.rag.embeddings import embedding_service
 from .query_analyzer import QueryAnalysis, QueryIntent
 from .result_validator import ValidationResult, QualityScore
 
-logger = logging.getLogger(__name__)
-
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 class FragmentType(str, Enum):
     """片段类型"""
@@ -36,7 +34,6 @@ class FragmentType(str, Enum):
     REFERENCE = "reference"          # 参考
     CONTEXT = "context"              # 上下文
 
-
 class RelationshipType(str, Enum):
     """片段关系类型"""
     DEPENDENCY = "dependency"        # 依赖关系
@@ -46,7 +43,6 @@ class RelationshipType(str, Enum):
     CONTRAST = "contrast"           # 对比关系
     HIERARCHY = "hierarchy"         # 层次关系
 
-
 class CompositionStrategy(str, Enum):
     """上下文组合策略"""
     BALANCED = "balanced"           # 平衡策略：相关性和多样性并重
@@ -54,7 +50,6 @@ class CompositionStrategy(str, Enum):
     DIVERSITY_FIRST = "diversity"   # 多样性优先：优先保证信息多样性
     HIERARCHICAL = "hierarchical"   # 层次化：按照逻辑层次组织
     SEQUENTIAL = "sequential"       # 顺序化：按照逻辑顺序组织
-
 
 @dataclass
 class KnowledgeFragment:
@@ -73,7 +68,6 @@ class KnowledgeFragment:
         if self.metadata is None:
             self.metadata = {}
 
-
 @dataclass
 class FragmentRelationship:
     """片段关系数据结构"""
@@ -82,7 +76,6 @@ class FragmentRelationship:
     relationship_type: RelationshipType
     strength: float
     explanation: str
-
 
 @dataclass
 class ComposedContext:
@@ -101,7 +94,6 @@ class ComposedContext:
     def __post_init__(self):
         if self.metadata is None:
             self.metadata = {}
-
 
 class ContextComposer:
     """上下文组合器"""
@@ -714,10 +706,10 @@ class ContextComposer:
             try:
                 num_a = chinese_num_map.get(chinese_a[0], 0)
                 num_b = chinese_num_map.get(chinese_b[0], 0)
-                if num_a > 0 and num_b > 0 and abs(num_a - num_b) == 1:
+                if num_a and num_b and abs(num_a - num_b) == 1:
                     sequence_strength = max(sequence_strength, 0.8)
-            except:
-                pass
+            except Exception:
+                logger.exception("解析中文步骤失败", exc_info=True)
         
         # 检测时间顺序词
         time_words = ["首先", "然后", "接着", "最后", "之后", "先", "再", "finally", "first", "second", "next"]
@@ -1068,7 +1060,6 @@ class ContextComposer:
             "coherence_score": coherence_score,
             "coverage_score": coverage_score
         }
-
 
 # 全局上下文组合器实例
 context_composer = ContextComposer()

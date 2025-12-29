@@ -8,33 +8,30 @@
 
 import spacy
 import asyncio
-import logging
 import time
 from typing import List, Dict, Optional, Any, Tuple, Union
 from dataclasses import dataclass, field
 from abc import ABC, abstractmethod
 from collections import defaultdict
 import numpy as np
+from .data_models import Entity, EntityType
+
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 try:
     from transformers import pipeline, AutoTokenizer, AutoModelForTokenClassification
     TRANSFORMERS_AVAILABLE = True
 except ImportError:
     TRANSFORMERS_AVAILABLE = False
-    logging.warning("Transformers not available, some NER models will be disabled")
+    logger.warning("Transformers not available, some NER models will be disabled")
 
 try:
     import stanza
     STANZA_AVAILABLE = True
 except ImportError:
     STANZA_AVAILABLE = False
-    logging.warning("Stanza not available, some NER models will be disabled")
-
-from .data_models import Entity, EntityType
-
-
-logger = logging.getLogger(__name__)
-
+    logger.warning("Stanza not available, some NER models will be disabled")
 
 @dataclass
 class ModelConfig:
@@ -45,7 +42,6 @@ class ModelConfig:
     model_path: Optional[str] = None
     language: Optional[str] = None
     config: Dict[str, Any] = field(default_factory=dict)
-
 
 class BaseEntityRecognizer(ABC):
     """实体识别器基类"""
@@ -59,12 +55,12 @@ class BaseEntityRecognizer(ABC):
     @abstractmethod
     async def load_model(self):
         """加载模型"""
-        pass
+        raise NotImplementedError
     
     @abstractmethod  
     async def extract_entities(self, text: str, language: str = "auto") -> List[Entity]:
         """抽取实体"""
-        pass
+        raise NotImplementedError
     
     def is_loaded(self) -> bool:
         """检查模型是否已加载"""
@@ -79,7 +75,6 @@ class BaseEntityRecognizer(ABC):
             "loaded": self._loaded,
             "language": self.config.language
         }
-
 
 class SpacyEntityRecognizer(BaseEntityRecognizer):
     """spaCy实体识别器"""
@@ -201,7 +196,6 @@ class SpacyEntityRecognizer(BaseEntityRecognizer):
         }
         return mapping.get(label)
 
-
 class TransformerEntityRecognizer(BaseEntityRecognizer):
     """Transformer模型实体识别器"""
     
@@ -287,7 +281,6 @@ class TransformerEntityRecognizer(BaseEntityRecognizer):
             "MISC": EntityType.MISC
         }
         return mapping.get(label)
-
 
 class StanzaEntityRecognizer(BaseEntityRecognizer):
     """Stanza实体识别器"""
@@ -377,7 +370,6 @@ class StanzaEntityRecognizer(BaseEntityRecognizer):
             "QUANTITY": EntityType.QUANTITY
         }
         return mapping.get(label)
-
 
 class MultiModelEntityRecognizer:
     """多模型实体识别器 - 融合多个NER模型结果"""

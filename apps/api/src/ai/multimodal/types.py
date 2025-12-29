@@ -8,7 +8,6 @@ from datetime import datetime
 from src.core.utils.timezone_utils import utc_now, utc_factory
 from typing import Dict, Any, Optional, List
 
-
 class ContentType(str, Enum):
     """内容类型枚举"""
     IMAGE = "image"
@@ -16,7 +15,6 @@ class ContentType(str, Enum):
     VIDEO = "video"
     AUDIO = "audio"
     TEXT = "text"
-
 
 class ProcessingStatus(str, Enum):
     """处理状态"""
@@ -26,7 +24,6 @@ class ProcessingStatus(str, Enum):
     FAILED = "failed"
     CACHED = "cached"
 
-
 class ModelPriority(str, Enum):
     """模型选择优先级"""
     COST = "cost"
@@ -34,13 +31,11 @@ class ModelPriority(str, Enum):
     SPEED = "speed"
     BALANCED = "balanced"
 
-
 class ModelComplexity(str, Enum):
     """任务复杂度"""
     SIMPLE = "simple"
     MEDIUM = "medium"
     COMPLEX = "complex"
-
 
 @dataclass
 class MultimodalContent:
@@ -52,7 +47,6 @@ class MultimodalContent:
     mime_type: Optional[str] = None
     metadata: Optional[Dict[str, Any]] = None
     
-
 @dataclass
 class ProcessingResult:
     """处理结果数据类"""
@@ -65,7 +59,6 @@ class ProcessingResult:
     tokens_used: Optional[Dict[str, int]] = None
     error_message: Optional[str] = None
     created_at: Optional[datetime] = None
-
 
 @dataclass
 class ProcessingOptions:

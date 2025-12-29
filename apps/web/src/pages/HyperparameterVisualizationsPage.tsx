@@ -3,6 +3,7 @@ import { Card } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
 import { Alert } from '../components/ui/alert';
+import { buildApiUrl, apiFetch } from '../utils/apiBase'
 
 interface Experiment {
   id: string;
@@ -50,19 +51,18 @@ const HyperparameterVisualizationsPage: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const API_BASE = '/api/v1/hyperparameter-optimization';
+  const API_BASE = buildApiUrl('/api/v1/hyperparameter-optimization');
 
   // 加载实验列表
   const loadExperiments = async () => {
     try {
-      const response = await fetch(`${API_BASE}/experiments`);
-      if (!response.ok) throw new Error('Failed to load experiments');
+      const response = await apiFetch(`${API_BASE}/experiments`);
       
       const data = await response.json();
       setExperiments(data.filter((exp: Experiment) => exp.total_trials > 0));
       setError(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unknown error');
+      setError(err instanceof Error ? err.message : '未知错误');
     }
   };
 
@@ -72,13 +72,9 @@ const HyperparameterVisualizationsPage: React.FC = () => {
       setLoading(true);
       
       const [vizResponse, trialsResponse] = await Promise.all([
-        fetch(`${API_BASE}/experiments/${experimentId}/visualizations`),
-        fetch(`${API_BASE}/experiments/${experimentId}/trials`)
+        apiFetch(`${API_BASE}/experiments/${experimentId}/visualizations`),
+        apiFetch(`${API_BASE}/experiments/${experimentId}/trials`)
       ]);
-
-      if (!vizResponse.ok || !trialsResponse.ok) {
-        throw new Error('Failed to load visualization data');
-      }
 
       const vizData = await vizResponse.json();
       const trialsData = await trialsResponse.json();
@@ -91,7 +87,7 @@ const HyperparameterVisualizationsPage: React.FC = () => {
       
       setError(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unknown error');
+      setError(err instanceof Error ? err.message : '未知错误');
     } finally {
       setLoading(false);
     }
@@ -115,7 +111,7 @@ const HyperparameterVisualizationsPage: React.FC = () => {
         };
       });
 
-    // 参数重要性（模拟数据）
+    // 参数重要性（基于相关性粗略估计）
     const allParams = new Set<string>();
     trials.forEach(trial => {
       if (trial.parameters) {
@@ -123,10 +119,44 @@ const HyperparameterVisualizationsPage: React.FC = () => {
       }
     });
 
-    const paramImportance = Array.from(allParams).map(param => ({
-      param_name: param,
-      importance: Math.random() // 实际应该计算真实重要性
-    })).sort((a, b) => b.importance - a.importance);
+    const computeCorrelation = (xs: number[], ys: number[]) => {
+      if (xs.length < 3) return 0;
+      const n = xs.length;
+      const meanX = xs.reduce((s, v) => s + v, 0) / n;
+      const meanY = ys.reduce((s, v) => s + v, 0) / n;
+      let num = 0;
+      let denX = 0;
+      let denY = 0;
+      for (let i = 0; i < n; i++) {
+        const dx = xs[i] - meanX;
+        const dy = ys[i] - meanY;
+        num += dx * dy;
+        denX += dx * dx;
+        denY += dy * dy;
+      }
+      if (denX === 0 || denY === 0) return 0;
+      return num / Math.sqrt(denX * denY);
+    };
+
+    const paramImportance = Array.from(allParams).map(param => {
+      const values: number[] = [];
+      const objectives: number[] = [];
+      trials.forEach(trial => {
+        if (
+          trial.parameters &&
+          trial.value !== undefined &&
+          typeof trial.parameters[param] === 'number'
+        ) {
+          values.push(trial.parameters[param]);
+          objectives.push(trial.value);
+        }
+      });
+      const corr = computeCorrelation(values, objectives);
+      return {
+        param_name: param,
+        importance: Math.abs(corr)
+      };
+    }).sort((a, b) => b.importance - a.importance);
 
     // 参数关系（取前两个重要参数）
     const parameterRelations = paramImportance.length >= 2 ? [{

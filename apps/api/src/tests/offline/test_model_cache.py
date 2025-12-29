@@ -9,13 +9,11 @@ import asyncio
 from datetime import datetime
 from datetime import timedelta
 from src.core.utils.timezone_utils import utc_now, utc_factory
-
 from ...offline.model_cache import ModelCacheManager, ModelMetadata
 from ...offline.local_inference import (
     LocalInferenceEngine, InferenceRequest, InferenceMode,
     ModelType, NetworkStatus
 )
-
 
 class TestModelCacheManager:
     """模型缓存管理器测试"""
@@ -144,18 +142,26 @@ class TestModelCacheManager:
         assert 'cache_usage_percent' in stats
         assert stats['total_models'] == 0  # 空缓存
     
-    def test_remove_model(self, temp_cache_manager):
+    @pytest.mark.asyncio
+    async def test_remove_model(self, temp_cache_manager):
         """测试模型移除"""
-        # 这个测试不需要async，因为我们测试的是元数据操作
-        # 实际的文件操作在真实场景中会发生
-        pass
+        model_id = "remove_test_model"
+        await temp_cache_manager.cache_model(
+            model_id=model_id,
+            version="1.0",
+            model_data={"id": model_id},
+        )
+        assert temp_cache_manager.get_model_info(model_id) is not None
+
+        removed = temp_cache_manager.remove_model(model_id)
+        assert removed is True
+        assert temp_cache_manager.get_model_info(model_id) is None
     
     def test_cleanup_old_models(self, temp_cache_manager):
         """测试清理旧模型"""
         # 清理30天前的模型
         removed_count = temp_cache_manager.cleanup_old_models(days=30)
         assert removed_count >= 0  # 应该是非负数
-
 
 class TestLocalInferenceEngine:
     """本地推理引擎测试"""

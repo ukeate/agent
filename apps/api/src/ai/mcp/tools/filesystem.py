@@ -4,18 +4,15 @@ import asyncio
 import aiofiles
 import os
 import stat
-import logging
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 from datetime import datetime
 from src.core.utils.timezone_utils import utc_now, utc_factory
-
 from ..client import get_mcp_client_manager
 from ..exceptions import MCPSecurityError, MCPResourceError, MCPValidationError, handle_mcp_exception
 from ..monitoring import monitor_operation
 
-logger = logging.getLogger(__name__)
-
+logger = get_logger(__name__)
 
 class FileSystemTool:
     """文件系统MCP工具实现"""
@@ -370,10 +367,8 @@ class FileSystemTool:
                 "error_type": "UnknownError"
             }
 
-
 # 全局文件系统工具实例
 filesystem_tool = FileSystemTool()
-
 
 async def call_filesystem_tool(tool_name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
     """调用文件系统工具的统一接口"""
@@ -418,3 +413,4 @@ async def call_filesystem_tool(tool_name: str, arguments: Dict[str, Any]) -> Dic
             "error": str(e),
             "error_type": "ToolError"
         }
+from src.core.logging import get_logger

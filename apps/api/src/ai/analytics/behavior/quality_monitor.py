@@ -13,12 +13,10 @@ from collections import defaultdict, deque
 from dataclasses import dataclass, asdict
 from enum import Enum
 import statistics
-import logging
-
 from ..models import BehaviorEvent, EventType
 
-logger = logging.getLogger(__name__)
-
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 class QualityIssueType(str, Enum):
     """数据质量问题类型"""
@@ -31,14 +29,12 @@ class QualityIssueType(str, Enum):
     HIGH_FREQUENCY = "high_frequency"
     SCHEMA_VIOLATION = "schema_violation"
 
-
 class QualitySeverity(str, Enum):
     """质量问题严重程度"""
     LOW = "low"
     MEDIUM = "medium"
     HIGH = "high"
     CRITICAL = "critical"
-
 
 @dataclass
 class QualityIssue:
@@ -52,7 +48,6 @@ class QualityIssue:
     description: str
     detected_at: datetime
     metadata: Dict[str, Any]
-
 
 @dataclass
 class QualityMetrics:
@@ -82,7 +77,6 @@ class QualityMetrics:
     
     # 总体质量分数
     overall_quality_score: float = 1.0  # 0-1
-
 
 class QualityMonitor:
     """数据质量监控器"""

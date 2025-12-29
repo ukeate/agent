@@ -1,6 +1,7 @@
 """
 事件追踪API端点 - 提供事件收集、查询和管理功能
 """
+
 from datetime import datetime
 from datetime import timedelta
 from src.core.utils.timezone_utils import utc_now, utc_factory
@@ -12,22 +13,22 @@ import asyncio
 import time
 import hashlib
 import json
-
-from core.database import get_db
-from core.logging import get_logger
-from models.schemas.event_tracking import (
+from src.core.database import get_db, get_db_session
+from src.models.schemas.event_tracking import (
     CreateEventRequest, BatchEventsRequest, EventResponse, BatchEventsResponse,
     EventStreamResponse, EventQueryRequest, EventQueryResponse, 
     EventProcessingStats, EventValidationResult, EventDeduplicationInfo,
     EventStatus, DataQuality, EventType
 )
-from repositories.event_tracking_repository import (
+from src.repositories.event_tracking_repository import (
     EventStreamRepository, EventDeduplicationRepository, 
     EventSchemaRepository, EventErrorRepository
 )
-from services.event_processing_service import EventProcessingService
+from src.services.event_processing_service import EventProcessingService
 
+from src.core.logging import get_logger
 logger = get_logger(__name__)
+
 router = APIRouter(prefix="/event-tracking", tags=["事件追踪"])
 
 # 依赖注入
@@ -63,7 +64,6 @@ def get_client_ip(request: Request) -> str:
     
     return request.client.host if request.client else "unknown"
 
-
 @router.post("/events", response_model=EventResponse)
 async def create_event(
     event: CreateEventRequest,
@@ -81,9 +81,8 @@ async def create_event(
         # 如果处理成功且状态为PENDING，添加后台处理任务
         if result.success and result.status == EventStatus.PENDING:
             background_tasks.add_task(
-                _process_event_async_v2, 
+                _process_event_async,
                 event.event_id,
-                processing_service.event_repo
             )
         
         return EventResponse(
@@ -97,7 +96,6 @@ async def create_event(
     except Exception as e:
         logger.error(f"创建事件失败: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"创建事件失败: {str(e)}")
-
 
 @router.post("/events/batch", response_model=BatchEventsResponse)
 async def create_events_batch(
@@ -138,10 +136,9 @@ async def create_events_batch(
         # 添加后台批量处理任务
         if pending_event_ids:
             background_tasks.add_task(
-                _process_batch_async_v2,
+                _process_batch_async,
                 batch_request.batch_id,
                 pending_event_ids,
-                processing_service.event_repo
             )
         
         processing_time = int((time.time() - start_time) * 1000)
@@ -159,7 +156,6 @@ async def create_events_batch(
     except Exception as e:
         logger.error(f"批量创建事件失败: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"批量创建失败: {str(e)}")
-
 
 @router.get("/events", response_model=EventQueryResponse)
 async def query_events(
@@ -245,7 +241,6 @@ async def query_events(
         logger.error(f"查询事件失败: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"查询失败: {str(e)}")
 
-
 @router.get("/events/{event_id}", response_model=EventStreamResponse)
 async def get_event(
     event_id: str,
@@ -289,7 +284,6 @@ async def get_event(
         logger.error(f"获取事件失败: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"获取事件失败: {str(e)}")
 
-
 @router.get("/stats", response_model=EventProcessingStats)
 async def get_processing_stats(
     experiment_id: Optional[str] = Query(None, description="实验ID过滤"),
@@ -308,7 +302,6 @@ async def get_processing_stats(
     except Exception as e:
         logger.error(f"获取处理统计失败: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"获取统计失败: {str(e)}")
-
 
 @router.post("/events/{event_id}/reprocess")
 async def reprocess_event(
@@ -329,7 +322,7 @@ async def reprocess_event(
         await event_repo.update_event_status(event_id, EventStatus.PENDING)
         
         # 添加后台处理任务
-        background_tasks.add_task(_process_event_async, event.id, event_repo)
+        background_tasks.add_task(_process_event_async, event.event_id)
         
         return {"message": "事件已加入重新处理队列", "event_id": event_id}
         
@@ -339,49 +332,34 @@ async def reprocess_event(
         logger.error(f"重新处理事件失败: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"重新处理失败: {str(e)}")
 
-
 # 后台任务函数
-async def _process_event_async_v2(event_id: str, event_repo: EventStreamRepository):
-    """异步处理单个事件（新版本）"""
+async def _process_event_async(event_id: str):
+    """异步处理单个事件"""
     try:
-        # 模拟事件后处理逻辑：聚合、分析等
-        await asyncio.sleep(0.1)  # 模拟处理时间
-        
-        # 更新事件状态为已处理
-        await event_repo.update_event_status(event_id, EventStatus.PROCESSED)
-        await event_repo.update_processed_at(event_id, utc_now())
-        
-        logger.info(f"事件 {event_id} 后处理完成")
+        async with get_db_session() as db:
+            event_repo = EventStreamRepository(db)
+            await event_repo.update_event_status(event_id, EventStatus.PROCESSED)
+            logger.info(f"事件 {event_id} 后处理完成")
         
     except Exception as e:
         logger.error(f"异步处理事件 {event_id} 失败: {e}")
         try:
-            await event_repo.update_event_status(event_id, EventStatus.FAILED)
+            async with get_db_session() as db:
+                event_repo = EventStreamRepository(db)
+                await event_repo.update_event_status(event_id, EventStatus.FAILED)
         except Exception:
-            pass
+            logger.exception("更新事件失败状态失败", exc_info=True)
 
-
-async def _process_batch_async_v2(batch_id: str, event_ids: List[str], event_repo: EventStreamRepository):
-    """异步处理事件批次（新版本）"""
+async def _process_batch_async(batch_id: str, event_ids: List[str]):
+    """异步处理事件批次"""
     try:
         logger.info(f"开始后处理批次 {batch_id}，包含 {len(event_ids)} 个事件")
         
         # 并发处理所有事件
-        tasks = [_process_event_async_v2(event_id, event_repo) for event_id in event_ids]
+        tasks = [_process_event_async(event_id) for event_id in event_ids]
         await asyncio.gather(*tasks, return_exceptions=True)
         
         logger.info(f"批次 {batch_id} 后处理完成")
         
     except Exception as e:
         logger.error(f"批量后处理失败 {batch_id}: {e}")
-
-
-# 保留原有函数以兼容性
-async def _process_event_async(event_id: str, event_repo: EventStreamRepository):
-    """异步处理单个事件（兼容版本）"""
-    return await _process_event_async_v2(event_id, event_repo)
-
-
-async def _process_batch_async(batch_id: str, event_ids: List[str], event_repo: EventStreamRepository):
-    """异步处理事件批次（兼容版本）"""
-    return await _process_batch_async_v2(batch_id, event_ids, event_repo)

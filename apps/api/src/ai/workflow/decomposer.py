@@ -5,29 +5,24 @@
 
 import asyncio
 import json
-import logging
 from typing import Dict, List, Optional, Any, Tuple, Set
 from uuid import uuid4
 from datetime import datetime
 from src.core.utils.timezone_utils import utc_now, utc_factory
-
 import networkx as nx
-
-from models.schemas.workflow import (
+from src.models.schemas.workflow import (
     TaskDecompositionRequest, TaskNode, TaskDAG, WorkflowStepType,
     TaskDependencyType, WorkflowDefinition, WorkflowStep
 )
-from models.schemas.reasoning import ReasoningRequest, ReasoningStrategy
+from src.models.schemas.reasoning import ReasoningRequest, ReasoningStrategy
 from src.ai.reasoning.cot_engine import BaseCoTEngine
+
 from src.core.logging import get_logger
-
 logger = get_logger(__name__)
-
 
 class TaskDecompositionError(Exception):
     """任务分解错误"""
-    pass
-
+    ...
 
 class TaskComplexityAnalyzer:
     """任务复杂度分析器"""
@@ -114,7 +109,6 @@ class TaskComplexityAnalyzer:
         time_multiplier = 1.0 + (complexity_score - 1.0) * 0.5
         
         return max(1, int(base_time * time_multiplier))
-
 
 class TaskDecomposer:
     """任务分解器核心类"""
@@ -717,7 +711,6 @@ class TaskDecomposer:
     ]
 }}
 """
-
 
 async def create_workflow_from_dag(dag: TaskDAG) -> WorkflowDefinition:
     """

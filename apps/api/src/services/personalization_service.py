@@ -1,11 +1,9 @@
 import asyncio
-import logging
 from typing import Dict, List, Optional, Any
 from datetime import datetime
 from src.core.utils.timezone_utils import utc_now, utc_factory
 from redis.asyncio import Redis
-
-from models.schemas.personalization import (
+from src.models.schemas.personalization import (
     RecommendationRequest,
     RecommendationResponse,
     UserFeedback,
@@ -13,13 +11,13 @@ from models.schemas.personalization import (
     RealTimeFeatures,
     ModelConfig
 )
-from ai.personalization.engine import PersonalizationEngine
-from ai.personalization.features.realtime import FeatureConfig
-from ai.personalization.cache.feature_cache import CacheConfig
-from core.database import get_redis_client
+from src.ai.personalization.engine import PersonalizationEngine
+from src.ai.personalization.features.realtime import FeatureConfig
+from src.ai.personalization.cache.feature_cache import CacheConfig
+from src.core.redis import get_redis
 
-logger = logging.getLogger(__name__)
-
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 class PersonalizationService:
     """个性化推荐服务"""
@@ -34,7 +32,7 @@ class PersonalizationService:
         if self._initialized:
             return
             
-        self.redis_client = await get_redis_client()
+        self.redis_client = get_redis()
         
         # 初始化个性化引擎
         feature_config = FeatureConfig()
@@ -201,10 +199,14 @@ class PersonalizationService:
             Dict[str, Any]: 缓存统计
         """
         await self._ensure_initialized()
+        feature_cache = {}
+        if hasattr(self.engine.feature_cache, "get_stats"):
+            feature_cache = await self.engine.feature_cache.get_stats()
+        result_cache = getattr(self.engine.result_cache, "cache_stats", {})
         return {
-            "feature_cache": self.engine.feature_cache.get_stats() if hasattr(self.engine.feature_cache, 'get_stats') else {},
-            "result_cache": self.engine.result_cache.get_stats() if hasattr(self.engine.result_cache, 'get_stats') else {},
-            "feature_engine_stats": self.engine.feature_engine.get_feature_statistics()
+            "feature_cache": feature_cache,
+            "result_cache": result_cache,
+            "feature_engine_stats": self.engine.feature_engine.get_feature_statistics(),
         }
     
     async def invalidate_user_cache(self, user_id: str) -> int:
@@ -251,10 +253,8 @@ class PersonalizationService:
         self._initialized = False
         logger.info("个性化服务已关闭")
 
-
 # 全局服务实例
 _personalization_service: Optional[PersonalizationService] = None
-
 
 async def get_personalization_service() -> PersonalizationService:
     """获取个性化服务实例（依赖注入）

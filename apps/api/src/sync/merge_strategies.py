@@ -11,6 +11,8 @@ from typing import Dict, Any, List, Optional, Tuple, Set, Union
 from dataclasses import dataclass, field
 from enum import Enum
 
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 class MergeOperation(str, Enum):
     """合并操作"""
@@ -21,7 +23,6 @@ class MergeOperation(str, Enum):
     DELETE_FIELD = "delete_field"
     ADD_FIELD = "add_field"
 
-
 class FieldType(str, Enum):
     """字段类型"""
     PRIMITIVE = "primitive"  # 基本类型（字符串、数字、布尔）
@@ -29,7 +30,6 @@ class FieldType(str, Enum):
     DICT = "dict"           # 字典
     TIMESTAMP = "timestamp"  # 时间戳
     REFERENCE = "reference"  # 引用类型
-
 
 @dataclass
 class MergeConflict:
@@ -41,7 +41,6 @@ class MergeConflict:
     conflict_type: str = "value_conflict"
     suggested_resolution: Optional[Any] = None
 
-
 @dataclass
 class MergeResult:
     """合并结果"""
@@ -50,7 +49,6 @@ class MergeResult:
     confidence_score: float
     merge_operations: List[Dict[str, Any]] = field(default_factory=list)
     metadata: Dict[str, Any] = field(default_factory=dict)
-
 
 class MergeStrategies:
     """合并策略集合"""
@@ -244,7 +242,7 @@ class MergeStrategies:
                             "confidence": 0.9
                         }
         except (ValueError, TypeError):
-            pass
+            logger.debug("时间戳解析失败，返回冲突", exc_info=True)
         
         # 如果无法解析时间戳，标记为冲突
         return {
@@ -384,7 +382,7 @@ class MergeStrategies:
                     "confidence": 0.8
                 }
         except (TypeError, ValueError):
-            pass
+            logger.debug("累积字段数值合并失败", exc_info=True)
         
         # 如果不能累加，取最大值
         try:
@@ -395,7 +393,7 @@ class MergeStrategies:
                     "confidence": 0.6
                 }
         except (TypeError, ValueError):
-            pass
+            logger.debug("累积字段最大值合并失败", exc_info=True)
         
         # 默认冲突
         return {

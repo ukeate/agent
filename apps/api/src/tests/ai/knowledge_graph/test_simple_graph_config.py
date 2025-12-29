@@ -26,7 +26,6 @@ except ImportError:
             for key, value in kwargs.items():
                 setattr(self, key, value)
 
-
 @pytest.mark.unit
 def test_graph_database_config_creation():
     """测试图数据库配置创建"""
@@ -43,7 +42,6 @@ def test_graph_database_config_creation():
     assert config.database == "graph"
     assert config.connection_timeout == 30
     assert config.max_connection_pool_size == 50
-
 
 @pytest.mark.unit
 def test_graph_database_config_with_custom_params():
@@ -65,7 +63,6 @@ def test_graph_database_config_with_custom_params():
     assert config.connection_timeout == 10
     assert config.max_connection_pool_size == 20
     assert config.max_connection_lifetime == 60
-
 
 @pytest.mark.unit
 def test_graph_database_config_validation():

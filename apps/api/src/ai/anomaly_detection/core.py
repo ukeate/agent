@@ -15,9 +15,9 @@ from sklearn.neighbors import LocalOutlierFactor
 from sklearn.preprocessing import StandardScaler
 from sklearn.cluster import DBSCAN
 from scipy import stats
-import logging
 
-logger = logging.getLogger(__name__)
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 @dataclass
 class AnomalyResult:
@@ -521,7 +521,12 @@ if __name__ == "__main__":
     # 检测异常
     anomalies = detector.detect_anomalies(events)
     
-    print(f"检测到 {len(anomalies)} 个异常:")
+    logger.info("检测到异常", anomaly_count=len(anomalies))
     for anomaly in anomalies:
-        print(f"- 用户 {anomaly.user_id}: {anomaly.description} "
-              f"(严重程度: {anomaly.severity}, 置信度: {anomaly.confidence:.2f})")
+        logger.info(
+            "异常详情",
+            user_id=anomaly.user_id,
+            description=anomaly.description,
+            severity=anomaly.severity,
+            confidence=f"{anomaly.confidence:.2f}",
+        )

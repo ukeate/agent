@@ -3,9 +3,9 @@
 实现性能指标监控、健康检查、告警系统和性能优化功能
 """
 
+from src.core.utils.timezone_utils import utc_now
 import asyncio
 import time
-import logging
 import statistics
 import psutil
 import uuid
@@ -15,8 +15,8 @@ from datetime import datetime, timedelta
 from enum import Enum
 from collections import defaultdict, deque
 
-logger = logging.getLogger(__name__)
-
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 class AlertLevel(str, Enum):
     """告警级别"""
@@ -25,14 +25,12 @@ class AlertLevel(str, Enum):
     ERROR = "error"
     CRITICAL = "critical"
 
-
 class MetricType(str, Enum):
     """指标类型"""
     COUNTER = "counter"      # 计数器
     GAUGE = "gauge"         # 仪表盘
     HISTOGRAM = "histogram" # 直方图
     TIMER = "timer"         # 计时器
-
 
 @dataclass
 class PerformanceMetric:
@@ -53,7 +51,6 @@ class PerformanceMetric:
             "labels": self.labels
         }
 
-
 @dataclass
 class Alert:
     """告警"""
@@ -69,7 +66,7 @@ class Alert:
     def resolve(self):
         """解决告警"""
         self.resolved = True
-        self.resolved_at = datetime.now()
+        self.resolved_at = utc_now()
     
     def to_dict(self) -> Dict[str, Any]:
         """转换为字典"""
@@ -83,7 +80,6 @@ class Alert:
             "resolved_at": self.resolved_at.isoformat() if self.resolved_at else None,
             "metadata": self.metadata
         }
-
 
 @dataclass
 class HealthStatus:
@@ -103,7 +99,6 @@ class HealthStatus:
             "timestamp": self.timestamp.isoformat(),
             "details": self.details
         }
-
 
 class MetricCollector:
     """指标收集器"""
@@ -180,7 +175,7 @@ class MetricCollector:
     
     def cleanup_old_metrics(self):
         """清理过期指标"""
-        cutoff_time = datetime.now() - self.retention_period
+        cutoff_time = utc_now() - self.retention_period
         
         for metric_key in list(self.metrics.keys()):
             metrics_deque = self.metrics[metric_key]
@@ -192,7 +187,6 @@ class MetricCollector:
             # 如果队列为空，删除键
             if not metrics_deque:
                 del self.metrics[metric_key]
-
 
 class HealthChecker:
     """健康检查器"""
@@ -281,7 +275,6 @@ class HealthChecker:
                     "unhealthy_components": unhealthy_components
                 }
             )
-
 
 class AlertManager:
     """告警管理器"""
@@ -430,7 +423,6 @@ class AlertManager:
             "by_level": dict(level_counts)
         }
 
-
 class PerformanceOptimizer:
     """性能优化器"""
     
@@ -550,7 +542,6 @@ class PerformanceOptimizer:
         except Exception as e:
             logger.error(f"获取系统性能信息失败: {e}")
             return {}
-
 
 class MonitoringManager:
     """监控管理器"""
@@ -805,7 +796,7 @@ class MonitoringManager:
         summary = {}
         
         # 获取最近5分钟的指标
-        recent_cutoff = datetime.now() - timedelta(minutes=5)
+        recent_cutoff = utc_now() - timedelta(minutes=5)
         
         for metric_key, metrics_deque in self.metric_collector.metrics.items():
             recent_metrics = [m for m in metrics_deque if m.timestamp >= recent_cutoff]

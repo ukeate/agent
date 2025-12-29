@@ -7,10 +7,10 @@ test.describe('Multi-Agent Collaboration', () => {
     await page.waitForLoadState('domcontentloaded')
     
     // Wait for the multi-agent page to load - check for actual page elements
-    await expect(page.locator('新建对话').or(page.locator('清空对话'))).toBeVisible({ timeout: 15000 })
+    await expect(page.locator('text=新建对话').or(page.locator('text=清空对话'))).toBeVisible({ timeout: 15000 })
     
     // Check for multi-agent specific elements
-    await expect(page.locator('AI Agent').first()).toBeVisible({ timeout: 10000 })
+    await expect(page.locator('text=AI Agent').first()).toBeVisible({ timeout: 10000 })
     
     // Check if create conversation elements are present
     await expect(page.locator('text=创建').first()).toBeVisible({ timeout: 10000 })
@@ -21,7 +21,7 @@ test.describe('Multi-Agent Collaboration', () => {
     await page.waitForLoadState('domcontentloaded')
     
     // Wait for page to load - check for basic page structure
-    await expect(page.locator('新建对话').or(page.locator('清空对话'))).toBeVisible({ timeout: 15000 })
+    await expect(page.locator('text=新建对话').or(page.locator('text=清空对话'))).toBeVisible({ timeout: 15000 })
     
     // Check if basic interface elements are present (without requiring specific content)
     const createElements = await page.locator('text=创建').all()

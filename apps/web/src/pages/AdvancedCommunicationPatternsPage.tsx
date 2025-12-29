@@ -46,7 +46,7 @@ import {
   MessageOutlined,
   ApiOutlined,
   ClusterOutlined,
-  NetworkOutlined,
+  ShareAltOutlined as NetworkOutlined,
   EyeOutlined,
   EditOutlined,
   DeleteOutlined,

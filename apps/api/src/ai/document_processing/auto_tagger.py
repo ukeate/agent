@@ -1,7 +1,6 @@
 """智能标签与分类系统"""
 
 import re
-import logging
 from typing import List, Dict, Any, Optional, Set
 from dataclasses import dataclass
 from enum import Enum
@@ -10,7 +9,7 @@ import nltk
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.decomposition import LatentDirichletAllocation
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 # 尝试下载NLTK数据
 try:
@@ -23,7 +22,6 @@ except:
     logger.warning("NLTK data not available")
     NLTK_AVAILABLE = False
 
-
 class TagCategory(Enum):
     """标签类别枚举"""
     TECHNOLOGY = "technology"  # 技术栈
@@ -35,7 +33,6 @@ class TagCategory(Enum):
     DOMAIN = "domain"  # 领域
     CUSTOM = "custom"  # 自定义
 
-
 @dataclass
 class DocumentTag:
     """文档标签数据类"""
@@ -45,7 +42,6 @@ class DocumentTag:
     source: str  # 标签来源：auto, manual, rule
     metadata: Optional[Dict[str, Any]] = None
 
-
 @dataclass
 class DocumentClassification:
     """文档分类数据类"""
@@ -54,7 +50,6 @@ class DocumentClassification:
     parent_category: Optional[str] = None
     confidence: float = 0.0
     metadata: Optional[Dict[str, Any]] = None
-
 
 class AutoTagger:
     """自动标签生成器
@@ -658,3 +653,4 @@ class AutoTagger:
             "tag": tag,
             "confidence": confidence
         })
+from src.core.logging import get_logger

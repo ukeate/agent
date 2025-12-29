@@ -3,9 +3,10 @@
  * 处理与反馈系统后端API的交互
  */
 
-import { apiClient } from './apiClient';
+import apiClient from './apiClient';
 import { FeedbackEvent, FeedbackType } from './feedbackTracker';
 
+import { logger } from '../utils/logger'
 // API响应类型
 export interface ApiResponse<T = any> {
   success: boolean;
@@ -96,7 +97,7 @@ class FeedbackService {
       const response = await apiClient.post<ApiResponse>('/feedback/implicit', batch);
       return response.data;
     } catch (error) {
-      console.error('[FeedbackService] 提交隐式反馈失败:', error);
+      logger.error('[FeedbackService] 提交隐式反馈失败:', error);
       throw error;
     }
   }
@@ -109,7 +110,7 @@ class FeedbackService {
       const response = await apiClient.post<ApiResponse>('/feedback/explicit', feedback);
       return response.data;
     } catch (error) {
-      console.error('[FeedbackService] 提交显式反馈失败:', error);
+      logger.error('[FeedbackService] 提交显式反馈失败:', error);
       throw error;
     }
   }
@@ -125,7 +126,7 @@ class FeedbackService {
       );
       return response.data;
     } catch (error) {
-      console.error('[FeedbackService] 获取用户反馈历史失败:', error);
+      logger.error('[FeedbackService] 获取用户反馈历史失败:', error);
       throw error;
     }
   }
@@ -140,7 +141,7 @@ class FeedbackService {
       );
       return response.data;
     } catch (error) {
-      console.error('[FeedbackService] 获取用户反馈分析失败:', error);
+      logger.error('[FeedbackService] 获取用户反馈分析失败:', error);
       throw error;
     }
   }
@@ -155,7 +156,7 @@ class FeedbackService {
       );
       return response.data;
     } catch (error) {
-      console.error('[FeedbackService] 获取推荐项反馈分析失败:', error);
+      logger.error('[FeedbackService] 获取推荐项反馈分析失败:', error);
       throw error;
     }
   }
@@ -171,7 +172,7 @@ class FeedbackService {
       );
       return response.data;
     } catch (error) {
-      console.error('[FeedbackService] 获取反馈质量评分失败:', error);
+      logger.error('[FeedbackService] 获取反馈质量评分失败:', error);
       throw error;
     }
   }
@@ -187,7 +188,7 @@ class FeedbackService {
       );
       return response.data;
     } catch (error) {
-      console.error('[FeedbackService] 批量处理反馈失败:', error);
+      logger.error('[FeedbackService] 批量处理反馈失败:', error);
       throw error;
     }
   }
@@ -211,7 +212,7 @@ class FeedbackService {
       );
       return response.data;
     } catch (error) {
-      console.error('[FeedbackService] 计算奖励信号失败:', error);
+      logger.error('[FeedbackService] 计算奖励信号失败:', error);
       throw error;
     }
   }
@@ -391,7 +392,7 @@ class FeedbackService {
       );
       return response.data;
     } catch (error) {
-      console.error('[FeedbackService] 获取反馈统计概览失败:', error);
+      logger.error('[FeedbackService] 获取反馈统计概览失败:', error);
       throw error;
     }
   }
@@ -409,7 +410,7 @@ class FeedbackService {
       const response = await apiClient.get<ApiResponse<any>>('/feedback/metrics/realtime');
       return response.data;
     } catch (error) {
-      console.error('[FeedbackService] 获取实时反馈指标失败:', error);
+      logger.error('[FeedbackService] 获取实时反馈指标失败:', error);
       throw error;
     }
   }

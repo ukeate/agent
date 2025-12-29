@@ -9,7 +9,6 @@ from typing import Dict, Any, List, Optional, Tuple, Union
 from enum import Enum
 from dataclasses import dataclass
 import asyncio
-import logging
 from datetime import datetime
 from datetime import timedelta
 from src.core.utils.timezone_utils import utc_now, utc_factory, timezone
@@ -20,8 +19,8 @@ from scipy.spatial.distance import cdist
 from scipy.stats import pearsonr
 import statistics
 
-logger = logging.getLogger(__name__)
-
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 class TemporalAggregation(str, Enum):
     """时间聚合方式"""
@@ -32,14 +31,12 @@ class TemporalAggregation(str, Enum):
     FIRST = "first"
     MEDIAN = "median"
 
-
 class TrendDirection(str, Enum):
     """趋势方向"""
     INCREASING = "increasing"
     DECREASING = "decreasing"
     STABLE = "stable"
     VOLATILE = "volatile"
-
 
 @dataclass
 class TemporalVector:
@@ -49,7 +46,6 @@ class TemporalVector:
     entity_id: str
     metadata: Dict[str, Any]
     sequence_id: Optional[str] = None
-
 
 @dataclass
 class Trajectory:
@@ -61,7 +57,6 @@ class Trajectory:
     total_distance: float
     avg_velocity: float
 
-
 @dataclass
 class TemporalPattern:
     """时序模式"""
@@ -71,7 +66,6 @@ class TemporalPattern:
     end_time: datetime
     entities: List[str]
     description: str
-
 
 class TemporalVectorIndex:
     """时序向量索引"""

@@ -3,19 +3,18 @@
 import asyncio
 from typing import Any, Dict, Optional, List, Tuple, Union
 from datetime import datetime
-import logging
 import numpy as np
 import torch
 import io
-
+import wave
 from .base_analyzer import BaseEmotionAnalyzer
 from ..models.emotion_models import (
     EmotionResult, EmotionDimension, Modality,
     EmotionCategory, EMOTION_DIMENSIONS
 )
+from src.core.utils.timezone_utils import utc_now
 
-logger = logging.getLogger(__name__)
-
+logger = get_logger(__name__)
 
 class AudioEmotionAnalyzer(BaseEmotionAnalyzer):
     """基于Wav2Vec2的音频情感分析器"""
@@ -123,46 +122,64 @@ class AudioEmotionAnalyzer(BaseEmotionAnalyzer):
     async def _load_audio(self, audio_data: Union[np.ndarray, bytes, str]) -> Tuple[np.ndarray, int]:
         """加载音频数据"""
         try:
-            import librosa
-            
             if isinstance(audio_data, np.ndarray):
                 # 已经是numpy数组
                 return audio_data, self.sampling_rate
                 
             elif isinstance(audio_data, bytes):
                 # 字节数据
-                audio_array, sample_rate = librosa.load(
-                    io.BytesIO(audio_data),
-                    sr=None
-                )
+                with wave.open(io.BytesIO(audio_data), 'rb') as wf:
+                    sample_rate = wf.getframerate()
+                    n_channels = wf.getnchannels()
+                    sampwidth = wf.getsampwidth()
+                    frames = wf.readframes(wf.getnframes())
+                audio_array = self._pcm_to_float(frames, sampwidth)
+                if n_channels > 1:
+                    audio_array = audio_array.reshape(-1, n_channels).mean(axis=1)
                 return audio_array, sample_rate
                 
             elif isinstance(audio_data, str):
                 # 文件路径
-                audio_array, sample_rate = librosa.load(audio_data, sr=None)
+                with wave.open(audio_data, 'rb') as wf:
+                    sample_rate = wf.getframerate()
+                    n_channels = wf.getnchannels()
+                    sampwidth = wf.getsampwidth()
+                    frames = wf.readframes(wf.getnframes())
+                audio_array = self._pcm_to_float(frames, sampwidth)
+                if n_channels > 1:
+                    audio_array = audio_array.reshape(-1, n_channels).mean(axis=1)
                 return audio_array, sample_rate
                 
             else:
                 raise ValueError(f"不支持的音频数据类型: {type(audio_data)}")
                 
-        except ImportError:
-            logger.error("需要安装librosa库: pip install librosa")
-            raise
         except Exception as e:
             logger.error(f"加载音频失败: {e}")
             raise
+
+    def _pcm_to_float(self, frames: bytes, sampwidth: int) -> np.ndarray:
+        if sampwidth == 1:
+            pcm = np.frombuffer(frames, dtype=np.uint8).astype(np.float32)
+            return (pcm - 128.0) / 128.0
+        if sampwidth == 2:
+            pcm = np.frombuffer(frames, dtype=np.int16).astype(np.float32)
+            return pcm / 32768.0
+        if sampwidth == 4:
+            pcm = np.frombuffer(frames, dtype=np.int32).astype(np.float32)
+            return pcm / 2147483648.0
+        raise ValueError(f"不支持的wav采样宽度: {sampwidth}")
             
     async def _resample_audio(self, audio: np.ndarray, orig_sr: int) -> np.ndarray:
         """重采样音频"""
         try:
-            import librosa
-            
-            resampled = librosa.resample(
-                audio,
-                orig_sr=orig_sr,
-                target_sr=self.sampling_rate
-            )
-            return resampled
+            if orig_sr == self.sampling_rate:
+                return audio
+            target_len = int(len(audio) * (self.sampling_rate / orig_sr))
+            if target_len <= 0:
+                return audio
+            x_old = np.arange(len(audio), dtype=np.float32)
+            x_new = np.linspace(0, len(audio) - 1, target_len, dtype=np.float32)
+            return np.interp(x_new, x_old, audio).astype(np.float32)
         except Exception as e:
             logger.error(f"重采样失败: {e}")
             return audio
@@ -170,45 +187,34 @@ class AudioEmotionAnalyzer(BaseEmotionAnalyzer):
     async def _extract_audio_features(self, audio: np.ndarray) -> Dict[str, Any]:
         """提取音频特征"""
         try:
-            import librosa
-            
             features = {}
-            
-            # MFCC特征
-            if "mfcc" in self.config["feature_extractor"]:
-                mfccs = librosa.feature.mfcc(
-                    y=audio,
-                    sr=self.sampling_rate,
-                    n_mfcc=13
-                )
-                features["mfcc_mean"] = np.mean(mfccs, axis=1).tolist()
-                features["mfcc_std"] = np.std(mfccs, axis=1).tolist()
-                
-            # 音高特征
-            pitches, magnitudes = librosa.piptrack(
-                y=audio,
-                sr=self.sampling_rate
-            )
-            features["pitch_mean"] = float(np.mean(pitches[pitches > 0]))
-            features["pitch_std"] = float(np.std(pitches[pitches > 0]))
-            
-            # 能量特征
-            rms = librosa.feature.rms(y=audio)[0]
-            features["energy_mean"] = float(np.mean(rms))
-            features["energy_std"] = float(np.std(rms))
-            
-            # 语速特征(通过零交叉率估计)
-            zcr = librosa.feature.zero_crossing_rate(audio)[0]
-            features["zcr_mean"] = float(np.mean(zcr))
-            features["zcr_std"] = float(np.std(zcr))
-            
-            # 频谱特征
-            spectral_centroids = librosa.feature.spectral_centroid(
-                y=audio,
-                sr=self.sampling_rate
-            )[0]
-            features["spectral_centroid_mean"] = float(np.mean(spectral_centroids))
-            features["spectral_centroid_std"] = float(np.std(spectral_centroids))
+            audio = audio.astype(np.float32)
+
+            frame = max(int(self.sampling_rate * 0.05), 1)
+            hop = max(int(self.sampling_rate * 0.025), 1)
+            frames = [audio[i:i + frame] for i in range(0, len(audio) - frame + 1, hop)]
+            if not frames:
+                frames = [audio]
+
+            rms_vals = [float(np.sqrt(np.mean(f * f))) for f in frames]
+            features["energy_mean"] = float(np.mean(rms_vals))
+            features["energy_std"] = float(np.std(rms_vals))
+
+            zcr_vals = []
+            for f in frames:
+                s = np.sign(f)
+                zcr_vals.append(float(np.mean(s[1:] != s[:-1])))
+            features["zcr_mean"] = float(np.mean(zcr_vals))
+            features["zcr_std"] = float(np.std(zcr_vals))
+
+            spec = np.abs(np.fft.rfft(audio))
+            if spec.size > 0 and np.sum(spec) > 0:
+                freqs = np.fft.rfftfreq(len(audio), d=1.0 / self.sampling_rate)
+                centroid = float(np.sum(freqs * spec) / np.sum(spec))
+            else:
+                centroid = 0.0
+            features["spectral_centroid_mean"] = centroid
+            features["spectral_centroid_std"] = 0.0
             
             return features
             
@@ -351,7 +357,7 @@ class AudioEmotionAnalyzer(BaseEmotionAnalyzer):
             emotion=emotion_label,
             confidence=confidence,
             intensity=intensity,
-            timestamp=datetime.now(),
+            timestamp=utc_now(),
             modality=str(self.modality.value),
             details={
                 "duration": duration,
@@ -416,7 +422,7 @@ class AudioEmotionAnalyzer(BaseEmotionAnalyzer):
             emotion=EmotionCategory.NEUTRAL.value,
             confidence=0.5,
             intensity=0.3,
-            timestamp=datetime.now(),
+            timestamp=utc_now(),
             modality=str(self.modality.value),
             details=features,
             dimension=EMOTION_DIMENSIONS[EmotionCategory.NEUTRAL]
@@ -474,3 +480,4 @@ class AudioEmotionAnalyzer(BaseEmotionAnalyzer):
                     
             except Exception as e:
                 logger.error(f"实时分析出错: {e}")
+from src.core.logging import get_logger

@@ -7,6 +7,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { streamingService, SessionMetrics } from '../../services/streamingService';
 
+import { logger } from '../../utils/logger'
 interface StreamingSessionManagerProps {
   onSessionCreated?: (sessionId: string) => void;
   onSessionStopped?: (sessionId: string) => void;
@@ -37,6 +38,11 @@ export const StreamingSessionManager: React.FC<StreamingSessionManagerProps> = (
   const [error, setError] = useState<string | null>(null);
 
   const streamContainerRef = useRef<HTMLDivElement>(null);
+  const activeStreamsRef = useRef(activeStreams);
+
+  useEffect(() => {
+    activeStreamsRef.current = activeStreams;
+  }, [activeStreams]);
 
   // 获取会话列表
   const fetchSessions = async () => {
@@ -44,7 +50,7 @@ export const StreamingSessionManager: React.FC<StreamingSessionManagerProps> = (
       const response = await streamingService.getSessions();
       setSessions(response.sessions);
     } catch (error) {
-      console.error('获取会话列表失败:', error);
+      logger.error('获取会话列表失败:', error);
       setError(error instanceof Error ? error.message : '获取会话列表失败');
     }
   };
@@ -53,6 +59,18 @@ export const StreamingSessionManager: React.FC<StreamingSessionManagerProps> = (
     fetchSessions();
     const interval = setInterval(fetchSessions, 5000);
     return () => clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      Object.values(activeStreamsRef.current).forEach((stream) => {
+        if (stream.connection instanceof EventSource) {
+          stream.connection.close();
+        } else if (stream.connection instanceof WebSocket) {
+          stream.connection.close();
+        }
+      });
+    };
   }, []);
 
   // 创建新会话
@@ -77,7 +95,7 @@ export const StreamingSessionManager: React.FC<StreamingSessionManagerProps> = (
         buffer_size: 100
       });
     } catch (error) {
-      console.error('创建会话失败:', error);
+      logger.error('创建会话失败:', error);
       setError(error instanceof Error ? error.message : '创建会话失败');
     } finally {
       setLoading(false);
@@ -111,7 +129,7 @@ export const StreamingSessionManager: React.FC<StreamingSessionManagerProps> = (
       
       await fetchSessions();
     } catch (error) {
-      console.error('停止会话失败:', error);
+      logger.error('停止会话失败:', error);
       setError(error instanceof Error ? error.message : '停止会话失败');
     }
   };
@@ -149,12 +167,13 @@ export const StreamingSessionManager: React.FC<StreamingSessionManagerProps> = (
           streamContainerRef.current.scrollTop = streamContainerRef.current.scrollHeight;
         }
       } catch (error) {
-        console.error('解析SSE消息失败:', error);
+        logger.error('解析SSE消息失败:', error);
       }
     };
 
     eventSource.onerror = (error) => {
-      console.error('SSE连接错误:', error);
+      logger.error('SSE连接错误:', error);
+      eventSource.close();
       setActiveStreams(prev => ({
         ...prev,
         [sessionId]: {
@@ -221,12 +240,12 @@ export const StreamingSessionManager: React.FC<StreamingSessionManagerProps> = (
           streamContainerRef.current.scrollTop = streamContainerRef.current.scrollHeight;
         }
       } catch (error) {
-        console.error('解析WebSocket消息失败:', error);
+        logger.error('解析WebSocket消息失败:', error);
       }
     };
 
     ws.onerror = (error) => {
-      console.error('WebSocket连接错误:', error);
+      logger.error('WebSocket连接错误:', error);
       setActiveStreams(prev => ({
         ...prev,
         [sessionId]: {

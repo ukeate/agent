@@ -6,11 +6,10 @@
 
 from typing import Dict, Any, Optional, List
 from datetime import datetime
-from src.core.utils.timezone_utils import utc_now, utc_factory
+from src.core.utils.timezone_utils import utc_factory
 from enum import Enum
 from pydantic import BaseModel, Field
 import uuid
-
 
 class EventType(str, Enum):
     """事件类型枚举"""
@@ -19,7 +18,6 @@ class EventType(str, Enum):
     SYSTEM_EVENT = "system_event"
     ERROR_EVENT = "error_event"
     FEEDBACK_EVENT = "feedback_event"
-
 
 class BehaviorEvent(BaseModel):
     """行为事件数据模型"""
@@ -32,12 +30,6 @@ class BehaviorEvent(BaseModel):
     context: Dict[str, Any] = Field(default_factory=dict, description="设备、位置、渠道等上下文")
     timestamp: datetime = Field(default_factory=utc_factory)
     duration_ms: Optional[int] = Field(None, description="事件持续时间(毫秒)")
-    
-    class Config:
-        json_encoders = {
-            datetime: lambda v: v.isoformat()
-        }
-
 
 class UserSession(BaseModel):
     """用户会话数据模型"""
@@ -49,12 +41,6 @@ class UserSession(BaseModel):
     interaction_quality_score: Optional[float] = Field(None, ge=0.0, le=1.0)
     session_metadata: Dict[str, Any] = Field(default_factory=dict)
     anomaly_flags: List[str] = Field(default_factory=list)
-    
-    class Config:
-        json_encoders = {
-            datetime: lambda v: v.isoformat()
-        }
-
 
 class BehaviorPattern(BaseModel):
     """行为模式数据模型"""
@@ -69,12 +55,6 @@ class BehaviorPattern(BaseModel):
     
     created_at: datetime = Field(default_factory=utc_factory)
     updated_at: datetime = Field(default_factory=utc_factory)
-    
-    class Config:
-        json_encoders = {
-            datetime: lambda v: v.isoformat()
-        }
-
 
 class AnomalyType(str, Enum):
     """异常类型枚举"""
@@ -83,14 +63,12 @@ class AnomalyType(str, Enum):
     TEMPORAL = "temporal"
     FREQUENCY = "frequency"
 
-
 class SeverityLevel(str, Enum):
     """异常严重程度枚举"""
     LOW = "low"
     MEDIUM = "medium"
     HIGH = "high"
     CRITICAL = "critical"
-
 
 class AnomalyDetection(BaseModel):
     """异常检测数据模型"""
@@ -106,12 +84,6 @@ class AnomalyDetection(BaseModel):
     resolved: bool = False
     resolved_at: Optional[datetime] = None
     resolved_by: Optional[str] = None
-    
-    class Config:
-        json_encoders = {
-            datetime: lambda v: v.isoformat()
-        }
-
 
 class TrendMetric(BaseModel):
     """趋势指标数据模型"""
@@ -122,12 +94,6 @@ class TrendMetric(BaseModel):
     timestamp: datetime = Field(default_factory=utc_factory)
     dimensions: Dict[str, Any] = Field(default_factory=dict)
     metadata: Dict[str, Any] = Field(default_factory=dict)
-    
-    class Config:
-        json_encoders = {
-            datetime: lambda v: v.isoformat()
-        }
-
 
 class ForecastResult(BaseModel):
     """预测结果数据模型"""
@@ -142,12 +108,6 @@ class ForecastResult(BaseModel):
     model_params: Dict[str, Any] = Field(default_factory=dict)
     accuracy_metrics: Dict[str, float] = Field(default_factory=dict)
     created_at: datetime = Field(default_factory=utc_factory)
-    
-    class Config:
-        json_encoders = {
-            datetime: lambda v: v.isoformat()
-        }
-
 
 class DashboardConfig(BaseModel):
     """仪表板配置数据模型"""
@@ -161,12 +121,6 @@ class DashboardConfig(BaseModel):
     is_public: bool = False
     created_at: datetime = Field(default_factory=utc_factory)
     updated_at: datetime = Field(default_factory=utc_factory)
-    
-    class Config:
-        json_encoders = {
-            datetime: lambda v: v.isoformat()
-        }
-
 
 # 批量操作模型
 
@@ -176,7 +130,6 @@ class BulkEventRequest(BaseModel):
     batch_id: Optional[str] = Field(default_factory=lambda: str(uuid.uuid4()))
     compression: Optional[str] = Field(None, description="压缩方式: gzip, lz4")
     
-
 class EventQueryFilter(BaseModel):
     """事件查询过滤器"""
     user_id: Optional[str] = None
@@ -187,12 +140,6 @@ class EventQueryFilter(BaseModel):
     end_time: Optional[datetime] = None
     limit: int = Field(100, ge=1, le=10000)
     offset: int = Field(0, ge=0)
-    
-    class Config:
-        json_encoders = {
-            datetime: lambda v: v.isoformat()
-        }
-
 
 class PatternQueryFilter(BaseModel):
     """模式查询过滤器"""
@@ -202,7 +149,6 @@ class PatternQueryFilter(BaseModel):
     min_users_count: Optional[int] = Field(None, ge=1)
     limit: int = Field(50, ge=1, le=1000)
     offset: int = Field(0, ge=0)
-
 
 class AnomalyQueryFilter(BaseModel):
     """异常查询过滤器"""
@@ -214,8 +160,3 @@ class AnomalyQueryFilter(BaseModel):
     end_time: Optional[datetime] = None
     limit: int = Field(100, ge=1, le=1000)
     offset: int = Field(0, ge=0)
-    
-    class Config:
-        json_encoders = {
-            datetime: lambda v: v.isoformat()
-        }

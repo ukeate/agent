@@ -1,13 +1,10 @@
 """MCP工具注册表和发现机制"""
 
-import logging
 from typing import Any, Dict, List, Optional, Callable, Awaitable
 from dataclasses import dataclass
-
 from .client import MCPClientManager, get_mcp_client_manager
 
-logger = logging.getLogger(__name__)
-
+logger = get_logger(__name__)
 
 @dataclass
 class MCPToolDefinition:
@@ -18,7 +15,6 @@ class MCPToolDefinition:
     parameters: Dict[str, Any]
     security_level: str = "medium"  # low, medium, high
     timeout_seconds: int = 30
-
 
 class MCPToolRegistry:
     """MCP工具注册表"""
@@ -270,13 +266,12 @@ class MCPToolRegistry:
             logger.error(f"工具发现失败: {str(e)}")
             return {}
 
-
 # 全局工具注册表实例
 mcp_tool_registry = MCPToolRegistry()
-
 
 async def get_mcp_tool_registry() -> MCPToolRegistry:
     """获取MCP工具注册表依赖注入"""
     if not mcp_tool_registry._initialized:
         await mcp_tool_registry.initialize()
     return mcp_tool_registry
+from src.core.logging import get_logger

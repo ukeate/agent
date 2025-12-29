@@ -9,7 +9,6 @@ import math
 from typing import Dict, Any, List, Optional
 from .base import RewardFunction, RewardConfig, RewardType
 
-
 class LinearReward(RewardFunction):
     """线性奖励函数"""
     
@@ -44,7 +43,6 @@ class LinearReward(RewardFunction):
         self.update_metrics(reward)
         
         return reward
-
 
 class StepReward(RewardFunction):
     """阶跃奖励函数"""
@@ -85,7 +83,6 @@ class StepReward(RewardFunction):
         self.update_metrics(reward)
         
         return reward
-
 
 class ThresholdReward(RewardFunction):
     """阈值奖励函数"""
@@ -141,7 +138,6 @@ class ThresholdReward(RewardFunction):
         
         return reward
 
-
 class GaussianReward(RewardFunction):
     """高斯奖励函数"""
     
@@ -179,7 +175,6 @@ class GaussianReward(RewardFunction):
         self.update_metrics(reward)
         
         return reward
-
 
 class DistanceBasedReward(RewardFunction):
     """基于距离的奖励函数"""
@@ -242,7 +237,6 @@ class DistanceBasedReward(RewardFunction):
         self.update_metrics(reward)
         
         return reward
-
 
 class SparseReward(RewardFunction):
     """稀疏奖励函数"""

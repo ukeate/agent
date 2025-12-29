@@ -3,6 +3,7 @@
  * Story 11.1: 文本情感分析器
  */
 
+import { buildApiUrl, apiFetch } from '../utils/apiBase'
 import React, { useState, useCallback } from 'react'
 import {
   Card,
@@ -118,43 +119,28 @@ const TextEmotionAnalysisPage: React.FC = () => {
     }
 
     setAnalyzing(true)
-    
-    // 模拟API调用
-    setTimeout(() => {
-      const mockResult = {
-        text: inputText,
-        primaryEmotion: 'happiness',
-        confidence: 0.87,
-        intensity: 0.72,
-        valence: 0.6,
-        arousal: 0.7,
-        dominance: 0.65,
-        emotions: [
-          { label: 'happiness', score: 0.87 },
-          { label: 'excitement', score: 0.62 },
-          { label: 'anticipation', score: 0.45 },
-          { label: 'trust', score: 0.38 },
-          { label: 'neutral', score: 0.15 }
-        ],
-        features: {
-          wordCount: inputText.split(' ').length,
-          sentenceCount: inputText.split(/[.!?]/).length - 1,
-          exclamationCount: (inputText.match(/!/g) || []).length,
-          questionCount: (inputText.match(/\?/g) || []).length,
-          emojiCount: (inputText.match(/[\u{1F600}-\u{1F64F}]/gu) || []).length,
-          capsRatio: (inputText.match(/[A-Z]/g) || []).length / inputText.length
-        },
-        language: 'en',
-        processingTime: 127,
-        timestamp: new Date().toISOString()
-      }
-
-      setAnalysisResult(mockResult)
-      setHistory([mockResult, ...history.slice(0, 9)])
-      setAnalyzing(false)
+    try {
+      const res = await apiFetch(buildApiUrl('/api/v1/emotion-recognition/analyze/text'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          text: inputText,
+          language: settings.language,
+          analyze_intensity: true,
+          include_details: true
+        })
+      })
+      const data = await res.json()
+      setAnalysisResult(data)
+      setHistory([data, ...history.slice(0, 9)])
       message.success('文本情感分析完成')
-    }, 1500)
-  }, [inputText, history])
+    } catch (error: any) {
+      message.error(error?.message || '文本情感分析失败')
+      setAnalysisResult(null)
+    } finally {
+      setAnalyzing(false)
+    }
+  }, [inputText, history, settings.language])
 
   // VAD模型雷达图配置
   const vadRadarConfig = analysisResult ? {
@@ -240,6 +226,7 @@ const TextEmotionAnalysisPage: React.FC = () => {
             extra={
               <Space>
                 <Select 
+                  name="emotionLanguage"
                   value={settings.language} 
                   style={{ width: 100 }}
                   onChange={v => setSettings({...settings, language: v})}
@@ -263,6 +250,7 @@ const TextEmotionAnalysisPage: React.FC = () => {
             }
           >
             <TextArea
+              name="emotionTextInput"
               rows={6}
               value={inputText}
               onChange={e => setInputText(e.target.value)}
@@ -307,6 +295,7 @@ const TextEmotionAnalysisPage: React.FC = () => {
               <div>
                 <Text>模型选择：</Text>
                 <Select 
+                  name="emotionModel"
                   value={settings.model} 
                   style={{ width: '100%', marginTop: 8 }}
                   onChange={v => setSettings({...settings, model: v})}

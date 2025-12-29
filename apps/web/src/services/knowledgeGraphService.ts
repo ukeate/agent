@@ -1,589 +1,857 @@
-/**
- * 知识图谱数据服务
- * 
- * 功能包括：
- * - 图谱数据获取和缓存机制
- * - 查询转换和结果处理逻辑
- * - 统计数据计算和聚合功能
- * - WebSocket支持实时图谱更新
- * - API错误处理和重试机制
- */
+import apiClient from './apiClient';
 
-import axios, { AxiosResponse, AxiosError } from 'axios';
-import type {
-  GraphData,
-  GraphNode,
-  GraphEdge,
-  GraphStats,
-  QueryHighlight,
-  NLQuery,
-  QueryResult,
-  PathFindingConfig,
-  NeighborhoodConfig,
-  FilterConfig,
-  SubgraphConfig,
-  VisualizationConfig
-} from '../components/knowledge-graph/GraphVisualization';
-
-// ==================== 基础配置 ====================
-
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
-const API_TIMEOUT = 30000;
-const CACHE_TTL = 5 * 60 * 1000; // 5分钟缓存
-const MAX_RETRY_COUNT = 3;
-const RETRY_DELAY = 1000; // 1秒
-
-// ==================== API客户端配置 ====================
-
-const apiClient = axios.create({
-  baseURL: `${API_BASE_URL}/api/v1/knowledge-graph`,
-  timeout: API_TIMEOUT,
-  headers: {
-    'Content-Type': 'application/json',
-    'Accept': 'application/json'
-  }
-});
-
-// ==================== 请求响应拦截器 ====================
-
-apiClient.interceptors.request.use(
-  (config) => {
-    // 添加认证信息
-    const token = localStorage.getItem('auth_token');
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-    
-    // 添加请求时间戳
-    config.metadata = { startTime: Date.now() };
-    return config;
-  },
-  (error) => {
-    return Promise.reject(error);
-  }
-);
-
-apiClient.interceptors.response.use(
-  (response) => {
-    // 计算响应时间
-    const endTime = Date.now();
-    const duration = endTime - (response.config.metadata?.startTime || endTime);
-    response.metadata = { duration };
-    
-    return response;
-  },
-  (error: AxiosError) => {
-    console.error('Knowledge Graph API Error:', {
-      url: error.config?.url,
-      method: error.config?.method,
-      status: error.response?.status,
-      statusText: error.response?.statusText,
-      data: error.response?.data
-    });
-    
-    return Promise.reject(error);
-  }
-);
-
-// ==================== 缓存管理 ====================
-
-interface CacheEntry<T> {
-  data: T;
-  timestamp: number;
-  ttl: number;
+export interface Entity {
+  id: string;
+  canonical_form: string;
+  entity_type: string;
+  text?: string;
+  confidence: number;
+  language?: string;
+  linked_entity?: string;
+  metadata: Record<string, any>;
+  created_at: string;
+  updated_at?: string;
 }
 
-class CacheManager {
-  private cache = new Map<string, CacheEntry<any>>();
-
-  set<T>(key: string, data: T, ttl: number = CACHE_TTL): void {
-    this.cache.set(key, {
-      data,
-      timestamp: Date.now(),
-      ttl
-    });
-  }
-
-  get<T>(key: string): T | null {
-    const entry = this.cache.get(key);
-    if (!entry) return null;
-
-    const isExpired = Date.now() - entry.timestamp > entry.ttl;
-    if (isExpired) {
-      this.cache.delete(key);
-      return null;
-    }
-
-    return entry.data;
-  }
-
-  clear(): void {
-    this.cache.clear();
-  }
-
-  delete(key: string): void {
-    this.cache.delete(key);
-  }
+export interface Relation {
+  id: string;
+  source_entity_id: string;
+  target_entity_id: string;
+  relation_type: string;
+  confidence: number;
+  context: string;
+  source_sentence: string;
+  evidence: string[];
+  metadata: Record<string, any>;
+  created_at: string;
 }
 
-const cache = new CacheManager();
-
-// ==================== 重试机制 ====================
-
-const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
-
-async function withRetry<T>(
-  operation: () => Promise<T>,
-  maxRetries: number = MAX_RETRY_COUNT,
-  retryDelay: number = RETRY_DELAY
-): Promise<T> {
-  let lastError: Error;
-  
-  for (let attempt = 0; attempt <= maxRetries; attempt++) {
-    try {
-      return await operation();
-    } catch (error) {
-      lastError = error as Error;
-      
-      if (attempt === maxRetries) {
-        break;
-      }
-      
-      // 指数退避策略
-      const currentDelay = retryDelay * Math.pow(2, attempt);
-      await delay(currentDelay);
-    }
-  }
-  
-  throw lastError!;
+export interface CreateEntityRequest {
+  canonical_form: string;
+  entity_type: string;
+  text?: string;
+  confidence?: number;
+  language?: string;
+  linked_entity?: string;
+  metadata?: Record<string, any>;
 }
 
-// ==================== WebSocket连接管理 ====================
-
-class WebSocketManager {
-  private ws: WebSocket | null = null;
-  private listeners = new Map<string, Set<Function>>();
-  private reconnectAttempts = 0;
-  private maxReconnectAttempts = 5;
-  private reconnectInterval = 5000;
-
-  connect(): void {
-    if (this.ws?.readyState === WebSocket.OPEN) return;
-
-    const wsUrl = `${API_BASE_URL.replace('http', 'ws')}/ws/knowledge-graph`;
-    this.ws = new WebSocket(wsUrl);
-
-    this.ws.onopen = () => {
-      console.log('Knowledge Graph WebSocket connected');
-      this.reconnectAttempts = 0;
-    };
-
-    this.ws.onmessage = (event) => {
-      try {
-        const message = JSON.parse(event.data);
-        this.notifyListeners(message.type, message.data);
-      } catch (error) {
-        console.error('WebSocket message parse error:', error);
-      }
-    };
-
-    this.ws.onclose = () => {
-      console.log('Knowledge Graph WebSocket disconnected');
-      this.scheduleReconnect();
-    };
-
-    this.ws.onerror = (error) => {
-      console.error('Knowledge Graph WebSocket error:', error);
-    };
-  }
-
-  disconnect(): void {
-    if (this.ws) {
-      this.ws.close();
-      this.ws = null;
-    }
-  }
-
-  subscribe(event: string, callback: Function): void {
-    if (!this.listeners.has(event)) {
-      this.listeners.set(event, new Set());
-    }
-    this.listeners.get(event)!.add(callback);
-  }
-
-  unsubscribe(event: string, callback: Function): void {
-    this.listeners.get(event)?.delete(callback);
-  }
-
-  private scheduleReconnect(): void {
-    if (this.reconnectAttempts >= this.maxReconnectAttempts) {
-      console.error('Max WebSocket reconnect attempts reached');
-      return;
-    }
-
-    this.reconnectAttempts++;
-    setTimeout(() => {
-      this.connect();
-    }, this.reconnectInterval * this.reconnectAttempts);
-  }
-
-  private notifyListeners(event: string, data: any): void {
-    const listeners = this.listeners.get(event);
-    if (listeners) {
-      listeners.forEach(callback => callback(data));
-    }
-  }
+export interface UpdateEntityRequest {
+  canonical_form?: string;
+  confidence?: number;
+  language?: string;
+  linked_entity?: string;
+  metadata?: Record<string, any>;
 }
 
-const wsManager = new WebSocketManager();
+export interface CreateRelationRequest {
+  source_entity_id: string;
+  target_entity_id: string;
+  relation_type: string;
+  confidence?: number;
+  context: string;
+  source_sentence: string;
+  evidence?: string[];
+  metadata?: Record<string, any>;
+}
 
-// ==================== API接口类型 ====================
+export interface EntitySearchRequest {
+  canonical_form_contains?: string;
+  entity_type?: string;
+  confidence_gte?: number;
+  confidence_lte?: number;
+  created_after?: string;
+  created_before?: string;
+  limit?: number;
+  skip?: number;
+}
 
-interface ApiResponse<T> {
-  success: boolean;
-  data: T;
-  message?: string;
-  error?: string;
-  metadata?: {
-    total?: number;
-    page?: number;
-    pageSize?: number;
-    processingTime?: number;
+export interface CustomQueryRequest {
+  query: string;
+  parameters?: Record<string, any>;
+  read_only?: boolean;
+}
+
+export interface QueryResult {
+  columns: string[];
+  data: any[][];
+  stats: {
+    nodes_created: number;
+    nodes_deleted: number;
+    relationships_created: number;
+    relationships_deleted: number;
+    properties_set: number;
+    execution_time: number;
+    records_returned: number;
   };
 }
 
-interface GraphDataRequest {
-  maxNodes?: number;
-  maxEdges?: number;
-  entityTypes?: string[];
-  relationTypes?: string[];
-  includeMetadata?: boolean;
-  format?: 'full' | 'lightweight';
+export interface GraphSchema {
+  entity_types: Array<{
+    name: string;
+    properties: Record<string, string>;
+    count: number;
+  }>;
+  relation_types: Array<{
+    name: string;
+    properties: Record<string, string>;
+    count: number;
+  }>;
 }
 
-interface SubgraphRequest {
-  entities: string[];
-  depth?: number;
-  maxNodes?: number;
-  includeConnections?: boolean;
-  filters?: FilterConfig;
+export interface GraphStats {
+  total_entities: number;
+  total_relations: number;
+  entity_types: Record<string, number>;
+  relation_types: Record<string, number>;
+  average_relations_per_entity: number;
+  graph_density: number;
+  last_updated: string;
 }
 
-// ==================== 知识图谱服务类 ====================
+export interface QueryTemplate {
+  id: string;
+  name: string;
+  description: string;
+  query: string;
+  category: string;
+  parameters?: string[];
+  created_at: string;
+  usage_count: number;
+}
 
-export class KnowledgeGraphService {
-  
-  // ==================== 图谱数据获取 ====================
-  
-  async getVisualizationData(params: GraphDataRequest = {}): Promise<GraphData> {
-    const cacheKey = `graph-data-${JSON.stringify(params)}`;
-    const cachedData = cache.get<GraphData>(cacheKey);
-    
-    if (cachedData) {
-      return cachedData;
-    }
+export interface Migration {
+  id: string;
+  name: string;
+  description: string;
+  version: string;
+  migration_type: string;
+  up_statements: string[];
+  down_statements: string[];
+  dependencies: string[];
+  created_at: string;
+  status?: string;
+}
 
-    const response = await withRetry(async () => {
-      return await apiClient.get<ApiResponse<GraphData>>('/visualization/data', { params });
-    });
+export interface MigrationRecord {
+  migration_id: string;
+  status: string;
+  started_at: string;
+  completed_at?: string | null;
+  error_message?: string | null;
+  rollback_at?: string | null;
+  execution_time_ms?: number | null;
+  affected_nodes: number;
+  affected_relationships: number;
+}
 
-    if (response.data.success) {
-      cache.set(cacheKey, response.data.data);
-      return response.data.data;
-    }
+export interface CreateMigrationRequest {
+  name: string;
+  description: string;
+  version?: string;
+  migration_type: string;
+  up_statements: string[];
+  down_statements?: string[];
+  dependencies?: string[];
+}
 
-    throw new Error(response.data.error || '获取图谱数据失败');
+class KnowledgeGraphService {
+  private baseUrl = '/knowledge-graph';
+
+  // Entity Operations
+  async createEntity(request: CreateEntityRequest): Promise<Entity> {
+    const response = await apiClient.post(`${this.baseUrl}/entities`, request);
+    return response.data;
   }
 
-  async getSubgraphData(request: SubgraphRequest): Promise<GraphData> {
-    const response = await withRetry(async () => {
-      return await apiClient.post<ApiResponse<GraphData>>('/visualization/subgraph', request);
-    });
-
-    if (response.data.success) {
-      return response.data.data;
-    }
-
-    throw new Error(response.data.error || '获取子图数据失败');
+  async getEntity(entityId: string): Promise<Entity> {
+    const response = await apiClient.get(`${this.baseUrl}/entities/${entityId}`);
+    return response.data;
   }
 
-  // ==================== 自然语言查询 ====================
-  
-  async processNaturalLanguageQuery(query: NLQuery): Promise<QueryResult> {
-    const response = await withRetry(async () => {
-      return await apiClient.post<ApiResponse<QueryResult>>('/visualization/query', query);
-    });
-
-    if (response.data.success) {
-      return response.data.data;
-    }
-
-    throw new Error(response.data.error || '查询处理失败');
+  async updateEntity(entityId: string, request: UpdateEntityRequest): Promise<Entity> {
+    const response = await apiClient.put(`${this.baseUrl}/entities/${entityId}`, request);
+    return response.data;
   }
 
-  // ==================== 探索功能 ====================
-  
-  async findPaths(config: PathFindingConfig): Promise<QueryResult> {
-    const response = await withRetry(async () => {
-      return await apiClient.post<ApiResponse<QueryResult>>('/exploration/path-finding', config);
-    });
-
-    if (response.data.success) {
-      return response.data.data;
-    }
-
-    throw new Error(response.data.error || '路径查找失败');
+  async deleteEntity(entityId: string): Promise<void> {
+    await apiClient.delete(`${this.baseUrl}/entities/${entityId}`);
   }
 
-  async exploreNeighborhood(config: NeighborhoodConfig): Promise<QueryResult> {
-    const response = await withRetry(async () => {
-      return await apiClient.post<ApiResponse<QueryResult>>('/exploration/neighborhood', config);
-    });
-
-    if (response.data.success) {
-      return response.data.data;
-    }
-
-    throw new Error(response.data.error || '邻域探索失败');
+  async searchEntities(request: EntitySearchRequest): Promise<Entity[]> {
+    const response = await apiClient.post(`${this.baseUrl}/entities/search`, request);
+    return response.data.entities;
   }
 
-  async matchPatterns(patterns: Record<string, any>): Promise<QueryResult> {
-    const response = await withRetry(async () => {
-      return await apiClient.post<ApiResponse<QueryResult>>('/exploration/pattern-match', patterns);
-    });
-
-    if (response.data.success) {
-      return response.data.data;
-    }
-
-    throw new Error(response.data.error || '模式匹配失败');
+  // Relation Operations
+  async createRelation(request: CreateRelationRequest): Promise<Relation> {
+    const response = await apiClient.post(`${this.baseUrl}/relations`, request);
+    return response.data;
   }
 
-  // ==================== 统计数据 ====================
-  
-  async getGraphStats(timeRange?: [string, string]): Promise<GraphStats> {
-    const cacheKey = `graph-stats-${timeRange ? timeRange.join('-') : 'current'}`;
-    const cachedStats = cache.get<GraphStats>(cacheKey);
-    
-    if (cachedStats) {
-      return cachedStats;
-    }
-
-    const params = timeRange ? { startDate: timeRange[0], endDate: timeRange[1] } : {};
-    const response = await withRetry(async () => {
-      return await apiClient.get<ApiResponse<GraphStats>>('/stats/summary', { params });
-    });
-
-    if (response.data.success) {
-      // 统计数据缓存时间较短
-      cache.set(cacheKey, response.data.data, 2 * 60 * 1000); // 2分钟
-      return response.data.data;
-    }
-
-    throw new Error(response.data.error || '获取统计数据失败');
+  async getRelation(relationId: string): Promise<Relation> {
+    const response = await apiClient.get(`${this.baseUrl}/relations/${relationId}`);
+    return response.data;
   }
 
-  async getDistributionStats(): Promise<GraphStats['distributions']> {
-    const cacheKey = 'distribution-stats';
-    const cachedStats = cache.get<GraphStats['distributions']>(cacheKey);
-    
-    if (cachedStats) {
-      return cachedStats;
-    }
-
-    const response = await withRetry(async () => {
-      return await apiClient.get<ApiResponse<GraphStats['distributions']>>('/stats/distributions');
-    });
-
-    if (response.data.success) {
-      cache.set(cacheKey, response.data.data);
-      return response.data.data;
-    }
-
-    throw new Error(response.data.error || '获取分布统计失败');
+  async deleteRelation(relationId: string): Promise<void> {
+    await apiClient.delete(`${this.baseUrl}/relations/${relationId}`);
   }
 
-  async getQualityMetrics(): Promise<GraphStats['quality']> {
-    const response = await withRetry(async () => {
-      return await apiClient.get<ApiResponse<GraphStats['quality']>>('/stats/quality');
-    });
-
-    if (response.data.success) {
-      return response.data.data;
-    }
-
-    throw new Error(response.data.error || '获取质量指标失败');
+  async getEntityRelations(entityId: string, direction?: 'incoming' | 'outgoing' | 'both'): Promise<Relation[]> {
+    const params = direction ? { direction } : {};
+    const response = await apiClient.get(`${this.baseUrl}/entities/${entityId}/relations`, { params });
+    return response.data.relations;
   }
 
-  async getGrowthTrends(timeRange: [string, string]): Promise<GraphStats['growth']> {
-    const response = await withRetry(async () => {
-      return await apiClient.get<ApiResponse<GraphStats['growth']>>('/stats/growth', {
-        params: { startDate: timeRange[0], endDate: timeRange[1] }
-      });
-    });
-
-    if (response.data.success) {
-      return response.data.data;
-    }
-
-    throw new Error(response.data.error || '获取增长趋势失败');
+  // Query Operations
+  async executeQuery(request: CustomQueryRequest): Promise<QueryResult> {
+    const response = await apiClient.post(`${this.baseUrl}/query`, request);
+    return response.data;
   }
 
-  // ==================== 配置管理 ====================
-  
-  async getVisualizationConfig(): Promise<VisualizationConfig> {
-    const cacheKey = 'visualization-config';
-    const cachedConfig = cache.get<VisualizationConfig>(cacheKey);
-    
-    if (cachedConfig) {
-      return cachedConfig;
-    }
-
-    const response = await withRetry(async () => {
-      return await apiClient.get<ApiResponse<VisualizationConfig>>('/visualization/config');
-    });
-
-    if (response.data.success) {
-      cache.set(cacheKey, response.data.data);
-      return response.data.data;
-    }
-
-    throw new Error(response.data.error || '获取可视化配置失败');
+  async getQueryTemplates(category?: string): Promise<QueryTemplate[]> {
+    const params = category ? { category } : {};
+    const response = await apiClient.get(`${this.baseUrl}/query/templates`, { params });
+    return response.data.templates || [];
   }
 
-  async updateVisualizationConfig(config: Partial<VisualizationConfig>): Promise<VisualizationConfig> {
-    const response = await withRetry(async () => {
-      return await apiClient.put<ApiResponse<VisualizationConfig>>('/visualization/config', config);
-    });
-
-    if (response.data.success) {
-      // 更新缓存
-      cache.set('visualization-config', response.data.data);
-      return response.data.data;
-    }
-
-    throw new Error(response.data.error || '更新可视化配置失败');
+  async saveQueryTemplate(template: Omit<QueryTemplate, 'id' | 'created_at' | 'usage_count'>): Promise<QueryTemplate> {
+    const response = await apiClient.post(`${this.baseUrl}/query/templates`, template);
+    return response.data;
   }
 
-  // ==================== 导出功能 ====================
-  
-  async exportGraphData(
-    format: 'json' | 'gexf' | 'graphml' | 'csv',
-    options: {
-      entities?: string[];
-      includeMetadata?: boolean;
-      compressed?: boolean;
-    } = {}
-  ): Promise<Blob> {
-    const response = await withRetry(async () => {
-      return await apiClient.post('/export', 
-        { format, ...options },
-        { responseType: 'blob' }
-      );
-    });
-
-    return new Blob([response.data]);
+  async deleteQueryTemplate(templateId: string): Promise<void> {
+    await apiClient.delete(`${this.baseUrl}/query/templates/${templateId}`);
   }
 
-  // ==================== 实时更新 ====================
-  
-  subscribeToUpdates(callback: (data: any) => void): void {
-    wsManager.subscribe('graph-update', callback);
-    wsManager.connect();
+  // Schema Operations
+  async getSchema(): Promise<GraphSchema> {
+    const response = await apiClient.get(`${this.baseUrl}/schema`);
+    return response.data;
   }
 
-  subscribeToStats(callback: (stats: Partial<GraphStats>) => void): void {
-    wsManager.subscribe('stats-update', callback);
-    wsManager.connect();
+  async updateSchema(schema: Partial<GraphSchema>): Promise<GraphSchema> {
+    const response = await apiClient.put(`${this.baseUrl}/schema`, schema);
+    return response.data;
   }
 
-  unsubscribeFromUpdates(callback: (data: any) => void): void {
-    wsManager.unsubscribe('graph-update', callback);
+  // Statistics
+  async getStats(): Promise<GraphStats> {
+    const response = await apiClient.get(`${this.baseUrl}/stats`);
+    return response.data;
   }
 
-  unsubscribeFromStats(callback: (stats: Partial<GraphStats>) => void): void {
-    wsManager.unsubscribe('stats-update', callback);
-  }
-
-  // ==================== 工具方法 ====================
-  
-  clearCache(): void {
-    cache.clear();
-  }
-
-  invalidateCache(pattern?: string): void {
-    if (!pattern) {
-      cache.clear();
-      return;
-    }
-
-    // 删除匹配模式的缓存项
-    for (const [key] of cache['cache'].entries()) {
-      if (key.includes(pattern)) {
-        cache.delete(key);
-      }
-    }
-  }
-
-  async healthCheck(): Promise<{
-    status: 'healthy' | 'unhealthy';
-    responseTime: number;
-    timestamp: string;
+  // Batch Operations
+  async batchUpsertEntities(entities: CreateEntityRequest[], conflictStrategy?: string): Promise<{
+    success: number;
+    failed: number;
+    errors: Array<{ entity: CreateEntityRequest; error: string }>;
   }> {
-    const startTime = Date.now();
+    const response = await apiClient.post(`${this.baseUrl}/entities/batch`, {
+      entities,
+      conflict_strategy: conflictStrategy || 'merge_highest_confidence'
+    });
+    return response.data;
+  }
+
+  // Path Finding
+  async findShortestPath(sourceId: string, targetId: string, maxDepth?: number): Promise<{
+    path: Array<Entity | Relation>;
+    length: number;
+  }> {
+    const params = maxDepth ? { max_depth: maxDepth } : {};
+    const response = await apiClient.get(`${this.baseUrl}/paths/shortest`, {
+      params: { source_id: sourceId, target_id: targetId, ...params }
+    });
+    return response.data;
+  }
+
+  async findAllPaths(sourceId: string, targetId: string, maxDepth?: number, limit?: number): Promise<Array<{
+    path: Array<Entity | Relation>;
+    length: number;
+  }>> {
+    const params = {
+      source_id: sourceId,
+      target_id: targetId,
+      max_depth: maxDepth || 5,
+      limit: limit || 10
+    };
+    const response = await apiClient.get(`${this.baseUrl}/paths/all`, { params });
+    return response.data.paths;
+  }
+
+  // Subgraph Extraction
+  async getSubgraph(entityId: string, depth?: number): Promise<{
+    entities: Entity[];
+    relations: Relation[];
+  }> {
+    const params = depth ? { depth } : {};
+    const response = await apiClient.get(`${this.baseUrl}/subgraph/${entityId}`, { params });
+    return response.data;
+  }
+
+  // Quality Control APIs
+  async getQualityIssues(): Promise<Array<{
+    issue_id: string;
+    issue_type: string;
+    description: string;
+    severity: 'low' | 'medium' | 'high' | 'critical';
+    affected_entities: string[];
+    recommended_actions: string[];
+    confidence: number;
+    detected_at: string;
+  }>> {
+    const response = await apiClient.get(`${this.baseUrl}/quality/issues`);
+    return response.data.issues;
+  }
+
+  async getQualityReport(): Promise<{
+    total_entities: number;
+    total_relations: number;
+    quality_score: number;
+    issues_summary: Record<string, number>;
+    recommendations: string[];
+  }> {
+    const response = await apiClient.get(`${this.baseUrl}/quality/report`);
+    return response.data;
+  }
+
+  // Performance Monitoring APIs
+  async getSlowQueries(): Promise<Array<{
+    query: string;
+    execution_time: number;
+    timestamp: string;
+    frequency: number;
+  }>> {
+    const response = await apiClient.get(`${this.baseUrl}/performance/slow-queries`);
+    return response.data.queries;
+  }
+
+  async clearPerformanceCache(): Promise<{ message: string }> {
+    const response = await apiClient.delete(`${this.baseUrl}/performance/cache`);
+    return response.data;
+  }
+
+  // Statistics API
+  async getStatistics(): Promise<GraphStats> {
+    const response = await apiClient.get(`${this.baseUrl}/statistics`);
+    return response.data;
+  }
+
+  // Admin Schema Initialization
+  async initializeSchema(): Promise<{ message: string; entities_created: number; relations_created: number }> {
+    const response = await apiClient.post(`${this.baseUrl}/admin/schema/initialize`);
+    return response.data;
+  }
+
+  // Upsert Operations
+  async upsertEntity(request: CreateEntityRequest): Promise<Entity> {
+    const response = await apiClient.post(`${this.baseUrl}/upsert-entity`, request);
+    return response.data;
+  }
+
+  async batchUpsert(entities: CreateEntityRequest[]): Promise<{
+    success: number;
+    failed: number;
+    errors: Array<{ entity: CreateEntityRequest; error: string }>;
+  }> {
+    const response = await apiClient.post(`${this.baseUrl}/batch-upsert`, { entities });
+    return response.data;
+  }
+  async extractSubgraph(entityIds: string[], depth: number = 1): Promise<{
+    entities: Entity[];
+    relations: Relation[];
+  }> {
+    const response = await apiClient.post(`${this.baseUrl}/subgraph`, {
+      entity_ids: entityIds,
+      depth
+    });
+    return response.data;
+  }
+
+  // Export/Import
+  async exportGraph(format: 'json' | 'csv' | 'graphml' = 'json'): Promise<Blob> {
+    const response = await apiClient.get(`${this.baseUrl}/export`, {
+      params: { format },
+      responseType: 'blob'
+    });
+    return response.data;
+  }
+
+  async importGraph(file: File, format: 'json' | 'csv' | 'graphml'): Promise<{
+    entities_imported: number;
+    relations_imported: number;
+    errors: string[];
+  }> {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('format', format);
     
-    try {
-      const response = await apiClient.get('/health');
-      const responseTime = Date.now() - startTime;
-      
-      return {
-        status: response.status === 200 ? 'healthy' : 'unhealthy',
-        responseTime,
-        timestamp: new Date().toISOString()
+    const response = await apiClient.post(`${this.baseUrl}/import`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data'
+      }
+    });
+    return response.data;
+  }
+
+  // Quality Management
+  async validateGraph(): Promise<{
+    valid: boolean;
+    issues: Array<{
+      type: string;
+      severity: 'error' | 'warning' | 'info';
+      message: string;
+      entity_ids?: string[];
+    }>;
+  }> {
+    const response = await apiClient.post(`${this.baseUrl}/validate`);
+    return response.data;
+  }
+
+  async cleanupDuplicates(): Promise<{
+    duplicates_found: number;
+    duplicates_merged: number;
+    entities_affected: string[];
+  }> {
+    const response = await apiClient.post(`${this.baseUrl}/cleanup/duplicates`);
+    return response.data;
+  }
+
+  // ========== Knowledge Graph Reasoning APIs ==========
+  async queryReasoning(request: {
+    query: string;
+    reasoning_strategy?: string;
+    max_depth?: number;
+    confidence_threshold?: number;
+  }): Promise<{
+    result: any;
+    reasoning_trace: Array<{
+      step: number;
+      operation: string;
+      confidence: number;
+      explanation: string;
+    }>;
+    total_confidence: number;
+  }> {
+    const response = await apiClient.post('/kg-reasoning/query', request);
+    return response.data;
+  }
+
+  async batchReasoning(requests: Array<{
+    query_id: string;
+    query: string;
+    reasoning_strategy?: string;
+  }>): Promise<{
+    batch_id: string;
+    results: Array<{
+      query_id: string;
+      result: any;
+      status: 'success' | 'failed';
+      error?: string;
+    }>;
+  }> {
+    const response = await apiClient.post('/kg-reasoning/batch', { queries: requests });
+    return response.data;
+  }
+
+  async getStrategyPerformance(): Promise<Array<{
+    strategy_name: string;
+    avg_execution_time: number;
+    accuracy_score: number;
+    usage_count: number;
+    success_rate: number;
+  }>> {
+    const response = await apiClient.get('/kg-reasoning/strategies/performance');
+    return response.data.strategies;
+  }
+
+  async explainReasoning(request: {
+    query: string;
+    result_id?: string;
+    explain_level: 'basic' | 'detailed' | 'technical';
+  }): Promise<{
+    explanation: string;
+    reasoning_steps: Array<{
+      step_type: string;
+      input: any;
+      output: any;
+      confidence: number;
+      time_ms: number;
+    }>;
+    visualizations?: Array<{
+      type: string;
+      data: any;
+    }>;
+  }> {
+    const response = await apiClient.post('/kg-reasoning/explain', request);
+    return response.data;
+  }
+
+  // ========== GraphRAG APIs ==========
+  async graphragQuery(request: {
+    question: string;
+    context_depth?: number;
+    max_tokens?: number;
+    include_sources?: boolean;
+  }): Promise<{
+    query_id: string;
+    answer: string;
+    sources: Array<{
+      entity_id: string;
+      entity_name: string;
+      relevance_score: number;
+      content_snippet: string;
+    }>;
+    reasoning_path: Array<string>;
+    confidence: number;
+  }> {
+    const response = await apiClient.post('/graphrag/query', request);
+    return response.data;
+  }
+
+  async graphragReasoningQuery(request: {
+    question: string;
+    reasoning_type: 'causal' | 'comparative' | 'temporal' | 'compositional';
+    evidence_threshold?: number;
+  }): Promise<{
+    query_id: string;
+    answer: string;
+    reasoning_type: string;
+    evidence_chain: Array<{
+      premise: string;
+      conclusion: string;
+      confidence: number;
+      supporting_entities: string[];
+    }>;
+    alternative_answers?: Array<{
+      answer: string;
+      confidence: number;
+      reasoning: string;
+    }>;
+  }> {
+    const response = await apiClient.post('/graphrag/query/reasoning', request);
+    return response.data;
+  }
+
+  async getGraphragQueryResult(queryId: string): Promise<{
+    query_id: string;
+    status: 'processing' | 'completed' | 'failed';
+    result?: any;
+    error?: string;
+    started_at: string;
+    completed_at?: string;
+  }> {
+    const response = await apiClient.get(`/graphrag/query/${queryId}`);
+    return response.data;
+  }
+
+  async multiSourceFusion(request: {
+    sources: Array<{
+      source_id: string;
+      source_type: string;
+      weight?: number;
+    }>;
+    fusion_strategy: 'majority_vote' | 'weighted_average' | 'confidence_based';
+    conflict_resolution: 'prefer_higher_confidence' | 'aggregate' | 'flag_conflicts';
+  }): Promise<{
+    fusion_id: string;
+    fused_knowledge: Array<{
+      entity_id: string;
+      fused_attributes: Record<string, any>;
+      source_contributions: Record<string, number>;
+      confidence: number;
+    }>;
+    conflicts_detected: Array<{
+      entity_id: string;
+      attribute: string;
+      conflicting_values: Array<{
+        value: any;
+        source_id: string;
+        confidence: number;
+      }>;
+    }>;
+  }> {
+    const response = await apiClient.post('/graphrag/fusion/multi-source', request);
+    return response.data;
+  }
+
+  async conflictResolution(request: {
+    conflicts: Array<{
+      entity_id: string;
+      attribute: string;
+      conflicting_values: Array<{
+        value: any;
+        source_id: string;
+        confidence: number;
+      }>;
+    }>;
+    resolution_strategy: string;
+    manual_overrides?: Record<string, any>;
+  }): Promise<{
+    resolved_conflicts: Array<{
+      entity_id: string;
+      attribute: string;
+      resolved_value: any;
+      resolution_reason: string;
+      confidence: number;
+    }>;
+    unresolved_conflicts: Array<{
+      entity_id: string;
+      attribute: string;
+      reason: string;
+    }>;
+  }> {
+    const response = await apiClient.post('/graphrag/fusion/conflict-resolution', request);
+    return response.data;
+  }
+
+  async getConsistencyReport(): Promise<{
+    overall_score: number;
+    consistency_metrics: {
+      temporal_consistency: number;
+      logical_consistency: number;
+      referential_integrity: number;
+    };
+    inconsistencies: Array<{
+      type: string;
+      description: string;
+      affected_entities: string[];
+      severity: 'low' | 'medium' | 'high';
+    }>;
+    recommendations: string[];
+  }> {
+    const response = await apiClient.get('/graphrag/fusion/consistency');
+    return response.data;
+  }
+
+  async getPerformanceComparison(params?: {
+    time_range?: string;
+    comparison_metrics?: string[];
+  }): Promise<{
+    comparison_data: Array<{
+      metric_name: string;
+      current_value: number;
+      previous_value: number;
+      change_percentage: number;
+      trend: 'improving' | 'declining' | 'stable';
+    }>;
+    performance_insights: string[];
+    bottlenecks: Array<{
+      component: string;
+      issue: string;
+      impact: string;
+    }>;
+  }> {
+    const response = await apiClient.get('/graphrag/performance/comparison', { params });
+    return response.data;
+  }
+
+  async runPerformanceBenchmark(request: {
+    benchmark_type: 'query_performance' | 'fusion_accuracy' | 'reasoning_speed';
+    test_scenarios: Array<{
+      scenario_name: string;
+      parameters: Record<string, any>;
+    }>;
+    iterations?: number;
+  }): Promise<{
+    benchmark_id: string;
+    results: Array<{
+      scenario_name: string;
+      avg_execution_time: number;
+      accuracy_score?: number;
+      throughput?: number;
+      resource_usage: {
+        cpu_percent: number;
+        memory_mb: number;
       };
-    } catch (error) {
-      return {
-        status: 'unhealthy',
-        responseTime: Date.now() - startTime,
-        timestamp: new Date().toISOString()
-      };
-    }
+    }>;
+    overall_score: number;
+    recommendations: string[];
+  }> {
+    const response = await apiClient.post('/graphrag/performance/benchmark', request);
+    return response.data;
   }
 
-  // ==================== 错误处理辅助 ====================
-  
-  static isNetworkError(error: AxiosError): boolean {
-    return error.code === 'NETWORK_ERROR' || 
-           error.message === 'Network Error' ||
-           !error.response;
+  async debugExplain(request: {
+    query_id?: string;
+    query?: string;
+    explain_components: string[];
+    detail_level: 'summary' | 'detailed' | 'verbose';
+  }): Promise<{
+    explanation: {
+      query_processing: string;
+      graph_traversal: string;
+      fusion_process: string;
+      reasoning_steps: string;
+    };
+    performance_breakdown: Record<string, number>;
+    intermediate_results: Array<{
+      step: string;
+      result: any;
+      timing: number;
+    }>;
+    suggestions: string[];
+  }> {
+    const response = await apiClient.post('/graphrag/debug/explain', request);
+    return response.data;
   }
 
-  static isTimeoutError(error: AxiosError): boolean {
-    return error.code === 'ECONNABORTED' ||
-           error.message.includes('timeout');
+  async getDebugTrace(queryId: string): Promise<{
+    query_id: string;
+    trace_data: Array<{
+      timestamp: string;
+      component: string;
+      operation: string;
+      input_data: any;
+      output_data: any;
+      execution_time: number;
+      status: 'success' | 'error' | 'warning';
+    }>;
+    performance_summary: {
+      total_time: number;
+      bottlenecks: Array<{
+        component: string;
+        time_spent: number;
+        percentage: number;
+      }>;
+    };
+    errors: Array<{
+      timestamp: string;
+      component: string;
+      error_message: string;
+      stack_trace?: string;
+    }>;
+  }> {
+    const response = await apiClient.get(`/graphrag/debug/trace/${queryId}`);
+    return response.data;
   }
 
-  static isServerError(error: AxiosError): boolean {
-    return error.response ? error.response.status >= 500 : false;
-  }
-
-  static getErrorMessage(error: any): string {
-    if (error.response?.data?.error) {
-      return error.response.data.error;
-    }
+  // ========== LangGraph Features APIs ==========
+  async demoContextApi(request: {
+    demo_type: 'context-api' | 'durability' | 'caching' | 'hooks';
+    parameters?: Record<string, any>;
+  }): Promise<{
+    demo_id: string;
+    demo_type: string;
+    result: any;
+    execution_time: number;
+    features_demonstrated: string[];
+    code_example?: string;
+  }> {
+    const demoEndpoints = {
+      'context-api': '/langgraph/context-api/demo',
+      'durability': '/langgraph/durability/demo',
+      'caching': '/langgraph/caching/demo',
+      'hooks': '/langgraph/hooks/demo'
+    };
     
-    if (error.message) {
-      return error.message;
-    }
-    
-    return '未知错误';
+    const endpoint = demoEndpoints[request.demo_type];
+    const response = await apiClient.post(endpoint, request.parameters || {});
+    return response.data;
+  }
+
+  async clearLangGraphCache(): Promise<{
+    cache_cleared: boolean;
+    items_removed: number;
+    cache_size_before_mb: number;
+    cache_size_after_mb: number;
+  }> {
+    const response = await apiClient.post('/langgraph/cache/clear');
+    return response.data;
+  }
+
+  async executeLangGraphDemo(request: {
+    workflow_type: string;
+    input_data: any;
+    config?: Record<string, any>;
+  }): Promise<{
+    execution_id: string;
+    status: 'running' | 'completed' | 'failed';
+    result?: any;
+    workflow_state: any;
+    execution_time?: number;
+  }> {
+    const response = await apiClient.post('/langgraph/execute-demo', request);
+    return response.data;
+  }
+
+  async completeLangGraphDemo(request: {
+    execution_id: string;
+    additional_input?: any;
+  }): Promise<{
+    execution_id: string;
+    final_result: any;
+    execution_summary: {
+      total_steps: number;
+      total_time: number;
+      success: boolean;
+    };
+    state_history: Array<{
+      step: number;
+      state: any;
+      timestamp: string;
+    }>;
+  }> {
+    const response = await apiClient.post('/langgraph/complete-demo', request);
+    return response.data;
+  }
+
+  // ========== RAG GraphRAG Integration ==========
+  async ragGraphragQuery(request: {
+    question: string;
+    document_collection?: string;
+    hybrid_search?: boolean;
+    rerank_results?: boolean;
+  }): Promise<{
+    answer: string;
+    sources: Array<{
+      document_id: string;
+      chunk_id: string;
+      relevance_score: number;
+      content: string;
+    }>;
+    graph_context: Array<{
+      entity_id: string;
+      entity_type: string;
+      relationship_context: string;
+    }>;
+    response_quality: {
+      relevance_score: number;
+      completeness_score: number;
+      factuality_score: number;
+    };
+  }> {
+    const response = await apiClient.post('/rag/graphrag/query', request);
+    return response.data;
+  }
+
+  // ========== Migration APIs ==========
+  async listMigrations(): Promise<Migration[]> {
+    const response = await apiClient.get(`${this.baseUrl}/migrations`);
+    return response.data.migrations || [];
+  }
+
+  async getMigrationRecords(): Promise<MigrationRecord[]> {
+    const response = await apiClient.get(`${this.baseUrl}/migrations/records`);
+    return response.data.records || [];
+  }
+
+  async applyMigration(migrationId: string): Promise<MigrationRecord> {
+    const response = await apiClient.post(`${this.baseUrl}/migrations/${migrationId}/apply`);
+    return response.data;
+  }
+
+  async applyAllMigrations(): Promise<MigrationRecord[]> {
+    const response = await apiClient.post(`${this.baseUrl}/migrations/apply-all`);
+    return response.data.records || [];
+  }
+
+  async rollbackMigration(migrationId: string): Promise<MigrationRecord> {
+    const response = await apiClient.post(`${this.baseUrl}/migrations/${migrationId}/rollback`);
+    return response.data;
   }
 }
-
-// ==================== 单例实例 ====================
 
 export const knowledgeGraphService = new KnowledgeGraphService();
-
-// ==================== 默认导出 ====================
-
-export default knowledgeGraphService;

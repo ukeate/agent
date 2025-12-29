@@ -6,26 +6,23 @@
 """
 
 import asyncio
-import logging
 import time
 import math
 from typing import Dict, List, Optional, Any, Callable, Tuple
 from dataclasses import dataclass, field
 from enum import Enum
 from datetime import datetime, timedelta
-
 from .topology import AgentInfo, AgentGroup, AgentStatus, ResourceUsage, ResourceSpec
 from .state_manager import ClusterStateManager
 from .lifecycle_manager import LifecycleManager, BatchOperationResult
 from .metrics_collector import MetricsCollector
 
-
+from src.core.logging import get_logger
 class ScalingAction(Enum):
     """扩缩容动作"""
     SCALE_UP = "scale_up"
     SCALE_DOWN = "scale_down"
     NO_ACTION = "no_action"
-
 
 class ScalingReason(Enum):
     """扩缩容原因"""
@@ -36,7 +33,6 @@ class ScalingReason(Enum):
     LOW_UTILIZATION = "low_utilization"
     MANUAL_TRIGGER = "manual_trigger"
     POLICY_VIOLATION = "policy_violation"
-
 
 @dataclass
 class ScalingPolicy:
@@ -115,7 +111,6 @@ class ScalingPolicy:
             "scale_down_enabled": self.scale_down_enabled
         }
 
-
 @dataclass
 class ScalingDecision:
     """扩缩容决策"""
@@ -147,7 +142,6 @@ class ScalingDecision:
             "timestamp": self.timestamp
         }
 
-
 @dataclass
 class ScalingEvent:
     """扩缩容事件记录"""
@@ -174,7 +168,6 @@ class ScalingEvent:
         self.error_message = error
         self.end_time = time.time()
 
-
 class AutoScaler:
     """自动扩缩容引擎
     
@@ -195,7 +188,7 @@ class AutoScaler:
         self.cluster_manager = cluster_manager
         self.lifecycle_manager = lifecycle_manager
         self.metrics_collector = metrics_collector
-        self.logger = logging.getLogger(__name__)
+        self.logger = get_logger(__name__)
         
         # 扩缩容策略
         self.policies: Dict[str, ScalingPolicy] = {}
@@ -252,7 +245,7 @@ class AutoScaler:
                 try:
                     await self.scaling_task
                 except asyncio.CancelledError:
-                    pass
+                    raise
             
             self.logger.info("AutoScaler stopped")
             

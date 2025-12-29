@@ -8,17 +8,16 @@ import time
 from typing import Dict, Any, Optional
 from datetime import datetime
 from src.core.utils.timezone_utils import utc_now, utc_factory
-import structlog
-
 from .flow_control import FlowController, TaskInfo
-# 延迟导入避免循环依赖
 from typing import TYPE_CHECKING
+
+from src.core.logging import get_logger
+logger = get_logger(__name__)
+
+# 延迟导入避免循环依赖
 
 if TYPE_CHECKING:
     from .enterprise import EnterpriseAgentManager
-
-logger = structlog.get_logger(__name__)
-
 
 class BackpressureTaskProcessor:
     """背压任务处理器"""
@@ -138,7 +137,6 @@ class BackpressureTaskProcessor:
             )
             
             logger.debug(f"Task {task_info.task_id} completed in {execution_time:.2f}ms, success: {success}")
-
 
 # 全局任务处理器实例
 _task_processor: Optional[BackpressureTaskProcessor] = None

@@ -10,15 +10,13 @@
 """
 
 import asyncio
-import logging
+from contextlib import asynccontextmanager
 from datetime import datetime
-from src.core.utils.timezone_utils import utc_now, utc_factory, timezone
+from src.core.utils.timezone_utils import utc_now
 from typing import List, Dict, Any, Optional
 from celery import Celery
 from celery.exceptions import Retry
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
-from sqlalchemy.orm import sessionmaker
-
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from ...core.config import get_settings
 from .models import DataSourceModel, DataRecordModel, AnnotationTaskModel
 from .core import DataSource, DataFilter, ExportFormat, AssignmentStrategy
@@ -26,10 +24,12 @@ from .collectors import CollectorFactory, CollectionStats
 from .preprocessing import DataPreprocessor
 from .annotation import AnnotationManager
 from .version_manager import DataVersionManager
+from celery.schedules import crontab
 
-# 配置日志
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+from src.core.logging import get_logger
+logger = get_logger(__name__)
+
+settings = get_settings()
 
 # 创建Celery应用
 celery_app = Celery(
@@ -61,31 +61,21 @@ engine = create_async_engine(
     pool_pre_ping=True
 )
 
-async_session_factory = sessionmaker(
+async_session_factory = async_sessionmaker(
     engine, class_=AsyncSession, expire_on_commit=False
 )
 
-
+@asynccontextmanager
 async def get_db_session():
     """获取数据库会话"""
     async with async_session_factory() as session:
-        try:
-            yield session
-        finally:
-            await session.close()
-
+        yield session
 
 def run_async_task(async_func):
     """运行异步任务的装饰器"""
     def wrapper(*args, **kwargs):
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        try:
-            return loop.run_until_complete(async_func(*args, **kwargs))
-        finally:
-            loop.close()
+        return asyncio.run(async_func(*args, **kwargs))
     return wrapper
-
 
 @celery_app.task(bind=True, autoretry_for=(Exception,), retry_kwargs={'max_retries': 3})
 def collect_data_task(self, source_id: str, processing_rules: List[str] = None, batch_size: int = 100):
@@ -95,7 +85,7 @@ def collect_data_task(self, source_id: str, processing_rules: List[str] = None, 
         stats = CollectionStats(start_time=utc_now())
         
         try:
-            async for session in get_db_session():
+            async with get_db_session() as session:
                 # 获取数据源信息
                 from sqlalchemy import select
                 stmt = select(DataSourceModel).where(DataSourceModel.source_id == source_id)
@@ -218,7 +208,6 @@ def collect_data_task(self, source_id: str, processing_rules: List[str] = None, 
     
     return _collect_data()
 
-
 @celery_app.task(bind=True, autoretry_for=(Exception,), retry_kwargs={'max_retries': 3})
 def preprocess_records_task(
     self,
@@ -229,7 +218,7 @@ def preprocess_records_task(
     @run_async_task
     async def _preprocess_records():
         try:
-            async for session in get_db_session():
+            async with get_db_session() as session:
                 # 获取记录
                 from sqlalchemy import select
                 stmt = select(DataRecordModel).where(
@@ -298,7 +287,6 @@ def preprocess_records_task(
     
     return _preprocess_records()
 
-
 @celery_app.task(bind=True, autoretry_for=(Exception,), retry_kwargs={'max_retries': 3})
 def create_annotation_task_task(
     self,
@@ -309,7 +297,7 @@ def create_annotation_task_task(
     @run_async_task
     async def _create_annotation_task():
         try:
-            async for session in get_db_session():
+            async with get_db_session() as session:
                 # 转换任务数据
                 from .core import AnnotationTask
                 from .models import AnnotationTaskType, AnnotationStatus
@@ -345,7 +333,6 @@ def create_annotation_task_task(
     
     return _create_annotation_task()
 
-
 @celery_app.task(bind=True, autoretry_for=(Exception,), retry_kwargs={'max_retries': 3})
 def create_version_task(
     self,
@@ -360,7 +347,7 @@ def create_version_task(
     @run_async_task
     async def _create_version():
         try:
-            async for session in get_db_session():
+            async with get_db_session() as session:
                 version_manager = DataVersionManager(session)
                 
                 # 转换过滤条件
@@ -409,7 +396,6 @@ def create_version_task(
     
     return _create_version()
 
-
 @celery_app.task(bind=True, autoretry_for=(Exception,), retry_kwargs={'max_retries': 3})
 def export_version_task(
     self,
@@ -421,7 +407,7 @@ def export_version_task(
     @run_async_task
     async def _export_version():
         try:
-            async for session in get_db_session():
+            async with get_db_session() as session:
                 version_manager = DataVersionManager(session)
                 
                 format_enum = ExportFormat(export_format)
@@ -450,14 +436,13 @@ def export_version_task(
     
     return _export_version()
 
-
 @celery_app.task(bind=True, autoretry_for=(Exception,), retry_kwargs={'max_retries': 3})
 def quality_assessment_task(self, task_id: str):
     """质量评估任务"""
     @run_async_task
     async def _quality_assessment():
         try:
-            async for session in get_db_session():
+            async with get_db_session() as session:
                 quality_controller = QualityController(session)
                 report = await quality_controller.generate_quality_report(task_id)
                 
@@ -476,7 +461,6 @@ def quality_assessment_task(self, task_id: str):
     
     return _quality_assessment()
 
-
 @celery_app.task(bind=True, autoretry_for=(Exception,), retry_kwargs={'max_retries': 3})
 def batch_annotation_import_task(
     self,
@@ -487,7 +471,7 @@ def batch_annotation_import_task(
     @run_async_task
     async def _batch_annotation_import():
         try:
-            async for session in get_db_session():
+            async with get_db_session() as session:
                 annotation_manager = AnnotationManager(session)
                 
                 imported_count = 0
@@ -535,7 +519,6 @@ def batch_annotation_import_task(
     
     return _batch_annotation_import()
 
-
 @celery_app.task(bind=True)
 def cleanup_old_versions_task(self, days_old: int = 30):
     """清理旧版本数据任务"""
@@ -545,7 +528,7 @@ def cleanup_old_versions_task(self, days_old: int = 30):
             from datetime import timedelta
             cutoff_date = utc_now() - timedelta(days=days_old)
             
-            async for session in get_db_session():
+            async with get_db_session() as session:
                 version_manager = DataVersionManager(session)
                 
                 # 获取旧版本
@@ -582,9 +565,7 @@ def cleanup_old_versions_task(self, days_old: int = 30):
     
     return _cleanup_old_versions()
 
-
 # 定期任务配置
-from celery.schedules import crontab
 
 celery_app.conf.beat_schedule = {
     'cleanup-old-versions': {
@@ -596,7 +577,6 @@ celery_app.conf.beat_schedule = {
 
 celery_app.conf.timezone = 'UTC'
 
-
 # 任务监控和健康检查
 
 @celery_app.task
@@ -607,7 +587,6 @@ def health_check_task():
         'timestamp': utc_now().isoformat(),
         'celery_version': celery_app.version
     }
-
 
 @celery_app.task
 def get_task_stats():

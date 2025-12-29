@@ -7,14 +7,12 @@
 import pytest
 import asyncio
 from unittest.mock import Mock, AsyncMock, patch
-
 from ai.knowledge_graph.relation_extractor import (
     RelationExtractor,
     PatternBasedExtractor,
     DependencyBasedExtractor
 )
 from ai.knowledge_graph.data_models import Entity, Relation, EntityType, RelationType
-
 
 class TestPatternBasedExtractor:
     """基于模式的关系抽取器测试"""
@@ -125,7 +123,6 @@ class TestPatternBasedExtractor:
             # 置信度应该考虑实体置信度和模式置信度
             assert relation.confidence > 0.5  # 基本合理的置信度
 
-
 class TestDependencyBasedExtractor:
     """基于依存句法的关系抽取器测试"""
     
@@ -220,7 +217,6 @@ class TestDependencyBasedExtractor:
         
         # 根据实体类型和动词，应该能映射到相应的关系类型
         assert relation_type in [RelationType.WORKS_FOR, RelationType.MISC, None]
-
 
 class TestRelationExtractor:
     """关系抽取器主类测试"""
@@ -461,7 +457,6 @@ class TestRelationExtractor:
         
         assert len(work_relations) >= 1
         assert len(location_relations) >= 1
-
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

@@ -7,12 +7,8 @@ import asyncio
 from unittest.mock import Mock, AsyncMock, patch
 from datetime import datetime
 from src.core.utils.timezone_utils import utc_now, utc_factory
-
 import sys
 import os
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../../../'))
-
-# 直接导入避开__init__.py的依赖问题
 from ai.knowledge_graph.graph_database import (
     Neo4jGraphDatabase,
     GraphDatabaseConfig,
@@ -20,6 +16,9 @@ from ai.knowledge_graph.graph_database import (
     ConnectionPoolStats
 )
 
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../../../'))
+
+# 直接导入避开__init__.py的依赖问题
 
 @pytest.mark.unit
 class TestGraphDatabaseConfig:
@@ -40,7 +39,6 @@ class TestGraphDatabaseConfig:
         assert config.database == "graph"
         assert config.connection_timeout == 30
         assert config.max_connection_pool_size == 50
-
 
 @pytest.mark.unit
 class TestNeo4jGraphDatabase:
@@ -230,7 +228,6 @@ class TestNeo4jGraphDatabase:
             with pytest.raises(GraphDatabaseError, match="Query execution failed"):
                 await db.execute_read_query("INVALID QUERY")
 
-
 @pytest.mark.integration
 class TestNeo4jIntegration:
     """Neo4j集成测试（需要真实数据库连接）"""
@@ -318,7 +315,6 @@ class TestNeo4jIntegration:
             
         finally:
             await db.close()
-
 
 @pytest.mark.performance
 class TestDatabasePerformance:

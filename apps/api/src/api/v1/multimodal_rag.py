@@ -1,32 +1,29 @@
 """多模态RAG API端点"""
 
 import os
-import logging
 from typing import List, Optional, Dict, Any
 from pathlib import Path
 import tempfile
 import shutil
-
 from fastapi import APIRouter, File, UploadFile, Form, HTTPException, Depends, BackgroundTasks
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel, Field
+from pydantic import Field
 import aiofiles
-
 from src.ai.rag.multimodal_config import (
     MultimodalConfig,
     ProcessedDocument,
     QAResponse
 )
+from src.api.base_model import ApiBaseModel
 from src.ai.rag.multimodal_qa_chain import MultimodalQAChain
 from src.ai.rag.document_processor import MultimodalDocumentProcessor
 from src.ai.rag.multimodal_vectorstore import MultimodalVectorStore
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 router = APIRouter(prefix="/multimodal-rag", tags=["Multimodal RAG"])
 
-
-class MultimodalQueryRequest(BaseModel):
+class MultimodalQueryRequest(ApiBaseModel):
     """多模态查询请求"""
     query: str = Field(description="查询文本")
     stream: bool = Field(default=False, description="是否流式响应")
@@ -36,8 +33,7 @@ class MultimodalQueryRequest(BaseModel):
     include_tables: bool = Field(default=True, description="是否包含表格")
     top_k: Optional[int] = Field(default=None, description="检索结果数量")
 
-
-class MultimodalQueryResponse(BaseModel):
+class MultimodalQueryResponse(ApiBaseModel):
     """多模态查询响应"""
     answer: str = Field(description="回答内容")
     sources: List[str] = Field(description="引用来源")
@@ -45,8 +41,7 @@ class MultimodalQueryResponse(BaseModel):
     processing_time: float = Field(description="处理时间(秒)")
     context_used: Dict[str, int] = Field(description="使用的上下文统计")
 
-
-class DocumentUploadResponse(BaseModel):
+class DocumentUploadResponse(ApiBaseModel):
     """文档上传响应"""
     doc_id: str = Field(description="文档ID")
     source_file: str = Field(description="源文件名")
@@ -56,8 +51,7 @@ class DocumentUploadResponse(BaseModel):
     num_tables: int = Field(description="表格数量")
     processing_time: float = Field(description="处理时间(秒)")
 
-
-class VectorStoreStatus(BaseModel):
+class VectorStoreStatus(ApiBaseModel):
     """向量存储状态"""
     text_documents: int = Field(description="文本文档数")
     image_documents: int = Field(description="图像文档数")
@@ -65,21 +59,18 @@ class VectorStoreStatus(BaseModel):
     total_documents: int = Field(description="总文档数")
     embedding_dimension: int = Field(description="嵌入维度")
 
-
 # 全局实例
 config = MultimodalConfig()
 qa_chain: Optional[MultimodalQAChain] = None
 document_processor: Optional[MultimodalDocumentProcessor] = None
 vector_store: Optional[MultimodalVectorStore] = None
 
-
 def get_qa_chain() -> MultimodalQAChain:
     """获取QA链实例"""
     global qa_chain
     if qa_chain is None:
-        qa_chain = MultimodalQAChain(config)
+        qa_chain = MultimodalQAChain(config, vector_store=get_vector_store())
     return qa_chain
-
 
 def get_document_processor() -> MultimodalDocumentProcessor:
     """获取文档处理器实例"""
@@ -88,14 +79,12 @@ def get_document_processor() -> MultimodalDocumentProcessor:
         document_processor = MultimodalDocumentProcessor(config)
     return document_processor
 
-
 def get_vector_store() -> MultimodalVectorStore:
     """获取向量存储实例"""
     global vector_store
     if vector_store is None:
         vector_store = MultimodalVectorStore(config)
     return vector_store
-
 
 def _is_supported_file_type(filename: str) -> bool:
     """检查是否为支持的文件类型"""
@@ -109,6 +98,45 @@ def _is_supported_file_type(filename: str) -> bool:
     file_ext = Path(filename).suffix.lower()
     return file_ext in supported_extensions
 
+async def _ingest_upload_files(
+    files: List[UploadFile],
+    document_processor: MultimodalDocumentProcessor,
+    vector_store: MultimodalVectorStore,
+) -> List[str]:
+    temp_files = []
+    try:
+        for file in files:
+            if not file.filename:
+                raise HTTPException(status_code=400, detail="文件名不能为空")
+            if not _is_supported_file_type(file.filename):
+                raise HTTPException(status_code=400, detail=f"不支持的文件类型: {file.filename}")
+
+            temp_file = tempfile.NamedTemporaryFile(
+                delete=False,
+                suffix=Path(file.filename).suffix
+            )
+            temp_files.append(temp_file.name)
+
+            content = await file.read()
+            if len(content) > 50 * 1024 * 1024:
+                raise HTTPException(status_code=413, detail="文件大小超过50MB限制")
+            if len(content) == 0:
+                raise HTTPException(status_code=400, detail="文件不能为空")
+
+            async with aiofiles.open(temp_file.name, 'wb') as f:
+                await f.write(content)
+
+            processed_doc = await document_processor.process_document(temp_file.name)
+            processed_doc = processed_doc.model_copy(update={"source_file": file.filename})
+            await vector_store.add_documents(processed_doc)
+
+        return [f.filename for f in files if f.filename]
+    finally:
+        for temp_file in temp_files:
+            try:
+                os.unlink(temp_file)
+            except Exception as e:
+                logger.warning(f"Failed to delete temp file {temp_file}: {e}")
 
 @router.post("/query", response_model=MultimodalQueryResponse)
 async def multimodal_query(
@@ -148,7 +176,6 @@ async def multimodal_query(
         logger.error(f"Error in multimodal query: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-
 @router.post("/query-with-files")
 async def multimodal_query_with_files(
     query: str = Form(..., description="查询文本"),
@@ -173,44 +200,9 @@ async def multimodal_query_with_files(
     Returns:
         查询响应
     """
-    temp_files = []
-    
     try:
-        # 验证和保存上传的文件
         if files:
-            for file in files:
-                # 验证文件
-                if not file.filename:
-                    raise HTTPException(status_code=400, detail="文件名不能为空")
-                
-                if not _is_supported_file_type(file.filename):
-                    raise HTTPException(status_code=400, detail=f"不支持的文件类型: {file.filename}")
-                
-                # 创建临时文件
-                temp_file = tempfile.NamedTemporaryFile(
-                    delete=False,
-                    suffix=Path(file.filename).suffix
-                )
-                temp_files.append(temp_file.name)
-                
-                # 保存文件内容
-                content = await file.read()
-                
-                # 验证文件大小
-                if len(content) > 50 * 1024 * 1024:  # 50MB限制
-                    raise HTTPException(status_code=413, detail="文件大小超过50MB限制")
-                
-                if len(content) == 0:
-                    raise HTTPException(status_code=400, detail="文件不能为空")
-                
-                async with aiofiles.open(temp_file.name, 'wb') as f:
-                    await f.write(content)
-                
-                # 处理文档
-                processed_doc = await document_processor.process_document(temp_file.name)
-                
-                # 添加到向量存储
-                await vector_store.add_documents(processed_doc)
+            await _ingest_upload_files(files, document_processor, vector_store)
         
         # 执行查询
         response = await qa_chain.arun(
@@ -231,15 +223,86 @@ async def multimodal_query_with_files(
     except Exception as e:
         logger.error(f"Error in query with files: {e}")
         raise HTTPException(status_code=500, detail=str(e))
-    
-    finally:
-        # 清理临时文件
-        for temp_file in temp_files:
-            try:
-                os.unlink(temp_file)
-            except Exception as e:
-                logger.warning(f"Failed to delete temp file {temp_file}: {e}")
 
+@router.post("/query-with-details")
+async def multimodal_query_with_details(
+    query: str = Form(..., description="查询文本"),
+    files: List[UploadFile] = File(None, description="上传的文件"),
+    qa_chain: MultimodalQAChain = Depends(get_qa_chain),
+    document_processor: MultimodalDocumentProcessor = Depends(get_document_processor),
+    vector_store: MultimodalVectorStore = Depends(get_vector_store),
+):
+    import time
+    start_time = time.time()
+    try:
+        filenames = []
+        if files:
+            filenames = await _ingest_upload_files(files, document_processor, vector_store)
+
+        query_context = qa_chain.query_analyzer.analyze_query(query=query, files=filenames)
+        retrieval_results = await qa_chain.retriever.retrieve(query_context)
+        answer, confidence = qa_chain._generate_answer(query, retrieval_results)
+
+        weights = qa_chain.retriever._calculate_dynamic_weights(query_context)
+        retrieval_top_k = query_context.top_k or config.retrieval_top_k
+        similarity_threshold = query_context.similarity_threshold or config.similarity_threshold
+
+        def _convert_items(items: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+            out = []
+            for it in items:
+                md = it.get("metadata") or {}
+                out.append(
+                    {
+                        "content": it.get("content", ""),
+                        "score": float(it.get("score") or 0.0),
+                        "source": md.get("source", ""),
+                        "metadata": md,
+                    }
+                )
+            return out
+
+        return {
+            "query_analysis": {
+                "query_type": query_context.query_type.value,
+                "requires_image_search": bool(query_context.requires_image_search),
+                "requires_table_search": bool(query_context.requires_table_search),
+                "filters": query_context.filters,
+                "top_k": int(retrieval_top_k),
+                "similarity_threshold": float(similarity_threshold),
+            },
+            "retrieval_strategy": {
+                "strategy": "hybrid" if query_context.query_type.value == "mixed" else query_context.query_type.value,
+                "weights": {
+                    "text": float(weights.text_weight),
+                    "image": float(weights.image_weight),
+                    "table": float(weights.table_weight),
+                },
+                "reranking": bool(config.rerank_enabled),
+                "top_k": int(retrieval_top_k),
+                "similarity_threshold": float(similarity_threshold),
+            },
+            "retrieval_results": {
+                "texts": _convert_items(retrieval_results.texts),
+                "images": _convert_items(retrieval_results.images),
+                "tables": _convert_items(retrieval_results.tables),
+                "sources": retrieval_results.sources,
+                "total_results": int(retrieval_results.total_results),
+                "retrieval_time_ms": float(retrieval_results.retrieval_time_ms),
+            },
+            "qa_response": {
+                "answer": answer,
+                "confidence": float(confidence),
+                "processing_time_ms": float((time.time() - start_time) * 1000),
+                "context_used": {
+                    "text_chunks": len(retrieval_results.texts),
+                    "images": len(retrieval_results.images),
+                    "tables": len(retrieval_results.tables),
+                },
+            },
+        }
+    except Exception as e:
+        logger.error(f"Error in query with details: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/stream-query")
 async def stream_multimodal_query(
@@ -258,6 +321,7 @@ async def stream_multimodal_query(
     async def generate():
         """生成流式响应"""
         try:
+            import json
             async for chunk in qa_chain.stream_response(
                 query=request.query,
                 max_tokens=request.max_tokens,
@@ -265,10 +329,13 @@ async def stream_multimodal_query(
                 include_images=request.include_images,
                 include_tables=request.include_tables
             ):
-                yield f"data: {chunk}\n\n"
+                yield f"data: {json.dumps({'delta': chunk})}\n\n"
+            yield "data: [DONE]\n\n"
         except Exception as e:
             logger.error(f"Error in streaming: {e}")
-            yield f"data: [ERROR] {str(e)}\n\n"
+            import json
+            yield f"data: {json.dumps({'error': str(e)})}\n\n"
+            yield "data: [DONE]\n\n"
     
     return StreamingResponse(
         generate(),
@@ -279,7 +346,6 @@ async def stream_multimodal_query(
             "X-Accel-Buffering": "no"
         }
     )
-
 
 @router.post("/upload-document", response_model=DocumentUploadResponse)
 async def upload_document(
@@ -316,6 +382,7 @@ async def upload_document(
         
         # 处理文档
         processed_doc = await document_processor.process_document(temp_file.name)
+        processed_doc = processed_doc.model_copy(update={"source_file": file.filename})
         
         # 添加到向量存储
         success = await vector_store.add_documents(processed_doc)
@@ -342,11 +409,11 @@ async def upload_document(
         logger.error(f"Error uploading document: {e}")
         # 清理临时文件
         try:
-            os.unlink(temp_file.name)
-        except:
-            pass
+            if temp_file.name and os.path.exists(temp_file.name):
+                os.unlink(temp_file.name)
+        except Exception:
+            logger.exception("清理临时文件失败", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
-
 
 @router.post("/batch-upload")
 async def batch_upload_documents(
@@ -389,7 +456,9 @@ async def batch_upload_documents(
         processed_docs = await document_processor.process_batch(temp_files)
         
         # 添加到向量存储
+        temp_to_name = {tmp: f.filename for tmp, f in zip(temp_files, files) if f.filename}
         for doc in processed_docs:
+            doc = doc.model_copy(update={"source_file": temp_to_name.get(doc.source_file, doc.source_file)})
             success = await vector_store.add_documents(doc)
             results.append({
                 "filename": doc.source_file,
@@ -416,11 +485,11 @@ async def batch_upload_documents(
         # 清理临时文件
         for temp_file in temp_files:
             try:
-                os.unlink(temp_file)
-            except:
-                pass
+                if temp_file and os.path.exists(temp_file):
+                    os.unlink(temp_file)
+            except Exception:
+                logger.exception("清理临时文件失败", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
-
 
 @router.get("/status", response_model=VectorStoreStatus)
 async def get_vector_store_status(
@@ -441,6 +510,32 @@ async def get_vector_store_status(
         logger.error(f"Error getting status: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+@router.get("/stats")
+async def get_multimodal_rag_stats(
+    vector_store: MultimodalVectorStore = Depends(get_vector_store),
+):
+    stats = vector_store.get_statistics()
+    cache = qa_chain.get_cache_stats() if qa_chain else {"enabled": bool(config.cache_enabled), "size": 0, "hits": 0, "misses": 0, "hit_rate": 0.0}
+    return {
+        "vector_store_type": config.vector_store_type.value,
+        "embedding_model": config.text_embedding_model.value,
+        "embedding_dimension": int(config.embedding_dimension),
+        "collections": [
+            {"name": "multimodal_text", "count": int(stats["text_documents"])},
+            {"name": "multimodal_image", "count": int(stats["image_documents"])},
+            {"name": "multimodal_table", "count": int(stats["table_documents"])},
+        ],
+        "text_documents": int(stats["text_documents"]),
+        "image_documents": int(stats["image_documents"]),
+        "table_documents": int(stats["table_documents"]),
+        "total_documents": int(stats["total_documents"]),
+        "cache": cache,
+        "retrieval": {
+            "top_k": int(config.retrieval_top_k),
+            "similarity_threshold": float(config.similarity_threshold),
+            "rerank_enabled": bool(config.rerank_enabled),
+        },
+    }
 
 @router.delete("/clear")
 async def clear_vector_store(
@@ -461,7 +556,6 @@ async def clear_vector_store(
         logger.error(f"Error clearing vector store: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-
 @router.delete("/cache")
 async def clear_query_cache(
     qa_chain: MultimodalQAChain = Depends(get_qa_chain)
@@ -480,3 +574,4 @@ async def clear_query_cache(
     except Exception as e:
         logger.error(f"Error clearing cache: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+from src.core.logging import get_logger

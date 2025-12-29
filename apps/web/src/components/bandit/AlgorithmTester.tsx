@@ -61,11 +61,10 @@ const AlgorithmTester: React.FC<AlgorithmTesterProps> = ({ onTestComplete }) => 
       const session = { ...currentSession, status: 'running' as const, startTime: new Date() };
       setCurrentSession(session);
 
-      // 上下文生成器
       const contextGenerator = testConfig.includeContext ? () => ({
-        age: 20 + Math.floor(Math.random() * 40),
-        location: ['Beijing', 'Shanghai', 'Guangzhou', 'Shenzhen'][Math.floor(Math.random() * 4)],
-        interests: ['tech', 'sports', 'music', 'travel'][Math.floor(Math.random() * 4)],
+        age: 30,
+        location: 'default',
+        interests: 'tech',
         session_time: Date.now()
       }) : undefined;
 

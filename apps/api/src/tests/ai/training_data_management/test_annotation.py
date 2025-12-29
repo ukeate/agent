@@ -7,12 +7,10 @@ import asyncio
 from datetime import datetime
 from src.core.utils.timezone_utils import utc_now, utc_factory, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
-
 from src.ai.training_data_management.models import (
     DataRecord, AnnotationTask, Annotation, AnnotationStatus, AnnotationTaskStatus
 )
 from src.ai.training_data_management.annotation import AnnotationManager
-
 
 class TestAnnotationManager:
     """注解管理器测试"""

@@ -1,6 +1,7 @@
 """
 事件流处理管道 - 整合验证、去重、质量检查、缓冲和存储的完整pipeline
 """
+
 import asyncio
 import time
 from datetime import datetime
@@ -11,21 +12,20 @@ from dataclasses import dataclass, field
 from enum import Enum
 import uuid
 from contextlib import asynccontextmanager
+from src.core.database import get_db
+from src.models.schemas.event_tracking import CreateEventRequest, EventStatus, DataQuality
+from src.repositories.event_tracking_repository import (
 
-from core.logging import get_logger
-from core.database import get_db
-from models.schemas.event_tracking import CreateEventRequest, EventStatus, DataQuality
-from repositories.event_tracking_repository import (
     EventStreamRepository, EventDeduplicationRepository, 
     EventSchemaRepository, EventErrorRepository
 )
-from services.event_processing_service import EventProcessingService, EventValidationResult
-from services.event_buffer_service import EventBufferService, BufferConfig, BufferPriority
-from services.event_queue_service import EventQueueService, QueuePriority
-from services.data_quality_service import DataQualityService, DeduplicationResult, QualityCheckResult
+from src.services.event_processing_service import EventProcessingService, EventValidationResult
+from src.services.event_buffer_service import EventBufferService, BufferConfig, BufferPriority
+from src.services.event_queue_service import EventQueueService, QueuePriority
+from src.services.data_quality_service import DataQualityService, DeduplicationResult, QualityCheckResult
 
+from src.core.logging import get_logger
 logger = get_logger(__name__)
-
 
 class PipelineStage(str, Enum):
     """管道阶段"""
@@ -40,13 +40,11 @@ class PipelineStage(str, Enum):
     AGGREGATION = "aggregation"   # 聚合处理
     NOTIFICATION = "notification" # 通知下游
 
-
 class PipelineMode(str, Enum):
     """管道模式"""
     STREAMING = "streaming"       # 流式处理
     BATCH = "batch"              # 批处理
     HYBRID = "hybrid"            # 混合模式
-
 
 @dataclass
 class PipelineEvent:
@@ -76,7 +74,6 @@ class PipelineEvent:
     processing_metadata: Dict[str, Any] = field(default_factory=dict)
     routing_info: Dict[str, Any] = field(default_factory=dict)
 
-
 @dataclass
 class PipelineMetrics:
     """管道指标"""
@@ -94,7 +91,6 @@ class PipelineMetrics:
     avg_latency_ms: float = 0.0
     p95_latency_ms: float = 0.0
     last_updated: datetime = field(default_factory=lambda: utc_now())
-
 
 class EventStageProcessor:
     """事件阶段处理器基类"""
@@ -143,7 +139,6 @@ class EventStageProcessor:
             return 0.0
         return sum(self.processing_time_samples) / len(self.processing_time_samples)
 
-
 class IngestionProcessor(EventStageProcessor):
     """数据摄取处理器"""
     
@@ -168,7 +163,6 @@ class IngestionProcessor(EventStageProcessor):
         logger.debug(f"Ingested event {event.event_id}")
         return pipeline_event
 
-
 class ValidationProcessor(EventStageProcessor):
     """数据验证处理器"""
     
@@ -190,7 +184,6 @@ class ValidationProcessor(EventStageProcessor):
         
         logger.debug(f"Validated event {pipeline_event.event_id}, valid: {validation_result.is_valid}")
         return pipeline_event
-
 
 class DeduplicationProcessor(EventStageProcessor):
     """去重处理器"""
@@ -217,7 +210,6 @@ class DeduplicationProcessor(EventStageProcessor):
         
         logger.debug(f"Deduplication check for event {pipeline_event.event_id}, duplicate: {dedup_result.is_duplicate}")
         return pipeline_event
-
 
 class QualityCheckProcessor(EventStageProcessor):
     """质量检查处理器"""
@@ -248,7 +240,6 @@ class QualityCheckProcessor(EventStageProcessor):
         
         logger.debug(f"Quality check for event {pipeline_event.event_id}, score: {overall_score:.2f}, level: {quality_level}")
         return pipeline_event
-
 
 class EnrichmentProcessor(EventStageProcessor):
     """数据增强处理器"""
@@ -282,7 +273,6 @@ class EnrichmentProcessor(EventStageProcessor):
         
         logger.debug(f"Enriched event {pipeline_event.event_id}")
         return pipeline_event
-
 
 class RoutingProcessor(EventStageProcessor):
     """路由分发处理器"""
@@ -347,7 +337,6 @@ class RoutingProcessor(EventStageProcessor):
         
         return 'standard'
 
-
 class PersistenceProcessor(EventStageProcessor):
     """持久化处理器"""
     
@@ -379,7 +368,6 @@ class PersistenceProcessor(EventStageProcessor):
             logger.error(f"Failed to persist event {pipeline_event.event_id}: {e}")
         
         return pipeline_event
-
 
 class EventStreamPipeline:
     """事件流处理管道"""
@@ -677,7 +665,6 @@ class EventStreamPipeline:
             await self.queue_service.shutdown()
         
         logger.info("Event Stream Pipeline shutdown completed")
-
 
 # 全局管道实例
 _pipeline_instance: Optional[EventStreamPipeline] = None

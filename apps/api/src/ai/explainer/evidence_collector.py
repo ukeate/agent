@@ -12,13 +12,11 @@ from datetime import datetime
 from src.core.utils.timezone_utils import utc_now, utc_factory, timezone
 from typing import Any, Dict, List, Optional, Set, Tuple, Union
 from uuid import UUID, uuid4
-
 from src.models.schemas.explanation import (
     EvidenceType,
     ConfidenceSource,
     ExplanationComponent
 )
-
 
 class Evidence:
     """证据对象"""
@@ -97,7 +95,6 @@ class Evidence:
             "overall_score": self.calculate_overall_score()
         }
 
-
 class CausalRelationship:
     """因果关系"""
     
@@ -130,7 +127,6 @@ class CausalRelationship:
             "discovered_at": self.discovered_at.isoformat(),
             "metadata": self.metadata
         }
-
 
 class EvidenceCollector:
     """证据收集器"""

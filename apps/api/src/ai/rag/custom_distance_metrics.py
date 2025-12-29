@@ -9,15 +9,14 @@ from typing import Dict, Any, List, Optional, Tuple, Union, Callable
 from enum import Enum
 from dataclasses import dataclass
 import asyncio
-import logging
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 from scipy.spatial import distance
 from scipy.stats import pearsonr, spearmanr
 import numba
 
-logger = logging.getLogger(__name__)
-
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 class DistanceMetric(str, Enum):
     """距离度量类型"""
@@ -39,7 +38,6 @@ class DistanceMetric(str, Enum):
     JENSEN_SHANNON = "jensen_shannon" # JS散度
     WASSERSTEIN = "wasserstein"      # Wasserstein距离
 
-
 @dataclass
 class DistanceConfig:
     """距离计算配置"""
@@ -50,7 +48,6 @@ class DistanceConfig:
     # 特定度量的参数
     p: float = 2.0  # Minkowski距离的p值
     covariance_matrix: Optional[np.ndarray] = None  # 马氏距离的协方差矩阵
-
 
 class CustomDistanceCalculator:
     """自定义距离计算器"""
@@ -497,7 +494,6 @@ class CustomDistanceCalculator:
                 best_metric = metric
         
         return best_metric, scores
-
 
 class DistanceMetricInterface:
     """距离度量接口（用于pgvector集成）"""

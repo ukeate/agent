@@ -13,11 +13,9 @@ import uuid
 from datetime import datetime
 from src.core.utils.timezone_utils import utc_now, utc_factory
 import copy
-
 from ..qlearning.base import AgentState, Experience
 from .state_space import StateSpace, StateSpaceFactory
 from .action_space import ActionSpace, ActionSpaceFactory
-
 
 class EnvironmentStatus(Enum):
     """环境状态枚举"""
@@ -26,7 +24,6 @@ class EnvironmentStatus(Enum):
     TERMINATED = "terminated"
     TRUNCATED = "truncated"
     ERROR = "error"
-
 
 @dataclass
 class EnvironmentInfo:
@@ -39,7 +36,6 @@ class EnvironmentInfo:
     reward_threshold: Optional[float] = None
     entry_point: Optional[str] = None
     
-
 @dataclass
 class StepResult:
     """环境步骤执行结果"""
@@ -54,7 +50,6 @@ class StepResult:
         """是否结束（终止或截断）"""
         return self.terminated or self.truncated
 
-
 class RewardFunction(ABC):
     """奖励函数抽象基类"""
     
@@ -62,13 +57,12 @@ class RewardFunction(ABC):
     def calculate_reward(self, state: AgentState, action: Any, 
                         next_state: AgentState, info: Dict[str, Any]) -> float:
         """计算奖励值"""
-        pass
+        raise NotImplementedError
     
     @abstractmethod
     def get_reward_info(self) -> Dict[str, Any]:
         """获取奖励函数信息"""
-        pass
-
+        raise NotImplementedError
 
 class TransitionFunction(ABC):
     """状态转移函数抽象基类"""
@@ -76,13 +70,12 @@ class TransitionFunction(ABC):
     @abstractmethod
     def transition(self, state: AgentState, action: Any) -> Tuple[AgentState, Dict[str, Any]]:
         """执行状态转移，返回新状态和额外信息"""
-        pass
+        raise NotImplementedError
     
     @abstractmethod
     def is_terminal_state(self, state: AgentState) -> bool:
         """判断是否为终止状态"""
-        pass
-
+        raise NotImplementedError
 
 class BaseEnvironment(ABC):
     """环境基类"""
@@ -108,12 +101,12 @@ class BaseEnvironment(ABC):
     @abstractmethod
     def reset(self, seed: Optional[int] = None, options: Optional[Dict[str, Any]] = None) -> AgentState:
         """重置环境到初始状态"""
-        pass
+        raise NotImplementedError
     
     @abstractmethod
     def step(self, action: Any) -> StepResult:
         """执行一步环境交互"""
-        pass
+        raise NotImplementedError
     
     def close(self):
         """关闭环境，清理资源"""
@@ -148,7 +141,6 @@ class BaseEnvironment(ABC):
             "status": self.status.value,
             "max_episode_steps": self.env_info.max_episode_steps
         }
-
 
 class AgentEnvironmentSimulator(BaseEnvironment):
     """通用智能体环境模拟器"""
@@ -324,7 +316,6 @@ class AgentEnvironmentSimulator(BaseEnvironment):
         
         return AgentState.create(features=noisy_features, context=state.context)
 
-
 # 具体的状态转移函数实现
 
 class IdentityTransition(TransitionFunction):
@@ -365,7 +356,6 @@ class IdentityTransition(TransitionFunction):
             return value <= threshold
         
         return False
-
 
 class LinearTransition(TransitionFunction):
     """线性状态转移函数"""
@@ -415,7 +405,6 @@ class LinearTransition(TransitionFunction):
         # 复用IdentityTransition的终止条件检查
         identity_transition = IdentityTransition({"terminal_conditions": self.terminal_conditions})
         return identity_transition.is_terminal_state(state)
-
 
 class GridWorldTransition(TransitionFunction):
     """网格世界状态转移函数"""
@@ -479,7 +468,6 @@ class GridWorldTransition(TransitionFunction):
         current_pos = (int(state.features.get("x", 0)), int(state.features.get("y", 0)))
         return current_pos in self.goal_positions
 
-
 # 具体的奖励函数实现
 
 class SparseReward(RewardFunction):
@@ -511,7 +499,6 @@ class SparseReward(RewardFunction):
             "step_penalty": self.step_penalty,
             "collision_penalty": self.collision_penalty
         }
-
 
 class DenseReward(RewardFunction):
     """密集奖励函数（基于距离）"""
@@ -551,7 +538,6 @@ class DenseReward(RewardFunction):
             "distance_reward_scale": self.distance_reward_scale,
             "goal_position": self.goal_position
         }
-
 
 class ShapedReward(RewardFunction):
     """塑形奖励函数（结合多种奖励信号）"""

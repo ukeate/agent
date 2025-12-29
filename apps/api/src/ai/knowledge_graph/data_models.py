@@ -14,7 +14,6 @@ import json
 import uuid
 from pydantic import BaseModel, field_validator, Field
 
-
 class EntityType(str, Enum):
     """实体类型枚举 - 支持20种以上实体类型"""
     PERSON = "PERSON"
@@ -28,6 +27,8 @@ class EntityType(str, Enum):
     FACILITY = "FACILITY"
     PRODUCT = "PRODUCT"
     EVENT = "EVENT"
+    CONCEPT = "CONCEPT"
+    OBJECT = "OBJECT"
     WORK_OF_ART = "WORK_OF_ART"
     LAW = "LAW"
     LANGUAGE = "LANGUAGE"
@@ -44,7 +45,6 @@ class EntityType(str, Enum):
     PROVINCE = "PROVINCE"
     UNIVERSITY = "UNIVERSITY"
     COMPANY = "COMPANY"
-
 
 class RelationType(str, Enum):
     """关系类型枚举 - 支持50种以上关系类型"""
@@ -118,7 +118,6 @@ class RelationType(str, Enum):
     UNRELATED = "unrelated"
     OTHER = "other"
 
-
 @dataclass
 class Entity:
     """实体数据类"""
@@ -172,7 +171,6 @@ class Entity:
             entity_id=data.get("entity_id", str(uuid.uuid4())),
             metadata=data.get("metadata", {})
         )
-
 
 @dataclass
 class Relation:
@@ -231,7 +229,6 @@ class Relation:
             self.object.canonical_form or self.object.text
         )
 
-
 class ExtractionResult(TypedDict):
     """知识抽取结果"""
     document_id: str
@@ -243,7 +240,6 @@ class ExtractionResult(TypedDict):
     model_versions: Dict[str, str]
     timestamp: datetime
     metadata: Dict[str, Any]
-
 
 @dataclass
 class TripleStore:
@@ -293,7 +289,6 @@ class TripleStore:
     def size(self) -> int:
         """获取三元组数量"""
         return len(self.triples)
-
 
 @dataclass
 class KnowledgeGraph:
@@ -431,7 +426,6 @@ class KnowledgeGraph:
             "graph_id": self.graph_id
         }
 
-
 # Pydantic 模型用于API验证
 class EntityModel(BaseModel):
     """实体API模型"""
@@ -475,7 +469,6 @@ class EntityModel(BaseModel):
             metadata=self.metadata
         )
 
-
 class RelationModel(BaseModel):
     """关系API模型"""
     subject: EntityModel
@@ -509,7 +502,6 @@ class RelationModel(BaseModel):
             metadata=self.metadata
         )
 
-
 class ExtractionRequest(BaseModel):
     """知识抽取请求模型"""
     text: str = Field(..., min_length=1, max_length=50000)
@@ -519,7 +511,6 @@ class ExtractionRequest(BaseModel):
     link_entities: bool = True
     confidence_threshold: float = Field(default=0.5, ge=0, le=1)
     extraction_config: Dict[str, Any] = Field(default_factory=dict)
-
 
 class ExtractionResponse(BaseModel):
     """知识抽取响应模型"""
@@ -532,7 +523,6 @@ class ExtractionResponse(BaseModel):
     model_versions: Dict[str, str] = Field(default_factory=dict)
     statistics: Dict[str, Any] = Field(default_factory=dict)
     metadata: Dict[str, Any] = Field(default_factory=dict)
-
 
 @dataclass
 class BatchProcessingResult:
@@ -562,7 +552,6 @@ class BatchProcessingResult:
             "created_at": self.created_at.isoformat()
         }
 
-
 class BatchProcessingRequest(BaseModel):
     """批处理请求模型"""
     documents: List[Dict[str, Any]] = Field(..., min_length=1, max_length=1000)
@@ -583,7 +572,6 @@ class BatchProcessingRequest(BaseModel):
             if not isinstance(doc["text"], str) or len(doc["text"]) == 0:
                 raise ValueError("文档 'text' 字段必须是非空字符串")
         return v
-
 
 class BatchProcessingResponse(BaseModel):
     """批处理响应模型"""

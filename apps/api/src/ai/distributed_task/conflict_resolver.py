@@ -1,13 +1,11 @@
 """冲突解决器实现"""
 
 import asyncio
-import logging
 import uuid
 from datetime import datetime
 from typing import Dict, List, Optional, Any, Set
-
 from .models import Task, TaskStatus, Conflict, ConflictType
-
+from src.core.utils.timezone_utils import utc_now
 
 class ConflictResolver:
     """冲突解决器"""
@@ -15,7 +13,7 @@ class ConflictResolver:
     def __init__(self, state_manager=None, task_coordinator=None):
         self.state_manager = state_manager
         self.task_coordinator = task_coordinator
-        self.logger = logging.getLogger(__name__)
+        self.logger = get_logger(__name__)
         
         # 冲突检测器
         self.conflict_detectors = {
@@ -117,20 +115,29 @@ class ConflictResolver:
                     if resource in total_requirements:
                         total_requirements[resource] += amount
             
-            # 获取智能体资源容量（简化实现）
-            agent_capacity = {"cpu": 1.0, "memory": 8192, "disk_space": 102400}  # 示例值
+            service_registry = getattr(self.task_coordinator, "service_registry", None) if self.task_coordinator else None
+            if not service_registry:
+                continue
+            agent_meta = await service_registry.get_agent(agent_id)
+            if not agent_meta or not getattr(agent_meta, "resources", None):
+                continue
+            resources = agent_meta.resources
+            available = {
+                "cpu": 1.0 - float(resources.get("cpu_usage", 0.0) or 0.0),
+                "memory": float(resources.get("memory_total", 0) or 0) - float(resources.get("memory_used", 0) or 0),
+                "disk_space": float(resources.get("disk_total", 0) or 0) - float(resources.get("disk_used", 0) or 0),
+            }
             
             # 检查资源超限
             for resource, required in total_requirements.items():
-                available = agent_capacity.get(resource, 0)
-                if required > available:
+                if required > available.get(resource, 0):
                     conflict = Conflict(
                         conflict_id=str(uuid.uuid4()),
                         conflict_type=ConflictType.RESOURCE_CONFLICT,
-                        description=f"Agent {agent_id} resource {resource} overcommitted: {required} > {available}",
+                        description=f"Agent {agent_id} resource {resource} overcommitted: {required} > {available.get(resource, 0)}",
                         involved_tasks=[task.task_id for task in tasks],
                         involved_agents=[agent_id],
-                        timestamp=datetime.now()
+                        timestamp=utc_now()
                     )
                     conflicts.append(conflict)
         
@@ -168,7 +175,7 @@ class ConflictResolver:
                     description=f"Task {task.task_id} state inconsistencies: {', '.join(state_issues)}",
                     involved_tasks=[task.task_id],
                     involved_agents=[task.assigned_to] if task.assigned_to else [],
-                    timestamp=datetime.now()
+                    timestamp=utc_now()
                 )
                 conflicts.append(conflict)
         
@@ -198,7 +205,7 @@ class ConflictResolver:
                     description=f"Task {task_id} assigned to multiple agents: {agent_ids}",
                     involved_tasks=[task_id],
                     involved_agents=agent_ids,
-                    timestamp=datetime.now()
+                    timestamp=utc_now()
                 )
                 conflicts.append(conflict)
         
@@ -222,7 +229,7 @@ class ConflictResolver:
                             description=f"Task {task.task_id} depends on non-existent task {dep_id}",
                             involved_tasks=[task.task_id],
                             involved_agents=[task.assigned_to] if task.assigned_to else [],
-                            timestamp=datetime.now()
+                            timestamp=utc_now()
                         )
                         conflicts.append(conflict)
                         continue
@@ -235,7 +242,7 @@ class ConflictResolver:
                             description=f"Circular dependency detected involving task {task.task_id}",
                             involved_tasks=[task.task_id] + task.dependencies,
                             involved_agents=[],
-                            timestamp=datetime.now()
+                            timestamp=utc_now()
                         )
                         conflicts.append(conflict)
                         break
@@ -264,44 +271,52 @@ class ConflictResolver:
     
     async def _priority_based_resolution(self, conflict: Conflict) -> Dict[str, Any]:
         """基于优先级的解决策略"""
-        
-        # 简化实现：选择优先级最高的任务
-        resolution = {
+        tasks = [t for t in await self._get_all_tasks() if t.task_id in set(conflict.involved_tasks)]
+        if not tasks:
+            return {}
+        tasks.sort(key=lambda t: t.priority.value)
+        keep_task_id = tasks[0].task_id
+        return {
             "action": "reassign",
-            "details": "Reassign lower priority tasks"
+            "keep_task_id": keep_task_id,
+            "tasks": [t.task_id for t in tasks[1:]],
         }
-        
-        return resolution
     
     async def _resource_optimization_resolution(self, conflict: Conflict) -> Dict[str, Any]:
         """资源优化解决策略"""
-        
-        resolution = {
-            "action": "reschedule",
-            "details": "Reschedule tasks to optimize resource usage"
+        tasks = [t for t in await self._get_all_tasks() if t.task_id in set(conflict.involved_tasks)]
+        if not tasks:
+            return {}
+        tasks.sort(key=lambda t: sum(float(v or 0) for v in t.resource_requirements.values()), reverse=True)
+        return {
+            "action": "reassign",
+            "tasks": [tasks[0].task_id],
         }
-        
-        return resolution
     
     async def _load_balancing_resolution(self, conflict: Conflict) -> Dict[str, Any]:
         """负载均衡解决策略"""
-        
-        resolution = {
-            "action": "redistribute",
-            "details": "Redistribute tasks across agents"
+        tasks = [t for t in await self._get_all_tasks() if t.task_id in set(conflict.involved_tasks)]
+        if not tasks:
+            return {}
+        agent_load: Dict[str, int] = {}
+        for t in tasks:
+            if t.assigned_to:
+                agent_load[t.assigned_to] = agent_load.get(t.assigned_to, 0) + 1
+        if not agent_load:
+            return {"action": "reassign", "tasks": [t.task_id for t in tasks]}
+        busiest = max(agent_load.items(), key=lambda x: x[1])[0]
+        return {
+            "action": "reassign",
+            "tasks": [t.task_id for t in tasks if t.assigned_to == busiest],
         }
-        
-        return resolution
     
     async def _fairness_based_resolution(self, conflict: Conflict) -> Dict[str, Any]:
         """公平性解决策略"""
-        
-        resolution = {
-            "action": "fair_allocation",
-            "details": "Allocate resources fairly among tasks"
-        }
-        
-        return resolution
+        tasks = [t for t in await self._get_all_tasks() if t.task_id in set(conflict.involved_tasks)]
+        if not tasks:
+            return {}
+        tasks.sort(key=lambda t: t.created_at)
+        return {"action": "reassign", "tasks": [tasks[-1].task_id]}
     
     async def _apply_resolution(self, conflict: Conflict, resolution: Dict[str, Any]) -> bool:
         """应用解决方案"""
@@ -310,24 +325,16 @@ class ConflictResolver:
             action = resolution.get("action")
             
             if action == "reassign":
-                # 重新分配任务
-                for task_id in conflict.involved_tasks:
-                    # 实际实现需要调用任务协调器重新分配
-                    self.logger.info(f"Reassigning task {task_id}")
-            
-            elif action == "reschedule":
-                # 重新调度任务
-                self.logger.info("Rescheduling tasks")
-            
-            elif action == "redistribute":
-                # 重新分配任务到不同智能体
-                self.logger.info("Redistributing tasks")
-            
-            elif action == "fair_allocation":
-                # 公平分配资源
-                self.logger.info("Fair allocation of resources")
-            
-            return True
+                task_ids = resolution.get("tasks") or conflict.involved_tasks
+                if not self.task_coordinator:
+                    return False
+                for task_id in task_ids:
+                    ok = await self.task_coordinator.reassign_task(task_id)
+                    if not ok:
+                        return False
+                return True
+
+            return False
             
         except Exception as e:
             self.logger.error(f"Failed to apply resolution: {e}")
@@ -335,15 +342,34 @@ class ConflictResolver:
     
     async def _get_active_tasks(self) -> List[Task]:
         """获取活跃任务（简化实现）"""
-        
-        # 实际实现应该从状态管理器获取
-        return []
+        if self.task_coordinator:
+            return list(self.task_coordinator.active_tasks.values())
+        if not self.state_manager:
+            return []
+        tasks = []
+        for v in getattr(self.state_manager, "global_state", {}).values():
+            if isinstance(v, dict) and v.get("task_id"):
+                tasks.append(Task.from_dict(v.copy()))
+        return [t for t in tasks if t.status in {TaskStatus.ASSIGNED, TaskStatus.IN_PROGRESS}]
     
     async def _get_all_tasks(self) -> List[Task]:
         """获取所有任务（简化实现）"""
-        
-        # 实际实现应该从状态管理器获取
-        return []
+        if self.task_coordinator:
+            tasks = []
+            tasks.extend(self.task_coordinator.task_queue)
+            tasks.extend(self.task_coordinator.active_tasks.values())
+            tasks.extend(self.task_coordinator.completed_tasks.values())
+            uniq: Dict[str, Task] = {}
+            for t in tasks:
+                uniq[t.task_id] = t
+            return list(uniq.values())
+        if not self.state_manager:
+            return []
+        tasks = []
+        for v in getattr(self.state_manager, "global_state", {}).values():
+            if isinstance(v, dict) and v.get("task_id"):
+                tasks.append(Task.from_dict(v.copy()))
+        return tasks
     
     async def _start_conflict_detection_loop(self):
         """启动冲突检测循环"""
@@ -363,3 +389,4 @@ class ConflictResolver:
             except Exception as e:
                 self.logger.error(f"Error in conflict detection loop: {e}")
                 await asyncio.sleep(detection_interval)
+from src.core.logging import get_logger

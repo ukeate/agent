@@ -3,11 +3,7 @@ RAG生成器实现
 提供基于检索结果的答案生成能力
 """
 
-import logging
 from typing import Dict, List, Optional
-
-logger = logging.getLogger(__name__)
-
 
 class RAGGenerator:
     """RAG生成器基类"""

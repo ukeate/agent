@@ -2,18 +2,20 @@
 LangGraph 0.6.5 Pre/Post Model Hooks Implementation
 实现模型调用前后的钩子函数，用于请求预处理、响应后处理和guardrails
 """
+
 from typing import Any, Dict, List, Optional, Callable, Union, Literal
 from dataclasses import dataclass
 from abc import ABC, abstractmethod
 from datetime import datetime
-from src.core.utils.timezone_utils import utc_now, utc_factory, timezone
+from src.core.utils.timezone_utils import utc_now, utc_factory
 import asyncio
 import json
 import re
-
 from .state import MessagesState
 from .context import AgentContext, LangGraphContextSchema
 
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 @dataclass
 class HookConfig:
@@ -22,7 +24,6 @@ class HookConfig:
     priority: int = 0  # 优先级，数字越小优先级越高
     name: str = ""
     description: str = ""
-
 
 class BaseHook(ABC):
     """钩子基类"""
@@ -33,18 +34,15 @@ class BaseHook(ABC):
     @abstractmethod
     async def execute(self, state: MessagesState, context: Optional[AgentContext] = None) -> MessagesState:
         """执行钩子逻辑"""
-        pass
-
+        raise NotImplementedError
 
 class PreModelHook(BaseHook):
     """模型调用前钩子基类"""
-    pass
-
+    ...
 
 class PostModelHook(BaseHook):
     """模型调用后钩子基类"""
-    pass
-
+    ...
 
 # 预处理钩子实现
 
@@ -119,7 +117,6 @@ class MessageCompressionHook(PreModelHook):
         
         return " | ".join(summary_parts)
 
-
 class InputSanitizationHook(PreModelHook):
     """输入清理钩子 - 清理和验证用户输入"""
     
@@ -160,7 +157,6 @@ class InputSanitizationHook(PreModelHook):
         state["messages"] = cleaned_messages
         return state
 
-
 class ContextEnrichmentHook(PreModelHook):
     """上下文增强钩子 - 添加系统上下文信息"""
     
@@ -187,7 +183,6 @@ class ContextEnrichmentHook(PreModelHook):
                 state["messages"] = [system_context] + messages
         
         return state
-
 
 # 后处理钩子实现
 
@@ -229,7 +224,6 @@ class ResponseFilterHook(PostModelHook):
         
         state["messages"] = filtered_messages
         return state
-
 
 class QualityCheckHook(PostModelHook):
     """质量检查钩子 - 验证AI输出质量"""
@@ -289,7 +283,6 @@ class QualityCheckHook(PostModelHook):
         
         return state
 
-
 class ResponseEnhancementHook(PostModelHook):
     """响应增强钩子 - 增强AI输出"""
     
@@ -311,7 +304,6 @@ class ResponseEnhancementHook(PostModelHook):
                 # 可以在这里添加更多增强逻辑，如格式化、添加引用等
         
         return state
-
 
 # 钩子管理器
 
@@ -354,7 +346,12 @@ class HookManager:
                 try:
                     state = await hook.execute(state, context)
                 except Exception as e:
-                    print(f"预处理钩子 {hook.config.name} 执行失败: {e}")
+                    logger.error(
+                        "预处理钩子执行失败",
+                        hook_name=hook.config.name,
+                        error=str(e),
+                        exc_info=True,
+                    )
         return state
     
     async def execute_post_hooks(self, state: MessagesState, context: Optional[AgentContext] = None) -> MessagesState:
@@ -364,7 +361,12 @@ class HookManager:
                 try:
                     state = await hook.execute(state, context)
                 except Exception as e:
-                    print(f"后处理钩子 {hook.config.name} 执行失败: {e}")
+                    logger.error(
+                        "后处理钩子执行失败",
+                        hook_name=hook.config.name,
+                        error=str(e),
+                        exc_info=True,
+                    )
         return state
     
     def get_hook_status(self) -> Dict[str, Any]:
@@ -390,10 +392,8 @@ class HookManager:
             ]
         }
 
-
 # 全局钩子管理器实例
 _hook_manager: Optional[HookManager] = None
-
 
 def get_hook_manager() -> HookManager:
     """获取全局钩子管理器"""
@@ -424,12 +424,10 @@ def get_hook_manager() -> HookManager:
     
     return _hook_manager
 
-
 def set_hook_manager(manager: HookManager) -> None:
     """设置全局钩子管理器"""
     global _hook_manager
     _hook_manager = manager
-
 
 # 钩子装饰器工具
 

@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-
 """
 模型评估系统集成测试模块
 测试完整的评估工作流程、组件间交互、端到端功能
@@ -15,12 +14,10 @@ from datetime import datetime
 from datetime import timedelta
 from src.core.utils.timezone_utils import utc_now, utc_factory
 from unittest.mock import Mock, patch, AsyncMock, MagicMock
-
 from ai.model_evaluation.evaluation_engine import ModelEvaluationEngine, EvaluationConfig
 from ai.model_evaluation.benchmark_manager import BenchmarkManager, BenchmarkConfig
 from ai.model_evaluation.performance_monitor import PerformanceMonitor
 from ai.model_evaluation.report_generator import EvaluationReportGenerator, ReportConfig
-
 
 class TestModelEvaluationIntegration:
     """模型评估系统集成测试"""
@@ -449,7 +446,6 @@ class TestModelEvaluationIntegration:
             assert not can_start
             mock_check.assert_called_with(resource_limits)
 
-
 class TestSystemIntegrationScenarios:
     """系统集成场景测试"""
 
@@ -565,7 +561,6 @@ class TestSystemIntegrationScenarios:
             # 验证分数不同（表明对比有意义）
             scores = [r["overall_score"] for r in all_results]
             assert len(set(scores)) == 3  # 所有分数都不同
-
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

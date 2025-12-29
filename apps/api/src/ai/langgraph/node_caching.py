@@ -3,6 +3,7 @@ LangGraph 0.6.5 Node Caching Implementation
 基于LangGraph 0.6.5的节点级缓存功能实现
 兼容官方CachePolicy和InMemoryCache API
 """
+
 from typing import Any, Dict, Optional, Callable, Literal, Union
 from dataclasses import dataclass
 from datetime import datetime
@@ -12,6 +13,10 @@ import hashlib
 import json
 import asyncio
 from abc import ABC, abstractmethod
+from .state import MessagesState
+
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 try:
     # 尝试导入LangGraph官方缓存类型
@@ -20,9 +25,6 @@ try:
     LANGGRAPH_CACHE_AVAILABLE = True
 except ImportError:
     LANGGRAPH_CACHE_AVAILABLE = False
-
-from .state import MessagesState
-
 
 @dataclass
 class CachePolicy:
@@ -42,30 +44,28 @@ class CachePolicy:
             )
         return cls()
 
-
 class CacheBackend(ABC):
     """缓存后端抽象基类"""
     
     @abstractmethod
     async def get(self, key: str) -> Optional[Any]:
         """获取缓存值"""
-        pass
+        raise NotImplementedError
     
     @abstractmethod
     async def set(self, key: str, value: Any, ttl: Optional[int] = None) -> None:
         """设置缓存值"""
-        pass
+        raise NotImplementedError
     
     @abstractmethod
     async def delete(self, key: str) -> None:
         """删除缓存值"""
-        pass
+        raise NotImplementedError
     
     @abstractmethod
     async def clear(self) -> None:
         """清空所有缓存"""
-        pass
-
+        raise NotImplementedError
 
 class InMemoryCache(CacheBackend):
     """内存缓存实现"""
@@ -128,7 +128,6 @@ class InMemoryCache(CacheBackend):
         lru_key = min(self.access_times.keys(), key=lambda k: self.access_times[k])
         await self.delete(lru_key)
 
-
 class RedisCache(CacheBackend):
     """Redis缓存实现 - 兼容LangGraph Redis Store"""
     
@@ -152,18 +151,20 @@ class RedisCache(CacheBackend):
         try:
             # 测试连接
             await self.redis.ping()
-            print("Redis缓存连接成功")
+            logger.info("Redis缓存连接成功")
         except Exception as e:
-            print(f"Redis缓存连接失败: {e}")
+            logger.error("Redis缓存连接失败", error=str(e), exc_info=True)
             raise
     
     async def close(self):
         """关闭Redis连接"""
         try:
+            if self.redis:
+                await self.redis.aclose()
             if self._connection_pool:
-                await self._connection_pool.disconnect()
+                await self._connection_pool.aclose()
         except Exception as e:
-            print(f"关闭Redis连接失败: {e}")
+            logger.error("关闭Redis连接失败", error=str(e), exc_info=True)
     
     def _make_key(self, key: str) -> str:
         """生成Redis键名"""
@@ -184,7 +185,7 @@ class RedisCache(CacheBackend):
                 # 如果JSON解码失败，返回原始字符串
                 return value.decode('utf-8') if isinstance(value, bytes) else value
         except Exception as e:
-            print(f"Redis缓存获取失败: {e}")
+            logger.error("Redis缓存获取失败", error=str(e), exc_info=True)
             return None
     
     async def set(self, key: str, value: Any, ttl: Optional[int] = None) -> None:
@@ -203,9 +204,9 @@ class RedisCache(CacheBackend):
             else:
                 await self.redis.set(redis_key, serialized_value)
                 
-            print(f"Redis缓存设置成功: {redis_key}")
+            logger.debug("Redis缓存设置成功", cache_key=redis_key)
         except Exception as e:
-            print(f"Redis缓存设置失败: {e}")
+            logger.error("Redis缓存设置失败", error=str(e), exc_info=True)
     
     async def delete(self, key: str) -> None:
         """删除缓存值"""
@@ -213,9 +214,9 @@ class RedisCache(CacheBackend):
             redis_key = self._make_key(key)
             deleted_count = await self.redis.delete(redis_key)
             if deleted_count > 0:
-                print(f"Redis缓存删除成功: {redis_key}")
+                logger.debug("Redis缓存删除成功", cache_key=redis_key)
         except Exception as e:
-            print(f"Redis缓存删除失败: {e}")
+            logger.error("Redis缓存删除失败", error=str(e), exc_info=True)
     
     async def clear(self) -> None:
         """清空所有缓存"""
@@ -232,9 +233,9 @@ class RedisCache(CacheBackend):
                 if cursor == 0:
                     break
                     
-            print(f"Redis缓存清空完成，删除 {total_deleted} 个键")
+            logger.info("Redis缓存清空完成", deleted_count=total_deleted)
         except Exception as e:
-            print(f"Redis缓存清空失败: {e}")
+            logger.error("Redis缓存清空失败", error=str(e), exc_info=True)
     
     async def get_stats(self) -> Dict[str, Any]:
         """获取Redis缓存统计信息"""
@@ -261,9 +262,8 @@ class RedisCache(CacheBackend):
                 "hit_rate": f"{(info.get('keyspace_hits', 0) / max(info.get('keyspace_hits', 0) + info.get('keyspace_misses', 0), 1)) * 100:.2f}%"
             }
         except Exception as e:
-            print(f"获取Redis统计信息失败: {e}")
+            logger.error("获取Redis统计信息失败", error=str(e), exc_info=True)
             return {"error": str(e)}
-
 
 class NodeCacheManager:
     """节点缓存管理器"""
@@ -272,6 +272,27 @@ class NodeCacheManager:
         self.backend = backend
         self.default_policy = default_policy or CachePolicy()
         self.node_policies: Dict[str, CachePolicy] = {}
+        self.hit_count = 0
+        self.miss_count = 0
+        self.total_requests = 0
+
+    def reset_stats(self) -> None:
+        self.hit_count = 0
+        self.miss_count = 0
+        self.total_requests = 0
+
+    def get_stats(self) -> Dict[str, Any]:
+        total = max(self.total_requests, 0)
+        hit_rate = (self.hit_count / max(self.hit_count + self.miss_count, 1)) * 100
+        stats: Dict[str, Any] = {
+            "hit_count": self.hit_count,
+            "miss_count": self.miss_count,
+            "total_requests": total,
+            "hit_rate": f"{hit_rate:.2f}%",
+        }
+        if hasattr(self.backend, "cache"):
+            stats["cache_entries"] = len(getattr(self.backend, "cache") or {})
+        return stats
     
     def set_node_policy(self, node_name: str, policy: CachePolicy) -> None:
         """为特定节点设置缓存策略"""
@@ -322,7 +343,7 @@ class NodeCacheManager:
         # 生成哈希键
         key_string = json.dumps(key_data, sort_keys=True)
         cache_key = hashlib.md5(key_string.encode()).hexdigest()
-        print(f"生成缓存键 {cache_key} for node {node_name}, key_data: {key_data}")
+        logger.debug("生成缓存键", cache_key=cache_key, node_name=node_name, key_data=key_data)
         return cache_key
     
     async def get_cached_result(self, node_name: str, state: MessagesState) -> Optional[MessagesState]:
@@ -333,14 +354,18 @@ class NodeCacheManager:
             return None
         
         cache_key = self._generate_cache_key(node_name, state, policy)
+        self.total_requests += 1
         
         try:
             cached_result = await self.backend.get(cache_key)
             if cached_result is not None:
-                print(f"节点 {node_name} 缓存命中: {cache_key}")
+                self.hit_count += 1
+                logger.debug("节点缓存命中", node_name=node_name, cache_key=cache_key)
                 return cached_result
+            self.miss_count += 1
         except Exception as e:
-            print(f"获取缓存失败: {e}")
+            self.miss_count += 1
+            logger.error("获取缓存失败", error=str(e), exc_info=True)
         
         return None
     
@@ -355,9 +380,9 @@ class NodeCacheManager:
         
         try:
             await self.backend.set(cache_key, result, policy.ttl)
-            print(f"节点 {node_name} 结果已缓存: {cache_key}")
+            logger.debug("节点结果已缓存", node_name=node_name, cache_key=cache_key)
         except Exception as e:
-            print(f"缓存结果失败: {e}")
+            logger.error("缓存结果失败", error=str(e), exc_info=True)
     
     async def invalidate_node_cache(self, node_name: str) -> None:
         """使特定节点的所有缓存失效"""
@@ -365,14 +390,12 @@ class NodeCacheManager:
         try:
             # 清空所有缓存（简化实现）
             await self.backend.clear()
-            print(f"节点 {node_name} 缓存已清空")
+            logger.info("节点缓存已清空", node_name=node_name)
         except Exception as e:
-            print(f"缓存清空失败: {e}")
-
+            logger.error("缓存清空失败", error=str(e), exc_info=True)
 
 # 全局缓存管理器实例
 _cache_manager: Optional[NodeCacheManager] = None
-
 
 async def create_redis_cache_manager(redis_uri: str = "redis://localhost:6379") -> NodeCacheManager:
     """创建Redis缓存管理器"""
@@ -382,13 +405,12 @@ async def create_redis_cache_manager(redis_uri: str = "redis://localhost:6379") 
         
         # 创建缓存管理器
         manager = NodeCacheManager(redis_cache)
-        print(f"Redis缓存管理器创建成功: {redis_uri}")
+        logger.info("Redis缓存管理器创建成功", redis_uri=redis_uri)
         return manager
     except Exception as e:
-        print(f"创建Redis缓存管理器失败: {e}，回退到内存缓存")
+        logger.warning("创建Redis缓存管理器失败，回退到内存缓存", error=str(e))
         # 回退到内存缓存
         return NodeCacheManager(InMemoryCache())
-
 
 def get_cache_manager() -> NodeCacheManager:
     """获取全局缓存管理器"""
@@ -399,12 +421,10 @@ def get_cache_manager() -> NodeCacheManager:
         _cache_manager = NodeCacheManager(backend)
     return _cache_manager
 
-
 def set_cache_manager(manager: NodeCacheManager) -> None:
     """设置全局缓存管理器"""
     global _cache_manager
     _cache_manager = manager
-
 
 async def initialize_redis_caching(redis_uri: Optional[str] = None) -> None:
     """初始化Redis缓存（如果可用）"""
@@ -412,12 +432,11 @@ async def initialize_redis_caching(redis_uri: Optional[str] = None) -> None:
         try:
             redis_manager = await create_redis_cache_manager(redis_uri)
             set_cache_manager(redis_manager)
-            print("Redis缓存初始化成功")
+            logger.info("Redis缓存初始化成功")
         except Exception as e:
-            print(f"Redis缓存初始化失败，使用内存缓存: {e}")
+            logger.warning("Redis缓存初始化失败，使用内存缓存", error=str(e))
     else:
-        print("未提供Redis URI，使用内存缓存")
-
+        logger.info("未提供Redis URI，使用内存缓存")
 
 class LangGraphCompatibleInMemoryCache:
     """兼容LangGraph InMemoryCache接口的包装器"""
@@ -437,7 +456,6 @@ class LangGraphCompatibleInMemoryCache:
         """设置缓存值 - LangGraph兼容接口"""
         return await self.backend.set(key, value, ttl)
 
-
 def create_langgraph_compatible_cache(redis_uri: Optional[str] = None) -> LangGraphCompatibleInMemoryCache:
     """创建兼容LangGraph的缓存实例"""
     if redis_uri:
@@ -448,10 +466,9 @@ def create_langgraph_compatible_cache(redis_uri: Optional[str] = None) -> LangGr
             redis_backend = RedisCache(redis_client)
             return LangGraphCompatibleInMemoryCache(redis_backend)
         except Exception as e:
-            print(f"Redis缓存创建失败，使用内存缓存: {e}")
+            logger.warning("Redis缓存创建失败，使用内存缓存", error=str(e))
             
     return LangGraphCompatibleInMemoryCache(InMemoryCache())
-
 
 def create_cached_node(node_name: str, handler: Callable, cache_policy: Optional[CachePolicy] = None):
     """创建具有缓存功能的节点包装器

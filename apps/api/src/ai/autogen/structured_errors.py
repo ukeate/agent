@@ -10,10 +10,9 @@ from dataclasses import dataclass, field
 from enum import Enum
 from datetime import datetime
 from src.core.utils.timezone_utils import utc_now, utc_factory, timezone
-import structlog
 
-logger = structlog.get_logger(__name__)
-
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 class ErrorCategory(str, Enum):
     """错误分类"""
@@ -28,14 +27,12 @@ class ErrorCategory(str, Enum):
     RATE_LIMIT = "rate_limit"       # 限流错误
     BUSINESS_LOGIC = "business_logic" # 业务逻辑错误
 
-
 class ErrorSeverity(str, Enum):
     """错误严重程度"""
     LOW = "low"         # 低：警告级别，不影响核心功能
     MEDIUM = "medium"   # 中：错误级别，影响部分功能
     HIGH = "high"       # 高：严重错误，影响主要功能
     CRITICAL = "critical" # 严重：系统级错误，影响整体运行
-
 
 @dataclass
 class ErrorContext:
@@ -72,7 +69,6 @@ class ErrorContext:
             "additional_data": self.additional_data
         }
 
-
 @dataclass
 class StructuredError:
     """结构化错误"""
@@ -105,7 +101,6 @@ class StructuredError:
     def to_json(self) -> str:
         """转换为JSON字符串"""
         return json.dumps(self.to_dict(), ensure_ascii=False, indent=2)
-
 
 class ErrorCodes:
     """错误代码常量"""
@@ -175,7 +170,6 @@ class ErrorCodes:
     BUSINESS_INVALID_STATE = "BIZ-0003"
     BUSINESS_WORKFLOW_ERROR = "BIZ-0004"
     BUSINESS_POOL_EXHAUSTED = "BIZ-0005"
-
 
 class ErrorMessages:
     """错误消息模板"""
@@ -256,7 +250,6 @@ class ErrorMessages:
             return template.format(error_code=error_code, **kwargs)
         except KeyError as e:
             return f"错误消息模板缺少参数：{e}，错误代码：{error_code}"
-
 
 class ErrorBuilder:
     """错误构建器"""
@@ -415,7 +408,6 @@ class ErrorBuilder:
         
         return severity_mapping.get(category, ErrorSeverity.MEDIUM)
 
-
 class StructuredException(Exception):
     """结构化异常"""
     
@@ -430,7 +422,6 @@ class StructuredException(Exception):
     def to_json(self) -> str:
         """转换为JSON字符串"""
         return self.structured_error.to_json()
-
 
 class ErrorFactory:
     """错误工厂"""
@@ -506,7 +497,6 @@ class ErrorFactory:
                 .build())
         
         return StructuredException(error)
-
 
 # 全局错误处理器
 def handle_structured_error(func):

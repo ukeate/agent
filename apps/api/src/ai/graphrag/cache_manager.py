@@ -10,7 +10,6 @@ GraphRAG缓存管理器
 
 import asyncio
 import json
-import logging
 import hashlib
 from typing import Dict, Any, Optional, List, Tuple
 from datetime import datetime
@@ -19,12 +18,11 @@ from src.core.utils.timezone_utils import utc_now, utc_factory
 from dataclasses import asdict
 from collections import OrderedDict
 import redis.asyncio as redis
-
 from .data_models import GraphRAGRequest, GraphRAGResponse, GraphContext, ReasoningPath
 from ...core.config import get_settings
 
-logger = logging.getLogger(__name__)
-
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 class CacheManager:
     """GraphRAG缓存管理器"""
@@ -81,7 +79,7 @@ class CacheManager:
     async def close(self):
         """关闭连接"""
         if self.redis_client:
-            await self.redis_client.close()
+            await self.redis_client.aclose()
 
     def _generate_cache_key(self, key_data: Dict[str, Any], key_type: str) -> str:
         """生成缓存键"""
@@ -96,6 +94,12 @@ class CacheManager:
             cache_key = cache_key[:self.cache_config['max_cache_key_length']]
         
         return cache_key
+
+    def _query_id_cache_key(self, query_id: str) -> str:
+        key = f"{self.cache_config['cache_key_prefix']}query_id:{query_id}"
+        if len(key) > self.cache_config["max_cache_key_length"]:
+            return key[: self.cache_config["max_cache_key_length"]]
+        return key
 
     def _compress_data(self, data: Any) -> str:
         """压缩数据"""
@@ -239,10 +243,41 @@ class CacheManager:
                 response, 
                 self.cache_config["query_result_ttl"]
             )
+
+            query_id = response.get("query_id")
+            if query_id:
+                query_id_key = self._query_id_cache_key(str(query_id))
+                await self._set_to_memory(query_id_key, response)
+                await self._set_to_redis(
+                    query_id_key,
+                    response,
+                    self.cache_config["query_result_ttl"],
+                )
             
         except Exception as e:
             logger.error(f"缓存结果失败: {e}")
             self.cache_stats["errors"] += 1
+
+    async def get_cached_result_by_query_id(self, query_id: str) -> Optional[GraphRAGResponse]:
+        """通过查询ID获取缓存结果"""
+        try:
+            cache_key = self._query_id_cache_key(query_id)
+            cached_data = await self._get_from_memory(cache_key)
+            if cached_data:
+                self.cache_stats["hits"] += 1
+                return cached_data
+
+            cached_data = await self._get_from_redis(cache_key)
+            if cached_data:
+                self.cache_stats["hits"] += 1
+                return cached_data
+
+            self.cache_stats["misses"] += 1
+            return None
+        except Exception as e:
+            logger.error(f"通过查询ID获取缓存结果失败: {e}")
+            self.cache_stats["errors"] += 1
+            return None
 
     async def get_cached_graph_context(
         self, 
@@ -488,10 +523,8 @@ class CacheManager:
             logger.error(f"缓存预热失败: {e}")
             self.cache_stats["errors"] += 1
 
-
 # 全局缓存管理器实例
 _cache_manager_instance: Optional[CacheManager] = None
-
 
 async def get_cache_manager() -> CacheManager:
     """获取缓存管理器实例（单例模式）"""
@@ -502,7 +535,6 @@ async def get_cache_manager() -> CacheManager:
         await _cache_manager_instance.initialize()
     
     return _cache_manager_instance
-
 
 async def close_cache_manager():
     """关闭缓存管理器"""

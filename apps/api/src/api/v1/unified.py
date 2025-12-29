@@ -6,23 +6,22 @@
 
 from typing import List, Dict, Any, Optional
 from fastapi import APIRouter, HTTPException, Depends, BackgroundTasks
-from pydantic import BaseModel, Field
-import logging
-
-from ...core.auth import get_current_user
-from ...ai.unified import (
+from pydantic import Field
+from src.core.auth import get_current_user
+from src.ai.unified import (
     UnifiedProcessingEngine, ProcessingMode, ProcessingRequest, ProcessingResponse,
     ProcessingItem, ModeSelector, SelectionStrategy
 )
+from src.api.base_model import ApiBaseModel
 
-logger = logging.getLogger(__name__)
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 router = APIRouter(prefix="/unified", tags=["unified"])
 
 # 全局引擎实例
 engine = None
 mode_selector = None
-
 
 def get_engine() -> UnifiedProcessingEngine:
     """获取引擎实例"""
@@ -31,7 +30,6 @@ def get_engine() -> UnifiedProcessingEngine:
         engine = UnifiedProcessingEngine()
     return engine
 
-
 def get_mode_selector() -> ModeSelector:
     """获取模式选择器实例"""
     global mode_selector
@@ -39,17 +37,15 @@ def get_mode_selector() -> ModeSelector:
         mode_selector = ModeSelector()
     return mode_selector
 
-
 # API模型定义
-class ProcessingItemRequest(BaseModel):
+class ProcessingItemRequest(ApiBaseModel):
     """处理项目请求"""
     id: str
     data: Any
     priority: int = Field(default=5, ge=1, le=10)
     metadata: Dict[str, Any] = Field(default_factory=dict)
 
-
-class UnifiedProcessingRequest(BaseModel):
+class UnifiedProcessingRequest(ApiBaseModel):
     """统一处理请求"""
     session_id: str
     items: List[ProcessingItemRequest]
@@ -70,8 +66,7 @@ class UnifiedProcessingRequest(BaseModel):
     # 其他配置
     timeout: Optional[float] = None
 
-
-class ProcessingStatusResponse(BaseModel):
+class ProcessingStatusResponse(ApiBaseModel):
     """处理状态响应"""
     request_id: str
     session_id: str
@@ -84,8 +79,7 @@ class ProcessingStatusResponse(BaseModel):
     errors: List[Dict[str, Any]] = Field(default_factory=list)
     success_rate: float = 0.0
 
-
-class SystemMetricsResponse(BaseModel):
+class SystemMetricsResponse(ApiBaseModel):
     """系统指标响应"""
     total_requests: int
     total_items_processed: int
@@ -96,8 +90,7 @@ class SystemMetricsResponse(BaseModel):
     mode_usage_stats: Dict[str, int]
     default_mode: str
 
-
-class ModeRecommendationResponse(BaseModel):
+class ModeRecommendationResponse(ApiBaseModel):
     """模式推荐响应"""
     mode: str
     score: float
@@ -107,8 +100,7 @@ class ModeRecommendationResponse(BaseModel):
     success_rate: float
     avg_processing_time: float
 
-
-class SelectionStatsResponse(BaseModel):
+class SelectionStatsResponse(ApiBaseModel):
     """选择统计响应"""
     total_decisions: int
     recent_decisions: int
@@ -118,7 +110,6 @@ class SelectionStatsResponse(BaseModel):
     average_system_load: float
     current_system_load: float
     performance_history: Dict[str, Dict[str, Any]]
-
 
 @router.post("/process", response_model=ProcessingStatusResponse)
 async def process_unified_request(
@@ -187,7 +178,6 @@ async def process_unified_request(
         logger.error(f"统一处理请求失败: {e}")
         raise HTTPException(status_code=500, detail=f"处理失败: {str(e)}")
 
-
 @router.get("/status/{session_id}", response_model=Optional[ProcessingStatusResponse])
 async def get_session_status(
     session_id: str,
@@ -217,7 +207,6 @@ async def get_session_status(
     except Exception as e:
         logger.error(f"获取会话状态失败: {e}")
         raise HTTPException(status_code=500, detail=f"获取状态失败: {str(e)}")
-
 
 @router.get("/history")
 async def get_processing_history(
@@ -250,7 +239,6 @@ async def get_processing_history(
         logger.error(f"获取处理历史失败: {e}")
         raise HTTPException(status_code=500, detail=f"获取历史失败: {str(e)}")
 
-
 @router.get("/metrics", response_model=SystemMetricsResponse)
 async def get_system_metrics(
     current_user: Dict[str, Any] = Depends(get_current_user)
@@ -274,7 +262,6 @@ async def get_system_metrics(
     except Exception as e:
         logger.error(f"获取系统指标失败: {e}")
         raise HTTPException(status_code=500, detail=f"获取指标失败: {str(e)}")
-
 
 @router.post("/mode/recommendations")
 async def get_mode_recommendations(
@@ -328,7 +315,6 @@ async def get_mode_recommendations(
         logger.error(f"获取模式推荐失败: {e}")
         raise HTTPException(status_code=500, detail=f"获取推荐失败: {str(e)}")
 
-
 @router.get("/selector/stats", response_model=SelectionStatsResponse)
 async def get_selection_stats(
     current_user: Dict[str, Any] = Depends(get_current_user)
@@ -353,7 +339,6 @@ async def get_selection_stats(
         logger.error(f"获取选择统计失败: {e}")
         raise HTTPException(status_code=500, detail=f"获取统计失败: {str(e)}")
 
-
 @router.post("/mode/set-default")
 async def set_default_mode(
     mode: ProcessingMode,
@@ -370,7 +355,6 @@ async def set_default_mode(
         logger.error(f"设置默认模式失败: {e}")
         raise HTTPException(status_code=500, detail=f"设置失败: {str(e)}")
 
-
 @router.post("/selector/set-strategy")
 async def set_selection_strategy(
     strategy: SelectionStrategy,
@@ -386,7 +370,6 @@ async def set_selection_strategy(
     except Exception as e:
         logger.error(f"设置选择策略失败: {e}")
         raise HTTPException(status_code=500, detail=f"设置失败: {str(e)}")
-
 
 @router.post("/clear-history")
 async def clear_processing_history(
@@ -407,7 +390,6 @@ async def clear_processing_history(
         logger.error(f"清理历史记录失败: {e}")
         raise HTTPException(status_code=500, detail=f"清理失败: {str(e)}")
 
-
 @router.get("/modes")
 async def get_available_modes():
     """获取可用的处理模式"""
@@ -427,7 +409,6 @@ async def get_available_modes():
             for mode in ProcessingMode
         ]
     }
-
 
 @router.get("/strategies")
 async def get_available_strategies():

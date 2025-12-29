@@ -1,11 +1,9 @@
 """智能检索策略"""
 
-import logging
 import asyncio
 from typing import List, Dict, Any, Optional, Tuple
 from dataclasses import dataclass
 import numpy as np
-
 from .multimodal_config import (
     QueryContext,
     QueryType,
@@ -15,8 +13,7 @@ from .multimodal_config import (
 from .multimodal_vectorstore import MultimodalVectorStore
 from .multimodal_query_analyzer import MultimodalQueryAnalyzer
 
-logger = logging.getLogger(__name__)
-
+logger = get_logger(__name__)
 
 @dataclass
 class RetrievalWeight:
@@ -32,7 +29,6 @@ class RetrievalWeight:
             self.text_weight /= total
             self.image_weight /= total
             self.table_weight /= total
-
 
 class SmartRetrievalStrategy:
     """基于内容类型的智能检索"""
@@ -474,7 +470,7 @@ class SmartRetrievalStrategy:
         """
         # 图像重排序可以基于描述文本的相关性
         for image in images:
-            description = image.get("description", "").lower()
+            description = image.get("content", "").lower()
             query_lower = query.lower()
             
             # 描述与查询的相关性
@@ -507,7 +503,7 @@ class SmartRetrievalStrategy:
         """
         # 表格重排序可以基于表头和内容的相关性
         for table in tables:
-            description = table.get("description", "").lower()
+            description = table.get("content", "").lower()
             
             # 检查是否包含数字（如果查询中有数字）
             import re
@@ -591,3 +587,4 @@ class SmartRetrievalStrategy:
             QueryType.MIXED: "Hybrid Multimodal Retrieval"
         }
         return strategy_names.get(query_type, "Default Retrieval")
+from src.core.logging import get_logger

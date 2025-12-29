@@ -13,21 +13,17 @@ import aiofiles
 import json
 import re
 import chardet
-import logging
 from pathlib import Path
 from typing import Dict, Any, AsyncIterator
 from concurrent.futures import ThreadPoolExecutor
-
 import pandas as pd
 import numpy as np
 from bs4 import BeautifulSoup
 import trafilatura
-
 from .core import DataCollector, DataSource, DataRecord
 
-
-logger = logging.getLogger(__name__)
-
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 class APIDataCollector(DataCollector):
     """API数据收集器"""
@@ -137,7 +133,6 @@ class APIDataCollector(DataCollector):
             return [data]
         else:
             return []
-
 
 class FileDataCollector(DataCollector):
     """文件数据收集器"""
@@ -272,7 +267,7 @@ class FileDataCollector(DataCollector):
     
     async def _process_csv_file(self, path: Path, encoding: str) -> AsyncIterator[DataRecord]:
         """处理CSV文件"""
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         
         # 使用线程池处理CSV文件
         with ThreadPoolExecutor() as executor:
@@ -301,7 +296,7 @@ class FileDataCollector(DataCollector):
     
     async def _process_excel_file(self, path: Path) -> AsyncIterator[DataRecord]:
         """处理Excel文件"""
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         
         with ThreadPoolExecutor() as executor:
             df = await loop.run_in_executor(
@@ -378,7 +373,6 @@ class FileDataCollector(DataCollector):
                         }
                     )
                     yield record
-
 
 class WebDataCollector(DataCollector):
     """网页数据收集器"""
@@ -494,7 +488,6 @@ class WebDataCollector(DataCollector):
                 # 避免过于频繁的请求
                 await asyncio.sleep(delay)
 
-
 class DatabaseDataCollector(DataCollector):
     """数据库数据收集器"""
     
@@ -512,32 +505,31 @@ class DatabaseDataCollector(DataCollector):
         logger.info("Starting database data collection")
         
         try:
-            import sqlalchemy
-            from sqlalchemy import create_engine, text
-            
-            engine = create_engine(connection_string)
-            
-            with engine.connect() as conn:
-                # 执行查询，使用批量获取
-                result = conn.execute(text(query))
-                
-                batch = []
-                for row in result:
-                    # 将Row对象转换为字典
-                    item = dict(row._mapping)
-                    batch.append(item)
-                    
-                    if len(batch) >= batch_size:
-                        # 处理一批数据
+            from sqlalchemy import text
+            from sqlalchemy.ext.asyncio import create_async_engine
+
+            engine = create_async_engine(connection_string)
+
+            try:
+                async with engine.connect() as conn:
+                    result = await conn.stream(text(query))
+
+                    batch = []
+                    async for row in result:
+                        item = dict(row._mapping)
+                        batch.append(item)
+
+                        if len(batch) >= batch_size:
+                            for record in self._process_batch(batch):
+                                yield record
+                            batch = []
+
+                    if batch:
                         for record in self._process_batch(batch):
                             yield record
-                        batch = []
-                
-                # 处理最后一批数据
-                if batch:
-                    for record in self._process_batch(batch):
-                        yield record
-        
+            finally:
+                await engine.dispose()
+
         except ImportError:
             raise ValueError("SQLAlchemy is required for database data collection")
         except Exception as e:
@@ -561,7 +553,6 @@ class DatabaseDataCollector(DataCollector):
             )
             records.append(record)
         return records
-
 
 # 收集器工厂
 class CollectorFactory:

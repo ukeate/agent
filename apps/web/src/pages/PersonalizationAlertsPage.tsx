@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { Card, Row, Col, Progress, Button, Space, Switch, Typography, Table, Tag, Statistic, Alert, Timeline, List, Modal, Form, Input, Select, Slider, Badge } from 'antd'
 import { 
+import { logger } from '../utils/logger'
   BellOutlined,
   AlertOutlined,
   ExclamationCircleOutlined,
@@ -63,100 +64,28 @@ const PersonalizationAlertsPage: React.FC = () => {
   const [alertFilter, setAlertFilter] = useState<string>('all')
   const [form] = Form.useForm()
 
-  // 模拟数据
   useEffect(() => {
-    // 模拟告警规则
-    setAlertRules([
-      {
-        id: '1',
-        name: 'high_recommendation_latency',
-        description: '推荐响应延迟过高',
-        metric_name: 'recommendation_latency_p99',
-        threshold: 100.0,
-        comparison: '>',
-        severity: 'high',
-        duration: 300,
-        enabled: true,
-        tags: { component: 'recommendation', metric_type: 'latency' }
-      },
-      {
-        id: '2',
-        name: 'low_cache_hit_rate',
-        description: '缓存命中率过低',
-        metric_name: 'cache_hit_rate',
-        threshold: 0.8,
-        comparison: '<',
-        severity: 'medium',
-        duration: 600,
-        enabled: true,
-        tags: { component: 'cache', metric_type: 'hit_rate' }
-      },
-      {
-        id: '3',
-        name: 'high_error_rate',
-        description: '系统错误率过高',
-        metric_name: 'error_rate',
-        threshold: 0.01,
-        comparison: '>',
-        severity: 'critical',
-        duration: 180,
-        enabled: true,
-        tags: { component: 'system', metric_type: 'error_rate' }
-      }
-    ])
-
-    // 模拟活跃告警
-    setActiveAlerts([
-      {
-        id: 'alert_1',
-        rule_name: 'high_recommendation_latency',
-        severity: 'high',
-        status: 'active',
-        title: '推荐延迟告警',
-        description: '推荐响应延迟超过100ms阈值',
-        current_value: 125.6,
-        threshold: 100.0,
-        metric_name: 'recommendation_latency_p99',
-        start_time: '2024-01-15 14:30:00',
-        last_update: '2024-01-15 14:35:00',
-        tags: { component: 'recommendation' }
-      },
-      {
-        id: 'alert_2',
-        rule_name: 'low_cache_hit_rate',
-        severity: 'medium',
-        status: 'acknowledged',
-        title: '缓存命中率低',
-        description: '缓存命中率低于80%阈值',
-        current_value: 0.75,
-        threshold: 0.8,
-        metric_name: 'cache_hit_rate',
-        start_time: '2024-01-15 14:20:00',
-        last_update: '2024-01-15 14:32:00',
-        acknowledged_by: 'admin',
-        tags: { component: 'cache' }
-      }
-    ])
-
-    // 模拟告警历史
-    setAlertHistory([
-      {
-        id: 'alert_3',
-        rule_name: 'high_error_rate',
-        severity: 'critical',
-        status: 'resolved',
-        title: '系统错误率过高',
-        description: '系统错误率超过1%阈值',
-        current_value: 0.015,
-        threshold: 0.01,
-        metric_name: 'error_rate',
-        start_time: '2024-01-15 13:45:00',
-        last_update: '2024-01-15 14:10:00',
-        resolved_time: '2024-01-15 14:10:00',
-        tags: { component: 'system' }
-      }
-    ])
+    loadAlerts()
   }, [])
+
+  const loadAlerts = async () => {
+    try {
+      const [rulesResp, activeResp, historyResp] = await Promise.all([
+        apiClient.get('/personalization/alerts/rules'),
+        apiClient.get('/personalization/alerts/active'),
+        apiClient.get('/personalization/alerts/history')
+      ])
+      setAlertRules(rulesResp.data || [])
+      setActiveAlerts(activeResp.data || [])
+      setAlertHistory(historyResp.data || [])
+    } catch (error) {
+      logger.error('加载告警数据失败:', error)
+      message.error('加载告警数据失败')
+      setAlertRules([])
+      setActiveAlerts([])
+      setAlertHistory([])
+    }
+  }
 
   const getSeverityColor = (severity: string) => {
     const colors = {

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { 
+import { logger } from '../utils/logger'
   Card, 
   Tabs, 
   Button, 
@@ -19,8 +20,7 @@ import {
   Table,
   Modal,
   Form,
-  InputNumber,
-  Switch
+  InputNumber
 } from 'antd';
 import { 
   TeamOutlined, 
@@ -30,9 +30,9 @@ import {
   FireOutlined,
   ThunderboltOutlined,
   ExperimentOutlined,
-  SyncOutlined,
-  AlertOutlined
+  SyncOutlined
 } from '@ant-design/icons';
+import { buildApiUrl, apiFetch } from '../utils/apiBase'
 
 const { Title, Text, Paragraph } = Typography;
 const { TextArea } = Input;
@@ -50,26 +50,30 @@ interface GroupEmotionalState {
   polarization_index: number;
   emotional_volatility: number;
   group_cohesion: string;
-  participation_balance: number;
-  interaction_intensity: number;
-  emotional_leaders: string[];
-  influence_network: Array<{
-    from: string;
-    to: string;
-    weight: number;
-    emotion_type: string;
+  emotional_leaders: Array<{
+    participant_id: string;
+    influence_score: number;
+    leadership_type: string;
+    influenced_participants: string[];
+    dominant_emotions: string[];
+    consistency_score: number;
   }>;
-  contagion_events: Array<{
-    event_id: string;
+  influence_network: Record<string, string[]>;
+  contagion_patterns: Array<{
     source_participant: string;
     target_participants: string[];
     emotion: string;
     contagion_type: string;
     strength: number;
+    propagation_speed: number;
     timestamp: string;
+    duration_seconds: number;
   }>;
-  data_quality_score: number;
-  confidence_level: number;
+  contagion_velocity: number;
+  trend_prediction: string;
+  stability_score: number;
+  analysis_confidence: number;
+  data_completeness: number;
 }
 
 // 情感传染事件
@@ -81,115 +85,54 @@ interface ContagionEvent {
   contagion_type: string;
   strength: number;
   timestamp: string;
+  propagation_speed?: number;
+  duration_seconds?: number;
 }
 
 // 真实API客户端
 const groupEmotionApi = {
   async analyzeGroupEmotion(participantEmotions: any, groupId?: string) {
-    try {
-      const participants = Object.entries(participantEmotions).map(([userId, emotions]: [string, any]) => ({
-        user_id: userId,
-        emotion_data: emotions,
-        context: { group_id: groupId }
-      }));
-      
-      const response = await fetch('http://localhost:8000/api/v1/social-emotional/group-emotion', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          participants,
-          context: { group_id: groupId, scenario: 'group_analysis' }
-        })
-      });
-      
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      return await response.json();
-    } catch (error) {
-      console.error('群体情感分析失败:', error);
-      return { success: false, error: error.message };
-    }
+    const participants = Object.entries(participantEmotions).map(([userId, state]: [string, any]) => ({
+      participant_id: userId,
+      name: userId,
+      emotion_data: {
+        emotions: { [state.emotion]: state.intensity },
+        intensity: state.intensity ?? 0.5,
+        confidence: 0.8
+      },
+      cultural_indicators: {},
+      relationship_history: []
+    }));
+
+    const payload = {
+      session_id: groupId || `session_${Date.now()}`,
+      participants,
+      social_environment: {
+        scenario: 'group_analysis',
+        participants_count: participants.length,
+        formality_level: 0.5,
+        emotional_intensity: 0.5,
+        time_pressure: 0.3,
+        cultural_context: 'default'
+      },
+      analysis_types: ['group_emotion', 'contagion'],
+      real_time: false
+    };
+
+    const response = await apiFetch(buildApiUrl('/social-emotional-understanding/analyze/group-emotion'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+
+    return await response.json();
   },
-  
-  async getGroupEmotionHistory(groupId: string, days: number = 7) {
-    try {
-      const response = await fetch('http://localhost:8000/api/v1/social-emotional/analytics');
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      
-      const data = await response.json();
-      // 返回模拟的历史数据结构，基于真实统计
-      return {
-        success: true,
-        data: {
-          history: Array.from({ length: days }, (_, i) => ({
-            date: new Date(Date.now() - i * 24 * 60 * 60 * 1000).toISOString(),
-            dominant_emotion: data.data?.top_scenarios?.[i % 3]?.scenario || 'collaborative',
-            confidence: 0.7 + Math.random() * 0.3
-          }))
-        }
-      };
-    } catch (error) {
-      console.error('获取群体情感历史失败:', error);
-      return { success: false, error: error.message };
-    }
-  },
-  
-  async detectContagionEvents(groupId: string, timeWindow: number = 60) {
-    try {
-      const response = await fetch('http://localhost:8000/api/v1/social-emotional/analytics');
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      
-      const data = await response.json();
-      // 基于真实数据模拟情感传染事件
-      return {
-        success: true,
-        data: {
-          events: [
-            {
-              event_id: 'contagion_1',
-              source_user: 'user1',
-              target_users: ['user2', 'user3'],
-              emotion: 'excitement',
-              contagion_type: 'VIRAL',
-              strength: 0.85,
-              timestamp: new Date().toISOString()
-            }
-          ]
-        }
-      };
-    } catch (error) {
-      console.error('检测情感传染事件失败:', error);
-      return { success: false, error: error.message };
-    }
-  },
-  
-  async getEmotionalLeaders(groupId: string) {
-    try {
-      const response = await fetch('http://localhost:8000/api/v1/social-emotional/health');
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      
-      return {
-        success: true,
-        data: {
-          leaders: [
-            {
-              user_id: 'user1',
-              influence_score: 0.92,
-              leadership_style: 'inspiring',
-              emotional_range: ['joy', 'excitement', 'confidence']
-            },
-            {
-              user_id: 'user3',
-              influence_score: 0.78,
-              leadership_style: 'stabilizing',
-              emotional_range: ['calm', 'supportive', 'patient']
-            }
-          ]
-        }
-      };
-    } catch (error) {
-      console.error('获取情感领导者失败:', error);
-      return { success: false, error: error.message };
-    }
+
+  async getGroupEmotionHistory(groupId: string, limit: number = 20) {
+    const response = await apiFetch(
+      buildApiUrl(`/social-emotional-understanding/group-emotion/history/${encodeURIComponent(groupId)}?limit=${limit}`)
+    );
+    return await response.json();
   }
 };
 
@@ -215,19 +158,41 @@ const GroupEmotionAnalysisPage: React.FC = () => {
     'joy', 'trust', 'anticipation', 'contempt', 'excitement', 'anxiety'
   ];
 
+  const mapResponseToState = (resp: any): GroupEmotionalState | null => {
+    const state = resp?.group_emotion_state;
+    if (!state) return null;
+    return {
+      ...state,
+      group_id: state.group_id || resp.session_id || 'group'
+    };
+  };
+
+  const mapContagionEvents = (patterns: GroupEmotionalState['contagion_patterns'] = []): ContagionEvent[] => {
+    return patterns.map((pattern) => ({
+      event_id: `${pattern.source_participant}-${pattern.emotion}-${pattern.timestamp}`,
+      source_participant: pattern.source_participant,
+      target_participants: pattern.target_participants,
+      emotion: pattern.emotion,
+      contagion_type: pattern.contagion_type,
+      strength: pattern.strength,
+      timestamp: pattern.timestamp,
+      propagation_speed: pattern.propagation_speed,
+      duration_seconds: pattern.duration_seconds
+    }));
+  };
+
   const groupCohesionColors = {
-    'VERY_HIGH': '#52c41a',
-    'HIGH': '#1890ff', 
-    'MEDIUM': '#fa8c16',
-    'LOW': '#f5222d',
-    'VERY_LOW': '#8c8c8c'
+    high: '#52c41a',
+    medium: '#1890ff',
+    low: '#fa8c16',
+    fragmented: '#f5222d'
   };
 
   const contagionTypeColors = {
-    'VIRAL': '#f5222d',
-    'CASCADE': '#fa8c16', 
-    'AMPLIFICATION': '#1890ff',
-    'DAMPENING': '#52c41a'
+    viral: '#f5222d',
+    cascade: '#fa8c16',
+    amplification: '#1890ff',
+    dampening: '#52c41a'
   };
 
   useEffect(() => {
@@ -237,124 +202,27 @@ const GroupEmotionAnalysisPage: React.FC = () => {
   const loadData = async () => {
     setLoading(true);
     try {
-      await Promise.all([
-        loadGroupState(),
-        loadGroupHistory(),
-        loadContagionEvents()
-      ]);
+      await loadGroupHistory();
     } catch (error) {
-      console.error('加载数据失败:', error);
+      logger.error('加载数据失败:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  const loadGroupState = async () => {
-    try {
-      const response = await groupEmotionApi.analyzeGroupEmotion({}, selectedGroupId);
-      if (response.success && response.data) {
-        setGroupState(response.data);
-      } else {
-        // 模拟数据
-        setGroupState({
-          group_id: selectedGroupId,
-          timestamp: new Date().toISOString(),
-          participants: ['user1', 'user2', 'user3', 'user4', 'user5'],
-          dominant_emotion: 'happiness',
-          emotion_distribution: {
-            happiness: 0.4,
-            excitement: 0.25,
-            neutral: 0.2,
-            anxiety: 0.1,
-            trust: 0.05
-          },
-          consensus_level: 0.75,
-          polarization_index: 0.3,
-          emotional_volatility: 0.45,
-          group_cohesion: 'HIGH',
-          participation_balance: 0.8,
-          interaction_intensity: 0.7,
-          emotional_leaders: ['user1', 'user3'],
-          influence_network: [
-            { from: 'user1', to: 'user2', weight: 0.8, emotion_type: 'happiness' },
-            { from: 'user1', to: 'user4', weight: 0.6, emotion_type: 'excitement' },
-            { from: 'user3', to: 'user5', weight: 0.7, emotion_type: 'trust' }
-          ],
-          contagion_events: [],
-          data_quality_score: 0.85,
-          confidence_level: 0.8
-        });
-      }
-    } catch (error) {
-      console.error('获取群体状态失败:', error);
-    }
-  };
-
   const loadGroupHistory = async () => {
     try {
-      const response = await groupEmotionApi.getGroupEmotionHistory(selectedGroupId, 7);
-      if (response.success && response.data) {
-        setGroupHistory(response.data);
-      } else {
-        // 模拟历史数据
-        const history = Array.from({ length: 5 }, (_, i) => ({
-          group_id: selectedGroupId,
-          timestamp: new Date(Date.now() - i * 3600000).toISOString(),
-          participants: ['user1', 'user2', 'user3', 'user4', 'user5'],
-          dominant_emotion: emotions[Math.floor(Math.random() * emotions.length)],
-          emotion_distribution: Object.fromEntries(
-            emotions.slice(0, 4).map(e => [e, Math.random() * 0.3])
-          ),
-          consensus_level: 0.5 + Math.random() * 0.5,
-          polarization_index: Math.random() * 0.6,
-          emotional_volatility: Math.random() * 0.8,
-          group_cohesion: ['VERY_HIGH', 'HIGH', 'MEDIUM', 'LOW'][Math.floor(Math.random() * 4)],
-          participation_balance: 0.6 + Math.random() * 0.4,
-          interaction_intensity: 0.4 + Math.random() * 0.6,
-          emotional_leaders: ['user1', 'user2', 'user3'].slice(0, 1 + Math.floor(Math.random() * 2)),
-          influence_network: [],
-          contagion_events: [],
-          data_quality_score: 0.7 + Math.random() * 0.3,
-          confidence_level: 0.6 + Math.random() * 0.4
-        }));
-        setGroupHistory(history);
-      }
+      const response = await groupEmotionApi.getGroupEmotionHistory(selectedGroupId, 20);
+      const history = response?.history || [];
+      setGroupHistory(history);
+      const latest = history[history.length - 1] || null;
+      setGroupState(latest);
+      setContagionEvents(mapContagionEvents(latest?.contagion_patterns || []));
     } catch (error) {
-      console.error('获取群体历史失败:', error);
-    }
-  };
-
-  const loadContagionEvents = async () => {
-    try {
-      const response = await groupEmotionApi.detectContagionEvents(selectedGroupId, analysisParams.timeWindow);
-      if (response.success && response.data) {
-        setContagionEvents(response.data);
-      } else {
-        // 模拟传染事件数据
-        const events: ContagionEvent[] = [
-          {
-            event_id: 'contagion_1',
-            source_participant: 'user1',
-            target_participants: ['user2', 'user4'],
-            emotion: 'excitement',
-            contagion_type: 'VIRAL',
-            strength: 0.85,
-            timestamp: new Date(Date.now() - 3600000).toISOString()
-          },
-          {
-            event_id: 'contagion_2',
-            source_participant: 'user3',
-            target_participants: ['user5'],
-            emotion: 'anxiety',
-            contagion_type: 'CASCADE',
-            strength: 0.6,
-            timestamp: new Date(Date.now() - 1800000).toISOString()
-          }
-        ];
-        setContagionEvents(events);
-      }
-    } catch (error) {
-      console.error('获取传染事件失败:', error);
+      logger.error('获取群体历史失败:', error);
+      setGroupHistory([]);
+      setGroupState(null);
+      setContagionEvents([]);
     }
   };
 
@@ -370,57 +238,14 @@ const GroupEmotionAnalysisPage: React.FC = () => {
         participantEmotions, 
         selectedGroupId
       );
-      
-      if (response.success && response.data) {
-        setGroupState(response.data);
-        message.success('群体情感分析完成');
-        setShowAnalysisModal(false);
-        await loadData();
-      } else {
-        // 使用参与者数据生成模拟结果
-        const participants = Object.keys(participantEmotions);
-        const emotionCounts = emotions.reduce((acc, emotion) => {
-          acc[emotion] = participants.filter(p => 
-            participantEmotions[p]?.emotion === emotion
-          ).length;
-          return acc;
-        }, {} as Record<string, number>);
-
-        const totalParticipants = participants.length;
-        const emotionDistribution = Object.fromEntries(
-          Object.entries(emotionCounts).map(([emotion, count]) => 
-            [emotion, count / totalParticipants]
-          )
-        );
-
-        const dominantEmotion = Object.entries(emotionDistribution)
-          .sort(([,a], [,b]) => b - a)[0][0];
-
-        const mockResult = {
-          group_id: selectedGroupId,
-          timestamp: new Date().toISOString(),
-          participants,
-          dominant_emotion: dominantEmotion,
-          emotion_distribution: emotionDistribution,
-          consensus_level: Math.max(...Object.values(emotionDistribution)),
-          polarization_index: 1 - Math.max(...Object.values(emotionDistribution)),
-          emotional_volatility: 0.4 + Math.random() * 0.4,
-          group_cohesion: totalParticipants > 4 ? 'HIGH' : 'MEDIUM',
-          participation_balance: 0.8,
-          interaction_intensity: 0.7,
-          emotional_leaders: participants.slice(0, Math.ceil(participants.length / 3)),
-          influence_network: [],
-          contagion_events: [],
-          data_quality_score: 0.8,
-          confidence_level: totalParticipants >= analysisParams.minParticipants ? 0.8 : 0.6
-        };
-
-        setGroupState(mockResult);
-        message.success('群体情感分析完成（使用模拟数据）');
-        setShowAnalysisModal(false);
-      }
+      const state = mapResponseToState(response);
+      setGroupState(state);
+      setContagionEvents(mapContagionEvents(state?.contagion_patterns || []));
+      message.success('群体情感分析完成');
+      setShowAnalysisModal(false);
+      await loadData();
     } catch (error) {
-      console.error('分析失败:', error);
+      logger.error('分析失败:', error);
       message.error('分析失败，请重试');
     } finally {
       setLoading(false);
@@ -580,14 +405,14 @@ const GroupEmotionAnalysisPage: React.FC = () => {
           {groupState?.emotional_leaders ? (
             <Space direction="vertical" style={{ width: '100%' }}>
               {groupState.emotional_leaders.map((leader, index) => (
-                <div key={leader} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <div key={leader.participant_id} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                   <Badge 
                     count={index + 1} 
                     style={{ 
                       backgroundColor: index === 0 ? '#f5222d' : index === 1 ? '#fa8c16' : '#1890ff' 
                     }}
                   />
-                  <Text strong>{leader}</Text>
+                  <Text strong>{leader.participant_id}</Text>
                   {index === 0 && <Tag color="red">主导</Tag>}
                 </div>
               ))}
@@ -595,18 +420,16 @@ const GroupEmotionAnalysisPage: React.FC = () => {
               <Divider />
               
               <div>
-                <Text strong>互动强度: </Text>
-                <Progress 
-                  percent={Math.round((groupState.interaction_intensity || 0) * 100)} 
-                  size="small" 
-                  strokeColor="#722ed1"
-                />
+                <Text strong>传播速度: </Text>
+                <Text type="secondary">
+                  {(groupState.contagion_velocity || 0).toFixed(2)} / min
+                </Text>
               </div>
               
               <div>
-                <Text strong>参与平衡: </Text>
+                <Text strong>稳定性: </Text>
                 <Progress 
-                  percent={Math.round((groupState.participation_balance || 0) * 100)} 
+                  percent={Math.round((groupState.stability_score || 0) * 100)} 
                   size="small" 
                   strokeColor="#13c2c2"
                 />
@@ -878,12 +701,12 @@ const GroupEmotionAnalysisPage: React.FC = () => {
                     <div style={{ textAlign: 'center' }}>
                       <Progress
                         type="circle"
-                        percent={Math.round(groupState.data_quality_score * 100)}
+                        percent={Math.round(groupState.data_completeness * 100)}
                         strokeColor="#52c41a"
                         width={100}
                       />
                       <div style={{ marginTop: 8 }}>
-                        <Text strong>数据质量</Text>
+                        <Text strong>数据完整性</Text>
                       </div>
                     </div>
                   </Col>
@@ -891,7 +714,7 @@ const GroupEmotionAnalysisPage: React.FC = () => {
                     <div style={{ textAlign: 'center' }}>
                       <Progress
                         type="circle"
-                        percent={Math.round(groupState.confidence_level * 100)}
+                        percent={Math.round(groupState.analysis_confidence * 100)}
                         strokeColor="#1890ff"
                         width={100}
                       />

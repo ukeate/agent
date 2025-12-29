@@ -9,12 +9,10 @@ from datetime import timedelta
 from src.core.utils.timezone_utils import utc_now, utc_factory, timezone
 from typing import Any, Dict, List, Optional
 from uuid import UUID
-
 from sqlalchemy import Column, String, DateTime, Text, Float, Integer, Boolean, JSON
 from sqlalchemy.dialects.postgresql import UUID as PostgresUUID
-from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import DeclarativeBase
 from sqlalchemy.orm import relationship
-
 from src.core.config import get_settings
 from src.models.schemas.explanation import (
     DecisionExplanation, 
@@ -23,9 +21,12 @@ from src.models.schemas.explanation import (
     ExplanationType
 )
 
-Base = declarative_base()
-settings = get_settings()
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
+class Base(DeclarativeBase):
+    ...
+settings = get_settings()
 
 class ExplanationRecord(Base):
     """解释记录数据库模型"""
@@ -114,7 +115,6 @@ class ExplanationRecord(Base):
             updated_at=explanation.updated_at
         )
 
-
 class ExplanationHistoryRecord(Base):
     """解释历史记录数据库模型"""
     __tablename__ = "explanation_history"
@@ -138,7 +138,6 @@ class ExplanationHistoryRecord(Base):
             "changed_by": self.changed_by,
             "created_at": self.created_at
         })
-
 
 class ExplanationCache:
     """解释缓存管理类"""
@@ -172,9 +171,8 @@ class ExplanationCache:
             if cached_data:
                 explanation_dict = json.loads(cached_data)
                 return DecisionExplanation.model_validate(explanation_dict)
-        except Exception as e:
-            # 缓存读取失败时静默处理
-            pass
+        except Exception:
+            logger.debug("读取解释缓存失败", exc_info=True)
         
         return None
     
@@ -262,7 +260,6 @@ class ExplanationCache:
             
         except Exception as e:
             return {"status": "error", "error": str(e)}
-
 
 class ExplanationTemplate:
     """解释模板管理类"""

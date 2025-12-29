@@ -3,12 +3,10 @@
 定义标准化的智能体通信语言(ACL)消息格式
 """
 
+from src.core.utils.timezone_utils import utc_now
 import uuid
 from typing import Dict, List, Optional, Any
-from datetime import datetime
-
 from .models import MessageType, MessageHeader, MessagePriority, DeliveryMode
-
 
 class MessageProtocol:
     """智能体通信协议工厂类"""
@@ -27,7 +25,7 @@ class MessageProtocol:
             message_id=str(uuid.uuid4()),
             correlation_id=correlation_id,
             reply_to=reply_to,
-            timestamp=datetime.now(),
+            timestamp=utc_now(),
             ttl=ttl,
             priority=priority,
             delivery_mode=delivery_mode,
@@ -39,7 +37,7 @@ class MessageProtocol:
     def create_ping_message(agent_id: str) -> Dict[str, Any]:
         """创建ping消息"""
         return {
-            "timestamp": datetime.now().isoformat(),
+            "timestamp": utc_now().isoformat(),
             "agent_id": agent_id,
             "ping_seq": 0
         }
@@ -49,7 +47,7 @@ class MessageProtocol:
         """创建pong消息"""
         return {
             "ping_timestamp": ping_timestamp,
-            "pong_timestamp": datetime.now().isoformat(),
+            "pong_timestamp": utc_now().isoformat(),
             "agent_id": agent_id
         }
     
@@ -62,7 +60,7 @@ class MessageProtocol:
         """创建心跳消息"""
         return {
             "agent_id": agent_id,
-            "timestamp": datetime.now().isoformat(),
+            "timestamp": utc_now().isoformat(),
             "status": status,
             "metrics": metrics or {},
             "uptime": 0  # 可以在实际实现中计算
@@ -87,7 +85,7 @@ class MessageProtocol:
             "priority": priority,
             "deadline": deadline,
             "estimated_duration": estimated_duration,
-            "created_at": datetime.now().isoformat()
+            "created_at": utc_now().isoformat()
         }
     
     @staticmethod
@@ -107,7 +105,7 @@ class MessageProtocol:
             "reason": reason,
             "estimated_duration": estimated_duration,
             "required_resources": required_resources or [],
-            "timestamp": datetime.now().isoformat()
+            "timestamp": utc_now().isoformat()
         }
     
     @staticmethod
@@ -127,7 +125,7 @@ class MessageProtocol:
             "error_message": error_message,
             "execution_time": execution_time,
             "output_artifacts": output_artifacts or [],
-            "completed_at": datetime.now().isoformat()
+            "completed_at": utc_now().isoformat()
         }
     
     @staticmethod
@@ -145,7 +143,7 @@ class MessageProtocol:
             "progress": progress,  # 0.0 - 1.0
             "current_step": current_step,
             "estimated_remaining": estimated_remaining,
-            "updated_at": datetime.now().isoformat()
+            "updated_at": utc_now().isoformat()
         }
     
     @staticmethod
@@ -169,7 +167,7 @@ class MessageProtocol:
             "max_participants": max_participants,
             "duration_minutes": duration_minutes,
             "data_sharing_rules": data_sharing_rules or {},
-            "created_at": datetime.now().isoformat()
+            "created_at": utc_now().isoformat()
         }
     
     @staticmethod
@@ -187,7 +185,7 @@ class MessageProtocol:
             "response": response,
             "capabilities": capabilities or [],
             "reason": reason,
-            "timestamp": datetime.now().isoformat()
+            "timestamp": utc_now().isoformat()
         }
     
     @staticmethod
@@ -203,7 +201,7 @@ class MessageProtocol:
             "update_type": update_type,
             "data": data,
             "sender_id": sender_id,
-            "timestamp": datetime.now().isoformat()
+            "timestamp": utc_now().isoformat()
         }
     
     @staticmethod
@@ -223,7 +221,7 @@ class MessageProtocol:
             "requester_id": requester_id,
             "priority": priority,
             "exclusive": exclusive,
-            "requested_at": datetime.now().isoformat()
+            "requested_at": utc_now().isoformat()
         }
     
     @staticmethod
@@ -243,7 +241,7 @@ class MessageProtocol:
             "cost": cost,
             "availability_window": availability_window or {},
             "terms": terms or {},
-            "offered_at": datetime.now().isoformat()
+            "offered_at": utc_now().isoformat()
         }
     
     @staticmethod
@@ -259,7 +257,7 @@ class MessageProtocol:
             "status": status,
             "current_usage": current_usage or {},
             "next_available": next_available,
-            "updated_at": datetime.now().isoformat()
+            "updated_at": utc_now().isoformat()
         }
     
     @staticmethod
@@ -277,7 +275,7 @@ class MessageProtocol:
             "capabilities": capabilities,
             "group": group,
             "metadata": metadata or {},
-            "joined_at": datetime.now().isoformat()
+            "joined_at": utc_now().isoformat()
         }
     
     @staticmethod
@@ -293,7 +291,7 @@ class MessageProtocol:
             "reason": reason,
             "group": group,
             "final_status": final_status or {},
-            "left_at": datetime.now().isoformat()
+            "left_at": utc_now().isoformat()
         }
     
     @staticmethod
@@ -309,7 +307,7 @@ class MessageProtocol:
             "reason": reason,
             "grace_period_seconds": grace_period_seconds,
             "affected_services": affected_services or [],
-            "scheduled_at": datetime.now().isoformat()
+            "scheduled_at": utc_now().isoformat()
         }
     
     @staticmethod
@@ -327,7 +325,7 @@ class MessageProtocol:
             "version": version,
             "applies_to": applies_to or [],
             "restart_required": restart_required,
-            "updated_at": datetime.now().isoformat()
+            "updated_at": utc_now().isoformat()
         }
     
     @staticmethod
@@ -345,7 +343,7 @@ class MessageProtocol:
             "data_type": data_type,
             "metadata": metadata or {},
             "expected_chunks": expected_chunks,
-            "started_at": datetime.now().isoformat()
+            "started_at": utc_now().isoformat()
         }
     
     @staticmethod
@@ -365,7 +363,7 @@ class MessageProtocol:
             "size": chunk_size,
             "checksum": checksum,
             "is_final": is_final,
-            "timestamp": datetime.now().isoformat()
+            "timestamp": utc_now().isoformat()
         }
     
     @staticmethod
@@ -385,7 +383,7 @@ class MessageProtocol:
             "final_checksum": final_checksum,
             "success": success,
             "error_message": error_message,
-            "completed_at": datetime.now().isoformat()
+            "completed_at": utc_now().isoformat()
         }
     
     @staticmethod
@@ -403,7 +401,7 @@ class MessageProtocol:
             "data_version": data_version,
             "data_hash": data_hash,
             "sync_data": sync_data,
-            "sync_timestamp": datetime.now().isoformat()
+            "sync_timestamp": utc_now().isoformat()
         }
     
     @staticmethod
@@ -417,7 +415,7 @@ class MessageProtocol:
             "original_message_id": original_message_id,
             "status": status,
             "details": details,
-            "ack_timestamp": datetime.now().isoformat()
+            "ack_timestamp": utc_now().isoformat()
         }
     
     @staticmethod
@@ -433,5 +431,5 @@ class MessageProtocol:
             "error_code": error_code,
             "error_message": error_message,
             "retry_after": retry_after,
-            "nack_timestamp": datetime.now().isoformat()
+            "nack_timestamp": utc_now().isoformat()
         }

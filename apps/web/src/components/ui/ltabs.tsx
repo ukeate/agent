@@ -10,13 +10,14 @@ const TabsContext = createContext<TabsContextValue | undefined>(undefined);
 interface TabsProps {
   value: string;
   onValueChange: (value: string) => void;
+  className?: string;
   children: React.ReactNode;
 }
 
-export const Tabs: React.FC<TabsProps> = ({ value, onValueChange, children }) => {
+export const Tabs: React.FC<TabsProps> = ({ value, onValueChange, className = '', children }) => {
   return (
     <TabsContext.Provider value={{ value, onValueChange }}>
-      <div>{children}</div>
+      <div className={className}>{children}</div>
     </TabsContext.Provider>
   );
 };

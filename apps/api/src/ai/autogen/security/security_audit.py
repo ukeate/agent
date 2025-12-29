@@ -8,21 +8,19 @@ import time
 import json
 import hashlib
 import secrets
-import logging
-import aioredis
+import redis.asyncio as redis
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Any, Set
 from dataclasses import dataclass, field
 from enum import Enum
 from collections import defaultdict, deque
 
-
+from src.core.logging import get_logger
 class ThreatLevel(Enum):
     LOW = "low"
     MEDIUM = "medium"
     HIGH = "high"
     CRITICAL = "critical"
-
 
 class EventType(Enum):
     AUTHENTICATION = "authentication"
@@ -31,7 +29,6 @@ class EventType(Enum):
     SYSTEM_CHANGE = "system_change"
     NETWORK_ACTIVITY = "network_activity"
     SECURITY_VIOLATION = "security_violation"
-
 
 @dataclass
 class SecurityEvent:
@@ -46,7 +43,6 @@ class SecurityEvent:
     threat_level: ThreatLevel = ThreatLevel.LOW
     risk_score: float = 0.0
 
-
 @dataclass
 class ThreatPattern:
     pattern_id: str
@@ -56,7 +52,6 @@ class ThreatPattern:
     conditions: Dict[str, Any]
     threat_level: ThreatLevel
     confidence_threshold: float
-
 
 @dataclass
 class SecurityAlert:
@@ -69,7 +64,6 @@ class SecurityAlert:
     description: str
     recommended_actions: List[str]
     resolved: bool = False
-
 
 class SecurityAuditSystem:
     """安全审计系统"""
@@ -88,13 +82,11 @@ class SecurityAuditSystem:
         self.max_failed_attempts = config.get('max_failed_attempts', 5)
         
         # 设置日志记录器
-        self.logger = logging.getLogger(__name__)
+        self.logger = get_logger(__name__)
         
     async def initialize(self):
         """初始化安全审计系统"""
-        self.redis = await aioredis.from_url(
-            self.config.get('redis_url', 'redis://localhost:6379')
-        )
+        self.redis = redis.from_url(self.config.get('redis_url', 'redis://localhost:6379'))
         
         await self._load_threat_patterns()
         await self._setup_monitoring()
@@ -614,6 +606,25 @@ class SecurityAuditSystem:
             'high_risk_agents': high_risk_agents[:10],  # 最多显示10个
             'time_range_hours': time_range / 3600
         }
+
+    async def get_active_alerts(self, limit: int = 50) -> List[Dict[str, Any]]:
+        """获取活跃告警列表"""
+        active = [a for a in self.active_alerts.values() if not a.resolved]
+        active.sort(key=lambda a: (a.threat_level.value, a.confidence_score, a.timestamp), reverse=True)
+        return [
+            {
+                "alert_id": alert.alert_id,
+                "threat_pattern_id": alert.threat_pattern_id,
+                "triggered_events": alert.triggered_events,
+                "timestamp": alert.timestamp,
+                "threat_level": alert.threat_level.value,
+                "confidence_score": alert.confidence_score,
+                "description": alert.description,
+                "recommended_actions": alert.recommended_actions,
+                "resolved": alert.resolved,
+            }
+            for alert in active[:limit]
+        ]
     
     async def resolve_alert(self, alert_id: str, resolution_notes: str) -> bool:
         """处理告警"""
@@ -689,7 +700,6 @@ class SecurityAuditSystem:
         """设置监控"""
         self.logger.info("Security monitoring setup completed")
 
-
 class ThreatIntelligenceEngine:
     """威胁情报引擎"""
     
@@ -697,7 +707,7 @@ class ThreatIntelligenceEngine:
         self.config = config
         self.threat_feeds = {}
         self.ioc_cache = {}  # Indicators of Compromise
-        self.logger = logging.getLogger(__name__)
+        self.logger = get_logger(__name__)
     
     async def initialize(self):
         """初始化威胁情报引擎"""
@@ -745,14 +755,13 @@ class ThreatIntelligenceEngine:
             'risk_score': len(threat_indicators) * 0.3
         }
 
-
 class SecurityMetricsCollector:
     """安全指标收集器"""
     
     def __init__(self, config: Dict[str, Any]):
         self.config = config
         self.metrics = defaultdict(int)
-        self.logger = logging.getLogger(__name__)
+        self.logger = get_logger(__name__)
     
     async def collect_metrics(self, audit_system: SecurityAuditSystem) -> Dict[str, Any]:
         """收集安全指标"""

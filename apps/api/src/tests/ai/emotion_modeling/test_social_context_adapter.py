@@ -1,10 +1,10 @@
+from src.core.utils.timezone_utils import utc_now
 import pytest
 import asyncio
 from unittest.mock import Mock, AsyncMock, patch, MagicMock
-from datetime import datetime, timedelta
+from datetime import timedelta
 from typing import Dict, List, Any, Optional
 import numpy as np
-
 from ai.emotion_modeling.social_context_adapter import (
     SocialContextAdapter,
     SocialScenario,
@@ -17,6 +17,7 @@ from ai.emotion_modeling.models import (
     EmotionVector,
     SocialContext,
     CulturalProfile
+
 )
 
 class TestSocialContextAdapter:
@@ -43,7 +44,7 @@ class TestSocialContextAdapter:
             ),
             confidence=0.85,
             context_markers=["workplace", "meeting", "presentation"],
-            timestamp=datetime.now()
+            timestamp=utc_now()
         )
     
     @pytest.fixture
@@ -300,7 +301,7 @@ class TestSocialContextAdapter:
             ),
             confidence=0.1,
             context_markers=[],
-            timestamp=datetime.now()
+            timestamp=utc_now()
         )
         
         result = await adapter.adapt_emotion_response(
@@ -442,7 +443,7 @@ class TestSocialContextAdapter:
             ),
             confidence=0.9,
             context_markers=["workplace", "conflict", "deadline"],
-            timestamp=datetime.now()
+            timestamp=utc_now()
         )
         
         complex_context = SocialContext(

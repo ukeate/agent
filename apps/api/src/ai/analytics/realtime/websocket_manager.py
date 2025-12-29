@@ -12,14 +12,13 @@ from datetime import timedelta
 from src.core.utils.timezone_utils import utc_now, utc_factory
 from fastapi import WebSocket, WebSocketDisconnect
 from dataclasses import dataclass, asdict
-import logging
 from contextlib import asynccontextmanager
-
 from ..models import BehaviorEvent, AnomalyDetection
 from ..behavior.anomaly_detection import AnomalyDetectionEngine
 from ..storage.event_store import EventStore
 
-logger = logging.getLogger(__name__)
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 @dataclass
 class ConnectionInfo:
@@ -96,7 +95,7 @@ class WebSocketManager:
             try:
                 await self.broadcast_task
             except asyncio.CancelledError:
-                pass
+                raise
         
         # 关闭所有连接
         for connection_id in list(self.active_connections.keys()):
@@ -304,7 +303,7 @@ class RealtimeAnalyticsManager:
             try:
                 await self.analysis_task
             except asyncio.CancelledError:
-                pass
+                raise
         
         await self.websocket_manager.stop()
         logger.info("实时分析管理器已停止")

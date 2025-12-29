@@ -1,6 +1,7 @@
 """
 假设检验服务单元测试
 """
+
 import pytest
 import math
 from services.hypothesis_testing_service import (
@@ -11,7 +12,6 @@ from services.hypothesis_testing_service import (
     get_hypothesis_testing_service
 )
 from services.statistical_analysis_service import MetricType
-
 
 class TestTTestCalculator:
     """t检验计算器测试"""
@@ -106,7 +106,6 @@ class TestTTestCalculator:
         with pytest.raises(ValueError):
             calculator.one_sample_t_test([5, 5, 5, 5], 0)
 
-
 class TestChiSquareTestCalculator:
     """卡方检验计算器测试"""
     
@@ -190,7 +189,6 @@ class TestChiSquareTestCalculator:
         # 成功数超过总数
         with pytest.raises(ValueError):
             calculator.proportion_test(101, 100, 50, 100)
-
 
 class TestHypothesisTestingService:
     """假设检验服务集成测试"""
@@ -318,7 +316,6 @@ class TestHypothesisTestingService:
         with pytest.raises(ValueError):
             service.run_chi_square_test(test_type="invalid", observed=[1, 2])
 
-
 # 集成测试
 def test_hypothesis_testing_service_integration():
     """假设检验服务集成测试"""
@@ -344,7 +341,6 @@ def test_hypothesis_testing_service_integration():
     assert result.is_significant
     assert result.effect_size > 0
 
-
 # 实际A/B测试场景测试
 def test_ab_test_scenarios():
     """测试真实A/B测试场景"""
@@ -369,7 +365,6 @@ def test_ab_test_scenarios():
     # 验证结果符合预期
     # 注意：具体的显著性取决于样本量和效应大小
     assert significant_improvement.p_value <= insignificant_improvement.p_value
-
 
 if __name__ == "__main__":
     pytest.main([__file__])

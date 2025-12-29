@@ -1,11 +1,11 @@
 """
 情感状态建模系统核心服务
 """
+
+from src.core.utils.timezone_utils import utc_now
 from typing import Dict, List, Optional, Any
 from datetime import datetime, timedelta
-import logging
-from sqlalchemy.orm import Session
-
+from sqlalchemy.ext.asyncio import AsyncSession
 from ..ai.emotion_modeling.models import (
     EmotionState, PersonalityProfile, EmotionPrediction, EmotionStatistics
 )
@@ -16,13 +16,13 @@ from ..ai.emotion_modeling.prediction_engine import EmotionPredictionEngine
 from ..ai.emotion_modeling.temporal_analyzer import TemporalEmotionAnalyzer
 from ..repositories.emotion_modeling_repository import EmotionModelingRepository
 
-logger = logging.getLogger(__name__)
-
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 class EmotionModelingService:
     """情感状态建模核心服务"""
     
-    def __init__(self, db: Session):
+    def __init__(self, db: AsyncSession):
         self.db = db
         self.repository = EmotionModelingRepository(db)
         
@@ -58,7 +58,7 @@ class EmotionModelingService:
                 arousal=emotion_data.get('arousal', 0.3),
                 dominance=emotion_data.get('dominance', 0.5),
                 confidence=emotion_data.get('confidence', 1.0),
-                timestamp=datetime.fromisoformat(emotion_data['timestamp']) if 'timestamp' in emotion_data else datetime.now(),
+                timestamp=datetime.fromisoformat(emotion_data['timestamp']) if 'timestamp' in emotion_data else utc_now(),
                 triggers=emotion_data.get('triggers', []),
                 context=emotion_data.get('context', {}),
                 source=emotion_data.get('source', 'manual'),
@@ -84,7 +84,7 @@ class EmotionModelingService:
             
             result = {
                 'state_id': state.id,
-                'processed_at': datetime.now().isoformat(),
+                'processed_at': utc_now().isoformat(),
                 'tracking': tracking_result,
                 'recommendations': await self._generate_recommendations(user_id, state)
             }
@@ -135,7 +135,7 @@ class EmotionModelingService:
     ) -> Dict[str, Any]:
         """获取情感分析报告"""
         try:
-            end_time = datetime.now()
+            end_time = utc_now()
             start_time = end_time - timedelta(days=days_back)
             
             # 获取历史数据
@@ -176,7 +176,7 @@ class EmotionModelingService:
                 'emotion_clusters': clusters,
                 'transition_patterns': transition_patterns,
                 'personality_profile': personality.to_dict() if personality else None,
-                'generated_at': datetime.now().isoformat()
+                'generated_at': utc_now().isoformat()
             }
             
         except Exception as e:
@@ -276,7 +276,7 @@ class EmotionModelingService:
             
             export_data = {
                 'user_id': user_id,
-                'export_timestamp': datetime.now().isoformat(),
+                'export_timestamp': utc_now().isoformat(),
                 'emotion_states': [state.to_dict() for state in history],
                 'personality_profile': personality.to_dict() if personality else None,
                 'emotion_transitions': [trans.to_dict() for trans in transitions],
@@ -298,9 +298,8 @@ class EmotionModelingService:
     async def delete_user_data(self, user_id: str) -> bool:
         """删除用户所有情感数据（右被遗忘）"""
         try:
-            # 这里需要实现数据删除逻辑
-            # 由于时间限制，暂时返回成功
-            logger.info(f"用户 {user_id} 的情感数据删除请求已记录")
+            deleted = await self.repository.delete_user_data(user_id)
+            logger.info(f"用户 {user_id} 的情感数据已删除，影响行数: {deleted}")
             return True
             
         except Exception as e:

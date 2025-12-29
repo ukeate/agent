@@ -1,60 +1,61 @@
 """模型服务平台API接口"""
 
 import asyncio
-import logging
 from datetime import datetime, timezone
 from typing import Dict, List, Optional, Any
 import uuid
 from pathlib import Path
-
+from collections.abc import AsyncGenerator
+from contextlib import asynccontextmanager
 from fastapi import (
-    APIRouter, 
-    HTTPException, 
-    UploadFile, 
-    File, 
-    BackgroundTasks,
-    Depends,
-    Query,
-    status
-)
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from fastapi.responses import FileResponse, JSONResponse
-from pydantic import BaseModel, Field
-
-from ...ai.model_service.registry import (
     ModelRegistry, 
     ModelRegistrationRequest, 
     ModelFormat,
     ModelMetadata
 )
-from ...ai.model_service.inference import (
+from src.api.base_model import ApiBaseModel
+from src.ai.model_service.inference import (
     InferenceEngine, 
     InferenceRequest,
     InferenceResult,
     InferenceStatus
 )
-from ...ai.model_service.deployment import (
+from src.ai.model_service.deployment import (
     DeploymentManager,
     DeploymentType,
     DeploymentConfig
 )
-from ...ai.model_service.online_learning import (
+from src.ai.model_service.online_learning import (
     OnlineLearningEngine,
     FeedbackData,
     ABTestConfig
 )
-from ...ai.model_service.monitoring import MonitoringSystem
-from ...core.auth import get_current_user
-from ...core.dependencies import get_database
+from src.ai.model_service.monitoring import MonitoringSystem
+from src.core.dependencies import get_current_user
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
-router = APIRouter(prefix="/api/v1/model-service", tags=["Model Service"])
+@asynccontextmanager
+async def lifespan(_: APIRouter) -> AsyncGenerator[None, None]:
+    """模型服务路由生命周期管理"""
+    try:
+        await monitoring_system.start_monitoring(collection_interval=60)
+        logger.info("模型服务平台API已启动")
+    except Exception as e:
+        logger.error(f"启动监控系统失败: {e}")
+    yield
+    try:
+        await monitoring_system.stop_monitoring()
+        logger.info("模型服务平台API已关闭")
+    except Exception as e:
+        logger.error(f"关闭监控系统失败: {e}")
+
+router = APIRouter(prefix="/model-service", tags=["Model Service"], lifespan=lifespan)
 security = HTTPBearer()
 
 # ============= Pydantic Models =============
 
-class ModelUploadRequest(BaseModel):
+class ModelUploadRequest(ApiBaseModel):
     """模型上传请求"""
     name: str = Field(..., description="模型名称")
     version: str = Field(..., description="模型版本")
@@ -65,17 +66,17 @@ class ModelUploadRequest(BaseModel):
     input_schema: Optional[Dict[str, Any]] = Field(None, description="输入Schema")
     output_schema: Optional[Dict[str, Any]] = Field(None, description="输出Schema")
 
-class ModelUploadResponse(BaseModel):
+class ModelUploadResponse(ApiBaseModel):
     """模型上传响应"""
     model_id: str
     message: str
 
-class ModelListResponse(BaseModel):
+class ModelListResponse(ApiBaseModel):
     """模型列表响应"""
     models: List[Dict[str, Any]]
     total: int
 
-class InferenceRequestModel(BaseModel):
+class InferenceRequestModel(ApiBaseModel):
     """推理请求模型"""
     model_name: str = Field(..., description="模型名称")
     model_version: str = Field(default="latest", description="模型版本")
@@ -84,7 +85,7 @@ class InferenceRequestModel(BaseModel):
     batch_size: int = Field(default=1, description="批处理大小")
     timeout_seconds: int = Field(default=30, description="超时时间")
 
-class InferenceResponseModel(BaseModel):
+class InferenceResponseModel(ApiBaseModel):
     """推理响应模型"""
     request_id: str
     status: str
@@ -92,7 +93,7 @@ class InferenceResponseModel(BaseModel):
     error: Optional[str] = None
     processing_time_ms: Optional[float] = None
 
-class DeploymentRequestModel(BaseModel):
+class DeploymentRequestModel(ApiBaseModel):
     """部署请求模型"""
     model_name: str = Field(..., description="模型名称")
     model_version: str = Field(default="latest", description="模型版本")
@@ -107,7 +108,7 @@ class DeploymentRequestModel(BaseModel):
     port: int = Field(default=8080, description="服务端口")
     environment_vars: Dict[str, str] = Field(default_factory=dict, description="环境变量")
 
-class FeedbackRequestModel(BaseModel):
+class FeedbackRequestModel(ApiBaseModel):
     """反馈请求模型"""
     prediction_id: str = Field(..., description="预测ID")
     inputs: Dict[str, Any] = Field(..., description="输入数据")
@@ -118,7 +119,7 @@ class FeedbackRequestModel(BaseModel):
     user_id: Optional[str] = Field(None, description="用户ID")
     metadata: Dict[str, Any] = Field(default_factory=dict, description="元数据")
 
-class ABTestRequestModel(BaseModel):
+class ABTestRequestModel(ApiBaseModel):
     """A/B测试请求模型"""
     name: str = Field(..., description="测试名称")
     description: str = Field(..., description="测试描述")
@@ -151,8 +152,7 @@ async def upload_model(
     """上传并注册模型"""
     try:
         # 解析请求参数
-        import json
-        model_request = ModelRegistrationRequest.parse_raw(request)
+        model_request = ModelRegistrationRequest.model_validate_json(request)
         
         # 验证文件格式
         if not model_file.filename:
@@ -535,6 +535,17 @@ async def deploy_model(
         logger.error(f"部署模型失败: {e}")
         raise HTTPException(status_code=500, detail=f"部署模型失败: {str(e)}")
 
+@router.get("/deployment/list")
+async def list_deployments(model_name: Optional[str] = Query(None, description="模型名称过滤")):
+    """列出所有部署"""
+    try:
+        deployments = deployment_manager.list_deployments(model_name)
+        return {"deployments": deployments, "total": len(deployments)}
+        
+    except Exception as e:
+        logger.error(f"获取部署列表失败: {e}")
+        raise HTTPException(status_code=500, detail=f"获取部署列表失败: {str(e)}")
+
 @router.get("/deployment/{deployment_id}")
 async def get_deployment_status(deployment_id: str):
     """获取部署状态"""
@@ -550,17 +561,6 @@ async def get_deployment_status(deployment_id: str):
     except Exception as e:
         logger.error(f"获取部署状态失败: {e}")
         raise HTTPException(status_code=500, detail=f"获取部署状态失败: {str(e)}")
-
-@router.get("/deployment/list")
-async def list_deployments(model_name: Optional[str] = Query(None, description="模型名称过滤")):
-    """列出所有部署"""
-    try:
-        deployments = deployment_manager.list_deployments(model_name)
-        return {"deployments": deployments, "total": len(deployments)}
-        
-    except Exception as e:
-        logger.error(f"获取部署列表失败: {e}")
-        raise HTTPException(status_code=500, detail=f"获取部署列表失败: {str(e)}")
 
 @router.delete("/deployment/{deployment_id}")
 async def stop_deployment(
@@ -618,7 +618,7 @@ async def submit_feedback(
         await online_learning_engine.collect_feedback(
             session_id,
             feedback.prediction_id,
-            feedback.dict()
+            feedback.model_dump()
         )
         
         return {"message": "反馈已提交"}
@@ -659,6 +659,22 @@ async def get_learning_stats(session_id: str):
         logger.error(f"获取学习统计失败: {e}")
         raise HTTPException(status_code=500, detail=f"获取学习统计失败: {str(e)}")
 
+@router.get("/learning/{session_id}/history")
+async def get_learning_history(session_id: str):
+    """获取学习性能历史"""
+    try:
+        stats = online_learning_engine.get_learning_stats(session_id)
+        if not stats:
+            raise HTTPException(status_code=404, detail="学习会话未找到")
+        history = online_learning_engine.get_performance_history(session_id)
+        return {"session_id": session_id, "history": history}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"获取学习历史失败: {e}")
+        raise HTTPException(status_code=500, detail=f"获取学习历史失败: {str(e)}")
+
 @router.get("/learning/sessions")
 async def list_learning_sessions():
     """获取所有学习会话"""
@@ -669,6 +685,60 @@ async def list_learning_sessions():
     except Exception as e:
         logger.error(f"获取学习会话列表失败: {e}")
         raise HTTPException(status_code=500, detail=f"获取学习会话列表失败: {str(e)}")
+
+@router.post("/learning/{session_id}/pause")
+async def pause_learning_session(
+    session_id: str,
+    current_user: dict = Depends(get_current_user)
+):
+    """暂停学习会话"""
+    try:
+        success = await online_learning_engine.pause_learning_session(session_id)
+        if not success:
+            raise HTTPException(status_code=404, detail="学习会话未找到")
+        return {"session_id": session_id, "status": "paused"}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"暂停学习会话失败: {e}")
+        raise HTTPException(status_code=500, detail=f"暂停学习会话失败: {str(e)}")
+
+@router.post("/learning/{session_id}/resume")
+async def resume_learning_session(
+    session_id: str,
+    current_user: dict = Depends(get_current_user)
+):
+    """恢复学习会话"""
+    try:
+        success = await online_learning_engine.resume_learning_session(session_id)
+        if not success:
+            raise HTTPException(status_code=404, detail="学习会话未找到")
+        return {"session_id": session_id, "status": "active"}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"恢复学习会话失败: {e}")
+        raise HTTPException(status_code=500, detail=f"恢复学习会话失败: {str(e)}")
+
+@router.post("/learning/{session_id}/stop")
+async def stop_learning_session(
+    session_id: str,
+    current_user: dict = Depends(get_current_user)
+):
+    """停止学习会话"""
+    try:
+        success = await online_learning_engine.stop_learning_session(session_id)
+        if not success:
+            raise HTTPException(status_code=404, detail="学习会话未找到")
+        return {"session_id": session_id, "status": "completed"}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"停止学习会话失败: {e}")
+        raise HTTPException(status_code=500, detail=f"停止学习会话失败: {str(e)}")
 
 # ============= A/B Testing APIs =============
 
@@ -695,7 +765,10 @@ async def create_ab_test(
             "test_id": test_id,
             "message": f"A/B测试 '{request.name}' 已创建"
         }
-        
+    except HTTPException:
+        raise
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         logger.error(f"创建A/B测试失败: {e}")
         raise HTTPException(status_code=500, detail=f"创建A/B测试失败: {str(e)}")
@@ -766,7 +839,35 @@ async def get_monitoring_overview():
     """获取监控概览"""
     try:
         overview = monitoring_system.get_system_overview()
-        return overview
+        model_metrics = overview.get("model_metrics", {})
+        total_requests = 0
+        total_latency = 0.0
+        total_errors = 0.0
+
+        for metrics in model_metrics.values():
+            request_count = metrics.get("request_count", 0)
+            total_requests += request_count
+            total_latency += metrics.get("avg_latency_ms", 0.0) * request_count
+            total_errors += metrics.get("error_rate", 0.0) * request_count
+
+        average_latency = total_latency / total_requests if total_requests else 0.0
+        error_rate = total_errors / total_requests if total_requests else 0.0
+        deployment_metrics = deployment_manager.get_deployment_metrics()
+        system_metrics = overview.get("system_metrics", {})
+        resource_utilization = {
+            "cpu_percent": system_metrics.get("system.cpu_percent", {}).get("current", 0.0),
+            "memory_percent": system_metrics.get("system.memory_percent", {}).get("current", 0.0),
+            "gpu_percent": system_metrics.get("system.gpu_percent", {}).get("current", 0.0),
+        }
+
+        return {
+            "total_models": len(model_registry.models),
+            "active_deployments": deployment_metrics.get("active_deployments", 0),
+            "total_requests": total_requests,
+            "average_latency": average_latency,
+            "error_rate": error_rate,
+            "resource_utilization": resource_utilization,
+        }
         
     except Exception as e:
         logger.error(f"获取监控概览失败: {e}")
@@ -907,22 +1008,4 @@ async def get_system_statistics():
     except Exception as e:
         logger.error(f"获取系统统计失败: {e}")
         raise HTTPException(status_code=500, detail=f"获取系统统计失败: {str(e)}")
-
-# 启动监控系统
-@router.on_event("startup")
-async def startup_event():
-    """应用启动事件"""
-    try:
-        await monitoring_system.start_monitoring(collection_interval=60)
-        logger.info("模型服务平台API已启动")
-    except Exception as e:
-        logger.error(f"启动监控系统失败: {e}")
-
-@router.on_event("shutdown")
-async def shutdown_event():
-    """应用关闭事件"""
-    try:
-        await monitoring_system.stop_monitoring()
-        logger.info("模型服务平台API已关闭")
-    except Exception as e:
-        logger.error(f"关闭监控系统失败: {e}")
+from src.core.logging import get_logger

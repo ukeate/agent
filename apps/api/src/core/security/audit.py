@@ -7,18 +7,18 @@ import uuid
 from datetime import datetime
 from src.core.utils.timezone_utils import utc_now, utc_factory
 from typing import Any, Dict, List, Optional
-
-import structlog
 from fastapi import Request, Response
 from pydantic import BaseModel
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
-
 from src.core.config import get_settings
+from src.core.database import get_db_session
 from src.core.redis import get_redis
 
-logger = structlog.get_logger(__name__)
-settings = get_settings()
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
+settings = get_settings()
 
 class AuditLogLevel(str):
     """审计日志级别"""
@@ -26,7 +26,6 @@ class AuditLogLevel(str):
     WARNING = "warning"
     ERROR = "error"
     CRITICAL = "critical"
-
 
 class AuditLog(BaseModel):
     """审计日志模型"""
@@ -45,7 +44,6 @@ class AuditLog(BaseModel):
     request_id: Optional[str]
     response_status: Optional[int]
     response_time_ms: Optional[float]
-
 
 class MCPToolAuditLog(BaseModel):
     """MCP工具审计日志"""
@@ -69,7 +67,6 @@ class MCPToolAuditLog(BaseModel):
     memory_usage: Optional[float]
     network_io: Optional[float]
 
-
 class AuditLogger:
     """审计日志记录器"""
     
@@ -78,10 +75,84 @@ class AuditLogger:
         self.buffer: List[AuditLog] = []
         self.buffer_size = 100
         self.flush_interval = 60  # 秒
+        self._db_initialized = False
     
     async def initialize(self):
         """初始化审计日志器"""
-        self.redis = await get_redis()
+        self.redis = get_redis()
+
+    async def _ensure_db_table(self):
+        if self._db_initialized:
+            return
+        async with get_db_session() as session:
+            await session.execute(text("""
+                CREATE TABLE IF NOT EXISTS audit_logs (
+                    id TEXT PRIMARY KEY,
+                    timestamp TIMESTAMPTZ NOT NULL,
+                    level TEXT NOT NULL,
+                    event_type TEXT NOT NULL,
+                    user_id TEXT,
+                    session_id TEXT,
+                    ip_address TEXT NOT NULL,
+                    user_agent TEXT,
+                    resource TEXT,
+                    action TEXT,
+                    result TEXT NOT NULL,
+                    details JSONB NOT NULL,
+                    request_id TEXT,
+                    response_status INTEGER,
+                    response_time_ms DOUBLE PRECISION,
+                    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+                )
+            """))
+            await session.execute(text("CREATE INDEX IF NOT EXISTS idx_audit_logs_timestamp ON audit_logs(timestamp)"))
+            await session.execute(text("CREATE INDEX IF NOT EXISTS idx_audit_logs_user_id ON audit_logs(user_id)"))
+            await session.execute(text("CREATE INDEX IF NOT EXISTS idx_audit_logs_event_type ON audit_logs(event_type)"))
+            await session.commit()
+        self._db_initialized = True
+
+    async def _write_to_database(self, logs: List[AuditLog]):
+        if not logs:
+            return
+        await self._ensure_db_table()
+        rows = []
+        for log in logs:
+            rows.append({
+                "id": log.id,
+                "timestamp": log.timestamp,
+                "level": log.level,
+                "event_type": log.event_type,
+                "user_id": log.user_id,
+                "session_id": log.session_id,
+                "ip_address": log.ip_address,
+                "user_agent": log.user_agent,
+                "resource": log.resource,
+                "action": log.action,
+                "result": log.result,
+                "details": json.dumps(log.details, ensure_ascii=False),
+                "request_id": log.request_id,
+                "response_status": log.response_status,
+                "response_time_ms": log.response_time_ms,
+            })
+
+        async with get_db_session() as session:
+            await session.execute(
+                text("""
+                    INSERT INTO audit_logs (
+                        id, timestamp, level, event_type, user_id, session_id, ip_address,
+                        user_agent, resource, action, result, details, request_id,
+                        response_status, response_time_ms
+                    )
+                    VALUES (
+                        :id, :timestamp, :level, :event_type, :user_id, :session_id, :ip_address,
+                        :user_agent, :resource, :action, :result, CAST(:details AS JSONB), :request_id,
+                        :response_status, :response_time_ms
+                    )
+                    ON CONFLICT (id) DO NOTHING
+                """),
+                rows,
+            )
+            await session.commit()
     
     async def log_api_call(
         self,
@@ -231,7 +302,7 @@ class AuditLogger:
             resource=f"tool:{tool_name}",
             action="execute",
             result=tool_log.execution_result,
-            details=tool_log.dict(),
+            details=tool_log.model_dump(mode="json"),
             request_id=None,
             response_status=None,
             response_time_ms=tool_log.execution_time_ms
@@ -349,11 +420,12 @@ class AuditLogger:
         
         try:
             # 批量写入Redis（作为临时存储）
-            if self.redis:
-                pipeline = self.redis.pipeline()
+            redis = get_redis()
+            if redis:
+                pipeline = redis.pipeline()
                 for log in self.buffer:
                     key = f"audit:log:{log.id}"
-                    value = log.json()
+                    value = log.model_dump_json()
                     # 保留7天
                     pipeline.setex(key, 604800, value)
                     
@@ -363,8 +435,7 @@ class AuditLogger:
                 
                 await pipeline.execute()
             
-            # TODO: 批量写入数据库
-            # await self._write_to_database(self.buffer)
+            await self._write_to_database(self.buffer)
             
             # 清空缓冲区
             self.buffer.clear()
@@ -383,7 +454,8 @@ class AuditLogger:
         """查询审计日志"""
         logs = []
         
-        if not self.redis:
+        redis = get_redis()
+        if not redis:
             return logs
         
         try:
@@ -391,7 +463,7 @@ class AuditLogger:
             if start_time and end_time:
                 start_score = start_time.timestamp()
                 end_score = end_time.timestamp()
-                log_ids = await self.redis.zrangebyscore(
+                log_ids = await redis.zrangebyscore(
                     "audit:timeline",
                     start_score,
                     end_score,
@@ -400,7 +472,7 @@ class AuditLogger:
                 )
             else:
                 # 获取最近的日志
-                log_ids = await self.redis.zrevrange(
+                log_ids = await redis.zrevrange(
                     "audit:timeline",
                     0,
                     limit - 1
@@ -408,7 +480,7 @@ class AuditLogger:
             
             # 批量获取日志内容
             if log_ids:
-                pipeline = self.redis.pipeline()
+                pipeline = redis.pipeline()
                 for log_id in log_ids:
                     pipeline.get(f"audit:log:{log_id}")
                 
@@ -416,7 +488,7 @@ class AuditLogger:
                 
                 for result in results:
                     if result:
-                        log = AuditLog.parse_raw(result)
+                        log = AuditLog.model_validate_json(result)
                         
                         # 过滤条件
                         if user_id and log.user_id != user_id:
@@ -492,7 +564,6 @@ class AuditLogger:
         report["unique_ips"] = len(report["unique_ips"])
         
         return report
-
 
 # 全局实例
 audit_logger = AuditLogger()

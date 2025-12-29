@@ -1,3 +1,4 @@
+import { buildApiUrl, apiFetch } from '../utils/apiBase'
 import React, { useState, useEffect } from 'react'
 import { Card, Row, Col, Form, Input, Select, Switch, InputNumber, Button, Space, Typography, Divider, Alert, Table, Tag, Modal, Drawer, Tabs, Tree, Tooltip } from 'antd'
 import { 
@@ -14,6 +15,7 @@ import {
   FileTextOutlined,
   GlobalOutlined,
   DatabaseOutlined,
+  BarChartOutlined,
   ThunderboltOutlined,
   SecurityScanOutlined,
   MonitorOutlined,
@@ -36,7 +38,7 @@ interface ConfigItem {
   id: string
   category: string
   key: string
-  value: string | number | boolean
+  value: any
   type: 'string' | 'number' | 'boolean' | 'json' | 'array'
   description: string
   required: boolean
@@ -85,189 +87,11 @@ const ServiceConfigManagementPage: React.FC<ServiceConfigManagementPageProps> = 
 
   const [form] = Form.useForm()
 
-  const [configs, setConfigs] = useState<ConfigItem[]>([
-    {
-      id: 'cfg-001',
-      category: 'system',
-      key: 'service_discovery.etcd.endpoints',
-      value: 'http://etcd1:2379,http://etcd2:2379,http://etcd3:2379',
-      type: 'array',
-      description: 'etcd集群端点列表',
-      required: true,
-      sensitive: false,
-      defaultValue: 'http://localhost:2379',
-      validation: { pattern: '^https?://.*:\\d+$' },
-      lastModified: '2024-08-26T14:25:00Z',
-      modifiedBy: 'admin'
-    },
-    {
-      id: 'cfg-002',
-      category: 'system',
-      key: 'service_discovery.etcd.timeout',
-      value: 5000,
-      type: 'number',
-      description: 'etcd连接超时时间（毫秒）',
-      required: true,
-      sensitive: false,
-      defaultValue: 5000,
-      validation: { min: 1000, max: 30000 },
-      lastModified: '2024-08-26T14:20:00Z',
-      modifiedBy: 'system'
-    },
-    {
-      id: 'cfg-003',
-      category: 'load_balancer',
-      key: 'load_balancer.default_strategy',
-      value: 'capability_based',
-      type: 'string',
-      description: '默认负载均衡策略',
-      required: true,
-      sensitive: false,
-      defaultValue: 'round_robin',
-      validation: { 
-        options: ['round_robin', 'least_connections', 'capability_based', 'geographic', 'response_time'] 
-      },
-      lastModified: '2024-08-26T14:15:00Z',
-      modifiedBy: 'admin'
-    },
-    {
-      id: 'cfg-004',
-      category: 'health_check',
-      key: 'health_check.default_interval',
-      value: 30,
-      type: 'number',
-      description: '默认健康检查间隔（秒）',
-      required: true,
-      sensitive: false,
-      defaultValue: 30,
-      validation: { min: 5, max: 300 },
-      lastModified: '2024-08-26T14:10:00Z',
-      modifiedBy: 'system'
-    },
-    {
-      id: 'cfg-005',
-      category: 'health_check',
-      key: 'health_check.failure_threshold',
-      value: 3,
-      type: 'number',
-      description: '健康检查失败阈值',
-      required: true,
-      sensitive: false,
-      defaultValue: 3,
-      validation: { min: 1, max: 10 },
-      lastModified: '2024-08-26T14:05:00Z',
-      modifiedBy: 'admin'
-    },
-    {
-      id: 'cfg-006',
-      category: 'security',
-      key: 'security.api_key',
-      value: '****-****-****-****',
-      type: 'string',
-      description: 'API密钥',
-      required: true,
-      sensitive: true,
-      defaultValue: '',
-      lastModified: '2024-08-26T13:45:00Z',
-      modifiedBy: 'admin'
-    },
-    {
-      id: 'cfg-007',
-      category: 'monitoring',
-      key: 'monitoring.metrics_enabled',
-      value: true,
-      type: 'boolean',
-      description: '启用指标收集',
-      required: false,
-      sensitive: false,
-      defaultValue: true,
-      lastModified: '2024-08-26T13:30:00Z',
-      modifiedBy: 'system'
-    },
-    {
-      id: 'cfg-008',
-      category: 'advanced',
-      key: 'advanced.custom_headers',
-      value: '{"X-Service": "discovery", "X-Version": "1.0"}',
-      type: 'json',
-      description: '自定义HTTP头',
-      required: false,
-      sensitive: false,
-      defaultValue: '{}',
-      lastModified: '2024-08-26T13:15:00Z',
-      modifiedBy: 'developer'
-    }
-  ])
-
-  const [configTemplates] = useState<ConfigTemplate[]>([
-    {
-      id: 'tpl-001',
-      name: '生产环境模板',
-      description: '适用于生产环境的标准配置模板',
-      category: 'production',
-      version: '1.0.0',
-      created: '2024-08-20T10:30:00Z',
-      author: 'ops-team',
-      configs: [
-        {
-          id: 'tpl-cfg-001',
-          category: 'system',
-          key: 'service_discovery.etcd.timeout',
-          value: 3000,
-          type: 'number',
-          description: '生产环境超时时间',
-          required: true,
-          sensitive: false,
-          defaultValue: 3000,
-          lastModified: '2024-08-20T10:30:00Z',
-          modifiedBy: 'template'
-        }
-      ]
-    },
-    {
-      id: 'tpl-002',
-      name: '开发环境模板',
-      description: '适用于开发环境的配置模板',
-      category: 'development',
-      version: '1.0.0',
-      created: '2024-08-20T10:35:00Z',
-      author: 'dev-team',
-      configs: []
-    }
-  ])
-
-  const [configHistory] = useState<ConfigHistory[]>([
-    {
-      id: 'hist-001',
-      configKey: 'service_discovery.etcd.timeout',
-      oldValue: 10000,
-      newValue: 5000,
-      timestamp: '2024-08-26T14:20:00Z',
-      user: 'admin',
-      reason: '优化响应时间',
-      environment: 'production'
-    },
-    {
-      id: 'hist-002',
-      configKey: 'load_balancer.default_strategy',
-      oldValue: 'round_robin',
-      newValue: 'capability_based',
-      timestamp: '2024-08-26T14:15:00Z',
-      user: 'admin',
-      reason: '改进负载均衡效果',
-      environment: 'production'
-    },
-    {
-      id: 'hist-003',
-      configKey: 'health_check.failure_threshold',
-      oldValue: 5,
-      newValue: 3,
-      timestamp: '2024-08-26T14:05:00Z',
-      user: 'admin',
-      reason: '提高故障检测敏感度',
-      environment: 'production'
-    }
-  ])
+  const [configs, setConfigs] = useState<ConfigItem[]>([])
+  const [configTemplates, setConfigTemplates] = useState<ConfigTemplate[]>([])
+  const [configHistory, setConfigHistory] = useState<ConfigHistory[]>([])
+  const [loadingConfigs, setLoadingConfigs] = useState(false)
+  const [loadError, setLoadError] = useState<string | null>(null)
 
   const categories = [
     { key: 'system', label: '系统配置', icon: <DatabaseOutlined /> },
@@ -277,6 +101,72 @@ const ServiceConfigManagementPage: React.FC<ServiceConfigManagementPageProps> = 
     { key: 'monitoring', label: '监控配置', icon: <BarChartOutlined /> },
     { key: 'advanced', label: '高级配置', icon: <SettingOutlined /> }
   ]
+
+  const parseValue = (raw: any, type: string) => {
+    if (type === 'number') {
+      if (raw === '' || raw === null || raw === undefined) return null
+      const num = Number(raw)
+      return Number.isNaN(num) ? raw : num
+    }
+    if (type === 'boolean') {
+      if (typeof raw === 'boolean') return raw
+      if (raw === 'true') return true
+      if (raw === 'false') return false
+      return Boolean(raw)
+    }
+    if (type === 'json') {
+      if (typeof raw === 'string' && raw.trim() !== '') {
+        return JSON.parse(raw)
+      }
+      return raw ?? {}
+    }
+    if (type === 'array') {
+      if (Array.isArray(raw)) return raw
+      if (typeof raw === 'string') {
+        return raw.split(',').map(item => item.trim()).filter(Boolean)
+      }
+      return raw ?? []
+    }
+    return raw
+  }
+
+  const toInputValue = (value: any, type: string) => {
+    if (type === 'json') {
+      return typeof value === 'string' ? value : JSON.stringify(value ?? {}, null, 2)
+    }
+    if (type === 'array') {
+      if (Array.isArray(value)) return value.join(', ')
+      return value ?? ''
+    }
+    if (value === null || value === undefined) return ''
+    return String(value)
+  }
+
+  const loadAll = async () => {
+    setLoadingConfigs(true)
+    setLoadError(null)
+    try {
+      const [configsRes, templatesRes, historyRes] = await Promise.all([
+        apiFetch(buildApiUrl('/api/v1/service-config/configs')),
+        apiFetch(buildApiUrl('/api/v1/service-config/templates')),
+        apiFetch(buildApiUrl('/api/v1/service-config/history?limit=50'))
+      ])
+      const configsData = await configsRes.json()
+      const templatesData = await templatesRes.json()
+      const historyData = await historyRes.json()
+      setConfigs(configsData?.configs || [])
+      setConfigTemplates(templatesData?.templates || [])
+      setConfigHistory(historyData?.history || [])
+    } catch (error: any) {
+      setLoadError(error?.message || '加载失败')
+    } finally {
+      setLoadingConfigs(false)
+    }
+  }
+
+  useEffect(() => {
+    loadAll()
+  }, [])
 
   const filteredConfigs = configs.filter(config => 
     selectedCategory === 'all' || config.category === selectedCategory
@@ -296,37 +186,47 @@ const ServiceConfigManagementPage: React.FC<ServiceConfigManagementPageProps> = 
   const handleSaveConfig = async (values: any) => {
     try {
       setSaving(true)
-      await new Promise(resolve => setTimeout(resolve, 1000))
-      
-      if (editingConfig) {
-        // 更新配置
-        setConfigs(prev => prev.map(config => 
-          config.id === editingConfig.id 
-            ? { 
-                ...config, 
-                ...values, 
-                lastModified: new Date().toISOString(),
-                modifiedBy: 'admin'
-              }
-            : config
-        ))
-      } else {
-        // 新增配置
-        const newConfig: ConfigItem = {
-          id: `cfg-${Date.now()}`,
-          category: values.category,
-          key: values.key,
-          value: values.value,
-          type: values.type,
-          description: values.description || '',
-          required: values.required || false,
-          sensitive: values.sensitive || false,
-          defaultValue: values.defaultValue,
-          lastModified: new Date().toISOString(),
-          modifiedBy: 'admin'
-        }
-        setConfigs(prev => [...prev, newConfig])
+      let parsedValue: any
+      let parsedDefault: any
+      try {
+        parsedValue = parseValue(values.value, values.type)
+        parsedDefault = parseValue(values.defaultValue, values.type)
+      } catch (error: any) {
+        Modal.error({
+          title: '配置解析失败',
+          content: error?.message || '配置值解析失败'
+        })
+        return
       }
+
+      const payload: any = {
+        category: values.category,
+        key: values.key,
+        value: parsedValue,
+        type: values.type,
+        description: values.description || '',
+        required: values.required || false,
+        sensitive: values.sensitive || false,
+        defaultValue: parsedDefault,
+        modifiedBy: 'admin'
+      }
+
+      if (editingConfig?.sensitive && values.value === '') {
+        delete payload.value
+      }
+
+      const url = buildApiUrl(
+        editingConfig
+          ? `/api/v1/service-config/configs/${editingConfig.id}`
+          : '/api/v1/service-config/configs'
+      )
+      const response = await apiFetch(url, {
+        method: editingConfig ? 'PUT' : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      })
+      await response.json()
+      await loadAll()
       
       setConfigModalVisible(false)
       setEditingConfig(null)
@@ -351,12 +251,12 @@ const ServiceConfigManagementPage: React.FC<ServiceConfigManagementPageProps> = 
     form.setFieldsValue({
       category: config.category,
       key: config.key,
-      value: config.sensitive ? '' : config.value,
+      value: config.sensitive ? '' : toInputValue(config.value, config.type),
       type: config.type,
       description: config.description,
       required: config.required,
       sensitive: config.sensitive,
-      defaultValue: config.defaultValue
+      defaultValue: toInputValue(config.defaultValue, config.type)
     })
     setConfigModalVisible(true)
   }
@@ -365,8 +265,17 @@ const ServiceConfigManagementPage: React.FC<ServiceConfigManagementPageProps> = 
     Modal.confirm({
       title: '确认删除',
       content: '确定要删除这个配置项吗？此操作不可撤销。',
-      onOk: () => {
-        setConfigs(prev => prev.filter(config => config.id !== configId))
+      onOk: async () => {
+        try {
+          const response = await apiFetch(buildApiUrl(`/api/v1/service-config/configs/${configId}`), { method: 'DELETE' })
+          await response.json().catch(() => null)
+          await loadAll()
+        } catch (error) {
+          Modal.error({
+            title: '删除失败',
+            content: '删除配置项时出现错误，请重试。'
+          })
+        }
       }
     })
   }
@@ -584,6 +493,16 @@ const ServiceConfigManagementPage: React.FC<ServiceConfigManagementPageProps> = 
           </Row>
         </Card>
 
+        {loadError && (
+          <Alert
+            type="error"
+            showIcon
+            message="加载失败"
+            description={loadError}
+            style={{ marginBottom: '16px' }}
+          />
+        )}
+
         {/* 配置分类统计 */}
         <Row gutter={[16, 16]} style={{ marginBottom: '24px' }}>
           {categories.map(category => {
@@ -623,6 +542,7 @@ const ServiceConfigManagementPage: React.FC<ServiceConfigManagementPageProps> = 
             dataSource={filteredConfigs}
             rowKey="id"
             size="small"
+            loading={loadingConfigs}
             pagination={{
               pageSize: 15,
               showSizeChanger: true,
@@ -768,6 +688,7 @@ const ServiceConfigManagementPage: React.FC<ServiceConfigManagementPageProps> = 
             dataSource={configHistory}
             rowKey="id"
             size="small"
+            loading={loadingConfigs}
             pagination={{
               pageSize: 10,
               showTotal: (total, range) => `第 ${range[0]}-${range[1]} 条，共 ${total} 条记录`

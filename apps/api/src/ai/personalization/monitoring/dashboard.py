@@ -6,19 +6,16 @@ from typing import Dict, List, Any, Optional
 from datetime import datetime
 from datetime import timedelta
 from src.core.utils.timezone_utils import utc_now, utc_factory
-import logging
-
 from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
 from prometheus_client.core import CollectorRegistry
-import aioredis
+import redis.asyncio as redis_async
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.responses import Response
 import numpy as np
-
 from .performance import PerformanceMonitor, PerformanceOptimizer
 from .tracing import DistributedTracer, TraceAnalyzer
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 class MonitoringDashboard:
     """监控仪表板"""
@@ -27,7 +24,7 @@ class MonitoringDashboard:
                  monitor: PerformanceMonitor,
                  optimizer: PerformanceOptimizer,
                  tracer: DistributedTracer,
-                 redis: aioredis.Redis):
+                 redis: redis_async.Redis):
         
         self.monitor = monitor
         self.optimizer = optimizer
@@ -112,7 +109,7 @@ class MonitoringDashboard:
             try:
                 await self.monitoring_task
             except asyncio.CancelledError:
-                pass
+                raise
                 
     async def _monitoring_loop(self):
         """监控循环"""
@@ -542,3 +539,4 @@ GRAFANA_DASHBOARD_CONFIG = {
         ]
     }
 }
+from src.core.logging import get_logger

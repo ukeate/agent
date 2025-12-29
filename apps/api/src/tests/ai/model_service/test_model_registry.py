@@ -7,7 +7,6 @@ import torch
 import torch.nn as nn
 from pathlib import Path
 from unittest.mock import patch, MagicMock
-
 from ....ai.model_service.registry import (
     ModelRegistry,
     ModelRegistrationRequest,
@@ -17,10 +16,13 @@ from ....ai.model_service.registry import (
     ONNXLoader,
     HuggingFaceLoader
 )
+from src.core.logging import setup_logging
+
+logger = get_logger(__name__)
 
 class TestModelRegistry:
     """模型注册表测试"""
-    
+
     @pytest.fixture
     def temp_storage(self):
         """临时存储目录"""
@@ -403,6 +405,7 @@ class TestModelLoaders:
         mock_config.assert_called_once_with("bert-base-uncased")
 
 if __name__ == "__main__":
+    setup_logging()
     import tempfile
     
     # 手动运行测试示例
@@ -423,13 +426,14 @@ if __name__ == "__main__":
             )
             
             model_id = await registry.register_model(request, str(model_path))
-            print(f"注册成功，模型ID: {model_id}")
+            logger.info(f"注册成功，模型ID: {model_id}")
             
             model_info = registry.get_model("manual-test", "1.0.0")
-            print(f"模型信息: {model_info}")
+            logger.info(f"模型信息: {model_info}")
             
             stats = registry.get_statistics()
-            print(f"统计信息: {stats}")
+            logger.info(f"统计信息: {stats}")
         
         asyncio.run(manual_test())
-        print("手动测试完成")
+        logger.info("手动测试完成")
+from src.core.logging import get_logger

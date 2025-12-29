@@ -2,6 +2,7 @@
 异步事件处理框架扩展
 实现事件处理器、上下文和处理引擎
 """
+
 import asyncio
 import json
 import uuid
@@ -12,12 +13,10 @@ from datetime import timedelta
 from src.core.utils.timezone_utils import utc_now, utc_factory
 from enum import Enum
 from typing import Dict, List, Any, Callable, Optional, Union
-import structlog
-
 from .events import Event, EventType, EventPriority, EventBus
 
-logger = structlog.get_logger(__name__)
-
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 @dataclass
 class EventContext:
@@ -36,7 +35,6 @@ class EventContext:
     def get_metadata(self, key: str, default: Any = None) -> Any:
         """获取元数据"""
         return self.metadata.get(key, default)
-
 
 @dataclass
 class ProcessingResult:
@@ -61,7 +59,6 @@ class ProcessingResult:
             "retry_after": self.retry_after.total_seconds() if self.retry_after else None
         }
 
-
 class EventProcessor(ABC):
     """事件处理器基类"""
     
@@ -78,12 +75,12 @@ class EventProcessor(ABC):
     @abstractmethod
     async def process(self, event: Event, context: EventContext) -> ProcessingResult:
         """处理事件"""
-        pass
+        raise NotImplementedError
     
     @abstractmethod
     def can_handle(self, event: Event) -> bool:
         """判断是否能处理该事件"""
-        pass
+        raise NotImplementedError
     
     @property
     def priority(self) -> int:
@@ -92,7 +89,7 @@ class EventProcessor(ABC):
     
     async def pre_process(self, event: Event, context: EventContext) -> None:
         """预处理钩子"""
-        pass
+        return None
     
     async def post_process(self, event: Event, context: EventContext, result: ProcessingResult) -> None:
         """后处理钩子"""
@@ -116,7 +113,6 @@ class EventProcessor(ABC):
                 if self.metrics["processed"] > 0 else 0
             )
         }
-
 
 class AsyncEventProcessingEngine:
     """异步事件处理引擎"""
@@ -311,7 +307,7 @@ class AsyncEventProcessingEngine:
     
     async def _process_single_event(self, event: Event, context: EventContext, worker_id: str) -> None:
         """处理单个事件"""
-        start_time = asyncio.get_event_loop().time()
+        start_time = asyncio.get_running_loop().time()
         
         # 找到所有能处理该事件的处理器
         processors = [p for p in self.processors if p.can_handle(event)]
@@ -328,7 +324,7 @@ class AsyncEventProcessingEngine:
                 
                 # 处理事件
                 result = await processor.process(event, context)
-                result.processing_time = asyncio.get_event_loop().time() - start_time
+                result.processing_time = asyncio.get_running_loop().time() - start_time
                 
                 # 后处理
                 await processor.post_process(event, context, result)
@@ -462,7 +458,6 @@ class AsyncEventProcessingEngine:
             "processor_count": len(self.processors)
         }
 
-
 # 示例：智能体消息处理器
 class AgentMessageProcessor(EventProcessor):
     """智能体消息处理器"""
@@ -509,9 +504,14 @@ class AgentMessageProcessor(EventProcessor):
         )
         
         # 更新智能体状态
-        if self.agent_manager and hasattr(event, 'source'):
-            # 这里可以更新智能体的状态
-            pass
+        if self.agent_manager and getattr(event, 'source', None):
+            await self.agent_manager.state_manager.update_agent_state(
+                event.source,
+                {
+                    "last_activity": utc_now().isoformat(),
+                    "last_message_sent": message_data.get("message_id"),
+                },
+            )
     
     async def _handle_message_received(self, event: Event, context: EventContext) -> None:
         """处理消息接收事件"""
@@ -526,10 +526,14 @@ class AgentMessageProcessor(EventProcessor):
         )
         
         # 触发智能体响应
-        if self.agent_manager and hasattr(event, 'target'):
-            # 这里可以触发智能体的响应逻辑
-            pass
-
+        if self.agent_manager and getattr(event, 'target', None):
+            await self.agent_manager.state_manager.update_agent_state(
+                event.target,
+                {
+                    "last_activity": utc_now().isoformat(),
+                    "last_message_received": message_data.get("message_id"),
+                },
+            )
 
 # 任务处理器
 class TaskProcessor(EventProcessor):
@@ -579,7 +583,6 @@ class TaskProcessor(EventProcessor):
     async def _handle_task_failed(self, event: Event, context: EventContext) -> None:
         """处理任务失败事件"""
         logger.error("任务失败", task_id=event.data.get('task_id') if hasattr(event, 'data') else None)
-
 
 # 系统监控处理器
 class SystemMonitorProcessor(EventProcessor):

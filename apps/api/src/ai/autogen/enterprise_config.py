@@ -12,18 +12,14 @@ import os
 from pathlib import Path
 import asyncio
 import redis.asyncio as redis
-import structlog
-from pydantic import Field, ConfigDict
-try:
-    from pydantic_settings import BaseSettings
-except ImportError:
-    from pydantic import BaseSettings
+from pydantic import Field
+from pydantic_settings import BaseSettings, SettingsConfigDict
 from datetime import datetime
 from datetime import timedelta
 from src.core.utils.timezone_utils import utc_now, utc_factory
 
-logger = structlog.get_logger(__name__)
-
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 class ConfigLevel(str, Enum):
     """配置级别"""
@@ -31,7 +27,6 @@ class ConfigLevel(str, Enum):
     ENTERPRISE = "enterprise"  # 企业级配置
     SERVICE = "service"    # 服务级配置
     AGENT = "agent"        # 智能体级配置
-
 
 class ConfigCategory(str, Enum):
     """配置分类"""
@@ -42,7 +37,6 @@ class ConfigCategory(str, Enum):
     RECOVERY = "recovery"       # 错误恢复相关
     NETWORKING = "networking"   # 网络相关
     STORAGE = "storage"         # 存储相关
-
 
 @dataclass
 class ConfigItem:
@@ -58,7 +52,6 @@ class ConfigItem:
     created_at: datetime = field(default_factory=utc_factory)
     updated_at: datetime = field(default_factory=utc_factory)
     version: str = "1.0.0"
-
 
 class EnterpriseConfigSettings(BaseSettings):
     """企业级配置设置"""
@@ -148,13 +141,12 @@ class EnterpriseConfigSettings(BaseSettings):
     HA_FAILOVER_TIMEOUT: int = Field(default=30, description="故障转移超时(秒)")
     HA_HEALTH_CHECK_INTERVAL: int = Field(default=10, description="健康检查间隔(秒)")
     
-    model_config = ConfigDict(
+    model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8", 
         case_sensitive=True,
         env_prefix="ENTERPRISE_"
     )
-
 
 class EnterpriseConfigManager:
     """企业级配置管理器"""
@@ -544,7 +536,6 @@ class EnterpriseConfigManager:
                 'disk_threshold': self.get_float('MONITORING_ALERT_DISK_THRESHOLD'),
             }
         }
-
 
 # 全局配置管理器实例
 _config_manager: Optional[EnterpriseConfigManager] = None

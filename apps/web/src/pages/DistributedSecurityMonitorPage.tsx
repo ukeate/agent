@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/Tabs';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
 import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
 import { Alert, AlertDescription } from '../components/ui/alert';
 import { LineChart, Line, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell } from 'recharts';
 import { 
+import { logger } from '../utils/logger'
   Shield, 
   AlertTriangle, 
   Users, 
@@ -22,57 +23,8 @@ import {
   Server,
   Database
 } from 'lucide-react';
-
-interface SecurityMetrics {
-  authentication: {
-    total_attempts_24h: number;
-    successful_attempts_24h: number;
-    failed_attempts_24h: number;
-    success_rate: number;
-    average_response_time_ms: number;
-  };
-  access_control: {
-    total_requests_24h: number;
-    granted_requests_24h: number;
-    denied_requests_24h: number;
-    approval_rate: number;
-    policy_evaluation_time_ms: number;
-  };
-  communication: {
-    active_sessions: number;
-    total_messages_24h: number;
-    encryption_overhead_ms: number;
-    integrity_violations: number;
-  };
-  threat_detection: {
-    events_processed_24h: number;
-    threats_detected_24h: number;
-    false_positives_24h: number;
-    alert_response_time_minutes: number;
-  };
-}
-
-interface SecurityAlert {
-  id: string;
-  alert_type: string;
-  title: string;
-  threat_level: 'low' | 'medium' | 'high' | 'critical';
-  status: 'active' | 'acknowledged' | 'resolved';
-  agent_id?: string;
-  created_at: string;
-  indicators: Record<string, any>;
-}
-
-interface AgentIdentity {
-  id: string;
-  agent_id: string;
-  display_name: string;
-  trust_score: number;
-  last_authentication: string;
-  failed_attempts: number;
-  is_locked: boolean;
-  authentication_methods: string[];
-}
+import { distributedSecurityService, type SecurityMetrics, type SecurityAlert, type AgentIdentity } from '../services/distributedSecurityService';
+import { message } from 'antd';
 
 const DistributedSecurityMonitorPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState('overview');
@@ -80,117 +32,40 @@ const DistributedSecurityMonitorPage: React.FC = () => {
   const [alerts, setAlerts] = useState<SecurityAlert[]>([]);
   const [agents, setAgents] = useState<AgentIdentity[]>([]);
   const [loading, setLoading] = useState(true);
+  const [metricsHistory, setMetricsHistory] = useState<SecurityMetrics[]>([]);
 
-  // 模拟数据加载
+  // 加载数据
   useEffect(() => {
     const loadData = async () => {
       setLoading(true);
       
-      // 模拟API调用延迟
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // 模拟安全指标数据
-      const mockMetrics: SecurityMetrics = {
-        authentication: {
-          total_attempts_24h: 2450,
-          successful_attempts_24h: 2380,
-          failed_attempts_24h: 70,
-          success_rate: 0.971,
-          average_response_time_ms: 85.4
-        },
-        access_control: {
-          total_requests_24h: 15200,
-          granted_requests_24h: 14650,
-          denied_requests_24h: 550,
-          approval_rate: 0.964,
-          policy_evaluation_time_ms: 12.3
-        },
-        communication: {
-          active_sessions: 156,
-          total_messages_24h: 45000,
-          encryption_overhead_ms: 3.2,
-          integrity_violations: 0
-        },
-        threat_detection: {
-          events_processed_24h: 28500,
-          threats_detected_24h: 12,
-          false_positives_24h: 4,
-          alert_response_time_minutes: 8.5
-        }
-      };
-
-      // 模拟安全告警数据
-      const mockAlerts: SecurityAlert[] = [
-        {
-          id: 'alert_001',
-          alert_type: 'brute_force_attack',
-          title: '检测到暴力破解攻击',
-          threat_level: 'high',
-          status: 'active',
-          agent_id: 'agent_007',
-          created_at: '2024-01-20T10:30:00Z',
-          indicators: { failed_attempts: 8, source_ip: '192.168.1.100' }
-        },
-        {
-          id: 'alert_002',
-          alert_type: 'privilege_escalation',
-          title: '可疑权限提升行为',
-          threat_level: 'medium',
-          status: 'acknowledged',
-          agent_id: 'agent_012',
-          created_at: '2024-01-20T09:15:00Z',
-          indicators: { escalation_attempts: 3, target_resources: ['admin_api'] }
-        },
-        {
-          id: 'alert_003',
-          alert_type: 'anomaly_detection',
-          title: '异常访问模式',
-          threat_level: 'low',
-          status: 'resolved',
-          agent_id: 'agent_023',
-          created_at: '2024-01-20T08:45:00Z',
-          indicators: { unusual_requests: 45, time_pattern: 'after_hours' }
-        }
-      ];
-
-      // 模拟智能体身份数据
-      const mockAgents: AgentIdentity[] = [
-        {
-          id: 'id_001',
-          agent_id: 'agent_001',
-          display_name: '数据分析智能体',
-          trust_score: 98.5,
-          last_authentication: '2024-01-20T10:45:00Z',
-          failed_attempts: 0,
-          is_locked: false,
-          authentication_methods: ['pki_certificate', 'mfa']
-        },
-        {
-          id: 'id_002',
-          agent_id: 'agent_007',
-          display_name: '网络监控智能体',
-          trust_score: 76.2,
-          last_authentication: '2024-01-20T10:20:00Z',
-          failed_attempts: 8,
-          is_locked: true,
-          authentication_methods: ['pki_certificate']
-        },
-        {
-          id: 'id_003',
-          agent_id: 'agent_012',
-          display_name: '任务调度智能体',
-          trust_score: 89.7,
-          last_authentication: '2024-01-20T10:40:00Z',
-          failed_attempts: 2,
-          is_locked: false,
-          authentication_methods: ['pki_certificate', 'mfa', 'biometric']
-        }
-      ];
-
-      setMetrics(mockMetrics);
-      setAlerts(mockAlerts);
-      setAgents(mockAgents);
-      setLoading(false);
+      try {
+        const now = new Date();
+        const start = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+        const [metricsData, alertsData, agentsData, historyData] = await Promise.all([
+          distributedSecurityService.getMetrics(),
+          distributedSecurityService.getAlerts({ limit: 10 }),
+          distributedSecurityService.getAgents(),
+          distributedSecurityService.getMetricsHistory({
+            start: start.toISOString(),
+            end: now.toISOString()
+          })
+        ]);
+        
+        setMetrics(metricsData);
+        setAlerts(alertsData);
+        setAgents(agentsData);
+        setMetricsHistory(historyData || []);
+      } catch (error) {
+        logger.error('加载安全数据失败:', error);
+        message.error('加载安全监控数据失败');
+        setMetrics(null);
+        setAlerts([]);
+        setAgents([]);
+        setMetricsHistory([]);
+      } finally {
+        setLoading(false);
+      }
     };
 
     loadData();
@@ -217,20 +92,20 @@ const DistributedSecurityMonitorPage: React.FC = () => {
     }
   };
 
-  // 模拟24小时趋势数据
-  const generateTrendData = () => {
-    return Array.from({ length: 24 }, (_, i) => ({
-      time: `${i}:00`,
-      auth_success: Math.floor(Math.random() * 100) + 80,
-      auth_failed: Math.floor(Math.random() * 10) + 2,
-      access_granted: Math.floor(Math.random() * 500) + 400,
-      access_denied: Math.floor(Math.random() * 50) + 10,
-      threats: Math.floor(Math.random() * 3),
-      sessions: Math.floor(Math.random() * 20) + 100
-    }));
-  };
-
-  const trendData = generateTrendData();
+  const trendData = (metricsHistory && metricsHistory.length > 0
+    ? metricsHistory
+    : metrics
+      ? [metrics]
+      : []
+  ).map((item, index) => ({
+    time: `${index}`,
+    auth_success: item.authentication.successful_attempts_24h,
+    auth_failed: item.authentication.failed_attempts_24h,
+    access_granted: item.access_control.granted_requests_24h,
+    access_denied: item.access_control.denied_requests_24h,
+    threats: item.threat_detection.threats_detected_24h,
+    sessions: item.communication.active_sessions
+  }));
 
   if (loading) {
     return (

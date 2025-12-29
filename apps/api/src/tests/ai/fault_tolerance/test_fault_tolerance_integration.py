@@ -1,9 +1,8 @@
+from src.core.utils.timezone_utils import utc_now
 import pytest
 import asyncio
 import tempfile
-from datetime import datetime
 from unittest.mock import Mock, AsyncMock
-
 from ....ai.fault_tolerance import (
     FaultToleranceSystem,
     FaultDetector,
@@ -180,7 +179,7 @@ class TestFaultToleranceIntegration:
             mock_collect.return_value = {
                 "component_id": "agent-1",
                 "state": {"status": "active"},
-                "timestamp": datetime.now().isoformat()
+                "timestamp": utc_now().isoformat()
             }
             
             # 触发手动备份

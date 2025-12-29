@@ -9,12 +9,11 @@ from dataclasses import dataclass, field
 import asyncio
 from enum import Enum
 import time
-import logging
 from datetime import datetime
 from src.core.utils.timezone_utils import utc_now, utc_factory
 
-logger = logging.getLogger(__name__)
-
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 class StreamType(str, Enum):
     """流式事件类型"""
@@ -25,7 +24,6 @@ class StreamType(str, Enum):
     HEARTBEAT = "heartbeat"
     METADATA = "metadata"
 
-
 @dataclass
 class StreamEvent:
     """流式事件数据结构"""
@@ -35,7 +33,6 @@ class StreamEvent:
     timestamp: float = field(default_factory=time.time)
     session_id: Optional[str] = None
     sequence: int = 0
-
 
 class TokenStreamer:
     """Token流式处理器"""
@@ -124,7 +121,7 @@ class TokenStreamer:
                 try:
                     await heartbeat_task
                 except asyncio.CancelledError:
-                    pass
+                    raise
             
             # 发送完成事件
             end_time = time.time()
@@ -198,9 +195,8 @@ class TokenStreamer:
         
         for subscriber in self.subscribers:
             try:
-                if not subscriber._closed:  # 检查队列是否仍然活跃
-                    subscriber.put_nowait(event)
-                    active_subscribers.append(subscriber)
+                subscriber.put_nowait(event)
+                active_subscribers.append(subscriber)
             except asyncio.QueueFull:
                 logger.warning("订阅者队列已满，跳过事件广播")
             except Exception as e:
@@ -221,7 +217,7 @@ class TokenStreamer:
                     )
                     await self._broadcast(heartbeat_event)
         except asyncio.CancelledError:
-            pass
+            raise
     
     async def subscribe(self, queue_size: int = 100) -> asyncio.Queue:
         """订阅流式事件"""
@@ -248,7 +244,6 @@ class TokenStreamer:
             self._session_metrics.pop(session_id, None)
         else:
             self._session_metrics.clear()
-
 
 class TokenStreamManager:
     """Token流管理器，管理多个Token流处理器"""

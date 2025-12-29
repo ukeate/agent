@@ -145,58 +145,7 @@ const QLearningPerformanceOptimizationPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState('configuration');
   const [form] = Form.useForm();
 
-  // 模拟数据生成
-  useEffect(() => {
-    const generateMockMetrics = () => {
-      setMetrics({
-        training_fps: Math.random() * 500 + 100,
-        inference_fps: Math.random() * 2000 + 500,
-        memory_usage: Math.random() * 50 + 20,
-        gpu_utilization: Math.random() * 40 + 60,
-        convergence_speed: Math.random() * 0.5 + 0.5,
-        sample_efficiency: Math.random() * 0.3 + 0.7,
-        network_throughput: Math.random() * 100 + 50,
-        error_rate: Math.random() * 5
-      });
-    };
-
-    const generateMockBenchmarks = () => {
-      const algorithms = ['DQN', 'Double DQN', 'Dueling DQN', 'Rainbow DQN'];
-      const results = algorithms.map(algo => ({
-        algorithm: algo,
-        final_performance: Math.random() * 0.3 + 0.7,
-        convergence_time: Math.random() * 200 + 100,
-        memory_usage: Math.random() * 2000 + 1000,
-        training_time: Math.random() * 300 + 200,
-        stability_score: Math.random() * 0.2 + 0.8
-      }));
-      setBenchmarkResults(results);
-    };
-
-    const generateMockTrials = () => {
-      const trials = Array.from({ length: 20 }, (_, i) => ({
-        trial_id: i + 1,
-        parameters: {
-          learning_rate: Math.random() * 0.01,
-          batch_size: [32, 64, 128, 256][Math.floor(Math.random() * 4)],
-          epsilon_decay: Math.random() * 0.01 + 0.99,
-          buffer_size: [10000, 50000, 100000][Math.floor(Math.random() * 3)]
-        },
-        objective_value: Math.random() * 0.5 + 0.5,
-        status: ['completed', 'running', 'failed'][Math.floor(Math.random() * 3)] as any,
-        duration: Math.random() * 300 + 60
-      }));
-      setOptimizationTrials(trials);
-    };
-
-    generateMockMetrics();
-    generateMockBenchmarks();
-    generateMockTrials();
-
-    // 定期更新指标
-    const interval = setInterval(generateMockMetrics, 3000);
-    return () => clearInterval(interval);
-  }, []);
+  useEffect(() => {}, []);
 
   // 性能配置预设
   const applyPreset = (preset: string) => {
@@ -379,14 +328,7 @@ const QLearningPerformanceOptimizationPage: React.FC = () => {
     }
   ];
 
-  // 性能趋势图数据
-  const performanceTrendData = Array.from({ length: 20 }, (_, i) => ({
-    time: i + 1,
-    training_fps: Math.random() * 100 + 400,
-    inference_fps: Math.random() * 500 + 1500,
-    memory_usage: Math.random() * 10 + 30,
-    gpu_utilization: Math.random() * 20 + 70
-  }));
+  const performanceTrendData: Array<any> = [];
 
   return (
     <div style={{ padding: '24px', background: '#f5f5f5', minHeight: '100vh' }}>

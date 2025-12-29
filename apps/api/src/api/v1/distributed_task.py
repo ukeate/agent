@@ -1,25 +1,28 @@
 """分布式任务协调API端点"""
 
+import asyncio
+import os
+import socket
 from fastapi import APIRouter, Depends, HTTPException, Query, Body
 from fastapi.responses import JSONResponse
 from typing import Dict, Any, List, Optional
 from datetime import datetime
-from pydantic import BaseModel, Field
-
-from ai.distributed_task import (
+from pydantic import Field
+from src.ai.distributed_task import (
     DistributedTaskCoordinationEngine,
     TaskPriority,
     TaskStatus,
     ConflictType
 )
+from src.api.base_model import ApiBaseModel
 
 router = APIRouter(prefix="/distributed-task", tags=["distributed_task"])
 
 # 全局引擎实例（实际应该通过依赖注入）
 coordination_engine: Optional[DistributedTaskCoordinationEngine] = None
+_engine_lock = asyncio.Lock()
 
-
-class TaskSubmitRequest(BaseModel):
+class TaskSubmitRequest(ApiBaseModel):
     """任务提交请求"""
     task_type: str = Field(..., description="任务类型")
     task_data: Dict[str, Any] = Field(..., description="任务数据")
@@ -28,15 +31,13 @@ class TaskSubmitRequest(BaseModel):
     decomposition_strategy: Optional[str] = Field(None, description="分解策略")
     assignment_strategy: Optional[str] = Field("capability_based", description="分配策略")
 
-
-class TaskResponse(BaseModel):
+class TaskResponse(ApiBaseModel):
     """任务响应"""
     task_id: str
     status: str
     message: str
 
-
-class SystemStatsResponse(BaseModel):
+class SystemStatsResponse(ApiBaseModel):
     """系统统计响应"""
     node_id: str
     raft_state: str
@@ -47,13 +48,32 @@ class SystemStatsResponse(BaseModel):
     stats: Dict[str, Any]
     state_summary: Dict[str, Any]
 
-
-def get_engine() -> DistributedTaskCoordinationEngine:
+async def get_engine() -> DistributedTaskCoordinationEngine:
     """获取协调引擎实例"""
-    if not coordination_engine:
-        raise HTTPException(status_code=503, detail="Coordination engine not initialized")
-    return coordination_engine
-
+    global coordination_engine
+    if coordination_engine:
+        return coordination_engine
+    async with _engine_lock:
+        if coordination_engine:
+            return coordination_engine
+        redis_client = get_redis()
+        if not redis_client:
+            raise HTTPException(status_code=503, detail="Redis未初始化，无法启动分布式任务协调")
+        service_discovery = AgentServiceDiscoverySystem(
+            redis_client=redis_client,
+            prefix=default_config.redis_prefix,
+            ttl_seconds=default_config.agent_ttl_seconds,
+        )
+        await service_discovery.initialize()
+        node_id = os.getenv("DISTRIBUTED_TASK_NODE_ID") or socket.gethostname()
+        coordination_engine = DistributedTaskCoordinationEngine(
+            node_id=node_id,
+            cluster_nodes=[node_id],
+            service_registry=service_discovery.registry,
+            load_balancer=service_discovery.load_balancer,
+        )
+        await coordination_engine.start()
+        return coordination_engine
 
 @router.post("/initialize", response_model=Dict[str, str])
 async def initialize_engine(
@@ -67,10 +87,22 @@ async def initialize_engine(
     try:
         if coordination_engine:
             await coordination_engine.stop()
+
+        redis_client = get_redis()
+        if not redis_client:
+            raise HTTPException(status_code=503, detail="Redis未初始化，无法启动分布式任务协调")
+        service_discovery = AgentServiceDiscoverySystem(
+            redis_client=redis_client,
+            prefix=default_config.redis_prefix,
+            ttl_seconds=default_config.agent_ttl_seconds,
+        )
+        await service_discovery.initialize()
         
         coordination_engine = DistributedTaskCoordinationEngine(
             node_id=node_id,
-            cluster_nodes=cluster_nodes
+            cluster_nodes=cluster_nodes,
+            service_registry=service_discovery.registry,
+            load_balancer=service_discovery.load_balancer,
         )
         
         await coordination_engine.start()
@@ -79,7 +111,6 @@ async def initialize_engine(
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-
 
 @router.post("/submit", response_model=TaskResponse)
 async def submit_task(
@@ -128,7 +159,6 @@ async def submit_task(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-
 @router.get("/status/{task_id}", response_model=Dict[str, Any])
 async def get_task_status(
     task_id: str,
@@ -149,7 +179,6 @@ async def get_task_status(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-
 @router.post("/cancel/{task_id}", response_model=Dict[str, str])
 async def cancel_task(
     task_id: str,
@@ -168,7 +197,6 @@ async def cancel_task(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-
 @router.get("/stats", response_model=SystemStatsResponse)
 async def get_system_stats(
     engine: DistributedTaskCoordinationEngine = Depends(get_engine)
@@ -183,7 +211,6 @@ async def get_system_stats(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-
 @router.get("/conflicts", response_model=List[Dict[str, Any]])
 async def detect_conflicts(
     engine: DistributedTaskCoordinationEngine = Depends(get_engine)
@@ -197,7 +224,6 @@ async def detect_conflicts(
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-
 
 @router.post("/conflicts/resolve/{conflict_id}", response_model=Dict[str, str])
 async def resolve_conflict(
@@ -228,7 +254,6 @@ async def resolve_conflict(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-
 @router.post("/checkpoint/create", response_model=Dict[str, str])
 async def create_checkpoint(
     name: str = Query(..., description="检查点名称"),
@@ -247,7 +272,6 @@ async def create_checkpoint(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-
 @router.post("/checkpoint/rollback", response_model=Dict[str, str])
 async def rollback_checkpoint(
     name: str = Query(..., description="检查点名称"),
@@ -265,7 +289,6 @@ async def rollback_checkpoint(
             
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-
 
 @router.post("/shutdown", response_model=Dict[str, str])
 async def shutdown_engine(

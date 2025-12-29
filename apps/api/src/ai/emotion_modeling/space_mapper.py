@@ -3,16 +3,15 @@
 
 基于Valence-Arousal-Dominance三维情感空间理论进行情感建模
 """
+
 import numpy as np
 from typing import Dict, List, Tuple, Optional
 from scipy.spatial.distance import euclidean, cosine
 from sklearn.metrics.pairwise import pairwise_distances
-import logging
-
 from .models import EmotionState, EmotionType
 
-logger = logging.getLogger(__name__)
-
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 class EmotionSpaceMapper:
     """情感空间映射器"""

@@ -2,6 +2,7 @@
 异步多智能体系统API路由
 集成AutoGen v0.7.x异步事件驱动架构
 """
+
 import asyncio
 import json
 import uuid
@@ -9,20 +10,20 @@ from datetime import datetime
 from src.core.utils.timezone_utils import utc_now, utc_factory, timezone
 from typing import Dict, List, Optional, Any, Union
 from fastapi import APIRouter, HTTPException, Depends, BackgroundTasks, status, WebSocket, WebSocketDisconnect
-from pydantic import BaseModel, Field
-import structlog
-
+from pydantic import Field, ValidationError
 from src.ai.autogen.async_manager import AsyncAgentManager, AgentTask, TaskStatus
 from src.ai.autogen.events import (
     EventBus, MessageQueue, StateManager, Event, EventType, EventPriority,
     LoggingEventHandler, MetricsEventHandler
 )
+from src.api.base_model import ApiBaseModel
 from src.ai.autogen.langgraph_bridge import AutoGenLangGraphBridge
 from src.ai.autogen.config import AgentConfig, AgentRole, AGENT_CONFIGS
-from src.ai.langgraph.context import AgentContext
-from src.core.logging import get_logger
+from src.ai.langgraph.context import AgentContext, SessionContext
 
-logger = structlog.get_logger(__name__)
+from src.core.logging import get_logger
+logger = get_logger(__name__)
+
 fastapi_logger = get_logger(__name__)
 
 router = APIRouter(prefix="/async-agents", tags=["async-agents"])
@@ -33,7 +34,6 @@ _message_queue: Optional[MessageQueue] = None
 _state_manager: Optional[StateManager] = None
 _agent_manager: Optional[AsyncAgentManager] = None
 _langgraph_bridge: Optional[AutoGenLangGraphBridge] = None
-
 
 async def get_event_bus() -> EventBus:
     """获取事件总线实例"""
@@ -55,7 +55,6 @@ async def get_event_bus() -> EventBus:
     
     return _event_bus
 
-
 async def get_message_queue() -> MessageQueue:
     """获取消息队列实例"""
     global _message_queue
@@ -65,7 +64,6 @@ async def get_message_queue() -> MessageQueue:
     
     return _message_queue
 
-
 async def get_state_manager() -> StateManager:
     """获取状态管理器实例"""
     global _state_manager
@@ -74,7 +72,6 @@ async def get_state_manager() -> StateManager:
         logger.info("状态管理器初始化完成")
     
     return _state_manager
-
 
 async def get_agent_manager() -> AsyncAgentManager:
     """获取异步智能体管理器实例"""
@@ -98,7 +95,6 @@ async def get_agent_manager() -> AsyncAgentManager:
     
     return _agent_manager
 
-
 async def get_langgraph_bridge() -> AutoGenLangGraphBridge:
     """获取LangGraph桥接器实例"""
     global _langgraph_bridge
@@ -115,9 +111,8 @@ async def get_langgraph_bridge() -> AutoGenLangGraphBridge:
     
     return _langgraph_bridge
 
-
 # Pydantic模型
-class CreateAgentRequest(BaseModel):
+class CreateAgentRequest(ApiBaseModel):
     """创建智能体请求"""
     role: AgentRole = Field(..., description="智能体角色")
     name: Optional[str] = Field(None, description="自定义名称")
@@ -127,8 +122,7 @@ class CreateAgentRequest(BaseModel):
     custom_prompt: Optional[str] = Field(None, description="自定义系统提示词")
     context: Optional[Dict[str, Any]] = Field(None, description="上下文信息")
 
-
-class SubmitTaskRequest(BaseModel):
+class SubmitTaskRequest(ApiBaseModel):
     """提交任务请求"""
     agent_id: str = Field(..., description="目标智能体ID")
     task_type: str = Field(..., description="任务类型")
@@ -137,8 +131,7 @@ class SubmitTaskRequest(BaseModel):
     priority: int = Field(0, description="任务优先级")
     timeout_seconds: int = Field(300, ge=30, le=1800, description="超时时间(秒)")
 
-
-class CreateWorkflowRequest(BaseModel):
+class CreateWorkflowRequest(ApiBaseModel):
     """创建工作流请求"""
     name: str = Field(..., description="工作流名称")
     description: str = Field(..., description="工作流描述")
@@ -147,8 +140,7 @@ class CreateWorkflowRequest(BaseModel):
     dependencies: Optional[Dict[str, List[str]]] = Field(None, description="任务依赖关系")
     context: Optional[Dict[str, Any]] = Field(None, description="工作流上下文")
 
-
-class AgentResponse(BaseModel):
+class AgentResponse(ApiBaseModel):
     """智能体响应"""
     agent_id: str
     name: str
@@ -157,8 +149,7 @@ class AgentResponse(BaseModel):
     created_at: str
     config: Dict[str, Any]
 
-
-class TaskResponse(BaseModel):
+class TaskResponse(ApiBaseModel):
     """任务响应"""
     task_id: str
     agent_id: str
@@ -170,7 +161,6 @@ class TaskResponse(BaseModel):
     completed_at: Optional[str]
     result: Optional[Dict[str, Any]]
     error: Optional[str]
-
 
 # 智能体管理端点
 @router.post(
@@ -186,7 +176,18 @@ async def create_agent(
     """创建异步智能体"""
     try:
         # 构建智能体配置
-        base_config = AGENT_CONFIGS[request.role]
+        base_config = AGENT_CONFIGS.get(request.role)
+        if base_config is None:
+            base_config = AgentConfig(
+                name=request.name or request.role.value,
+                role=request.role,
+                model=request.model or "gpt-4o-mini",
+                temperature=request.temperature or 0.7,
+                max_tokens=request.max_tokens or 2000,
+                system_prompt=request.custom_prompt or "你是一个通用智能体。",
+                tools=[],
+                capabilities=[],
+            )
         
         config = AgentConfig(
             name=request.name or base_config.name,
@@ -199,12 +200,14 @@ async def create_agent(
             capabilities=base_config.capabilities
         )
         
+        session_id = str(uuid.uuid4())
         # 创建上下文
         context = AgentContext(
             user_id=request.context.get("user_id", "system") if request.context else "system",
-            session_id=str(uuid.uuid4()),
+            session_id=session_id,
             conversation_id=request.context.get("conversation_id") if request.context else None,
-            additional_context=request.context
+            session_context=SessionContext(session_id=session_id),
+            metadata=request.context or {},
         )
         
         # 通过桥接器创建上下文智能体
@@ -236,7 +239,6 @@ async def create_agent(
             detail=f"创建智能体失败: {str(e)}"
         )
 
-
 @router.get(
     "/agents",
     summary="列出智能体",
@@ -263,7 +265,6 @@ async def list_agents(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"获取智能体列表失败: {str(e)}"
         )
-
 
 @router.get(
     "/agents/{agent_id}",
@@ -296,7 +297,6 @@ async def get_agent(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"获取智能体信息失败: {str(e)}"
         )
-
 
 @router.delete(
     "/agents/{agent_id}",
@@ -336,7 +336,6 @@ async def destroy_agent(
             detail=f"销毁智能体失败: {str(e)}"
         )
 
-
 # 任务管理端点
 @router.post(
     "/tasks",
@@ -364,14 +363,16 @@ async def submit_task(
         logger.info("任务提交成功", task_id=task_id, agent_id=request.agent_id)
         
         return TaskResponse(**task_info)
-        
+    except HTTPException:
+        raise
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
     except Exception as e:
         logger.error("任务提交失败", agent_id=request.agent_id, error=str(e))
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"任务提交失败: {str(e)}"
         )
-
 
 @router.get(
     "/tasks",
@@ -423,7 +424,6 @@ async def list_tasks(
             detail=f"获取任务列表失败: {str(e)}"
         )
 
-
 @router.get(
     "/tasks/{task_id}",
     response_model=TaskResponse,
@@ -453,7 +453,6 @@ async def get_task(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"获取任务信息失败: {str(e)}"
         )
-
 
 @router.delete(
     "/tasks/{task_id}",
@@ -488,7 +487,6 @@ async def cancel_task(
             detail=f"取消任务失败: {str(e)}"
         )
 
-
 # 工作流管理端点
 @router.post(
     "/workflows",
@@ -502,9 +500,11 @@ async def create_workflow(
     """创建多智能体工作流"""
     try:
         # 创建工作流上下文
+        session_id = str(uuid.uuid4())
         context = AgentContext(
             user_id=request.context.get("user_id", "system") if request.context else "system",
-            session_id=str(uuid.uuid4()),
+            session_id=session_id,
+            session_context=SessionContext(session_id=session_id),
             additional_context=request.context
         )
         
@@ -531,14 +531,16 @@ async def create_workflow(
                 "created_at": utc_now().isoformat()
             }
         }
-        
+    except HTTPException:
+        raise
+    except (ValidationError, ValueError) as e:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(e))
     except Exception as e:
         logger.error("创建工作流失败", error=str(e))
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"创建工作流失败: {str(e)}"
         )
-
 
 @router.post(
     "/collaborative-tasks",
@@ -598,7 +600,6 @@ async def execute_collaborative_task(
             detail=f"执行协作任务失败: {str(e)}"
         )
 
-
 # 系统状态和监控端点
 @router.get(
     "/stats",
@@ -632,7 +633,6 @@ async def get_system_stats(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"获取系统统计失败: {str(e)}"
         )
-
 
 @router.get(
     "/health",
@@ -686,7 +686,6 @@ async def health_check(
             "error": str(e)
         }
 
-
 # WebSocket连接管理
 class AsyncConnectionManager:
     """异步WebSocket连接管理器"""
@@ -720,7 +719,7 @@ class AsyncConnectionManager:
                 
                 logger.info("WebSocket连接断开", session_id=session_id)
             except ValueError:
-                pass
+                logger.warning("捕获到ValueError，已继续执行", exc_info=True)
     
     async def send_message(self, session_id: str, message: Dict[str, Any]):
         """发送消息到指定会话"""
@@ -735,10 +734,8 @@ class AsyncConnectionManager:
                     logger.error("发送WebSocket消息失败", error=str(e))
                     self.disconnect(websocket, session_id)
 
-
 # 全局连接管理器
 connection_manager = AsyncConnectionManager()
-
 
 @router.websocket("/ws/{session_id}")
 async def websocket_endpoint(
@@ -839,7 +836,6 @@ async def websocket_endpoint(
     except Exception as e:
         logger.error("WebSocket处理异常", session_id=session_id, error=str(e))
         connection_manager.disconnect(websocket, session_id)
-
 
 # 清理函数（在应用关闭时调用）
 async def cleanup():

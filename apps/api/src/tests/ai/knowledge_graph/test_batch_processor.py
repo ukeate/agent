@@ -10,7 +10,6 @@ import time
 from unittest.mock import Mock, AsyncMock, patch
 from datetime import datetime
 from src.core.utils.timezone_utils import utc_now, utc_factory
-
 from ai.knowledge_graph.batch_processor import (
     BatchProcessor, BatchConfig, BatchTask,
     ProcessingStatus, CacheStrategy,
@@ -20,8 +19,8 @@ from ai.knowledge_graph.batch_processor import (
 from ai.knowledge_graph.data_models import (
     Entity, Relation, EntityType, RelationType,
     BatchProcessingResult
-)
 
+)
 
 class TestBatchConfig:
     """批处理配置测试"""
@@ -52,7 +51,6 @@ class TestBatchConfig:
         assert config.memory_limit_mb == 1024
         assert config.cache_strategy == CacheStrategy.MEMORY
         assert config.enable_distributed is True
-
 
 class TestBatchTask:
     """批处理任务测试"""
@@ -89,7 +87,6 @@ class TestBatchTask:
         
         assert task.metadata == metadata
         assert task.metadata["source"] == "test"
-
 
 class TestMemoryManager:
     """内存管理器测试"""
@@ -153,7 +150,6 @@ class TestMemoryManager:
         
         mock_gc_collect.assert_called_once()
         assert memory_manager.processed_count == 0
-
 
 class TestResultCache:
     """结果缓存测试"""
@@ -285,7 +281,6 @@ class TestResultCache:
         # 获取应该返回None
         cached_result = cache.get(text)
         assert cached_result is None
-
 
 class TestTaskScheduler:
     """任务调度器测试"""
@@ -423,7 +418,6 @@ class TestTaskScheduler:
         scheduler.active_tasks["task2"] = task2
         
         assert scheduler.get_active_count() == 2
-
 
 class TestBatchProcessor:
     """批处理器测试"""
@@ -625,7 +619,6 @@ class TestBatchProcessor:
         assert not processor.is_running
         assert len(processor.worker_tasks) == 0
 
-
 class TestProcessingMetrics:
     """处理指标测试"""
     
@@ -643,7 +636,6 @@ class TestProcessingMetrics:
         assert metrics.error_rate == 0.0
         assert isinstance(metrics.start_time, datetime)
         assert isinstance(metrics.last_update, datetime)
-
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

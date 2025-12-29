@@ -4,138 +4,71 @@ import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
 import { Alert } from '../components/ui/alert';
 import { Input } from '../components/ui/input';
-import { Tabs } from '../components/ui/Tabs';
+import { Tabs } from '../components/ui/tabs';
+import { hyperparameterServiceEnhanced } from '../services/hyperparameterServiceEnhanced';
 
+import { logger } from '../utils/logger'
 interface AlgorithmConfig {
   name: string;
   displayName: string;
   description: string;
   parameters: Record<string, any>;
-  advantages: string[];
-  disadvantages: string[];
-  bestFor: string[];
 }
 
-const algorithms: AlgorithmConfig[] = [
-  {
-    name: 'tpe',
-    displayName: 'TPE (Tree Parzen Estimator)',
-    description: '基于贝叶斯优化的高效算法，使用历史试验数据指导搜索方向',
-    parameters: {
-      n_startup_trials: { type: 'int', default: 10, min: 5, max: 100, description: '随机试验数量' },
-      n_ei_candidates: { type: 'int', default: 24, min: 10, max: 100, description: 'EI候选点数量' },
-      gamma: { type: 'float', default: 0.25, min: 0.1, max: 0.5, description: '好/坏试验分割比例' }
-    },
-    advantages: [
-      '对连续参数优化效果好',
-      '能处理条件参数空间',
-      '计算效率高',
-      '对噪声有一定鲁棒性'
-    ],
-    disadvantages: [
-      '对离散参数效果一般',
-      '高维空间性能下降',
-      '需要足够的历史数据'
-    ],
-    bestFor: [
-      '连续参数为主的优化',
-      '中等维度参数空间',
-      '对效率要求高的场景'
-    ]
-  },
-  {
-    name: 'cmaes',
-    displayName: 'CMA-ES (协方差矩阵适应进化策略)',
-    description: '进化算法，通过适应协方差矩阵来探索参数空间',
-    parameters: {
-      sigma: { type: 'float', default: 0.1, min: 0.01, max: 1.0, description: '初始步长' },
-      population_size: { type: 'int', default: null, min: 4, max: 100, description: '种群大小' },
-      restart_strategy: { type: 'select', default: 'ipop', options: ['ipop', 'bipop'], description: '重启策略' }
-    },
-    advantages: [
-      '对连续优化效果极佳',
-      '自适应步长调整',
-      '对多峰函数效果好',
-      '理论基础扎实'
-    ],
-    disadvantages: [
-      '仅支持连续参数',
-      '计算复杂度较高',
-      '参数数量较多时收敛慢'
-    ],
-    bestFor: [
-      '纯连续参数优化',
-      '复杂多峰优化问题',
-      '对精度要求高的场景'
-    ]
-  },
-  {
-    name: 'random',
-    displayName: '随机搜索',
-    description: '在参数空间中随机采样，简单有效的基准算法',
-    parameters: {
-      seed: { type: 'int', default: null, min: 0, max: 99999, description: '随机种子' }
-    },
-    advantages: [
-      '实现简单',
-      '无参数偏见',
-      '易于理解和调试',
-      '适合快速baseline'
-    ],
-    disadvantages: [
-      '收敛速度慢',
-      '无法利用历史信息',
-      '效率较低'
-    ],
-    bestFor: [
-      '初始基准测试',
-      '参数空间不确定',
-      '快速验证可行性'
-    ]
-  },
-  {
-    name: 'grid',
-    displayName: '网格搜索',
-    description: '系统性地遍历参数空间的所有组合',
-    parameters: {
-      n_points_per_axis: { type: 'int', default: 10, min: 2, max: 20, description: '每个轴的点数' }
-    },
-    advantages: [
-      '系统性完整搜索',
-      '结果可重现',
-      '易于并行化',
-      '适合离散参数'
-    ],
-    disadvantages: [
-      '维度诅咒严重',
-      '计算量随维度指数增长',
-      '无法处理条件参数'
-    ],
-    bestFor: [
-      '低维参数空间',
-      '离散参数组合',
-      '需要完整覆盖的场景'
-    ]
-  }
-];
-
 const HyperparameterAlgorithmsPage: React.FC = () => {
-  const [selectedAlgorithm, setSelectedAlgorithm] = useState<AlgorithmConfig>(algorithms[0]);
+  const [algorithms, setAlgorithms] = useState<AlgorithmConfig[]>([]);
+  const [selectedAlgorithm, setSelectedAlgorithm] = useState<AlgorithmConfig | null>(null);
   const [algorithmConfigs, setAlgorithmConfigs] = useState<Record<string, any>>({});
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState('overview');
+  const [loading, setLoading] = useState(false);
 
-  // 初始化配置
   useEffect(() => {
-    const initialConfigs: Record<string, any> = {};
-    algorithms.forEach(alg => {
-      initialConfigs[alg.name] = {};
-      Object.entries(alg.parameters).forEach(([param, config]) => {
-        initialConfigs[alg.name][param] = config.default;
-      });
-    });
-    setAlgorithmConfigs(initialConfigs);
+    loadAlgorithms();
   }, []);
+
+  const formatAlgorithmName = (name: string) => {
+    const map: Record<string, string> = {
+      tpe: 'TPE',
+      cmaes: 'CMA-ES',
+      random: '随机搜索',
+      grid: '网格搜索',
+      nsga2: 'NSGA-II'
+    };
+    return map[name] || name.toUpperCase();
+  };
+
+  const loadAlgorithms = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const info = await hyperparameterServiceEnhanced.getAvailableAlgorithms();
+      const list = (info.algorithms || []).map((name) => ({
+        name,
+        displayName: formatAlgorithmName(name),
+        description: info.descriptions?.[name] || '暂无描述',
+        parameters: info.parameters?.[name] || {}
+      }));
+      const initialConfigs: Record<string, any> = {};
+      list.forEach((alg) => {
+        initialConfigs[alg.name] = {};
+        Object.entries(alg.parameters || {}).forEach(([param, config]) => {
+          initialConfigs[alg.name][param] = (config as any).default;
+        });
+      });
+      setAlgorithms(list);
+      setSelectedAlgorithm(list[0] || null);
+      setAlgorithmConfigs(initialConfigs);
+    } catch (err) {
+      logger.error('加载算法信息失败:', err);
+      setError('加载算法信息失败');
+      setAlgorithms([]);
+      setSelectedAlgorithm(null);
+      setAlgorithmConfigs({});
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // 更新参数配置
   const updateParameter = (algorithmName: string, paramName: string, value: any) => {
@@ -165,6 +98,9 @@ const HyperparameterAlgorithmsPage: React.FC = () => {
 
   // 渲染参数配置表单
   const renderParameterForm = (algorithm: AlgorithmConfig) => {
+    if (!algorithm || Object.keys(algorithm.parameters || {}).length === 0) {
+      return <div className="text-sm text-gray-500">该算法暂无可配置参数</div>;
+    }
     const config = algorithmConfigs[algorithm.name] || {};
     
     return (
@@ -182,7 +118,7 @@ const HyperparameterAlgorithmsPage: React.FC = () => {
               {paramConfig.type === 'int' ? (
                 <Input
                   type="number"
-                  value={config[paramName] || paramConfig.default}
+                  value={config[paramName] ?? paramConfig.default}
                   min={paramConfig.min}
                   max={paramConfig.max}
                   onChange={(e) => updateParameter(
@@ -195,7 +131,7 @@ const HyperparameterAlgorithmsPage: React.FC = () => {
                 <Input
                   type="number"
                   step="0.01"
-                  value={config[paramName] || paramConfig.default}
+                  value={config[paramName] ?? paramConfig.default}
                   min={paramConfig.min}
                   max={paramConfig.max}
                   onChange={(e) => updateParameter(
@@ -207,12 +143,21 @@ const HyperparameterAlgorithmsPage: React.FC = () => {
               ) : paramConfig.type === 'select' ? (
                 <select
                   className="w-full p-2 border border-gray-300 rounded-md"
-                  value={config[paramName] || paramConfig.default}
+                  value={config[paramName] ?? paramConfig.default}
                   onChange={(e) => updateParameter(algorithm.name, paramName, e.target.value)}
                 >
                   {paramConfig.options.map((option: string) => (
                     <option key={option} value={option}>{option}</option>
                   ))}
+                </select>
+              ) : paramConfig.type === 'boolean' ? (
+                <select
+                  className="w-full p-2 border border-gray-300 rounded-md"
+                  value={(config[paramName] ?? paramConfig.default) ? 'true' : 'false'}
+                  onChange={(e) => updateParameter(algorithm.name, paramName, e.target.value === 'true')}
+                >
+                  <option value="true">true</option>
+                  <option value="false">false</option>
                 </select>
               ) : (
                 <Input
@@ -232,45 +177,7 @@ const HyperparameterAlgorithmsPage: React.FC = () => {
     <div className="space-y-6">
       <div>
         <h3 className="text-lg font-semibold mb-2">算法描述</h3>
-        <p className="text-gray-600">{selectedAlgorithm.description}</p>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <Card className="p-4">
-          <h4 className="font-semibold text-green-600 mb-3">优势</h4>
-          <ul className="space-y-2">
-            {selectedAlgorithm.advantages.map((advantage, index) => (
-              <li key={index} className="flex items-start">
-                <span className="w-2 h-2 bg-green-500 rounded-full mt-2 mr-2 flex-shrink-0"></span>
-                <span className="text-sm text-gray-600">{advantage}</span>
-              </li>
-            ))}
-          </ul>
-        </Card>
-
-        <Card className="p-4">
-          <h4 className="font-semibold text-red-600 mb-3">劣势</h4>
-          <ul className="space-y-2">
-            {selectedAlgorithm.disadvantages.map((disadvantage, index) => (
-              <li key={index} className="flex items-start">
-                <span className="w-2 h-2 bg-red-500 rounded-full mt-2 mr-2 flex-shrink-0"></span>
-                <span className="text-sm text-gray-600">{disadvantage}</span>
-              </li>
-            ))}
-          </ul>
-        </Card>
-
-        <Card className="p-4">
-          <h4 className="font-semibold text-blue-600 mb-3">适用场景</h4>
-          <ul className="space-y-2">
-            {selectedAlgorithm.bestFor.map((scenario, index) => (
-              <li key={index} className="flex items-start">
-                <span className="w-2 h-2 bg-blue-500 rounded-full mt-2 mr-2 flex-shrink-0"></span>
-                <span className="text-sm text-gray-600">{scenario}</span>
-              </li>
-            ))}
-          </ul>
-        </Card>
+        <p className="text-gray-600">{selectedAlgorithm?.description || '暂无描述'}</p>
       </div>
     </div>
   );
@@ -282,20 +189,23 @@ const HyperparameterAlgorithmsPage: React.FC = () => {
         <h3 className="text-lg font-semibold">参数配置</h3>
         <Button
           variant="outline"
-          onClick={() => resetConfig(selectedAlgorithm.name)}
+          onClick={() => selectedAlgorithm && resetConfig(selectedAlgorithm.name)}
+          disabled={!selectedAlgorithm}
         >
           重置默认值
         </Button>
       </div>
 
       <Card className="p-6">
-        {renderParameterForm(selectedAlgorithm)}
+        {selectedAlgorithm ? renderParameterForm(selectedAlgorithm) : (
+          <div className="text-sm text-gray-500">暂无算法数据</div>
+        )}
       </Card>
 
       <Card className="p-4 bg-blue-50">
         <h4 className="font-semibold text-blue-800 mb-2">当前配置</h4>
         <pre className="text-sm text-blue-700 bg-blue-100 p-3 rounded overflow-x-auto">
-          {JSON.stringify(algorithmConfigs[selectedAlgorithm.name] || {}, null, 2)}
+          {JSON.stringify(selectedAlgorithm ? (algorithmConfigs[selectedAlgorithm.name] || {}) : {}, null, 2)}
         </pre>
       </Card>
     </div>
@@ -331,7 +241,7 @@ const HyperparameterAlgorithmsPage: React.FC = () => {
               <div
                 key={algorithm.name}
                 className={`p-4 border rounded-lg cursor-pointer transition-colors ${
-                  selectedAlgorithm.name === algorithm.name
+                  selectedAlgorithm?.name === algorithm.name
                     ? 'border-blue-500 bg-blue-50'
                     : 'border-gray-200 hover:border-gray-300'
                 }`}
@@ -341,7 +251,7 @@ const HyperparameterAlgorithmsPage: React.FC = () => {
                   <Badge className="bg-blue-100 text-blue-800">
                     {algorithm.name.toUpperCase()}
                   </Badge>
-                  {selectedAlgorithm.name === algorithm.name && (
+                  {selectedAlgorithm?.name === algorithm.name && (
                     <span className="w-2 h-2 bg-blue-500 rounded-full"></span>
                   )}
                 </div>
@@ -354,90 +264,33 @@ const HyperparameterAlgorithmsPage: React.FC = () => {
               </div>
             ))}
           </div>
+          {!loading && algorithms.length === 0 && (
+            <div className="text-sm text-gray-500">暂无可用算法</div>
+          )}
         </Card>
 
         {/* 算法详情 */}
         <Card className="p-6">
-          <div className="flex items-center space-x-4 mb-6">
-            <Badge className="bg-blue-500 text-white px-3 py-1">
-              {selectedAlgorithm.name.toUpperCase()}
-            </Badge>
-            <h2 className="text-xl font-semibold text-gray-900">
-              {selectedAlgorithm.displayName}
-            </h2>
-          </div>
+          {selectedAlgorithm ? (
+            <>
+              <div className="flex items-center space-x-4 mb-6">
+                <Badge className="bg-blue-500 text-white px-3 py-1">
+                  {selectedAlgorithm.name.toUpperCase()}
+                </Badge>
+                <h2 className="text-xl font-semibold text-gray-900">
+                  {selectedAlgorithm.displayName}
+                </h2>
+              </div>
 
-          <Tabs
-            tabs={tabsData}
-            activeTab={activeTab}
-            onTabChange={setActiveTab}
-          />
-        </Card>
-
-        {/* 算法比较 */}
-        <Card className="p-6">
-          <h2 className="text-lg font-semibold mb-4">算法性能比较</h2>
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    算法
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    参数类型支持
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    收敛速度
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    计算复杂度
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    推荐场景
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                <tr>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <Badge className="bg-blue-100 text-blue-800">TPE</Badge>
-                  </td>
-                  <td className="px-6 py-4 text-sm text-gray-600">连续 + 离散</td>
-                  <td className="px-6 py-4 text-sm text-gray-600">快</td>
-                  <td className="px-6 py-4 text-sm text-gray-600">低</td>
-                  <td className="px-6 py-4 text-sm text-gray-600">通用推荐</td>
-                </tr>
-                <tr>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <Badge className="bg-purple-100 text-purple-800">CMA-ES</Badge>
-                  </td>
-                  <td className="px-6 py-4 text-sm text-gray-600">连续</td>
-                  <td className="px-6 py-4 text-sm text-gray-600">中</td>
-                  <td className="px-6 py-4 text-sm text-gray-600">高</td>
-                  <td className="px-6 py-4 text-sm text-gray-600">连续优化</td>
-                </tr>
-                <tr>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <Badge className="bg-green-100 text-green-800">随机</Badge>
-                  </td>
-                  <td className="px-6 py-4 text-sm text-gray-600">全部</td>
-                  <td className="px-6 py-4 text-sm text-gray-600">慢</td>
-                  <td className="px-6 py-4 text-sm text-gray-600">极低</td>
-                  <td className="px-6 py-4 text-sm text-gray-600">基准测试</td>
-                </tr>
-                <tr>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <Badge className="bg-yellow-100 text-yellow-800">网格</Badge>
-                  </td>
-                  <td className="px-6 py-4 text-sm text-gray-600">离散</td>
-                  <td className="px-6 py-4 text-sm text-gray-600">系统性</td>
-                  <td className="px-6 py-4 text-sm text-gray-600">极高</td>
-                  <td className="px-6 py-4 text-sm text-gray-600">低维空间</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
+              <Tabs
+                tabs={tabsData}
+                activeTab={activeTab}
+                onTabChange={setActiveTab}
+              />
+            </>
+          ) : (
+            <div className="text-sm text-gray-500">暂无算法数据</div>
+          )}
         </Card>
       </div>
     </div>

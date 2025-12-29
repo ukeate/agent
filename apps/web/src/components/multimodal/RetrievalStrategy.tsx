@@ -14,8 +14,7 @@ import {
   Empty,
   Row,
   Col,
-  Badge,
-  Alert
+  Badge
 } from 'antd';
 import {
   SearchOutlined,
@@ -23,11 +22,10 @@ import {
   FileImageOutlined,
   TableOutlined,
   MergeCellsOutlined,
-  ThunderboltOutlined,
-  BulbOutlined
+  ThunderboltOutlined
 } from '@ant-design/icons';
 
-const { Text, Title } = Typography;
+const { Text } = Typography;
 
 interface RetrievalWeights {
   text: number;
@@ -38,12 +36,9 @@ interface RetrievalWeights {
 interface StrategyData {
   strategy: 'text' | 'visual' | 'document' | 'hybrid';
   weights: RetrievalWeights;
-  reasoning: string[];
-  algorithms: string[];
   reranking: boolean;
-  diversityFactor: number;
-  topK: number;
-  similarityThreshold: number;
+  top_k: number;
+  similarity_threshold: number;
 }
 
 interface RetrievalStrategyProps {
@@ -171,37 +166,13 @@ const RetrievalStrategy: React.FC<RetrievalStrategyProps> = ({ strategy }) => {
         </div>
 
         {/* 决策理由 */}
-        <div>
-          <Text type="secondary">决策依据:</Text>
-          <div className="mt-2">
-            {strategy.reasoning.map((reason, idx) => (
-              <div key={idx} className="mb-1">
-                <BulbOutlined className="mr-1" style={{ color: '#faad14' }} />
-                <Text style={{ fontSize: 12 }}>{reason}</Text>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* 算法细节 */}
-        <div>
-          <Text type="secondary">使用算法:</Text>
-          <div className="mt-2">
-            {strategy.algorithms.map((algo, idx) => (
-              <Tag key={idx} color="cyan" style={{ marginBottom: 4 }}>
-                {algo}
-              </Tag>
-            ))}
-          </div>
-        </div>
-
         {/* 技术参数 */}
         <Descriptions size="small" column={2}>
           <Descriptions.Item label="Top-K">
-            <Badge count={strategy.topK} style={{ backgroundColor: '#52c41a' }} />
+            <Badge count={strategy.top_k} style={{ backgroundColor: '#52c41a' }} />
           </Descriptions.Item>
           <Descriptions.Item label="相似度阈值">
-            <Text code>{strategy.similarityThreshold}</Text>
+            <Text code>{strategy.similarity_threshold}</Text>
           </Descriptions.Item>
           <Descriptions.Item label="重排序">
             {strategy.reranking ? (
@@ -210,35 +181,7 @@ const RetrievalStrategy: React.FC<RetrievalStrategyProps> = ({ strategy }) => {
               <Tag color="default">禁用</Tag>
             )}
           </Descriptions.Item>
-          <Descriptions.Item label="多样性">
-            <Progress
-              percent={Math.round(strategy.diversityFactor * 100)}
-              size="small"
-              style={{ width: 60 }}
-            />
-          </Descriptions.Item>
         </Descriptions>
-
-        {/* 技术说明 */}
-        <Alert
-          message="LangChain MultiVectorRetriever"
-          description={
-            <Space direction="vertical" size="small">
-              <Text style={{ fontSize: 12 }}>
-                • 向量库: Chroma (collection分离)
-              </Text>
-              <Text style={{ fontSize: 12 }}>
-                • 嵌入模型: Nomic (text-v1.5 / vision-v1.5)
-              </Text>
-              <Text style={{ fontSize: 12 }}>
-                • 相似度计算: 余弦相似度 + MMR多样性
-              </Text>
-            </Space>
-          }
-          variant="default"
-          showIcon
-          icon={<SearchOutlined />}
-        />
       </Space>
     </Card>
   );

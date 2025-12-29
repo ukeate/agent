@@ -9,7 +9,8 @@ from typing import Dict, List, Any, Optional, Union, TextIO
 from dataclasses import dataclass
 from enum import Enum
 from io import StringIO
-import logging
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 try:
     from rdflib import Graph, URIRef, Literal, BNode, Namespace
@@ -19,9 +20,6 @@ except ImportError:
     HAS_RDFLIB = False
     Graph = URIRef = Literal = BNode = Namespace = None
     RDF = RDFS = OWL = None
-
-logger = logging.getLogger(__name__)
-
 
 class DataFormat(Enum):
     """数据格式枚举"""
@@ -36,7 +34,6 @@ class DataFormat(Enum):
     YAML = "yaml"
     EXCEL = "excel"
 
-
 @dataclass
 class Triple:
     """三元组数据结构"""
@@ -46,7 +43,6 @@ class Triple:
     object_type: str = "literal"  # literal, uri, blank_node
     language: Optional[str] = None
     datatype: Optional[str] = None
-
 
 @dataclass
 class ProcessingResult:
@@ -58,12 +54,11 @@ class ProcessingResult:
     warnings: List[str] = None
     statistics: Optional[Dict[str, Any]] = None
 
-
 class FormatProcessor:
     """通用格式处理器基类"""
     
     def __init__(self):
-        self.logger = logging.getLogger(f"{__name__}.{self.__class__.__name__}")
+        self.logger = get_logger(f"{__name__}.{self.__class__.__name__}")
     
     def detect_format(self, data: Union[str, bytes], filename: str = None) -> Optional[DataFormat]:
         """自动检测数据格式"""
@@ -116,8 +111,8 @@ class FormatProcessor:
             try:
                 json.loads(data)
                 return DataFormat.JSON
-            except:
-                pass
+            except json.JSONDecodeError:
+                logger.debug("JSON解析失败，无法判定为JSON格式", exc_info=True)
         
         # CSV/TSV检测
         lines = data.split('\n')
@@ -488,13 +483,12 @@ class FormatProcessor:
             self.logger.error(f"TSV解析失败: {e}")
             return []
 
-
 class FormatConverter:
     """格式转换器"""
     
     def __init__(self):
         self.processor = FormatProcessor()
-        self.logger = logging.getLogger(f"{__name__}.{self.__class__.__name__}")
+        self.logger = get_logger(f"{__name__}.{self.__class__.__name__}")
     
     def convert(self, data: str, source_format: DataFormat, target_format: DataFormat) -> ProcessingResult:
         """转换数据格式"""
@@ -726,7 +720,6 @@ class FormatConverter:
         
         return json.dumps(jsonld, indent=2, ensure_ascii=False)
 
-
 # 便捷函数
 def detect_and_convert(data: str, target_format: DataFormat, filename: str = None) -> ProcessingResult:
     """
@@ -754,10 +747,10 @@ def detect_and_convert(data: str, target_format: DataFormat, filename: str = Non
     # 执行转换
     return converter.convert(data, source_format, target_format)
 
-
 if __name__ == "__main__":
     # 测试格式处理器
-    print("测试格式处理器...")
+    setup_logging()
+    logger.info("测试格式处理器")
     
     # 测试格式检测
     processor = FormatProcessor()
@@ -765,21 +758,21 @@ if __name__ == "__main__":
     # JSON数据测试
     json_data = '{"triples": [{"subject": "ex:John", "predicate": "rdf:type", "object": "ex:Person"}]}'
     format = processor.detect_format(json_data)
-    print(f"JSON格式检测: {format}")
+    logger.info("JSON格式检测", format=format)
     
     # N-Triples数据测试
     nt_data = '<http://example.org/John> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://example.org/Person> .'
     format = processor.detect_format(nt_data)
-    print(f"N-Triples格式检测: {format}")
+    logger.info("N-Triples格式检测", format=format)
     
     # 测试格式转换
     converter = FormatConverter()
     result = converter.convert(json_data, DataFormat.JSON, DataFormat.N_TRIPLES)
     
     if result.success:
-        print("JSON到N-Triples转换成功:")
-        print(result.data)
+        logger.info("JSON到N-Triples转换成功")
+        logger.info("转换结果", data=result.data)
     else:
-        print(f"转换失败: {result.error_message}")
+        logger.error("转换失败", error=result.error_message)
     
-    print("格式处理器测试完成")
+    logger.info("格式处理器测试完成")

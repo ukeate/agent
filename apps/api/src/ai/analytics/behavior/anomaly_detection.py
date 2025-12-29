@@ -13,22 +13,20 @@ from src.core.utils.timezone_utils import utc_now, utc_factory
 from collections import defaultdict, deque
 from dataclasses import dataclass
 from enum import Enum
-import logging
 import json
-
-# 机器学习相关导入
 from sklearn.ensemble import IsolationForest
 from sklearn.neighbors import LocalOutlierFactor
 from sklearn.preprocessing import StandardScaler
 from sklearn.covariance import EllipticEnvelope
 import pandas as pd
 from scipy import stats
-
 from ..models import BehaviorEvent, AnomalyDetection, AnomalyType, SeverityLevel
 from ..storage.event_store import EventStore
 
-logger = logging.getLogger(__name__)
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
+# 机器学习相关导入
 
 class DetectionMethod(str, Enum):
     """异常检测方法枚举"""
@@ -38,7 +36,6 @@ class DetectionMethod(str, Enum):
     LOCAL_OUTLIER_FACTOR = "lof"
     ELLIPTIC_ENVELOPE = "elliptic_envelope"
     STATISTICAL_COMBINED = "statistical_combined"
-
 
 @dataclass
 class AnomalyScore:
@@ -50,7 +47,6 @@ class AnomalyScore:
     confidence: float
     details: Dict[str, Any]
 
-
 @dataclass
 class DetectionResult:
     """检测结果"""
@@ -59,7 +55,6 @@ class DetectionResult:
     anomaly_rate: float
     processing_time_seconds: float
     method_stats: Dict[str, Any]
-
 
 class StatisticalAnomalyDetector:
     """统计异常检测器"""
@@ -259,7 +254,6 @@ class StatisticalAnomalyDetector:
         except Exception as e:
             logger.error(f"IQR检测失败: {e}")
             return []
-
 
 class MLAnomalyDetector:
     """机器学习异常检测器"""
@@ -488,7 +482,6 @@ class MLAnomalyDetector:
         except Exception as e:
             logger.error(f"Elliptic Envelope检测失败: {e}")
             return []
-
 
 class RealTimeAnomalyScorer:
     """实时异常评分系统"""
@@ -786,7 +779,6 @@ class RealTimeAnomalyScorer:
             }
         }
 
-
 class AnomalyDetectionEngine:
     """异常检测引擎"""
     
@@ -810,7 +802,7 @@ class AnomalyDetectionEngine:
         if methods is None:
             methods = [DetectionMethod.ISOLATION_FOREST, DetectionMethod.Z_SCORE]
         
-        start_time = asyncio.get_event_loop().time()
+        start_time = asyncio.get_running_loop().time()
         
         try:
             # 获取事件数据
@@ -848,7 +840,7 @@ class AnomalyDetectionEngine:
                         unique_anomalies[event_id] = anomaly
             
             final_anomalies = list(unique_anomalies.values())
-            processing_time = asyncio.get_event_loop().time() - start_time
+            processing_time = asyncio.get_running_loop().time() - start_time
             
             return DetectionResult(
                 anomalies=final_anomalies,

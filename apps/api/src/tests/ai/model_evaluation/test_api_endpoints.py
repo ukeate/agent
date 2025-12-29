@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-
 """
 模型评估API接口测试模块
 测试FastAPI接口的功能、错误处理、异步任务管理等
@@ -15,13 +14,12 @@ from fastapi import BackgroundTasks
 from datetime import datetime
 from datetime import timedelta
 from src.core.utils.timezone_utils import utc_now, utc_factory
-
-# 导入API相关模块
 from api.v1.model_evaluation import router, get_evaluation_engine, get_benchmark_manager
 from ai.model_evaluation.evaluation_engine import ModelEvaluationEngine, EvaluationConfig
 from ai.model_evaluation.benchmark_manager import BenchmarkManager
 from ai.model_evaluation.report_generator import EvaluationReportGenerator
 
+# 导入API相关模块
 
 class TestModelEvaluationAPI:
     """测试模型评估API接口"""
@@ -459,7 +457,6 @@ class TestModelEvaluationAPI:
         
         final_result = mock_evaluation_engine.get_evaluation_result()
         assert final_result["overall_score"] == 0.85
-
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

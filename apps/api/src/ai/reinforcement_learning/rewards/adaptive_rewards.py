@@ -10,7 +10,6 @@ from typing import Dict, Any, List, Optional, Callable
 from collections import deque
 from .base import RewardFunction, RewardConfig
 
-
 class AdaptiveReward(RewardFunction):
     """自适应奖励函数"""
     
@@ -101,7 +100,6 @@ class AdaptiveReward(RewardFunction):
         # 更新指标
         self.metrics.adaptation_history.append(self.reward_scale)
 
-
 class ProgressBasedReward(RewardFunction):
     """基于进度的奖励函数"""
     
@@ -163,7 +161,6 @@ class ProgressBasedReward(RewardFunction):
                 break
         else:
             self.current_stage = len(self.progress_stages) - 1
-
 
 class CurriculumReward(RewardFunction):
     """课程学习奖励函数"""
@@ -276,7 +273,6 @@ class CurriculumReward(RewardFunction):
             'success_threshold': self.stage_success_threshold,
             'ready_to_advance': self._should_advance_stage()
         }
-
 
 class DynamicDifficultyReward(RewardFunction):
     """动态难度调整奖励函数"""

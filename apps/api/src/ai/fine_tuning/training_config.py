@@ -2,6 +2,7 @@
 训练配置管理模块
 负责配置文件解析、验证、预设模板管理等
 """
+
 import json
 import yaml
 import os
@@ -9,7 +10,6 @@ from typing import Dict, Any, Optional, List
 from pathlib import Path
 import torch
 from .models import TrainingConfig, LoRAConfig, QuantizationConfig, ModelArchitecture, TrainingMode, QuantizationType
-
 
 class ConfigManager:
     """配置管理器"""
@@ -56,7 +56,7 @@ class ConfigManager:
                     "rank": 32,
                     "alpha": 64,
                     "dropout": 0.05,
-                    "target_modules": "all-linear"
+                    "target_modules": ["all-linear"]
                 }
             },
             "qlora_4bit": {
@@ -69,7 +69,7 @@ class ConfigManager:
                     "rank": 16,
                     "alpha": 32,
                     "dropout": 0.1,
-                    "target_modules": "all-linear"
+                    "target_modules": ["all-linear"]
                 },
                 "quantization_config": {
                     "quantization_type": QuantizationType.NF4,
@@ -88,7 +88,7 @@ class ConfigManager:
                     "rank": 16,
                     "alpha": 32,
                     "dropout": 0.1,
-                    "target_modules": "all-linear"
+                    "target_modules": ["all-linear"]
                 },
                 "quantization_config": {
                     "quantization_type": QuantizationType.INT8,

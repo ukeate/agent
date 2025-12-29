@@ -1,14 +1,18 @@
 """Epic 5 集成测试管理器"""
+
 from typing import Dict, List, Any, Optional
 from datetime import datetime
 from src.core.utils.timezone_utils import utc_now, utc_factory
 import asyncio
+import time
 from dataclasses import dataclass
 from enum import Enum
-
 from ...core.config import get_settings
 from src.core.monitoring import monitor
-
+from src.core.redis import get_redis
+from .performance_benchmarks import PerformanceBenchmarkSuite
+from .security_validation import SecurityValidator
+from .system_health import SystemHealthMonitor
 
 class TestType(Enum):
     """测试类型枚举"""
@@ -18,14 +22,12 @@ class TestType(Enum):
     SECURITY = "security"
     STABILITY = "stability"
 
-
 class TestStatus(Enum):
     """测试状态枚举"""
     PASSED = "passed"
     FAILED = "failed"
     SKIPPED = "skipped"
     ERROR = "error"
-
 
 @dataclass
 class IntegrationTestResult:
@@ -51,7 +53,6 @@ class IntegrationTestResult:
     # 元数据
     test_environment: Dict[str, str] = None
 
-
 @dataclass
 class PerformanceBenchmark:
     """性能基准数据结构"""
@@ -68,7 +69,6 @@ class PerformanceBenchmark:
     test_conditions: Dict[str, Any] = None
     detailed_results: Dict[str, float] = None
 
-
 @dataclass
 class SystemHealthCheck:
     """系统健康检查数据结构"""
@@ -80,7 +80,6 @@ class SystemHealthCheck:
     component_metrics: Dict[str, Any] = None
     health_details: Dict[str, List[str]] = None
     dependencies: Dict[str, str] = None
-
 
 class TestSuiteRegistry:
     """测试套件注册表"""
@@ -99,13 +98,14 @@ class TestSuiteRegistry:
         """列出所有测试套件"""
         return list(self.test_suites.keys())
 
-
 class Epic5IntegrationTestManager:
     """Epic 5集成测试管理器"""
     
     def __init__(self):
         self.test_suites = TestSuiteRegistry()
-        self.performance_benchmarks = PerformanceBenchmarkRunner()
+        settings = get_settings()
+        self.base_url = f"http://127.0.0.1:{settings.PORT}"
+        self.performance_benchmarks = PerformanceBenchmarkSuite(base_url=self.base_url)
         self.health_monitor = SystemHealthMonitor()
         self.security_validator = SecurityValidator()
         self.test_results = []
@@ -135,23 +135,110 @@ class Epic5IntegrationTestManager:
     async def verify_epic5_objectives(self) -> Dict[str, Any]:
         """验证Epic 5的预期目标达成"""
         objectives = {
-            'response_time_improvement': 50.0,  # 50%提升
-            'retrieval_accuracy_improvement': 30.0,  # 30%提升
-            'concurrent_capacity_multiplier': 2.0,  # 翻倍
-            'storage_efficiency_improvement': 25.0,  # 25%提升
-            'development_speed_multiplier': 2.0  # 翻倍
+            'response_time_improvement': 50.0,
+            'retrieval_accuracy_improvement': 30.0,
+            'concurrent_capacity_multiplier': 2.0,
+            'storage_efficiency_improvement': 25.0,
+            'development_speed_multiplier': 2.0,
         }
-        
-        verification_results = {}
-        for objective, target in objectives.items():
-            result = await self.measure_objective_achievement(objective)
-            verification_results[objective] = {
-                'target': target,
-                'actual': result.value if result else 0,
-                'achieved': result.value >= target if result else False,
-                'improvement_percent': result.improvement_percent if result else 0
+
+        redis = get_redis()
+        baseline_key = "testing:epic5:baseline"
+        baseline: Dict[str, Any] = {}
+        if redis:
+            try:
+                raw = await redis.get(baseline_key)
+                if raw:
+                    import json
+
+                    baseline = json.loads(raw)
+            except Exception:
+                baseline = {}
+
+        network = await self.performance_benchmarks.benchmark_network()
+        db = await self.performance_benchmarks.benchmark_database()
+        current = {
+            "network_latency_p95_ms": float(network.latency_p95),
+            "network_throughput_qps": float(network.throughput_qps),
+            "db_latency_p95_ms": float(db.latency_p95),
+        }
+
+        if redis and not baseline:
+            try:
+                import json
+
+                await redis.set(baseline_key, json.dumps(current, ensure_ascii=False))
+                baseline = current
+            except Exception:
+                baseline = current
+
+        def _pct_improve(before: float, after: float) -> float:
+            if before <= 0:
+                return 0.0
+            return (before - after) / before * 100
+
+        def _ratio(before: float, after: float) -> float:
+            if before <= 0:
+                return 0.0
+            return after / before
+
+        verification_results: Dict[str, Any] = {}
+        verification_results['response_time_improvement'] = {
+            'target': objectives['response_time_improvement'],
+            'actual': _pct_improve(
+                float(baseline.get("network_latency_p95_ms") or 0),
+                current["network_latency_p95_ms"],
+            ),
+            'achieved': False,
+            'improvement_percent': 0.0,
+        }
+        verification_results['response_time_improvement']['improvement_percent'] = verification_results[
+            'response_time_improvement'
+        ]['actual']
+        verification_results['response_time_improvement']['achieved'] = (
+            verification_results['response_time_improvement']['actual']
+            >= objectives['response_time_improvement']
+        )
+
+        verification_results['concurrent_capacity_multiplier'] = {
+            'target': objectives['concurrent_capacity_multiplier'],
+            'actual': _ratio(
+                float(baseline.get("network_throughput_qps") or 0),
+                current["network_throughput_qps"],
+            ),
+            'achieved': False,
+            'improvement_percent': 0.0,
+        }
+        verification_results['concurrent_capacity_multiplier']['achieved'] = (
+            verification_results['concurrent_capacity_multiplier']['actual']
+            >= objectives['concurrent_capacity_multiplier']
+        )
+
+        verification_results['storage_efficiency_improvement'] = {
+            'target': objectives['storage_efficiency_improvement'],
+            'actual': _pct_improve(
+                float(baseline.get("db_latency_p95_ms") or 0),
+                current["db_latency_p95_ms"],
+            ),
+            'achieved': False,
+            'improvement_percent': 0.0,
+        }
+        verification_results['storage_efficiency_improvement']['improvement_percent'] = verification_results[
+            'storage_efficiency_improvement'
+        ]['actual']
+        verification_results['storage_efficiency_improvement']['achieved'] = (
+            verification_results['storage_efficiency_improvement']['actual']
+            >= objectives['storage_efficiency_improvement']
+        )
+
+        for k in ('retrieval_accuracy_improvement', 'development_speed_multiplier'):
+            verification_results[k] = {
+                'target': objectives[k],
+                'actual': None,
+                'achieved': False,
+                'improvement_percent': None,
             }
-            
+
         return verification_results
         
     async def run_integration_tests(self) -> List[IntegrationTestResult]:
@@ -177,31 +264,127 @@ class Epic5IntegrationTestManager:
         start_time = utc_now()
         
         try:
-            # 模拟测试执行
-            await asyncio.sleep(0.1)  # 实际测试执行
-            
+            ops: List[Dict[str, Any]] = []
+            errors = 0
+
+            async def _http(method: str, path: str, json_body: Any | None = None) -> float:
+                nonlocal errors
+                import httpx
+
+                url = f"{self.base_url}{path}"
+                t0 = time.perf_counter()
+                async with httpx.AsyncClient() as client:
+                    resp = await client.request(method, url, json=json_body, timeout=15.0)
+                ms = (time.perf_counter() - t0) * 1000
+                ok = 200 <= resp.status_code < 300
+                if not ok:
+                    errors += 1
+                ops.append(
+                    {
+                        "method": method,
+                        "path": path,
+                        "status_code": resp.status_code,
+                        "ok": ok,
+                        "latency_ms": round(ms, 2),
+                    }
+                )
+                return ms
+
+            if suite_name == "langgraph_integration":
+                from src.ai.langgraph.state_graph import create_simple_workflow
+                from src.ai.langgraph.state import create_initial_state
+                from src.ai.langgraph.context import create_default_context
+
+                t0 = time.perf_counter()
+                builder = create_simple_workflow()
+                state = create_initial_state()
+                state["input_records"] = [
+                    {"id": "it_1", "category": "integration", "status": "ok", "value": 1},
+                ]
+                await builder.execute(state, context=create_default_context())
+                ops.append(
+                    {
+                        "method": "INPROC",
+                        "path": "langgraph",
+                        "status_code": 200,
+                        "ok": True,
+                        "latency_ms": round((time.perf_counter() - t0) * 1000, 2),
+                    }
+                )
+            elif suite_name == "autogen_integration":
+                await _http("GET", "/api/v1/events/stats")
+            elif suite_name == "pgvector_integration":
+                from sqlalchemy import text
+                from src.core.database import get_db_session
+
+                q0 = time.perf_counter()
+                async with get_db_session() as session:
+                    ext = await session.execute(
+                        text("SELECT extversion FROM pg_extension WHERE extname = 'vector'")
+                    )
+                    ext_version = ext.scalar_one_or_none()
+                    ok = bool(ext_version)
+                    if not ok:
+                        errors += 1
+                    ops.append(
+                        {
+                            "method": "SQL",
+                            "path": "pg_extension.vector",
+                            "status_code": 200 if ok else 500,
+                            "ok": ok,
+                            "latency_ms": round((time.perf_counter() - q0) * 1000, 2),
+                            "extversion": ext_version,
+                        }
+                    )
+            elif suite_name == "mcp_tools_integration":
+                await _http("GET", "/api/v1/mcp/health")
+            elif suite_name == "api_integration":
+                await _http("GET", "/api/v1/health")
+                await _http("GET", "/openapi.json")
+                await _http("GET", "/api/v1/testing/health/status")
+                await _http("GET", "/api/v1/supervisor/status?supervisor_id=main_supervisor")
+            else:
+                errors += 1
+                ops.append(
+                    {
+                        "method": "N/A",
+                        "path": suite_name,
+                        "status_code": 400,
+                        "ok": False,
+                        "latency_ms": 0,
+                        "error": "unknown suite",
+                    }
+                )
+
+            latencies = [float(o.get("latency_ms") or 0) for o in ops]
+            duration_s = (utc_now() - start_time).total_seconds()
+            throughput = (len(latencies) - errors) / duration_s if duration_s > 0 else 0.0
+            response_time_ms = sum(latencies) / len(latencies) if latencies else 0.0
+            error_rate = errors / len(latencies) if latencies else 1.0
+
             result = IntegrationTestResult(
                 test_suite_id=f"epic5_{suite_name}",
                 test_name=suite_name,
                 test_type=TestType.INTEGRATION,
                 epic_components=[suite_name.split('_')[0]],
-                status=TestStatus.PASSED,
+                status=TestStatus.PASSED if errors == 0 else TestStatus.FAILED,
                 execution_time_ms=(utc_now() - start_time).total_seconds() * 1000,
                 start_time=start_time,
                 end_time=utc_now(),
                 performance_metrics={
-                    'response_time_ms': 50,
-                    'throughput_qps': 1000,
-                    'memory_usage_mb': 512,
-                    'cpu_usage_percent': 25,
-                    'error_rate_percent': 0
+                    'response_time_ms': round(response_time_ms, 2),
+                    'throughput_qps': round(float(throughput), 2),
+                    'memory_usage_mb': None,
+                    'cpu_usage_percent': None,
+                    'error_rate_percent': round(float(error_rate) * 100, 2),
                 },
                 test_details={
                     'scenario_description': f'{suite_name} integration test',
                     'expected_outcome': 'All components integrate successfully',
-                    'actual_outcome': 'Integration successful',
-                    'assertions_passed': 10,
-                    'assertions_total': 10
+                    'actual_outcome': 'Integration successful' if errors == 0 else 'Integration failed',
+                    'assertions_passed': len(latencies) - errors,
+                    'assertions_total': len(latencies),
+                    'operations': ops,
                 }
             )
             results.append(result)
@@ -229,7 +412,7 @@ class Epic5IntegrationTestManager:
         
     async def run_performance_benchmarks(self) -> Dict[str, Any]:
         """运行性能基准测试"""
-        return await self.performance_benchmarks.run_epic5_performance_comparison()
+        return await self.performance_benchmarks.run_comprehensive_benchmark()
         
     async def run_security_validation(self) -> Dict[str, Any]:
         """运行安全验证"""
@@ -245,55 +428,103 @@ class Epic5IntegrationTestManager:
         
     async def run_long_running_stability_test(self) -> Dict[str, Any]:
         """长时间运行稳定性测试"""
-        # 模拟24小时稳定性测试
+        import psutil
+
+        duration_s = 3
+        errors = 0
+        p = psutil.Process()
+        mem_start = p.memory_info().rss
+        for _ in range(duration_s):
+            try:
+                deps = await self.health_monitor.check_dependencies()
+                if any((v or {}).get("status") == "disconnected" for v in deps.values() if isinstance(v, dict)):
+                    errors += 1
+            except Exception:
+                errors += 1
+            await asyncio.sleep(1)
+        mem_end = p.memory_info().rss
+        mem_delta_mb = (mem_end - mem_start) / 1024 / 1024
+        leak = mem_delta_mb > 50
+        stable = errors == 0 and not leak
+
         return {
-            'test_duration_hours': 24,
-            'status': 'passed',
-            'uptime_percent': 99.95,
-            'errors_encountered': 0,
-            'memory_leak_detected': False,
-            'resource_usage_stable': True
+            'test_duration_hours': round(duration_s / 3600, 6),
+            'status': 'passed' if stable else 'failed',
+            'uptime_percent': 100.0 if errors == 0 else round(max(0.0, 100.0 - errors * (100.0 / duration_s)), 2),
+            'errors_encountered': errors,
+            'memory_leak_detected': leak,
+            'memory_delta_mb': round(mem_delta_mb, 2),
+            'resource_usage_stable': stable,
         }
         
     async def run_high_load_test(self) -> Dict[str, Any]:
         """高负载测试"""
+        import httpx
+
+        url = f"{self.base_url}/api/v1/health"
+        total_ops = 80
+        concurrency = 20
+        sem = asyncio.Semaphore(concurrency)
+        errors = 0
+        latencies: List[float] = []
+
+        async def _one(client: httpx.AsyncClient) -> None:
+            nonlocal errors
+            async with sem:
+                t0 = time.perf_counter()
+                try:
+                    r = await client.get(url, timeout=10.0)
+                    r.raise_for_status()
+                except Exception:
+                    errors += 1
+                latencies.append((time.perf_counter() - t0) * 1000)
+
+        t0 = time.perf_counter()
+        async with httpx.AsyncClient() as client:
+            await asyncio.gather(*[_one(client) for _ in range(total_ops)])
+        duration = time.perf_counter() - t0
+
+        latencies.sort()
+        p95 = latencies[int(len(latencies) * 0.95)] if latencies else 0.0
+        qps = (total_ops - errors) / duration if duration > 0 else 0.0
+        error_rate = errors / total_ops if total_ops else 1.0
+        passed = errors == 0
         return {
-            'max_qps_achieved': 1200,
-            'target_qps': 1000,
-            'status': 'passed',
-            'error_rate_under_load': 0.01,
-            'response_time_p95_ms': 180
+            'max_qps_achieved': round(qps, 2),
+            'target_qps': None,
+            'status': 'passed' if passed else 'failed',
+            'error_rate_under_load': round(error_rate, 4),
+            'response_time_p95_ms': round(p95, 2),
         }
         
     async def run_failure_recovery_test(self) -> Dict[str, Any]:
         """故障恢复测试"""
+        scenarios = []
+        times: List[float] = []
+        ok = 0
+        for name, fn in [
+            ("postgresql", self.health_monitor.check_postgresql_status),
+            ("redis", self.health_monitor.check_redis_status),
+            ("qdrant", self.health_monitor.check_qdrant_status),
+        ]:
+            t0 = time.perf_counter()
+            s1 = await fn()
+            s2 = await fn()
+            dt = time.perf_counter() - t0
+            success = (s1 or {}).get("status") == "connected" and (s2 or {}).get("status") == "connected"
+            ok += 1 if success else 0
+            times.append(dt)
+            scenarios.append({"component": name, "success": success})
+
+        avg = sum(times) / len(times) if times else 0.0
         return {
-            'components_tested': ['langgraph', 'autogen', 'pgvector'],
-            'recovery_scenarios': 5,
-            'successful_recoveries': 5,
-            'average_recovery_time_seconds': 15,
-            'data_integrity_maintained': True
+            'components_tested': [s["component"] for s in scenarios],
+            'recovery_scenarios': len(scenarios),
+            'successful_recoveries': ok,
+            'average_recovery_time_seconds': round(avg, 3),
+            'data_integrity_maintained': ok == len(scenarios),
+            'scenario_results': scenarios,
         }
-        
-    async def measure_objective_achievement(self, objective: str) -> Any:
-        """测量目标达成情况"""
-        # 模拟测量逻辑
-        measurements = {
-            'response_time_improvement': {'value': 55, 'improvement_percent': 55},
-            'retrieval_accuracy_improvement': {'value': 35, 'improvement_percent': 35},
-            'concurrent_capacity_multiplier': {'value': 2.2, 'improvement_percent': 120},
-            'storage_efficiency_improvement': {'value': 28, 'improvement_percent': 28},
-            'development_speed_multiplier': {'value': 2.1, 'improvement_percent': 110}
-        }
-        
-        result = measurements.get(objective, {'value': 0, 'improvement_percent': 0})
-        
-        class Result:
-            def __init__(self, value, improvement_percent):
-                self.value = value
-                self.improvement_percent = improvement_percent
-                
-        return Result(result['value'], result['improvement_percent'])
         
     def generate_validation_report(self, results: Dict[str, Any]) -> Dict[str, Any]:
         """生成验证报告"""
@@ -341,355 +572,3 @@ class Epic5IntegrationTestManager:
             recommendations.append("建立持续的稳定性监控机制")
             
         return recommendations
-
-
-class PerformanceBenchmarkRunner:
-    """性能基准测试运行器"""
-    
-    def __init__(self):
-        self.before_epic5_baselines = self.load_baseline_data()
-        
-    def load_baseline_data(self) -> Dict[str, Any]:
-        """加载基线数据"""
-        return {
-            'multi_agent_collaboration': {'response_time_ms': 400, 'throughput_qps': 500},
-            'langgraph_workflow_execution': {'response_time_ms': 300, 'throughput_qps': 600},
-            'rag_document_retrieval': {'response_time_ms': 250, 'accuracy_percent': 70},
-            'mcp_tool_invocation': {'response_time_ms': 150, 'success_rate': 95},
-            'api_concurrent_processing': {'max_concurrent': 50, 'throughput_qps': 400}
-        }
-        
-    async def run_epic5_performance_comparison(self) -> Dict[str, Any]:
-        """运行Epic 5前后性能对比"""
-        scenarios = [
-            'multi_agent_collaboration',
-            'langgraph_workflow_execution',
-            'rag_document_retrieval',
-            'mcp_tool_invocation',
-            'api_concurrent_processing'
-        ]
-        
-        comparison_results = {}
-        for scenario in scenarios:
-            before_metrics = self.before_epic5_baselines[scenario]
-            after_metrics = await self.run_scenario_benchmark(scenario)
-            
-            comparison_results[scenario] = self.calculate_improvement(
-                before_metrics, after_metrics
-            )
-            
-        return comparison_results
-        
-    async def run_scenario_benchmark(self, scenario: str) -> Dict[str, float]:
-        """运行场景基准测试"""
-        # 模拟Epic 5后的性能提升
-        improvements = {
-            'multi_agent_collaboration': {'response_time_ms': 180, 'throughput_qps': 1100},
-            'langgraph_workflow_execution': {'response_time_ms': 140, 'throughput_qps': 1300},
-            'rag_document_retrieval': {'response_time_ms': 120, 'accuracy_percent': 92},
-            'mcp_tool_invocation': {'response_time_ms': 70, 'success_rate': 99},
-            'api_concurrent_processing': {'max_concurrent': 110, 'throughput_qps': 950}
-        }
-        
-        return improvements.get(scenario, {})
-        
-    def calculate_improvement(self, before: Dict, after: Dict) -> Dict[str, Any]:
-        """计算性能改进"""
-        improvement = {}
-        
-        for key in before:
-            if key in after:
-                before_val = before[key]
-                after_val = after[key]
-                
-                if 'time' in key or 'latency' in key:
-                    # 时间相关指标，越小越好
-                    improvement_pct = ((before_val - after_val) / before_val) * 100
-                else:
-                    # 其他指标，越大越好
-                    improvement_pct = ((after_val - before_val) / before_val) * 100
-                    
-                improvement[key] = {
-                    'before': before_val,
-                    'after': after_val,
-                    'improvement_percent': round(improvement_pct, 2)
-                }
-                
-        return improvement
-        
-    async def validate_performance_targets(self) -> Dict[str, Any]:
-        """验证性能目标达成"""
-        targets = {
-            'api_response_time_p95': {'target': 200, 'unit': 'ms'},
-            'concurrent_qps': {'target': 1000, 'unit': 'qps'},
-            'memory_efficiency': {'target': 25, 'unit': 'percent_improvement'},
-            'cache_hit_rate': {'target': 80, 'unit': 'percent'}
-        }
-        
-        validation_results = {}
-        for metric, config in targets.items():
-            actual_value = await self.measure_current_performance(metric)
-            validation_results[metric] = {
-                'target': config['target'],
-                'actual': actual_value,
-                'unit': config['unit'],
-                'target_met': actual_value >= config['target']
-            }
-            
-        return validation_results
-        
-    async def measure_current_performance(self, metric: str) -> float:
-        """测量当前性能"""
-        # 模拟性能测量
-        measurements = {
-            'api_response_time_p95': 185,
-            'concurrent_qps': 1100,
-            'memory_efficiency': 28,
-            'cache_hit_rate': 85
-        }
-        
-        return measurements.get(metric, 0)
-
-
-class SystemHealthMonitor:
-    """系统健康监控器"""
-    
-    def __init__(self):
-        self.component_checkers = {
-            'langgraph': LangGraphHealthChecker(),
-            'autogen': AutoGenHealthChecker(),
-            'pgvector': PgVectorHealthChecker(),
-            'fastapi': FastAPIHealthChecker(),
-            'opentelemetry': OpenTelemetryHealthChecker()
-        }
-        
-    async def run_comprehensive_health_check(self) -> Dict[str, Any]:
-        """运行全面的系统健康检查"""
-        health_results = {}
-        
-        for component_name, checker in self.component_checkers.items():
-            try:
-                health_result = await checker.check_health()
-                health_results[component_name] = {
-                    'status': 'healthy' if health_result.is_healthy else 'unhealthy',
-                    'response_time_ms': health_result.response_time,
-                    'details': health_result.details,
-                    'recommendations': health_result.recommendations
-                }
-            except Exception as e:
-                health_results[component_name] = {
-                    'status': 'error',
-                    'error': str(e),
-                    'recommendations': ['Investigate component connectivity']
-                }
-                
-        return self.generate_health_report(health_results)
-        
-    async def validate_production_readiness(self) -> Dict[str, Any]:
-        """验证生产就绪度"""
-        readiness_checks = [
-            'all_components_healthy',
-            'performance_targets_met',
-            'security_compliance_passed',
-            'monitoring_system_active',
-            'error_handling_robust',
-            'documentation_complete'
-        ]
-        
-        readiness_results = {}
-        for check in readiness_checks:
-            result = await self.run_readiness_check(check)
-            readiness_results[check] = result
-            
-        overall_readiness = all(
-            result.get('passed', False) for result in readiness_results.values()
-        )
-        
-        return {
-            'production_ready': overall_readiness,
-            'checks': readiness_results,
-            'blockers': [
-                check for check, result in readiness_results.items()
-                if not result.get('passed', False)
-            ]
-        }
-        
-    async def run_readiness_check(self, check_name: str) -> Dict[str, Any]:
-        """运行就绪度检查"""
-        # 模拟就绪度检查
-        checks = {
-            'all_components_healthy': {'passed': True, 'details': 'All components responding'},
-            'performance_targets_met': {'passed': True, 'details': 'Performance targets achieved'},
-            'security_compliance_passed': {'passed': True, 'details': 'Security audit passed'},
-            'monitoring_system_active': {'passed': True, 'details': 'Monitoring active'},
-            'error_handling_robust': {'passed': True, 'details': 'Error handling verified'},
-            'documentation_complete': {'passed': True, 'details': 'Documentation up to date'}
-        }
-        
-        return checks.get(check_name, {'passed': False, 'details': 'Check not found'})
-        
-    def generate_health_report(self, health_results: Dict[str, Any]) -> Dict[str, Any]:
-        """生成健康报告"""
-        healthy_components = sum(1 for r in health_results.values() if r['status'] == 'healthy')
-        total_components = len(health_results)
-        
-        return {
-            'timestamp': utc_now().isoformat(),
-            'overall_health': 'healthy' if healthy_components == total_components else 'degraded',
-            'healthy_components': healthy_components,
-            'total_components': total_components,
-            'component_status': health_results,
-            'health_score': (healthy_components / total_components * 100) if total_components > 0 else 0
-        }
-
-
-class SecurityValidator:
-    """安全验证器"""
-    
-    async def validate_security_compliance(self) -> Dict[str, Any]:
-        """验证安全合规性"""
-        security_checks = {
-            'owasp_top_10': await self.check_owasp_compliance(),
-            'mcp_tool_security': await self.check_mcp_tool_security(),
-            'api_security': await self.check_api_security(),
-            'data_protection': await self.check_data_protection()
-        }
-        
-        all_passed = all(check.get('passed', False) for check in security_checks.values())
-        
-        return {
-            'security_compliant': all_passed,
-            'checks': security_checks,
-            'vulnerabilities': self.identify_vulnerabilities(security_checks),
-            'recommendations': self.generate_security_recommendations(security_checks)
-        }
-        
-    async def check_owasp_compliance(self) -> Dict[str, Any]:
-        """检查OWASP合规性"""
-        return {
-            'passed': True,
-            'vulnerabilities_found': 0,
-            'critical': 0,
-            'high': 0,
-            'medium': 0,
-            'low': 0
-        }
-        
-    async def check_mcp_tool_security(self) -> Dict[str, Any]:
-        """检查MCP工具安全性"""
-        return {
-            'passed': True,
-            'audit_complete': True,
-            'unauthorized_access_attempts': 0,
-            'security_policies_enforced': True
-        }
-        
-    async def check_api_security(self) -> Dict[str, Any]:
-        """检查API安全性"""
-        return {
-            'passed': True,
-            'authentication_required': True,
-            'authorization_enforced': True,
-            'rate_limiting_active': True,
-            'input_validation': True
-        }
-        
-    async def check_data_protection(self) -> Dict[str, Any]:
-        """检查数据保护"""
-        return {
-            'passed': True,
-            'encryption_at_rest': True,
-            'encryption_in_transit': True,
-            'pii_protection': True,
-            'gdpr_compliant': True
-        }
-        
-    def identify_vulnerabilities(self, security_checks: Dict[str, Any]) -> List[str]:
-        """识别漏洞"""
-        vulnerabilities = []
-        
-        for check_name, result in security_checks.items():
-            if not result.get('passed', False):
-                vulnerabilities.append(f"Security issue in {check_name}")
-                
-        return vulnerabilities
-        
-    def generate_security_recommendations(self, security_checks: Dict[str, Any]) -> List[str]:
-        """生成安全建议"""
-        return [
-            "定期进行安全审计",
-            "保持依赖项更新",
-            "实施安全监控",
-            "定期进行渗透测试"
-        ]
-
-
-# Component Health Checkers
-class LangGraphHealthChecker:
-    """LangGraph健康检查器"""
-    
-    async def check_health(self):
-        class HealthResult:
-            def __init__(self):
-                self.is_healthy = True
-                self.response_time = 10
-                self.details = {'nodes_active': 5, 'cache_hit_rate': 85}
-                self.recommendations = []
-        
-        return HealthResult()
-
-
-class AutoGenHealthChecker:
-    """AutoGen健康检查器"""
-    
-    async def check_health(self):
-        class HealthResult:
-            def __init__(self):
-                self.is_healthy = True
-                self.response_time = 12
-                self.details = {'agents_running': 3, 'event_queue_size': 10}
-                self.recommendations = []
-        
-        return HealthResult()
-
-
-class PgVectorHealthChecker:
-    """PgVector健康检查器"""
-    
-    async def check_health(self):
-        class HealthResult:
-            def __init__(self):
-                self.is_healthy = True
-                self.response_time = 8
-                self.details = {'connections': 15, 'index_status': 'optimal'}
-                self.recommendations = []
-        
-        return HealthResult()
-
-
-class FastAPIHealthChecker:
-    """FastAPI健康检查器"""
-    
-    async def check_health(self):
-        class HealthResult:
-            def __init__(self):
-                self.is_healthy = True
-                self.response_time = 5
-                self.details = {'requests_per_second': 850, 'error_rate': 0.01}
-                self.recommendations = []
-        
-        return HealthResult()
-
-
-class OpenTelemetryHealthChecker:
-    """OpenTelemetry健康检查器"""
-    
-    async def check_health(self):
-        class HealthResult:
-            def __init__(self):
-                self.is_healthy = True
-                self.response_time = 7
-                self.details = {'traces_active': 100, 'metrics_collected': 5000}
-                self.recommendations = []
-        
-        return HealthResult()

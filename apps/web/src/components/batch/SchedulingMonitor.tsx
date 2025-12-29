@@ -1,5 +1,7 @@
+import { buildApiUrl, apiFetch } from '../../utils/apiBase'
 import React, { useState, useEffect } from 'react';
 import { 
+import { logger } from '../../utils/logger'
   Card, 
   Row, 
   Col, 
@@ -125,14 +127,12 @@ const SchedulingMonitor: React.FC = () => {
   const fetchSchedulingStats = async () => {
     setLoading(true);
     try {
-      const response = await fetch('/api/v1/batch/scheduling/stats');
-      if (response.ok) {
-        const data = await response.json();
-        setStats(data);
-        setLastUpdate(new Date());
-      }
+      const response = await apiFetch(buildApiUrl('/api/v1/batch/scheduling/stats'));
+      const data = await response.json();
+      setStats(data);
+      setLastUpdate(new Date());
     } catch (error) {
-      console.error('获取调度统计失败:', error);
+      logger.error('获取调度统计失败:', error);
     } finally {
       setLoading(false);
     }

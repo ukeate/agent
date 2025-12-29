@@ -3,8 +3,8 @@
 
 基于情感状态、个性画像和上下文，智能选择最适合的共情策略
 """
+
 from typing import Dict, List, Tuple, Optional
-import logging
 from .models import DialogueContext, EmpathyType
 from .strategies.base_strategy import EmpathyStrategy
 from .strategies.cognitive_strategy import CognitiveEmpathyStrategy
@@ -12,8 +12,8 @@ from .strategies.affective_strategy import AffectiveEmpathyStrategy
 from .strategies.compassionate_strategy import CompassionateEmpathyStrategy
 from ..emotion_modeling.models import EmotionState, PersonalityProfile
 
-logger = logging.getLogger(__name__)
-
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 class StrategySelector:
     """共情策略选择器"""

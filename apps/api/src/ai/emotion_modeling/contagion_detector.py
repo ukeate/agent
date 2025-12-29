@@ -9,13 +9,13 @@ This module provides advanced emotion contagion detection and analysis capabilit
 - Contagion prediction and prevention
 """
 
+from src.core.utils.timezone_utils import utc_now
 import numpy as np
 from typing import Dict, List, Any, Optional, Tuple, Set
 from datetime import datetime, timedelta
 from collections import defaultdict, deque
 from dataclasses import dataclass
 import networkx as nx
-
 from .group_emotion_models import (
     EmotionState,
     EmotionContagionEvent,
@@ -23,7 +23,6 @@ from .group_emotion_models import (
     EmotionContagionType,
     generate_event_id
 )
-
 
 @dataclass
 class ContagionNode:
@@ -35,7 +34,6 @@ class ContagionNode:
     is_source: bool = False
     propagation_delay: float = 0.0  # 从源传播的延迟(秒)
 
-
 @dataclass
 class ContagionPath:
     """传染路径"""
@@ -45,7 +43,6 @@ class ContagionPath:
     intensity_change: float  # 强度变化率
     path_length: int
     effectiveness: float  # 路径有效性 [0,1]
-
 
 @dataclass
 class ContagionNetwork:
@@ -60,7 +57,6 @@ class ContagionNetwork:
     average_delay: float = 0.0
     peak_intensity: float = 0.0
     decay_rate: float = 0.0
-
 
 class EmotionContagionDetector:
     """情感传染检测器"""
@@ -125,7 +121,7 @@ class EmotionContagionDetector:
     ):
         """更新事件缓存"""
         
-        current_time = datetime.now()
+        current_time = utc_now()
         
         # 添加当前情感状态到缓存
         for participant_id, emotion_state in current_emotions.items():
@@ -214,16 +210,16 @@ class EmotionContagionDetector:
         """构建情感时间线"""
         
         timeline = []
-        cutoff_time = datetime.now() - timedelta(minutes=time_window_minutes)
+        cutoff_time = utc_now() - timedelta(minutes=time_window_minutes)
         
         for event in self.event_buffer:
             if (event.get('emotion') == emotion and 
                 event.get('participant_id') in participants and
-                event.get('timestamp', datetime.now()) > cutoff_time):
+                event.get('timestamp', utc_now()) > cutoff_time):
                 timeline.append(event)
         
         # 按时间排序
-        timeline.sort(key=lambda x: x.get('timestamp', datetime.now()))
+        timeline.sort(key=lambda x: x.get('timestamp', utc_now()))
         
         return timeline
     
@@ -463,7 +459,7 @@ class EmotionContagionDetector:
         """找到峰值强度时间"""
         
         if not chain:
-            return datetime.now()
+            return utc_now()
         
         max_intensity = 0
         peak_time = chain[0]['timestamp']
@@ -499,7 +495,7 @@ class EmotionContagionDetector:
     ):
         """更新活跃传染网络"""
         
-        current_time = datetime.now()
+        current_time = utc_now()
         
         # 清理过期网络
         expired_networks = [

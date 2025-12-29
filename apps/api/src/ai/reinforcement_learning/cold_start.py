@@ -7,9 +7,7 @@
 from typing import Dict, List, Any, Optional, Tuple
 import numpy as np
 from abc import ABC, abstractmethod
-
 from .bandits.base import MultiArmedBandit
-
 
 class ColdStartStrategy(ABC):
     """冷启动策略抽象基类"""
@@ -30,7 +28,7 @@ class ColdStartStrategy(ABC):
         Returns:
             冷启动策略结果
         """
-        pass
+        raise NotImplementedError
     
     @abstractmethod
     def handle_new_item(
@@ -48,8 +46,7 @@ class ColdStartStrategy(ABC):
         Returns:
             冷启动策略结果
         """
-        pass
-
+        raise NotImplementedError
 
 class ContentBasedColdStart(ColdStartStrategy):
     """基于内容的冷启动策略"""
@@ -409,7 +406,6 @@ class ContentBasedColdStart(ColdStartStrategy):
             "similarity_threshold": self.similarity_threshold
         }
 
-
 class PopularityBasedColdStart(ColdStartStrategy):
     """基于流行度的冷启动策略"""
     
@@ -611,7 +607,6 @@ class PopularityBasedColdStart(ColdStartStrategy):
             "decay_factor": self.decay_factor,
             "top_items": self._get_top_popular_items(5)
         }
-
 
 class HybridColdStart(ColdStartStrategy):
     """混合冷启动策略"""

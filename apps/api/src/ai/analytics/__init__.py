@@ -34,25 +34,21 @@ from .models import (
     BehaviorEvent, UserSession, BehaviorPattern, AnomalyDetection,
     EventFilter, SessionFilter, AnalyticsRequest, CrossAnalysisResult
 )
-
 from .behavior.event_collector import EventCollector
 from .behavior.session_manager import SessionManager  
 from .behavior.pattern_recognition import PatternRecognitionEngine
 from .behavior.anomaly_detection import AnomalyDetectionEngine
 from .behavior.cross_analysis import MultiDimensionInsightEngine
 from .behavior.report_generator import ReportGenerator
-
 from .storage.event_store import EventStore
 from .realtime.websocket_manager import realtime_manager
 from .monitoring.performance_monitor import performance_monitor
 from .config.performance import performance_config, performance_optimizer
-
 import asyncio
-import logging
 from typing import Dict, Any, List, Optional
 
-logger = logging.getLogger(__name__)
-
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 class AnalyticsSystem:
     """智能行为分析系统主类"""
@@ -223,7 +219,7 @@ class AnalyticsSystem:
             
             return {
                 "status": "healthy" if all_healthy else "degraded",
-                "timestamp": asyncio.get_event_loop().time(),
+                "timestamp": asyncio.get_running_loop().time(),
                 "details": status
             }
             
@@ -232,7 +228,7 @@ class AnalyticsSystem:
             return {
                 "status": "unhealthy",
                 "error": str(e),
-                "timestamp": asyncio.get_event_loop().time()
+                "timestamp": asyncio.get_running_loop().time()
             }
 
 # 全局系统实例

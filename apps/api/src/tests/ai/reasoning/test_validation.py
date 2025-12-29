@@ -2,7 +2,6 @@
 
 import pytest
 from uuid import uuid4
-
 from src.ai.reasoning.validation import (
     ConsistencyValidator,
     ConfidenceValidator,
@@ -22,8 +21,8 @@ from models.schemas.reasoning import (
     ThoughtStep,
     ThoughtStepType,
     ReasoningStrategy as RS
-)
 
+)
 
 class TestConsistencyValidator:
     """测试一致性验证器"""
@@ -114,7 +113,6 @@ class TestConsistencyValidator:
         # 应该检测到不合理的步骤序列
         assert "步骤类型序列不合理" in validation.issues
 
-
 class TestConfidenceValidator:
     """测试置信度验证器"""
 
@@ -186,7 +184,6 @@ class TestConfidenceValidator:
         validation = await validator.validate(step, chain)
         
         assert "置信度持续下降" in ' '.join(validation.issues)
-
 
 class TestSelfCheckValidator:
     """测试自我检查验证器"""
@@ -263,7 +260,6 @@ class TestSelfCheckValidator:
         
         assert "假设缺乏依据" in ' '.join(validation.issues)
 
-
 class TestCompositeValidator:
     """测试组合验证器"""
 
@@ -302,7 +298,6 @@ class TestCompositeValidator:
         # 组合验证器应该综合所有结果
         assert validation.is_valid
         assert validation.consistency_score > 0
-
 
 class TestRecoveryMechanisms:
     """测试恢复机制"""
@@ -450,7 +445,6 @@ class TestRecoveryMechanisms:
         
         assert strategy is not None
         assert isinstance(strategy, RecoveryStrategy)
-
 
 def test_calculate_chain_quality_score():
     """测试计算推理链质量分数"""

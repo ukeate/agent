@@ -11,16 +11,15 @@ from datetime import timedelta
 from src.core.utils.timezone_utils import utc_now, utc_factory
 import asyncio
 import uuid
-
-from pydantic import BaseModel, Field
+from pydantic import Field
 from src.ai.reinforcement_learning.recommendation_engine import AlgorithmType
 from src.ai.reinforcement_learning.evaluation import InteractionEvent, EvaluationMetrics
 from src.services.bandit_recommendation_service import bandit_recommendation_service
+from src.api.base_model import ApiBaseModel
 
-router = APIRouter()
+router = APIRouter(prefix="/bandit", tags=["bandit-recommendations"])
 
-
-class RecommendationRequestModel(BaseModel):
+class RecommendationRequestModel(ApiBaseModel):
     """推荐请求模型"""
     user_id: str = Field(..., description="用户ID")
     context: Optional[Dict[str, Any]] = Field(None, description="上下文信息")
@@ -29,8 +28,7 @@ class RecommendationRequestModel(BaseModel):
     include_explanations: bool = Field(False, description="是否包含推荐解释")
     experiment_id: Optional[str] = Field(None, description="A/B测试实验ID")
 
-
-class FeedbackRequestModel(BaseModel):
+class FeedbackRequestModel(ApiBaseModel):
     """反馈请求模型"""
     user_id: str = Field(..., description="用户ID")
     item_id: str = Field(..., description="物品ID")
@@ -38,14 +36,12 @@ class FeedbackRequestModel(BaseModel):
     feedback_value: float = Field(0.0, description="反馈值", ge=0.0, le=5.0)
     context: Optional[Dict[str, Any]] = Field(None, description="上下文信息")
 
-
-class AlgorithmConfigModel(BaseModel):
+class AlgorithmConfigModel(ApiBaseModel):
     """算法配置模型"""
     algorithm_type: AlgorithmType = Field(..., description="算法类型")
     config: Dict[str, Any] = Field({}, description="算法参数配置")
 
-
-class ExperimentRequestModel(BaseModel):
+class ExperimentRequestModel(ApiBaseModel):
     """A/B测试实验请求模型"""
     experiment_name: str = Field(..., description="实验名称")
     algorithms: Dict[str, AlgorithmConfigModel] = Field(..., description="参与测试的算法")
@@ -53,13 +49,13 @@ class ExperimentRequestModel(BaseModel):
     duration_hours: int = Field(24, description="实验持续时间（小时）", ge=1, le=168)
     min_sample_size: int = Field(100, description="最小样本量", ge=10)
 
-
 async def get_recommendation_service():
     """获取推荐服务实例"""
     if not bandit_recommendation_service.is_initialized:
-        raise HTTPException(status_code=503, detail="推荐引擎未初始化")
+        success = await bandit_recommendation_service.initialize()
+        if not success:
+            raise HTTPException(status_code=503, detail="推荐引擎未初始化")
     return bandit_recommendation_service
-
 
 @router.post("/initialize", summary="初始化推荐引擎")
 async def initialize_engine(
@@ -93,7 +89,6 @@ async def initialize_engine(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"初始化失败: {str(e)}")
 
-
 @router.post("/recommend", response_model=Dict[str, Any], summary="获取推荐")
 async def get_recommendations(
     request: RecommendationRequestModel,
@@ -118,7 +113,6 @@ async def get_recommendations(
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"推荐生成失败: {str(e)}")
-
 
 @router.post("/feedback", summary="提交用户反馈")
 async def submit_feedback(
@@ -150,7 +144,6 @@ async def submit_feedback(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"反馈处理失败: {str(e)}")
 
-
 @router.get("/statistics", summary="获取引擎统计信息")
 async def get_engine_statistics(
     service = Depends(get_recommendation_service)
@@ -165,7 +158,6 @@ async def get_engine_statistics(
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"获取统计信息失败: {str(e)}")
-
 
 @router.put("/user/{user_id}/context", summary="更新用户上下文")
 async def update_user_context(
@@ -188,7 +180,6 @@ async def update_user_context(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"更新用户上下文失败: {str(e)}")
 
-
 @router.put("/item/{item_id}/features", summary="更新物品特征")
 async def update_item_features(
     item_id: str,
@@ -209,7 +200,6 @@ async def update_item_features(
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"更新物品特征失败: {str(e)}")
-
 
 @router.post("/experiments", summary="创建A/B测试实验")
 async def create_experiment(
@@ -253,7 +243,6 @@ async def create_experiment(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"创建实验失败: {str(e)}")
 
-
 @router.get("/experiments", summary="列出活动的A/B测试实验")
 async def list_experiments(
     service = Depends(get_recommendation_service)
@@ -273,7 +262,6 @@ async def list_experiments(
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"获取实验列表失败: {str(e)}")
-
 
 @router.get("/experiments/{experiment_id}/results", summary="获取A/B测试实验结果")
 async def get_experiment_results(
@@ -298,7 +286,6 @@ async def get_experiment_results(
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"获取实验结果失败: {str(e)}")
-
 
 @router.post("/experiments/{experiment_id}/end", summary="结束A/B测试实验")
 async def end_experiment(
@@ -325,7 +312,6 @@ async def end_experiment(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"结束实验失败: {str(e)}")
 
-
 @router.get("/health", summary="健康检查")
 async def health_check():
     """API健康检查端点"""
@@ -333,7 +319,6 @@ async def health_check():
     
     status_code = 200 if health_info["status"] == "healthy" else 503
     return health_info
-
 
 @router.get("/algorithms", summary="获取可用算法列表")
 async def get_available_algorithms():

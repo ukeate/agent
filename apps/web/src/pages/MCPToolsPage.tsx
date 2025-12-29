@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react'
 import {
+import { logger } from '../utils/logger'
   Card,
   Tabs,
   Button,
   Input,
   Select,
+  Switch,
   Space,
   Row,
   Col,
@@ -13,13 +15,9 @@ import {
   Alert,
   Form,
   message,
-  Spin,
   Statistic,
-  Progress,
   List,
   Typography,
-  Divider,
-  Modal,
   Collapse
 } from 'antd'
 import {
@@ -42,6 +40,7 @@ import mcpService, {
   type MetricsResponse,
   type ToolCallResponse
 } from '../services/mcpService'
+import authService from '../services/authService'
 
 const { TabPane } = Tabs
 const { TextArea } = Input
@@ -91,6 +90,10 @@ const MCPToolsPage: React.FC = () => {
 
   const loadTools = async () => {
     try {
+      if (!authService.getToken()) {
+        setAvailableTools({})
+        return
+      }
       const response = await mcpService.listAvailableTools()
       setAvailableTools(response.tools)
     } catch (error) {
@@ -103,7 +106,7 @@ const MCPToolsPage: React.FC = () => {
       const health = await mcpService.healthCheck()
       setHealthStatus(health)
     } catch (error) {
-      console.error('健康检查失败:', error)
+      logger.error('健康检查失败:', error)
     }
   }
 
@@ -112,7 +115,7 @@ const MCPToolsPage: React.FC = () => {
       const metricsData = await mcpService.getMetrics()
       setMetrics(metricsData)
     } catch (error) {
-      console.error('加载指标失败:', error)
+      logger.error('加载指标失败:', error)
     }
   }
 

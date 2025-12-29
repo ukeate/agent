@@ -3,12 +3,12 @@ Task 8社交情感理解系统集成完整单元测试套件
 测试SocialEmotionSystem的系统集成和统一接口功能
 """
 
+from src.core.utils.timezone_utils import utc_now
 import pytest
 import asyncio
-from datetime import datetime, timedelta
+from datetime import timedelta
 from typing import Dict, List, Any, Optional
 from unittest.mock import Mock, patch, AsyncMock
-
 from ai.emotion_modeling.social_emotion_system import (
     SocialEmotionSystem,
     SystemStatus,
@@ -20,12 +20,10 @@ from ai.emotion_modeling.models import EmotionVector, SocialContext
 from ai.emotion_modeling.social_context_adapter import SocialEnvironment
 from ai.emotion_modeling.cultural_context_analyzer import CulturalProfile
 
-
 @pytest.fixture
 def social_emotion_system():
     """创建社交情感理解系统实例"""
     return SocialEmotionSystem()
-
 
 @pytest.fixture
 def sample_interaction_context():
@@ -39,19 +37,19 @@ def sample_interaction_context():
         ],
         "conversation_data": [
             {
-                "timestamp": datetime.now() - timedelta(minutes=5),
+                "timestamp": utc_now() - timedelta(minutes=5),
                 "user_id": "user1",
                 "message": "大家好，今天我们讨论新项目计划",
                 "emotions": {"confidence": 0.8, "leadership": 0.7}
             },
             {
-                "timestamp": datetime.now() - timedelta(minutes=4),
+                "timestamp": utc_now() - timedelta(minutes=4),
                 "user_id": "user2",
                 "message": "我觉得这个方案很有挑战性",
                 "emotions": {"concern": 0.6, "interest": 0.7}
             },
             {
-                "timestamp": datetime.now() - timedelta(minutes=3),
+                "timestamp": utc_now() - timedelta(minutes=3),
                 "user_id": "user3", 
                 "message": "我同意，但我们可以尝试",
                 "emotions": {"optimism": 0.7, "caution": 0.4}
@@ -71,7 +69,6 @@ def sample_interaction_context():
             "user3": {"language": "en", "region": "US"}
         }
     }
-
 
 @pytest.fixture
 def sample_emotion_vectors():
@@ -96,7 +93,6 @@ def sample_emotion_vectors():
             context={"role": "participant"}
         )
     }
-
 
 class TestSocialEmotionSystem:
     """社交情感理解系统基础功能测试"""
@@ -150,7 +146,6 @@ class TestSocialEmotionSystem:
         assert "components" in status
         assert "performance" in status
         assert "last_activity" in status
-
 
 class TestComprehensiveProcessing:
     """综合处理功能测试"""
@@ -269,7 +264,6 @@ class TestComprehensiveProcessing:
         assert result.processing_success is False
         assert "system not started" in " ".join(result.error_messages).lower()
 
-
 class TestAnalyticsAndInsights:
     """分析和洞察功能测试"""
     
@@ -327,7 +321,6 @@ class TestAnalyticsAndInsights:
         assert "relationship_evolution" in insights
         assert "cultural_dynamics" in insights
         assert "system_recommendations" in insights
-
 
 class TestSystemHealthAndMetrics:
     """系统健康和指标测试"""
@@ -390,7 +383,6 @@ class TestSystemHealthAndMetrics:
             assert health.overall_health in ["WARNING", "CRITICAL"]
             assert health.component_status["analytics_tools"] == "UNHEALTHY"
 
-
 class TestConcurrencyAndScaling:
     """并发和扩展性测试"""
     
@@ -424,7 +416,7 @@ class TestConcurrencyAndScaling:
             "participants": [{"user_id": f"user_{i}"} for i in range(20)],
             "conversation_data": [
                 {
-                    "timestamp": datetime.now(),
+                    "timestamp": utc_now(),
                     "user_id": f"user_{i%5}",
                     "message": f"压力测试消息 {i}",
                     "emotions": {"neutral": 0.8}
@@ -462,7 +454,7 @@ class TestConcurrencyAndScaling:
                 "participants": [{"user_id": "user1"}],
                 "conversation_data": [
                     {
-                        "timestamp": datetime.now(),
+                        "timestamp": utc_now(),
                         "user_id": "user1",
                         "message": f"内存测试消息 {i}",
                         "emotions": {"neutral": 0.5}
@@ -476,7 +468,6 @@ class TestConcurrencyAndScaling:
         
         # 验证内存使用合理
         assert memory_growth < initial_memory * 2  # 内存增长不超过初始大小的2倍
-
 
 class TestDataIntegrity:
     """数据完整性测试"""
@@ -513,7 +504,7 @@ class TestDataIntegrity:
             "conversation_data": []
         }
         
-        base_time = datetime.now() - timedelta(minutes=10)
+        base_time = utc_now() - timedelta(minutes=10)
         for i in range(5):
             timeline_context["conversation_data"].append({
                 "timestamp": base_time + timedelta(minutes=i*2),
@@ -532,7 +523,6 @@ class TestDataIntegrity:
             # 验证时间顺序
             for i in range(1, len(timeline)):
                 assert timeline[i]['timestamp'] > timeline[i-1]['timestamp']
-
 
 class TestErrorRecoveryAndResilience:
     """错误恢复和弹性测试"""
@@ -599,7 +589,6 @@ class TestErrorRecoveryAndResilience:
         result = await social_emotion_system.process_social_interaction(sample_interaction_context)
         assert result.processing_success is True
 
-
 class TestConfigurationAndCustomization:
     """配置和定制化测试"""
     
@@ -645,7 +634,6 @@ class TestConfigurationAndCustomization:
         # 验证组件配置
         privacy_config = social_emotion_system.privacy_guard.get_configuration()
         assert privacy_config.get("compliance_checking") is True
-
 
 class TestIntegrationScenarios:
     """集成场景测试"""
@@ -701,25 +689,25 @@ class TestIntegrationScenarios:
             ],
             "conversation_data": [
                 {
-                    "timestamp": datetime.now() - timedelta(minutes=10),
+                    "timestamp": utc_now() - timedelta(minutes=10),
                     "user_id": "ceo",
                     "message": "我们需要在下个季度实现30%的增长",
                     "emotions": {"determination": 0.9, "pressure": 0.7}
                 },
                 {
-                    "timestamp": datetime.now() - timedelta(minutes=8),
+                    "timestamp": utc_now() - timedelta(minutes=8),
                     "user_id": "manager_asia",
                     "message": "这个目标很有挑战性，我们需要仔细规划",
                     "emotions": {"concern": 0.6, "respect": 0.8, "caution": 0.7}
                 },
                 {
-                    "timestamp": datetime.now() - timedelta(minutes=6),
+                    "timestamp": utc_now() - timedelta(minutes=6),
                     "user_id": "manager_eu",
                     "message": "让我们分析一下具体的数据和资源",
                     "emotions": {"analytical": 0.8, "pragmatic": 0.9}
                 },
                 {
-                    "timestamp": datetime.now() - timedelta(minutes=4),
+                    "timestamp": utc_now() - timedelta(minutes=4),
                     "user_id": "manager_latam",
                     "message": "我相信我们的团队能够做到！让我们一起努力",
                     "emotions": {"enthusiasm": 0.9, "optimism": 0.8, "warmth": 0.7}
@@ -756,7 +744,6 @@ class TestIntegrationScenarios:
         
         # 验证隐私保护措施
         assert result.privacy_assessment is not None
-
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

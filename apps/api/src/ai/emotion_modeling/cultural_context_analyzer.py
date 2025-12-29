@@ -9,13 +9,11 @@ from enum import Enum
 from typing import Dict, List, Optional, Set, Tuple, Any
 from datetime import datetime
 import json
-import logging
-
 from .models import EmotionVector, SocialContext
 from .core_interfaces import EmotionModelingInterface
 
-logger = logging.getLogger(__name__)
-
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 class CulturalDimension(Enum):
     """文化维度"""
@@ -26,7 +24,6 @@ class CulturalDimension(Enum):
     LONG_TERM_ORIENTATION = "long_term_orientation"  # 长期导向
     INDULGENCE = "indulgence"  # 放纵vs约束
 
-
 class CommunicationStyle(Enum):
     """沟通风格"""
     HIGH_CONTEXT = "high_context"  # 高语境
@@ -35,7 +32,6 @@ class CommunicationStyle(Enum):
     INDIRECT = "indirect"  # 间接
     FORMAL = "formal"  # 正式
     INFORMAL = "informal"  # 非正式
-
 
 @dataclass
 class CulturalProfile:
@@ -51,7 +47,6 @@ class CulturalProfile:
     conflict_resolution_style: str  # 冲突解决风格
     time_orientation: str  # 时间观念
 
-
 @dataclass
 class CulturalAdaptation:
     """文化适配结果"""
@@ -62,7 +57,6 @@ class CulturalAdaptation:
     cultural_sensitivity_score: float
     potential_misunderstandings: List[str]
     recommended_approach: str
-
 
 class CulturalContextAnalyzer(EmotionModelingInterface):
     """文化背景感知分析器"""

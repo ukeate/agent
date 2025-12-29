@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import {
+import { logger } from '../utils/logger'
   Card,
   Row,
   Col,
@@ -17,7 +18,8 @@ import {
   Timeline,
   Divider,
   Typography,
-  Spin
+  Spin,
+  message
 } from 'antd';
 import {
   BrainCircuitIcon,
@@ -29,37 +31,15 @@ import {
   AlertTriangleIcon,
   ActivityIcon
 } from 'lucide-react';
+import { 
+  emotionalIntelligenceService,
+  type EmotionalDecision,
+  type RiskAssessment,
+  type SystemStats
+} from '../services/emotionalIntelligenceService';
 
 const { Title, Text } = Typography;
 const { Option } = Select;
-
-interface EmotionalDecision {
-  decision_id: string;
-  user_id: string;
-  chosen_strategy: string;
-  confidence_score: number;
-  reasoning: string[];
-  timestamp: string;
-  decision_type: string;
-}
-
-interface RiskAssessment {
-  assessment_id: string;
-  user_id: string;
-  risk_level: 'low' | 'medium' | 'high' | 'critical';
-  risk_score: number;
-  prediction_confidence: number;
-  recommended_actions: string[];
-}
-
-interface DecisionContext {
-  user_id: string;
-  session_id?: string;
-  current_emotion_state: any;
-  emotion_history?: any[];
-  user_input: string;
-  environmental_factors?: any;
-}
 
 const EmotionalIntelligenceDecisionEnginePage: React.FC = () => {
   const [loading, setLoading] = useState(false);
@@ -74,82 +54,186 @@ const EmotionalIntelligenceDecisionEnginePage: React.FC = () => {
     highRiskUsers: 0,
     activeInterventions: 0
   });
+  
+  // 新增状态 - 高级功能
+  const [emotionPatterns, setEmotionPatterns] = useState<any>([]);
+  const [systemStatus, setSystemStatus] = useState<any>(null);
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'advanced' | 'analytics'>('dashboard');
+  const [crisisPredictions, setCrisisPredictions] = useState<any>([]);
+  const [emotionStatistics, setEmotionStatistics] = useState<any>(null);
+  const [selectedUserId, setSelectedUserId] = useState('');
 
   const [form] = Form.useForm();
+  const [riskForm] = Form.useForm();
 
-  // 模拟数据
+  // 加载数据
   useEffect(() => {
-    const mockDecisions: EmotionalDecision[] = [
-      {
-        decision_id: '1',
-        user_id: 'user_001',
-        chosen_strategy: 'supportive_strategy',
-        confidence_score: 0.92,
-        reasoning: ['用户情感状态稳定', '历史互动积极', '支持策略效果良好'],
-        timestamp: new Date().toISOString(),
-        decision_type: 'supportive'
-      },
-      {
-        decision_id: '2', 
-        user_id: 'user_002',
-        chosen_strategy: 'intervention_strategy',
-        confidence_score: 0.78,
-        reasoning: ['检测到焦虑情绪', '需要主动关怀', '建议专业支持'],
-        timestamp: new Date(Date.now() - 3600000).toISOString(),
-        decision_type: 'corrective'
-      }
-    ];
-
-    const mockRiskAssessments: RiskAssessment[] = [
-      {
-        assessment_id: '1',
-        user_id: 'user_001',
-        risk_level: 'low',
-        risk_score: 0.2,
-        prediction_confidence: 0.85,
-        recommended_actions: ['继续正面强化', '维持当前互动模式']
-      },
-      {
-        assessment_id: '2',
-        user_id: 'user_002', 
-        risk_level: 'medium',
-        risk_score: 0.6,
-        prediction_confidence: 0.73,
-        recommended_actions: ['增加关怀频率', '监控情感变化', '提供情感支持资源']
-      }
-    ];
-
-    setDecisions(mockDecisions);
-    setRiskAssessments(mockRiskAssessments);
-    setStats({
-      totalDecisions: mockDecisions.length,
-      averageConfidence: mockDecisions.reduce((acc, d) => acc + d.confidence_score, 0) / mockDecisions.length,
-      highRiskUsers: mockRiskAssessments.filter(r => ['high', 'critical'].includes(r.risk_level)).length,
-      activeInterventions: 3
-    });
+    loadData();
   }, []);
+
+  const loadData = async () => {
+    setLoading(true);
+    try {
+      // 加载系统统计
+      const systemStats = await emotionalIntelligenceService.getSystemStats();
+      setStats({
+        totalDecisions: systemStats.total_decisions,
+        averageConfidence: systemStats.average_confidence,
+        highRiskUsers: systemStats.high_risk_users,
+        activeInterventions: systemStats.active_interventions
+      });
+
+      // 加载最近决策
+      const recentDecisions = await emotionalIntelligenceService.getDecisionHistory('all', 10);
+      setDecisions(recentDecisions);
+
+      // 加载高风险用户
+      const highRiskUsers = await emotionalIntelligenceService.getHighRiskUsers(0.6);
+      
+      // 加载风险评估
+      const riskAssessments = await Promise.all(
+        highRiskUsers.slice(0, 5).map(user => 
+          emotionalIntelligenceService.assessRisk({
+            user_id: user.user_id,
+            emotion_history: []
+          })
+        )
+      );
+      setRiskAssessments(riskAssessments);
+      
+      // 加载高级功能数据
+      await loadAdvancedData(selectedUserId || undefined);
+    } catch (error: any) {
+      logger.error('加载数据失败:', error);
+      message.error(error?.message || '加载数据失败');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 加载高级功能数据
+  const loadAdvancedData = async (userId?: string) => {
+    try {
+      // 获取系统状态
+      const systemStatus = await emotionalIntelligenceService.getEmotionalIntelligenceSystemStatus();
+      setSystemStatus(systemStatus);
+
+      // 获取情感统计
+      const emotionStats = await emotionalIntelligenceService.getEmotionStatistics();
+      setEmotionStatistics(emotionStats);
+
+      if (userId) {
+        const patterns = await emotionalIntelligenceService.getEmotionalPatterns(userId);
+        setEmotionPatterns([patterns]);
+
+        const crisisPred = await emotionalIntelligenceService.getCrisisPrediction(userId);
+        setCrisisPredictions([crisisPred]);
+      } else {
+        setEmotionPatterns([]);
+        setCrisisPredictions([]);
+      }
+
+    } catch (error: any) {
+      logger.error('加载高级数据失败:', error);
+      message.error(error?.message || '加载高级数据失败');
+    }
+  };
+
+  // 新增高级功能处理函数
+  const handleAdvancedAction = async (action: string, params?: any) => {
+    setLoading(true);
+    try {
+      let result;
+      switch (action) {
+        case 'suicide_risk_assessment':
+          result = await emotionalIntelligenceService.assessSuicideRisk(params);
+          message.success('自杀风险评估完成');
+          break;
+        case 'comprehensive_analysis':
+          result = await emotionalIntelligenceService.performComprehensiveAnalysis(params);
+          message.success('综合分析完成');
+          break;
+        case 'emotion_prediction':
+          result = await emotionalIntelligenceService.predictEmotion(params);
+          message.success('情感预测完成');
+          break;
+        case 'export_emotion_data':
+          result = await emotionalIntelligenceService.exportEmotionData('json');
+          message.success('情感数据导出完成');
+          break;
+        case 'initialize_social_emotion':
+          result = await emotionalIntelligenceService.initializeSocialEmotionSystem(params);
+          message.success('社交情感系统初始化完成');
+          break;
+        default:
+          message.info('功能演示完成');
+      }
+      logger.log('高级功能执行结果:', result);
+      
+      // 重新加载数据
+      await loadAdvancedData();
+    } catch (error: any) {
+      logger.error(`执行${action}失败:`, error);
+      message.error(`执行失败: ${error.message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleMakeDecision = async (values: any) => {
     setLoading(true);
     try {
-      // 模拟API调用
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      const newDecision: EmotionalDecision = {
-        decision_id: Date.now().toString(),
-        user_id: values.user_id,
-        chosen_strategy: 'supportive_strategy',
-        confidence_score: 0.88,
-        reasoning: ['基于当前情感状态分析', '历史数据支持此决策', '高置信度推荐'],
-        timestamp: new Date().toISOString(),
-        decision_type: 'supportive'
+      // 构建情感状态
+      const emotionState = {
+        dominant_emotion: values.emotion_context || 'neutral',
+        emotion_scores: {
+          [values.emotion_context || 'neutral']: 0.8,
+          'neutral': 0.2
+        },
+        valence: values.emotion_context === 'happy' ? 0.8 : values.emotion_context === 'sad' ? -0.6 : 0,
+        arousal: values.emotion_context === 'anxious' ? 0.8 : 0.4,
+        confidence: 0.85
       };
+
+      // 调用真实API
+      const newDecision = await emotionalIntelligenceService.makeDecision({
+        user_id: values.user_id,
+        user_input: values.user_input,
+        current_emotion_state: emotionState,
+        emotion_history: [],
+        environmental_factors: {}
+      });
       
       setDecisions(prev => [newDecision, ...prev]);
       setDecisionModalVisible(false);
       form.resetFields();
-    } catch (error) {
-      console.error('决策制定失败:', error);
+      message.success('决策制定成功');
+      
+      // 重新加载统计数据
+      loadData();
+    } catch (error: any) {
+      logger.error('决策制定失败:', error);
+      message.error(error.message || '决策制定失败');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRiskAssessment = async (values: any) => {
+    setLoading(true);
+    try {
+      const assessment = await emotionalIntelligenceService.assessRisk({
+        user_id: values.user_id,
+        emotion_history: [],
+        context: values.assessment_type ? { assessment_type: values.assessment_type } : undefined
+      });
+      setRiskAssessments((prev) => [assessment, ...prev]);
+      message.success('风险评估完成');
+      riskForm.resetFields();
+      setRiskModalVisible(false);
+    } catch (error: any) {
+      logger.error('风险评估失败:', error);
+      message.error(error?.message || '风险评估失败');
     } finally {
       setLoading(false);
     }
@@ -350,9 +434,13 @@ const EmotionalIntelligenceDecisionEnginePage: React.FC = () => {
       <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
         <Col span={24}>
           <Alert
-            message="系统运行状态良好"
-            description="情感智能决策引擎运行正常，当前处理延迟 < 200ms，所有监控指标正常。"
-            type="success"
+            message={systemStatus?.system_status ? '系统状态已更新' : '系统状态未加载'}
+            description={
+              systemStatus?.system_status
+                ? `决策记录 ${systemStatus.system_status.decision_history_count}，活跃干预 ${systemStatus.system_status.active_interventions}，过去24小时危机事件 ${systemStatus.system_status.crisis_events_24h}`
+                : '请加载系统状态以查看运行指标'
+            }
+            type={systemStatus?.system_status ? 'success' : 'warning'}
             showIcon
             style={{ marginBottom: 16 }}
           />
@@ -381,6 +469,18 @@ const EmotionalIntelligenceDecisionEnginePage: React.FC = () => {
             </Button>
             <Button icon={<MessageSquareIcon size={16} />}>
               干预管理
+            </Button>
+            <Input
+              value={selectedUserId}
+              onChange={(e) => setSelectedUserId(e.target.value)}
+              placeholder="输入用户ID加载高级数据"
+              style={{ width: 220 }}
+            />
+            <Button
+              onClick={() => loadAdvancedData(selectedUserId || undefined)}
+              disabled={!selectedUserId}
+            >
+              加载高级数据
             </Button>
           </Space>
         </Col>
@@ -542,11 +642,15 @@ const EmotionalIntelligenceDecisionEnginePage: React.FC = () => {
         footer={null}
       >
         <Spin spinning={loading}>
-          <Form layout="vertical">
-            <Form.Item label="目标用户">
+          <Form form={riskForm} layout="vertical" onFinish={handleRiskAssessment}>
+            <Form.Item
+              name="user_id"
+              label="目标用户"
+              rules={[{ required: true, message: '请输入用户ID' }]}
+            >
               <Input placeholder="输入用户ID" />
             </Form.Item>
-            <Form.Item label="评估类型">
+            <Form.Item name="assessment_type" label="评估类型">
               <Select placeholder="选择评估类型">
                 <Option value="comprehensive">综合评估</Option>
                 <Option value="crisis">危机评估</Option>
@@ -555,7 +659,7 @@ const EmotionalIntelligenceDecisionEnginePage: React.FC = () => {
             </Form.Item>
             <Form.Item>
               <Space>
-                <Button type="primary">
+                <Button type="primary" htmlType="submit" loading={loading}>
                   开始评估
                 </Button>
                 <Button onClick={() => setRiskModalVisible(false)}>

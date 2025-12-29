@@ -6,21 +6,19 @@
 
 from typing import AsyncIterator, Dict, Any, Optional, List, Callable
 import asyncio
-import logging
 import time
 from datetime import datetime
 from src.core.utils.timezone_utils import utc_now, utc_factory
 from dataclasses import dataclass
 from enum import Enum
-
 from .token_streamer import TokenStreamer, TokenStreamManager, StreamEvent, StreamType
 from .stream_buffer import StreamBuffer, MultiStreamBuffer, BufferMetrics
 from .response_handler import StreamingResponseHandler
 from .backpressure import BackpressureManager, RateLimiter, CircuitBreaker
 from .queue_monitor import QueueMonitor, queue_monitor_manager
 
-logger = logging.getLogger(__name__)
-
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 class ProcessingStatus(str, Enum):
     """处理状态"""
@@ -30,7 +28,6 @@ class ProcessingStatus(str, Enum):
     COMPLETED = "completed"
     ERROR = "error"
     CANCELLED = "cancelled"
-
 
 @dataclass
 class StreamSession:
@@ -44,7 +41,6 @@ class StreamSession:
     event_count: int = 0
     error_count: int = 0
     last_activity: float = 0
-
 
 class StreamProcessor:
     """流式处理引擎"""
@@ -439,7 +435,7 @@ class StreamProcessor:
             try:
                 await self._cleanup_task
             except asyncio.CancelledError:
-                pass
+                raise
         
         # 清理所有会话
         session_ids = list(self.sessions.keys())

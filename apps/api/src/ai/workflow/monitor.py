@@ -5,7 +5,6 @@
 
 import asyncio
 import json
-import logging
 from typing import Dict, List, Optional, Any, Callable, Set
 from datetime import datetime
 from datetime import timedelta
@@ -13,16 +12,14 @@ from src.core.utils.timezone_utils import utc_now, utc_factory
 from enum import Enum
 from dataclasses import dataclass, asdict
 from collections import defaultdict, deque
-
+import psutil
 import redis.asyncio as redis
 from pydantic import BaseModel
-
-from models.schemas.workflow import WorkflowExecution, WorkflowStepStatus
+from src.models.schemas.workflow import WorkflowExecution, WorkflowStepStatus
 from src.ai.workflow.scheduler import ScheduledTask, TaskStatus, WorkflowScheduler
+
 from src.core.logging import get_logger
-
 logger = get_logger(__name__)
-
 
 class AlertLevel(str, Enum):
     """告警级别"""
@@ -31,14 +28,12 @@ class AlertLevel(str, Enum):
     ERROR = "error"
     CRITICAL = "critical"
 
-
 class MetricType(str, Enum):
     """指标类型"""
     COUNTER = "counter"
     GAUGE = "gauge"
     HISTOGRAM = "histogram"
     TIMER = "timer"
-
 
 @dataclass
 class MonitoringAlert:
@@ -62,7 +57,6 @@ class MonitoringAlert:
             if isinstance(value, datetime):
                 data[key] = value.isoformat()
         return data
-
 
 @dataclass
 class ExecutionMetrics:
@@ -92,7 +86,6 @@ class ExecutionMetrics:
                 data[key] = value.isoformat()
         return data
 
-
 @dataclass
 class SystemMetrics:
     """系统指标"""
@@ -113,7 +106,6 @@ class SystemMetrics:
             if isinstance(value, datetime):
                 data[key] = value.isoformat()
         return data
-
 
 class PerformanceAnalyzer:
     """性能分析器"""
@@ -348,7 +340,6 @@ class PerformanceAnalyzer:
         
         return summary
 
-
 class ExecutionMonitor:
     """执行监控器"""
     
@@ -535,6 +526,15 @@ class ExecutionMonitor:
             bottlenecks.append("高失败率")
         if pending_steps > running_steps * 3:
             bottlenecks.append("队列积压")
+
+        try:
+            process = psutil.Process()
+            resource_usage = {
+                "process_cpu_percent": float(process.cpu_percent(interval=None)),
+                "process_memory_mb": float(process.memory_info().rss) / 1024 / 1024,
+            }
+        except Exception:
+            resource_usage = {}
         
         return ExecutionMetrics(
             execution_id=execution.id,
@@ -549,11 +549,90 @@ class ExecutionMonitor:
             total_duration=total_duration,
             success_rate=success_rate,
             throughput=throughput,
-            resource_usage={},  # TODO: 实现资源使用统计
+            resource_usage=resource_usage,
             bottlenecks=bottlenecks,
             critical_path_duration=total_duration or 0.0,  # 简化实现
             last_updated=now
         )
+
+    async def _estimate_average_queue_wait_time(self, sample_size: int = 50) -> float:
+        """估算平均队列等待时间（秒）"""
+        try:
+            task_queue = self.scheduler.task_queue
+            queue_names = [
+                f"{task_queue.priority_queue_name}:high",
+                f"{task_queue.priority_queue_name}:normal",
+                f"{task_queue.priority_queue_name}:low",
+            ]
+            now = utc_now()
+            waits = []
+
+            for qname in queue_names:
+                task_ids = await self.redis.lrange(qname, 0, sample_size - 1)
+                if not task_ids:
+                    continue
+                pipeline = self.redis.pipeline()
+                for task_id in task_ids:
+                    pipeline.hget(f"{task_queue.task_key_prefix}{task_id}", "scheduled_at")
+                scheduled_at_values = await pipeline.execute()
+                for val in scheduled_at_values:
+                    if not val:
+                        continue
+                    try:
+                        scheduled_at = datetime.fromisoformat(val)
+                    except Exception:
+                        continue
+                    waits.append((now - scheduled_at).total_seconds())
+
+            if not waits:
+                return 0.0
+            return float(sum(waits) / len(waits))
+        except Exception as e:
+            logger.error(f"估算队列等待时间失败: {e}")
+            return 0.0
+
+    async def _estimate_system_throughput(self, sample_size: int = 100, window_seconds: int = 60) -> float:
+        """估算系统吞吐量（每分钟完成任务数）"""
+        try:
+            task_queue = self.scheduler.task_queue
+            task_ids = await self.redis.lrange(task_queue.completed_queue_name, 0, sample_size - 1)
+            if not task_ids:
+                return 0.0
+
+            now = utc_now()
+            cutoff = now - timedelta(seconds=window_seconds)
+
+            pipeline = self.redis.pipeline()
+            for task_id in task_ids:
+                pipeline.hget(f"{task_queue.task_key_prefix}{task_id}", "completed_at")
+            completed_at_values = await pipeline.execute()
+
+            recent = 0
+            for val in completed_at_values:
+                if not val:
+                    continue
+                try:
+                    completed_at = datetime.fromisoformat(val)
+                except Exception:
+                    continue
+                if completed_at >= cutoff:
+                    recent += 1
+
+            if window_seconds <= 0:
+                return 0.0
+            return float(recent) * 60.0 / float(window_seconds)
+        except Exception as e:
+            logger.error(f"估算系统吞吐量失败: {e}")
+            return 0.0
+
+    def _collect_resource_utilization(self) -> Dict[str, float]:
+        """收集资源利用率"""
+        try:
+            cpu = psutil.cpu_percent(interval=None) / 100.0
+            mem = psutil.virtual_memory().percent / 100.0
+            return {"cpu": float(cpu), "memory": float(mem)}
+        except Exception:
+            return {}
     
     async def _collect_system_metrics(self) -> SystemMetrics:
         """收集系统指标"""
@@ -573,16 +652,19 @@ class ExecutionMonitor:
         failed_tasks = queue_stats.get('failed', 0)
         error_rate = failed_tasks / total_tasks if total_tasks > 0 else 0.0
         
-        # 简化的系统指标
+        average_queue_wait_time = await self._estimate_average_queue_wait_time()
+        system_throughput = await self._estimate_system_throughput()
+        resource_utilization = self._collect_resource_utilization()
+
         return SystemMetrics(
             timestamp=now,
             active_executions=active_executions,
             total_queued_tasks=total_queued_tasks,
             active_workers=active_workers,
-            average_queue_wait_time=30.0,  # TODO: 实现真实的等待时间计算
-            system_throughput=10.0,        # TODO: 实现真实的系统吞吐量
+            average_queue_wait_time=average_queue_wait_time,
+            system_throughput=system_throughput,
             error_rate=error_rate,
-            resource_utilization={"cpu": 0.5, "memory": 0.3},  # TODO: 实现真实的资源监控
+            resource_utilization=resource_utilization,
             queue_depths={
                 "high": queue_stats.get('high_priority', 0),
                 "normal": queue_stats.get('normal_priority', 0),
@@ -782,23 +864,21 @@ class ExecutionMonitor:
             logger.error(f"获取系统指标历史失败: {e}")
             return []
 
-
 # 简单的告警处理器示例
 async def console_alert_handler(alert: MonitoringAlert):
     """控制台告警处理器"""
-    level_colors = {
-        AlertLevel.INFO: "\033[32m",      # 绿色
-        AlertLevel.WARNING: "\033[33m",   # 黄色  
-        AlertLevel.ERROR: "\033[31m",     # 红色
-        AlertLevel.CRITICAL: "\033[35m"   # 紫色
+    level_map = {
+        AlertLevel.INFO: logger.info,
+        AlertLevel.WARNING: logger.warning,
+        AlertLevel.ERROR: logger.error,
+        AlertLevel.CRITICAL: logger.error,
     }
-    
-    color = level_colors.get(alert.level, "")
-    reset_color = "\033[0m"
-    
-    print(f"{color}[{alert.level.upper()}] {alert.title}{reset_color}")
-    print(f"  消息: {alert.message}")
-    print(f"  时间: {alert.timestamp}")
-    if alert.execution_id:
-        print(f"  执行ID: {alert.execution_id}")
-    print("-" * 50)
+    log = level_map.get(alert.level, logger.info)
+    log(
+        "监控告警",
+        level=alert.level.value,
+        title=alert.title,
+        message=alert.message,
+        timestamp=alert.timestamp.isoformat(),
+        execution_id=alert.execution_id,
+    )

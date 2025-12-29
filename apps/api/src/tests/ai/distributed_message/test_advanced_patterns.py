@@ -3,18 +3,17 @@
 测试多播通信、流式数据传输、事件流处理和智能路由
 """
 
+from src.core.utils.timezone_utils import utc_now
 import pytest
 import asyncio
 import uuid
 from unittest.mock import Mock, AsyncMock
-
 from src.ai.distributed_message.advanced_patterns import (
     MulticastManager, StreamingManager, SmartRouter, AdvancedCommunicationManager,
     AgentCapability, MulticastGroup, DataStream, StreamChunk, StreamMode, RoutingStrategy
 )
 from src.ai.distributed_message.models import Message, MessageHeader, MessageType
 from src.ai.distributed_message.client import NATSClient
-
 
 class TestMulticastManager:
     """多播管理器测试"""
@@ -109,7 +108,6 @@ class TestMulticastManager:
         assert info["description"] == "测试组"
         assert info["member_count"] == 1
         assert "agent1" in info["members"]
-
 
 class TestStreamingManager:
     """流式数据传输管理器测试"""
@@ -275,7 +273,6 @@ class TestStreamingManager:
         assert info["progress"] == 0.0
         assert info["is_complete"] is False
 
-
 class TestSmartRouter:
     """智能路由器测试"""
     
@@ -412,7 +409,7 @@ class TestSmartRouter:
         
         # 模拟时间过去了45分钟
         with patch('src.ai.distributed_message.advanced_patterns.datetime') as mock_datetime:
-            future_time = datetime.datetime.now() + datetime.timedelta(minutes=45)
+            future_time = datetime.utc_now() + datetime.timedelta(minutes=45)
             mock_datetime.now.return_value = future_time
             mock_datetime.timedelta = datetime.timedelta
             
@@ -420,7 +417,6 @@ class TestSmartRouter:
         
         # agent1应该被清理
         assert "agent1" not in smart_router.agent_capabilities
-
 
 class TestAdvancedCommunicationManager:
     """高级通信模式管理器测试"""
@@ -453,7 +449,7 @@ class TestAdvancedCommunicationManager:
     def test_register_event_handler(self, comm_manager):
         """测试注册事件处理器"""
         async def test_handler(data):
-            pass
+            return data
         
         comm_manager.register_event_handler("test_event", test_handler)
         assert "test_event" in comm_manager.event_handlers

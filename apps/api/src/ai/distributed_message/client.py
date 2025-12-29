@@ -4,28 +4,14 @@ NATS客户端连接管理
 """
 
 import asyncio
-import logging
 from typing import List, Optional, Dict, Any, Callable
-
-try:
-    import nats
-    from nats.errors import TimeoutError as NatsTimeoutError, ConnectionClosedError, NoServersError
-    from nats.js.api import StreamConfig as NatsStreamConfig, ConsumerConfig
-    NATS_AVAILABLE = True
-except ImportError:
-    # 当nats-py包不可用时的占位符
-    nats = None
-    NatsTimeoutError = TimeoutError
-    ConnectionClosedError = ConnectionError
-    NoServersError = ConnectionError
-    NatsStreamConfig = dict
-    ConsumerConfig = dict
-    NATS_AVAILABLE = False
-
+import nats
+from nats.errors import TimeoutError as NatsTimeoutError, ConnectionClosedError, NoServersError
+from nats.js.api import StreamConfig as NatsStreamConfig, ConsumerConfig
 from .models import ConnectionState, ConnectionMetrics, StreamConfig, TopicConfig
 
-logger = logging.getLogger(__name__)
-
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 class NATSClient:
     """NATS客户端封装"""
@@ -105,15 +91,6 @@ class NATSClient:
             return True
             
         try:
-            if not NATS_AVAILABLE:
-                logger.warning("NATS-py包不可用，模拟连接成功")
-                self.state = ConnectionState.CONNECTED
-                self.metrics.connections_attempted += 1
-                self.metrics.connections_successful += 1
-                if self.on_connect:
-                    await self.on_connect()
-                return True
-            
             self.state = ConnectionState.CONNECTING
             logger.info(f"智能体 {self.agent_id} 正在连接到NATS集群...")
             
@@ -193,8 +170,8 @@ class NATSClient:
                     await self.js.stream_info(stream_config.name)
                     logger.debug(f"流 {stream_config.name} 已存在")
                     continue
-                except:
-                    pass
+                except Exception:
+                    logger.debug(f"流 {stream_config.name} 不存在，准备创建", exc_info=True)
                 
                 # 创建流
                 nats_config = NatsStreamConfig(
@@ -208,8 +185,11 @@ class NATSClient:
                     num_replicas=stream_config.replicas
                 )
                 
-                await self.js.add_stream(nats_config)
-                logger.info(f"创建JetStream流: {stream_config.name}")
+                try:
+                    await self.js.add_stream(nats_config)
+                    logger.info(f"创建JetStream流: {stream_config.name}")
+                except Exception:
+                    logger.exception(f"创建JetStream流失败: {stream_config.name}", exc_info=True)
                 
             except Exception as e:
                 if "already exists" not in str(e).lower():
@@ -296,12 +276,6 @@ class NATSClient:
         if not self.is_connected():
             logger.error("NATS未连接，无法发布消息")
             return False
-        
-        if not NATS_AVAILABLE:
-            logger.debug(f"NATS-py包不可用，模拟发布消息到: {subject}")
-            self.metrics.messages_sent += 1
-            self.metrics.bytes_sent += len(data)
-            return True
             
         try:
             await self.nc.publish(subject, data, reply=reply, headers=headers)
@@ -325,14 +299,6 @@ class NATSClient:
         if not self.is_connected():
             logger.error("NATS未连接，无法订阅")
             return None
-        
-        if not NATS_AVAILABLE:
-            logger.warning(f"NATS-py包不可用，模拟订阅主题: {subject}")
-            # 返回模拟的订阅对象
-            class MockSubscription:
-                async def unsubscribe(self):
-                    pass
-            return MockSubscription()
             
         try:
             subscription = await self.nc.subscribe(
@@ -396,16 +362,6 @@ class NATSClient:
         if not self.is_connected():
             logger.error("NATS未连接，无法发布持久化消息")
             return None
-        
-        if not NATS_AVAILABLE:
-            logger.debug(f"NATS-py包不可用，模拟JetStream发布到: {subject}")
-            self.metrics.messages_sent += 1
-            self.metrics.bytes_sent += len(data)
-            # 返回模拟的ACK对象
-            class MockAck:
-                sequence = 1
-                stream = stream or "MOCK_STREAM"
-            return MockAck()
         
         if not self.js:
             logger.error("JetStream未启用，无法发布持久化消息")

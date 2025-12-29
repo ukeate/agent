@@ -5,15 +5,13 @@
 
 import uuid
 from typing import Dict, List, Optional, Any
-from datetime import datetime
-from src.core.utils.timezone_utils import utc_now, utc_factory, timezone
-import json
-import structlog
-
+from src.core.utils.timezone_utils import utc_now, parse_iso_string
 from src.core.config import get_settings
-from src.db.models import Conversation, Message, Task
+from src.core.database import get_db_session
+from src.models.database.session import Session as SessionModel
 
-logger = structlog.get_logger(__name__)
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 class ConversationService:
     """对话会话管理服务"""
@@ -35,18 +33,24 @@ class ConversationService:
         conversation_id = str(uuid.uuid4())
         
         try:
-            # 创建数据库记录
-            conversation = Conversation(
-                id=conversation_id,
-                user_id=user_id,
-                title=title or f"ReAct对话 - {utc_now().strftime('%Y-%m-%d %H:%M')}",
-                agent_type=agent_type,
-                metadata=metadata or {},
-                created_at=utc_now(),
-                updated_at=utc_now()
-            )
-            
-            # 这里应该保存到数据库，但由于没有数据库连接，我们先用内存存储
+            created_at = utc_now()
+            session_title = title or f"ReAct对话 - {created_at.strftime('%Y-%m-%d %H:%M')}"
+            async with get_db_session() as db:
+                db.add(
+                    SessionModel(
+                        id=uuid.UUID(conversation_id),
+                        user_id=user_id,
+                        title=session_title,
+                        status="active",
+                        context={"metadata": metadata or {}, "context": {}, "messages": []},
+                        agent_config={"agent_type": agent_type},
+                        message_count=0,
+                        is_active=True,
+                        last_activity_at=created_at,
+                    )
+                )
+                await db.commit()
+
             logger.info(
                 "创建对话会话",
                 conversation_id=conversation_id,
@@ -58,13 +62,13 @@ class ConversationService:
             self.active_sessions[conversation_id] = {
                 "conversation_id": conversation_id,
                 "user_id": user_id,
-                "title": conversation.title,
+                "title": session_title,
                 "agent_type": agent_type,
                 "metadata": metadata or {},
                 "messages": [],
                 "context": {},
-                "created_at": conversation.created_at,
-                "updated_at": conversation.updated_at,
+                "created_at": created_at,
+                "updated_at": created_at,
                 "status": "active"
             }
             
@@ -93,7 +97,9 @@ class ConversationService:
         try:
             session = self.active_sessions.get(conversation_id)
             if not session:
-                raise ValueError(f"对话会话不存在: {conversation_id}")
+                session = await self._load_conversation_from_db(conversation_id)
+                if not session:
+                    raise ValueError(f"对话会话不存在: {conversation_id}")
             
             message = {
                 "id": message_id,
@@ -113,6 +119,7 @@ class ConversationService:
             
             # 检查上下文长度限制
             await self._manage_context_length(conversation_id)
+            await self._save_conversation_to_db(conversation_id)
             
             logger.info(
                 "添加消息到对话",
@@ -238,10 +245,13 @@ class ConversationService:
         try:
             session = self.active_sessions.get(conversation_id)
             if not session:
-                raise ValueError(f"对话会话不存在: {conversation_id}")
+                session = await self._load_conversation_from_db(conversation_id)
+                if not session:
+                    raise ValueError(f"对话会话不存在: {conversation_id}")
             
             session["context"].update(context_updates)
             session["updated_at"] = utc_now()
+            await self._save_conversation_to_db(conversation_id)
             
             logger.info(
                 "更新对话上下文",
@@ -261,20 +271,18 @@ class ConversationService:
         """关闭对话会话"""
         try:
             session = self.active_sessions.get(conversation_id)
-            if session:
-                session["status"] = "closed"
-                session["updated_at"] = utc_now()
-                
-                # 保存到数据库
-                await self._save_conversation_to_db(conversation_id)
-                
-                # 从内存中移除
-                del self.active_sessions[conversation_id]
-                
-                logger.info(
-                    "关闭对话会话",
-                    conversation_id=conversation_id
-                )
+            if not session:
+                session = await self._load_conversation_from_db(conversation_id)
+            if not session:
+                return
+
+            session["status"] = "closed"
+            session["updated_at"] = utc_now()
+
+            await self._save_conversation_to_db(conversation_id)
+            self.active_sessions.pop(conversation_id, None)
+
+            logger.info("关闭对话会话", conversation_id=conversation_id)
             
         except Exception as e:
             logger.error(
@@ -375,51 +383,21 @@ class ConversationService:
     async def _load_conversation_from_db(self, conversation_id: str) -> Optional[Dict[str, Any]]:
         """从数据库加载对话会话"""
         try:
-            from sqlalchemy.ext.asyncio import AsyncSession
-            from src.core.database import async_session_factory
-            
-            if not async_session_factory:
-                logger.warning("数据库会话工厂未初始化")
-                return None
-                
-            async with async_session_factory() as session:
-                # 加载对话记录
-                conversation = await session.get(Conversation, conversation_id)
-                if not conversation:
+            conversation_uuid = uuid.UUID(conversation_id)
+            async with get_db_session() as db:
+                model = await db.get(SessionModel, conversation_uuid)
+                if not model:
                     return None
-                
-                # 加载消息记录
-                from sqlalchemy import select
-                messages_result = await session.execute(
-                    select(Message).where(Message.conversation_id == conversation_id)
-                    .order_by(Message.created_at)
-                )
-                messages = messages_result.scalars().all()
-                
-                # 构建会话数据
-                session_data = {
-                    "conversation_id": conversation_id,
-                    "created_at": conversation.created_at,
-                    "updated_at": conversation.updated_at,
-                    "metadata": conversation.metadata or {},
-                    "messages": [
-                        {
-                            "id": str(msg.id),
-                            "role": msg.role,
-                            "content": msg.content,
-                            "timestamp": msg.created_at.isoformat(),
-                            "metadata": msg.metadata or {}
-                        }
-                        for msg in messages
-                    ]
-                }
-                
+
+                session_data = self._build_session_data_from_model(model)
+                self.active_sessions[conversation_id] = session_data
+
                 logger.info(
                     "成功从数据库加载对话会话",
                     conversation_id=conversation_id,
-                    message_count=len(messages)
+                    message_count=len(session_data["messages"]),
                 )
-                
+
                 return session_data
                 
         except Exception as e:
@@ -430,13 +408,110 @@ class ConversationService:
             )
             return None
 
+    def _build_session_data_from_model(self, model: SessionModel) -> Dict[str, Any]:
+        conversation_id = str(model.id)
+        raw = model.context or {}
+        raw_messages = raw.get("messages") or []
+
+        messages: List[Dict[str, Any]] = []
+        for msg in raw_messages:
+            raw_created_at = msg.get("created_at")
+            created_at = parse_iso_string(raw_created_at) if isinstance(raw_created_at, str) else None
+            if not created_at:
+                created_at = utc_now()
+
+            raw_timestamp = msg.get("timestamp")
+            timestamp = raw_timestamp if isinstance(raw_timestamp, (int, float)) else created_at.timestamp()
+
+            messages.append(
+                {
+                    "id": msg.get("id") or str(uuid.uuid4()),
+                    "conversation_id": conversation_id,
+                    "content": msg.get("content", ""),
+                    "sender_type": msg.get("sender_type", "assistant"),
+                    "message_type": msg.get("message_type", "text"),
+                    "metadata": msg.get("metadata") or {},
+                    "tool_calls": msg.get("tool_calls") or [],
+                    "created_at": created_at,
+                    "timestamp": timestamp,
+                }
+            )
+
+        agent_config = model.agent_config or {}
+        agent_type = agent_config.get("agent_type") or "react"
+
+        created_at = model.created_at or utc_now()
+        updated_at = model.last_activity_at or model.updated_at or created_at
+
+        return {
+            "conversation_id": conversation_id,
+            "user_id": model.user_id,
+            "title": model.title,
+            "agent_type": agent_type,
+            "metadata": raw.get("metadata") or {},
+            "messages": messages,
+            "context": raw.get("context") or {},
+            "created_at": created_at,
+            "updated_at": updated_at,
+            "status": model.status,
+        }
+
     async def _save_conversation_to_db(self, conversation_id: str) -> None:
         """保存对话会话到数据库"""
-        # 这里应该保存到数据库
-        logger.warning(
-            "数据库保存功能未实现",
-            conversation_id=conversation_id
-        )
+        session_data = self.active_sessions.get(conversation_id)
+        if not session_data:
+            return
+
+        try:
+            conversation_uuid = uuid.UUID(conversation_id)
+            async with get_db_session() as db:
+                model = await db.get(SessionModel, conversation_uuid)
+                if not model:
+                    raise ValueError(f"对话会话不存在: {conversation_id}")
+
+                messages_payload = []
+                for msg in session_data["messages"]:
+                    created_at = msg.get("created_at")
+                    created_at_iso = created_at.isoformat() if hasattr(created_at, "isoformat") else None
+                    timestamp = msg.get("timestamp")
+                    if not isinstance(timestamp, (int, float)) and hasattr(created_at, "timestamp"):
+                        timestamp = created_at.timestamp()
+
+                    messages_payload.append(
+                        {
+                            "id": msg.get("id"),
+                            "content": msg.get("content"),
+                            "sender_type": msg.get("sender_type"),
+                            "message_type": msg.get("message_type"),
+                            "metadata": msg.get("metadata") or {},
+                            "tool_calls": msg.get("tool_calls") or [],
+                            "created_at": created_at_iso,
+                            "timestamp": timestamp,
+                        }
+                    )
+
+                model.title = session_data.get("title") or model.title
+                model.status = session_data.get("status") or model.status
+                model.context = {
+                    "metadata": session_data.get("metadata") or {},
+                    "context": session_data.get("context") or {},
+                    "messages": messages_payload,
+                }
+
+                agent_config = model.agent_config or {}
+                if session_data.get("agent_type"):
+                    agent_config["agent_type"] = session_data["agent_type"]
+                model.agent_config = agent_config
+
+                model.message_count = len(session_data["messages"])
+                model.is_active = model.status == "active"
+                model.last_activity_at = session_data.get("updated_at") or utc_now()
+
+                await db.commit()
+
+        except Exception as e:
+            logger.error("保存对话会话失败", conversation_id=conversation_id, error=str(e))
+            raise
 
     async def list_conversations(
         self,
@@ -446,24 +521,24 @@ class ConversationService:
     ) -> List[Dict[str, Any]]:
         """列出用户的对话会话"""
         try:
-            # 从内存中过滤用户的会话
-            user_sessions = [
-                session for session in self.active_sessions.values()
-                if session["user_id"] == user_id
-            ]
-            
-            # 按更新时间排序
-            user_sessions.sort(key=lambda x: x["updated_at"], reverse=True)
-            
-            # 应用分页
-            paginated_sessions = user_sessions[offset:offset + limit]
-            
-            # 返回摘要信息
+            from sqlalchemy import select, desc
+
+            async with get_db_session() as db:
+                result = await db.execute(
+                    select(SessionModel)
+                    .where(SessionModel.user_id == user_id)
+                    .order_by(desc(SessionModel.updated_at))
+                    .offset(offset)
+                    .limit(limit)
+                )
+                models = result.scalars().all()
+
             summaries = []
-            for session in paginated_sessions:
-                summary = await self.get_conversation_summary(session["conversation_id"])
-                summaries.append(summary)
-            
+            for model in models:
+                conversation_id = str(model.id)
+                if conversation_id not in self.active_sessions:
+                    self.active_sessions[conversation_id] = self._build_session_data_from_model(model)
+                summaries.append(await self.get_conversation_summary(conversation_id))
             return summaries
             
         except Exception as e:
@@ -503,7 +578,6 @@ class ConversationService:
                 error=str(e)
             )
             return 0
-
 
 # 单例模式的服务实例
 _conversation_service: Optional[ConversationService] = None

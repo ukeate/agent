@@ -4,41 +4,39 @@
 提供数据收集、预处理的统一管理接口
 """
 
-import asyncio
-import logging
-from datetime import datetime
-from src.core.utils.timezone_utils import utc_now, utc_factory, timezone
-from typing import Dict, List, Any, Optional
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker, Session
-
+from src.core.utils.timezone_utils import utc_now
+from typing import Dict, List, Any, Optional, Callable, AsyncContextManager
+from sqlalchemy import select, func
+from sqlalchemy.ext.asyncio import AsyncSession
 from .models import (
-    Base, DataSource, DataRecord, 
+    DataSource, DataRecord,
     DataSourceModel, DataRecordModel
 )
 from .collectors import CollectorFactory
 from .preprocessor import DataPreprocessor
+from src.core.database import get_db_session
 
-
+from src.core.logging import get_logger
 class DataCollectionManager:
     """数据收集管理器"""
     
-    def __init__(self, database_url: str):
-        self.engine = create_engine(database_url)
-        Base.metadata.create_all(self.engine)
-        self.SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=self.engine)
-        
+    def __init__(
+        self,
+        session_factory: Callable[[], AsyncContextManager[AsyncSession]] = get_db_session,
+    ):
+        self.session_factory = session_factory
         self.preprocessor = DataPreprocessor()
-        self.logger = logging.getLogger(__name__)
+        self.logger = get_logger(__name__)
     
-    def register_data_source(self, source: DataSource) -> str:
+    async def register_data_source(self, source: DataSource) -> str:
         """注册数据源"""
         
-        with self.SessionLocal() as db:
+        async with self.session_factory() as db:
             # 检查是否已存在
-            existing = db.query(DataSourceModel).filter(
-                DataSourceModel.source_id == source.source_id
-            ).first()
+            result = await db.execute(
+                select(DataSourceModel).where(DataSourceModel.source_id == source.source_id)
+            )
+            existing = result.scalar_one_or_none()
             
             if existing:
                 # 更新现有数据源
@@ -47,8 +45,8 @@ class DataCollectionManager:
                 existing.config = source.config
                 existing.is_active = source.is_active
                 existing.updated_at = utc_now()
-                db.commit()
-                db.refresh(existing)
+                await db.commit()
+                await db.refresh(existing)
                 
                 self.logger.info(f"Updated existing data source: {source.name}")
                 return str(existing.id)
@@ -64,8 +62,8 @@ class DataCollectionManager:
                 )
                 
                 db.add(db_source)
-                db.commit()
-                db.refresh(db_source)
+                await db.commit()
+                await db.refresh(db_source)
                 
                 self.logger.info(f"Registered new data source: {source.name}")
                 return str(db_source.id)
@@ -77,10 +75,11 @@ class DataCollectionManager:
     ) -> Dict[str, Any]:
         """从指定数据源收集数据"""
         
-        with self.SessionLocal() as db:
-            db_source = db.query(DataSourceModel).filter(
-                DataSourceModel.source_id == source_id
-            ).first()
+        async with self.session_factory() as db:
+            result = await db.execute(
+                select(DataSourceModel).where(DataSourceModel.source_id == source_id)
+            )
+            db_source = result.scalar_one_or_none()
             
             if not db_source or not db_source.is_active:
                 raise ValueError(f"Data source {source_id} not found or inactive")
@@ -177,57 +176,63 @@ class DataCollectionManager:
             if preprocessing_config:
                 preprocessing_rules = preprocessing_config.get('rules')
             
+            stats.setdefault("total_processed", 0)
+            stats.setdefault("total_stored", 0)
+            stats.setdefault("errors", 0)
+            stats.setdefault("processing_errors", [])
+
             processed_records = await self.preprocessor.preprocess_data(
-                records, 
+                records,
                 rules=preprocessing_rules,
-                custom_config=preprocessing_config
+                custom_config=preprocessing_config,
             )
-            stats['total_processed'] += len(processed_records)
-            
-            # 存储到数据库
-            with self.SessionLocal() as db:
+            stats["total_processed"] += len(processed_records)
+
+            async with self.session_factory() as db:
+                record_ids = [record.record_id for record in processed_records]
+                existing_map: Dict[str, DataRecordModel] = {}
+                if record_ids:
+                    result = await db.execute(
+                        select(DataRecordModel).where(DataRecordModel.record_id.in_(record_ids))
+                    )
+                    existing_map = {item.record_id: item for item in result.scalars().all()}
+
                 for record in processed_records:
                     try:
-                        # 检查是否已存在相同record_id
-                        existing = db.query(DataRecordModel).filter(
-                            DataRecordModel.record_id == record.record_id
-                        ).first()
-                        
+                        existing = existing_map.get(record.record_id)
                         if existing:
-                            # 更新现有记录
                             existing.processed_data = record.processed_data
-                            existing.metadata = record.metadata
+                            existing.record_metadata = record.metadata
                             existing.quality_score = record.quality_score
                             existing.status = record.status
                             existing.processed_at = record.processed_at
                             existing.updated_at = utc_now()
                         else:
-                            # 创建新记录
                             db_record = DataRecordModel(
                                 record_id=record.record_id,
                                 source_id=record.source_id,
                                 raw_data=record.raw_data,
                                 processed_data=record.processed_data,
-                                metadata=record.metadata,
+                                record_metadata=record.metadata,
                                 quality_score=record.quality_score,
                                 status=record.status,
                                 created_at=record.created_at,
-                                processed_at=record.processed_at
+                                processed_at=record.processed_at,
                             )
                             db.add(db_record)
-                        
-                        stats['total_stored'] += 1
-                        
+                        stats["total_stored"] += 1
                     except Exception as e:
                         self.logger.error(f"Error storing record {record.record_id}: {e}")
-                        stats['errors'] += 1
-                        stats['processing_errors'].append({
-                            'record_id': record.record_id,
-                            'error': str(e),
-                            'timestamp': utc_now().isoformat()
-                        })
-                
-                db.commit()
+                        stats["errors"] += 1
+                        stats["processing_errors"].append(
+                            {
+                                "record_id": record.record_id,
+                                "error": str(e),
+                                "timestamp": utc_now().isoformat(),
+                            }
+                        )
+
+                await db.commit()
         
         except Exception as e:
             self.logger.error(f"Error processing batch: {e}")
@@ -238,8 +243,9 @@ class DataCollectionManager:
                 'timestamp': utc_now().isoformat()
             })
     
-    def get_data_records(
+    async def get_data_records(
         self, 
+        record_ids: Optional[List[str]] = None,
         source_id: Optional[str] = None,
         status: Optional[str] = None,
         min_quality_score: Optional[float] = None,
@@ -248,22 +254,25 @@ class DataCollectionManager:
     ) -> List[Dict[str, Any]]:
         """获取数据记录"""
         
-        with self.SessionLocal() as db:
-            query = db.query(DataRecordModel)
+        async with self.session_factory() as db:
+            stmt = select(DataRecordModel)
+
+            if record_ids:
+                stmt = stmt.where(DataRecordModel.record_id.in_(record_ids))
             
             if source_id:
-                query = query.filter(DataRecordModel.source_id == source_id)
+                stmt = stmt.where(DataRecordModel.source_id == source_id)
             
             if status:
-                query = query.filter(DataRecordModel.status == status)
+                stmt = stmt.where(DataRecordModel.status == status)
             
             if min_quality_score is not None:
-                query = query.filter(DataRecordModel.quality_score >= min_quality_score)
+                stmt = stmt.where(DataRecordModel.quality_score >= min_quality_score)
             
-            query = query.order_by(DataRecordModel.created_at.desc())
-            query = query.offset(offset).limit(limit)
+            stmt = stmt.order_by(DataRecordModel.created_at.desc()).offset(offset).limit(limit)
             
-            records = query.all()
+            result = await db.execute(stmt)
+            records = result.scalars().all()
             
             return [
                 {
@@ -272,7 +281,7 @@ class DataCollectionManager:
                     'source_id': record.source_id,
                     'raw_data': record.raw_data,
                     'processed_data': record.processed_data,
-                    'metadata': record.metadata,
+                    'metadata': record.record_metadata,
                     'quality_score': record.quality_score,
                     'status': record.status,
                     'created_at': record.created_at,
@@ -282,90 +291,94 @@ class DataCollectionManager:
                 for record in records
             ]
     
-    def get_collection_statistics(self, source_id: Optional[str] = None) -> Dict[str, Any]:
+    async def get_collection_statistics(self, source_id: Optional[str] = None) -> Dict[str, Any]:
         """获取收集统计信息"""
         
-        with self.SessionLocal() as db:
-            query = db.query(DataRecordModel)
-            
+        async with self.session_factory() as db:
+            filters = []
             if source_id:
-                query = query.filter(DataRecordModel.source_id == source_id)
-            
-            total_records = query.count()
-            
-            # 按状态统计
-            status_stats = {}
+                filters.append(DataRecordModel.source_id == source_id)
+
+            total_stmt = select(func.count(DataRecordModel.id))
+            if filters:
+                total_stmt = total_stmt.where(*filters)
+            total_result = await db.execute(total_stmt)
+            total_records = total_result.scalar_one() or 0
+
+            status_stats: Dict[str, int] = {}
             for status in ['raw', 'processed', 'validated', 'rejected', 'error']:
-                count = query.filter(DataRecordModel.status == status).count()
-                status_stats[status] = count
-            
-            # 质量分数统计
-            from sqlalchemy import func
-            quality_stats = db.query(
+                count_result = await db.execute(
+                    select(func.count(DataRecordModel.id)).where(
+                        DataRecordModel.status == status,
+                        *filters,
+                    )
+                )
+                status_stats[status] = int(count_result.scalar_one() or 0)
+
+            quality_stmt = select(
                 func.avg(DataRecordModel.quality_score).label('average'),
                 func.min(DataRecordModel.quality_score).label('minimum'),
                 func.max(DataRecordModel.quality_score).label('maximum'),
-                func.count(DataRecordModel.quality_score).label('count')
-            ).filter(DataRecordModel.quality_score.isnot(None))
-            
+                func.count(DataRecordModel.quality_score).label('count'),
+            ).where(DataRecordModel.quality_score.isnot(None))
             if source_id:
-                quality_stats = quality_stats.filter(DataRecordModel.source_id == source_id)
-            
-            quality_result = quality_stats.first()
-            
-            # 按数据源统计
-            source_stats = {}
-            if not source_id:  # 只有在不指定source_id时才统计各数据源
-                source_query = db.query(
-                    DataRecordModel.source_id,
-                    func.count(DataRecordModel.id).label('count'),
-                    func.avg(DataRecordModel.quality_score).label('avg_quality')
-                ).group_by(DataRecordModel.source_id).all()
-                
-                for source_stat in source_query:
+                quality_stmt = quality_stmt.where(DataRecordModel.source_id == source_id)
+            quality_result = (await db.execute(quality_stmt)).first()
+
+            source_stats: Dict[str, Dict[str, Any]] = {}
+            if not source_id:
+                source_query = await db.execute(
+                    select(
+                        DataRecordModel.source_id,
+                        func.count(DataRecordModel.id).label('count'),
+                        func.avg(DataRecordModel.quality_score).label('avg_quality'),
+                    ).group_by(DataRecordModel.source_id)
+                )
+                for source_stat in source_query.all():
                     source_stats[source_stat.source_id] = {
                         'record_count': source_stat.count,
-                        'average_quality': float(source_stat.avg_quality) if source_stat.avg_quality else 0.0
+                        'average_quality': float(source_stat.avg_quality) if source_stat.avg_quality else 0.0,
                     }
-            
-            # 时间统计
-            time_stats = db.query(
+
+            time_stmt = select(
                 func.min(DataRecordModel.created_at).label('first_record'),
-                func.max(DataRecordModel.created_at).label('latest_record')
+                func.max(DataRecordModel.created_at).label('latest_record'),
             )
-            
             if source_id:
-                time_stats = time_stats.filter(DataRecordModel.source_id == source_id)
-            
-            time_result = time_stats.first()
-            
+                time_stmt = time_stmt.where(DataRecordModel.source_id == source_id)
+            time_result = (await db.execute(time_stmt)).first()
+
+            average = quality_result.average if quality_result else 0
+            minimum = quality_result.minimum if quality_result else 0
+            maximum = quality_result.maximum if quality_result else 0
+            count = quality_result.count if quality_result else 0
+
             return {
                 'total_records': total_records,
                 'status_distribution': status_stats,
                 'quality_stats': {
-                    'average': float(quality_result.average) if quality_result.average else 0.0,
-                    'minimum': float(quality_result.minimum) if quality_result.minimum else 0.0,
-                    'maximum': float(quality_result.maximum) if quality_result.maximum else 0.0,
-                    'records_with_quality_score': quality_result.count or 0
+                    'average': float(average) if average else 0.0,
+                    'minimum': float(minimum) if minimum else 0.0,
+                    'maximum': float(maximum) if maximum else 0.0,
+                    'records_with_quality_score': count or 0,
                 },
                 'source_distribution': source_stats,
                 'time_range': {
-                    'first_record': time_result.first_record.isoformat() if time_result.first_record else None,
-                    'latest_record': time_result.latest_record.isoformat() if time_result.latest_record else None
-                }
+                    'first_record': time_result.first_record.isoformat() if time_result and time_result.first_record else None,
+                    'latest_record': time_result.latest_record.isoformat() if time_result and time_result.latest_record else None,
+                },
             }
     
-    def list_data_sources(self, active_only: bool = True) -> List[Dict[str, Any]]:
+    async def list_data_sources(self, active_only: bool = True) -> List[Dict[str, Any]]:
         """列出数据源"""
         try:
-            with self.SessionLocal() as db:
-                query = db.query(DataSourceModel)
-                
+            async with self.session_factory() as db:
+                stmt = select(DataSourceModel)
                 if active_only:
-                    query = query.filter(DataSourceModel.is_active == True)
-                
-                sources = query.order_by(DataSourceModel.created_at.desc()).all()
-                
+                    stmt = stmt.where(DataSourceModel.is_active == True)
+                stmt = stmt.order_by(DataSourceModel.created_at.desc())
+                result = await db.execute(stmt)
+                sources = result.scalars().all()
                 return [
                     {
                         'id': str(source.id),
@@ -376,7 +389,7 @@ class DataCollectionManager:
                         'config': source.config,
                         'is_active': source.is_active,
                         'created_at': source.created_at,
-                        'updated_at': source.updated_at
+                        'updated_at': source.updated_at,
                     }
                     for source in sources
                 ]
@@ -384,13 +397,14 @@ class DataCollectionManager:
             self.logger.error(f"Error listing data sources: {e}")
             return []
     
-    def update_data_source(self, source_id: str, updates: Dict[str, Any]) -> bool:
+    async def update_data_source(self, source_id: str, updates: Dict[str, Any]) -> bool:
         """更新数据源配置"""
         
-        with self.SessionLocal() as db:
-            db_source = db.query(DataSourceModel).filter(
-                DataSourceModel.source_id == source_id
-            ).first()
+        async with self.session_factory() as db:
+            result = await db.execute(
+                select(DataSourceModel).where(DataSourceModel.source_id == source_id)
+            )
+            db_source = result.scalar_one_or_none()
             
             if not db_source:
                 return False
@@ -402,18 +416,19 @@ class DataCollectionManager:
                     setattr(db_source, field, value)
             
             db_source.updated_at = utc_now()
-            db.commit()
+            await db.commit()
             
             self.logger.info(f"Updated data source: {source_id}")
             return True
     
-    def delete_data_source(self, source_id: str) -> bool:
+    async def delete_data_source(self, source_id: str) -> bool:
         """删除数据源（软删除）"""
         
-        with self.SessionLocal() as db:
-            db_source = db.query(DataSourceModel).filter(
-                DataSourceModel.source_id == source_id
-            ).first()
+        async with self.session_factory() as db:
+            result = await db.execute(
+                select(DataSourceModel).where(DataSourceModel.source_id == source_id)
+            )
+            db_source = result.scalar_one_or_none()
             
             if not db_source:
                 return False
@@ -421,30 +436,30 @@ class DataCollectionManager:
             # 软删除：设置为不活跃
             db_source.is_active = False
             db_source.updated_at = utc_now()
-            db.commit()
+            await db.commit()
             
             self.logger.info(f"Deactivated data source: {source_id}")
             return True
     
-    def get_processing_queue_status(self) -> Dict[str, Any]:
+    async def get_processing_queue_status(self) -> Dict[str, Any]:
         """获取处理队列状态"""
         
-        with self.SessionLocal() as db:
-            # 统计各状态的记录数
-            status_counts = {}
+        async with self.session_factory() as db:
+            status_counts: Dict[str, int] = {}
             for status in ['raw', 'processed', 'validated', 'rejected', 'error']:
-                count = db.query(DataRecordModel).filter(
-                    DataRecordModel.status == status
-                ).count()
-                status_counts[status] = count
-            
-            # 获取最近的处理活动
-            recent_records = db.query(DataRecordModel).filter(
-                DataRecordModel.processed_at.isnot(None)
-            ).order_by(
-                DataRecordModel.processed_at.desc()
-            ).limit(10).all()
-            
+                count_result = await db.execute(
+                    select(func.count(DataRecordModel.id)).where(DataRecordModel.status == status)
+                )
+                status_counts[status] = int(count_result.scalar_one() or 0)
+
+            recent_result = await db.execute(
+                select(DataRecordModel)
+                .where(DataRecordModel.processed_at.isnot(None))
+                .order_by(DataRecordModel.processed_at.desc())
+                .limit(10)
+            )
+            recent_records = recent_result.scalars().all()
+
             return {
                 'queue_status': status_counts,
                 'pending_processing': status_counts.get('raw', 0),
@@ -454,11 +469,11 @@ class DataCollectionManager:
                         'source_id': record.source_id,
                         'status': record.status,
                         'quality_score': record.quality_score,
-                        'processed_at': record.processed_at.isoformat() if record.processed_at else None
+                        'processed_at': record.processed_at.isoformat() if record.processed_at else None,
                     }
                     for record in recent_records
                 ],
-                'total_records': sum(status_counts.values())
+                'total_records': sum(status_counts.values()),
             }
     
     async def reprocess_records(
@@ -470,17 +485,16 @@ class DataCollectionManager:
     ) -> Dict[str, Any]:
         """重新处理记录"""
         
-        with self.SessionLocal() as db:
-            query = db.query(DataRecordModel)
-            
+        async with self.session_factory() as db:
+            stmt = select(DataRecordModel)
             if record_ids:
-                query = query.filter(DataRecordModel.record_id.in_(record_ids))
+                stmt = stmt.where(DataRecordModel.record_id.in_(record_ids))
             if source_id:
-                query = query.filter(DataRecordModel.source_id == source_id)
+                stmt = stmt.where(DataRecordModel.source_id == source_id)
             if status_filter:
-                query = query.filter(DataRecordModel.status == status_filter)
-            
-            db_records = query.all()
+                stmt = stmt.where(DataRecordModel.status == status_filter)
+            result = await db.execute(stmt)
+            db_records = result.scalars().all()
             
             # 转换为DataRecord对象
             records_to_process = []
@@ -490,7 +504,7 @@ class DataCollectionManager:
                     source_id=db_record.source_id,
                     raw_data=db_record.raw_data,
                     processed_data=db_record.processed_data,
-                    metadata=db_record.metadata,
+                    metadata=db_record.record_metadata,
                     quality_score=db_record.quality_score,
                     status='raw',  # 重置状态进行重新处理
                     created_at=db_record.created_at

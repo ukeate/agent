@@ -10,8 +10,6 @@ from unittest.mock import Mock, patch, AsyncMock
 from fastapi.testclient import TestClient
 from httpx import AsyncClient
 import json
-
-# Test core service discovery functionality without full app
 from ai.service_discovery.core import (
     AgentServiceDiscoverySystem, 
     AgentMetadata, 
@@ -26,10 +24,12 @@ from ai.service_discovery.models import (
     AgentCapabilityModel,
     AgentStatusUpdate,
     LoadBalancerRequest
-)
 
+# Test core service discovery functionality without full app
 
 # Test data
+)
+
 SAMPLE_AGENT_REGISTRATION = {
     "agent_id": "test-agent-1",
     "agent_type": "language_model",
@@ -59,19 +59,16 @@ SAMPLE_AGENT_REGISTRATION = {
     "region": "us-west-1"
 }
 
-
 @pytest.fixture
 def client():
     """Test client fixture"""
     return TestClient(app)
-
 
 @pytest.fixture
 async def async_client():
     """Async test client fixture"""
     async with AsyncClient(app=app, base_url="http://test") as ac:
         yield ac
-
 
 @pytest.fixture
 def mock_service_discovery_system():
@@ -93,7 +90,6 @@ def mock_service_discovery_system():
         
         mock.return_value = mock_system
         yield mock_system
-
 
 class TestServiceDiscoveryAPI:
     """Service Discovery API tests"""
@@ -378,7 +374,6 @@ class TestServiceDiscoveryAPI:
         data = response.json()
         assert "Internal server error" in data["detail"]
 
-
 class TestLoadBalancerStrategies:
     """Test load balancer strategy validation"""
     
@@ -404,7 +399,6 @@ class TestLoadBalancerStrategies:
         
         data = response.json()
         assert data["strategy_used"] == strategy
-
 
 class TestAgentStatusValidation:
     """Test agent status validation"""

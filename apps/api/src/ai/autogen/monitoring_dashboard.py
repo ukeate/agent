@@ -12,12 +12,11 @@ from datetime import datetime
 from datetime import timedelta
 from src.core.utils.timezone_utils import utc_now, utc_factory
 from enum import Enum
-import structlog
 from collections import deque, defaultdict
 import statistics
 
-logger = structlog.get_logger(__name__)
-
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 class MetricType(str, Enum):
     """指标类型"""
@@ -26,14 +25,12 @@ class MetricType(str, Enum):
     HISTOGRAM = "histogram"    # 直方图：分布统计
     SUMMARY = "summary"        # 摘要：分位数统计
 
-
 class AlertLevel(str, Enum):
     """告警级别"""
     INFO = "info"             # 信息
     WARNING = "warning"       # 警告
     CRITICAL = "critical"     # 严重
     EMERGENCY = "emergency"   # 紧急
-
 
 @dataclass
 class MetricPoint:
@@ -49,7 +46,6 @@ class MetricPoint:
             "value": self.value,
             "labels": self.labels
         }
-
 
 @dataclass
 class MetricSeries:
@@ -101,7 +97,6 @@ class MetricSeries:
             "latest": recent_values[-1] if recent_values else 0
         }
 
-
 @dataclass
 class Alert:
     """告警信息"""
@@ -130,7 +125,6 @@ class Alert:
             "resolved": self.resolved,
             "resolved_at": self.resolved_at.isoformat() if self.resolved_at else None
         }
-
 
 @dataclass
 class AlertRule:
@@ -213,7 +207,6 @@ class AlertRule:
             return abs(value - self.threshold) >= 1e-6
         else:
             return False
-
 
 class MetricCollector:
     """指标收集器"""
@@ -432,7 +425,6 @@ class MetricCollector:
         """获取告警历史"""
         return list(self.alert_history)[-limit:]
 
-
 class DashboardServer:
     """仪表板服务器"""
     
@@ -509,13 +501,6 @@ class DashboardServer:
             disk_info = psutil.disk_usage('/')
             disk_usage = (disk_info.used / disk_info.total) * 100
             self.metric_collector.record_metric("system_disk_usage", disk_usage)
-            
-        except ImportError:
-            # psutil不可用时使用模拟数据
-            import random
-            self.metric_collector.record_metric("system_cpu_usage", random.uniform(10, 80))
-            self.metric_collector.record_metric("system_memory_usage", random.uniform(20, 70))
-            self.metric_collector.record_metric("system_disk_usage", random.uniform(30, 60))
         except Exception as e:
             logger.warning(f"收集系统指标失败: {e}")
     
@@ -619,7 +604,6 @@ class DashboardServer:
             "points": recent_points,
             "statistics": metric_series.get_statistics(duration_minutes)
         }
-
 
 # 全局监控实例
 _metric_collector: Optional[MetricCollector] = None

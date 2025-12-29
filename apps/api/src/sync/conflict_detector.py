@@ -12,13 +12,11 @@ from typing import Dict, Any, List, Optional, Tuple, Set
 from dataclasses import dataclass, field
 from enum import Enum
 from uuid import uuid4
-
 from ..models.schemas.offline import (
     SyncOperation, SyncOperationType, VectorClock, 
     ConflictRecord, ConflictType, ConflictResolutionStrategy
 )
 from .vector_clock import VectorClockManager, CausalRelation
-
 
 class ConflictSeverity(str, Enum):
     """冲突严重程度"""
@@ -27,7 +25,6 @@ class ConflictSeverity(str, Enum):
     HIGH = "high"         # 高严重程度：严重影响功能
     CRITICAL = "critical" # 关键严重程度：可能导致数据丢失
 
-
 class ConflictCategory(str, Enum):
     """冲突分类"""
     DATA_CONFLICT = "data_conflict"         # 数据冲突
@@ -35,7 +32,6 @@ class ConflictCategory(str, Enum):
     PERMISSION_CONFLICT = "permission_conflict"  # 权限冲突
     TEMPORAL_CONFLICT = "temporal_conflict" # 时间冲突
     SEMANTIC_CONFLICT = "semantic_conflict" # 语义冲突
-
 
 @dataclass
 class ConflictContext:
@@ -49,7 +45,6 @@ class ConflictContext:
     confidence_score: float  # 0.0-1.0，冲突检测的置信度
     metadata: Dict[str, Any] = field(default_factory=dict)
 
-
 @dataclass
 class ConflictDetectionResult:
     """冲突检测结果"""
@@ -58,7 +53,6 @@ class ConflictDetectionResult:
     total_operations_checked: int
     detection_duration_ms: float
     summary: Dict[str, Any] = field(default_factory=dict)
-
 
 class ConflictDetector:
     """冲突检测器"""

@@ -9,7 +9,6 @@ from typing import Dict, Any, List, Optional, Tuple, Union, BinaryIO
 from enum import Enum
 from dataclasses import dataclass
 import asyncio
-import logging
 from datetime import datetime
 from src.core.utils.timezone_utils import utc_now, utc_factory, timezone
 import json
@@ -20,8 +19,8 @@ import hashlib
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-logger = logging.getLogger(__name__)
-
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 class ModalityType(str, Enum):
     """模态类型"""
@@ -31,7 +30,6 @@ class ModalityType(str, Enum):
     VIDEO = "video"
     MULTIMODAL = "multimodal"
 
-
 class EncodingModel(str, Enum):
     """编码模型类型"""
     CLIP = "clip"                    # OpenAI CLIP
@@ -39,7 +37,6 @@ class EncodingModel(str, Enum):
     WHISPER = "whisper"              # OpenAI Whisper
     IMAGEBIND = "imagebind"          # Meta ImageBind
     CUSTOM = "custom"                # 自定义模型
-
 
 @dataclass
 class MultimodalVector:
@@ -51,7 +48,6 @@ class MultimodalVector:
     dimension: int
     timestamp: datetime
 
-
 @dataclass
 class MultimodalSearchConfig:
     """多模态搜索配置"""
@@ -62,7 +58,6 @@ class MultimodalSearchConfig:
     top_k: int = 10
     enable_reranking: bool = True
     similarity_threshold: float = 0.7
-
 
 class MultimodalSearchEngine:
     """多模态搜索引擎"""
@@ -86,7 +81,7 @@ class MultimodalSearchEngine:
     ) -> np.ndarray:
         """编码图像为向量"""
         try:
-            start_time = asyncio.get_event_loop().time()
+            start_time = asyncio.get_running_loop().time()
             
             # 处理不同类型的输入
             if isinstance(image_data, str):
@@ -116,7 +111,7 @@ class MultimodalSearchEngine:
                 vector = await self._encode_with_generic_model(processed_image)
             
             # 更新统计
-            end_time = asyncio.get_event_loop().time()
+            end_time = asyncio.get_running_loop().time()
             self._update_encoding_stats((end_time - start_time) * 1000)
             
             return vector
@@ -133,7 +128,7 @@ class MultimodalSearchEngine:
     ) -> np.ndarray:
         """编码音频为向量"""
         try:
-            start_time = asyncio.get_event_loop().time()
+            start_time = asyncio.get_running_loop().time()
             
             # 处理音频数据
             if isinstance(audio_data, BinaryIO):
@@ -155,7 +150,7 @@ class MultimodalSearchEngine:
                 vector = await self._encode_audio_generic(processed_audio)
             
             # 更新统计
-            end_time = asyncio.get_event_loop().time()
+            end_time = asyncio.get_running_loop().time()
             self._update_encoding_stats((end_time - start_time) * 1000)
             
             return vector
@@ -170,16 +165,7 @@ class MultimodalSearchEngine:
         model: EncodingModel = EncodingModel.CLIP
     ) -> np.ndarray:
         """编码文本为向量"""
-        try:
-            # 这里应该调用实际的文本编码模型
-            # 暂时返回模拟向量
-            vector = np.random.randn(512)
-            vector = vector / np.linalg.norm(vector)  # 归一化
-            return vector
-            
-        except Exception as e:
-            logger.error(f"文本编码失败: {e}")
-            raise
+        raise RuntimeError("text encoder not integrated")
     
     async def cross_modal_search(
         self,
@@ -188,7 +174,7 @@ class MultimodalSearchEngine:
     ) -> List[Dict[str, Any]]:
         """跨模态搜索"""
         try:
-            start_time = asyncio.get_event_loop().time()
+            start_time = asyncio.get_running_loop().time()
             
             # 编码查询
             if config.source_modality == ModalityType.TEXT:
@@ -215,7 +201,7 @@ class MultimodalSearchEngine:
                 )
             
             # 更新统计
-            end_time = asyncio.get_event_loop().time()
+            end_time = asyncio.get_running_loop().time()
             self._update_search_stats(
                 config.source_modality,
                 config.target_modality,
@@ -341,44 +327,27 @@ class MultimodalSearchEngine:
     
     async def _encode_with_clip(self, image: np.ndarray) -> np.ndarray:
         """使用CLIP编码图像"""
-        # 模拟CLIP编码
-        # 实际应用中应该调用真实的CLIP模型
-        vector = np.random.randn(512)
-        vector = vector / np.linalg.norm(vector)
-        return vector
+        raise RuntimeError("CLIP encoder not integrated")
     
     async def _encode_with_blip(self, image: np.ndarray) -> np.ndarray:
         """使用BLIP编码图像"""
-        # 模拟BLIP编码
-        vector = np.random.randn(768)
-        vector = vector / np.linalg.norm(vector)
-        return vector
+        raise RuntimeError("BLIP encoder not integrated")
     
     async def _encode_with_generic_model(self, data: np.ndarray) -> np.ndarray:
         """使用通用模型编码"""
-        vector = np.random.randn(384)
-        vector = vector / np.linalg.norm(vector)
-        return vector
+        raise RuntimeError("generic image encoder not integrated")
     
     async def _encode_with_whisper(self, audio: np.ndarray) -> np.ndarray:
         """使用Whisper编码音频"""
-        # 模拟Whisper编码
-        vector = np.random.randn(768)
-        vector = vector / np.linalg.norm(vector)
-        return vector
+        raise RuntimeError("Whisper encoder not integrated")
     
     async def _encode_with_imagebind(self, data: np.ndarray) -> np.ndarray:
         """使用ImageBind编码"""
-        # ImageBind支持多种模态
-        vector = np.random.randn(1024)
-        vector = vector / np.linalg.norm(vector)
-        return vector
+        raise RuntimeError("ImageBind encoder not integrated")
     
     async def _encode_audio_generic(self, audio: np.ndarray) -> np.ndarray:
         """通用音频编码"""
-        vector = np.random.randn(512)
-        vector = vector / np.linalg.norm(vector)
-        return vector
+        raise RuntimeError("generic audio encoder not integrated")
     
     async def _vector_search(
         self,

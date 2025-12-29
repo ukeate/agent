@@ -1,40 +1,40 @@
 """
 用户分配缓存管理API端点
 """
+
 import asyncio
+from collections.abc import AsyncGenerator
+from contextlib import asynccontextmanager
 from typing import List, Dict, Any, Optional, Tuple
 from datetime import datetime
-from src.core.utils.timezone_utils import utc_now, utc_factory, timezone
+from sqlalchemy import select, and_
+from src.core.utils.timezone_utils import utc_now, utc_factory
 from fastapi import APIRouter, Depends, HTTPException, status, Query, BackgroundTasks
-from pydantic import BaseModel
-
-from services.user_assignment_cache import (
+from src.services.user_assignment_cache import (
     UserAssignmentCache, 
     CachedAssignment, 
     CacheStrategy
 )
-from core.logging import logger
+from src.api.base_model import ApiBaseModel
+from src.core.database import get_db_session
+from src.models.database.experiment import Experiment, ExperimentVariant
 
-
-router = APIRouter(prefix="/cache", tags=["assignment-cache"])
-
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 # 请求模型
-class CreateAssignmentRequest(BaseModel):
+class CreateAssignmentRequest(ApiBaseModel):
     user_id: str
     experiment_id: str
     variant_id: str
     assignment_context: Optional[Dict[str, Any]] = None
     ttl: Optional[int] = None
 
-
-class BatchAssignmentRequest(BaseModel):
+class BatchAssignmentRequest(ApiBaseModel):
     assignments: List[CreateAssignmentRequest]
-
 
 # 全局缓存实例（在生产环境中应该使用依赖注入）
 _cache_instance: Optional[UserAssignmentCache] = None
-
 
 async def get_cache() -> UserAssignmentCache:
     """获取缓存实例"""
@@ -44,20 +44,16 @@ async def get_cache() -> UserAssignmentCache:
         await _cache_instance.initialize()
     return _cache_instance
 
-
-@router.on_event("startup")
-async def startup_event():
-    """启动时初始化缓存"""
+@asynccontextmanager
+async def lifespan(_: APIRouter) -> AsyncGenerator[None, None]:
+    """缓存路由生命周期管理"""
     await get_cache()
-
-
-@router.on_event("shutdown")
-async def shutdown_event():
-    """关闭时清理缓存连接"""
+    yield
     global _cache_instance
     if _cache_instance:
         await _cache_instance.close()
 
+router = APIRouter(prefix="/assignment-cache", tags=["assignment-cache"], lifespan=lifespan)
 
 @router.get("/assignments/{user_id}/{experiment_id}")
 async def get_user_assignment(
@@ -94,7 +90,6 @@ async def get_user_assignment(
             detail="Failed to get assignment"
         )
 
-
 @router.post("/assignments", status_code=status.HTTP_201_CREATED)
 async def create_assignment(
     request: CreateAssignmentRequest,
@@ -102,6 +97,27 @@ async def create_assignment(
 ):
     """创建用户分配"""
     try:
+        async with get_db_session() as db:
+            experiment_exists = await db.get(Experiment, request.experiment_id)
+            if not experiment_exists:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Experiment not found"
+                )
+            variant_query = await db.execute(
+                select(ExperimentVariant).where(
+                    and_(
+                        ExperimentVariant.experiment_id == request.experiment_id,
+                        ExperimentVariant.variant_id == request.variant_id
+                    )
+                )
+            )
+            if not variant_query.scalar_one_or_none():
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Experiment variant not found"
+                )
+
         assignment = CachedAssignment(
             user_id=request.user_id,
             experiment_id=request.experiment_id,
@@ -134,7 +150,6 @@ async def create_assignment(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to create assignment"
         )
-
 
 @router.post("/assignments/batch", status_code=status.HTTP_201_CREATED)
 async def create_batch_assignments(
@@ -199,7 +214,6 @@ async def create_batch_assignments(
             detail="Failed to create batch assignments"
         )
 
-
 @router.get("/users/{user_id}/assignments")
 async def get_user_all_assignments(
     user_id: str,
@@ -229,7 +243,6 @@ async def get_user_all_assignments(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to get user assignments"
         )
-
 
 @router.post("/assignments/batch-get")
 async def batch_get_assignments(
@@ -276,7 +289,6 @@ async def batch_get_assignments(
             detail="Failed to batch get assignments"
         )
 
-
 @router.delete("/assignments/{user_id}/{experiment_id}")
 async def delete_assignment(
     user_id: str,
@@ -308,7 +320,6 @@ async def delete_assignment(
             detail="Failed to delete assignment"
         )
 
-
 @router.delete("/users/{user_id}/assignments")
 async def clear_user_assignments(
     user_id: str,
@@ -331,7 +342,6 @@ async def clear_user_assignments(
             detail="Failed to clear user assignments"
         )
 
-
 @router.get("/metrics")
 async def get_cache_metrics(
     cache: UserAssignmentCache = Depends(get_cache)
@@ -347,7 +357,6 @@ async def get_cache_metrics(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to get cache metrics"
         )
-
 
 @router.get("/health")
 async def cache_health_check(
@@ -373,7 +382,6 @@ async def cache_health_check(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Health check failed"
         )
-
 
 @router.post("/clear")
 async def clear_all_cache(
@@ -410,7 +418,6 @@ async def clear_all_cache(
             detail="Failed to clear cache"
         )
 
-
 @router.get("/info")
 async def get_cache_info(
     cache: UserAssignmentCache = Depends(get_cache)
@@ -433,7 +440,6 @@ async def get_cache_info(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to get cache info"
         )
-
 
 @router.post("/warmup")
 async def warmup_cache(
@@ -458,7 +464,6 @@ async def warmup_cache(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to initiate cache warmup"
         )
-
 
 async def _warmup_cache_task(cache: UserAssignmentCache, user_ids: List[str]):
     """缓存预热后台任务"""

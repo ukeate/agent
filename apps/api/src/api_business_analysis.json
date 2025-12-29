@@ -1,0 +1,785 @@
+{
+  "categories": {
+    "智能体系统": [
+      "supervisor",
+      "agents",
+      "async_agents",
+      "multi_agents",
+      "agent_interface"
+    ],
+    "RAG和知识管理": [
+      "multimodal_rag",
+      "knowledge_graph_reasoning",
+      "knowledge_graph",
+      "graphrag",
+      "knowledge_extraction",
+      "langgraph_features",
+      "knowledge_management",
+      "rag",
+      "sparql_api"
+    ],
+    "实验和统计分析": [
+      "layered_experiments",
+      "multiple_testing_correction",
+      "experiments",
+      "statistical_analysis",
+      "bandit_recommendations",
+      "testing",
+      "power_analysis",
+      "hypothesis_testing"
+    ],
+    "工作流和编排": [
+      "workflows"
+    ],
+    "监控和指标": [
+      "report_generation",
+      "realtime_metrics",
+      "alert_rules",
+      "memory_analytics",
+      "analytics"
+    ],
+    "ML和优化": [
+      "model_evaluation",
+      "emotion_modeling",
+      "training_data",
+      "fine_tuning",
+      "hyperparameter_optimization",
+      "model_service",
+      "model_compression",
+      "model_registry"
+    ],
+    "分布式系统": [
+      "fault_tolerance",
+      "cluster_management",
+      "distributed_task",
+      "service_discovery",
+      "distributed_security"
+    ],
+    "情感智能": [
+      "emotional_intelligence",
+      "social_emotional_understanding",
+      "social_emotion_api",
+      "emotion_intelligence",
+      "emotional_memory",
+      "emotion_recognition",
+      "empathy_response",
+      "emotion_websocket"
+    ],
+    "平台和集成": [
+      "unified",
+      "platform_integration",
+      "mcp"
+    ],
+    "基础设施": [
+      "memory_management",
+      "assignment_cache",
+      "cache",
+      "pgvector"
+    ],
+    "安全和认证": [
+      "auth",
+      "security",
+      "acl",
+      "risk_assessment"
+    ],
+    "数据处理": [
+      "files",
+      "events",
+      "documents",
+      "batch",
+      "multimodal",
+      "event_tracking",
+      "streaming",
+      "event_batch"
+    ],
+    "其他": [
+      "targeting_rules",
+      "explainable_ai",
+      "release_strategy",
+      "health",
+      "feedback",
+      "traffic_ramp",
+      "offline",
+      "auto_scaling",
+      "test",
+      "anomaly_detection",
+      "personalization",
+      "reasoning",
+      "enterprise",
+      "core_init",
+      "multi_step_reasoning"
+    ]
+  },
+  "detailed_info": [
+    {
+      "module": "multimodal_rag",
+      "endpoints": [],
+      "special_features": {
+        "websocket": false,
+        "streaming": true
+      }
+    },
+    {
+      "module": "fault_tolerance",
+      "endpoints": [],
+      "special_features": {
+        "websocket": true,
+        "streaming": false
+      }
+    },
+    {
+      "module": "auth",
+      "endpoints": [],
+      "special_features": {
+        "websocket": false,
+        "streaming": false
+      }
+    },
+    {
+      "module": "report_generation",
+      "endpoints": [],
+      "special_features": {
+        "websocket": false,
+        "streaming": false
+      }
+    },
+    {
+      "module": "knowledge_graph_reasoning",
+      "endpoints": [],
+      "special_features": {
+        "websocket": false,
+        "streaming": false
+      }
+    },
+    {
+      "module": "targeting_rules",
+      "endpoints": [],
+      "special_features": {
+        "websocket": false,
+        "streaming": false
+      }
+    },
+    {
+      "module": "model_evaluation",
+      "endpoints": [],
+      "special_features": {
+        "websocket": false,
+        "streaming": false
+      }
+    },
+    {
+      "module": "files",
+      "endpoints": [],
+      "special_features": {
+        "websocket": false,
+        "streaming": true
+      }
+    },
+    {
+      "module": "memory_management",
+      "endpoints": [],
+      "special_features": {
+        "websocket": false,
+        "streaming": true
+      }
+    },
+    {
+      "module": "emotional_intelligence",
+      "endpoints": [],
+      "special_features": {
+        "websocket": false,
+        "streaming": false
+      }
+    },
+    {
+      "module": "emotion_modeling",
+      "endpoints": [],
+      "special_features": {
+        "websocket": true,
+        "streaming": false
+      }
+    },
+    {
+      "module": "explainable_ai",
+      "endpoints": [],
+      "special_features": {
+        "websocket": false,
+        "streaming": false
+      }
+    },
+    {
+      "module": "assignment_cache",
+      "endpoints": [],
+      "special_features": {
+        "websocket": false,
+        "streaming": false
+      }
+    },
+    {
+      "module": "realtime_metrics",
+      "endpoints": [],
+      "special_features": {
+        "websocket": false,
+        "streaming": false
+      }
+    },
+    {
+      "module": "social_emotional_understanding",
+      "endpoints": [],
+      "special_features": {
+        "websocket": true,
+        "streaming": false
+      }
+    },
+    {
+      "module": "social_emotion_api",
+      "endpoints": [],
+      "special_features": {
+        "websocket": true,
+        "streaming": false
+      }
+    },
+    {
+      "module": "training_data",
+      "endpoints": [],
+      "special_features": {
+        "websocket": false,
+        "streaming": false
+      }
+    },
+    {
+      "module": "fine_tuning",
+      "endpoints": [],
+      "special_features": {
+        "websocket": false,
+        "streaming": false
+      }
+    },
+    {
+      "module": "unified",
+      "endpoints": [],
+      "special_features": {
+        "websocket": false,
+        "streaming": true
+      }
+    },
+    {
+      "module": "release_strategy",
+      "endpoints": [],
+      "special_features": {
+        "websocket": false,
+        "streaming": false
+      }
+    },
+    {
+      "module": "supervisor",
+      "endpoints": [],
+      "special_features": {
+        "websocket": false,
+        "streaming": false
+      }
+    },
+    {
+      "module": "health",
+      "endpoints": [],
+      "special_features": {
+        "websocket": false,
+        "streaming": false
+      }
+    },
+    {
+      "module": "events",
+      "endpoints": [],
+      "special_features": {
+        "websocket": true,
+        "streaming": true
+      }
+    },
+    {
+      "module": "knowledge_graph",
+      "endpoints": [],
+      "special_features": {
+        "websocket": false,
+        "streaming": false
+      }
+    },
+    {
+      "module": "feedback",
+      "endpoints": [],
+      "special_features": {
+        "websocket": true,
+        "streaming": false
+      }
+    },
+    {
+      "module": "layered_experiments",
+      "endpoints": [],
+      "special_features": {
+        "websocket": false,
+        "streaming": false
+      }
+    },
+    {
+      "module": "graphrag",
+      "endpoints": [],
+      "special_features": {
+        "websocket": false,
+        "streaming": false
+      }
+    },
+    {
+      "module": "multiple_testing_correction",
+      "endpoints": [],
+      "special_features": {
+        "websocket": false,
+        "streaming": false
+      }
+    },
+    {
+      "module": "documents",
+      "endpoints": [],
+      "special_features": {
+        "websocket": false,
+        "streaming": false
+      }
+    },
+    {
+      "module": "knowledge_extraction",
+      "endpoints": [],
+      "special_features": {
+        "websocket": false,
+        "streaming": true
+      }
+    },
+    {
+      "module": "batch",
+      "endpoints": [],
+      "special_features": {
+        "websocket": false,
+        "streaming": false
+      }
+    },
+    {
+      "module": "traffic_ramp",
+      "endpoints": [],
+      "special_features": {
+        "websocket": false,
+        "streaming": false
+      }
+    },
+    {
+      "module": "security",
+      "endpoints": [],
+      "special_features": {
+        "websocket": false,
+        "streaming": false
+      }
+    },
+    {
+      "module": "hyperparameter_optimization",
+      "endpoints": [],
+      "special_features": {
+        "websocket": false,
+        "streaming": false
+      }
+    },
+    {
+      "module": "emotion_intelligence",
+      "endpoints": [],
+      "special_features": {
+        "websocket": false,
+        "streaming": false
+      }
+    },
+    {
+      "module": "multimodal",
+      "endpoints": [],
+      "special_features": {
+        "websocket": false,
+        "streaming": false
+      }
+    },
+    {
+      "module": "cache",
+      "endpoints": [],
+      "special_features": {
+        "websocket": false,
+        "streaming": false
+      }
+    },
+    {
+      "module": "langgraph_features",
+      "endpoints": [],
+      "special_features": {
+        "websocket": false,
+        "streaming": true
+      }
+    },
+    {
+      "module": "offline",
+      "endpoints": [],
+      "special_features": {
+        "websocket": false,
+        "streaming": false
+      }
+    },
+    {
+      "module": "auto_scaling",
+      "endpoints": [],
+      "special_features": {
+        "websocket": false,
+        "streaming": false
+      }
+    },
+    {
+      "module": "test",
+      "endpoints": [],
+      "special_features": {
+        "websocket": false,
+        "streaming": false
+      }
+    },
+    {
+      "module": "knowledge_management",
+      "endpoints": [],
+      "special_features": {
+        "websocket": false,
+        "streaming": true
+      }
+    },
+    {
+      "module": "agents",
+      "endpoints": [],
+      "special_features": {
+        "websocket": true,
+        "streaming": true
+      }
+    },
+    {
+      "module": "platform_integration",
+      "endpoints": [],
+      "special_features": {
+        "websocket": false,
+        "streaming": false
+      }
+    },
+    {
+      "module": "emotional_memory",
+      "endpoints": [],
+      "special_features": {
+        "websocket": false,
+        "streaming": false
+      }
+    },
+    {
+      "module": "event_tracking",
+      "endpoints": [],
+      "special_features": {
+        "websocket": false,
+        "streaming": true
+      }
+    },
+    {
+      "module": "async_agents",
+      "endpoints": [],
+      "special_features": {
+        "websocket": true,
+        "streaming": false
+      }
+    },
+    {
+      "module": "multi_agents",
+      "endpoints": [],
+      "special_features": {
+        "websocket": true,
+        "streaming": true
+      }
+    },
+    {
+      "module": "model_service",
+      "endpoints": [],
+      "special_features": {
+        "websocket": false,
+        "streaming": false
+      }
+    },
+    {
+      "module": "acl",
+      "endpoints": [],
+      "special_features": {
+        "websocket": false,
+        "streaming": false
+      }
+    },
+    {
+      "module": "experiments",
+      "endpoints": [],
+      "special_features": {
+        "websocket": false,
+        "streaming": false
+      }
+    },
+    {
+      "module": "emotion_recognition",
+      "endpoints": [],
+      "special_features": {
+        "websocket": true,
+        "streaming": true
+      }
+    },
+    {
+      "module": "pgvector",
+      "endpoints": [],
+      "special_features": {
+        "websocket": false,
+        "streaming": false
+      }
+    },
+    {
+      "module": "anomaly_detection",
+      "endpoints": [],
+      "special_features": {
+        "websocket": false,
+        "streaming": false
+      }
+    },
+    {
+      "module": "mcp",
+      "endpoints": [],
+      "special_features": {
+        "websocket": false,
+        "streaming": false
+      }
+    },
+    {
+      "module": "empathy_response",
+      "endpoints": [],
+      "special_features": {
+        "websocket": false,
+        "streaming": false
+      }
+    },
+    {
+      "module": "rag",
+      "endpoints": [],
+      "special_features": {
+        "websocket": false,
+        "streaming": true
+      }
+    },
+    {
+      "module": "alert_rules",
+      "endpoints": [],
+      "special_features": {
+        "websocket": false,
+        "streaming": false
+      }
+    },
+    {
+      "module": "risk_assessment",
+      "endpoints": [],
+      "special_features": {
+        "websocket": false,
+        "streaming": false
+      }
+    },
+    {
+      "module": "agent_interface",
+      "endpoints": [],
+      "special_features": {
+        "websocket": false,
+        "streaming": true
+      }
+    },
+    {
+      "module": "statistical_analysis",
+      "endpoints": [],
+      "special_features": {
+        "websocket": false,
+        "streaming": false
+      }
+    },
+    {
+      "module": "memory_analytics",
+      "endpoints": [],
+      "special_features": {
+        "websocket": false,
+        "streaming": false
+      }
+    },
+    {
+      "module": "cluster_management",
+      "endpoints": [],
+      "special_features": {
+        "websocket": true,
+        "streaming": false
+      }
+    },
+    {
+      "module": "bandit_recommendations",
+      "endpoints": [],
+      "special_features": {
+        "websocket": false,
+        "streaming": false
+      }
+    },
+    {
+      "module": "personalization",
+      "endpoints": [],
+      "special_features": {
+        "websocket": true,
+        "streaming": true
+      }
+    },
+    {
+      "module": "workflows",
+      "endpoints": [],
+      "special_features": {
+        "websocket": true,
+        "streaming": false
+      }
+    },
+    {
+      "module": "distributed_task",
+      "endpoints": [],
+      "special_features": {
+        "websocket": false,
+        "streaming": false
+      }
+    },
+    {
+      "module": "reasoning",
+      "endpoints": [],
+      "special_features": {
+        "websocket": false,
+        "streaming": true
+      }
+    },
+    {
+      "module": "emotion_websocket",
+      "endpoints": [],
+      "special_features": {
+        "websocket": true,
+        "streaming": true
+      }
+    },
+    {
+      "module": "enterprise",
+      "endpoints": [],
+      "special_features": {
+        "websocket": false,
+        "streaming": false
+      }
+    },
+    {
+      "module": "analytics",
+      "endpoints": [],
+      "special_features": {
+        "websocket": true,
+        "streaming": true
+      }
+    },
+    {
+      "module": "model_compression",
+      "endpoints": [],
+      "special_features": {
+        "websocket": false,
+        "streaming": true
+      }
+    },
+    {
+      "module": "streaming",
+      "endpoints": [],
+      "special_features": {
+        "websocket": true,
+        "streaming": true
+      }
+    },
+    {
+      "module": "event_batch",
+      "endpoints": [],
+      "special_features": {
+        "websocket": false,
+        "streaming": false
+      }
+    },
+    {
+      "module": "testing",
+      "endpoints": [],
+      "special_features": {
+        "websocket": false,
+        "streaming": false
+      }
+    },
+    {
+      "module": "sparql_api",
+      "endpoints": [],
+      "special_features": {
+        "websocket": false,
+        "streaming": true
+      }
+    },
+    {
+      "module": "power_analysis",
+      "endpoints": [],
+      "special_features": {
+        "websocket": false,
+        "streaming": false
+      }
+    },
+    {
+      "module": "core_init",
+      "endpoints": [],
+      "special_features": {
+        "websocket": false,
+        "streaming": true
+      }
+    },
+    {
+      "module": "model_registry",
+      "endpoints": [],
+      "special_features": {
+        "websocket": false,
+        "streaming": false
+      }
+    },
+    {
+      "module": "hypothesis_testing",
+      "endpoints": [],
+      "special_features": {
+        "websocket": false,
+        "streaming": false
+      }
+    },
+    {
+      "module": "multi_step_reasoning",
+      "endpoints": [],
+      "special_features": {
+        "websocket": false,
+        "streaming": false
+      }
+    },
+    {
+      "module": "service_discovery",
+      "endpoints": [],
+      "special_features": {
+        "websocket": false,
+        "streaming": false
+      }
+    },
+    {
+      "module": "distributed_security",
+      "endpoints": [],
+      "special_features": {
+        "websocket": false,
+        "streaming": false
+      }
+    }
+  ],
+  "statistics": {
+    "total_modules": 83,
+    "total_endpoints": 0,
+    "websocket_apis": 16,
+    "streaming_apis": 22
+  }
+}

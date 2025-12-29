@@ -7,18 +7,19 @@
 import asyncio
 import numpy as np
 from typing import List
-from datetime import datetime
-from src.core.utils.timezone_utils import utc_now, utc_factory
-
 from .tabular_qlearning_agent import TabularQLearningAgent
 from .agent_monitor import (
+
     MonitoredQLearningAgent, 
     get_agent_monitor,
     initialize_agent_monitoring,
     shutdown_agent_monitoring,
     LogLevel
 )
+from src.core.logging import setup_logging
 
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 class SimpleGridEnvironment:
     """简单的网格世界环境用于演示"""
@@ -70,19 +71,18 @@ class SimpleGridEnvironment:
         # 将2D位置转换为1D状态
         return self.current_position[0] * self.grid_size + self.current_position[1]
 
-
 async def run_monitoring_demo():
     """运行智能体监控演示"""
-    print("=== 智能体监控系统演示 ===\n")
+    logger.info("智能体监控系统演示")
     
     # 1. 启动监控系统
-    print("1. 启动监控系统...")
+    logger.info("启动监控系统")
     await initialize_agent_monitoring()
     monitor = get_agent_monitor()
-    print(f"   监控状态: {monitor.is_monitoring}")
+    logger.info("监控状态", is_monitoring=monitor.is_monitoring)
     
     # 2. 创建环境和智能体
-    print("\n2. 创建环境和智能体...")
+    logger.info("创建环境和智能体")
     env = SimpleGridEnvironment(grid_size=4)
     
     # 创建基础智能体
@@ -99,11 +99,11 @@ async def run_monitoring_demo():
     monitored_agent.current_episode = 0
     monitored_agent.current_step = 0
     
-    print(f"   智能体ID: {monitored_agent.agent_id}")
-    print(f"   状态空间: {env.state_space}, 动作空间: {env.action_space}")
+    logger.info("智能体信息", agent_id=monitored_agent.agent_id)
+    logger.info("环境空间", state_space=env.state_space, action_space=env.action_space)
     
     # 3. 运行训练演示
-    print("\n3. 开始训练演示 (10个回合)...")
+    logger.info("开始训练演示", episodes=10)
     
     total_rewards = []
     
@@ -168,72 +168,96 @@ async def run_monitoring_demo():
             }
         )
         
-        print(f"   回合 {episode + 1}: 奖励 {episode_reward:.2f}, 步数 {step_count}")
+        logger.info(
+            "回合结果",
+            episode=episode + 1,
+            reward=round(episode_reward, 2),
+            steps=step_count,
+        )
         
         # 每5个回合显示一次统计
         if (episode + 1) % 5 == 0:
             avg_reward = np.mean(total_rewards[-5:])
             monitored_agent.log_performance_metric("avg_reward_5", avg_reward)
-            print(f"     → 最近5回合平均奖励: {avg_reward:.2f}")
+            logger.info("最近5回合平均奖励", avg_reward=round(avg_reward, 2))
     
     # 4. 显示监控统计
-    print("\n4. 监控统计摘要:")
+    logger.info("监控统计摘要")
     summary = monitor.get_agent_summary(monitored_agent.agent_id)
     
     if summary:
-        print(f"   总动作数: {summary.get('total_actions', 0)}")
-        print(f"   探索动作: {summary.get('exploration_count', 0)}")
-        print(f"   利用动作: {summary.get('exploitation_count', 0)}")
-        print(f"   平均奖励: {summary.get('average_reward', 0):.3f}")
-        print(f"   平均决策时间: {summary.get('avg_decision_time', 0):.2f}ms")
+        logger.info("动作统计", total_actions=summary.get("total_actions", 0))
+        logger.info("探索动作", exploration_count=summary.get("exploration_count", 0))
+        logger.info("利用动作", exploitation_count=summary.get("exploitation_count", 0))
+        logger.info("平均奖励", average_reward=round(summary.get("average_reward", 0), 3))
+        logger.info(
+            "平均决策时间",
+            avg_decision_time_ms=round(summary.get("avg_decision_time", 0), 2),
+        )
         
         if 'event_counts' in summary:
-            print(f"   事件统计: {dict(summary['event_counts'])}")
+            logger.info("事件统计", event_counts=dict(summary["event_counts"]))
         
         if 'metrics_summary' in summary:
-            print("   性能指标摘要:")
+            logger.info("性能指标摘要")
             for metric, data in summary['metrics_summary'].items():
-                print(f"     {metric}: 当前值 {data['current']:.2f}, "
-                      f"平均值 {data['average']:.2f}, 趋势 {data['trend']}")
+                logger.info(
+                    "性能指标",
+                    metric=metric,
+                    current=round(data["current"], 2),
+                    average=round(data["average"], 2),
+                    trend=data["trend"],
+                )
     
     # 5. 显示最近动作历史
-    print("\n5. 最近动作历史 (最后5个):")
+    logger.info("最近动作历史", limit=5)
     recent_actions = monitor.get_recent_actions(monitored_agent.agent_id, 5)
     
     for i, action_data in enumerate(recent_actions[:5]):
-        print(f"   动作 {i + 1}: 状态 {action_data['state']} → "
-              f"动作 {action_data['action']} (类型: {action_data['action_type']}) → "
-              f"奖励 {action_data['reward']:.2f}")
+        logger.info(
+            "动作记录",
+            index=i + 1,
+            state=action_data["state"],
+            action=action_data["action"],
+            action_type=action_data["action_type"],
+            reward=round(action_data["reward"], 2),
+        )
     
     # 6. 显示性能趋势
-    print("\n6. 回合奖励趋势:")
+    logger.info("回合奖励趋势")
     trend_data = monitor.get_performance_trend(monitored_agent.agent_id, "episode_reward", 1)
     
     if trend_data:
-        print("   时间 → 奖励")
+        logger.info("时间奖励趋势")
         for data in trend_data[-5:]:  # 显示最后5个数据点
-            print(f"   {data['timestamp'].strftime('%H:%M:%S')} → {data['value']:.2f}")
+            logger.info(
+                "趋势数据点",
+                timestamp=data["timestamp"].strftime("%H:%M:%S"),
+                value=round(data["value"], 2),
+            )
     
     # 7. 全局监控统计
-    print("\n7. 全局监控统计:")
-    print(f"   监控状态: {monitor.is_monitoring}")
-    print(f"   缓冲区大小: 动作 {len(monitor.action_buffer)}, "
-          f"决策 {len(monitor.decision_buffer)}, "
-          f"性能 {len(monitor.performance_buffer)}, "
-          f"事件 {len(monitor.event_buffer)}")
-    print(f"   监控的智能体数量: {len(monitor.agent_stats)}")
+    logger.info("全局监控统计")
+    logger.info("监控状态", is_monitoring=monitor.is_monitoring)
+    logger.info(
+        "缓冲区大小",
+        action=len(monitor.action_buffer),
+        decision=len(monitor.decision_buffer),
+        performance=len(monitor.performance_buffer),
+        event=len(monitor.event_buffer),
+    )
+    logger.info("监控的智能体数量", total=len(monitor.agent_stats))
     
     # 8. 关闭监控系统
-    print("\n8. 关闭监控系统...")
+    logger.info("关闭监控系统")
     await shutdown_agent_monitoring()
-    print("   监控系统已关闭")
+    logger.info("监控系统已关闭")
     
-    print("\n=== 演示完成 ===")
-
+    logger.info("演示完成")
 
 async def run_multi_agent_monitoring_demo():
     """多智能体监控演示"""
-    print("\n=== 多智能体监控演示 ===\n")
+    logger.info("多智能体监控演示")
     
     await initialize_agent_monitoring()
     monitor = get_agent_monitor()
@@ -251,13 +275,13 @@ async def run_multi_agent_monitoring_demo():
         monitored_agent = MonitoredQLearningAgent(base_agent, monitor)
         agents.append(monitored_agent)
         
-        print(f"   智能体 {i + 1}: {monitored_agent.agent_id}")
+        logger.info("智能体创建", index=i + 1, agent_id=monitored_agent.agent_id)
     
     # 同时运行多个智能体
     env = SimpleGridEnvironment(grid_size=4)
     
     for episode in range(5):
-        print(f"\n回合 {episode + 1}:")
+        logger.info("回合开始", episode=episode + 1)
         
         for i, agent in enumerate(agents):
             agent.current_episode = episode
@@ -278,22 +302,26 @@ async def run_multi_agent_monitoring_demo():
                     break
             
             agent.log_performance_metric("episode_reward", episode_reward)
-            print(f"     智能体 {i + 1}: 奖励 {episode_reward:.2f}")
+            logger.info(
+                "智能体回合奖励",
+                agent_index=i + 1,
+                reward=round(episode_reward, 2),
+            )
     
     # 显示所有智能体的统计
-    print("\n多智能体统计摘要:")
+    logger.info("多智能体统计摘要")
     for i, agent in enumerate(agents):
         summary = monitor.get_agent_summary(agent.agent_id)
-        print(f"   智能体 {i + 1}:")
-        print(f"     总动作: {summary.get('total_actions', 0)}")
-        print(f"     平均奖励: {summary.get('average_reward', 0):.3f}")
+        logger.info("智能体统计", agent_index=i + 1)
+        logger.info("总动作", total_actions=summary.get("total_actions", 0))
+        logger.info("平均奖励", average_reward=round(summary.get("average_reward", 0), 3))
     
     await shutdown_agent_monitoring()
-    print("\n多智能体演示完成")
-
+    logger.info("多智能体演示完成")
 
 if __name__ == "__main__":
     # 运行单智能体演示
+    setup_logging()
     asyncio.run(run_monitoring_demo())
     
     # 运行多智能体演示

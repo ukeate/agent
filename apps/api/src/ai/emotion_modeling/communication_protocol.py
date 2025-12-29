@@ -3,6 +3,7 @@
 实现高效、可靠的模块间数据传输和事件通知机制
 """
 
+from src.core.utils.timezone_utils import utc_now
 import asyncio
 import json
 import uuid
@@ -11,12 +12,10 @@ from datetime import datetime, timedelta
 from enum import Enum
 from dataclasses import dataclass, asdict
 from abc import ABC, abstractmethod
-import logging
 from concurrent.futures import ThreadPoolExecutor
-
 from .core_interfaces import UnifiedEmotionalData, EmotionalIntelligenceResponse
 
-
+from src.core.logging import get_logger
 class MessageType(str, Enum):
     """消息类型"""
     REQUEST = "request"
@@ -24,7 +23,6 @@ class MessageType(str, Enum):
     EVENT = "event"
     HEARTBEAT = "heartbeat"
     ERROR = "error"
-
 
 class ModuleType(str, Enum):
     """模块类型"""
@@ -38,14 +36,12 @@ class ModuleType(str, Enum):
     DATA_FLOW_MANAGER = "data_flow_manager"
     SYSTEM_MONITOR = "system_monitor"
 
-
 class Priority(int, Enum):
     """消息优先级"""
     LOW = 1
     NORMAL = 2
     HIGH = 3
     CRITICAL = 4
-
 
 @dataclass
 class MessageHeader:
@@ -59,7 +55,6 @@ class MessageHeader:
     correlation_id: Optional[str] = None
     reply_to: Optional[str] = None
     expires_at: Optional[datetime] = None
-
 
 @dataclass
 class Message:
@@ -97,27 +92,25 @@ class Message:
             metadata=data.get("metadata", {})
         )
 
-
 class MessageHandler(ABC):
     """消息处理器抽象基类"""
     
     @abstractmethod
     async def handle_message(self, message: Message) -> Optional[Message]:
         """处理消息"""
-        pass
+        raise NotImplementedError
     
     @abstractmethod
     def can_handle(self, message: Message) -> bool:
         """判断是否能处理消息"""
-        pass
-
+        raise NotImplementedError
 
 class EventBus:
     """事件总线"""
     
     def __init__(self):
         self._subscribers: Dict[str, List[Callable]] = {}
-        self._logger = logging.getLogger(__name__)
+        self._logger = get_logger(__name__)
     
     def subscribe(self, event_type: str, handler: Callable):
         """订阅事件"""
@@ -141,13 +134,12 @@ class EventBus:
                         tasks.append(task)
                     else:
                         # 同步处理器
-                        pass
+                        continue
                 except Exception as e:
                     self._logger.error(f"Event handler error: {e}")
             
             if tasks:
                 await asyncio.gather(*tasks, return_exceptions=True)
-
 
 class MessageQueue:
     """消息队列"""
@@ -155,13 +147,13 @@ class MessageQueue:
     def __init__(self, max_size: int = 1000):
         self._queue: asyncio.PriorityQueue = asyncio.PriorityQueue(maxsize=max_size)
         self._dead_letter_queue: List[Message] = []
-        self._logger = logging.getLogger(__name__)
+        self._logger = get_logger(__name__)
     
     async def enqueue(self, message: Message) -> bool:
         """入队消息"""
         try:
             # 检查消息是否过期
-            if message.header.expires_at and message.header.expires_at < datetime.now():
+            if message.header.expires_at and message.header.expires_at < utc_now():
                 self._logger.warning(f"Message {message.header.message_id} expired")
                 return False
             
@@ -186,14 +178,13 @@ class MessageQueue:
         """移动到死信队列"""
         message.metadata = message.metadata or {}
         message.metadata["dead_letter_reason"] = reason
-        message.metadata["dead_letter_timestamp"] = datetime.now().isoformat()
+        message.metadata["dead_letter_timestamp"] = utc_now().isoformat()
         self._dead_letter_queue.append(message)
         self._logger.warning(f"Message {message.header.message_id} moved to dead letter queue: {reason}")
     
     def get_queue_size(self) -> int:
         """获取队列大小"""
         return self._queue.qsize()
-
 
 class CommunicationProtocol:
     """通信协议管理器"""
@@ -206,7 +197,7 @@ class CommunicationProtocol:
         self._pending_responses: Dict[str, asyncio.Future] = {}
         self._heartbeat_interval = 30  # 秒
         self._is_running = False
-        self._logger = logging.getLogger(__name__)
+        self._logger = get_logger(__name__)
         self._executor = ThreadPoolExecutor(max_workers=10)
         
         # 性能指标
@@ -259,9 +250,9 @@ class CommunicationProtocol:
                 source_module=self.module_type,
                 target_module=target_module,
                 priority=priority,
-                timestamp=datetime.now(),
+                timestamp=utc_now(),
                 correlation_id=correlation_id,
-                expires_at=datetime.now() + timedelta(seconds=timeout)
+                expires_at=utc_now() + timedelta(seconds=timeout)
             ),
             payload=payload
         )
@@ -297,7 +288,7 @@ class CommunicationProtocol:
                 source_module=self.module_type,
                 target_module=request_message.header.source_module,
                 priority=request_message.header.priority,
-                timestamp=datetime.now(),
+                timestamp=utc_now(),
                 correlation_id=request_message.header.correlation_id
             ),
             payload=payload
@@ -320,7 +311,7 @@ class CommunicationProtocol:
                 source_module=self.module_type,
                 target_module=None,
                 priority=priority,
-                timestamp=datetime.now()
+                timestamp=utc_now()
             ),
             payload={
                 "event_type": event_type,
@@ -342,9 +333,9 @@ class CommunicationProtocol:
             try:
                 message = await self._message_queue.dequeue(timeout=1.0)
                 if message:
-                    start_time = datetime.now()
+                    start_time = utc_now()
                     await self._process_message(message)
-                    processing_time = (datetime.now() - start_time).total_seconds()
+                    processing_time = (utc_now() - start_time).total_seconds()
                     
                     # 更新性能指标
                     self._metrics["messages_processed"] += 1
@@ -412,7 +403,7 @@ class CommunicationProtocol:
                         source_module=self.module_type,
                         target_module=None,
                         priority=Priority.LOW,
-                        timestamp=datetime.now()
+                        timestamp=utc_now()
                     ),
                     payload={
                         "module_type": self.module_type.value,
@@ -433,10 +424,9 @@ class CommunicationProtocol:
             "queue_size": self._message_queue.get_queue_size(),
             "dead_letter_count": len(self._message_queue._dead_letter_queue),
             "pending_responses": len(self._pending_responses),
-            "uptime": datetime.now().isoformat(),
+            "uptime": utc_now().isoformat(),
             "module_type": self.module_type.value
         }
-
 
 # 具体的消息处理器实现示例
 
@@ -459,7 +449,7 @@ class EmotionRecognitionHandler(MessageHandler):
                         source_module=ModuleType.EMOTION_RECOGNITION,
                         target_module=message.header.source_module,
                         priority=message.header.priority,
-                        timestamp=datetime.now(),
+                        timestamp=utc_now(),
                         correlation_id=message.header.correlation_id
                     ),
                     payload={"result": result, "success": True}
@@ -472,7 +462,7 @@ class EmotionRecognitionHandler(MessageHandler):
                         source_module=ModuleType.EMOTION_RECOGNITION,
                         target_module=message.header.source_module,
                         priority=message.header.priority,
-                        timestamp=datetime.now(),
+                        timestamp=utc_now(),
                         correlation_id=message.header.correlation_id
                     ),
                     payload={"error": str(e), "success": False}
@@ -483,7 +473,6 @@ class EmotionRecognitionHandler(MessageHandler):
         """判断是否能处理消息"""
         return (message.header.target_module == ModuleType.EMOTION_RECOGNITION and
                 message.header.message_type == MessageType.REQUEST)
-
 
 class DataSyncHandler(MessageHandler):
     """数据同步处理器"""
@@ -504,7 +493,7 @@ class DataSyncHandler(MessageHandler):
                     source_module=ModuleType.DATA_FLOW_MANAGER,
                     target_module=message.header.source_module,
                     priority=message.header.priority,
-                    timestamp=datetime.now(),
+                    timestamp=utc_now(),
                     correlation_id=message.header.correlation_id
                 ),
                 payload={"success": success}
@@ -521,7 +510,6 @@ class DataSyncHandler(MessageHandler):
         # 这里实现实际的数据同步逻辑
         return True
 
-
 # 协议工厂
 class ProtocolFactory:
     """协议工厂"""
@@ -534,7 +522,7 @@ class ProtocolFactory:
         # 根据模块类型添加特定的处理器
         if module_type == ModuleType.EMOTION_RECOGNITION:
             # protocol.add_message_handler(EmotionRecognitionHandler(recognition_engine))
-            pass
+            get_logger(__name__).debug("情感识别处理器未注入，跳过注册")
         elif module_type == ModuleType.DATA_FLOW_MANAGER:
             protocol.add_message_handler(DataSyncHandler())
         

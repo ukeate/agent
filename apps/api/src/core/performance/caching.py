@@ -4,23 +4,20 @@ API缓存管理系统
 
 import hashlib
 import json
-import pickle
 import zlib
 from datetime import datetime
 from datetime import timedelta
-from src.core.utils.timezone_utils import utc_now, utc_factory
+from src.core.utils.timezone_utils import format_iso_string
 from typing import Any, Callable, Dict, Optional
-
-import structlog
 from fastapi import Request, Response
 from redis.asyncio import Redis
-
 from src.core.config import get_settings
 from src.core.redis import get_redis
 
-logger = structlog.get_logger(__name__)
-settings = get_settings()
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
+settings = get_settings()
 
 class CacheKey:
     """缓存键生成器"""
@@ -46,11 +43,10 @@ class CacheKey:
         if params:
             # 对参数进行排序和哈希
             params_str = json.dumps(params, sort_keys=True)
-            params_hash = hashlib.md5(params_str.encode()).hexdigest()[:8]
+            params_hash = hashlib.sha256(params_str.encode("utf-8")).hexdigest()[:16]
             key_parts.append(f"params:{params_hash}")
         
         return ":".join(key_parts)
-
 
 class CacheManager:
     """缓存管理器"""
@@ -60,7 +56,6 @@ class CacheManager:
         self.enabled = settings.CACHE_ENABLED
         self.default_ttl = settings.CACHE_TTL_DEFAULT
         self.compression = settings.CACHE_COMPRESSION
-        self.serialize_method = settings.CACHE_SERIALIZE_METHOD
         self.cache_stats = {
             "hits": 0,
             "misses": 0,
@@ -80,12 +75,18 @@ class CacheManager:
                 logger.error("Failed to initialize cache manager", error=str(e))
                 self.enabled = False
     
+    def _json_default(self, value: Any) -> Any:
+        if isinstance(value, datetime):
+            return format_iso_string(value)
+        return value
+
     def _serialize(self, data: Any) -> bytes:
         """序列化数据"""
-        if self.serialize_method == "pickle":
-            serialized = pickle.dumps(data)
-        else:
-            serialized = json.dumps(data).encode()
+        serialized = json.dumps(
+            data,
+            default=self._json_default,
+            ensure_ascii=False,
+        ).encode()
         
         if self.compression:
             serialized = zlib.compress(serialized)
@@ -97,10 +98,7 @@ class CacheManager:
         if self.compression:
             data = zlib.decompress(data)
         
-        if self.serialize_method == "pickle":
-            return pickle.loads(data)
-        else:
-            return json.loads(data.decode())
+        return json.loads(data.decode())
     
     async def get(self, key: str) -> Optional[Any]:
         """获取缓存"""
@@ -210,7 +208,6 @@ class CacheManager:
             "enabled": self.enabled
         }
 
-
 class CachedResponse:
     """缓存响应装饰器"""
     
@@ -294,16 +291,13 @@ class CachedResponse:
         
         return wrapper
 
-
 # 全局缓存管理器实例
 cache_manager = CacheManager()
-
 
 # 便捷函数
 def cache_response(ttl: int = None):
     """缓存响应装饰器便捷函数"""
     return CachedResponse(ttl=ttl)
-
 
 def cache_invalidate(patterns: List[str]):
     """缓存失效函数"""

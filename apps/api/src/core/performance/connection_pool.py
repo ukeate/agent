@@ -5,17 +5,15 @@
 import asyncio
 from contextlib import asynccontextmanager
 from typing import Any, Dict, Optional
-
-import structlog
 from asyncpg import Pool, create_pool
 from redis.asyncio import ConnectionPool as RedisConnectionPool
 from redis.asyncio import Redis
-
 from src.core.config import get_settings
 
-logger = structlog.get_logger(__name__)
-settings = get_settings()
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
+settings = get_settings()
 
 class ConnectionPoolManager:
     """连接池管理器"""
@@ -142,7 +140,7 @@ class ConnectionPoolManager:
             logger.info("Database connection pool closed")
         
         if self.redis_pool:
-            await self.redis_pool.disconnect()
+            await self.redis_pool.aclose()
             logger.info("Redis connection pool closed")
     
     def get_pool_stats(self) -> Dict[str, Any]:
@@ -203,7 +201,6 @@ class ConnectionPoolManager:
             # 如果错误过多，重新初始化连接池
             logger.warning("Redis pool has too many errors, reinitializing")
             await self._init_redis_pool()
-
 
 # 全局连接池管理器实例
 pool_manager = ConnectionPoolManager()

@@ -1,6 +1,7 @@
 import React from 'react'
 import { List, Card, Typography, Space, Button, Empty, Tag, Avatar } from 'antd'
 import { 
+import { logger } from '../../utils/logger'
   MessageOutlined, 
   DeleteOutlined, 
   CalendarOutlined,
@@ -42,7 +43,7 @@ const MultiAgentHistory: React.FC<MultiAgentHistoryProps> = ({
       await loadSessionHistory(session.session_id)
       onSelectSession(session)
     } catch (error) {
-      console.error('选择会话失败:', error)
+      logger.error('选择会话失败:', error)
     }
   }
 

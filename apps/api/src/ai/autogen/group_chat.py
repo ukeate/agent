@@ -2,24 +2,22 @@
 AutoGen 0.7.x 多智能体对话实现
 使用新版本的autogen-agentchat和autogen-core API
 """
+
 import asyncio
 import uuid
 from datetime import datetime
 from src.core.utils.timezone_utils import utc_now, utc_factory, timezone
 from typing import Dict, List, Optional, Any, Union
 from enum import Enum
-
 from autogen_agentchat.teams import BaseGroupChat, RoundRobinGroupChat
 from autogen_core import CancellationToken
-import structlog
-
 from .agents import BaseAutoGenAgent, create_default_agents
 from .config import ConversationConfig
 from src.core.config import get_settings
 from src.core.constants import TimeoutConstants
 
-logger = structlog.get_logger(__name__)
-
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 class ConversationStatus(str, Enum):
     """对话状态枚举"""
@@ -29,7 +27,6 @@ class ConversationStatus(str, Enum):
     COMPLETED = "completed"
     TERMINATED = "terminated"
     ERROR = "error"
-
 
 class ConversationSession:
     """多智能体对话会话 - 使用新版AutoGen API"""
@@ -145,8 +142,7 @@ class ConversationSession:
                 raise ValueError("GroupChat未初始化")
             
             # 限制轮数和时间避免无限循环
-            max_rounds = min(self.config.max_rounds, 3)  # 进一步限制轮数
-            timeout_seconds = min(self.config.timeout_seconds, TimeoutConstants.CONVERSATION_TIMEOUT_SECONDS)  # 限制总超时时间
+            max_rounds = self.config.max_rounds
             
             current_message = initial_message
             for round_num in range(max_rounds):
@@ -223,7 +219,7 @@ class ConversationSession:
                 raise ValueError("GroupChat未初始化")
             
             # 限制轮数和时间避免无限循环
-            max_rounds = min(self.config.max_rounds, 3)
+            max_rounds = self.config.max_rounds
             
             current_message = initial_message
             for round_num in range(max_rounds):
@@ -231,6 +227,8 @@ class ConversationSession:
                 
                 # 轮流让每个智能体响应
                 for i, participant in enumerate(self.participants):
+                    if self._cancellation_token.is_cancelled():
+                        break
                     try:
                         # 通知前端当前发言者
                         if websocket_callback:
@@ -376,7 +374,6 @@ class ConversationSession:
                         timeout_response = f"我是{participant.config.name}，正在思考中，请稍等..."
                         logger.info(f"准备推送超时消息: {timeout_response}, websocket_callback存在: {websocket_callback is not None}")
                         self._add_message_and_notify("assistant", participant.config.name, timeout_response, websocket_callback)
-                        continue
                         
                     except Exception as e:
                         logger.error(
@@ -388,7 +385,10 @@ class ConversationSession:
                         # 添加错误响应
                         error_response = f"我是{participant.config.name}，遇到了一些技术问题，正在恢复中。"
                         self._add_message_and_notify("assistant", participant.config.name, error_response, websocket_callback)
-                        continue
+                    
+                    if self._cancellation_token.is_cancelled():
+                        break
+                    await asyncio.sleep(0.5)
             
             # 如果达到最大轮数
             self.status = ConversationStatus.COMPLETED
@@ -502,6 +502,31 @@ class ConversationSession:
                                         "round": self.round_count,
                                         "is_complete": True
                                     })
+                            elif chunk_data["type"] == "error":
+                                full_response = chunk_data.get("full_content", "")
+                                if websocket_callback:
+                                    await websocket_callback({
+                                        "type": "streaming_error",
+                                        "session_id": self.session_id,
+                                        "message_id": message_id,
+                                        "agent_name": participant.config.name,
+                                        "error": chunk_data.get("error") or chunk_data.get("content", ""),
+                                        "full_content": full_response,
+                                        "round": self.round_count,
+                                        "is_complete": True
+                                    })
+                            elif chunk_data["type"] == "cancelled":
+                                full_response = chunk_data.get("full_content", "")
+                                if websocket_callback:
+                                    await websocket_callback({
+                                        "type": "streaming_complete",
+                                        "session_id": self.session_id,
+                                        "message_id": message_id,
+                                        "agent_name": participant.config.name,
+                                        "full_content": full_response,
+                                        "round": self.round_count,
+                                        "is_complete": True
+                                    })
                         
                         try:
                             # 使用流式响应生成
@@ -559,7 +584,10 @@ class ConversationSession:
                             round=round_num,
                             error=str(e)
                         )
-                        continue
+                    
+                    if self._cancellation_token.is_cancelled():
+                        break
+                    await asyncio.sleep(0.5)
             
             # 如果达到最大轮数
             self.status = ConversationStatus.COMPLETED
@@ -791,7 +819,6 @@ class ConversationSession:
                 "auto_reply": self.config.auto_reply,
             }
         }
-
 
 class GroupChatManager:
     """多智能体群组会话管理器"""

@@ -3,6 +3,7 @@ import { Input, Button, message as antdMessage } from 'antd'
 import { SendOutlined, LoadingOutlined, WarningOutlined } from '@ant-design/icons'
 import { validateMessage } from '@/utils/validation'
 
+import { logger } from '../../utils/logger'
 const { TextArea } = Input
 
 interface MessageInputProps {
@@ -41,7 +42,7 @@ const MessageInput: React.FC<MessageInputProps> = ({
       setMessage('')
       textAreaRef.current?.focus()
     } catch (error) {
-      console.error('发送消息失败:', error)
+      logger.error('发送消息失败:', error)
       antdMessage.error('发送消息失败，请重试')
     }
   }
@@ -72,6 +73,7 @@ const MessageInput: React.FC<MessageInputProps> = ({
         <div className="relative">
           <TextArea
             ref={textAreaRef}
+            name="message"
             value={message}
             onChange={handleInputChange}
             onKeyPress={handleKeyPress}

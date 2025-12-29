@@ -1,14 +1,12 @@
 """MCP异常处理类层次结构"""
 
-import logging
 from typing import Any, Dict, Optional
 from datetime import datetime
 from src.core.utils.timezone_utils import utc_now, utc_factory
 
+logger = get_logger(__name__)
+
 # 移除了对ApiError的依赖，MCPError现在直接继承自Exception
-
-logger = logging.getLogger(__name__)
-
 
 class MCPError(Exception):
     """MCP基础异常类"""
@@ -42,7 +40,6 @@ class MCPError(Exception):
         """返回异常的字符串表示"""
         return self.error_message
 
-
 class MCPConnectionError(MCPError):
     """MCP连接异常"""
     
@@ -57,7 +54,6 @@ class MCPConnectionError(MCPError):
             details=enhanced_details,
             status_code=503
         )
-
 
 class MCPToolError(MCPError):
     """MCP工具执行异常"""
@@ -84,7 +80,6 @@ class MCPToolError(MCPError):
             details=enhanced_details,
             status_code=422
         )
-
 
 class MCPSecurityError(MCPError):
     """MCP安全异常"""
@@ -123,7 +118,6 @@ class MCPSecurityError(MCPError):
             }
         )
 
-
 class MCPValidationError(MCPError):
     """MCP参数验证异常"""
     
@@ -147,7 +141,6 @@ class MCPValidationError(MCPError):
             details=enhanced_details,
             status_code=400
         )
-
 
 class MCPTimeoutError(MCPError):
     """MCP操作超时异常"""
@@ -173,7 +166,6 @@ class MCPTimeoutError(MCPError):
             status_code=408
         )
 
-
 class MCPResourceError(MCPError):
     """MCP资源异常"""
     
@@ -198,7 +190,6 @@ class MCPResourceError(MCPError):
             status_code=404
         )
 
-
 def handle_mcp_exception(func):
     """MCP异常处理装饰器"""
     async def wrapper(*args, **kwargs):
@@ -217,7 +208,6 @@ def handle_mcp_exception(func):
             )
     
     return wrapper
-
 
 def create_mcp_error_response(error: Exception) -> Dict[str, Any]:
     """创建标准化的MCP错误响应"""
@@ -238,3 +228,4 @@ def create_mcp_error_response(error: Exception) -> Dict[str, Any]:
             "details": None,
             "timestamp": utc_now().isoformat()
         }
+from src.core.logging import get_logger

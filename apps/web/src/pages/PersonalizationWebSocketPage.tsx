@@ -1,6 +1,8 @@
+import { buildWsUrl } from '../utils/apiBase'
 import React, { useState, useEffect, useRef } from 'react'
 import { Card, Row, Col, Button, Space, Typography, Input, Select, message, Badge, Table, Tag, Alert, Progress, Statistic } from 'antd'
 import { 
+import { logger } from '../utils/logger'
   WifiOutlined,
   DisconnectOutlined,
   SendOutlined,
@@ -72,7 +74,7 @@ const PersonalizationWebSocketPage: React.FC = () => {
   const [autoHeartbeat, setAutoHeartbeat] = useState(false)
   
   const wsRef = useRef<WebSocket | null>(null)
-  const heartbeatIntervalRef = useRef<NodeJS.Timeout | null>(null)
+  const heartbeatIntervalRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const pingTimeRef = useRef<number>(0)
 
   useEffect(() => {
@@ -88,8 +90,7 @@ const PersonalizationWebSocketPage: React.FC = () => {
     }
 
     try {
-      // 实际项目中这里应该是真实的WebSocket URL
-      const wsUrl = `ws://localhost:8000/api/v1/personalization/stream`
+      const wsUrl = buildWsUrl(`/ws`)
       wsRef.current = new WebSocket(wsUrl)
 
       wsRef.current.onopen = () => {
@@ -112,8 +113,12 @@ const PersonalizationWebSocketPage: React.FC = () => {
       }
 
       wsRef.current.onmessage = (event) => {
-        const data = JSON.parse(event.data)
-        handleReceivedMessage(data)
+        try {
+          const data = JSON.parse(event.data)
+          handleReceivedMessage(data)
+        } catch (error) {
+          logger.error('解析WebSocket消息失败:', error)
+        }
       }
 
       wsRef.current.onclose = () => {
@@ -123,18 +128,24 @@ const PersonalizationWebSocketPage: React.FC = () => {
           connected: false
         }))
         stopHeartbeat()
+        wsRef.current = null
         message.info('WebSocket连接已关闭')
       }
 
       wsRef.current.onerror = (error) => {
         message.error('WebSocket连接错误')
-        console.error('WebSocket error:', error)
+        logger.error('WebSocket错误:', error)
+        if (
+          wsRef.current &&
+          wsRef.current.readyState !== WebSocket.CLOSING &&
+          wsRef.current.readyState !== WebSocket.CLOSED
+        ) {
+          wsRef.current.close()
+        }
       }
 
     } catch (error) {
-      message.error('连接失败，将使用模拟模式')
-      // 启用模拟模式
-      enableMockMode()
+      message.error('连接失败，无法建立WebSocket')
     }
   }
 
@@ -144,27 +155,6 @@ const PersonalizationWebSocketPage: React.FC = () => {
       wsRef.current = null
     }
     stopHeartbeat()
-  }
-
-  const enableMockMode = () => {
-    // 模拟连接成功
-    setTimeout(() => {
-      setIsConnected(true)
-      setConnectionStats(prev => ({
-        ...prev,
-        connected: true,
-        connectionTime: new Date().toLocaleTimeString()
-      }))
-      message.success('已连接到模拟WebSocket服务')
-      
-      // 模拟欢迎消息
-      const welcomeMessage = {
-        type: 'connected',
-        user_id: userId,
-        timestamp: new Date().toISOString()
-      }
-      handleReceivedMessage(welcomeMessage)
-    }, 500)
   }
 
   const sendAuthMessage = () => {
@@ -177,10 +167,13 @@ const PersonalizationWebSocketPage: React.FC = () => {
   const sendMessage = (content: any, messageType: string) => {
     const messageId = Date.now().toString()
     const timestamp = new Date().toLocaleTimeString()
-    
-    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-      wsRef.current.send(JSON.stringify(content))
+
+    if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
+      message.error('WebSocket未连接，消息未发送')
+      return
     }
+
+    wsRef.current.send(JSON.stringify(content))
 
     // 添加到消息历史
     const newMessage: WebSocketMessage = {
@@ -196,83 +189,6 @@ const PersonalizationWebSocketPage: React.FC = () => {
       ...prev,
       messagesSeent: prev.messagesSeent + 1
     }))
-
-    // 模拟模式下的响应
-    if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
-      setTimeout(() => {
-        simulateResponse(content, messageType)
-      }, 200 + Math.random() * 300)
-    }
-  }
-
-  const simulateResponse = (originalContent: any, originalType: string) => {
-    let response: any = {}
-
-    switch (originalType) {
-      case 'auth':
-        response = {
-          type: 'connected',
-          user_id: originalContent.user_id,
-          timestamp: new Date().toISOString()
-        }
-        break
-      
-      case 'recommendation':
-        response = {
-          type: 'recommendations',
-          data: {
-            request_id: `req_${Date.now()}`,
-            user_id: userId,
-            recommendations: [
-              {
-                item_id: `item_${Math.floor(Math.random() * 1000)}`,
-                score: 0.9 + Math.random() * 0.1,
-                confidence: 0.8 + Math.random() * 0.2,
-                explanation: '基于用户历史行为推荐'
-              },
-              {
-                item_id: `item_${Math.floor(Math.random() * 1000)}`,
-                score: 0.8 + Math.random() * 0.1,
-                confidence: 0.75 + Math.random() * 0.15,
-                explanation: '相似用户喜欢的内容'
-              },
-              {
-                item_id: `item_${Math.floor(Math.random() * 1000)}`,
-                score: 0.7 + Math.random() * 0.1,
-                confidence: 0.7 + Math.random() * 0.1,
-                explanation: '热门内容推荐'
-              }
-            ].slice(0, nRecommendations),
-            latency_ms: 30 + Math.random() * 50,
-            model_version: 'v1.2.3',
-            explanation: '基于协同过滤和内容匹配的混合推荐'
-          },
-          timestamp: new Date().toISOString()
-        }
-        break
-      
-      case 'feedback':
-        response = {
-          type: 'feedback_received',
-          timestamp: new Date().toISOString()
-        }
-        break
-      
-      case 'ping':
-        response = {
-          type: 'pong',
-          timestamp: new Date().toISOString()
-        }
-        break
-      
-      default:
-        response = {
-          type: 'error',
-          message: `未知消息类型: ${originalType}`
-        }
-    }
-
-    handleReceivedMessage(response)
   }
 
   const handleReceivedMessage = (data: any) => {

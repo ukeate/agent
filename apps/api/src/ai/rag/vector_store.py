@@ -3,7 +3,6 @@ pgvector 0.8.0 优化的向量存储实现
 支持HNSW和IVFFlat索引、向量量化、性能监控
 """
 
-import logging
 import asyncio
 from typing import List, Dict, Any, Optional, Tuple, Union
 import asyncpg
@@ -12,12 +11,12 @@ from datetime import datetime
 from src.core.utils.timezone_utils import utc_now, utc_factory
 import json
 from contextlib import asynccontextmanager
-
 from ...core.config import get_settings
 
-logger = logging.getLogger(__name__)
-settings = get_settings()
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
+settings = get_settings()
 
 class PgVectorStore:
     """优化的pgvector向量存储"""
@@ -514,10 +513,58 @@ class PgVectorStore:
             logger.error(f"集合优化失败: {e}")
             return False
 
+    async def create_index(
+        self,
+        table_name: str,
+        column_name: str,
+        index_type: str,
+        distance_metric: str,
+        index_options: Dict[str, Any] = None,
+    ) -> bool:
+        """为已有表创建向量索引"""
+        try:
+            async with self.get_connection() as conn:
+                await self._create_optimized_index(
+                    conn,
+                    table_name,
+                    column_name,
+                    index_type,
+                    distance_metric,
+                    index_options or {},
+                )
+                logger.info(
+                    "向量索引创建完成",
+                    extra={
+                        "table": table_name,
+                        "column": column_name,
+                        "index_type": index_type,
+                        "distance_metric": distance_metric,
+                    },
+                )
+                return True
+        except Exception as e:
+            logger.error(f"创建向量索引失败: {e}")
+            return False
+
+    async def list_indexes(self) -> list[dict[str, Any]]:
+        """列出当前数据库中的向量索引"""
+        try:
+            async with self.get_connection() as conn:
+                rows = await conn.fetch(
+                    """
+                    SELECT schemaname, tablename, indexname, indexdef
+                    FROM pg_indexes
+                    WHERE schemaname NOT IN ('pg_catalog','information_schema')
+                    ORDER BY tablename, indexname
+                    """
+                )
+                return [dict(row) for row in rows]
+        except Exception as e:
+            logger.error(f"获取索引列表失败: {e}")
+            return []
 
 # 全局向量存储实例
 vector_store = PgVectorStore()
-
 
 async def get_vector_store() -> PgVectorStore:
     """获取向量存储实例"""

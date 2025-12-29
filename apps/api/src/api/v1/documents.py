@@ -6,8 +6,6 @@ from typing import List, Optional, Dict, Any
 from pathlib import Path
 import tempfile
 import os
-import logging
-
 from src.ai.document_processing import (
     DocumentProcessor,
     IntelligentChunker,
@@ -17,7 +15,7 @@ from src.ai.document_processing import (
 )
 from src.ai.document_processing.chunkers import ChunkStrategy
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 router = APIRouter(prefix="/documents", tags=["Documents"])
 
@@ -27,7 +25,6 @@ chunker = IntelligentChunker()
 relationship_analyzer = DocumentRelationshipAnalyzer()
 auto_tagger = AutoTagger()
 version_manager = DocumentVersionManager()
-
 
 @router.post("/upload")
 async def upload_document(
@@ -121,7 +118,12 @@ async def upload_document(
             doc_id=processed_doc.doc_id,
             content=processed_doc.content,
             change_summary="Initial upload",
-            metadata=processed_doc.metadata
+            metadata={
+                **(processed_doc.metadata or {}),
+                "title": file.filename,
+                "file_type": processed_doc.file_type,
+                "processing_info": processed_doc.processing_info,
+            },
         )
         
         # 清理临时文件
@@ -142,7 +144,6 @@ async def upload_document(
         if 'tmp_path' in locals() and tmp_path.exists():
             os.unlink(tmp_path)
         raise HTTPException(status_code=500, detail=str(e))
-
 
 @router.post("/batch-upload")
 async def batch_upload_documents(
@@ -208,7 +209,6 @@ async def batch_upload_documents(
             if tmp_file.exists():
                 os.unlink(tmp_file)
 
-
 @router.get("/supported-formats")
 async def get_supported_formats():
     """获取支持的文档格式
@@ -227,6 +227,32 @@ async def get_supported_formats():
         }
     }
 
+@router.get("/list")
+async def list_documents():
+    """列出已处理的文档（基于版本管理器内存状态）"""
+    documents: List[Dict[str, Any]] = []
+    for doc_id in list(version_manager.versions.keys()):
+        version = await version_manager.get_version(doc_id)
+        if not version:
+            continue
+        meta = version.metadata or {}
+        documents.append(
+            {
+                "doc_id": doc_id,
+                "title": meta.get("title") or doc_id,
+                "file_type": meta.get("file_type") or meta.get("content_type") or "text",
+                "created_at": version.created_at.isoformat(),
+                "status": "completed",
+                "tags": meta.get("tags") or [],
+                "processing_info": meta.get("processing_info") or {},
+                "version": {
+                    "version_id": version.version_id,
+                    "version_number": version.version_number,
+                },
+            }
+        )
+    documents.sort(key=lambda d: d.get("created_at") or "", reverse=True)
+    return JSONResponse(content={"documents": documents})
 
 @router.post("/{doc_id}/analyze-relationships")
 async def analyze_document_relationships(
@@ -243,48 +269,73 @@ async def analyze_document_relationships(
         关系分析结果
     """
     try:
-        # 这里应该从数据库获取文档
-        # 简化版本：创建模拟文档
-        documents = [
-            {"doc_id": doc_id, "content": "Main document content", "title": "Main Doc"},
-            *[{"doc_id": rid, "content": f"Related doc {rid}", "title": f"Doc {rid}"} 
-              for rid in related_doc_ids]
-        ]
-        
-        # 分析关系
-        result = await relationship_analyzer.analyze_relationships(documents)
-        
+        doc_ids = [doc_id] + [d for d in related_doc_ids if d and d != doc_id]
+        versions = []
+        for did in doc_ids:
+            version = await version_manager.get_version(did)
+            if not version:
+                raise HTTPException(status_code=404, detail=f"文档版本不存在: {did}")
+            versions.append(version)
+
+        documents = []
+        for v in versions:
+            documents.append({
+                "doc_id": v.doc_id,
+                "title": (v.metadata or {}).get("title") or v.doc_id,
+                "content": v.content,
+                "metadata": v.metadata or {},
+            })
+
+        embeddings = None
+        contents = [d.get("content") or "" for d in documents]
+        if any(c.strip() for c in contents) and len(contents) > 1:
+            from sklearn.feature_extraction.text import TfidfVectorizer
+            import numpy as np
+
+            vectorizer = TfidfVectorizer(max_features=2000)
+            matrix = vectorizer.fit_transform(contents).toarray()
+            embeddings = [np.asarray(row, dtype=float) for row in matrix]
+
+        results = await relationship_analyzer.analyze_relationships(documents, embeddings=embeddings)
+
+        relationships = []
+        for rel in results.get("relationships", []):
+            relationships.append({
+                "source_doc_id": rel.source_doc_id,
+                "target_doc_id": rel.target_doc_id,
+                "relationship_type": rel.relationship_type.value,
+                "confidence": rel.confidence,
+                "metadata": rel.metadata,
+            })
+
+        clusters = []
+        for cl in results.get("clusters", []):
+            clusters.append({
+                "cluster_id": cl.cluster_id,
+                "documents": cl.documents,
+                "topic": cl.topic,
+                "keywords": cl.keywords,
+                "metadata": cl.metadata,
+            })
+
         return JSONResponse(content={
             "doc_id": doc_id,
-            "relationships": [
-                {
-                    "source": rel.source_doc_id,
-                    "target": rel.target_doc_id,
-                    "type": rel.relationship_type.value,
-                    "confidence": rel.confidence
-                }
-                for rel in result.get("relationships", [])
-            ],
-            "clusters": [
-                {
-                    "cluster_id": cluster.cluster_id,
-                    "documents": cluster.documents,
-                    "topic": cluster.topic
-                }
-                for cluster in result.get("clusters", [])
-            ],
-            "summary": result.get("summary", {})
+            "related_doc_ids": related_doc_ids,
+            "relationships": relationships,
+            "clusters": clusters,
+            "graph_metrics": results.get("graph_metrics", {}),
+            "summary": results.get("summary", {}),
         })
-        
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Relationship analysis error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-
 @router.post("/{doc_id}/generate-tags")
 async def generate_document_tags(
     doc_id: str,
-    content: str = Query(..., description="文档内容"),
+    content: Optional[str] = Query(None, description="文档内容（为空则使用已存储版本内容）"),
     existing_tags: List[str] = Query([], description="已有标签")
 ):
     """为文档生成标签
@@ -298,6 +349,12 @@ async def generate_document_tags(
         生成的标签列表
     """
     try:
+        if content is None:
+            version = await version_manager.get_version(doc_id)
+            if not version:
+                raise HTTPException(status_code=404, detail=f"文档版本不存在: {doc_id}")
+            content = version.content
+
         document = {
             "doc_id": doc_id,
             "content": content,
@@ -318,11 +375,11 @@ async def generate_document_tags(
                 for tag in tags
             ]
         })
-        
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Tag generation error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
-
 
 @router.get("/{doc_id}/versions")
 async def get_document_versions(
@@ -359,7 +416,6 @@ async def get_document_versions(
         logger.error(f"Version history error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-
 @router.post("/{doc_id}/rollback")
 async def rollback_document_version(
     doc_id: str,
@@ -389,7 +445,18 @@ async def rollback_document_version(
                 "change_summary": new_version.change_summary
             }
         })
-        
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Version rollback error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+@router.delete("/{doc_id}")
+async def delete_document(doc_id: str):
+    """删除文档（删除其所有版本）"""
+    if doc_id not in version_manager.versions:
+        raise HTTPException(status_code=404, detail="文档不存在")
+    del version_manager.versions[doc_id]
+    version_manager.changes = [c for c in version_manager.changes if c.doc_id != doc_id]
+    return JSONResponse(content={"success": True, "message": "文档已删除"})
+from src.core.logging import get_logger

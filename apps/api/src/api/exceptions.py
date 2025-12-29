@@ -3,23 +3,22 @@
 """
 
 from typing import Any
-
-import structlog
 from fastapi import HTTPException, Request, status
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel
+from starlette.exceptions import HTTPException as StarletteHTTPException
+from src.api.base_model import ApiBaseModel
 
-logger = structlog.get_logger(__name__)
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
-
-class ApiError(BaseModel):
+class ApiError(ApiBaseModel):
     """标准API错误响应格式"""
 
     error: str
     message: str
     details: dict[str, Any] | None = None
     request_id: str | None = None
-
 
 class BaseAPIException(HTTPException):
     """基础API异常类"""
@@ -36,7 +35,6 @@ class BaseAPIException(HTTPException):
         self.details = details
         super().__init__(status_code=status_code, detail=message)
 
-
 class ValidationError(BaseAPIException):
     """验证错误"""
 
@@ -47,7 +45,6 @@ class ValidationError(BaseAPIException):
             status_code=status.HTTP_400_BAD_REQUEST,
             details=details,
         )
-
 
 class NotFoundError(BaseAPIException):
     """资源未找到错误"""
@@ -63,7 +60,6 @@ class NotFoundError(BaseAPIException):
             details={"resource": resource, "identifier": identifier},
         )
 
-
 class ConflictError(BaseAPIException):
     """资源冲突错误"""
 
@@ -75,7 +71,6 @@ class ConflictError(BaseAPIException):
             details=details,
         )
 
-
 class UnauthorizedError(BaseAPIException):
     """未授权错误"""
 
@@ -86,7 +81,6 @@ class UnauthorizedError(BaseAPIException):
             status_code=status.HTTP_401_UNAUTHORIZED,
         )
 
-
 class ForbiddenError(BaseAPIException):
     """权限不足错误"""
 
@@ -94,7 +88,6 @@ class ForbiddenError(BaseAPIException):
         super().__init__(
             error="FORBIDDEN", message=message, status_code=status.HTTP_403_FORBIDDEN
         )
-
 
 class InternalServerError(BaseAPIException):
     """内部服务器错误"""
@@ -111,7 +104,6 @@ class InternalServerError(BaseAPIException):
             details=details,
         )
 
-
 class ServiceUnavailableError(BaseAPIException):
     """服务不可用错误"""
 
@@ -123,7 +115,6 @@ class ServiceUnavailableError(BaseAPIException):
             details={"service": service},
         )
 
-
 async def api_exception_handler(
     request: Request, exc: BaseAPIException
 ) -> JSONResponse:
@@ -132,7 +123,7 @@ async def api_exception_handler(
 
     # 记录异常日志
     logger.error(
-        "API exception occurred",
+        "API异常发生",
         request_id=request_id,
         error=exc.error,
         message=exc.message,
@@ -147,19 +138,22 @@ async def api_exception_handler(
         error=exc.error, message=exc.message, details=exc.details, request_id=request_id
     )
 
+    headers = {"X-Request-ID": request_id} if request_id else None
     return JSONResponse(
         status_code=exc.status_code,
         content=error_response.model_dump(exclude_none=True),
+        headers=headers,
     )
 
-
-async def http_exception_handler(request: Request, exc: HTTPException) -> JSONResponse:
+async def http_exception_handler(
+    request: Request, exc: StarletteHTTPException
+) -> JSONResponse:
     """HTTP异常处理器"""
     request_id = getattr(request.state, "request_id", None)
 
     # 记录异常日志
     logger.error(
-        "HTTP exception occurred",
+        "HTTP异常发生",
         request_id=request_id,
         status_code=exc.status_code,
         detail=exc.detail,
@@ -172,11 +166,37 @@ async def http_exception_handler(request: Request, exc: HTTPException) -> JSONRe
         error="HTTP_ERROR", message=str(exc.detail), request_id=request_id
     )
 
+    headers = {"X-Request-ID": request_id} if request_id else None
     return JSONResponse(
         status_code=exc.status_code,
         content=error_response.model_dump(exclude_none=True),
+        headers=headers,
     )
 
+async def validation_exception_handler(
+    request: Request, exc: RequestValidationError
+) -> JSONResponse:
+    """请求校验异常处理器"""
+    request_id = getattr(request.state, "request_id", None)
+    logger.warning(
+        "请求校验异常发生",
+        request_id=request_id,
+        errors=exc.errors(),
+        url=str(request.url),
+        method=request.method,
+    )
+    error_response = ApiError(
+        error="VALIDATION_ERROR",
+        message="Validation error",
+        details={"errors": exc.errors()},
+        request_id=request_id,
+    )
+    headers = {"X-Request-ID": request_id} if request_id else None
+    return JSONResponse(
+        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        content=error_response.model_dump(exclude_none=True),
+        headers=headers,
+    )
 
 async def general_exception_handler(request: Request, exc: Exception) -> JSONResponse:
     """通用异常处理器"""
@@ -184,7 +204,7 @@ async def general_exception_handler(request: Request, exc: Exception) -> JSONRes
 
     # 记录异常日志
     logger.error(
-        "Unhandled exception occurred",
+        "未处理异常发生",
         request_id=request_id,
         error=str(exc),
         exc_info=True,
@@ -199,7 +219,9 @@ async def general_exception_handler(request: Request, exc: Exception) -> JSONRes
         request_id=request_id,
     )
 
+    headers = {"X-Request-ID": request_id} if request_id else None
     return JSONResponse(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
         content=error_response.model_dump(exclude_none=True),
+        headers=headers,
     )

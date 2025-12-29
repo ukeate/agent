@@ -18,10 +18,9 @@ from dataclasses import dataclass, field
 from collections import defaultdict, deque
 from enum import Enum
 import statistics
-import logging
 
-logger = logging.getLogger(__name__)
-
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 class MetricType(str, Enum):
     """指标类型"""
@@ -33,14 +32,12 @@ class MetricType(str, Enum):
     ERROR_RATE = "error_rate"
     THROUGHPUT = "throughput"
 
-
 class AlertLevel(str, Enum):
     """告警级别"""
     INFO = "info"
     WARNING = "warning"
     ERROR = "error"
     CRITICAL = "critical"
-
 
 @dataclass
 class PerformanceMetric:
@@ -50,7 +47,6 @@ class PerformanceMetric:
     timestamp: float
     tags: Dict[str, str] = field(default_factory=dict)
     metadata: Dict[str, Any] = field(default_factory=dict)
-
 
 @dataclass
 class QueryProfile:
@@ -79,7 +75,6 @@ class QueryProfile:
         if not success and error:
             self.error_message = error
 
-
 @dataclass
 class AlertRule:
     """告警规则"""
@@ -92,7 +87,6 @@ class AlertRule:
     window_size: int = 10  # 滑动窗口大小
     callback: Optional[Callable] = None
 
-
 @dataclass
 class Alert:
     """告警"""
@@ -104,7 +98,6 @@ class Alert:
     timestamp: float
     resolved: bool = False
     metadata: Dict[str, Any] = field(default_factory=dict)
-
 
 class MetricsCollector:
     """指标收集器"""
@@ -181,7 +174,6 @@ class MetricsCollector:
                     self.metrics[metric_name].clear()
             else:
                 self.metrics.clear()
-
 
 class AlertManager:
     """告警管理器"""
@@ -296,7 +288,6 @@ class AlertManager:
         with self._lock:
             return list(self.alert_history)[-limit:]
 
-
 class SystemResourceMonitor:
     """系统资源监控器"""
     
@@ -358,7 +349,6 @@ class SystemResourceMonitor:
             logger.error(f"获取系统统计失败: {e}")
             return {}
 
-
 class PerformanceProfiler:
     """性能分析器"""
     
@@ -387,12 +377,12 @@ class PerformanceProfiler:
         result_count: int = 0,
         cache_hit: bool = False,
         error: str = None
-    ):
+    ) -> Optional[QueryProfile]:
         """结束性能分析"""
         with self._lock:
             if query_id not in self.active_profiles:
                 logger.warning(f"找不到查询分析: {query_id}")
-                return
+                return None
             
             profile = self.active_profiles[query_id]
             profile.finalize(success, error)
@@ -403,6 +393,7 @@ class PerformanceProfiler:
             self._record_profile_metrics(profile)
             
             del self.active_profiles[query_id]
+            return profile
     
     def _record_profile_metrics(self, profile: QueryProfile):
         """记录分析指标"""
@@ -441,7 +432,6 @@ class PerformanceProfiler:
                 timestamp=timestamp
             ))
 
-
 class SPARQLPerformanceMonitor:
     """SPARQL性能监控器主类"""
     
@@ -452,6 +442,8 @@ class SPARQLPerformanceMonitor:
         self.alert_manager = AlertManager()
         self.resource_monitor = SystemResourceMonitor()
         self.profiler = PerformanceProfiler(self.metrics_collector)
+        self.query_history = deque(maxlen=max_metrics)
+        self._history_lock = threading.Lock()
         
         self.monitoring_interval = monitoring_interval
         self._monitoring_task = None
@@ -561,9 +553,12 @@ class SPARQLPerformanceMonitor:
         error: str = None
     ):
         """结束查询性能分析"""
-        self.profiler.end_profile(
+        profile = self.profiler.end_profile(
             query_id, success, result_count, cache_hit, error
         )
+        if profile:
+            with self._history_lock:
+                self.query_history.append(profile)
     
     def get_performance_summary(self, window_minutes: int = 60) -> Dict[str, Any]:
         """获取性能摘要"""
@@ -602,9 +597,41 @@ class SPARQLPerformanceMonitor:
     
     def _get_slow_queries(self, limit: int) -> List[Dict[str, Any]]:
         """获取慢查询列表"""
-        # 这里应该从查询历史中提取慢查询
-        # 简化实现返回空列表
-        return []
+        with self._history_lock:
+            profiles = list(self.query_history)
+        if not profiles:
+            return []
+        stats_map: Dict[str, Dict[str, Any]] = {}
+        for profile in profiles:
+            if profile.execution_time_ms is None:
+                continue
+            key = profile.query_text
+            stat = stats_map.get(key)
+            if not stat:
+                stats_map[key] = {
+                    "query": profile.query_text,
+                    "total_time": profile.execution_time_ms,
+                    "count": 1,
+                    "max_time": profile.execution_time_ms,
+                    "last_seen": profile.end_time or profile.start_time,
+                }
+            else:
+                stat["total_time"] += profile.execution_time_ms
+                stat["count"] += 1
+                stat["max_time"] = max(stat["max_time"], profile.execution_time_ms)
+                stat["last_seen"] = max(stat["last_seen"], profile.end_time or profile.start_time)
+        results = []
+        for stat in stats_map.values():
+            avg_time = stat["total_time"] / max(stat["count"], 1)
+            results.append({
+                "query": stat["query"],
+                "execution_time": avg_time,
+                "max_time": stat["max_time"],
+                "timestamp": stat["last_seen"],
+                "frequency": stat["count"],
+            })
+        results.sort(key=lambda item: item["max_time"], reverse=True)
+        return results[:limit]
     
     def _generate_recommendations(self) -> List[str]:
         """生成性能优化建议"""
@@ -639,20 +666,16 @@ class SPARQLPerformanceMonitor:
         """清空指标"""
         self.metrics_collector.clear_metrics(metric_name)
 
-
 # 创建默认性能监控器实例
 default_performance_monitor = SPARQLPerformanceMonitor()
-
 
 async def start_sparql_monitoring():
     """启动SPARQL性能监控的便捷函数"""
     await default_performance_monitor.start_monitoring()
 
-
 async def stop_sparql_monitoring():
     """停止SPARQL性能监控的便捷函数"""
     await default_performance_monitor.stop_monitoring()
-
 
 def get_performance_report(window_minutes: int = 60) -> Dict[str, Any]:
     """获取性能报告的便捷函数"""

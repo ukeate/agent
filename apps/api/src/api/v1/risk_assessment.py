@@ -1,50 +1,46 @@
 """
 风险评估和回滚API端点
 """
+
 from fastapi import APIRouter, HTTPException, Query, BackgroundTasks
 from typing import Dict, Any, List, Optional
-from pydantic import BaseModel, Field
+from pydantic import Field
 from datetime import datetime
 from src.core.utils.timezone_utils import utc_now, utc_factory
-
-from ...services.risk_assessment_service import (
+from src.services.risk_assessment_service import (
     RiskAssessmentService,
+    RiskLevel,
+    RiskCategory,
     RiskLevel,
     RiskCategory,
     RollbackStrategy
 )
-
 
 router = APIRouter(prefix="/risk-assessment", tags=["Risk Assessment"])
 
 # 服务实例
 risk_service = RiskAssessmentService()
 
-
-class AssessRiskRequest(BaseModel):
+class AssessRiskRequest(ApiBaseModel):
     """评估风险请求"""
     experiment_id: str = Field(..., description="实验ID")
     include_predictions: bool = Field(True, description="是否包含预测性分析")
 
-
-class CreateRollbackPlanRequest(BaseModel):
+class CreateRollbackPlanRequest(ApiBaseModel):
     """创建回滚计划请求"""
     experiment_id: str = Field(..., description="实验ID")
     strategy: Optional[RollbackStrategy] = Field(None, description="回滚策略")
     auto_execute: bool = Field(False, description="是否自动执行")
 
-
-class ExecuteRollbackRequest(BaseModel):
+class ExecuteRollbackRequest(ApiBaseModel):
     """执行回滚请求"""
     plan_id: str = Field(..., description="回滚计划ID")
     force: bool = Field(False, description="是否强制执行")
 
-
-class MonitorRiskRequest(BaseModel):
+class MonitorRiskRequest(ApiBaseModel):
     """监控风险请求"""
     experiment_id: str = Field(..., description="实验ID")
     check_interval_minutes: int = Field(5, ge=1, description="检查间隔(分钟)")
-
 
 @router.post("/assess")
 async def assess_risk(request: AssessRiskRequest) -> Dict[str, Any]:
@@ -89,7 +85,6 @@ async def assess_risk(request: AssessRiskRequest) -> Dict[str, Any]:
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-
 @router.get("/history/{experiment_id}")
 async def get_risk_history(
     experiment_id: str,
@@ -122,7 +117,6 @@ async def get_risk_history(
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-
 
 @router.post("/rollback-plan")
 async def create_rollback_plan(request: CreateRollbackPlanRequest) -> Dict[str, Any]:
@@ -170,7 +164,6 @@ async def create_rollback_plan(request: CreateRollbackPlanRequest) -> Dict[str, 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-
 @router.post("/rollback/execute")
 async def execute_rollback(request: ExecuteRollbackRequest) -> Dict[str, Any]:
     """
@@ -203,7 +196,6 @@ async def execute_rollback(request: ExecuteRollbackRequest) -> Dict[str, Any]:
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-
 
 @router.get("/rollback/status/{exec_id}")
 async def get_rollback_status(exec_id: str) -> Dict[str, Any]:
@@ -238,7 +230,6 @@ async def get_rollback_status(exec_id: str) -> Dict[str, Any]:
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-
 @router.post("/monitor")
 async def start_monitoring(
     request: MonitorRiskRequest,
@@ -267,7 +258,6 @@ async def start_monitoring(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-
 @router.get("/thresholds")
 async def get_risk_thresholds() -> Dict[str, Any]:
     """
@@ -277,7 +267,6 @@ async def get_risk_thresholds() -> Dict[str, Any]:
         "success": True,
         "thresholds": risk_service.risk_thresholds
     }
-
 
 @router.put("/thresholds")
 async def update_risk_thresholds(
@@ -306,7 +295,6 @@ async def update_risk_thresholds(
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-
 
 @router.get("/risk-levels")
 async def list_risk_levels() -> Dict[str, Any]:
@@ -356,7 +344,6 @@ async def list_risk_levels() -> Dict[str, Any]:
         "levels": levels
     }
 
-
 @router.get("/categories")
 async def list_risk_categories() -> Dict[str, Any]:
     """
@@ -400,7 +387,6 @@ async def list_risk_categories() -> Dict[str, Any]:
         "categories": categories
     }
 
-
 @router.get("/strategies")
 async def list_rollback_strategies() -> Dict[str, Any]:
     """
@@ -441,7 +427,6 @@ async def list_rollback_strategies() -> Dict[str, Any]:
         "success": True,
         "strategies": strategies
     }
-
 
 @router.get("/health")
 async def health_check() -> Dict[str, Any]:

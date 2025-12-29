@@ -10,12 +10,10 @@ from unittest.mock import Mock, patch, AsyncMock
 import json
 from datetime import datetime
 from src.core.utils.timezone_utils import utc_now, utc_factory
-
 from api.v1.knowledge_graph_reasoning import router, get_hybrid_reasoner
 from ai.knowledge_graph.hybrid_reasoner import (
     HybridReasoner, HybridReasoningResult, ReasoningStrategy, ReasoningEvidence
 )
-
 
 @pytest.fixture
 def mock_hybrid_reasoner():
@@ -80,13 +78,11 @@ def mock_hybrid_reasoner():
     
     return reasoner
 
-
 @pytest.fixture
 def client():
     """创建测试客户端"""
     from main import app
     return TestClient(app)
-
 
 class TestReasoningQueryEndpoint:
     """推理查询端点测试"""
@@ -166,7 +162,6 @@ class TestReasoningQueryEndpoint:
         
         response = client.post("/api/v1/kg-reasoning/query", json=request_data)
         assert response.status_code == 500
-
 
 class TestBatchReasoningEndpoint:
     """批量推理端点测试"""
@@ -277,7 +272,6 @@ class TestBatchReasoningEndpoint:
         assert data["successful_queries"] == 1
         assert data["failed_queries"] == 1
 
-
 class TestStrategyPerformanceEndpoint:
     """策略性能端点测试"""
     
@@ -319,7 +313,6 @@ class TestStrategyPerformanceEndpoint:
         
         response = client.get("/api/v1/kg-reasoning/strategies/performance")
         assert response.status_code == 500
-
 
 class TestConfigurationEndpoint:
     """配置端点测试"""
@@ -396,7 +389,6 @@ class TestConfigurationEndpoint:
         assert "adaptive_thresholds" in data["updated_configs"]
         assert "cache_settings" in data["updated_configs"]
 
-
 class TestExplanationEndpoint:
     """解释端点测试"""
     
@@ -441,7 +433,6 @@ class TestExplanationEndpoint:
         
         response = client.post("/api/v1/kg-reasoning/explain", json=result_data)
         assert response.status_code == 500
-
 
 class TestHealthCheckEndpoint:
     """健康检查端点测试"""
@@ -502,7 +493,6 @@ class TestHealthCheckEndpoint:
             
             assert data["status"] == "healthy"
             assert data["reasoner_initialized"] is False
-
 
 class TestReasoningEngineInitialization:
     """推理引擎初始化测试"""
@@ -571,7 +561,6 @@ class TestReasoningEngineInitialization:
         # 初始化应该抛出HTTPException
         with pytest.raises(Exception):  # HTTPException will be raised
             await get_hybrid_reasoner()
-
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

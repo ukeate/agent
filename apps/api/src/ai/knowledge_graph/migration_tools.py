@@ -3,7 +3,6 @@
 支持模式升级、数据迁移、版本控制和回滚操作
 """
 
-import logging
 from typing import Any, Dict, List, Optional, Callable
 from datetime import datetime
 from src.core.utils.timezone_utils import utc_now, utc_factory
@@ -11,12 +10,11 @@ from dataclasses import dataclass, field
 from enum import Enum
 import asyncio
 import json
-
 from .graph_database import Neo4jGraphDatabase
 from .schema import SchemaManager
 
-logger = logging.getLogger(__name__)
-
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 class MigrationType(str, Enum):
     """迁移类型"""
@@ -26,7 +24,6 @@ class MigrationType(str, Enum):
     CONSTRAINT_UPDATE = "constraint_update"
     DATA_CLEANUP = "data_cleanup"
 
-
 class MigrationStatus(str, Enum):
     """迁移状态"""
     PENDING = "pending"
@@ -34,7 +31,6 @@ class MigrationStatus(str, Enum):
     COMPLETED = "completed"
     FAILED = "failed"
     ROLLED_BACK = "rolled_back"
-
 
 @dataclass
 class Migration:
@@ -62,7 +58,6 @@ class Migration:
             "created_at": self.created_at.isoformat()
         }
 
-
 @dataclass
 class MigrationRecord:
     """迁移执行记录"""
@@ -88,7 +83,6 @@ class MigrationRecord:
             "affected_nodes": self.affected_nodes,
             "affected_relationships": self.affected_relationships
         }
-
 
 class MigrationManager:
     """数据迁移管理器"""
@@ -432,7 +426,6 @@ class MigrationManager:
     def list_migrations(self) -> List[Dict[str, Any]]:
         """列出所有迁移"""
         return [migration.to_dict() for migration in self.migrations.values()]
-
 
 class DataExportImportTool:
     """数据导出导入工具"""

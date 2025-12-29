@@ -9,7 +9,6 @@ from typing import Dict, Any, List, Optional, Tuple, Union, Callable
 from enum import Enum
 from dataclasses import dataclass
 import asyncio
-import logging
 from datetime import datetime
 from src.core.utils.timezone_utils import utc_now, utc_factory, timezone
 import json
@@ -18,8 +17,8 @@ import psutil
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-logger = logging.getLogger(__name__)
-
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 class IndexType(str, Enum):
     """索引类型枚举"""
@@ -29,7 +28,6 @@ class IndexType(str, Enum):
     FLAT = "flat"           # 暴力搜索
     ANNOY = "annoy"         # Spotify的近似最近邻库
 
-
 class DistanceMetric(str, Enum):
     """距离度量类型"""
     COSINE = "cosine"                  # 余弦相似度
@@ -37,7 +35,6 @@ class DistanceMetric(str, Enum):
     MANHATTAN = "manhattan"            # 曼哈顿距离
     DOT_PRODUCT = "dot_product"        # 点积
     HAMMING = "hamming"                # 汉明距离
-
 
 @dataclass
 class IndexConfig:
@@ -63,7 +60,6 @@ class IndexConfig:
     use_gpu: bool = False                   # 是否使用GPU加速
     parallel_workers: int = 4               # 并行工作线程数
 
-
 @dataclass
 class IndexStats:
     """索引统计信息"""
@@ -73,7 +69,6 @@ class IndexStats:
     build_time_ms: float
     memory_usage_mb: float
     last_updated: datetime
-
 
 class AdvancedIndexManager:
     """高级向量索引管理器"""
@@ -92,7 +87,7 @@ class AdvancedIndexManager:
     ) -> bool:
         """创建HNSW索引"""
         try:
-            start_time = asyncio.get_event_loop().time()
+            start_time = asyncio.get_running_loop().time()
             
             # 确定操作符类
             ops_class = self._get_ops_class(config.distance_metric)
@@ -113,7 +108,7 @@ class AdvancedIndexManager:
             await self.db.commit()
             
             # 记录统计信息
-            end_time = asyncio.get_event_loop().time()
+            end_time = asyncio.get_running_loop().time()
             build_time = (end_time - start_time) * 1000
             
             await self._update_index_stats(
@@ -136,7 +131,7 @@ class AdvancedIndexManager:
     ) -> bool:
         """创建IVF索引"""
         try:
-            start_time = asyncio.get_event_loop().time()
+            start_time = asyncio.get_running_loop().time()
             
             # 确定操作符类
             ops_class = self._get_ops_class(config.distance_metric)
@@ -154,7 +149,7 @@ class AdvancedIndexManager:
             await self.db.commit()
             
             # 记录统计信息
-            end_time = asyncio.get_event_loop().time()
+            end_time = asyncio.get_running_loop().time()
             build_time = (end_time - start_time) * 1000
             
             await self._update_index_stats(
@@ -177,7 +172,7 @@ class AdvancedIndexManager:
     ) -> bool:
         """创建LSH索引（通过额外的哈希列实现）"""
         try:
-            start_time = asyncio.get_event_loop().time()
+            start_time = asyncio.get_running_loop().time()
             
             # LSH需要创建额外的哈希列
             for i in range(config.lsh_hash_tables):
@@ -210,7 +205,7 @@ class AdvancedIndexManager:
             await self.db.commit()
             
             # 记录统计信息
-            end_time = asyncio.get_event_loop().time()
+            end_time = asyncio.get_running_loop().time()
             build_time = (end_time - start_time) * 1000
             
             logger.info(f"LSH索引创建成功，包含 {config.lsh_hash_tables} 个哈希表，耗时 {build_time:.2f}ms")

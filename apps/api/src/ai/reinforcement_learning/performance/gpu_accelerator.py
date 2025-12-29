@@ -3,7 +3,7 @@ GPU加速优化器
 实现高性能GPU训练策略，包括混合精度训练、批处理优化和内存管理
 """
 
-import tensorflow as tf
+from src.core.tensorflow_config import tensorflow_lazy
 import numpy as np
 from typing import Dict, List, Optional, Tuple, Any
 import time
@@ -11,6 +11,8 @@ import threading
 from dataclasses import dataclass
 from enum import Enum
 
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 class GPUStrategy(Enum):
     """GPU加速策略类型"""
@@ -18,7 +20,6 @@ class GPUStrategy(Enum):
     MULTI_GPU = "multi_gpu" 
     MIXED_PRECISION = "mixed_precision"
     XLA_COMPILATION = "xla_compilation"
-
 
 @dataclass
 class GPUConfig:
@@ -30,8 +31,7 @@ class GPUConfig:
     memory_limit: Optional[int] = None  # MB
     batch_size_multiplier: int = 2  # GPU批处理倍数
     prefetch_buffer_size: int = 4
-    parallel_calls: int = tf.data.AUTOTUNE
-
+    parallel_calls: int = 4  # 使用固定值避免tf.data.AUTOTUNE的初始化问题
 
 class GPUAccelerator:
     """GPU加速器"""
@@ -55,62 +55,66 @@ class GPUAccelerator:
     
     def _setup_gpu_strategy(self):
         """设置GPU策略"""
-        physical_devices = tf.config.list_physical_devices('GPU')
+        if not tensorflow_lazy.available:
+            return
+        
+        tf = tensorflow_lazy.tf
+        physical_devices = tensorflow_lazy.tf.config.list_physical_devices('GPU')
         
         if not physical_devices:
-            print("警告: 未检测到GPU设备，将使用CPU")
-            self.strategy = tf.distribute.get_strategy()
+            logger.warning("未检测到GPU设备，将使用CPU")
+            self.strategy = tensorflow_lazy.tf.distribute.get_strategy()
             return
         
         # 配置GPU内存增长
         if self.config.memory_growth:
             for device in physical_devices:
                 try:
-                    tf.config.experimental.set_memory_growth(device, True)
-                except Exception as e:
-                    print(f"GPU内存增长配置失败: {e}")
+                    tensorflow_lazy.tf.config.experimental.set_memory_growth(device, True)
+                except Exception:
+                    logger.exception("GPU内存增长配置失败")
         
         # 设置内存限制
         if self.config.memory_limit:
             for device in physical_devices:
                 try:
-                    tf.config.experimental.set_memory_limit(
+                    tensorflow_lazy.tf.config.experimental.set_memory_limit(
                         device, self.config.memory_limit
                     )
-                except Exception as e:
-                    print(f"GPU内存限制配置失败: {e}")
+                except Exception:
+                    logger.exception("GPU内存限制配置失败")
         
         # 选择分布策略
         if self.config.strategy == GPUStrategy.MULTI_GPU and len(physical_devices) > 1:
-            self.strategy = tf.distribute.MirroredStrategy()
-            print(f"使用多GPU策略，设备数量: {len(physical_devices)}")
+            self.strategy = tensorflow_lazy.tf.distribute.MirroredStrategy()
+            logger.info("使用多GPU策略", device_count=len(physical_devices))
         else:
-            self.strategy = tf.distribute.OneDeviceStrategy("/GPU:0")
-            print(f"使用单GPU策略: {physical_devices[0].name}")
+            self.strategy = tensorflow_lazy.tf.distribute.OneDeviceStrategy("/GPU:0")
+            logger.info("使用单GPU策略", device_name=physical_devices[0].name)
     
     def _setup_mixed_precision(self):
         """设置混合精度训练"""
         if self.config.enable_mixed_precision:
             try:
-                self.mixed_precision_policy = tf.keras.mixed_precision.Policy('mixed_float16')
-                tf.keras.mixed_precision.set_global_policy(self.mixed_precision_policy)
-                print("启用混合精度训练 (float16)")
-            except Exception as e:
-                print(f"混合精度配置失败: {e}")
+                self.mixed_precision_policy = tensorflow_lazy.tf.keras.mixed_precision.Policy('mixed_float16')
+                tensorflow_lazy.tf.keras.mixed_precision.set_global_policy(self.mixed_precision_policy)
+                logger.info("启用混合精度训练", policy="mixed_float16")
+            except Exception:
+                logger.exception("混合精度配置失败")
                 self.mixed_precision_policy = None
     
     def _setup_xla_compilation(self):
         """设置XLA编译优化"""
         if self.config.enable_xla:
             try:
-                tf.config.optimizer.set_jit(True)
-                print("启用XLA编译优化")
-            except Exception as e:
-                print(f"XLA编译配置失败: {e}")
+                tensorflow_lazy.tf.config.optimizer.set_jit(True)
+                logger.info("启用XLA编译优化")
+            except Exception:
+                logger.exception("XLA编译配置失败")
     
-    def create_optimized_dataset(self, data: List[Any]) -> tf.data.Dataset:
+    def create_optimized_dataset(self, data: List[Any]) -> tensorflow_lazy.tf.data.Dataset:
         """创建优化的数据集"""
-        dataset = tf.data.Dataset.from_tensor_slices(data)
+        dataset = tensorflow_lazy.tf.data.Dataset.from_tensor_slices(data)
         
         # 数据预处理优化
         dataset = dataset.batch(
@@ -131,7 +135,7 @@ class GPUAccelerator:
         """数据预处理函数"""
         # 数据类型转换
         if self.mixed_precision_policy:
-            batch = tf.cast(batch, tf.float16)
+            batch = tensorflow_lazy.tf.cast(batch, tensorflow_lazy.tf.float16)
         
         return batch
     
@@ -148,20 +152,20 @@ class GPUAccelerator:
             
             # 混合精度优化器包装
             if self.mixed_precision_policy:
-                optimizer = tf.keras.mixed_precision.LossScaleOptimizer(optimizer)
+                optimizer = tensorflow_lazy.tf.keras.mixed_precision.LossScaleOptimizer(optimizer)
             
             return optimizer
     
-    @tf.function(experimental_relax_shapes=True)
+    @tensorflow_lazy.tf.function(experimental_relax_shapes=True)
     def distributed_train_step(self, model, optimizer, loss_fn, inputs, targets):
         """分布式训练步骤"""
         def step_fn(inputs, targets):
-            with tf.GradientTape() as tape:
+            with tensorflow_lazy.tf.GradientTape() as tape:
                 predictions = model(inputs, training=True)
                 loss = loss_fn(targets, predictions)
                 
                 # 混合精度损失缩放
-                if isinstance(optimizer, tf.keras.mixed_precision.LossScaleOptimizer):
+                if isinstance(optimizer, tensorflow_lazy.tf.keras.mixed_precision.LossScaleOptimizer):
                     scaled_loss = optimizer.get_scaled_loss(loss)
                 else:
                     scaled_loss = loss
@@ -170,11 +174,11 @@ class GPUAccelerator:
             gradients = tape.gradient(scaled_loss, model.trainable_variables)
             
             # 混合精度梯度反缩放
-            if isinstance(optimizer, tf.keras.mixed_precision.LossScaleOptimizer):
+            if isinstance(optimizer, tensorflow_lazy.tf.keras.mixed_precision.LossScaleOptimizer):
                 gradients = optimizer.get_unscaled_gradients(gradients)
             
             # 梯度裁剪
-            gradients = [tf.clip_by_value(grad, -1.0, 1.0) for grad in gradients]
+            gradients = [tensorflow_lazy.tf.clip_by_value(grad, -1.0, 1.0) for grad in gradients]
             
             # 应用梯度
             optimizer.apply_gradients(zip(gradients, model.trainable_variables))
@@ -185,35 +189,35 @@ class GPUAccelerator:
     
     def benchmark_performance(self, model, sample_data, num_iterations: int = 100) -> Dict[str, float]:
         """性能基准测试"""
-        print(f"开始GPU性能基准测试 ({num_iterations} 次迭代)")
+        logger.info("开始GPU性能基准测试", iterations=num_iterations)
         
         batch_times = []
         memory_usages = []
         
         # 预热
         for _ in range(10):
-            with tf.device('/GPU:0'):
+            with tensorflow_lazy.tf.device('/GPU:0'):
                 _ = model(sample_data)
         
         # 性能测试
         for i in range(num_iterations):
             start_time = time.time()
             
-            with tf.device('/GPU:0'):
+            with tensorflow_lazy.tf.device('/GPU:0'):
                 output = model(sample_data)
             
             # 同步GPU操作
-            tf.reduce_sum(output).numpy()
+            tensorflow_lazy.tf.reduce_sum(output).numpy()
             
             batch_time = time.time() - start_time
             batch_times.append(batch_time)
             
             # 记录内存使用
             try:
-                memory_info = tf.config.experimental.get_memory_info('/GPU:0')
-                memory_usages.append(memory_info['current'] / 1024 / 1024)  # MB
-            except:
-                pass
+                memory_info = tensorflow_lazy.tf.config.experimental.get_memory_info('/GPU:0')
+                memory_usages.append(memory_info.get("current", 0) / (1024 ** 2))
+            except Exception:
+                logger.debug("获取GPU内存使用失败", exc_info=True)
         
         # 计算统计指标
         avg_batch_time = np.mean(batch_times)
@@ -226,11 +230,11 @@ class GPUAccelerator:
             "gpu_utilization": self._get_gpu_utilization()
         }
         
-        print(f"基准测试结果:")
-        print(f"  平均批处理时间: {avg_batch_time:.4f}s")
-        print(f"  吞吐量: {throughput:.2f} samples/sec") 
-        print(f"  内存使用: {results['memory_usage']:.2f} MB")
-        print(f"  GPU利用率: {results['gpu_utilization']:.2f}%")
+        logger.info("基准测试结果")
+        logger.info("平均批处理时间", seconds=round(avg_batch_time, 4))
+        logger.info("吞吐量", samples_per_sec=round(throughput, 2))
+        logger.info("内存使用", mb=round(results["memory_usage"], 2))
+        logger.info("GPU利用率", percent=round(results["gpu_utilization"], 2))
         
         return results
     
@@ -249,7 +253,9 @@ class GPUAccelerator:
         """优化模型用于推理"""
         # 转换为TensorRT（如果可用）
         try:
-            from tensorflow.python.compiler.tensorrt import trt_convert as trt
+            if not tensorflow_lazy.available:
+                return model
+            trt = tensorflow_lazy.tf.python.compiler.tensorrt.trt_convert
             
             converter = trt.TrtGraphConverterV2(
                 input_saved_model_dir=None,
@@ -262,11 +268,11 @@ class GPUAccelerator:
                 )
             )
             
-            print("应用TensorRT优化")
+            logger.info("应用TensorRT优化")
             return converter.convert()
             
         except ImportError:
-            print("TensorRT不可用，跳过优化")
+            logger.warning("TensorRT不可用，跳过优化")
             return model
     
     def create_performance_monitor(self) -> 'PerformanceMonitor':
@@ -276,11 +282,11 @@ class GPUAccelerator:
     def get_device_info(self) -> Dict[str, Any]:
         """获取设备信息"""
         info = {
-            "cpu_count": tf.config.threading.get_inter_op_parallelism_threads(),
+            "cpu_count": tensorflow_lazy.tf.config.threading.get_inter_op_parallelism_threads(),
             "gpu_devices": []
         }
         
-        gpu_devices = tf.config.list_physical_devices('GPU')
+        gpu_devices = tensorflow_lazy.tf.config.list_physical_devices('GPU')
         for device in gpu_devices:
             device_info = {
                 "name": device.name,
@@ -300,13 +306,12 @@ class GPUAccelerator:
                     "temperature": nvml.nvmlDeviceGetTemperature(handle, nvml.NVML_TEMPERATURE_GPU),
                     "power_usage": nvml.nvmlDeviceGetPowerUsage(handle),
                 })
-            except:
-                pass
+            except Exception:
+                logger.exception("获取GPU信息失败", exc_info=True)
             
             info["gpu_devices"].append(device_info)
         
         return info
-
 
 class PerformanceMonitor:
     """性能监控器"""
@@ -329,14 +334,14 @@ class PerformanceMonitor:
             daemon=True
         )
         self.monitor_thread.start()
-        print("开始GPU性能监控")
+        logger.info("开始GPU性能监控")
     
     def stop_monitoring(self):
         """停止性能监控"""
         self.monitoring = False
         if self.monitor_thread:
             self.monitor_thread.join()
-        print("停止GPU性能监控")
+        logger.info("停止GPU性能监控")
     
     def _monitor_loop(self, interval: float):
         """监控循环"""
@@ -352,8 +357,8 @@ class PerformanceMonitor:
                 if len(self.metrics_history) > 1000:
                     self.metrics_history = self.metrics_history[-500:]
                 
-            except Exception as e:
-                print(f"性能监控错误: {e}")
+            except Exception:
+                logger.exception("性能监控错误")
             
             time.sleep(interval)
     
@@ -363,17 +368,16 @@ class PerformanceMonitor:
         
         try:
             # GPU内存使用
-            memory_info = tf.config.experimental.get_memory_info('/GPU:0')
+            memory_info = tensorflow_lazy.tf.config.experimental.get_memory_info('/GPU:0')
             metrics["memory_used"] = memory_info['current'] / 1024 / 1024  # MB
-            metrics["memory_peak"] = memory_info['peak'] / 1024 / 1024  # MB
-        except:
-            pass
+        except Exception:
+            logger.debug("获取GPU内存使用失败", exc_info=True)
         
         try:
             # GPU利用率
             metrics["gpu_utilization"] = self.accelerator._get_gpu_utilization()
-        except:
-            pass
+        except Exception:
+            logger.debug("获取GPU利用率失败", exc_info=True)
         
         return metrics
     
@@ -396,7 +400,6 @@ class PerformanceMonitor:
                 }
         
         return summary
-
 
 def create_optimized_gpu_config(model_size: str = "medium") -> GPUConfig:
     """根据模型大小创建优化的GPU配置"""

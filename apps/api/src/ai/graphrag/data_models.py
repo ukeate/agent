@@ -15,7 +15,6 @@ from enum import Enum
 from dataclasses import dataclass
 import uuid
 
-
 class QueryType(str, Enum):
     """查询类型枚举"""
     SIMPLE = "simple"
@@ -24,14 +23,12 @@ class QueryType(str, Enum):
     COMPLEX_REASONING = "complex_reasoning"
     COMPOSITIONAL = "compositional"
 
-
 class RetrievalMode(str, Enum):
     """检索模式枚举"""
     VECTOR_ONLY = "vector_only"
     GRAPH_ONLY = "graph_only"
     HYBRID = "hybrid"
     ADAPTIVE = "adaptive"
-
 
 @dataclass
 class GraphContext:
@@ -67,7 +64,6 @@ class GraphContext:
             "expansion_depth": self.expansion_depth,
             "confidence_score": self.confidence_score
         }
-
 
 @dataclass
 class ReasoningPath:
@@ -106,7 +102,6 @@ class ReasoningPath:
             "hops_count": self.hops_count
         }
 
-
 @dataclass
 class KnowledgeSource:
     """知识源"""
@@ -134,7 +129,6 @@ class KnowledgeSource:
             "graph_context": self.graph_context.to_dict() if self.graph_context else None
         }
 
-
 class GraphRAGRequest(TypedDict):
     """GraphRAG请求"""
     query: str
@@ -145,7 +139,6 @@ class GraphRAGRequest(TypedDict):
     confidence_threshold: float
     query_type: Optional[QueryType]
     filters: Optional[Dict[str, Any]]
-
 
 class GraphRAGResponse(TypedDict):
     """GraphRAG响应"""
@@ -158,7 +151,6 @@ class GraphRAGResponse(TypedDict):
     fusion_results: Dict[str, Any]
     performance_metrics: Dict[str, float]
     timestamp: str
-
 
 @dataclass
 class QueryDecomposition:
@@ -193,7 +185,6 @@ class QueryDecomposition:
             "complexity_score": self.complexity_score
         }
 
-
 class FusionResult(TypedDict):
     """融合结果"""
     final_ranking: List[Dict[str, Any]]
@@ -201,7 +192,6 @@ class FusionResult(TypedDict):
     conflicts_detected: List[Dict[str, Any]]
     resolution_strategy: str
     consistency_score: float
-
 
 @dataclass
 class EntityRecognitionResult:
@@ -234,7 +224,6 @@ class EntityRecognitionResult:
             "metadata": self.metadata
         }
 
-
 @dataclass
 class GraphRAGConfig:
     """GraphRAG配置"""
@@ -266,7 +255,6 @@ class GraphRAGConfig:
             "enable_conflict_resolution": self.enable_conflict_resolution
         }
 
-
 # 辅助函数
 def create_graph_rag_request(
     query: str,
@@ -290,7 +278,6 @@ def create_graph_rag_request(
         filters=filters or {}
     )
 
-
 def create_empty_graph_context() -> GraphContext:
     """创建空的图谱上下文"""
     return GraphContext(
@@ -301,7 +288,6 @@ def create_empty_graph_context() -> GraphContext:
         expansion_depth=0,
         confidence_score=0.0
     )
-
 
 def create_empty_reasoning_path() -> ReasoningPath:
     """创建空的推理路径"""
@@ -314,7 +300,6 @@ def create_empty_reasoning_path() -> ReasoningPath:
         evidence=[],
         hops_count=0
     )
-
 
 def validate_graph_rag_request(request: GraphRAGRequest) -> List[str]:
     """验证GraphRAG请求的有效性"""

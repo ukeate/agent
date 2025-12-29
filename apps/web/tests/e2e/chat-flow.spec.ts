@@ -35,7 +35,7 @@ test.describe('Chat Flow', () => {
     }
     
     // Wait for AI response (mock response should appear)
-    await expect(page.locator('text=我收到了你的消息：Hello, AI!')).toBeVisible({ timeout: 5000 })
+    await expect(page.locator('text=我收到了你的消息：Hello, AI!').first()).toBeVisible({ timeout: 5000 })
     
     // Check if message input is cleared
     await expect(messageInput).toHaveValue('')
@@ -121,7 +121,9 @@ test.describe('Chat Flow', () => {
     await sendButton.click()
     
     // Check if error message appears
-    await expect(page.locator('text=网络连接异常')).toBeVisible({ timeout: 5000 })
+    await expect(
+      page.locator('.ant-alert-message').filter({ hasText: '网络连接异常' }).first()
+    ).toBeVisible({ timeout: 5000 })
   })
 
   test('character count updates correctly', async ({ page }) => {

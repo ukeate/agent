@@ -1,24 +1,18 @@
 """多模态RAG系统配置"""
 
 from typing import Optional, List, Dict, Any
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from enum import Enum
-
 
 class EmbeddingModel(str, Enum):
     """嵌入模型类型"""
-    NOMIC_TEXT = "nomic-embed-text-v1.5"
-    NOMIC_VISION = "nomic-embed-vision-v1.5"
-    OPENAI_TEXT = "text-embedding-3-small"
-    OPENAI_LARGE = "text-embedding-3-large"
-
+    SENTENCE_TRANSFORMERS_MINILM = "sentence-transformers/all-MiniLM-L6-v2"
 
 class VectorStoreType(str, Enum):
     """向量存储类型"""
     CHROMA = "chroma"
     QDRANT = "qdrant"
     PGVECTOR = "pgvector"
-
 
 class QueryType(str, Enum):
     """查询类型"""
@@ -27,9 +21,10 @@ class QueryType(str, Enum):
     MIXED = "mixed"
     DOCUMENT = "document"
 
-
 class MultimodalConfig(BaseModel):
     """多模态RAG配置"""
+
+    model_config = ConfigDict(use_enum_values=True)
     
     # 向量存储配置
     vector_store_type: VectorStoreType = Field(
@@ -47,15 +42,15 @@ class MultimodalConfig(BaseModel):
     
     # 嵌入模型配置
     text_embedding_model: EmbeddingModel = Field(
-        default=EmbeddingModel.NOMIC_TEXT,
+        default=EmbeddingModel.SENTENCE_TRANSFORMERS_MINILM,
         description="文本嵌入模型"
     )
     vision_embedding_model: EmbeddingModel = Field(
-        default=EmbeddingModel.NOMIC_VISION,
+        default=EmbeddingModel.SENTENCE_TRANSFORMERS_MINILM,
         description="视觉嵌入模型"
     )
     embedding_dimension: int = Field(
-        default=768,
+        default=384,
         description="嵌入向量维度"
     )
     
@@ -79,7 +74,7 @@ class MultimodalConfig(BaseModel):
         description="检索结果数量"
     )
     similarity_threshold: float = Field(
-        default=0.7,
+        default=0.0,
         description="相似度阈值"
     )
     rerank_enabled: bool = Field(
@@ -105,24 +100,6 @@ class MultimodalConfig(BaseModel):
         description="最大并发请求数"
     )
     
-    # API密钥配置
-    nomic_api_key: Optional[str] = Field(
-        default=None,
-        description="Nomic API密钥"
-    )
-    openai_api_key: Optional[str] = Field(
-        default=None,
-        description="OpenAI API密钥"
-    )
-    unstructured_api_key: Optional[str] = Field(
-        default=None,
-        description="Unstructured API密钥"
-    )
-    
-    class Config:
-        use_enum_values = True
-
-
 class ProcessedDocument(BaseModel):
     """处理后的文档"""
     
@@ -163,7 +140,6 @@ class ProcessedDocument(BaseModel):
         default_factory=list,
         description="关键词列表"
     )
-
 
 class QueryContext(BaseModel):
     """查询上下文"""
@@ -206,7 +182,6 @@ class QueryContext(BaseModel):
         description="覆盖默认的相似度阈值"
     )
 
-
 class RetrievalResults(BaseModel):
     """检索结果"""
     
@@ -244,7 +219,6 @@ class RetrievalResults(BaseModel):
         description="总结果数"
     )
 
-
 class MultimodalContext(BaseModel):
     """多模态上下文"""
     
@@ -264,7 +238,6 @@ class MultimodalContext(BaseModel):
         default_factory=dict,
         description="上下文元数据"
     )
-
 
 class QAResponse(BaseModel):
     """问答响应"""
@@ -287,7 +260,6 @@ class QAResponse(BaseModel):
         description="使用的上下文统计"
     )
 
-
 class RetrievalMetrics(BaseModel):
     """检索性能指标"""
     
@@ -297,7 +269,6 @@ class RetrievalMetrics(BaseModel):
     cache_hit_rate: float = Field(default=0.0)
     memory_usage_mb: float = Field(default=0.0)
     vector_index_size: int = Field(default=0)
-
 
 class QualityMetrics(BaseModel):
     """质量评估指标"""

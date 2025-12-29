@@ -2,26 +2,21 @@
 LangGraph 0.6.5新特性演示API端点
 提供Context API、durability控制、Node Caching和Pre/Post Hooks演示
 """
-from fastapi import APIRouter, HTTPException, BackgroundTasks
-from fastapi.responses import StreamingResponse
-from typing import Dict, Any, List, Optional, Literal
-from pydantic import BaseModel
-from datetime import datetime
-from src.core.utils.timezone_utils import utc_now, utc_factory
-import asyncio
-import json
 
+import asyncio
+import hashlib
+import json
+from datetime import datetime
+from typing import Any, Dict, List, Literal, Optional
+
+from fastapi import APIRouter, BackgroundTasks, HTTPException
+from src.ai.langgraph.state import MessagesState, create_initial_state
 from src.ai.langgraph.state_graph import (
-    LangGraphWorkflowBuilder,
-    create_simple_workflow,
-    create_conditional_workflow
-)
-from src.ai.langgraph.context import (
+    AgentContext,
     LangGraphContextSchema,
+    LangGraphWorkflowBuilder,
     create_default_context,
-    AgentContext
 )
-from src.ai.langgraph.state import create_initial_state, MessagesState
 from src.ai.langgraph.node_caching import (
     NodeCacheManager,
     InMemoryCache,
@@ -37,42 +32,38 @@ from src.ai.langgraph.hooks import (
     ResponseFilterHook,
     QualityCheckHook
 )
+from src.api.base_model import ApiBaseModel
+from src.core.utils.timezone_utils import utc_now
 
 router = APIRouter(prefix="/langgraph", tags=["LangGraph 0.6.5特性"])
 
-
 # 请求/响应模型
-class ContextAPIRequest(BaseModel):
+class ContextAPIRequest(ApiBaseModel):
     user_id: str = "demo_user"
     session_id: str = "550e8400-e29b-41d4-a716-446655440000"
     conversation_id: Optional[str] = None
     message: str = "测试新Context API"
     use_new_api: bool = True
 
-
-class DurabilityRequest(BaseModel):
+class DurabilityRequest(ApiBaseModel):
     message: str = "测试durability控制"
     durability_mode: Literal["exit", "async", "sync"] = "async"
 
-
-class CachingRequest(BaseModel):
+class CachingRequest(ApiBaseModel):
     message: str = "计算密集型任务"
     enable_cache: bool = True
     cache_ttl: int = 300
 
-
-class HooksRequest(BaseModel):
+class HooksRequest(ApiBaseModel):
     messages: List[Dict[str, Any]]
     enable_pre_hooks: bool = True
     enable_post_hooks: bool = True
 
-
-class WorkflowResponse(BaseModel):
+class WorkflowResponse(ApiBaseModel):
     success: bool
     execution_time_ms: float
     result: Dict[str, Any]
     metadata: Dict[str, Any]
-
 
 # Context API演示端点
 @router.post("/context-api/demo", response_model=WorkflowResponse)
@@ -156,7 +147,6 @@ async def demo_context_api(request: ContextAPIRequest):
             detail=f"Context API演示失败: {str(e)}"
         )
 
-
 # Durability控制演示端点
 @router.post("/durability/demo", response_model=WorkflowResponse)
 async def demo_durability_control(request: DurabilityRequest):
@@ -186,7 +176,7 @@ async def demo_durability_control(request: DurabilityRequest):
         graph.add_edge("durability_demo", END)
         
         # 使用指定的durability模式编译
-        compiled_graph = builder.compile()
+        builder.compile(durability_mode=request.durability_mode)
         
         initial_state = create_initial_state()
         initial_state["messages"] = [
@@ -194,8 +184,10 @@ async def demo_durability_control(request: DurabilityRequest):
         ]
         
         context = create_default_context()
-        result = await compiled_graph.ainvoke(
-            initial_state
+        result = await builder.execute(
+            initial_state,
+            context=context,
+            durability=request.durability_mode,
         )
         
         execution_time = (utc_now() - start_time).total_seconds() * 1000
@@ -221,7 +213,6 @@ async def demo_durability_control(request: DurabilityRequest):
             detail=f"Durability演示失败: {str(e)}"
         )
 
-
 # Node Caching演示端点
 @router.post("/caching/demo", response_model=WorkflowResponse)
 async def demo_node_caching(request: CachingRequest):
@@ -231,24 +222,23 @@ async def demo_node_caching(request: CachingRequest):
     try:
         builder = LangGraphWorkflowBuilder(use_context_api=True)
         
-        # 模拟计算密集型任务
+        # 计算密集型任务
         call_count = 0
         def expensive_computation(state: MessagesState) -> MessagesState:
             nonlocal call_count
             call_count += 1
-            
-            # 模拟计算延迟
-            import time
-            time.sleep(0.1)  # 100ms 延迟
-            
+            digest = request.message.encode("utf-8")
+            for _ in range(5000):
+                digest = hashlib.sha256(digest).digest()
+            digest_hex = hashlib.sha256(digest).hexdigest()
             state["messages"].append({
                 "role": "assistant",
-                "content": f"完成计算密集型任务 #{call_count}。消息: {request.message}",
+                "content": f"完成计算密集型任务 #{call_count}。消息: {request.message}。结果: {digest_hex[:16]}",
                 "timestamp": utc_now().isoformat(),
                 "metadata": {
                     "computation_count": call_count,
                     "cache_enabled": request.enable_cache,
-                    "simulated_delay_ms": 100
+                    "hash_prefix": digest_hex[:16],
                 }
             })
             return state
@@ -315,7 +305,6 @@ async def demo_node_caching(request: CachingRequest):
             detail=f"Node Caching演示失败: {str(e)}"
         )
 
-
 # Pre/Post Hooks演示端点
 @router.post("/hooks/demo", response_model=WorkflowResponse)
 async def demo_hooks(request: HooksRequest):
@@ -335,14 +324,16 @@ async def demo_hooks(request: HooksRequest):
         # 执行预处理钩子
         if request.enable_pre_hooks:
             state = await hook_manager.execute_pre_hooks(state, context)
-        
-        # 模拟模型处理
-        state["messages"].append({
-            "role": "assistant",
-            "content": "这是AI模型生成的响应内容，可能包含需要处理的内容。",
-            "timestamp": utc_now().isoformat(),
-            "metadata": {"generated_by": "demo_model"}
-        })
+        last_user = next((m for m in reversed(state.get("messages", [])) if m.get("role") == "user"), None)
+        user_content = (last_user or {}).get("content", "")
+        state["messages"].append(
+            {
+                "role": "assistant",
+                "content": f"已处理输入: {user_content}",
+                "timestamp": utc_now().isoformat(),
+                "metadata": {"source": "hooks_demo"},
+            }
+        )
         
         # 执行后处理钩子
         if request.enable_post_hooks:
@@ -394,14 +385,12 @@ async def demo_hooks(request: HooksRequest):
             detail=f"Hooks演示失败: {str(e)}"
         )
 
-
 # 钩子配置管理端点
 @router.get("/hooks/status")
 async def get_hooks_status():
     """获取钩子状态"""
     hook_manager = get_hook_manager()
     return hook_manager.get_hook_status()
-
 
 @router.post("/hooks/configure")
 async def configure_hook(hook_name: str, enabled: bool):
@@ -416,32 +405,30 @@ async def configure_hook(hook_name: str, enabled: bool):
     
     raise HTTPException(status_code=404, detail=f"钩子 {hook_name} 未找到")
 
-
 # 缓存管理端点
 @router.get("/cache/stats")
 async def get_cache_stats():
     """获取缓存统计信息"""
     cache_manager = get_cache_manager()
-    
-    # 简化的缓存统计
+    stats = cache_manager.get_stats()
     return {
+        **stats,
         "cache_backend": type(cache_manager.backend).__name__,
         "default_policy": {
             "ttl": cache_manager.default_policy.ttl,
             "max_size": cache_manager.default_policy.max_size,
-            "enabled": cache_manager.default_policy.enabled
+            "enabled": cache_manager.default_policy.enabled,
         },
-        "node_policies_count": len(cache_manager.node_policies)
+        "node_policies_count": len(cache_manager.node_policies),
     }
-
 
 @router.post("/cache/clear")
 async def clear_cache():
     """清空缓存"""
     cache_manager = get_cache_manager()
     await cache_manager.backend.clear()
+    cache_manager.reset_stats()
     return {"success": True, "message": "缓存已清空"}
-
 
 # 工作流执行演示端点（前端调用的主端点）
 @router.post("/execute-demo")
@@ -547,7 +534,6 @@ async def execute_workflow_demo(request: Optional[Dict[str, Any]] = None):
             "langgraph_version": "0.6.5"
         }
 
-
 # 完整工作流演示端点
 @router.post("/complete-demo", response_model=WorkflowResponse) 
 async def complete_feature_demo():
@@ -557,7 +543,7 @@ async def complete_feature_demo():
     try:
         # 创建使用所有新特性的工作流
         builder = create_conditional_workflow()
-        compiled_graph = builder.compile()
+        builder.compile()
         
         # 准备测试数据
         initial_state = create_initial_state()
@@ -571,10 +557,7 @@ async def complete_feature_demo():
             session_id="550e8400-e29b-41d4-a716-446655440000"
         )
         
-        # 执行工作流
-        result = await compiled_graph.ainvoke(
-            initial_state
-        )
+        result = await builder.execute(initial_state, context=context)
         
         execution_time = (utc_now() - start_time).total_seconds() * 1000
         

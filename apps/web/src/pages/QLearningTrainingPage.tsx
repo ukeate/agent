@@ -1,276 +1,87 @@
-import React, { useState, useEffect } from 'react'
-import { 
-  Card, 
-  Row, 
-  Col, 
-  Statistic, 
-  Progress, 
-  Table, 
-  Button, 
-  Space, 
-  Tag, 
-  Timeline,
-  Alert,
-  Select,
-  Switch,
-  Typography,
-  Divider
-} from 'antd'
-import { 
-  LineChart, 
-  Line, 
-  XAxis, 
-  YAxis, 
-  CartesianGrid, 
-  Tooltip, 
-  Legend, 
-  ResponsiveContainer,
-  AreaChart,
-  Area,
-  BarChart,
-  Bar
-} from 'recharts'
+import React, { useEffect, useState } from 'react'
 import {
-  PlayCircleOutlined,
-  PauseOutlined,
-  StopOutlined,
-  ReloadOutlined,
+  Card,
+  Row,
+  Col,
+  Statistic,
+  Button,
+  Space,
+  Alert,
+  Typography,
+  Divider,
+  Timeline,
+  message
+} from 'antd'
+import {
+  ExperimentOutlined,
   MonitorOutlined,
   TrophyOutlined,
-  ExperimentOutlined,
-  LineChartOutlined
+  LineChartOutlined,
+  ReloadOutlined
 } from '@ant-design/icons'
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+  AreaChart,
+  Area
+} from 'recharts'
+import apiClient from '../services/apiClient'
 
 const { Title, Text } = Typography
-const { Option } = Select
 
-// 模拟训练数据
-const generateTrainingData = () => {
-  const data = []
-  let reward = 0
-  let loss = 1.0
-  
-  for (let i = 0; i < 100; i++) {
-    reward += (Math.random() - 0.3) * 10
-    loss = Math.max(0.01, loss * (0.98 + Math.random() * 0.04))
-    
-    data.push({
-      episode: i + 1,
-      reward: Math.max(-100, Math.min(100, reward)),
-      loss: loss,
-      explorationRate: Math.max(0.01, 1.0 - (i * 0.01)),
-      qValue: Math.random() * 50,
-      averageReward: reward / (i + 1)
-    })
-  }
-  return data
+interface TrendPoint {
+  episode: number
+  reward: number
+  loss?: number
+  averageReward?: number
 }
 
 const QLearningTrainingPage: React.FC = () => {
-  const [isTraining, setIsTraining] = useState(false)
-  const [isPaused, setIsPaused] = useState(false)
-  const [currentEpisode, setCurrentEpisode] = useState(0)
-  const [selectedAgent, setSelectedAgent] = useState('agent-1')
-  const [autoRefresh, setAutoRefresh] = useState(true)
-  const [trainingData, setTrainingData] = useState(() => generateTrainingData())
-  
-  // 模拟训练状态
+  const [summary, setSummary] = useState({
+    running: 0,
+    training: 0,
+    average_performance: 0,
+    total_episodes: 0
+  })
+  const [trainingData, setTrainingData] = useState<TrendPoint[]>([])
+  const [updatedAt, setUpdatedAt] = useState<string | null>(null)
+  const [loading, setLoading] = useState(false)
+
+  const fetchData = async () => {
+    setLoading(true)
+    try {
+      const resp = await apiClient.get('/tensorflow-qlearning/overview')
+      const data: any = resp.data || {}
+      setSummary(data.summary || summary)
+      const trend = Array.isArray(data.trend) ? data.trend : []
+      const points: TrendPoint[] = trend.map((item: any, idx: number) => ({
+        episode: item.episode || idx + 1,
+        reward: item.reward || 0,
+        loss: item.loss || 0,
+        averageReward: item.averageReward || item.reward || 0
+      }))
+      setTrainingData(points)
+      setUpdatedAt(data.updated_at || null)
+    } catch (err) {
+      message.error('加载训练监控数据失败')
+      setTrainingData([])
+    } finally {
+      setLoading(false)
+    }
+  }
+
   useEffect(() => {
-    let interval: NodeJS.Timeout | null = null
-    
-    if (isTraining && !isPaused && autoRefresh) {
-      interval = setInterval(() => {
-        setCurrentEpisode(prev => prev + 1)
-        setTrainingData(generateTrainingData())
-      }, 1000)
-    }
-    
-    return () => {
-      if (interval) clearInterval(interval)
-    }
-  }, [isTraining, isPaused, autoRefresh])
+    fetchData()
+  }, [])
 
-  const handleStartTraining = () => {
-    setIsTraining(true)
-    setIsPaused(false)
-    setCurrentEpisode(0)
-  }
-
-  const handlePauseTraining = () => {
-    setIsPaused(!isPaused)
-  }
-
-  const handleStopTraining = () => {
-    setIsTraining(false)
-    setIsPaused(false)
-    setCurrentEpisode(0)
-  }
-
-  const handleResetData = () => {
-    setTrainingData(generateTrainingData())
-    setCurrentEpisode(0)
-  }
-
-  // 训练控制面板
-  const TrainingControlPanel = () => (
-    <Card title="训练控制面板" size="small">
-      <Row gutter={16}>
-        <Col span={12}>
-          <Space direction="vertical" style={{ width: '100%' }}>
-            <div>
-              <Text strong>智能体选择:</Text>
-              <Select 
-                value={selectedAgent} 
-                onChange={setSelectedAgent}
-                style={{ width: '100%', marginTop: 8 }}
-              >
-                <Option value="agent-1">DQN Agent #1</Option>
-                <Option value="agent-2">Double DQN Agent #2</Option>
-                <Option value="agent-3">Dueling DQN Agent #3</Option>
-                <Option value="agent-4">TabularQ Agent #4</Option>
-              </Select>
-            </div>
-            <div>
-              <Text strong>自动刷新:</Text>
-              <Switch 
-                checked={autoRefresh} 
-                onChange={setAutoRefresh}
-                style={{ marginLeft: 8 }}
-              />
-            </div>
-          </Space>
-        </Col>
-        <Col span={12}>
-          <Space wrap>
-            {!isTraining ? (
-              <Button 
-                type="primary" 
-                icon={<PlayCircleOutlined />}
-                onClick={handleStartTraining}
-              >
-                开始训练
-              </Button>
-            ) : (
-              <>
-                <Button 
-                  icon={isPaused ? <PlayCircleOutlined /> : <PauseOutlined />}
-                  onClick={handlePauseTraining}
-                >
-                  {isPaused ? '继续' : '暂停'}
-                </Button>
-                <Button 
-                  icon={<StopOutlined />}
-                  onClick={handleStopTraining}
-                  danger
-                >
-                  停止
-                </Button>
-              </>
-            )}
-            <Button 
-              icon={<ReloadOutlined />}
-              onClick={handleResetData}
-            >
-              重置数据
-            </Button>
-          </Space>
-        </Col>
-      </Row>
-    </Card>
-  )
-
-  // 训练状态卡片
-  const TrainingStatusCards = () => {
-    const currentData = trainingData[trainingData.length - 1]
-    
-    return (
-      <Row gutter={16}>
-        <Col span={6}>
-          <Card>
-            <Statistic
-              title="当前Episode"
-              value={currentEpisode}
-              prefix={<ExperimentOutlined />}
-            />
-            <Progress 
-              percent={(currentEpisode % 100)} 
-              size="small" 
-              showInfo={false}
-              style={{ marginTop: 8 }}
-            />
-          </Card>
-        </Col>
-        <Col span={6}>
-          <Card>
-            <Statistic
-              title="当前奖励"
-              value={currentData?.reward || 0}
-              precision={2}
-              prefix={<TrophyOutlined />}
-              valueStyle={{ 
-                color: (currentData?.reward || 0) > 0 ? '#3f8600' : '#cf1322' 
-              }}
-            />
-          </Card>
-        </Col>
-        <Col span={6}>
-          <Card>
-            <Statistic
-              title="平均奖励"
-              value={currentData?.averageReward || 0}
-              precision={2}
-              prefix={<LineChartOutlined />}
-            />
-          </Card>
-        </Col>
-        <Col span={6}>
-          <Card>
-            <Statistic
-              title="探索率"
-              value={(currentData?.explorationRate || 0) * 100}
-              precision={1}
-              suffix="%"
-              prefix={<MonitorOutlined />}
-            />
-          </Card>
-        </Col>
-      </Row>
-    )
-  }
-
-  // 训练状态指示器
-  const TrainingStatusAlert = () => {
-    if (!isTraining) {
-      return (
-        <Alert
-          message="训练已停止"
-          description="点击开始训练按钮启动Q-Learning智能体训练"
-          variant="default"
-          showIcon
-        />
-      )
-    }
-    
-    if (isPaused) {
-      return (
-        <Alert
-          message="训练已暂停"
-          description="训练进程已暂停，点击继续按钮恢复训练"
-          variant="warning"
-          showIcon
-        />
-      )
-    }
-    
-    return (
-      <Alert
-        message="训练进行中"
-        description={`智能体 ${selectedAgent} 正在进行第 ${currentEpisode} 轮训练`}
-        type="success"
-        showIcon
-      />
-    )
-  }
+  const currentPoint = trainingData[trainingData.length - 1]
+  const currentEpisode = currentPoint?.episode || summary.total_episodes || 0
 
   return (
     <div style={{ padding: '24px' }}>
@@ -278,136 +89,140 @@ const QLearningTrainingPage: React.FC = () => {
         <ExperimentOutlined /> Q-Learning训练监控
       </Title>
       <Text type="secondary">
-        实时监控Q-Learning智能体的训练过程，包括奖励变化、损失函数、探索策略等关键指标
+        实时展示Q-Learning训练趋势、奖励与损失变化。数据来源后端API，无本地模拟。
       </Text>
-      
+      <div style={{ margin: '16px 0' }}>
+        <Space>
+          <Button icon={<ReloadOutlined />} onClick={fetchData} loading={loading}>
+            刷新数据
+          </Button>
+          {updatedAt && <Text type="secondary">最近更新: {updatedAt}</Text>}
+        </Space>
+      </div>
+
       <Divider />
 
       <Space direction="vertical" size="large" style={{ width: '100%' }}>
-        {/* 训练状态提醒 */}
-        <TrainingStatusAlert />
+        <Alert
+          message="训练概览"
+          description={`运行中: ${summary.running} | 训练中: ${summary.training} | 总Episodes: ${summary.total_episodes}`}
+          type="info"
+          showIcon
+        />
 
-        {/* 训练控制面板 */}
-        <TrainingControlPanel />
+        <Row gutter={[16, 16]}>
+          <Col span={6}>
+            <Card>
+              <Statistic
+                title="当前Episode"
+                value={currentEpisode}
+                prefix={<ExperimentOutlined />}
+              />
+            </Card>
+          </Col>
+          <Col span={6}>
+            <Card>
+              <Statistic
+                title="当前奖励"
+                value={currentPoint?.reward || 0}
+                precision={1}
+                prefix={<TrophyOutlined />}
+                valueStyle={{ color: (currentPoint?.reward || 0) >= 0 ? '#3f8600' : '#cf1322' }}
+              />
+            </Card>
+          </Col>
+          <Col span={6}>
+            <Card>
+              <Statistic
+                title="平均奖励"
+                value={summary.average_performance || currentPoint?.averageReward || 0}
+                precision={1}
+                prefix={<LineChartOutlined />}
+              />
+            </Card>
+          </Col>
+          <Col span={6}>
+            <Card>
+              <Statistic
+                title="总训练Episodes"
+                value={summary.total_episodes}
+                prefix={<MonitorOutlined />}
+              />
+            </Card>
+          </Col>
+        </Row>
 
-        {/* 训练状态卡片 */}
-        <TrainingStatusCards />
-
-        {/* 训练图表 */}
         <Row gutter={16}>
           <Col span={12}>
             <Card title="奖励曲线" size="small">
-              <ResponsiveContainer width="100%" height={300}>
-                <LineChart data={trainingData}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="episode" />
-                  <YAxis />
-                  <Tooltip />
-                  <Legend />
-                  <Line 
-                    type="monotone" 
-                    dataKey="reward" 
-                    stroke="#1890ff" 
-                    name="当前奖励"
-                    dot={false}
-                  />
-                  <Line 
-                    type="monotone" 
-                    dataKey="averageReward" 
-                    stroke="#52c41a" 
-                    name="平均奖励"
-                    dot={false}
-                  />
-                </LineChart>
-              </ResponsiveContainer>
+              {trainingData.length ? (
+                <ResponsiveContainer width="100%" height={300}>
+                  <LineChart data={trainingData}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="episode" />
+                    <YAxis />
+                    <Tooltip />
+                    <Legend />
+                    <Line
+                      type="monotone"
+                      dataKey="reward"
+                      stroke="#1890ff"
+                      name="奖励"
+                      dot={false}
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="averageReward"
+                      stroke="#52c41a"
+                      name="平均奖励"
+                      dot={false}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              ) : (
+                <Alert message="暂无奖励数据" type="info" showIcon />
+              )}
             </Card>
           </Col>
-          
+
           <Col span={12}>
-            <Card title="损失函数" size="small">
-              <ResponsiveContainer width="100%" height={300}>
-                <AreaChart data={trainingData}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="episode" />
-                  <YAxis />
-                  <Tooltip />
-                  <Legend />
-                  <Area
-                    type="monotone"
-                    dataKey="loss"
-                    stroke="#ff4d4f"
-                    fill="#ff4d4f"
-                    fillOpacity={0.3}
-                    name="损失值"
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
+            <Card title="损失曲线" size="small">
+              {trainingData.length ? (
+                <ResponsiveContainer width="100%" height={300}>
+                  <AreaChart data={trainingData}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="episode" />
+                    <YAxis />
+                    <Tooltip />
+                    <Legend />
+                    <Area
+                      type="monotone"
+                      dataKey="loss"
+                      stroke="#ff4d4f"
+                      fill="#ff4d4f"
+                      fillOpacity={0.3}
+                      name="损失"
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
+              ) : (
+                <Alert message="暂无损失数据" type="info" showIcon />
+              )}
             </Card>
           </Col>
         </Row>
 
-        <Row gutter={16}>
-          <Col span={12}>
-            <Card title="探索率变化" size="small">
-              <ResponsiveContainer width="100%" height={300}>
-                <LineChart data={trainingData}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="episode" />
-                  <YAxis />
-                  <Tooltip />
-                  <Legend />
-                  <Line 
-                    type="monotone" 
-                    dataKey="explorationRate" 
-                    stroke="#722ed1" 
-                    name="探索率"
-                    dot={false}
-                  />
-                </LineChart>
-              </ResponsiveContainer>
-            </Card>
-          </Col>
-          
-          <Col span={12}>
-            <Card title="Q值分布" size="small">
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={trainingData.slice(-20)}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="episode" />
-                  <YAxis />
-                  <Tooltip />
-                  <Legend />
-                  <Bar dataKey="qValue" fill="#fa8c16" name="平均Q值" />
-                </BarChart>
-              </ResponsiveContainer>
-            </Card>
-          </Col>
-        </Row>
-
-        {/* 训练日志时间线 */}
         <Card title="训练日志" size="small">
-          <Timeline
-            items={[
-              {
-                children: '智能体初始化完成',
-                color: 'blue',
-              },
-              {
-                children: `Episode ${Math.max(0, currentEpisode - 10)} - 开始探索阶段`,
-                color: 'green',
-              },
-              {
-                children: `Episode ${Math.max(0, currentEpisode - 5)} - 策略开始收敛`,
-                color: 'yellow',
-              },
-              {
-                children: isTraining ? 
-                  `Episode ${currentEpisode} - 训练进行中${isPaused ? ' (已暂停)' : ''}` :
-                  '训练已停止',
-                color: isTraining ? (isPaused ? 'orange' : 'green') : 'red',
-              },
-            ]}
-          />
+          {trainingData.length ? (
+            <Timeline
+              items={trainingData.slice(-5).map((item) => ({
+                children: `Episode ${item.episode} - 奖励 ${item.reward}`,
+                color: item.reward >= 0 ? 'green' : 'red'
+              }))}
+            />
+          ) : (
+            <Alert message="暂无训练日志" type="info" showIcon />
+          )}
         </Card>
       </Space>
     </div>

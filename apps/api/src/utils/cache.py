@@ -4,16 +4,15 @@
 """
 
 import json
-import pickle
 import asyncio
 from typing import Any, Optional, Union, Callable, Dict
 from datetime import timedelta
 from functools import wraps
 import redis.asyncio as redis
-import logging
+from src.core.utils.timezone_utils import format_iso_string
 
-logger = logging.getLogger(__name__)
-
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 class CacheManager:
     """缓存管理器"""
@@ -36,20 +35,18 @@ class CacheManager:
         self, 
         key: str, 
         value: Any, 
-        expire: Optional[Union[int, timedelta]] = None,
-        serialize_method: str = "json"
+        expire: Optional[Union[int, timedelta]] = None
     ) -> bool:
         """设置缓存值"""
         try:
             r = await self.get_redis()
             
             # 序列化值
-            if serialize_method == "json":
-                serialized_value = json.dumps(value, ensure_ascii=False)
-            elif serialize_method == "pickle":
-                serialized_value = pickle.dumps(value)
-            else:
-                serialized_value = str(value)
+            serialized_value = json.dumps(
+                value,
+                ensure_ascii=False,
+                default=format_iso_string,
+            )
             
             # 设置过期时间
             if isinstance(expire, timedelta):
@@ -67,8 +64,7 @@ class CacheManager:
     async def get(
         self, 
         key: str, 
-        default: Any = None,
-        serialize_method: str = "json"
+        default: Any = None
     ) -> Any:
         """获取缓存值"""
         try:
@@ -80,12 +76,7 @@ class CacheManager:
                 return default
             
             # 反序列化值
-            if serialize_method == "json":
-                return json.loads(value)
-            elif serialize_method == "pickle":
-                return pickle.loads(value)
-            else:
-                return value
+            return json.loads(value)
         except Exception as e:
             logger.error(f"获取缓存失败 {key}: {str(e)}")
             return default
@@ -205,35 +196,25 @@ class CacheManager:
     async def close(self):
         """关闭连接"""
         if self._redis_pool:
-            await self._redis_pool.close()
-
+            await self._redis_pool.aclose()
 
 # 全局缓存管理器实例
 cache_manager = CacheManager()
 
-
 def cached(
     expire: Union[int, timedelta] = 300,
-    key_prefix: str = "",
-    serialize_method: str = "json"
+    key_prefix: str = ""
 ):
     """缓存装饰器"""
     def decorator(func: Callable) -> Callable:
         @wraps(func)
         async def wrapper(*args, **kwargs):
             # 生成缓存键
-            cache_key = f"{key_prefix}:{func.__name__}"
-            
-            # 添加参数到键中
-            if args:
-                cache_key += f":args:{hash(str(args))}"
-            if kwargs:
-                cache_key += f":kwargs:{hash(str(sorted(kwargs.items())))}"
+            cache_key = f"{key_prefix}:{func.__name__}:{cache_key_generator(*args, **kwargs)}"
             
             # 尝试从缓存获取
             cached_result = await cache_manager.get(
-                cache_key, 
-                serialize_method=serialize_method
+                cache_key
             )
             
             if cached_result is not None:
@@ -245,10 +226,9 @@ def cached(
             
             # 存储到缓存
             await cache_manager.set(
-                cache_key, 
-                result, 
+                cache_key,
+                result,
                 expire=expire,
-                serialize_method=serialize_method
             )
             
             logger.debug(f"缓存存储: {cache_key}")
@@ -257,28 +237,36 @@ def cached(
         return wrapper
     return decorator
 
-
 def cache_key_generator(*args, **kwargs) -> str:
     """生成缓存键"""
     import hashlib
     
+    def _stable_repr(value: Any) -> str:
+        if isinstance(value, dict):
+            items = ",".join(
+                f"{k}:{_stable_repr(v)}" for k, v in sorted(value.items(), key=lambda item: str(item[0]))
+            )
+            return f"{{{items}}}"
+        if isinstance(value, (list, tuple)):
+            items = ",".join(_stable_repr(item) for item in value)
+            return f"[{items}]"
+        if hasattr(value, "__dict__"):
+            return _stable_repr(value.__dict__)
+        return str(value)
+
     key_parts = []
     
     # 添加位置参数
     for arg in args:
-        if hasattr(arg, '__dict__'):
-            key_parts.append(str(hash(str(arg.__dict__))))
-        else:
-            key_parts.append(str(hash(str(arg))))
+        key_parts.append(_stable_repr(arg))
     
     # 添加关键字参数
     for k, v in sorted(kwargs.items()):
-        key_parts.append(f"{k}:{hash(str(v))}")
+        key_parts.append(f"{k}:{_stable_repr(v)}")
     
-    # 生成MD5哈希
+    # 生成SHA256哈希
     key_string = ":".join(key_parts)
-    return hashlib.md5(key_string.encode()).hexdigest()
-
+    return hashlib.sha256(key_string.encode("utf-8")).hexdigest()
 
 class RateLimiter:
     """速率限制器"""
@@ -317,7 +305,6 @@ class RateLimiter:
             logger.error(f"速率限制检查失败 {key}: {str(e)}")
             # 出错时允许请求
             return True, {"allowed": True, "error": str(e)}
-
 
 def rate_limit(limit: int, window: int = 60, key_func: Optional[Callable] = None):
     """速率限制装饰器"""

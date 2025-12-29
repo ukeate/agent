@@ -1,14 +1,15 @@
 import asyncio
 import time
 import uuid
+import hashlib
 from typing import Dict, List, Optional, Any
 from datetime import datetime
 from src.core.utils.timezone_utils import utc_now, utc_factory
 from redis.asyncio import Redis
 import numpy as np
-import logging
-
-from models.schemas.personalization import (
+from sqlalchemy import text
+from src.core.database import get_db_session
+from src.models.schemas.personalization import (
     RecommendationRequest,
     RecommendationResponse,
     RecommendationItem,
@@ -19,11 +20,10 @@ from .features.realtime import RealTimeFeatureEngine, FeatureConfig
 from .models.service import DistributedModelService
 from .cache.feature_cache import FeatureCacheManager, CacheConfig
 from .cache.result_cache import ResultCacheManager
-from ai.reinforcement_learning.bandits.contextual import ContextualBandit
-from ai.reinforcement_learning.qlearning.q_learning import QLearningAgent
+from src.ai.reinforcement_learning.bandits.contextual import LinearContextualBandit
 
-logger = logging.getLogger(__name__)
-
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 class PersonalizationEngine:
     """个性化推荐引擎"""
@@ -45,26 +45,13 @@ class PersonalizationEngine:
         # 初始化强化学习组件（复用Story 6.1和6.2的实现）
         try:
             # 尝试初始化多臂老虎机管理器
-            self.bandit_manager = ContextualBandit(
-                n_arms=100,  # 支持100个推荐项
-                context_dim=feature_config.feature_weights if feature_config else 64
+            self.bandit_manager = LinearContextualBandit(
+                n_arms=100,
+                n_features=len(feature_config.feature_weights) if feature_config and feature_config.feature_weights else 64,
             )
         except Exception as e:
             logger.warning(f"多臂老虎机初始化失败: {e}")
             self.bandit_manager = None
-        
-        try:
-            # 尝试初始化Q-Learning智能体
-            self.qlearning_agent = QLearningAgent(
-                state_space_size=10,  # 简化状态空间
-                action_space_size=100,  # 100个可能的推荐动作
-                learning_rate=0.1,
-                discount_factor=0.95,
-                epsilon=0.1
-            )
-        except Exception as e:
-            logger.warning(f"Q-Learning智能体初始化失败: {e}")
-            self.qlearning_agent = None
         
         # 性能监控
         self.metrics = {
@@ -254,23 +241,19 @@ class PersonalizationEngine:
             
             # 更新强化学习模型
             if self.bandit_manager:
-                await self.bandit_manager.update(
+                user_profile = await self._get_user_profile(feedback.user_id)
+                features = await self.feature_engine.compute_features(
                     user_id=feedback.user_id,
-                    item_id=feedback.item_id,
-                    reward=self._calculate_reward(feedback)
+                    context={"user_profile": user_profile.model_dump() if user_profile else {}},
+                    use_cache=True,
                 )
-            
-            if self.qlearning_agent:
-                state = await self._get_user_state(feedback.user_id)
-                action = feedback.item_id
-                reward = self._calculate_reward(feedback)
-                next_state = await self._get_user_state(feedback.user_id)
-                
-                await self.qlearning_agent.update(
-                    state=state,
-                    action=action,
-                    reward=reward,
-                    next_state=next_state
+                feature_vector = self._prepare_feature_vector(features, user_profile)
+                context_features = self._align_feature_vector(feature_vector, self.bandit_manager.n_features)
+                arm = self._map_item_to_arm(feedback.item_id, self.bandit_manager.n_arms)
+                self.bandit_manager.update(
+                    arm=arm,
+                    reward=self._calculate_reward(feedback),
+                    context={"features": context_features},
                 )
             
             # 失效相关缓存
@@ -408,7 +391,7 @@ class PersonalizationEngine:
         Returns:
             List[Dict[str, Any]]: 候选列表
         """
-        # 这里简化处理，实际应该从数据库或搜索引擎获取
+        # 从数据库获取候选
         candidates = []
         
         try:
@@ -438,11 +421,7 @@ class PersonalizationEngine:
         user_profile: Optional[UserProfile]
     ) -> List[Dict[str, Any]]:
         """获取内容候选"""
-        # 模拟从数据库获取
-        return [
-            {"item_id": f"content_{i}", "type": "article", "score": 0.0}
-            for i in range(100)
-        ]
+        return await self._load_candidates_from_knowledge(limit=100, fallback_type="content")
     
     async def _get_product_candidates(
         self,
@@ -450,21 +429,14 @@ class PersonalizationEngine:
         user_profile: Optional[UserProfile]
     ) -> List[Dict[str, Any]]:
         """获取产品候选"""
-        # 模拟从数据库获取
-        return [
-            {"item_id": f"product_{i}", "type": "product", "score": 0.0}
-            for i in range(100)
-        ]
+        return await self._load_candidates_from_knowledge(limit=100, fallback_type="product")
     
     async def _get_default_candidates(
         self,
         request: RecommendationRequest
     ) -> List[Dict[str, Any]]:
         """获取默认候选"""
-        return [
-            {"item_id": f"item_{i}", "type": "default", "score": 0.0}
-            for i in range(50)
-        ]
+        return await self._load_candidates_from_knowledge(limit=50, fallback_type="default")
     
     def _apply_filters(
         self,
@@ -516,8 +488,57 @@ class PersonalizationEngine:
             
         except Exception as e:
             logger.error(f"预测分数失败: {e}")
-            # 返回随机分数作为后备
-            return np.random.rand(len(candidates))
+            return np.array([self._baseline_score(c) for c in candidates], dtype=np.float32)
+
+    async def _load_candidates_from_knowledge(
+        self,
+        limit: int,
+        fallback_type: str
+    ) -> List[Dict[str, Any]]:
+        try:
+            async with get_db_session() as session:
+                result = await session.execute(
+                    text(
+                        """
+                        SELECT id, content, metadata
+                        FROM knowledge_items
+                        ORDER BY updated_at DESC
+                        LIMIT :limit
+                        """
+                    ),
+                    {"limit": int(limit)},
+                )
+                rows = result.mappings().all()
+        except Exception as e:
+            logger.error(f"获取候选失败: {e}")
+            return []
+
+        candidates: List[Dict[str, Any]] = []
+        for row in rows:
+            metadata = row.get("metadata") or {}
+            item_type = metadata.get("type") or fallback_type
+            candidates.append(
+                {
+                    "item_id": str(row.get("id")),
+                    "type": item_type,
+                    "content": row.get("content") or "",
+                    "metadata": metadata,
+                }
+            )
+
+        return candidates
+
+    def _baseline_score(self, candidate: Dict[str, Any]) -> float:
+        metadata = candidate.get("metadata") or {}
+        if isinstance(metadata, dict):
+            for key in ("score", "rating", "weight"):
+                value = metadata.get(key)
+                if isinstance(value, (int, float)):
+                    return max(0.0, min(1.0, float(value)))
+        content = candidate.get("content") or ""
+        if isinstance(content, str) and content:
+            return min(1.0, len(content) / 1000)
+        return 0.0
     
     async def _rank_and_filter(
         self,
@@ -716,6 +737,19 @@ class PersonalizationEngine:
         }
         
         return reward_map.get(feedback.feedback_type, 0.0)
+
+    @staticmethod
+    def _align_feature_vector(vector: np.ndarray, target_dim: int) -> np.ndarray:
+        if vector.shape[0] == target_dim:
+            return vector
+        if vector.shape[0] > target_dim:
+            return vector[:target_dim]
+        return np.pad(vector, (0, target_dim - vector.shape[0]), constant_values=0.0)
+
+    @staticmethod
+    def _map_item_to_arm(item_id: str, n_arms: int) -> int:
+        digest = hashlib.md5(item_id.encode("utf-8")).hexdigest()
+        return int(digest, 16) % n_arms
     
     async def _get_user_state(self, user_id: str) -> str:
         """获取用户状态（用于Q-Learning）

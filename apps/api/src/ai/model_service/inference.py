@@ -1,7 +1,6 @@
 """推理服务引擎"""
 
 import asyncio
-import logging
 import time
 import uuid
 from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
@@ -12,17 +11,15 @@ from typing import Dict, List, Optional, Any, Union
 from queue import Queue
 import threading
 import json
-
 import torch
 import torch.nn as nn
 import onnxruntime as ort
 from transformers import AutoTokenizer
 import numpy as np
 from cachetools import TTLCache, LRUCache
-
 from .registry import ModelRegistry, ModelFormat, PyTorchLoader, ONNXLoader, HuggingFaceLoader
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 class InferenceStatus(str, Enum):
     """推理状态"""
@@ -429,7 +426,7 @@ class InferenceEngine:
             batch_processor.add_request(request)
             
             # 在线程池中执行批处理
-            loop = asyncio.get_event_loop()
+            loop = asyncio.get_running_loop()
             await loop.run_in_executor(
                 self.executor, 
                 batch_processor.process_batch,
@@ -533,3 +530,4 @@ class InferenceEngine:
             "cache_size": len(self.result_cache),
             "metrics": self.get_metrics()
         }
+from src.core.logging import get_logger

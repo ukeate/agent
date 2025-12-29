@@ -11,7 +11,7 @@
 import json
 import sqlite3
 import gzip
-import pickle
+from src.core.utils import secure_pickle as pickle
 from datetime import datetime
 from datetime import timedelta
 from src.core.utils.timezone_utils import utc_now, utc_factory
@@ -21,11 +21,10 @@ from dataclasses import dataclass, asdict
 from enum import Enum
 import numpy as np
 from contextlib import contextmanager
-
 from src.models.schemas.offline import VectorClock
 from src.core.config import get_settings
 
-
+from src.core.logging import get_logger
 class MemoryType(str, Enum):
     """记忆类型枚举"""
     CONVERSATION = "conversation"
@@ -35,7 +34,6 @@ class MemoryType(str, Enum):
     SEMANTIC = "semantic"
     WORKING = "working"
 
-
 class MemoryPriority(int, Enum):
     """记忆优先级枚举"""
     CRITICAL = 1
@@ -43,7 +41,6 @@ class MemoryPriority(int, Enum):
     MEDIUM = 3
     LOW = 4
     ARCHIVE = 5
-
 
 @dataclass
 class MemoryEntry:
@@ -80,7 +77,6 @@ class MemoryEntry:
         if self.tags is None:
             self.tags = []
 
-
 @dataclass
 class MemoryQuery:
     """记忆查询"""
@@ -92,14 +88,12 @@ class MemoryQuery:
     limit: int = 10
     similarity_threshold: float = 0.7
 
-
 @dataclass
 class MemorySearchResult:
     """记忆搜索结果"""
     entry: MemoryEntry
     similarity_score: float
     rank: int
-
 
 class MemoryCompressionStrategy:
     """记忆压缩策略"""
@@ -133,11 +127,11 @@ class MemoryCompressionStrategy:
         """判断是否应该压缩"""
         return len(content.encode('utf-8')) > min_size
 
-
 class OfflineMemoryManager:
     """离线记忆管理器"""
     
     def __init__(self, storage_path: Optional[str] = None):
+        self.logger = get_logger(__name__)
         self.storage_path = Path(storage_path or Path.cwd() / ".offline_storage" / "memory")
         self.storage_path.mkdir(parents=True, exist_ok=True)
         
@@ -252,7 +246,7 @@ class OfflineMemoryManager:
                     memory.created_at.isoformat(),
                     memory.last_accessed.isoformat(),
                     memory.access_count,
-                    json.dumps(memory.vector_clock.dict()) if memory.vector_clock else None,
+                    json.dumps(memory.vector_clock.model_dump()) if memory.vector_clock else None,
                     memory.is_synced,
                     memory.last_synced.isoformat() if memory.last_synced else None,
                     memory.is_compressed, memory.original_size, memory.compressed_size
@@ -264,7 +258,7 @@ class OfflineMemoryManager:
             return True
             
         except Exception as e:
-            print(f"Failed to store memory {memory.id}: {e}")
+            self.logger.error("保存记忆失败", memory_id=memory.id, error=str(e))
             return False
     
     def retrieve_memory(self, memory_id: str) -> Optional[MemoryEntry]:
@@ -469,7 +463,7 @@ class OfflineMemoryManager:
                 return success
                 
         except Exception as e:
-            print(f"Failed to update memory priority {memory_id}: {e}")
+            self.logger.error("更新记忆优先级失败", memory_id=memory_id, error=str(e))
             return False
     
     def delete_memory(self, memory_id: str) -> bool:
@@ -490,7 +484,7 @@ class OfflineMemoryManager:
                 return success
                 
         except Exception as e:
-            print(f"Failed to delete memory {memory_id}: {e}")
+            self.logger.error("删除记忆失败", memory_id=memory_id, error=str(e))
             return False
     
     def compress_old_memories(self, days_threshold: int = 30) -> int:
@@ -529,7 +523,7 @@ class OfflineMemoryManager:
                             del self._cache[memory_id]
                         
                     except Exception as e:
-                        print(f"Failed to compress memory {memory_id}: {e}")
+                        self.logger.error("压缩记忆失败", memory_id=memory_id, error=str(e))
         
         return compressed_count
     
@@ -560,7 +554,7 @@ class OfflineMemoryManager:
                     memory.id
                 ))
         except Exception as e:
-            print(f"Failed to update access stats for memory {memory.id}: {e}")
+            self.logger.error("更新记忆访问统计失败", memory_id=memory.id, error=str(e))
     
     def get_memory_stats(self) -> Dict[str, Any]:
         """获取记忆统计信息"""
@@ -638,5 +632,5 @@ class OfflineMemoryManager:
                 return deleted_count
                 
         except Exception as e:
-            print(f"Failed to cleanup old memories: {e}")
+            self.logger.error("清理旧记忆失败", error=str(e))
             return 0

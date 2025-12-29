@@ -22,7 +22,6 @@ import {
   ReferenceArea,
   Brush,
   ErrorBar,
-  // Cell  // 暂时注释未使用的导入
 } from 'recharts';
 import { Box, Paper, Typography, Chip, Stack } from '@mui/material';
 import { format } from 'date-fns';
@@ -133,7 +132,6 @@ const MetricChart: React.FC<MetricChartProps> = ({
     yAxisLabel,
     yAxisDomain,
     dateFormat = 'MM-dd',
-    // numberFormat = '.2f', // 暂时注释未使用的变量
     height = 300
   } = config;
 
@@ -144,9 +142,7 @@ const MetricChart: React.FC<MetricChartProps> = ({
     // 合并所有系列的数据点
     const dataMap = new Map<string | number, any>();
     
-    series.forEach((s, _index) => {
-      // const color = s.color || DEFAULT_COLORS[index % DEFAULT_COLORS.length]; // 暂时注释未使用的变量
-      
+    series.forEach((s) => {
       s.data.forEach(point => {
         const key = point.x;
         if (!dataMap.has(key)) {

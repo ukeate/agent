@@ -3,6 +3,7 @@ LangGraph Context API类型定义
 基于LangGraph v0.6.5的新Context API实现类型安全的上下文传递
 增强版本：支持复杂嵌套类型、泛型和完整的类型验证
 """
+
 from typing import Optional, Any, Dict, TypeVar, Generic, List, Union
 from pydantic import BaseModel, Field, field_validator, model_validator
 from dataclasses import dataclass
@@ -142,6 +143,14 @@ class AgentContext(BaseModel, Generic[T]):
                     raise ValueError(f'ID长度至少需要3个字符: {v}')
                 # 允许自定义格式，只要不是空字符串且长度合理
         return v
+
+    @field_validator('user_id', 'session_id')
+    @classmethod
+    def validate_required_ids(cls, v):
+        """验证必填ID字段不能为空"""
+        if v is None or not str(v).strip():
+            raise ValueError("user_id/session_id不能为空")
+        return v
     
     def update_step(self, node_name: str) -> None:
         """更新步骤信息"""
@@ -227,7 +236,6 @@ class AgentContext(BaseModel, Generic[T]):
             
         return context
 
-
 def create_context(
     user_id: str,
     session_id: str,
@@ -244,7 +252,6 @@ def create_context(
         **kwargs
     )
 
-
 def create_default_context(
     user_id: str = "default_user",
     session_id: str = "550e8400-e29b-41d4-a716-446655440000",  # 使用有效的UUID
@@ -253,7 +260,6 @@ def create_default_context(
     """创建默认上下文"""
     return create_context(user_id, session_id, **kwargs)
 
-
 def validate_context(context: AgentContext) -> bool:
     """验证上下文是否有效"""
     try:
@@ -261,7 +267,6 @@ def validate_context(context: AgentContext) -> bool:
         return True
     except Exception:
         return False
-
 
 # LangGraph 0.6.5 新Context API兼容的dataclass结构
 @dataclass

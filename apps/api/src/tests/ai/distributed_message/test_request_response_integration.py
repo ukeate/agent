@@ -6,11 +6,9 @@
 import pytest
 import asyncio
 from unittest.mock import Mock, AsyncMock, patch
-
 from src.ai.distributed_message.message_bus import DistributedMessageBus
 from src.ai.distributed_message.models import Message, MessageHeader, MessageType, MessagePriority
 from src.ai.distributed_message.protocol import MessageProtocol
-
 
 class TestRequestResponseIntegration:
     """请求-响应机制集成测试"""
@@ -280,12 +278,12 @@ class TestRequestResponseIntegration:
         try:
             await task1
         except asyncio.CancelledError:
-            pass
+            raise
         
         try:
             await task2
         except asyncio.CancelledError:
-            pass
+            raise
     
     @pytest.mark.asyncio
     async def test_request_handler_error_response(self, message_bus):

@@ -68,7 +68,7 @@ export const ExperimentDetail: React.FC<ExperimentDetailProps> = ({
   onDelete
 }) => {
   const [activeTab, setActiveTab] = useState('overview');
-  const [refreshInterval, setRefreshInterval] = useState<NodeJS.Timeout | null>(null);
+  const [refreshInterval, setRefreshInterval] = useState<ReturnType<typeof setTimeout> | null>(null);
 
   // 自动刷新逻辑
   useEffect(() => {

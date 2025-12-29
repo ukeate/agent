@@ -1,11 +1,11 @@
 """记忆系统数据模型定义"""
+
 from enum import Enum
 from datetime import datetime
 from src.core.utils.timezone_utils import utc_now, utc_factory
 from typing import Optional, List, Dict, Any
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 import uuid
-
 
 class MemoryType(Enum):
     """记忆类型枚举"""
@@ -13,14 +13,12 @@ class MemoryType(Enum):
     EPISODIC = "episodic"    # 情景记忆(事件)
     SEMANTIC = "semantic"    # 语义记忆(知识)
 
-
 class MemoryStatus(Enum):
     """记忆状态枚举"""
     ACTIVE = "active"        # 活跃
     ARCHIVED = "archived"    # 已归档
     COMPRESSED = "compressed" # 已压缩
     DELETED = "deleted"      # 已删除
-
 
 class Memory(BaseModel):
     """记忆数据模型"""
@@ -42,13 +40,8 @@ class Memory(BaseModel):
     related_memories: List[str] = Field(default_factory=list)  # 相关记忆ID列表
     tags: List[str] = Field(default_factory=list)  # 标签
     source: Optional[str] = None  # 记忆来源
-    
-    class Config:
-        use_enum_values = True
-        json_encoders = {
-            datetime: lambda v: v.isoformat()
-        }
 
+    model_config = ConfigDict(use_enum_values=True)
 
 class MemoryCreateRequest(BaseModel):
     """创建记忆请求模型"""
@@ -59,7 +52,6 @@ class MemoryCreateRequest(BaseModel):
     tags: Optional[List[str]] = None
     source: Optional[str] = None
 
-
 class MemoryUpdateRequest(BaseModel):
     """更新记忆请求模型"""
     content: Optional[str] = None
@@ -67,7 +59,6 @@ class MemoryUpdateRequest(BaseModel):
     importance: Optional[float] = None
     tags: Optional[List[str]] = None
     status: Optional[MemoryStatus] = None
-
 
 class MemoryResponse(BaseModel):
     """记忆响应模型"""
@@ -100,7 +91,6 @@ class MemoryResponse(BaseModel):
             relevance_score=relevance_score
         )
 
-
 class MemoryQuery(BaseModel):
     """记忆查询模型"""
     query: str
@@ -111,7 +101,6 @@ class MemoryQuery(BaseModel):
     tags: Optional[List[str]] = None
     session_id: Optional[str] = None
     user_id: Optional[str] = None
-
 
 class MemoryFilters(BaseModel):
     """记忆过滤器"""
@@ -124,7 +113,6 @@ class MemoryFilters(BaseModel):
     tags: Optional[List[str]] = None
     session_id: Optional[str] = None
     user_id: Optional[str] = None
-
 
 class MemoryAnalytics(BaseModel):
     """记忆分析统计"""
@@ -139,14 +127,12 @@ class MemoryAnalytics(BaseModel):
     memory_growth_rate: float  # 记忆增长率
     storage_usage_mb: float  # 存储使用量(MB)
     
-    
 class ImportResult(BaseModel):
     """导入结果模型"""
     success_count: int
     failed_count: int
     errors: List[str]
     imported_ids: List[str]
-
 
 class EmotionalState(BaseModel):
     """情感状态模型"""
@@ -156,7 +142,6 @@ class EmotionalState(BaseModel):
     arousal: float = Field(ge=0.0, le=1.0)   # 激活程度
     confidence: Optional[float] = Field(default=0.5, ge=0.0, le=1.0)
     timestamp: datetime = Field(default_factory=utc_factory)
-
 
 class MemoryContext(BaseModel):
     """记忆上下文模型"""

@@ -5,7 +5,6 @@
 
 import asyncio
 import json
-import logging
 from typing import Dict, List, Optional, Any, Union, Callable
 from uuid import uuid4
 from datetime import datetime
@@ -14,25 +13,22 @@ from src.core.utils.timezone_utils import utc_now, utc_factory
 from enum import Enum
 from dataclasses import dataclass, asdict
 import hashlib
-
 import redis.asyncio as redis
 from pydantic import BaseModel, ValidationError
+from src.models.schemas.workflow import (
 
-from models.schemas.workflow import (
     WorkflowExecution, WorkflowStepExecution, WorkflowResult,
     ResultAggregationStrategy, WorkflowStepType, WorkflowStepStatus
 )
+
 from src.core.logging import get_logger
-
 logger = get_logger(__name__)
-
 
 class ValidationLevel(str, Enum):
     """验证级别"""
     STRICT = "strict"      # 严格验证
     NORMAL = "normal"      # 标准验证
     PERMISSIVE = "permissive"  # 宽松验证
-
 
 class ResultFormat(str, Enum):
     """结果格式"""
@@ -42,7 +38,6 @@ class ResultFormat(str, Enum):
     MARKDOWN = "markdown"
     HTML = "html"
     CSV = "csv"
-
 
 @dataclass
 class ValidationRule:
@@ -58,7 +53,6 @@ class ValidationRule:
     def to_dict(self) -> Dict[str, Any]:
         return asdict(self)
 
-
 @dataclass
 class ValidationResult:
     """验证结果"""
@@ -70,7 +64,6 @@ class ValidationResult:
     
     def to_dict(self) -> Dict[str, Any]:
         return asdict(self)
-
 
 @dataclass
 class ProcessedResult:
@@ -89,7 +82,6 @@ class ProcessedResult:
         data = asdict(self)
         data['created_at'] = data['created_at'].isoformat()
         return data
-
 
 class ResultValidator:
     """结果验证器"""
@@ -435,7 +427,6 @@ class ResultValidator:
         
         return values
 
-
 class ResultAggregator:
     """结果聚合器"""
     
@@ -676,7 +667,6 @@ class ResultAggregator:
         
         return score
 
-
 class ResultFormatter:
     """结果格式化器"""
     
@@ -873,7 +863,6 @@ class ResultFormatter:
         else:
             return f"value\n{result}"
 
-
 class ResultCache:
     """结果缓存器"""
     
@@ -1031,7 +1020,6 @@ class ResultCache:
             data['created_at'] = datetime.fromisoformat(data['created_at'])
         
         return ProcessedResult(**data)
-
 
 class WorkflowResultProcessor:
     """工作流结果处理器主类"""

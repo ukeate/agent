@@ -1,6 +1,7 @@
 """
 分布式事件处理集成测试
 """
+
 import asyncio
 import pytest
 from datetime import datetime
@@ -9,11 +10,8 @@ from src.core.utils.timezone_utils import utc_now, utc_factory
 from unittest.mock import Mock, AsyncMock, patch, MagicMock
 import uuid
 import json
-
 import sys
 import os
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))))
-
 from src.ai.autogen.events import Event, EventType, EventPriority
 from src.ai.autogen.distributed_events import (
     DistributedEventCoordinator,
@@ -25,6 +23,7 @@ from src.ai.autogen.distributed_events import (
 from src.ai.autogen.event_processors import AsyncEventProcessingEngine
 from src.ai.autogen.event_store import EventStore, EventReplayService
 
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))))
 
 @pytest.fixture
 def redis_mock():
@@ -45,7 +44,6 @@ def redis_mock():
     mock.brpop = AsyncMock(return_value=None)
     return mock
 
-
 @pytest.fixture
 def processing_engine_mock():
     """创建处理引擎mock"""
@@ -53,7 +51,6 @@ def processing_engine_mock():
     mock.submit_event = AsyncMock(return_value=None)
     mock.get_stats = Mock(return_value={"queue_sizes": {}, "events_processed": 0})
     return mock
-
 
 @pytest.fixture
 def event_store_mock():
@@ -63,7 +60,6 @@ def event_store_mock():
     mock.get_event = AsyncMock(return_value=None)
     mock.replay_events = AsyncMock(return_value=[])
     return mock
-
 
 class TestConsistentHash:
     """测试一致性哈希"""
@@ -127,7 +123,6 @@ class TestConsistentHash:
         assert len(nodes) == 3
         assert len(set(nodes)) == 3  # 确保没有重复
 
-
 class TestNodeInfo:
     """测试节点信息"""
     
@@ -180,7 +175,6 @@ class TestNodeInfo:
         assert new_node.node_id == node.node_id
         assert new_node.status == node.status
         assert new_node.role == node.role
-
 
 class TestDistributedEventCoordinator:
     """测试分布式事件协调器"""
@@ -240,7 +234,7 @@ class TestDistributedEventCoordinator:
         try:
             await election_task
         except asyncio.CancelledError:
-            pass
+            raise
         
         # 由于election_loop没有真正改变状态，我们手动设置并验证逻辑
         # 在实际执行中，当检测到其他领导者时应变为追随者
@@ -324,7 +318,6 @@ class TestDistributedEventCoordinator:
         assert status["nodes"]["node1"]["role"] == "leader"
         assert status["nodes"]["node2"]["role"] == "follower"
 
-
 class TestDistributedEventProcessing:
     """测试分布式事件处理集成"""
     
@@ -356,7 +349,7 @@ class TestDistributedEventProcessing:
         try:
             await sync_task
         except asyncio.CancelledError:
-            pass
+            raise
         
         # 由于异步任务被快速取消，节点可能还没来得及同步
         # 我们直接设置nodes来验证逻辑
@@ -470,7 +463,7 @@ class TestDistributedEventProcessing:
         try:
             await heartbeat_task
         except asyncio.CancelledError:
-            pass
+            raise
         
         # 验证心跳更新
         assert coordinator.node_info.last_heartbeat >= initial_heartbeat
@@ -497,14 +490,9 @@ class TestDistributedEventProcessing:
         )
         
         # 分发事件（应该处理故障）
-        try:
-            result = await coordinator.distribute_event(event)
-            # 即使处理失败，也应该返回结果
-            assert result in ["local", "node1"]
-        except Exception:
-            # 预期可能失败，这里验证失败被正确处理
-            pass
-
+        result = await coordinator.distribute_event(event)
+        # 即使处理失败，也应该返回结果
+        assert result in ["local", "node1"]
 
 class TestEventReplayWithDistribution:
     """测试分布式环境下的事件重播"""
@@ -551,7 +539,6 @@ class TestEventReplayWithDistribution:
         assert result["status"] == "completed"
         assert result["events_replayed"] == 5
         assert processing_engine_mock.submit_event.call_count >= 5
-
 
 class TestScenarios:
     """测试实际场景"""
@@ -618,7 +605,6 @@ class TestScenarios:
         # 验证所有事件都被分发
         assert len(results) == 1000
         assert all(r in ["local", "node1", "node2", "node3", "high_throughput_node"] or r.startswith("node") for r in results)
-
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

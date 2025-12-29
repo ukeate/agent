@@ -1,6 +1,7 @@
 """
 训练数据管理系统测试配置和共享fixtures
 """
+
 import pytest
 import asyncio
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -8,12 +9,10 @@ from datetime import datetime
 from src.core.utils.timezone_utils import utc_now, utc_factory, timezone
 import tempfile
 import os
-
 from src.ai.training_data_management.models import (
     DataSource, DataRecord, AnnotationTask, Annotation, DataVersion,
     AnnotationStatus, AnnotationTaskStatus
 )
-
 
 @pytest.fixture(scope="session")
 def event_loop():
@@ -21,7 +20,6 @@ def event_loop():
     loop = asyncio.new_event_loop()
     yield loop
     loop.close()
-
 
 @pytest.fixture
 def mock_db_session():
@@ -33,9 +31,7 @@ def mock_db_session():
     mock_session.delete = MagicMock()
     mock_session.commit = AsyncMock()
     mock_session.rollback = AsyncMock()
-    mock_session.query = MagicMock()
     return mock_session
-
 
 @pytest.fixture
 def sample_data_source():
@@ -51,7 +47,6 @@ def sample_data_source():
         },
         created_at=utc_now()
     )
-
 
 @pytest.fixture
 def sample_data_records():
@@ -79,7 +74,6 @@ def sample_data_records():
         )
     ]
 
-
 @pytest.fixture
 def sample_annotation_task():
     """示例标注任务"""
@@ -98,10 +92,11 @@ def sample_annotation_task():
             'required': ['label']
         },
         annotators=['user1', 'user2'],
+        created_by="test_user",
+        guidelines="Test guidelines",
         status=AnnotationTaskStatus.ACTIVE,
         created_at=utc_now()
     )
-
 
 @pytest.fixture
 def sample_annotations():
@@ -127,7 +122,6 @@ def sample_annotations():
         )
     ]
 
-
 @pytest.fixture
 def sample_data_version():
     """示例数据版本"""
@@ -141,7 +135,6 @@ def sample_data_version():
         created_at=utc_now()
     )
 
-
 @pytest.fixture
 def temp_file():
     """临时文件fixture"""
@@ -149,21 +142,16 @@ def temp_file():
         yield f.name
     os.unlink(f.name)
 
-
 @pytest.fixture
 def temp_directory():
     """临时目录fixture"""
     with tempfile.TemporaryDirectory() as temp_dir:
         yield temp_dir
 
-
 @pytest.fixture(autouse=True)
 def mock_external_dependencies():
     """自动Mock外部依赖"""
-    with patch('src.ai.training_data_management.annotation.create_engine') as mock_engine, \
-         patch('src.ai.training_data_management.manager.create_engine') as mock_manager_engine, \
-         patch('src.ai.training_data_management.version_manager.create_engine') as mock_version_engine, \
-         patch('transformers.pipeline') as mock_pipeline, \
+    with patch('transformers.pipeline') as mock_pipeline, \
          patch('torch.cuda.is_available', return_value=False), \
          patch('langchain_community.llms.LlamaCpp') as mock_llm, \
          patch('requests.get') as mock_requests, \
@@ -189,15 +177,11 @@ def mock_external_dependencies():
         mock_context.get.return_value.__aenter__.return_value = mock_http_response
         
         yield {
-            'engine': mock_engine,
-            'manager_engine': mock_manager_engine,
-            'version_engine': mock_version_engine,
             'pipeline': mock_pipeline,
             'llm': mock_llm,
             'requests': mock_requests,
             'session': mock_session
         }
-
 
 @pytest.fixture
 def mock_preprocessing_dependencies():
@@ -230,7 +214,6 @@ def mock_preprocessing_dependencies():
             'tfidf': mock_tfidf
         }
 
-
 # 测试工具函数
 def assert_record_equality(record1: DataRecord, record2: DataRecord):
     """比较两个DataRecord是否相等的辅助函数"""
@@ -238,7 +221,6 @@ def assert_record_equality(record1: DataRecord, record2: DataRecord):
     assert record1.source_id == record2.source_id
     assert record1.raw_data == record2.raw_data
     assert record1.status == record2.status
-
 
 def create_mock_query_result(items: list):
     """创建模拟数据库查询结果"""
@@ -252,14 +234,12 @@ def create_mock_query_result(items: list):
     mock_query.count.return_value = len(items)
     return mock_query
 
-
 @pytest.fixture
 def mock_language_detection():
     """Mock语言检测"""
     with patch('langdetect.detect') as mock_detect:
         mock_detect.return_value = 'en'
         yield mock_detect
-
 
 @pytest.fixture
 def disable_network():

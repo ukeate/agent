@@ -7,7 +7,6 @@
 import asyncio
 import time
 import psutil
-import logging
 from typing import Dict, Any, List, Optional, Callable
 from datetime import datetime
 from datetime import timedelta
@@ -16,7 +15,8 @@ from dataclasses import dataclass, asdict
 from collections import defaultdict, deque
 import statistics
 
-logger = logging.getLogger(__name__)
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 @dataclass
 class PerformanceMetric:
@@ -74,7 +74,7 @@ class PerformanceCollector:
             try:
                 await self.collection_task
             except asyncio.CancelledError:
-                pass
+                raise
         logger.info("性能监控已停止")
     
     async def _collection_loop(self):
@@ -162,24 +162,7 @@ class PerformanceCollector:
     
     async def _collect_application_metrics(self):
         """收集应用程序指标"""
-        timestamp = utc_now()
-        
-        # 这里可以添加具体的应用程序指标收集
-        # 例如：事件处理速率、数据库查询时间、WebSocket连接数等
-        
-        # 示例：模拟事件处理速率
-        # 实际实现中应该从事件收集器获取真实数据
-        event_rate = 100  # 每秒事件数，应该从实际系统获取
-        event_rate_metric = PerformanceMetric(
-            name="event_processing_rate",
-            value=event_rate,
-            unit="events/second",
-            timestamp=timestamp,
-            category="analysis",
-            threshold_warning=1000.0,
-            threshold_critical=2000.0
-        )
-        self.metrics_history["event_processing_rate"].append(event_rate_metric)
+        raise RuntimeError("未接入应用层性能指标数据源，无法收集指标")
     
     def get_latest_metrics(self, category: Optional[str] = None) -> Dict[str, PerformanceMetric]:
         """获取最新的性能指标"""
@@ -372,7 +355,7 @@ class PerformanceMonitor:
             try:
                 await self.monitoring_task
             except asyncio.CancelledError:
-                pass
+                raise
         
         await self.collector.stop()
         logger.info("性能监控系统已停止")

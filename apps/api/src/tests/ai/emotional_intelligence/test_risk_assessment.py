@@ -1,14 +1,14 @@
 """
 情感健康风险评估系统测试
 """
-import pytest
-from datetime import datetime, timedelta
-import numpy as np
 
+from src.core.utils.timezone_utils import utc_now
+import pytest
+from datetime import timedelta
+import numpy as np
 from ....ai.emotional_intelligence.risk_assessment import RiskAssessmentEngine
 from ....ai.emotional_intelligence.models import RiskAssessment, RiskLevel, RiskFactor
 from ....ai.emotion_modeling.models import EmotionState, PersonalityProfile
-
 
 class TestRiskAssessmentEngine:
     """风险评估引擎测试类"""
@@ -22,7 +22,7 @@ class TestRiskAssessmentEngine:
     def sample_emotions_stable(self):
         """创建稳定的情感历史数据"""
         emotions = []
-        base_time = datetime.now()
+        base_time = utc_now()
         
         for i in range(20):
             emotion = EmotionState(
@@ -41,7 +41,7 @@ class TestRiskAssessmentEngine:
     def sample_emotions_depressive(self):
         """创建抑郁倾向的情感历史数据"""
         emotions = []
-        base_time = datetime.now()
+        base_time = utc_now()
         
         for i in range(20):
             # 模拟抑郁症状：低效价、低唤醒度、高强度负面情感
@@ -62,7 +62,7 @@ class TestRiskAssessmentEngine:
     def sample_emotions_anxious(self):
         """创建焦虑倾向的情感历史数据"""
         emotions = []
-        base_time = datetime.now()
+        base_time = utc_now()
         
         for i in range(15):
             # 模拟焦虑症状：负面效价、高唤醒度
@@ -208,7 +208,7 @@ class TestRiskAssessmentEngine:
         """测试恶化情感的危机概率预测"""
         # 创建恶化趋势的情感数据
         deteriorating_emotions = []
-        base_time = datetime.now()
+        base_time = utc_now()
         
         for i in range(10):
             # 情感状态逐渐恶化
@@ -241,7 +241,7 @@ class TestRiskAssessmentEngine:
                 user_id='test_user',
                 risk_level=RiskLevel.LOW.value,
                 risk_score=0.3,
-                timestamp=datetime.now()
+                timestamp=utc_now()
             )
         ]
         
@@ -258,7 +258,7 @@ class TestRiskAssessmentEngine:
         """测试改善中的风险趋势分析"""
         # 创建改善趋势的评估记录
         assessments = []
-        base_time = datetime.now()
+        base_time = utc_now()
         
         # 从高风险到低风险的趋势
         risk_scores = [0.8, 0.7, 0.5, 0.4, 0.2]
@@ -288,7 +288,7 @@ class TestRiskAssessmentEngine:
         """测试恶化中的风险趋势分析"""
         # 创建恶化趋势的评估记录
         assessments = []
-        base_time = datetime.now()
+        base_time = utc_now()
         
         # 从低风险到高风险的趋势
         risk_scores = [0.2, 0.3, 0.5, 0.7, 0.8]
@@ -330,7 +330,7 @@ class TestRiskAssessmentEngine:
         """测试抑郁指标分析"""
         # 创建明显的抑郁模式情感数据
         depressive_emotions = []
-        base_time = datetime.now()
+        base_time = utc_now()
         
         for i in range(15):
             emotion = EmotionState(
@@ -356,7 +356,7 @@ class TestRiskAssessmentEngine:
         """测试焦虑指标分析"""
         # 创建明显的焦虑模式情感数据
         anxious_emotions = []
-        base_time = datetime.now()
+        base_time = utc_now()
         
         for i in range(15):
             emotion = EmotionState(
@@ -381,7 +381,7 @@ class TestRiskAssessmentEngine:
         """测试情感波动性计算"""
         # 创建高波动性的情感数据
         volatile_emotions = []
-        base_time = datetime.now()
+        base_time = utc_now()
         
         # 交替的极端情感状态
         for i in range(10):

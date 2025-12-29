@@ -5,19 +5,18 @@
 """
 
 from sqlalchemy import Column, String, Float, DateTime, Text, Integer, Boolean, ForeignKey
-from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import DeclarativeBase
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import relationship
 import uuid as uuid_lib
 from datetime import datetime
 from src.core.utils.timezone_utils import utc_now, utc_factory
 from typing import Dict, Any, List, Optional
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from enum import Enum
 
-
-Base = declarative_base()
-
+class Base(DeclarativeBase):
+    ...
 
 class TrialState(str, Enum):
     """试验状态枚举"""
@@ -27,7 +26,6 @@ class TrialState(str, Enum):
     FAILED = "failed"
     WAITING = "waiting"
 
-
 class ExperimentState(str, Enum):
     """实验状态枚举"""
     CREATED = "created"
@@ -36,7 +34,6 @@ class ExperimentState(str, Enum):
     FAILED = "failed"
     STOPPED = "stopped"
 
-
 class OptimizationAlgorithm(str, Enum):
     """优化算法枚举"""
     TPE = "tpe"
@@ -44,7 +41,6 @@ class OptimizationAlgorithm(str, Enum):
     RANDOM = "random"
     GRID = "grid"
     HYPERBAND = "hyperband"
-
 
 class Experiment:
     """实验对象"""
@@ -59,7 +55,6 @@ class Experiment:
         self.optimization_config = kwargs.get('optimization_config', {})
         self.checkpoint = kwargs.get('checkpoint', {})
 
-
 class Trial:
     """试验对象"""
     def __init__(self, id, experiment_id, state, **kwargs):
@@ -70,7 +65,6 @@ class Trial:
         self.value = kwargs.get('value')
         self.metrics = kwargs.get('metrics', {})
         self.created_at = kwargs.get('created_at', utc_now())
-
 
 class ExperimentModel(Base):
     """实验模型"""
@@ -110,7 +104,6 @@ class ExperimentModel(Base):
     # 关系
     trials = relationship("TrialModel", back_populates="experiment", cascade="all, delete-orphan")
 
-
 class TrialModel(Base):
     """试验模型"""
     __tablename__ = "hyperparameter_trials"
@@ -143,7 +136,6 @@ class TrialModel(Base):
     # 关系
     experiment = relationship("ExperimentModel", back_populates="trials")
 
-
 class StudyMetadataModel(Base):
     """研究元数据模型"""
     __tablename__ = "hyperparameter_study_metadata"
@@ -164,7 +156,6 @@ class StudyMetadataModel(Base):
     created_at = Column(DateTime, default=utc_now)
     updated_at = Column(DateTime, default=utc_now, onupdate=utc_now)
 
-
 # Pydantic模型用于API
 
 class HyperparameterRangeSchema(BaseModel):
@@ -176,7 +167,6 @@ class HyperparameterRangeSchema(BaseModel):
     choices: Optional[List[Any]] = None
     log: bool = False
     step: Optional[float] = None
-
 
 class ExperimentRequest(BaseModel):
     """创建实验请求"""
@@ -192,7 +182,6 @@ class ExperimentRequest(BaseModel):
     max_concurrent_trials: int = 5
     parameters: List[HyperparameterRangeSchema]
 
-
 class ExperimentResponse(BaseModel):
     """实验响应"""
     id: str
@@ -202,9 +191,7 @@ class ExperimentResponse(BaseModel):
     objective: str
     created_at: datetime
     
-    class Config:
-        from_attributes = True
-
+    model_config = ConfigDict(from_attributes=True)
 
 class ExperimentDetail(BaseModel):
     """实验详情"""
@@ -227,9 +214,7 @@ class ExperimentDetail(BaseModel):
     completed_at: Optional[datetime]
     trials_count: int
     
-    class Config:
-        from_attributes = True
-
+    model_config = ConfigDict(from_attributes=True)
 
 class TrialResponse(BaseModel):
     """试验响应"""
@@ -245,9 +230,7 @@ class TrialResponse(BaseModel):
     intermediate_values: Optional[Dict[str, float]]
     resource_usage: Optional[Dict[str, float]]
     
-    class Config:
-        from_attributes = True
-
+    model_config = ConfigDict(from_attributes=True)
 
 class OptimizationResult(BaseModel):
     """优化结果"""
@@ -256,12 +239,10 @@ class OptimizationResult(BaseModel):
     stats: Dict[str, Any]
     visualizations: List[str]
 
-
 class AlgorithmComparison(BaseModel):
     """算法对比结果"""
     results: Dict[str, OptimizationResult]
     comparison: Dict[str, Any]
-
 
 class ResourceStats(BaseModel):
     """资源统计"""
@@ -269,7 +250,6 @@ class ResourceStats(BaseModel):
     max_concurrent: int
     resource_usage: Dict[str, float]
     active_trials: List[str]
-
 
 class TaskInfo(BaseModel):
     """任务信息"""
@@ -279,7 +259,6 @@ class TaskInfo(BaseModel):
     n_trials: int
     direction: str
     parameters: List[Dict[str, Any]]
-
 
 class CustomTaskRequest(BaseModel):
     """自定义任务请求"""
@@ -291,7 +270,6 @@ class CustomTaskRequest(BaseModel):
     n_trials: int = 100
     early_stopping: bool = True
     patience: int = 20
-
 
 class OptimizationProgress(BaseModel):
     """优化进度"""

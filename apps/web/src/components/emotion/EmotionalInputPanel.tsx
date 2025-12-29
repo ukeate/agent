@@ -6,6 +6,7 @@ import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { 
+import { logger } from '../../utils/logger'
   Mic, 
   MicOff, 
   Video, 
@@ -99,8 +100,8 @@ export const EmotionalInputPanel: React.FC<EmotionalInputPanelProps> = ({
   const audioStreamRef = useRef<MediaStream | null>(null);
   const videoElementRef = useRef<HTMLVideoElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const recordingTimerRef = useRef<NodeJS.Timeout | null>(null);
-  const videoTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const recordingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const videoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const audioAnalyzerRef = useRef<AnalyserNode | null>(null);
 
   // 清理函数
@@ -202,7 +203,7 @@ export const EmotionalInputPanel: React.FC<EmotionalInputPanelProps> = ({
       updateAudioLevel();
       
     } catch (error) {
-      console.error('Audio recording failed:', error);
+      logger.error('音频录制失败:', error);
       toast.error('无法访问麦克风，请检查权限设置');
     }
   }, [recordingState.isRecording, onRealTimeData]);
@@ -292,7 +293,7 @@ export const EmotionalInputPanel: React.FC<EmotionalInputPanelProps> = ({
       }, 1000);
       
     } catch (error) {
-      console.error('Video recording failed:', error);
+      logger.error('视频录制失败:', error);
       toast.error('无法访问摄像头，请检查权限设置');
     }
   }, [onRealTimeData]);
@@ -335,20 +336,11 @@ export const EmotionalInputPanel: React.FC<EmotionalInputPanelProps> = ({
     }
   }, [onRealTimeData]);
 
-  // 生理数据模拟（实际项目中应该连接真实传感器）
-  const generateMockPhysiologicalData = useCallback(() => {
-    const mockData: PhysiologicalData = {
-      heartRate: Math.floor(Math.random() * (100 - 60) + 60),
-      skinConductance: Math.random() * 10,
-      temperature: Math.random() * (37.5 - 36.0) + 36.0,
-      brainActivity: Array.from({ length: 8 }, () => Math.random() * 100)
-    };
-    
-    setPhysiologicalData(mockData);
-    
-    if (onRealTimeData) {
+  const updatePhysiologicalData = useCallback((next: PhysiologicalData) => {
+    setPhysiologicalData(next);
+    if (onRealTimeData && Object.keys(next).length > 0) {
       onRealTimeData({
-        physiologicalData: mockData,
+        physiologicalData: next,
         timestamp: new Date(),
         modalities: [ModalityType.PHYSIOLOGICAL]
       });
@@ -639,22 +631,86 @@ export const EmotionalInputPanel: React.FC<EmotionalInputPanelProps> = ({
           {/* 生理数据 */}
           <TabsContent value={ModalityType.PHYSIOLOGICAL} className="space-y-4">
             <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <label className="text-sm font-medium">生理信号</label>
-                <Button
-                  onClick={generateMockPhysiologicalData}
-                  variant="outline"
-                  size="sm"
-                  disabled={isProcessing}
-                >
-                  <Zap className="h-4 w-4 mr-2" />
-                  采集数据
-                </Button>
+              <label className="text-sm font-medium">生理信号</label>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-xs text-muted-foreground">心率 (bpm)</label>
+                  <input
+                    type="number"
+                    inputMode="numeric"
+                    value={physiologicalData.heartRate ?? ''}
+                    onChange={(e) => {
+                      const v = e.target.value === '' ? undefined : Number(e.target.value);
+                      const next = { ...physiologicalData };
+                      if (v === undefined || Number.isNaN(v)) delete next.heartRate;
+                      else next.heartRate = v;
+                      updatePhysiologicalData(next);
+                    }}
+                    className="w-full px-3 py-2 border rounded-md text-sm bg-background"
+                    disabled={isProcessing}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs text-muted-foreground">皮肤电导 (μS)</label>
+                  <input
+                    type="number"
+                    inputMode="decimal"
+                    value={physiologicalData.skinConductance ?? ''}
+                    onChange={(e) => {
+                      const v = e.target.value === '' ? undefined : Number(e.target.value);
+                      const next = { ...physiologicalData };
+                      if (v === undefined || Number.isNaN(v)) delete next.skinConductance;
+                      else next.skinConductance = v;
+                      updatePhysiologicalData(next);
+                    }}
+                    className="w-full px-3 py-2 border rounded-md text-sm bg-background"
+                    disabled={isProcessing}
+                  />
+                </div>
+                <div className="space-y-1 sm:col-span-2">
+                  <label className="text-xs text-muted-foreground">体温 (°C)</label>
+                  <input
+                    type="number"
+                    inputMode="decimal"
+                    value={physiologicalData.temperature ?? ''}
+                    onChange={(e) => {
+                      const v = e.target.value === '' ? undefined : Number(e.target.value);
+                      const next = { ...physiologicalData };
+                      if (v === undefined || Number.isNaN(v)) delete next.temperature;
+                      else next.temperature = v;
+                      updatePhysiologicalData(next);
+                    }}
+                    className="w-full px-3 py-2 border rounded-md text-sm bg-background"
+                    disabled={isProcessing}
+                  />
+                </div>
+                <div className="space-y-1 sm:col-span-2">
+                  <label className="text-xs text-muted-foreground">脑电活动 (逗号分隔)</label>
+                  <input
+                    value={physiologicalData.brainActivity?.join(',') ?? ''}
+                    onChange={(e) => {
+                      const raw = e.target.value.trim();
+                      const arr = raw
+                        ? raw
+                            .split(',')
+                            .map((x) => Number(x.trim()))
+                            .filter((n) => Number.isFinite(n))
+                        : [];
+                      const next = { ...physiologicalData };
+                      if (arr.length === 0) delete next.brainActivity;
+                      else next.brainActivity = arr;
+                      updatePhysiologicalData(next);
+                    }}
+                    className="w-full px-3 py-2 border rounded-md text-sm bg-background"
+                    disabled={isProcessing}
+                  />
+                </div>
               </div>
               
               {Object.keys(physiologicalData).length > 0 && (
                 <div className="grid grid-cols-2 gap-4">
-                  {physiologicalData.heartRate && (
+                  {physiologicalData.heartRate != null && (
                     <div className="p-3 bg-muted rounded-lg">
                       <div className="flex items-center gap-2 mb-1">
                         <Heart className="h-4 w-4 text-red-500" />
@@ -666,7 +722,7 @@ export const EmotionalInputPanel: React.FC<EmotionalInputPanelProps> = ({
                     </div>
                   )}
                   
-                  {physiologicalData.skinConductance && (
+                  {physiologicalData.skinConductance != null && (
                     <div className="p-3 bg-muted rounded-lg">
                       <div className="flex items-center gap-2 mb-1">
                         <Zap className="h-4 w-4 text-blue-500" />
@@ -678,7 +734,7 @@ export const EmotionalInputPanel: React.FC<EmotionalInputPanelProps> = ({
                     </div>
                   )}
                   
-                  {physiologicalData.temperature && (
+                  {physiologicalData.temperature != null && (
                     <div className="p-3 bg-muted rounded-lg">
                       <div className="flex items-center gap-2 mb-1">
                         <Activity className="h-4 w-4 text-orange-500" />

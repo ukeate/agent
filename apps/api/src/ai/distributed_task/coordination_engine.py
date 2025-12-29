@@ -1,18 +1,16 @@
 """分布式任务协调引擎"""
 
 import asyncio
-import logging
 import uuid
 from datetime import datetime
 from typing import Dict, List, Optional, Any
-
 from .models import Task, TaskStatus, TaskPriority
 from .raft_consensus import RaftConsensusEngine
 from .task_decomposer import TaskDecomposer
 from .intelligent_assigner import IntelligentAssigner
 from .state_manager import DistributedStateManager
 from .conflict_resolver import ConflictResolver
-
+from src.core.utils.timezone_utils import utc_now
 
 class DistributedTaskCoordinationEngine:
     """分布式任务协调引擎"""
@@ -30,7 +28,7 @@ class DistributedTaskCoordinationEngine:
         self.message_bus = message_bus
         self.service_registry = service_registry
         self.load_balancer = load_balancer
-        self.logger = logging.getLogger(__name__)
+        self.logger = get_logger(__name__)
         
         # 初始化各个组件
         self.raft_consensus = RaftConsensusEngine(
@@ -105,7 +103,7 @@ class DistributedTaskCoordinationEngine:
             try:
                 await self.processing_loop_task
             except asyncio.CancelledError:
-                pass
+                raise
         
         # 停止Raft共识
         await self.raft_consensus.stop()
@@ -120,16 +118,23 @@ class DistributedTaskCoordinationEngine:
         priority: TaskPriority = TaskPriority.MEDIUM
     ) -> str:
         """提交任务"""
-        
+        requirements = requirements or {}
+        resource_keys = {"cpu", "memory", "disk_space", "gpu"}
+        resource_requirements = {k: requirements[k] for k in resource_keys if k in requirements}
+        task_requirements = requirements.copy()
+        for k in resource_requirements:
+            task_requirements.pop(k, None)
+
         # 创建任务
         task_id = str(uuid.uuid4())
         task = Task(
             task_id=task_id,
             task_type=task_type,
             data=task_data,
-            requirements=requirements or {},
+            requirements=task_requirements,
             priority=priority,
-            created_at=datetime.now()
+            created_at=utc_now(),
+            resource_requirements=resource_requirements,
         )
         
         # 通过Raft共识添加任务
@@ -201,6 +206,19 @@ class DistributedTaskCoordinationEngine:
             "stats": self.stats,
             "state_summary": await self.state_manager.get_state_summary()
         }
+
+    async def get_agent_tasks(self, agent_id: str) -> List[Task]:
+        return [task for task in self.active_tasks.values() if task.assigned_to == agent_id]
+
+    async def reassign_task(self, task_id: str) -> bool:
+        task = self.active_tasks.get(task_id)
+        if not task:
+            return False
+        new_agent_id = await self.intelligent_assigner.reassign_task(task, "failure")
+        if not new_agent_id:
+            return False
+        await self.state_manager.set_global_state(f"task_{task.task_id}", task.to_dict())
+        return True
     
     async def _task_processing_loop(self):
         """任务处理循环"""
@@ -256,7 +274,7 @@ class DistributedTaskCoordinationEngine:
                 # 更新任务状态
                 task.assigned_to = agent_id
                 task.status = TaskStatus.ASSIGNED
-                task.started_at = datetime.now()
+                task.started_at = utc_now()
                 
                 # 移动到active_tasks
                 self.active_tasks[task.task_id] = task
@@ -283,7 +301,7 @@ class DistributedTaskCoordinationEngine:
     async def _check_task_timeouts(self):
         """检查任务超时"""
         
-        current_time = datetime.now()
+        current_time = utc_now()
         
         for task_id, task in list(self.active_tasks.items()):
             if task.started_at:
@@ -301,7 +319,7 @@ class DistributedTaskCoordinationEngine:
         if task_id in self.active_tasks:
             task = self.active_tasks[task_id]
             task.status = TaskStatus.COMPLETED
-            task.completed_at = datetime.now()
+            task.completed_at = utc_now()
             task.result = result
             
             # 移动到completed_tasks
@@ -368,7 +386,7 @@ class DistributedTaskCoordinationEngine:
             # 更新全局状态
             await self.state_manager.set_global_state(
                 f"task_{task_id}_cancelled",
-                {"cancelled": True, "timestamp": datetime.now().isoformat()}
+                {"cancelled": True, "timestamp": utc_now().isoformat()}
             )
         
         elif action == "update_task_status":
@@ -386,3 +404,4 @@ class DistributedTaskCoordinationEngine:
         
         # 如果成为Leader，可能需要恢复任务处理
         # 如果成为Follower，可能需要暂停某些操作
+from src.core.logging import get_logger

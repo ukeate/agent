@@ -3,16 +3,16 @@
 
 基于马尔可夫链的情感状态转换概率建模和预测
 """
+
+from src.core.utils.timezone_utils import utc_now
 import numpy as np
 from typing import Dict, List, Tuple, Optional
-from datetime import datetime, timedelta
+from datetime import timedelta
 from collections import defaultdict, Counter
-import logging
-
 from .models import EmotionState, EmotionTransition, EmotionType
 
-logger = logging.getLogger(__name__)
-
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 class TransitionModelManager:
     """情感状态转换模型管理器"""
@@ -121,7 +121,7 @@ class TransitionModelManager:
             return []
         
         # 计算时间权重
-        now = datetime.now()
+        now = utc_now()
         weights = []
         
         for state in history:

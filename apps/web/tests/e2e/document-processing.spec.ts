@@ -1,48 +1,23 @@
 import { test, expect } from '@playwright/test'
-import { readFileSync, writeFileSync } from 'fs'
+import { mkdtempSync, writeFileSync } from 'fs'
+import { tmpdir } from 'os'
 import { join } from 'path'
 
 // 测试文档处理系统的E2E功能
 test.describe('文档处理系统E2E测试', () => {
-  
-  // 创建测试文件
-  const createTestFiles = () => {
-    const testDir = '/tmp/playwright-test-files'
-    
-    // 确保目录存在
-    try {
-      require('fs').mkdirSync(testDir, { recursive: true })
-    } catch (e) {}
-    
-    // 创建测试文件
-    const files = {
-      'test.txt': 'This is a test document with some sample content for processing.',
-      'test.md': '# Test Document\n\nThis is a markdown document with **bold** text.',
-      'test.py': 'def hello_world():\n    print("Hello, World!")\n\nif __name__ == "__main__":\n    hello_world()',
-      'test.js': 'function greet(name) {\n    return `Hello, ${name}!`;\n}\n\nconsole.log(greet("World"));'
-    }
-    
-    Object.entries(files).forEach(([filename, content]) => {
-      try {
-        writeFileSync(join(testDir, filename), content)
-      } catch (e) {}
-    })
-    
-    return testDir
-  }
 
-  test.beforeEach(async ({ page }) => {
-    // 导航到文档处理页面
-    await page.goto('/document-processing')
-    await page.waitForLoadState('networkidle')
+	  test.beforeEach(async ({ page }) => {
+	    // 导航到文档处理页面
+	    await page.goto('/document-processing')
+	    await page.waitForLoadState('networkidle')
   })
 
   test('页面基本功能加载测试', async ({ page }) => {
     // 检查页面标题
     await expect(page.locator('h1')).toContainText('智能文档处理系统')
     
-    // 检查上传区域
-    await expect(page.locator('[data-testid="upload-area"]').or(page.locator('text=拖拽文件到这里或点击选择'))).toBeVisible()
+	    // 检查上传区域
+	    await expect(page.locator('[data-testid="upload-area"]')).toBeVisible()
     
     // 检查上传选项
     await expect(page.locator('text=启用OCR')).toBeVisible()
@@ -105,40 +80,46 @@ test.describe('文档处理系统E2E测试', () => {
     // 等待上传完成
     await page.waitForTimeout(2000)
     
-    // 检查文档卡片是否出现
-    await expect(page.locator('text=test.txt')).toBeVisible()
-    await expect(page.locator('text=TXT')).toBeVisible()
-  })
+	    // 检查文档卡片是否出现
+	    await expect(page.locator('text=test.txt')).toBeVisible()
+	    await expect(page.locator('text=/TXT\\s*•/')).toBeVisible()
+	  })
 
   test('文档查看功能测试', async ({ page }) => {
-    // 模拟已有文档
-    await page.evaluate(() => {
-      (window as any).__mockDocuments = [{
-        doc_id: 'test-doc-456',
-        title: 'sample.txt',
-        file_type: 'txt',
-        created_at: new Date().toISOString(),
-        status: 'completed',
-        tags: ['document', 'text'],
-        processing_info: {
-          chunks: [
-            {
-              chunk_id: 'chunk-1',
-              content: 'Sample content for testing viewing functionality.',
-              type: 'paragraph',
-              index: 0
+    // 模拟已有文档列表
+    await page.route('/api/v1/documents/list', async route => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          documents: [{
+            doc_id: 'test-doc-456',
+            title: 'sample.txt',
+            file_type: 'txt',
+            created_at: new Date().toISOString(),
+            status: 'completed',
+            tags: ['document', 'text'],
+            processing_info: {
+              chunks: [
+                {
+                  chunk_id: 'chunk-1',
+                  content: 'Sample content for testing viewing functionality.',
+                  type: 'paragraph',
+                  index: 0
+                }
+              ],
+              total_chunks: 1,
+              auto_tags: [
+                {
+                  tag: 'sample',
+                  category: 'content',
+                  confidence: 0.9
+                }
+              ]
             }
-          ],
-          total_chunks: 1,
-          auto_tags: [
-            {
-              tag: 'sample',
-              category: 'content',
-              confidence: 0.9
-            }
-          ]
-        }
-      }]
+          }]
+        })
+      })
     })
     
     // 刷新页面以加载模拟数据
@@ -232,14 +213,20 @@ test.describe('文档处理系统E2E测试', () => {
     })
     
     // 添加一个测试文档
-    await page.evaluate(() => {
-      (window as any).__mockDocuments = [{
-        doc_id: 'tag-test-doc',
-        title: 'code.py',
-        file_type: 'py',
-        created_at: new Date().toISOString(),
-        status: 'completed'
-      }]
+    await page.route('/api/v1/documents/list', async route => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          documents: [{
+            doc_id: 'tag-test-doc',
+            title: 'code.py',
+            file_type: 'py',
+            created_at: new Date().toISOString(),
+            status: 'completed'
+          }]
+        })
+      })
     })
     
     await page.reload()
@@ -285,14 +272,20 @@ test.describe('文档处理系统E2E测试', () => {
     })
     
     // 添加测试文档
-    await page.evaluate(() => {
-      (window as any).__mockDocuments = [{
-        doc_id: 'relationship-test-doc',
-        title: 'document.pdf',
-        file_type: 'pdf',
-        created_at: new Date().toISOString(),
-        status: 'completed'
-      }]
+    await page.route('/api/v1/documents/list', async route => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          documents: [{
+            doc_id: 'relationship-test-doc',
+            title: 'document.pdf',
+            file_type: 'pdf',
+            created_at: new Date().toISOString(),
+            status: 'completed'
+          }]
+        })
+      })
     })
     
     await page.reload()
@@ -336,14 +329,20 @@ test.describe('文档处理系统E2E测试', () => {
     })
     
     // 添加测试文档
-    await page.evaluate(() => {
-      (window as any).__mockDocuments = [{
-        doc_id: 'version-test-doc',
-        title: 'versioned.docx',
-        file_type: 'docx',
-        created_at: new Date().toISOString(),
-        status: 'completed'
-      }]
+    await page.route('/api/v1/documents/list', async route => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          documents: [{
+            doc_id: 'version-test-doc',
+            title: 'versioned.docx',
+            file_type: 'docx',
+            created_at: new Date().toISOString(),
+            status: 'completed'
+          }]
+        })
+      })
     })
     
     await page.reload()
@@ -428,13 +427,13 @@ test.describe('文档处理系统E2E测试', () => {
       await page.setViewportSize(viewport)
       await page.waitForTimeout(500)
       
-      // 检查关键元素是否可见
-      await expect(page.locator('h1')).toBeVisible()
-      await expect(page.locator('text=拖拽文件到这里或点击选择').or(page.locator('[data-testid="upload-area"]'))).toBeVisible()
-      
-      console.log(`Responsive test passed for ${viewport.width}x${viewport.height}`)
-    }
-  })
+	      // 检查关键元素是否可见
+	      await expect(page.locator('h1')).toBeVisible()
+	      await expect(page.locator('[data-testid="upload-area"]')).toBeVisible()
+	      
+	      console.log(`Responsive test passed for ${viewport.width}x${viewport.height}`)
+	    }
+	  })
 
   test('性能测试 - 大量文档渲染', async ({ page }) => {
     // 模拟大量文档数据
@@ -448,9 +447,13 @@ test.describe('文档处理系统E2E测试', () => {
       processing_info: { total_chunks: Math.floor(Math.random() * 50) + 1 }
     }))
     
-    await page.evaluate((docs) => {
-      (window as any).__mockDocuments = docs
-    }, mockDocuments)
+    await page.route('/api/v1/documents/list', async route => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ documents: mockDocuments })
+      })
+    })
     
     // 测量页面加载时间
     const startTime = Date.now()
@@ -470,14 +473,20 @@ test.describe('文档处理系统E2E测试', () => {
 
   test('键盘导航测试', async ({ page }) => {
     // 添加测试文档
-    await page.evaluate(() => {
-      (window as any).__mockDocuments = [{
-        doc_id: 'keyboard-test-doc',
-        title: 'keyboard-test.txt',
-        file_type: 'txt',
-        created_at: new Date().toISOString(),
-        status: 'completed'
-      }]
+    await page.route('/api/v1/documents/list', async route => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          documents: [{
+            doc_id: 'keyboard-test-doc',
+            title: 'keyboard-test.txt',
+            file_type: 'txt',
+            created_at: new Date().toISOString(),
+            status: 'completed'
+          }]
+        })
+      })
     })
     
     await page.reload()
@@ -540,11 +549,7 @@ test.describe('并发处理测试', () => {
 
 // 创建测试文件的辅助函数
 function createTestFiles() {
-  const testDir = '/tmp/playwright-test-files'
-  
-  try {
-    require('fs').mkdirSync(testDir, { recursive: true })
-  } catch (e) {}
+  const testDir = mkdtempSync(join(tmpdir(), 'playwright-test-files-'))
   
   const files = {
     'test.txt': 'This is a test document with some sample content for processing.',
@@ -554,11 +559,7 @@ function createTestFiles() {
   }
   
   Object.entries(files).forEach(([filename, content]) => {
-    try {
-      writeFileSync(join(testDir, filename), content)
-    } catch (e) {
-      console.warn(`Failed to create test file ${filename}:`, e)
-    }
+    writeFileSync(join(testDir, filename), content)
   })
   
   return testDir

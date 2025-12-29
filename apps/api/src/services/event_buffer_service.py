@@ -1,6 +1,7 @@
 """
 事件缓冲服务 - 高性能事件批量处理和缓冲机制
 """
+
 import asyncio
 import json
 import time
@@ -14,14 +15,12 @@ from enum import Enum
 import uuid
 from concurrent.futures import ThreadPoolExecutor
 import threading
+from src.models.schemas.event_tracking import CreateEventRequest, EventStatus, DataQuality
+from src.repositories.event_tracking_repository import EventStreamRepository
+from src.services.event_processing_service import EventProcessingService
 
-from core.logging import get_logger
-from models.schemas.event_tracking import CreateEventRequest, EventStatus, DataQuality
-from repositories.event_tracking_repository import EventStreamRepository
-from services.event_processing_service import EventProcessingService
-
+from src.core.logging import get_logger
 logger = get_logger(__name__)
-
 
 class BufferStrategy(str, Enum):
     """缓冲策略"""
@@ -30,14 +29,12 @@ class BufferStrategy(str, Enum):
     HYBRID = "hybrid"                 # 混合策略
     PRIORITY_BASED = "priority_based" # 基于优先级的缓冲
 
-
 class BufferPriority(str, Enum):
     """缓冲优先级"""
     CRITICAL = "critical"    # 关键事件，立即处理
     HIGH = "high"           # 高优先级，快速处理
     NORMAL = "normal"       # 正常优先级
     LOW = "low"             # 低优先级，可延迟处理
-
 
 @dataclass
 class BufferConfig:
@@ -61,7 +58,6 @@ class BufferConfig:
     enable_persistence: bool = True       # 启用持久化
     persistence_interval: int = 300       # 持久化间隔（秒）
 
-
 @dataclass
 class BufferedEvent:
     """缓冲事件"""
@@ -72,7 +68,6 @@ class BufferedEvent:
     last_retry_at: Optional[datetime] = None
     batch_id: Optional[str] = None
     partition_key: Optional[str] = None  # 用于分区处理
-
 
 @dataclass
 class BufferMetrics:
@@ -89,7 +84,6 @@ class BufferMetrics:
     
     # 按优先级统计
     priority_stats: Dict[BufferPriority, int] = field(default_factory=dict)
-
 
 class EventBuffer:
     """事件缓冲区"""
@@ -214,7 +208,6 @@ class EventBuffer:
                     self.metrics.total_failed += 1
                     logger.error(f"Event {event.event.event_id} failed after {event.retry_count} retries")
 
-
 class EventBufferService:
     """事件缓冲服务"""
     
@@ -256,7 +249,7 @@ class EventBufferService:
         logger.info("Starting Event Buffer Service")
         
         # 启动后台任务
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         
         self.flush_task = loop.create_task(self._flush_worker())
         self.memory_monitor_task = loop.create_task(self._memory_monitor())
@@ -363,7 +356,7 @@ class EventBufferService:
             logger.debug(f"Flushing {len(batch)} events from buffer {buffer.partition_key}")
             
             # 异步处理批次
-            await asyncio.get_event_loop().run_in_executor(
+            await asyncio.get_running_loop().run_in_executor(
                 self.executor, self._process_batch, batch
             )
             
@@ -490,8 +483,75 @@ class EventBufferService:
     
     async def _persist_buffer_state(self):
         """持久化缓冲区状态"""
-        # TODO: 实现缓冲区状态持久化
-        pass
+        try:
+            if not self.persistence_storage:
+                return
+
+            with self.buffer_lock:
+                buffers_snapshot = {}
+                for partition_key, buffer in self.buffers.items():
+                    with buffer.lock:
+                        events = [
+                            {
+                                "event": be.event.model_dump(),
+                                "priority": be.priority.value,
+                                "buffered_at": be.buffered_at.isoformat(),
+                                "retry_count": be.retry_count,
+                                "last_retry_at": be.last_retry_at.isoformat() if be.last_retry_at else None,
+                                "batch_id": be.batch_id,
+                                "partition_key": be.partition_key,
+                            }
+                            for be in list(buffer.events)
+                        ]
+
+                    buffers_snapshot[partition_key] = {
+                        "partition_key": partition_key,
+                        "last_flush_time": buffer.last_flush_time.isoformat(),
+                        "metrics": {
+                            "total_buffered": buffer.metrics.total_buffered,
+                            "total_flushed": buffer.metrics.total_flushed,
+                            "total_failed": buffer.metrics.total_failed,
+                            "total_retries": buffer.metrics.total_retries,
+                            "buffer_size_current": buffer.metrics.buffer_size_current,
+                            "avg_buffer_time_ms": buffer.metrics.avg_buffer_time_ms,
+                            "avg_batch_size": buffer.metrics.avg_batch_size,
+                            "memory_usage_mb": buffer.metrics.memory_usage_mb,
+                            "last_flush_at": buffer.metrics.last_flush_at.isoformat() if buffer.metrics.last_flush_at else None,
+                            "priority_stats": {k.value: v for k, v in buffer.metrics.priority_stats.items()},
+                        },
+                        "events": events,
+                    }
+
+                state = {
+                    "persisted_at": utc_now().isoformat(),
+                    "config": {
+                        "strategy": self.config.strategy.value,
+                        "max_buffer_size": self.config.max_buffer_size,
+                        "flush_interval_seconds": self.config.flush_interval_seconds,
+                        "max_batch_size": self.config.max_batch_size,
+                        "max_retry_attempts": self.config.max_retry_attempts,
+                        "retry_delay_seconds": self.config.retry_delay_seconds,
+                    },
+                    "global_metrics": {
+                        "total_buffered": self.global_metrics.total_buffered,
+                        "total_flushed": self.global_metrics.total_flushed,
+                        "total_failed": self.global_metrics.total_failed,
+                        "total_retries": self.global_metrics.total_retries,
+                        "buffer_size_current": self.global_metrics.buffer_size_current,
+                        "avg_buffer_time_ms": self.global_metrics.avg_buffer_time_ms,
+                        "avg_batch_size": self.global_metrics.avg_batch_size,
+                        "memory_usage_mb": self.global_metrics.memory_usage_mb,
+                        "last_flush_at": self.global_metrics.last_flush_at.isoformat() if self.global_metrics.last_flush_at else None,
+                        "priority_stats": {k.value: v for k, v in self.global_metrics.priority_stats.items()},
+                    },
+                    "buffers": buffers_snapshot,
+                }
+
+            payload = json.dumps(state, ensure_ascii=False)
+            ttl = max(self.config.persistence_interval * 3, 3600)
+            await self.persistence_storage.setex("event_buffer:state", ttl, payload)
+        except Exception as e:
+            logger.error(f"持久化缓冲区状态失败: {e}")
     
     def add_flush_callback(self, callback: Callable[[List[BufferedEvent]], None]):
         """添加刷新回调"""

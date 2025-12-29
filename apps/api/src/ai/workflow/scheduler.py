@@ -5,7 +5,6 @@
 
 import asyncio
 import json
-import logging
 from typing import Dict, List, Optional, Any, Set, Callable
 from uuid import uuid4
 from datetime import datetime
@@ -13,19 +12,17 @@ from datetime import timedelta
 from src.core.utils.timezone_utils import utc_now, utc_factory
 from enum import Enum
 from dataclasses import dataclass, asdict
-
 import redis.asyncio as redis
 from pydantic import BaseModel
+from src.models.schemas.workflow import (
 
-from models.schemas.workflow import (
     WorkflowExecution, WorkflowStep, WorkflowStepExecution, 
     WorkflowStepStatus, TaskPriority
 )
 from src.ai.dag.task_planner import TaskPlanner, SchedulingStrategy, ExecutionPlan
+
 from src.core.logging import get_logger
-
 logger = get_logger(__name__)
-
 
 class TaskStatus(str, Enum):
     """任务状态"""
@@ -37,7 +34,6 @@ class TaskStatus(str, Enum):
     RETRYING = "retrying"
     CANCELLED = "cancelled"
 
-
 class QueuePriority(int, Enum):
     """队列优先级"""
     CRITICAL = 10
@@ -45,7 +41,6 @@ class QueuePriority(int, Enum):
     NORMAL = 5
     LOW = 3
     BACKGROUND = 1
-
 
 @dataclass
 class ScheduledTask:
@@ -84,7 +79,6 @@ class ScheduledTask:
             if data.get(key):
                 data[key] = datetime.fromisoformat(data[key])
         return cls(**data)
-
 
 class TaskQueue:
     """Redis任务队列"""
@@ -327,7 +321,6 @@ class TaskQueue:
         except Exception as e:
             logger.error(f"获取队列统计失败: {e}")
             return {}
-
 
 class WorkflowScheduler:
     """工作流调度器"""
@@ -665,7 +658,6 @@ class WorkflowScheduler:
         except Exception as e:
             logger.error(f"清理过期任务失败: {e}")
             return 0
-
 
 # 工作器基类
 class WorkflowWorker:

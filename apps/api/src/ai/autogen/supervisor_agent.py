@@ -2,22 +2,21 @@
 Supervisor智能体核心实现
 基于AutoGen框架实现任务调度、智能体路由和质量评估功能
 """
+
 import asyncio
 from typing import Dict, List, Optional, Any, Union, Tuple
 from datetime import datetime
 from datetime import timedelta
 from src.core.utils.timezone_utils import utc_now, utc_factory
 from dataclasses import dataclass, field
-import structlog
 from enum import Enum
 import json
-
 from .config import AgentConfig, AgentRole, AGENT_CONFIGS
 from .agents import BaseAutoGenAgent
 from src.core.constants import ConversationConstants
 
-logger = structlog.get_logger(__name__)
-
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 class TaskType(str, Enum):
     """任务类型枚举"""
@@ -29,7 +28,6 @@ class TaskType(str, Enum):
     ARCHITECTURE = "architecture"
     KNOWLEDGE_RETRIEVAL = "knowledge_retrieval"
 
-
 class TaskPriority(str, Enum):
     """任务优先级枚举"""
     LOW = "low"
@@ -37,14 +35,12 @@ class TaskPriority(str, Enum):
     HIGH = "high"
     URGENT = "urgent"
 
-
 class AgentStatus(str, Enum):
     """智能体状态枚举"""
     ACTIVE = "active"
     IDLE = "idle"
     BUSY = "busy"
     OFFLINE = "offline"
-
 
 @dataclass
 class TaskComplexity:
@@ -61,7 +57,6 @@ class TaskComplexity:
             "estimated_time": self.estimated_time,
             "required_capabilities": self.required_capabilities
         }
-
 
 @dataclass
 class AgentCapabilityMatch:
@@ -82,7 +77,6 @@ class AgentCapabilityMatch:
             "load_factor": self.load_factor,
             "availability": self.availability
         }
-
 
 @dataclass
 class TaskAssignment:
@@ -106,7 +100,6 @@ class TaskAssignment:
             "decision_metadata": self.decision_metadata
         }
 
-
 @dataclass
 class SupervisorDecision:
     """Supervisor决策记录"""
@@ -128,7 +121,6 @@ class SupervisorDecision:
             "confidence": self.confidence,
             "alternatives_considered": self.alternatives_considered
         }
-
 
 class TaskComplexityAnalyzer:
     """任务复杂度分析器"""
@@ -238,7 +230,6 @@ class TaskComplexityAnalyzer:
             capabilities.extend(["中级分析", "模块化设计"])
             
         return capabilities
-
 
 class AgentCapabilityMatcher:
     """智能体能力匹配器"""
@@ -407,7 +398,6 @@ class AgentCapabilityMatcher:
     def get_agent_loads(self) -> Dict[str, float]:
         """获取所有智能体负载"""
         return self._agent_loads.copy()
-
 
 class SupervisorAgent(BaseAutoGenAgent):
     """增强的Supervisor智能体实现"""

@@ -8,18 +8,16 @@ import time
 from typing import Dict, Any, Optional, List, Callable, Union
 from dataclasses import dataclass, field
 from enum import Enum
-import structlog
 from abc import ABC, abstractmethod
 import statistics
 from datetime import datetime
 from datetime import timedelta
 from src.core.utils.timezone_utils import utc_now, utc_factory
 from collections import deque, defaultdict
-
 from .enterprise_config import get_config_manager
 
-logger = structlog.get_logger(__name__)
-
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 class BackpressureStrategy(str, Enum):
     """背压策略"""
@@ -29,14 +27,12 @@ class BackpressureStrategy(str, Enum):
     RESOURCE = "resource"          # 资源使用率控制
     ADAPTIVE = "adaptive"          # 自适应控制
 
-
 class DropPolicy(str, Enum):
     """丢弃策略"""
     OLDEST = "oldest"             # 丢弃最旧的任务
     NEWEST = "newest"             # 丢弃最新的任务
     RANDOM = "random"             # 随机丢弃
     PRIORITY = "priority"         # 按优先级丢弃
-
 
 @dataclass
 class FlowControlMetrics:
@@ -52,7 +48,6 @@ class FlowControlMetrics:
     dropped_tasks: int = 0
     throttled_tasks: int = 0
 
-
 @dataclass
 class TaskInfo:
     """任务信息"""
@@ -63,20 +58,18 @@ class TaskInfo:
     retries: int = 0
     metadata: Dict[str, Any] = field(default_factory=dict)
 
-
 class BackpressureController(ABC):
     """背压控制器抽象类"""
     
     @abstractmethod
     async def should_apply_backpressure(self, metrics: FlowControlMetrics) -> bool:
         """判断是否应该应用背压"""
-        pass
+        raise NotImplementedError
     
     @abstractmethod
     async def calculate_throttle_rate(self, metrics: FlowControlMetrics) -> float:
         """计算限流比例 (0-1)"""
-        pass
-
+        raise NotImplementedError
 
 class QueueBasedBackpressure(BackpressureController):
     """基于队列大小的背压控制"""
@@ -95,7 +88,6 @@ class QueueBasedBackpressure(BackpressureController):
         overflow_ratio = (metrics.queue_size - self.threshold) / self.threshold
         return min(overflow_ratio, 1.0)
 
-
 class ThroughputBasedBackpressure(BackpressureController):
     """基于吞吐量的背压控制"""
     
@@ -111,7 +103,6 @@ class ThroughputBasedBackpressure(BackpressureController):
         
         excess_ratio = (metrics.throughput - self.max_throughput) / self.max_throughput
         return min(excess_ratio * 0.5, 0.8)  # 最多限制80%
-
 
 class AdaptiveBackpressure(BackpressureController):
     """自适应背压控制"""
@@ -164,7 +155,6 @@ class AdaptiveBackpressure(BackpressureController):
             rates.append((0.8 - metrics.success_rate) / 0.8 * 0.4)
         
         return max(rates) if rates else 0.0
-
 
 class FlowController:
     """流量控制器"""
@@ -384,10 +374,8 @@ class FlowController:
             import psutil
             metrics.cpu_usage = psutil.cpu_percent() / 100.0
             metrics.memory_usage = psutil.virtual_memory().percent / 100.0
-        except ImportError:
-            # 如果没有psutil，使用模拟值
-            metrics.cpu_usage = 0.5
-            metrics.memory_usage = 0.6
+        except Exception as e:
+            logger.warning("获取系统资源指标失败", error=str(e))
         
         # 成功率
         if hasattr(self, '_recent_results') and len(self._recent_results) > 0:
@@ -420,7 +408,6 @@ class FlowController:
             'strategy': self.strategy,
             'drop_policy': self.drop_policy
         }
-
 
 class CircuitBreaker:
     """断路器实现"""
@@ -472,7 +459,6 @@ class CircuitBreaker:
         
         if self.failure_count >= self.failure_threshold:
             self.state = "OPEN"
-
 
 # 全局流控实例
 _flow_controller: Optional[FlowController] = None

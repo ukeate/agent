@@ -2,30 +2,35 @@
 安全合规认证和测试框架
 实现企业级安全合规检查、认证和自动化测试
 """
+
 import asyncio
 import json
 import hashlib
 import ssl
 import socket
+import shutil
 from typing import Dict, List, Optional, Any, Callable, Tuple, Set
 from dataclasses import dataclass, field
 from datetime import datetime
 from datetime import timedelta
 from src.core.utils.timezone_utils import utc_now, utc_factory
 from enum import Enum
-import structlog
 import subprocess
 import tempfile
 import os
 import re
-
 from .security.trism import AITRiSMFramework, SecurityEvent, ThreatLevel
 from .security.attack_detection import AttackDetectionManager, AttackType
 from .security.auto_response import SecurityResponseManager
 from .monitoring import AuditEventType, AuditLevel
+from src.core.config import get_settings
+from src.core.database import get_db_session, test_database_connection
+from src.core.redis import get_redis, test_redis_connection
+from sqlalchemy import text
+import time
 
-logger = structlog.get_logger(__name__)
-
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 class ComplianceStandard(str, Enum):
     """合规标准"""
@@ -38,7 +43,6 @@ class ComplianceStandard(str, Enum):
     AI_GOVERNANCE = "ai_governance"
     CUSTOM = "custom"
 
-
 class TestSeverity(str, Enum):
     """测试严重程度"""
     CRITICAL = "critical"
@@ -47,7 +51,6 @@ class TestSeverity(str, Enum):
     LOW = "low"
     INFO = "info"
 
-
 class ComplianceStatus(str, Enum):
     """合规状态"""
     COMPLIANT = "compliant"
@@ -55,7 +58,6 @@ class ComplianceStatus(str, Enum):
     PARTIALLY_COMPLIANT = "partially_compliant"
     NOT_TESTED = "not_tested"
     REMEDIATION_REQUIRED = "remediation_required"
-
 
 @dataclass
 class ComplianceRequirement:
@@ -83,7 +85,6 @@ class ComplianceRequirement:
             "remediation_steps": self.remediation_steps
         }
 
-
 @dataclass
 class TestResult:
     """测试结果"""
@@ -110,7 +111,6 @@ class TestResult:
             "execution_time": self.execution_time
         }
 
-
 @dataclass
 class ComplianceReport:
     """合规报告"""
@@ -135,7 +135,6 @@ class ComplianceReport:
             "generated_by": self.generated_by
         }
 
-
 class SecurityComplianceTests:
     """安全合规测试"""
     
@@ -156,7 +155,9 @@ class SecurityComplianceTests:
         start_time = time.time()
         result = TestResult(
             requirement_id="SEC-001",
-            test_name="Data Encryption at Rest and in Transit"
+            test_name="Data Encryption at Rest and in Transit",
+            status=ComplianceStatus.NOT_TESTED,
+            score=0.0,
         )
         
         try:
@@ -204,16 +205,18 @@ class SecurityComplianceTests:
     async def _test_ssl_configuration(self) -> float:
         """测试SSL配置"""
         try:
+            if not get_settings().FORCE_HTTPS:
+                return 0.0
             # 检查SSL上下文
             context = ssl.create_default_context()
-            score = 70.0  # 基础分
+            score = 0.0
             
             # 检查协议版本
             if hasattr(ssl, 'TLSVersion'):
                 if context.minimum_version >= ssl.TLSVersion.TLSv1_2:
-                    score += 15.0
+                    score += 50.0
                 if context.minimum_version >= ssl.TLSVersion.TLSv1_3:
-                    score += 15.0
+                    score += 50.0
             
             return min(score, 100.0)
         except Exception:
@@ -222,26 +225,17 @@ class SecurityComplianceTests:
     async def _test_storage_encryption(self) -> float:
         """测试存储加密"""
         try:
-            # 模拟检查数据库连接加密
-            score = 75.0  # 假设基础加密存在
-            
-            # 这里应该检查实际的存储加密配置
-            # 例如数据库加密、文件系统加密等
-            
-            return score
+            dsn = get_settings().DATABASE_URL
+            if any(s in dsn for s in ["sslmode=require", "sslmode=verify-full", "sslmode=verify-ca", "ssl=true"]):
+                return 100.0
+            return 0.0
         except Exception:
             return 0.0
     
     async def _test_transport_encryption(self) -> float:
         """测试传输加密"""
         try:
-            score = 80.0  # 假设HTTPS已启用
-            
-            # 检查是否强制使用HTTPS
-            # 检查证书配置
-            # 检查加密套件
-            
-            return score
+            return 100.0 if get_settings().FORCE_HTTPS else 0.0
         except Exception:
             return 0.0
     
@@ -250,7 +244,9 @@ class SecurityComplianceTests:
         start_time = time.time()
         result = TestResult(
             requirement_id="SEC-002",
-            test_name="Access Control and Authentication"
+            test_name="Access Control and Authentication",
+            status=ComplianceStatus.NOT_TESTED,
+            score=0.0,
         )
         
         try:
@@ -291,40 +287,55 @@ class SecurityComplianceTests:
     
     async def _test_authentication(self) -> float:
         """测试身份验证"""
-        score = 70.0  # 基础分
-        
-        # 检查多因素认证
-        # 检查密码策略
-        # 检查账户锁定机制
-        
-        return score
+        try:
+            settings = get_settings()
+            score = 0.0
+            if settings.SECRET_KEY and len(settings.SECRET_KEY) >= 32:
+                score += 40.0
+            if 5 <= settings.ACCESS_TOKEN_EXPIRE_MINUTES <= 120:
+                score += 20.0
+            if 1 <= settings.REFRESH_TOKEN_EXPIRE_DAYS <= 30:
+                score += 20.0
+            if 0.0 < settings.SECURITY_THRESHOLD < 1.0:
+                score += 20.0
+            return score
+        except Exception:
+            return 0.0
     
     async def _test_authorization(self) -> float:
         """测试授权机制"""
-        score = 75.0  # 基础分
-        
-        # 检查RBAC实现
-        # 检查最小权限原则
-        # 检查权限审核
-        
-        return score
+        try:
+            redis_client = get_redis()
+            if not redis_client:
+                return 0.0
+            total = await redis_client.zcard("acl:rules")
+            return min(100.0, float(total) * 20.0) if total else 0.0
+        except Exception:
+            return 0.0
     
     async def _test_session_management(self) -> float:
         """测试会话管理"""
-        score = 80.0  # 基础分
-        
-        # 检查会话超时
-        # 检查会话令牌安全性
-        # 检查并发会话控制
-        
-        return score
+        try:
+            settings = get_settings()
+            score = 0.0
+            if 1 <= settings.SESSION_TIMEOUT_MINUTES <= 1440:
+                score += 50.0
+            if 1 <= settings.ACCESS_TOKEN_EXPIRE_MINUTES <= settings.SESSION_TIMEOUT_MINUTES:
+                score += 25.0
+            if settings.REFRESH_TOKEN_EXPIRE_DAYS >= 1:
+                score += 25.0
+            return score
+        except Exception:
+            return 0.0
     
     async def test_ai_security(self) -> TestResult:
         """测试AI安全性"""
         start_time = time.time()
         result = TestResult(
             requirement_id="AI-001",
-            test_name="AI Security and Governance"
+            test_name="AI Security and Governance",
+            status=ComplianceStatus.NOT_TESTED,
+            score=0.0,
         )
         
         try:
@@ -377,27 +388,15 @@ class SecurityComplianceTests:
             return 0.0
         
         try:
-            # 创建测试事件
-            test_event = SecurityEvent(
-                event_id="test-001",
-                event_type="test",
-                source_agent="test-agent",
-                threat_level=ThreatLevel.LOW,
-                details={"test": True}
-            )
-            
             # 测试评估功能
-            result = await self.trism_framework.evaluate_agent_output(
+            evaluation = await self.trism_framework.evaluate_agent_output(
                 "test-agent",
                 "test output",
                 {"test": True}
             )
-            
-            if result and result.get("trust_score", 0) > 0:
-                return 85.0
-            else:
-                return 50.0
-                
+
+            trust_score = float(((evaluation or {}).get("trust") or {}).get("trust_score") or 0.0)
+            return max(0.0, min(100.0, trust_score * 100.0))
         except Exception:
             return 0.0
     
@@ -418,10 +417,12 @@ class SecurityComplianceTests:
                 results = await self.attack_detector.detect_attacks(
                     "test-agent",
                     test_input,
-                    {"test": True}
+                    {"test": True},
+                    attack_types=[expected_type],
                 )
-                
-                if results.get("detected", False):
+
+                result = results.get(expected_type)
+                if result and result.attack_detected:
                     detected_count += 1
             
             return (detected_count / len(test_cases)) * 100
@@ -435,31 +436,34 @@ class SecurityComplianceTests:
             return 0.0
         
         try:
-            # 测试响应规则
-            rules = self.response_manager.list_rules()
-            if len(rules) >= 3:  # 至少有基本响应规则
-                return 80.0
-            else:
-                return 40.0
-                
+            stats = self.response_manager.get_statistics()
+            total = int(((stats or {}).get("rules") or {}).get("total") or 0)
+            enabled = int(((stats or {}).get("rules") or {}).get("enabled") or 0)
+            return (enabled / total) * 100 if total else 0.0
         except Exception:
             return 0.0
     
     async def _test_model_security(self) -> float:
         """测试模型安全"""
-        score = 70.0  # 基础分
-        
-        # 检查模型验证
-        # 检查输入验证
-        # 检查输出过滤
-        
-        return score
-
+        settings = get_settings()
+        score = 0.0
+        if not settings.DEBUG:
+            score += 25.0
+        if settings.FORCE_HTTPS:
+            score += 25.0
+        if settings.SECRET_KEY and len(settings.SECRET_KEY) >= 32:
+            score += 25.0
+        if settings.CSP_HEADER:
+            score += 25.0
+        return min(100.0, score)
 
 class DataPrivacyTests:
     """数据隐私测试"""
     
     def __init__(self):
+        from src.ai.emotion_modeling.privacy_ethics_guard import PrivacyEthicsGuard
+
+        self.guard = PrivacyEthicsGuard()
         logger.info("数据隐私测试初始化")
     
     async def test_gdpr_compliance(self) -> TestResult:
@@ -467,7 +471,9 @@ class DataPrivacyTests:
         start_time = time.time()
         result = TestResult(
             requirement_id="GDPR-001",
-            test_name="GDPR Data Protection Compliance"
+            test_name="GDPR Data Protection Compliance",
+            status=ComplianceStatus.NOT_TESTED,
+            score=0.0,
         )
         
         try:
@@ -513,45 +519,63 @@ class DataPrivacyTests:
     
     async def _test_data_collection(self) -> float:
         """测试数据收集"""
-        score = 75.0  # 基础分
-        
-        # 检查数据收集目的明确性
-        # 检查用户同意机制
-        # 检查数据最小化原则
-        
-        return score
+        try:
+            from src.ai.emotion_modeling.privacy_ethics_guard import PrivacyLevel, ConsentType
+
+            user_id = "gdpr_test_user"
+            purpose = "gdpr_test"
+            await self.guard.create_privacy_policy(
+                user_id=user_id,
+                privacy_level=PrivacyLevel.CONFIDENTIAL,
+                data_retention_days=180,
+                cultural_context="eu",
+            )
+            await self.guard.manage_consent(
+                user_id=user_id,
+                consent_type=ConsentType.EXPLICIT,
+                data_categories=["emotional_data"],
+                purpose=purpose,
+            )
+            return 100.0
+        except Exception:
+            return 0.0
     
     async def _test_data_processing(self) -> float:
         """测试数据处理"""
-        score = 80.0  # 基础分
-        
-        # 检查处理合法性基础
-        # 检查数据准确性
-        # 检查处理透明度
-        
-        return score
+        try:
+            user_id = "gdpr_test_user"
+            purpose = "gdpr_test"
+            compliant, _violations = await self.guard.validate_privacy_compliance(
+                user_id=user_id,
+                emotion_data={"text": "test"},
+                processing_purpose=purpose,
+                cultural_context="eu",
+            )
+            return 100.0 if compliant else 0.0
+        except Exception:
+            return 0.0
     
     async def _test_data_storage(self) -> float:
         """测试数据存储"""
-        score = 70.0  # 基础分
-        
-        # 检查存储期限
-        # 检查数据删除机制
-        # 检查地理位置限制
-        
-        return score
+        try:
+            policy = self.guard.privacy_policies.get("gdpr_test_user")
+            if not policy:
+                return 0.0
+            return 100.0 if 0 < policy.data_retention_days <= 365 else 0.0
+        except Exception:
+            return 0.0
     
     async def _test_user_rights(self) -> float:
         """测试用户权利"""
-        score = 65.0  # 基础分
-        
-        # 检查访问权实现
-        # 检查更正权实现
-        # 检查删除权实现
-        # 检查可移植性权实现
-        
-        return score
-
+        try:
+            ok = await self.guard.withdraw_consent(
+                user_id="gdpr_test_user",
+                data_categories=["emotional_data"],
+                purpose="gdpr_test",
+            )
+            return 100.0 if ok else 0.0
+        except Exception:
+            return 0.0
 
 class OperationalSecurityTests:
     """运营安全测试"""
@@ -564,7 +588,9 @@ class OperationalSecurityTests:
         start_time = time.time()
         result = TestResult(
             requirement_id="OPS-001",
-            test_name="Incident Response Procedures"
+            test_name="Incident Response Procedures",
+            status=ComplianceStatus.NOT_TESTED,
+            score=0.0,
         )
         
         try:
@@ -603,22 +629,47 @@ class OperationalSecurityTests:
     
     async def _test_incident_detection(self) -> float:
         """测试事件检测"""
-        return 80.0  # 基础分
+        try:
+            async with get_db_session() as session:
+                result = await session.execute(text("SELECT to_regclass('public.audit_logs')"))
+                return 100.0 if result.scalar() else 0.0
+        except Exception:
+            return 0.0
     
     async def _test_response_procedures(self) -> float:
         """测试响应程序"""
-        return 75.0  # 基础分
+        try:
+            settings = get_settings()
+            score = 0.0
+            if settings.CSP_HEADER:
+                score += 25.0
+            if 0.0 < settings.SECURITY_THRESHOLD < 1.0:
+                score += 25.0
+            if 0.0 < settings.AUTO_BLOCK_THRESHOLD <= 1.0:
+                score += 25.0
+            if settings.MAX_REQUESTS_PER_MINUTE > 0:
+                score += 25.0
+            return score
+        except Exception:
+            return 0.0
     
     async def _test_recovery_capabilities(self) -> float:
         """测试恢复能力"""
-        return 70.0  # 基础分
+        try:
+            db_ok = await test_database_connection()
+            redis_ok = await test_redis_connection()
+            return ((1.0 if db_ok else 0.0) + (1.0 if redis_ok else 0.0)) / 2.0 * 100.0
+        except Exception:
+            return 0.0
     
     async def test_backup_and_recovery(self) -> TestResult:
         """测试备份和恢复"""
         start_time = time.time()
         result = TestResult(
             requirement_id="OPS-002",
-            test_name="Backup and Recovery Systems"
+            test_name="Backup and Recovery Systems",
+            status=ComplianceStatus.NOT_TESTED,
+            score=0.0,
         )
         
         try:
@@ -652,12 +703,11 @@ class OperationalSecurityTests:
     
     async def _test_backup_strategy(self) -> float:
         """测试备份策略"""
-        return 85.0  # 基础分
+        return 100.0 if shutil.which("pg_dump") else 0.0
     
     async def _test_recovery_testing(self) -> float:
         """测试恢复测试"""
-        return 80.0  # 基础分
-
+        return 100.0 if shutil.which("pg_restore") else 0.0
 
 class ComplianceFramework:
     """合规框架"""
@@ -979,6 +1029,4 @@ class ComplianceFramework:
             "period_days": days
         }
 
-
 # 导入time模块
-import time

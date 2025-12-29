@@ -1,8 +1,10 @@
 /**
  * 指标服务
  */
-import { apiClient } from './apiClient';
+import { buildWsUrl } from '../utils/apiBase'
+import apiClient from './apiClient';
 
+import { logger } from '../utils/logger'
 // 指标数据
 export interface MetricData {
   name: string;
@@ -57,7 +59,7 @@ export interface MetricsParams {
 }
 
 class MetricsService {
-  private baseUrl = '/api/v1';
+  private baseUrl = '';
 
   /**
    * 获取实验指标
@@ -173,21 +175,30 @@ class MetricsService {
   subscribeToUpdates(
     experimentId: string,
     onUpdate: (data: any) => void
-  ): WebSocket {
+  ): () => void {
     const ws = new WebSocket(
-      `ws://localhost:8000/ws/experiments/${experimentId}/metrics`
+      buildWsUrl(`/ws/experiments/${experimentId}/metrics`)
     );
 
     ws.onmessage = (event) => {
-      const data = JSON.parse(event.data);
-      onUpdate(data);
+      try {
+        const data = JSON.parse(event.data);
+        onUpdate(data);
+      } catch (error) {
+        logger.error('解析指标更新失败:', error);
+      }
     };
 
     ws.onerror = (error) => {
-      console.error('WebSocket错误:', error);
+      logger.error('WebSocket错误:', error);
+      if (ws.readyState !== WebSocket.CLOSING && ws.readyState !== WebSocket.CLOSED) {
+        ws.close();
+      }
     };
 
-    return ws;
+    return () => {
+      ws.close();
+    };
   }
 
   /**

@@ -63,6 +63,7 @@ import {
   PlayCircleOutlined,
   ScheduleOutlined,
   ShareAltOutlined,
+  ShareAltOutlined as NetworkOutlined,
   TabletOutlined,
   FolderOpenOutlined,
   GoldOutlined,
@@ -947,7 +948,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
         },
         {
           key: 'emotional-memory-management',
-          icon: <BrainOutlined />,
+          icon: <BulbOutlined />,
           label: '📊 情感记忆管理系统',
         },
         {
@@ -2878,7 +2879,10 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
         style={{ 
           background: '#fff', 
           borderRight: '1px solid #f0f0f0',
-          boxShadow: '2px 0 8px rgba(0,0,0,0.1)'
+          boxShadow: '2px 0 8px rgba(0,0,0,0.1)',
+          display: 'flex',
+          flexDirection: 'column',
+          height: '100vh'
         }}
       >
         <div style={{ 
@@ -2905,7 +2909,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
           mode="inline"
           selectedKeys={[getSelectedKey()]}
           items={menuItems}
-          style={{ border: 'none', height: 'calc(100vh - 88px)', overflowY: 'auto' }}
+          style={{ border: 'none', flex: 1, overflowY: 'auto' }}
           onClick={handleNavigation}
         />
       </Sider>

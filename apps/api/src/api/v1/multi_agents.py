@@ -1,26 +1,27 @@
 """
 多智能体协作API路由
 """
+
 from typing import Dict, List, Optional, Any
 from fastapi import APIRouter, HTTPException, Depends, BackgroundTasks, status, WebSocket, WebSocketDisconnect
-from fastapi.responses import StreamingResponse
-from pydantic import BaseModel, Field
+from pydantic import Field
 import json
 import asyncio
 from datetime import datetime
-from src.core.utils.timezone_utils import utc_now, utc_factory
-
+from src.core.utils.timezone_utils import utc_now
 from src.services.multi_agent_service import MultiAgentService
 from src.ai.autogen.config import AgentRole, ConversationConfig
-from src.core.logging import get_logger
 from src.core.constants import ConversationConstants
+from src.api.base_model import ApiBaseModel
 
+from src.core.logging import get_logger
 logger = get_logger(__name__)
 
 router = APIRouter(prefix="/multi-agent", tags=["multi-agent"])
 
 # 全局服务实例（单例模式）
 _multi_agent_service_instance = None
+_agent_configs_loaded_at = utc_now().isoformat()
 
 # 依赖注入
 async def get_multi_agent_service() -> MultiAgentService:
@@ -34,9 +35,8 @@ async def get_multi_agent_service() -> MultiAgentService:
     
     return _multi_agent_service_instance
 
-
 # Pydantic模型
-class CreateConversationRequest(BaseModel):
+class CreateConversationRequest(ApiBaseModel):
     """创建对话请求"""
     message: str = Field(..., description="初始消息", min_length=1, max_length=5000)
     agent_roles: Optional[List[AgentRole]] = Field(
@@ -65,8 +65,7 @@ class CreateConversationRequest(BaseModel):
         description="是否自动回复"
     )
 
-
-class ConversationResponse(BaseModel):
+class ConversationResponse(ApiBaseModel):
     """对话响应"""
     conversation_id: str
     status: str
@@ -75,8 +74,7 @@ class ConversationResponse(BaseModel):
     config: Dict[str, Any]
     initial_status: Dict[str, Any]
 
-
-class ConversationStatusResponse(BaseModel):
+class ConversationStatusResponse(ApiBaseModel):
     """对话状态响应"""
     conversation_id: str
     status: str
@@ -88,8 +86,7 @@ class ConversationStatusResponse(BaseModel):
     config: Dict[str, Any]
     real_time_stats: Optional[Dict[str, Any]] = None
 
-
-class TerminateConversationRequest(BaseModel):
+class TerminateConversationRequest(ApiBaseModel):
     """终止对话请求"""
     reason: Optional[str] = Field(
         default="用户终止", 
@@ -97,15 +94,13 @@ class TerminateConversationRequest(BaseModel):
         max_length=500
     )
 
-
-class MessagesResponse(BaseModel):
+class MessagesResponse(ApiBaseModel):
     """消息响应"""
     conversation_id: str
     messages: List[Dict[str, Any]]
     total_count: int
     returned_count: int
     offset: int
-
 
 # API路由
 @router.post(
@@ -172,7 +167,6 @@ async def create_conversation(
             detail=f"创建对话失败: {str(e)}"
         )
 
-
 @router.get(
     "/conversation/{conversation_id}/status",
     response_model=ConversationStatusResponse,
@@ -185,8 +179,8 @@ async def get_conversation_status(
 ) -> ConversationStatusResponse:
     """获取对话状态"""
     try:
-        status = await service.get_conversation_status(conversation_id)
-        return ConversationStatusResponse(**status)
+        status_data = await service.get_conversation_status(conversation_id)
+        return ConversationStatusResponse(**status_data)
         
     except ValueError as e:
         raise HTTPException(
@@ -203,7 +197,6 @@ async def get_conversation_status(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"获取状态失败: {str(e)}"
         )
-
 
 @router.post(
     "/conversation/{conversation_id}/pause",
@@ -241,7 +234,6 @@ async def pause_conversation(
             detail=f"暂停对话失败: {str(e)}"
         )
 
-
 @router.post(
     "/conversation/{conversation_id}/resume",
     summary="恢复对话",
@@ -256,7 +248,7 @@ async def resume_conversation(
         # 定义WebSocket回调函数，向连接的客户端推送消息
         async def websocket_callback(data):
             """WebSocket回调函数，向连接的客户端推送消息"""
-            target_session_id = data.get("session_id") or conversation_id
+            target_session_id = service.get_ws_session_id(conversation_id) or conversation_id
             if target_session_id in manager.active_connections:
                 try:
                     await manager.send_personal_message(
@@ -294,7 +286,6 @@ async def resume_conversation(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"恢复对话失败: {str(e)}"
         )
-
 
 @router.post(
     "/conversation/{conversation_id}/terminate",
@@ -336,7 +327,6 @@ async def terminate_conversation(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"终止对话失败: {str(e)}"
         )
-
 
 @router.get(
     "/conversation/{conversation_id}/messages",
@@ -391,7 +381,6 @@ async def get_conversation_messages(
             detail=f"获取消息失败: {str(e)}"
         )
 
-
 @router.get(
     "/conversations",
     summary="列出活跃对话",
@@ -420,7 +409,6 @@ async def list_conversations(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"获取对话列表失败: {str(e)}"
         )
-
 
 @router.get(
     "/statistics",
@@ -451,7 +439,6 @@ async def get_agent_statistics(
             detail=f"获取统计信息失败: {str(e)}"
         )
 
-
 @router.post(
     "/cleanup",
     summary="清理非活跃会话",
@@ -481,7 +468,6 @@ async def cleanup_sessions(
             detail=f"启动清理任务失败: {str(e)}"
         )
 
-
 # 智能体管理端点
 @router.get(
     "/agents",
@@ -499,7 +485,7 @@ async def get_agents(
         agents = []
         for role, config in AGENT_CONFIGS.items():
             agents.append({
-                "id": f"{config.role}-1",
+                "id": config.role,
                 "name": config.name,
                 "role": config.role,
                 "status": "active",
@@ -509,10 +495,10 @@ async def get_agents(
                     "temperature": config.temperature,
                     "max_tokens": config.max_tokens,
                     "tools": config.tools,
-                    "system_prompt": config.system_prompt[:100] + "..." if len(config.system_prompt) > 100 else config.system_prompt,
+                    "system_prompt": config.system_prompt,
                 },
-                "created_at": "2024-01-01T00:00:00Z",
-                "updated_at": "2024-01-01T00:00:00Z",
+                "created_at": _agent_configs_loaded_at,
+                "updated_at": _agent_configs_loaded_at,
             })
         
         logger.info(f"返回 {len(agents)} 个智能体")
@@ -531,7 +517,6 @@ async def get_agents(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"获取智能体列表失败: {str(e)}"
         )
-
 
 # 系统状态端点
 @router.get(
@@ -557,7 +542,7 @@ async def health_check(
         
         return {
             "healthy": healthy,
-            "timestamp": "now",
+            "timestamp": utc_now().isoformat(),
             "active_sessions": active_sessions,
             "issues": issues,
             "service_info": {
@@ -574,7 +559,7 @@ async def health_check(
         )
         return {
             "healthy": False,
-            "timestamp": "now",
+            "timestamp": utc_now().isoformat(),
             "error": str(e),
             "service_info": {
                 "name": "MultiAgentService",
@@ -582,7 +567,6 @@ async def health_check(
                 "autogen_integrated": False,
             }
         }
-
 
 # WebSocket连接管理
 class ConnectionManager:
@@ -654,10 +638,8 @@ class ConnectionManager:
         else:
             logger.warning(f"没有成功发送到任何连接: {session_id}")
 
-
 # 全局连接管理器
 manager = ConnectionManager()
-
 
 @router.websocket("/ws/{session_id}")
 async def websocket_endpoint(websocket: WebSocket, session_id: str):
@@ -775,6 +757,7 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
                     # 获取conversation_id，保持原有连接稳定
                     conversation_id = result["conversation_id"]
                     logger.info(f"对话创建成功，conversation_id: {conversation_id}")
+                    service.bind_ws_session(conversation_id, session_id)
                     
                     # 对话已经在create_multi_agent_conversation中启动，WebSocket回调已设置
                     logger.info(f"多智能体对话已启动，WebSocket回调已就绪: {conversation_id}")
@@ -806,7 +789,7 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
                         json.dumps({
                             "type": "error",
                             "data": {"message": f"启动对话失败: {str(e)}"},
-                            "timestamp": "now"
+                            "timestamp": utc_now().isoformat()
                         }),
                         session_id
                     )

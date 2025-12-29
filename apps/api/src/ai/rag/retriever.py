@@ -2,26 +2,30 @@
 语义检索和混合检索实现
 """
 
-import logging
 import re
 from collections import Counter
 from typing import Dict, List, Optional, Tuple
-
 import numpy as np
 from qdrant_client.models import Filter, FieldCondition, MatchValue, MatchText
-
 from src.ai.rag.embeddings import embedding_service
+from functools import partial
 from src.core.qdrant import get_qdrant_client
+from src.core.utils.async_utils import run_sync_io
 
-logger = logging.getLogger(__name__)
-
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 class SemanticRetriever:
     """语义检索器"""
 
     def __init__(self):
-        self.client = get_qdrant_client()
+        self.client = None
         self.embedding_service = embedding_service
+
+    def _get_client(self):
+        if self.client is None:
+            self.client = get_qdrant_client()
+        return self.client
 
     async def search(
         self,
@@ -53,14 +57,19 @@ class SemanticRetriever:
                 filters = Filter(must=must_conditions)
         
         # 执行搜索
-        results = self.client.search(
-            collection_name=collection,
-            query_vector=query_vector,
-            limit=limit,
-            score_threshold=score_threshold,
-            query_filter=filters,
-            with_payload=True,
-            with_vectors=False,
+        client = self._get_client()
+
+        results = await run_sync_io(
+            partial(
+                client.search,
+                collection_name=collection,
+                query_vector=query_vector,
+                limit=limit,
+                score_threshold=score_threshold,
+                query_filter=filters,
+                with_payload=True,
+                with_vectors=False,
+            )
         )
         
         # 格式化结果
@@ -109,13 +118,17 @@ class SemanticRetriever:
         # 取前n个结果
         return all_results[:limit]
 
-
 class HybridRetriever:
     """混合检索器（语义搜索 + 关键词匹配）"""
 
     def __init__(self):
         self.semantic_retriever = SemanticRetriever()
-        self.client = get_qdrant_client()
+        self.client = None
+
+    def _get_client(self):
+        if self.client is None:
+            self.client = get_qdrant_client()
+        return self.client
 
     def _extract_keywords(self, text: str) -> List[str]:
         """提取关键词"""
@@ -193,6 +206,7 @@ class HybridRetriever:
         keyword_results = []
         if query_keywords:
             try:
+                client = self._get_client()
                 # 构建文本搜索过滤器
                 text_filter = Filter(
                     should=[
@@ -205,12 +219,15 @@ class HybridRetriever:
                 )
                 
                 # 执行搜索
-                scroll_result = self.client.scroll(
-                    collection_name=collection,
-                    scroll_filter=text_filter,
-                    limit=limit * 2,
-                    with_payload=True,
-                    with_vectors=False,
+                scroll_result = await run_sync_io(
+                    partial(
+                        client.scroll,
+                        collection_name=collection,
+                        scroll_filter=text_filter,
+                        limit=limit * 2,
+                        with_payload=True,
+                        with_vectors=False,
+                    )
                 )
                 
                 for point in scroll_result[0]:
@@ -303,7 +320,6 @@ class HybridRetriever:
         
         return reranked
 
-
 class QueryIntentClassifier:
     """查询意图分类器"""
 
@@ -349,7 +365,6 @@ class QueryIntentClassifier:
                 break
         
         return intent
-
 
 # 全局检索器实例
 semantic_retriever = SemanticRetriever()

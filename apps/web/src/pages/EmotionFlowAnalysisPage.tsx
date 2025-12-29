@@ -1,5 +1,7 @@
+import { buildApiUrl, apiFetch } from '../utils/apiBase'
 import React, { useState, useEffect, useRef } from 'react';
 import {
+import { logger } from '../utils/logger'
   Card,
   Tabs,
   Button,
@@ -126,7 +128,7 @@ interface SessionAnalysisData {
 const emotionFlowApi = {
   async analyzeEmotionFlow(sessionId: string, conversationData: any[]) {
     try {
-      const response = await fetch(`http://localhost:8000/api/v1/social-emotion/analyze`, {
+      const response = await apiFetch(buildApiUrl(`/api/v1/social-emotion/analyze`), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -140,66 +142,57 @@ const emotionFlowApi = {
         })
       });
       
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const result = await response.json();
       
       return {
         success: true,
         data: {
-          emotion_flow: result.results?.emotion_flow || generateMockEmotionFlow(sessionId)
+          emotion_flow: result.results?.emotion_flow || null
         }
       };
     } catch (error) {
-      console.error('情感流分析失败:', error);
-      // 返回模拟数据
+      logger.error('情感流分析失败:', error);
       return {
         success: false,
-        error: error.message,
-        data: {
-          emotion_flow: generateMockEmotionFlow(sessionId)
-        }
+        error: error.message
       };
     }
   },
 
   async getRealTimeFlow(sessionId: string) {
     try {
-      const response = await fetch(`http://localhost:8000/api/v1/social-emotion/status`);
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const response = await apiFetch(buildApiUrl(`/api/v1/social-emotion/status`));
       
       const result = await response.json();
       return {
         success: true,
-        data: generateMockRealTimeFlow(sessionId)
+        data: result
       };
     } catch (error) {
       return {
-        success: false,
-        data: generateMockRealTimeFlow(sessionId)
+        success: false
       };
     }
   },
 
   async getSessionAnalytics(sessionId: string) {
     try {
-      const response = await fetch(`http://localhost:8000/api/v1/social-emotion/dashboard`);
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const response = await apiFetch(buildApiUrl(`/api/v1/social-emotion/dashboard`));
       
       return {
         success: true,
-        data: generateMockSessionAnalytics(sessionId)
+        data: await response.json()
       };
     } catch (error) {
       return {
-        success: false,
-        data: generateMockSessionAnalytics(sessionId)
+        success: false
       };
     }
   },
 
   async exportFlowData(sessionId: string, format: string) {
     try {
-      const response = await fetch(`http://localhost:8000/api/v1/social-emotion/export`, {
+      const response = await apiFetch(buildApiUrl('/social-emotion/export'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -209,123 +202,15 @@ const emotionFlowApi = {
         })
       });
       
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
       return await response.json();
     } catch (error) {
-      console.error('导出失败:', error);
+      logger.error('导出失败:', error);
       return { success: false, error: error.message };
     }
   }
 };
 
-// 模拟数据生成函数
-const generateMockEmotionFlow = (sessionId: string): EmotionFlow => {
-  const participants = ['Alice', 'Bob', 'Charlie', 'Diana'];
-  const emotions = ['happy', 'excited', 'calm', 'nervous', 'frustrated', 'confident', 'surprised'];
-  const flowPoints: EmotionFlowPoint[] = [];
-  
-  // 生成30个时间点的情感流数据
-  for (let i = 0; i < 30; i++) {
-    const timestamp = new Date(Date.now() - (30 - i) * 2 * 60000).toISOString();
-    const user_id = participants[Math.floor(Math.random() * participants.length)];
-    const emotion = emotions[Math.floor(Math.random() * emotions.length)];
-    const intensity = 0.2 + Math.random() * 0.8;
-    const valence = emotion === 'happy' || emotion === 'excited' || emotion === 'confident' ? 
-      0.3 + Math.random() * 0.7 : 
-      -0.7 + Math.random() * 0.7;
-    
-    flowPoints.push({
-      timestamp,
-      user_id,
-      emotion,
-      intensity,
-      valence,
-      arousal: Math.random(),
-      context: {
-        topic: ['项目讨论', '技术方案', '进度汇报', '问题解决'][Math.floor(Math.random() * 4)]
-      }
-    });
-  }
-  
-  // 识别峰值、低谷和转折点
-  const peaks = flowPoints.filter((_, i) => i > 2 && i < flowPoints.length - 2 && 
-    flowPoints[i].intensity > 0.7 && 
-    flowPoints[i].intensity > flowPoints[i-1].intensity &&
-    flowPoints[i].intensity > flowPoints[i+1].intensity
-  ).slice(0, 5).map(point => ({
-    timestamp: point.timestamp,
-    user_id: point.user_id,
-    emotion: point.emotion,
-    intensity: point.intensity,
-    context: point.context,
-    type: 'peak'
-  }));
-  
-  const valleys = flowPoints.filter((_, i) => i > 2 && i < flowPoints.length - 2 &&
-    flowPoints[i].intensity < 0.3 &&
-    flowPoints[i].intensity < flowPoints[i-1].intensity &&
-    flowPoints[i].intensity < flowPoints[i+1].intensity
-  ).slice(0, 3).map(point => ({
-    timestamp: point.timestamp,
-    user_id: point.user_id,
-    emotion: point.emotion,
-    intensity: point.intensity,
-    context: point.context,
-    type: 'valley'
-  }));
-  
-  const turningPoints = flowPoints.filter((_, i) => i > 3 && i < flowPoints.length - 3).slice(0, 4).map(point => ({
-    timestamp: point.timestamp,
-    user_id: point.user_id,
-    emotion: point.emotion,
-    intensity: point.intensity,
-    trend_change: (Math.random() - 0.5) * 2,
-    influence_factor: ['topic_change', 'participant_change', 'emotion_shift', 'internal_dynamic'][Math.floor(Math.random() * 4)],
-    type: 'turning_point'
-  }));
-  
-  const dominantEmotions: Record<string, number> = {};
-  emotions.forEach(emotion => {
-    dominantEmotions[emotion] = Math.random();
-  });
-  
-  return {
-    session_id: sessionId,
-    participants,
-    start_time: new Date(Date.now() - 60 * 60000).toISOString(),
-    end_time: new Date().toISOString(),
-    flow_points: flowPoints,
-    emotional_peaks: peaks,
-    emotional_valleys: valleys,
-    turning_points: turningPoints,
-    overall_trend: ['improving', 'stable', 'declining'][Math.floor(Math.random() * 3)],
-    dominant_emotions: dominantEmotions
-  };
-};
-
-const generateMockRealTimeFlow = (sessionId: string) => ({
-  session_id: sessionId,
-  current_emotion: 'confident',
-  current_intensity: 0.75,
-  trend: 'stable',
-  recent_changes: [
-    { timestamp: new Date().toISOString(), emotion: 'confident', intensity: 0.75 },
-    { timestamp: new Date(Date.now() - 30000).toISOString(), emotion: 'calm', intensity: 0.6 }
-  ]
-});
-
-const generateMockSessionAnalytics = (sessionId: string): SessionAnalysisData => ({
-  session_id: sessionId,
-  duration: 45 + Math.random() * 60,
-  participant_count: 3 + Math.floor(Math.random() * 5),
-  message_count: 150 + Math.floor(Math.random() * 200),
-  average_emotion_intensity: 0.5 + Math.random() * 0.4,
-  peak_count: 3 + Math.floor(Math.random() * 5),
-  valley_count: 1 + Math.floor(Math.random() * 3),
-  turning_point_count: 2 + Math.floor(Math.random() * 4),
-  trend: ['improving', 'stable', 'declining'][Math.floor(Math.random() * 3)],
-  health_score: 0.6 + Math.random() * 0.4
-});
+// 已移除本地情感流模拟数据，界面依赖真实API返回
 
 const EmotionFlowAnalysisPage: React.FC = () => {
   const [currentFlow, setCurrentFlow] = useState<EmotionFlow | null>(null);
@@ -355,7 +240,7 @@ const EmotionFlowAnalysisPage: React.FC = () => {
   }, [selectedSession]);
 
   useEffect(() => {
-    let interval: NodeJS.Timeout;
+    let interval: ReturnType<typeof setTimeout>;
     if (realTimeMode) {
       interval = setInterval(updateRealTimeData, 3000);
     }
@@ -385,14 +270,13 @@ const EmotionFlowAnalysisPage: React.FC = () => {
       if (analyticsResult.data) {
         setSessionAnalytics(analyticsResult.data);
       }
-      
       if (!flowResult.success) {
-        message.warning('使用模拟数据显示');
+        message.error('情感流数据加载失败');
       } else {
         message.success('情感流数据加载成功');
       }
     } catch (error) {
-      console.error('加载失败:', error);
+      logger.error('加载失败:', error);
       message.error('数据加载失败');
     } finally {
       setLoading(false);
@@ -409,7 +293,7 @@ const EmotionFlowAnalysisPage: React.FC = () => {
         renderRealTimeChart(result.data);
       }
     } catch (error) {
-      console.error('实时数据更新失败:', error);
+      logger.error('实时数据更新失败:', error);
     }
   };
 

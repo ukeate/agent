@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import {
+import { logger } from '../../utils/logger'
   Card,
   Form,
   Select,
@@ -75,7 +76,7 @@ const VectorQuantizationPanel: React.FC = () => {
       const currentConfig = await pgvectorApi.getQuantizationConfig();
       setConfig(currentConfig);
     } catch (error) {
-      console.error('Failed to fetch quantization config:', error);
+      logger.error('获取量化配置失败:', error);
     }
   };
 
@@ -84,9 +85,13 @@ const VectorQuantizationPanel: React.FC = () => {
       setTesting(true);
       const results = await pgvectorApi.testQuantization(config);
       setTestResults(results);
-      message.success('量化测试完成！');
+      if (results.length === 0) {
+        message.warning('暂无可量化向量数据');
+      } else {
+        message.success('量化测试完成！');
+      }
     } catch (error) {
-      console.error('Quantization test failed:', error);
+      logger.error('量化测试失败:', error);
       message.error('量化测试失败');
     } finally {
       setTesting(false);
@@ -99,7 +104,7 @@ const VectorQuantizationPanel: React.FC = () => {
       await pgvectorApi.applyQuantizationConfig(config);
       message.success('量化配置已应用！');
     } catch (error) {
-      console.error('Failed to apply config:', error);
+      logger.error('应用配置失败:', error);
       message.error('配置应用失败');
     } finally {
       setApplying(false);

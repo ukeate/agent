@@ -4,7 +4,6 @@ import pytest
 from fastapi.testclient import TestClient
 from unittest.mock import Mock, AsyncMock, patch
 from datetime import datetime
-
 from api.v1.platform_integration import router
 from ai.platform_integration.models import (
     ComponentRegistration,
@@ -15,7 +14,7 @@ from ai.platform_integration.models import (
     PlatformHealthStatus,
     PerformanceMetrics
 )
-
+from src.core.utils.timezone_utils import utc_now
 
 @pytest.fixture
 def test_app():
@@ -27,12 +26,10 @@ def test_app():
     
     return app
 
-
 @pytest.fixture
 def client(test_app):
     """测试客户端"""
     return TestClient(test_app)
-
 
 @pytest.fixture
 def sample_component_registration():
@@ -46,7 +43,6 @@ def sample_component_registration():
         "api_endpoint": "http://localhost:8001",
         "metadata": {"description": "Test component"}
     }
-
 
 @pytest.fixture
 def sample_workflow_request():
@@ -62,7 +58,6 @@ def sample_workflow_request():
         },
         "priority": 1
     }
-
 
 class TestComponentManagementAPI:
     """组件管理API测试"""
@@ -80,8 +75,8 @@ class TestComponentManagementAPI:
                 health_endpoint="http://localhost:8001/health",
                 api_endpoint="http://localhost:8001",
                 metadata={"description": "Test component"},
-                registered_at=datetime.now(),
-                last_heartbeat=datetime.now()
+                registered_at=utc_now(),
+                last_heartbeat=utc_now()
             )
             
             mock_integrator._register_component_from_registration = AsyncMock(return_value=mock_component_info)
@@ -219,7 +214,6 @@ class TestComponentManagementAPI:
             assert response.status_code == 404
             assert "not found" in response.json()["detail"]
 
-
 class TestWorkflowManagementAPI:
     """工作流管理API测试"""
 
@@ -314,7 +308,6 @@ class TestWorkflowManagementAPI:
         assert data["status"] == "success"
         assert data["pagination"]["limit"] == 5
 
-
 class TestHealthAndMonitoringAPI:
     """健康检查和监控API测试"""
 
@@ -327,7 +320,7 @@ class TestHealthAndMonitoringAPI:
                 healthy_components=3,
                 total_components=3,
                 components={},
-                timestamp=datetime.now()
+                timestamp=utc_now()
             )
             mock_integrator._check_platform_health = AsyncMock(return_value=mock_health)
             mock_get_integrator.return_value = mock_integrator
@@ -357,7 +350,7 @@ class TestHealthAndMonitoringAPI:
         with patch('api.v1.platform_integration.get_monitoring_system') as mock_get_monitoring:
             mock_monitoring = Mock()
             mock_report = {
-                "report_generated_at": datetime.now().isoformat(),
+                "report_generated_at": utc_now().isoformat(),
                 "health_score": 95.5,
                 "recommendations": ["System is operating normally"]
             }
@@ -371,7 +364,6 @@ class TestHealthAndMonitoringAPI:
             assert data["status"] == "success"
             assert data["report"]["health_score"] == 95.5
 
-
 class TestPerformanceOptimizationAPI:
     """性能优化API测试"""
 
@@ -383,7 +375,7 @@ class TestPerformanceOptimizationAPI:
                 "optimizations": [
                     {"optimization": "database", "results": {"status": "optimized"}}
                 ],
-                "timestamp": datetime.now().isoformat(),
+                "timestamp": utc_now().isoformat(),
                 "status": "completed"
             }
             mock_optimizer.optimize_system_performance = AsyncMock(return_value=mock_results)
@@ -406,7 +398,7 @@ class TestPerformanceOptimizationAPI:
                 disk_usage={"read_bytes": 1024**3, "write_bytes": 512 * 1024**2},
                 network_usage={"bytes_sent": 100 * 1024**2, "bytes_recv": 200 * 1024**2},
                 bottlenecks=[],
-                timestamp=datetime.now()
+                timestamp=utc_now()
             )
             mock_optimizer.collect_metrics = AsyncMock(return_value=mock_metrics)
             mock_get_optimizer.return_value = mock_optimizer
@@ -459,7 +451,7 @@ class TestPerformanceOptimizationAPI:
         with patch('api.v1.platform_integration.get_performance_optimizer') as mock_get_optimizer:
             mock_optimizer = Mock()
             mock_report = {
-                "timestamp": datetime.now().isoformat(),
+                "timestamp": utc_now().isoformat(),
                 "performance_score": 87.5,
                 "bottlenecks": [],
                 "recommendations": ["System performance is good"]
@@ -473,7 +465,6 @@ class TestPerformanceOptimizationAPI:
             data = response.json()
             assert data["status"] == "success"
             assert data["report"]["performance_score"] == 87.5
-
 
 class TestDocumentationAPI:
     """文档生成API测试"""
@@ -513,7 +504,6 @@ class TestDocumentationAPI:
             data = response.json()
             assert data["status"] == "success"
             assert "estimated_duration" in data
-
 
 class TestSystemConfigAPI:
     """系统配置API测试"""
@@ -555,7 +545,6 @@ class TestSystemConfigAPI:
             assert "components" in data["stats"]
             assert "workflows" in data["stats"]
             assert data["stats"]["components"]["total"] == 2
-
 
 class TestAPIErrorHandling:
     """API错误处理测试"""

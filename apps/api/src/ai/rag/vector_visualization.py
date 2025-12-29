@@ -9,7 +9,6 @@ from typing import Dict, Any, List, Optional, Tuple, Union
 from enum import Enum
 from dataclasses import dataclass, field
 import asyncio
-import logging
 from datetime import datetime
 from src.core.utils.timezone_utils import utc_now, utc_factory, timezone
 import json
@@ -20,11 +19,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sklearn.manifold import TSNE
 from sklearn.decomposition import PCA
 import matplotlib
-matplotlib.use('Agg')  # 使用非交互式后端
 import matplotlib.pyplot as plt
 import seaborn as sns
 from scipy.spatial import ConvexHull
 import warnings
+
+from src.core.logging import get_logger
+logger = get_logger(__name__)
+
+matplotlib.use('Agg')  # 使用非交互式后端
 warnings.filterwarnings('ignore')
 
 # 尝试导入UMAP（可选依赖）
@@ -33,11 +36,8 @@ try:
     HAS_UMAP = True
 except ImportError:
     HAS_UMAP = False
-    logger = logging.getLogger(__name__)
+    logger = get_logger(__name__)
     logger.warning("UMAP未安装，部分功能将不可用")
-
-logger = logging.getLogger(__name__)
-
 
 class VisualizationMethod(str, Enum):
     """可视化方法"""
@@ -47,7 +47,6 @@ class VisualizationMethod(str, Enum):
     MDS = "mds"  # Multidimensional Scaling
     ISOMAP = "isomap"
 
-
 class PlotType(str, Enum):
     """图表类型"""
     SCATTER = "scatter"
@@ -55,7 +54,6 @@ class PlotType(str, Enum):
     CONTOUR = "contour"
     HEATMAP = "heatmap"
     TRAJECTORY = "trajectory"
-
 
 @dataclass
 class VisualizationConfig:
@@ -74,7 +72,6 @@ class VisualizationConfig:
     show_labels: bool = False
     alpha: float = 0.7
 
-
 @dataclass
 class VisualizationResult:
     """可视化结果"""
@@ -84,7 +81,6 @@ class VisualizationResult:
     plot_type: PlotType
     metadata: Dict[str, Any] = field(default_factory=dict)
     statistics: Dict[str, float] = field(default_factory=dict)
-
 
 class VectorVisualizationEngine:
     """向量可视化引擎"""
@@ -102,7 +98,7 @@ class VectorVisualizationEngine:
     ) -> VisualizationResult:
         """可视化高维向量"""
         try:
-            start_time = asyncio.get_event_loop().time()
+            start_time = asyncio.get_running_loop().time()
             
             # 降维
             embedding = await self._reduce_dimensions(vectors, config)
@@ -134,7 +130,7 @@ class VectorVisualizationEngine:
             if entity_ids:
                 await self._save_visualization(entity_ids, result)
             
-            end_time = asyncio.get_event_loop().time()
+            end_time = asyncio.get_running_loop().time()
             result.metadata['execution_time_ms'] = (end_time - start_time) * 1000
             
             logger.info(f"可视化完成: {config.method.value}, {len(vectors)}个向量")
@@ -548,8 +544,8 @@ class VectorVisualizationEngine:
                                 plt.plot(cluster_points[simplex, 0], 
                                        cluster_points[simplex, 1], 
                                        color=colors(i), alpha=0.2, linewidth=1)
-                        except:
-                            pass
+                        except Exception:
+                            logger.exception("捕获到未处理异常，已继续执行")
                     
                     # 标记簇中心
                     center = cluster_points.mean(axis=0)

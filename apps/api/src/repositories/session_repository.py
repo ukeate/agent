@@ -9,13 +9,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from datetime import datetime
 from datetime import timedelta
 from src.core.utils.timezone_utils import utc_now, utc_factory
-import logging
-
 from .base import BaseRepository
 from src.models.database.session import Session
 
-logger = logging.getLogger(__name__)
-
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 class SessionRepository(BaseRepository[Session, str]):
     """会话仓储"""
@@ -241,7 +239,7 @@ class SessionRepository(BaseRepository[Session, str]):
             # 添加搜索条件
             if query:
                 # 这里可以搜索会话中的消息内容，具体实现依赖于数据库
-                pass
+                conditions.append(self.model_class.title.ilike(f"%{query}%"))
             
             if user_id:
                 conditions.append(self.model_class.user_id == user_id)

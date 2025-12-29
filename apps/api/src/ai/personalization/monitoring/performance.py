@@ -6,20 +6,19 @@ from collections import deque
 from dataclasses import dataclass, field
 from datetime import datetime
 from datetime import timedelta
-from src.core.utils.timezone_utils import utc_now, utc_factory
+from src.core.utils.timezone_utils import utc_now
 from typing import Dict, List, Any, Optional, Tuple, Deque
 import numpy as np
 from prometheus_client import Counter, Histogram, Gauge, Summary
 import psutil
-import aioredis
+import redis.asyncio as redis_async
 from opentelemetry import trace
 from opentelemetry.exporter.jaeger import JaegerExporter
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
-import logging
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 # Prometheus metrics
 recommendation_latency = Histogram(
@@ -90,7 +89,7 @@ class LatencyBreakdown:
 class PerformanceMonitor:
     """性能监控器"""
     
-    def __init__(self, redis_client: aioredis.Redis):
+    def __init__(self, redis_client: redis_async.Redis):
         self.redis = redis_client
         self.latency_buffer: Deque[float] = deque(maxlen=10000)
         self.throughput_buffer: Deque[Tuple[datetime, int]] = deque(maxlen=1000)
@@ -530,3 +529,4 @@ class LoadTester:
             report.append("-" * 40)
             
         return "\n".join(report)
+from src.core.logging import get_logger

@@ -3,23 +3,18 @@ DAG任务规划器
 使用NetworkX构建和优化任务依赖图
 """
 
-import logging
 from typing import Dict, List, Optional, Any, Tuple, Set
 from dataclasses import dataclass
 from enum import Enum
-
 import networkx as nx
+from src.models.schemas.workflow import TaskNode, TaskDAG, TaskDependencyType, WorkflowStepType
 
-from models.schemas.workflow import TaskNode, TaskDAG, TaskDependencyType, WorkflowStepType
 from src.core.logging import get_logger
-
 logger = get_logger(__name__)
-
 
 class PlanningError(Exception):
     """规划错误"""
-    pass
-
+    ...
 
 class SchedulingStrategy(Enum):
     """调度策略"""
@@ -27,7 +22,6 @@ class SchedulingStrategy(Enum):
     CRITICAL_PATH = "critical_path"        # 关键路径优先
     RESOURCE_BALANCED = "resource_balanced" # 资源平衡
     DEADLINE_AWARE = "deadline_aware"      # 截止时间感知
-
 
 @dataclass
 class ExecutionPlan:
@@ -37,7 +31,6 @@ class ExecutionPlan:
     total_duration: int       # 总预估时间(分钟)
     max_parallelism: int      # 最大并行度
     resource_requirements: Dict[str, Any]  # 资源需求
-
 
 class TaskPlanner:
     """DAG任务规划器"""
@@ -536,7 +529,7 @@ class TaskPlanner:
                 # 如果后继任务只依赖于当前任务，可以考虑合并
                 if len(list(graph.predecessors(successor))) == 1:
                     # 这里可以实现任务合并逻辑
-                    pass
+                    continue
         
         return graph
     

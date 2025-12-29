@@ -7,24 +7,22 @@
 
 import optuna
 import optuna.visualization as vis
-from optuna.samplers import TPESampler, CmaEsSampler, RandomSampler, GridSampler
+from optuna.samplers import TPESampler, CmaEsSampler, RandomSampler, GridSampler, NSGAIISampler
 from optuna.pruners import MedianPruner, HyperbandPruner, SuccessiveHalvingPruner
 from typing import Dict, List, Optional, Any, Callable, Union
 import numpy as np
 import json
-import logging
 from datetime import datetime
 from datetime import timedelta
-from src.core.utils.timezone_utils import utc_now, utc_factory
+from src.core.utils.timezone_utils import utc_now
 import asyncio
-import concurrent.futures
 from dataclasses import dataclass, asdict
 from enum import Enum
-import sqlite3
-import pickle
 from pathlib import Path
 import psutil
 
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 class OptimizationAlgorithm(Enum):
     """优化算法枚举"""
@@ -34,14 +32,12 @@ class OptimizationAlgorithm(Enum):
     GRID = "grid"
     NSGA2 = "nsga2"
 
-
 class PruningAlgorithm(Enum):
     """剪枝算法枚举"""
     MEDIAN = "median"
     HYPERBAND = "hyperband"
     SUCCESSIVE_HALVING = "successive_halving"
     NONE = "none"
-
 
 @dataclass
 class HyperparameterRange:
@@ -53,7 +49,6 @@ class HyperparameterRange:
     choices: Optional[List[Any]] = None
     log: bool = False
     step: Optional[float] = None
-
 
 @dataclass
 class OptimizationConfig:
@@ -81,7 +76,6 @@ class OptimizationConfig:
     storage_url: Optional[str] = None
     load_if_exists: bool = True
 
-
 class HyperparameterOptimizer:
     """超参数优化器核心引擎"""
     
@@ -100,12 +94,11 @@ class HyperparameterOptimizer:
             "pruned_trials": 0
         }
         
-        # 设置日志
-        logging.basicConfig(level=logging.INFO)
-        self.logger = logging.getLogger(__name__)
+        self.logger = get_logger(__name__)
         
-        # 初始化研究
-        self._setup_study()
+        # 初始化研究（GRID需要参数范围后再创建）
+        if self.config.algorithm != OptimizationAlgorithm.GRID:
+            self._setup_study()
     
     def _setup_study(self):
         """设置Optuna研究"""
@@ -153,10 +146,54 @@ class HyperparameterOptimizer:
         elif self.config.algorithm == OptimizationAlgorithm.RANDOM:
             return RandomSampler()
         elif self.config.algorithm == OptimizationAlgorithm.GRID:
-            # GridSampler需要search_space参数，延迟创建
-            return None
+            search_space = self._build_grid_search_space()
+            if not search_space:
+                raise ValueError("GRID算法需要有效的参数搜索空间")
+            return GridSampler(search_space)
+        elif self.config.algorithm == OptimizationAlgorithm.NSGA2:
+            return NSGAIISampler()
         else:
             return TPESampler()
+
+    def _build_grid_search_space(self) -> Dict[str, List[Any]]:
+        """构建网格搜索空间"""
+        search_space: Dict[str, List[Any]] = {}
+        for name, config in self.parameter_ranges.items():
+            if isinstance(config, HyperparameterRange):
+                param_type = config.type
+                low = config.low
+                high = config.high
+                choices = config.choices
+                step = config.step
+            else:
+                param_type = config.get("type")
+                low = config.get("low")
+                high = config.get("high")
+                choices = config.get("choices")
+                step = config.get("step")
+
+            if param_type == "categorical":
+                if not choices:
+                    continue
+                search_space[name] = list(choices)
+            elif param_type == "int":
+                if low is None or high is None:
+                    continue
+                step_value = int(step or 1)
+                search_space[name] = list(range(int(low), int(high) + 1, step_value))
+            elif param_type == "float":
+                if low is None or high is None:
+                    continue
+                if step:
+                    values = []
+                    value = float(low)
+                    while value <= float(high) + 1e-12:
+                        values.append(float(value))
+                        value += float(step)
+                else:
+                    values = [float(low), (float(low) + float(high)) / 2, float(high)]
+                search_space[name] = values
+        return search_space
     
     def _create_pruner(self):
         """创建剪枝器"""
@@ -186,10 +223,14 @@ class HyperparameterOptimizer:
         """添加参数搜索范围"""
         self.parameter_ranges[param_range.name] = param_range
         self.logger.info(f"Added parameter: {param_range.name} ({param_range.type})")
+        if self.config.algorithm == OptimizationAlgorithm.GRID and self.study is None:
+            self._setup_study()
     
     def add_parameter_ranges(self, ranges: Dict[str, Dict[str, Any]]):
         """添加多个参数搜索范围"""
         self.parameter_ranges = ranges
+        if self.config.algorithm == OptimizationAlgorithm.GRID and self.study is None:
+            self._setup_study()
     
     def suggest_parameters(self, trial) -> Dict[str, Any]:
         """建议参数（兼容方法）"""
@@ -276,7 +317,8 @@ class HyperparameterOptimizer:
         callbacks: Optional[List[Callable]] = None
     ) -> Dict[str, Any]:
         """执行优化"""
-        
+        if self.study is None:
+            self._setup_study()
         self.optimization_stats["start_time"] = utc_now()
         
         def wrapped_objective(trial):
@@ -395,63 +437,14 @@ class HyperparameterOptimizer:
     
     async def optimize_async(self, objective_function) -> Dict[str, Any]:
         """异步优化"""
-        import asyncio
-        
+        if not asyncio.iscoroutinefunction(objective_function):
+            return await asyncio.to_thread(self.optimize, objective_function)
+
         def wrapped_objective(trial):
             params = self.suggest_parameters(trial)
-            # 运行异步函数
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            try:
-                value = loop.run_until_complete(objective_function(params))
-                return value
-            finally:
-                loop.close()
-        
-        return self.optimize(wrapped_objective)
-    
-    def _create_objective_wrapper(self, objective_function):
-        """创建目标函数包装器"""
-        import inspect
-        
-        if inspect.iscoroutinefunction(objective_function):
-            # 异步函数
-            async def async_wrapper(trial):
-                params = self.suggest_parameters(trial)
-                return await objective_function(params)
-            return async_wrapper
-        else:
-            # 同步函数
-            def sync_wrapper(trial):
-                params = self.suggest_parameters(trial)
-                return objective_function(params)
-            return sync_wrapper
-    
-    def get_optimization_history_old(self) -> Dict[str, Any]:
-        """获取优化历史"""
-        
-        trials_data = []
-        for trial in self.study.trials:
-            trial_data = {
-                "number": trial.number,
-                "value": trial.value,
-                "params": trial.params,
-                "state": trial.state.name,
-                "datetime_start": trial.datetime_start.isoformat() if trial.datetime_start else None,
-                "datetime_complete": trial.datetime_complete.isoformat() if trial.datetime_complete else None,
-                "duration": trial.duration.total_seconds() if trial.duration else None
-            }
-            trials_data.append(trial_data)
-        
-        return {
-            "study_name": self.config.study_name,
-            "direction": self.config.direction,
-            "best_value": self.study.best_value if self.study.best_trial else None,
-            "best_params": self.study.best_params if self.study.best_trial else None,
-            "n_trials": len(self.study.trials),
-            "trials": trials_data,
-            "parameter_ranges": {name: asdict(param) for name, param in self.parameter_ranges.items()}
-        }
+            return asyncio.run(objective_function(params))
+
+        return await asyncio.to_thread(self.optimize, wrapped_objective)
     
     def create_visualizations(self, save_path: Optional[str] = None) -> Dict[str, Any]:
         """创建可视化图表"""
@@ -537,7 +530,6 @@ class HyperparameterOptimizer:
         
         self.logger.info(f"Study loaded from {file_path}")
 
-
 class EarlyStoppingCallback:
     """早停回调函数"""
     
@@ -547,8 +539,7 @@ class EarlyStoppingCallback:
         self.best_value = None
         self.patience_counter = 0
         
-        logging.basicConfig(level=logging.INFO)
-        self.logger = logging.getLogger(__name__)
+        self.logger = get_logger(__name__)
     
     def __call__(self, study: optuna.Study, trial: optuna.trial.FrozenTrial):
         """执行早停检查"""
@@ -587,7 +578,6 @@ class EarlyStoppingCallback:
             self.logger.info(f"Early stopping triggered after {trial.number} trials")
             study.stop()
 
-
 class ResourceManager:
     """资源管理器"""
     
@@ -601,7 +591,7 @@ class ResourceManager:
             "gpu_memory": 0.0
         }
         
-        self.logger = logging.getLogger(__name__)
+        self.logger = get_logger(__name__)
         self._monitor_resources()
     
     def _monitor_resources(self):
@@ -620,9 +610,10 @@ class ResourceManager:
             if device_count > 0:
                 handle = pynvml.nvmlDeviceGetHandleByIndex(0)
                 mem_info = pynvml.nvmlDeviceGetMemoryInfo(handle)
-                self.resource_usage["gpu_memory"] = mem_info.used / mem_info.total
-        except:
-            pass
+                self.resource_usage["gpu_memory"] = mem_info.used / max(mem_info.total, 1)
+        except Exception:
+            self.logger.debug("GPU资源监控不可用", exc_info=True)
+            self.resource_usage["gpu_memory"] = 0.0
     
     def can_start_trial(self) -> bool:
         """检查是否可以启动新试验"""

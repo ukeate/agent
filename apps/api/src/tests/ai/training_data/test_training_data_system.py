@@ -15,13 +15,11 @@ import asyncio
 import json
 import tempfile
 from datetime import datetime
-from src.core.utils.timezone_utils import utc_now, utc_factory, timezone
+from src.core.utils.timezone_utils import utc_now
 from pathlib import Path
 from unittest.mock import Mock, AsyncMock, patch
 from fastapi.testclient import TestClient
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
-from sqlalchemy.orm import sessionmaker
-
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from ....main import app
 from ....ai.training_data.models import Base, SourceType, DataStatus, AnnotationTaskType, AnnotationStatus
 from ....ai.training_data.core import DataSource, DataRecord, AnnotationTask, Annotation, DataFilter, ExportFormat
@@ -29,9 +27,11 @@ from ....ai.training_data.collectors import CollectorFactory, APIDataCollector, 
 from ....ai.training_data.preprocessing import DataPreprocessor
 from ....ai.training_data.annotation import AnnotationManager, QualityController
 from ....ai.training_data.version_manager import DataVersionManager
+from src.core.logging import setup_logging
 
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
-# 测试数据库配置
 TEST_DATABASE_URL = "sqlite+aiosqlite:///./test_training_data.db"
 
 @pytest.fixture
@@ -49,23 +49,20 @@ async def async_engine():
     
     await engine.dispose()
 
-
 @pytest.fixture
 async def async_session(async_engine):
     """创建测试数据库会话"""
-    async_session_factory = sessionmaker(
+    async_session_factory = async_sessionmaker(
         async_engine, class_=AsyncSession, expire_on_commit=False
     )
     
     async with async_session_factory() as session:
         yield session
 
-
 @pytest.fixture
 def client():
     """创建测试客户端"""
     return TestClient(app)
-
 
 @pytest.fixture
 def sample_data_source():
@@ -82,7 +79,6 @@ def sample_data_source():
             "params": {"limit": 100}
         }
     )
-
 
 @pytest.fixture
 def sample_records():
@@ -105,7 +101,6 @@ def sample_records():
             status=DataStatus.RAW
         )
     ]
-
 
 class TestDataCollectors:
     """数据收集器测试"""
@@ -181,7 +176,6 @@ class TestDataCollectors:
         finally:
             Path(temp_file_path).unlink()
 
-
 class TestDataPreprocessing:
     """数据预处理测试"""
     
@@ -245,7 +239,6 @@ class TestDataPreprocessing:
         
         # 应该去除一个重复记录
         assert len(processed_records) == 2
-
 
 class TestAnnotationSystem:
     """标注系统测试"""
@@ -352,7 +345,6 @@ class TestAnnotationSystem:
         assert report.task_id == "quality_test_task"
         assert 0.0 <= report.overall_score <= 1.0
         assert "percentage_agreement" in report.agreement_metrics
-
 
 class TestVersionManagement:
     """版本管理测试"""
@@ -501,7 +493,6 @@ class TestVersionManagement:
                 assert len(exported_data) == 2
                 assert exported_data[0]['record_id'] in ['rec_001', 'rec_002']
 
-
 class TestAPIEndpoints:
     """API端点测试"""
     
@@ -546,7 +537,6 @@ class TestAPIEndpoints:
         assert "records" in data
         assert "tasks" in data
         assert "annotations" in data
-
 
 class TestIntegration:
     """集成测试"""
@@ -661,8 +651,7 @@ class TestIntegration:
             assert progress.annotated_records == 2
             assert progress.progress_percentage == 100.0
         
-        print("Integration test completed successfully!")
-
+        logger.info("Integration test completed successfully!")
 
 # 性能测试
 class TestPerformance:
@@ -699,12 +688,12 @@ class TestPerformance:
         
         # 计算处理速度
         records_per_second = len(processed_records) / processing_time
-        print(f"Processing speed: {records_per_second:.2f} records/second")
+        logger.info(f"Processing speed: {records_per_second:.2f} records/second")
         
         # 基本性能要求
         assert records_per_second > 1.0  # 至少每秒处理1条记录
 
-
 if __name__ == "__main__":
+    setup_logging()
     # 运行测试
     pytest.main([__file__, "-v", "--tb=short"])

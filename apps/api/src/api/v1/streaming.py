@@ -5,18 +5,15 @@
 """
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, HTTPException, Depends
-from fastapi.responses import StreamingResponse
-from pydantic import BaseModel
 from typing import Optional, Dict, Any
-import logging
 import uuid
-from datetime import datetime
-from src.core.utils.timezone_utils import utc_now, utc_factory
-
+from src.core.utils.timezone_utils import utc_now
 from src.ai.streaming import StreamProcessor
 from src.core.dependencies import get_current_user
+from src.api.base_model import ApiBaseModel
 
-logger = logging.getLogger(__name__)
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 # 创建路由器
 router = APIRouter(prefix="/streaming", tags=["streaming"])
@@ -31,23 +28,20 @@ def get_stream_processor():
         stream_processor = StreamProcessor()
     return stream_processor
 
-
-class StreamingRequest(BaseModel):
+class StreamingRequest(ApiBaseModel):
     """流式处理请求"""
     agent_id: str
     message: str
     session_id: Optional[str] = None
     buffer_size: Optional[int] = None
 
-
-class StreamingResponse(BaseModel):
+class StreamingSessionResponse(ApiBaseModel):
     """流式处理响应"""
     session_id: str
     status: str
     message: str
 
-
-@router.post("/start", response_model=StreamingResponse)
+@router.post("/start", response_model=StreamingSessionResponse)
 async def start_streaming_session(
     request: StreamingRequest,
     current_user: Optional[str] = Depends(get_current_user)
@@ -70,7 +64,7 @@ async def start_streaming_session(
         
         logger.info(f"启动流式会话: {session_id} (用户: {current_user})")
         
-        return StreamingResponse(
+        return StreamingSessionResponse(
             session_id=session_id,
             status="created",
             message="流式处理会话已创建"
@@ -79,7 +73,6 @@ async def start_streaming_session(
     except Exception as e:
         logger.error(f"创建流式会话失败: {e}")
         raise HTTPException(status_code=500, detail=str(e))
-
 
 @router.get("/sse/{session_id}")
 async def stream_sse(
@@ -120,7 +113,6 @@ async def stream_sse(
         logger.error(f"SSE流式处理失败: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-
 @router.websocket("/ws/{session_id}")
 async def websocket_endpoint(websocket: WebSocket, session_id: str):
     """
@@ -150,10 +142,9 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
     except Exception as e:
         logger.error(f"WebSocket处理失败: {e}")
         try:
-            await websocket.close(code=1011, reason="服务器错误")
-        except:
-            pass
-
+            await websocket.close(code=1011)
+        except Exception:
+            logger.exception("关闭WebSocket失败", exc_info=True)
 
 @router.get("/sessions/{session_id}/metrics")
 async def get_session_metrics(
@@ -181,7 +172,6 @@ async def get_session_metrics(
         logger.error(f"获取会话指标失败: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-
 @router.get("/sessions")
 async def list_sessions(
     current_user: Optional[str] = Depends(get_current_user)
@@ -204,7 +194,6 @@ async def list_sessions(
         logger.error(f"获取会话列表失败: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-
 @router.get("/metrics")
 async def get_system_metrics(
     current_user: Optional[str] = Depends(get_current_user)
@@ -225,7 +214,6 @@ async def get_system_metrics(
     except Exception as e:
         logger.error(f"获取系统指标失败: {e}")
         raise HTTPException(status_code=500, detail=str(e))
-
 
 @router.get("/backpressure/status")
 async def get_backpressure_status(
@@ -256,7 +244,6 @@ async def get_backpressure_status(
         logger.error(f"获取背压状态失败: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-
 @router.get("/flow-control/metrics")
 async def get_flow_control_metrics(
     current_user: Optional[str] = Depends(get_current_user)
@@ -278,7 +265,6 @@ async def get_flow_control_metrics(
         logger.error(f"获取流量控制指标失败: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-
 @router.get("/queue/status")
 async def get_queue_status(
     current_user: Optional[str] = Depends(get_current_user)
@@ -289,7 +275,7 @@ async def get_queue_status(
     返回所有监控队列的状态和指标。
     """
     try:
-        from ai.streaming.queue_monitor import queue_monitor_manager
+        from src.ai.streaming.queue_monitor import queue_monitor_manager
         
         queue_metrics = queue_monitor_manager.get_all_metrics()
         system_summary = queue_monitor_manager.get_system_summary()
@@ -319,7 +305,6 @@ async def get_queue_status(
     except Exception as e:
         logger.error(f"获取队列状态失败: {e}")
         raise HTTPException(status_code=500, detail=str(e))
-
 
 @router.delete("/sessions/{session_id}")
 async def stop_session(
@@ -356,7 +341,6 @@ async def stop_session(
         logger.error(f"停止会话失败: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-
 @router.post("/sessions/{session_id}/cleanup")
 async def cleanup_session(
     session_id: str,
@@ -381,7 +365,6 @@ async def cleanup_session(
     except Exception as e:
         logger.error(f"清理会话失败: {e}")
         raise HTTPException(status_code=500, detail=str(e))
-
 
 # 健康检查端点
 @router.get("/health")
@@ -411,12 +394,10 @@ async def health_check():
             "timestamp": utc_now().isoformat()
         }
 
-
 # 应用启动时初始化
 async def initialize_streaming():
     """初始化流式处理服务"""
     logger.info("初始化流式处理服务...")
-
 
 # 应用关闭时清理资源
 async def shutdown_streaming():

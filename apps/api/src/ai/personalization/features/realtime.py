@@ -9,14 +9,12 @@ from dataclasses import dataclass
 from redis.asyncio import Redis
 import numpy as np
 from collections import defaultdict, deque
-import logging
-
-from models.schemas.personalization import RealTimeFeatures
+from src.models.schemas.personalization import RealTimeFeatures
 from .extractors import FeatureExtractor
 from .aggregators import FeatureAggregator
 
-logger = logging.getLogger(__name__)
-
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 @dataclass
 class FeatureConfig:
@@ -38,7 +36,6 @@ class FeatureConfig:
                 "contextual": 0.2,
                 "aggregated": 0.1
             }
-
 
 class RealTimeFeatureEngine:
     """实时特征计算引擎"""

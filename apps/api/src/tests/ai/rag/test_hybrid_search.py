@@ -3,7 +3,6 @@
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 from typing import List
-
 from src.ai.rag.hybrid_search import (
     HybridSearchConfig,
     HybridSearchEngine,
@@ -15,7 +14,6 @@ from src.ai.rag.hybrid_search import (
     get_hybrid_search_config,
 )
 from qdrant_client.models import ScoredPoint
-
 
 class TestLanguageDetector:
     """语言检测器测试"""
@@ -39,7 +37,6 @@ class TestLanguageDetector:
         detector = LanguageDetector()
         result = detector.detect("123456")
         assert result == "auto"
-
 
 class TestQueryPreprocessor:
     """查询预处理器测试"""
@@ -72,7 +69,6 @@ class TestQueryPreprocessor:
         assert result.original == "测试 test query"
         assert result.language in ["zh", "en", "mixed"]
         assert isinstance(result.keywords, list)
-
 
 class TestQdrantBM42Client:
     """QdrantBM42客户端测试"""
@@ -215,7 +211,6 @@ class TestQdrantBM42Client:
             assert v_results == vector_results
             assert b_results == bm25_results
 
-
 class TestHybridSearchEngine:
     """混合搜索引擎测试"""
     
@@ -313,7 +308,6 @@ class TestHybridSearchEngine:
         file_paths = [r.file_path for r in reranked[:2]]
         assert len(set(file_paths)) >= 1  # 至少有一个不同的文件
 
-
 class TestConfiguration:
     """配置测试"""
     
@@ -342,7 +336,6 @@ class TestConfiguration:
         assert config.cache_ttl == 1800
         assert config.rrf_k == 50
 
-
 @pytest.mark.integration
 class TestHybridSearchIntegration:
     """混合搜索集成测试"""
@@ -365,7 +358,6 @@ class TestHybridSearchIntegration:
         # 检查RAG服务是否有BM42搜索引擎实例
         assert hasattr(rag_service, 'bm42_search_engine')
         assert rag_service.bm42_search_engine is not None
-
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

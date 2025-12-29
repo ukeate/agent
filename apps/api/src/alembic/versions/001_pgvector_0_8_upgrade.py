@@ -5,6 +5,7 @@ Revises:
 Create Date: 2025-08-15 10:00:00.000000
 
 """
+
 from alembic import op
 import sqlalchemy as sa
 from sqlalchemy import text
@@ -13,12 +14,14 @@ import uuid
 from datetime import datetime
 from src.core.utils.timezone_utils import utc_now, utc_factory
 
+from src.core.logging import get_logger
+logger = get_logger(__name__)
+
 # revision identifiers
 revision = 'pgvector_0_8_upgrade'
 down_revision = None
 branch_labels = None
 depends_on = None
-
 
 def upgrade():
     """升级到pgvector 0.8"""
@@ -34,7 +37,7 @@ def upgrade():
         try:
             connection.execute(text("ALTER EXTENSION vector UPDATE TO '0.8'"))
         except Exception as e:
-            print(f"Warning: Failed to upgrade vector extension to 0.8: {e}")
+            logger.warning("升级vector扩展到0.8失败", error=str(e))
             # 继续执行，可能已经是0.8版本
         
         # 3. 创建量化参数表
@@ -82,7 +85,7 @@ def upgrade():
         try:
             connection.execute(text("ALTER TABLE knowledge_items ALTER COLUMN embedding TYPE vector(1536)"))
         except Exception as e:
-            print(f"Warning: Failed to alter embedding column to vector type: {e}")
+            logger.warning("embedding列转换为vector类型失败", error=str(e))
         
         # 7. 创建索引
         op.create_index(
@@ -140,7 +143,7 @@ def upgrade():
                 WITH (m = 16, ef_construction = 200)
             """))
         except Exception as e:
-            print(f"Note: HNSW index will be created later when data is present: {e}")
+            logger.info("HNSW索引稍后创建", error=str(e))
         
         # 11. 优化PostgreSQL配置（会话级别）
         try:
@@ -148,14 +151,13 @@ def upgrade():
             connection.execute(text("SET effective_cache_size = '2GB'"))
             connection.execute(text("SET random_page_cost = 1.1"))
         except Exception as e:
-            print(f"Note: Some configuration changes may require server restart: {e}")
+            logger.info("配置变更可能需要重启数据库", error=str(e))
         
-        print("pgvector 0.8 upgrade completed successfully")
+        logger.info("pgvector 0.8 升级完成")
         
     except Exception as e:
-        print(f"Error during pgvector upgrade: {e}")
+        logger.exception("pgvector 升级失败")
         raise
-
 
 def downgrade():
     """降级pgvector版本"""
@@ -174,21 +176,21 @@ def downgrade():
         # 删除HNSW索引
         try:
             connection.execute(text("DROP INDEX CONCURRENTLY IF EXISTS idx_knowledge_items_embedding_hnsw"))
-        except Exception:
-            pass
+        except Exception as e:
+            logger.info("删除HNSW索引失败", error=str(e))
         
         # 删除触发器
         for table in ['vector_quantization_params', 'knowledge_items']:
             try:
                 connection.execute(text(f"DROP TRIGGER IF EXISTS update_{table}_updated_at ON {table}"))
-            except Exception:
-                pass
+            except Exception as e:
+                logger.info("删除触发器失败", table=table, error=str(e))
         
         # 删除触发器函数
         try:
             connection.execute(text("DROP FUNCTION IF EXISTS update_updated_at_column()"))
-        except Exception:
-            pass
+        except Exception as e:
+            logger.info("删除触发器函数失败", error=str(e))
         
         # 删除表
         op.drop_table('knowledge_items')
@@ -199,10 +201,10 @@ def downgrade():
         try:
             connection.execute(text("ALTER EXTENSION vector UPDATE TO '0.5'"))
         except Exception as e:
-            print(f"Warning: Could not downgrade vector extension: {e}")
+            logger.warning("降级vector扩展失败", error=str(e))
         
-        print("pgvector downgrade completed")
+        logger.info("pgvector 降级完成")
         
     except Exception as e:
-        print(f"Error during pgvector downgrade: {e}")
+        logger.exception("pgvector 降级失败")
         raise

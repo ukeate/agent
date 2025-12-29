@@ -12,6 +12,8 @@ from src.core.utils.timezone_utils import utc_now, utc_factory
 from dataclasses import dataclass
 import json
 
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 @dataclass
 class FeatureConfig:
@@ -23,7 +25,6 @@ class FeatureConfig:
     normalization: str = 'none'  # 'none', 'min_max', 'z_score', 'log'
     encoding: str = 'none'  # 'none', 'one_hot', 'label', 'embedding'
     max_categories: int = 100  # 最大分类数
-
 
 class ContextFeatureProcessor:
     """上下文特征处理器"""
@@ -211,7 +212,7 @@ class ContextFeatureProcessor:
                     try:
                         values.append(float(value))
                     except (ValueError, TypeError):
-                        pass
+                        logger.debug("特征值无法转换为数值", feature=feature_name, value=value, exc_info=True)
             
             if values and feature_config.feature_type == 'numeric':
                 self.feature_stats[feature_name] = {
@@ -440,7 +441,6 @@ class ContextFeatureProcessor:
             }
         }
 
-
 class UserFeatureProcessor(ContextFeatureProcessor):
     """用户特征处理器"""
     
@@ -457,7 +457,6 @@ class UserFeatureProcessor(ContextFeatureProcessor):
             FeatureConfig("device_type", "categorical", encoding="one_hot"),
         ]
         super().__init__(user_features)
-
 
 class ItemFeatureProcessor(ContextFeatureProcessor):
     """物品特征处理器"""

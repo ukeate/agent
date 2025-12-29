@@ -1,22 +1,24 @@
 """
 情感状态建模系统API接口
 """
-from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
-from sqlalchemy.orm import Session
+
+from src.core.utils.timezone_utils import utc_now
+from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, WebSocket, WebSocketDisconnect
+from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Dict, List, Optional, Any
 from datetime import datetime
-from pydantic import BaseModel
+from src.core.database import get_db
+from src.services.emotion_modeling_service import EmotionModelingService
+from src.core.dependencies import get_current_user
+from src.api.base_model import ApiBaseModel
 
-from ...core.database import get_db
-from ...services.emotion_modeling_service import EmotionModelingService
-from ...core.security.auth import get_current_user
-
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 router = APIRouter(prefix="/emotion", tags=["emotion-modeling"])
 
-
 # Pydantic模型
-class EmotionStateInput(BaseModel):
+class EmotionStateInput(ApiBaseModel):
     emotion: str
     intensity: float = 0.5
     valence: Optional[float] = None
@@ -29,26 +31,23 @@ class EmotionStateInput(BaseModel):
     source: str = "manual"
     session_id: Optional[str] = None
 
-
-class PredictionRequest(BaseModel):
+class PredictionRequest(ApiBaseModel):
     time_horizon_hours: int = 1
 
-
-class AnalyticsRequest(BaseModel):
+class AnalyticsRequest(ApiBaseModel):
     days_back: int = 30
-
 
 @router.post("/state")
 async def record_emotion_state(
     emotion_data: EmotionStateInput,
     user_id: str = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_db)
 ):
     """记录情感状态"""
     service = EmotionModelingService(db)
     
     result = await service.process_emotion_state(
-        user_id, emotion_data.dict()
+        user_id, emotion_data.model_dump()
     )
     
     if 'error' in result:
@@ -56,21 +55,23 @@ async def record_emotion_state(
     
     return result
 
-
 @router.get("/state/latest")
 async def get_latest_emotion_state(
     user_id: str = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_db)
 ):
     """获取最新情感状态"""
     service = EmotionModelingService(db)
     
     latest_state = await service.repository.get_latest_emotion_state(user_id)
     if not latest_state:
-        raise HTTPException(status_code=404, detail="没有找到情感状态数据")
+        return {
+            "status": "empty",
+            "message": "没有找到情感状态数据",
+            "state": None
+        }
     
     return latest_state.to_dict()
-
 
 @router.get("/state/history")
 async def get_emotion_history(
@@ -79,7 +80,7 @@ async def get_emotion_history(
     end_date: Optional[str] = None,
     emotions: Optional[List[str]] = None,
     user_id: str = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_db)
 ):
     """获取情感历史"""
     service = EmotionModelingService(db)
@@ -93,12 +94,11 @@ async def get_emotion_history(
     
     return [state.to_dict() for state in history]
 
-
 @router.post("/predict")
 async def predict_emotions(
     request: PredictionRequest,
     user_id: str = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_db)
 ):
     """预测情感状态"""
     service = EmotionModelingService(db)
@@ -112,12 +112,11 @@ async def predict_emotions(
     
     return prediction
 
-
 @router.post("/analytics")
 async def get_emotion_analytics(
     request: AnalyticsRequest,
     user_id: str = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_db)
 ):
     """获取情感分析报告"""
     service = EmotionModelingService(db)
@@ -131,26 +130,28 @@ async def get_emotion_analytics(
     
     return analytics
 
-
 @router.get("/profile")
 async def get_personality_profile(
     user_id: str = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_db)
 ):
     """获取个性画像"""
     service = EmotionModelingService(db)
     
     profile = await service.repository.get_personality_profile(user_id)
     if not profile:
-        raise HTTPException(status_code=404, detail="个性画像不存在")
+        return {
+            "status": "empty",
+            "message": "个性画像不存在",
+            "profile": None
+        }
     
     return profile.to_dict()
-
 
 @router.get("/patterns")
 async def detect_patterns(
     user_id: str = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_db)
 ):
     """检测情感模式"""
     service = EmotionModelingService(db)
@@ -158,15 +159,18 @@ async def detect_patterns(
     patterns = await service.detect_emotion_patterns(user_id)
     
     if 'error' in patterns:
-        raise HTTPException(status_code=400, detail=patterns['error'])
+        return {
+            "status": "insufficient_data",
+            "message": patterns['error'],
+            "patterns": {}
+        }
     
     return patterns
-
 
 @router.get("/clusters")
 async def get_emotion_clusters(
     user_id: str = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_db)
 ):
     """获取情感聚类分析"""
     service = EmotionModelingService(db)
@@ -174,11 +178,10 @@ async def get_emotion_clusters(
     clusters = await service.prediction_engine.perform_emotion_clustering(user_id)
     return clusters
 
-
 @router.get("/transitions")
 async def get_transition_analysis(
     user_id: str = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_db)
 ):
     """获取情感转换分析"""
     service = EmotionModelingService(db)
@@ -191,11 +194,10 @@ async def get_transition_analysis(
         'patterns': patterns
     }
 
-
 @router.get("/export")
 async def export_data(
     user_id: str = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_db)
 ):
     """导出用户情感数据"""
     service = EmotionModelingService(db)
@@ -207,11 +209,10 @@ async def export_data(
     
     return data
 
-
 @router.delete("/data")
 async def delete_user_data(
     user_id: str = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_db)
 ):
     """删除用户数据（右被遗忘）"""
     service = EmotionModelingService(db)
@@ -223,27 +224,25 @@ async def delete_user_data(
     
     return {"message": "用户数据已删除"}
 
-
 @router.get("/status")
 async def get_system_status(
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_db)
 ):
     """获取系统状态"""
     service = EmotionModelingService(db)
     return service.get_system_status()
 
-
 @router.get("/statistics")
 async def get_emotion_statistics(
     days: int = 30,
     user_id: str = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_db)
 ):
     """获取情感统计数据"""
     service = EmotionModelingService(db)
     
     from datetime import timedelta
-    end_time = datetime.now()
+    end_time = utc_now()
     start_time = end_time - timedelta(days=days)
     
     stats = await service.repository.get_emotion_statistics(
@@ -252,15 +251,12 @@ async def get_emotion_statistics(
     
     return stats.to_dict()
 
-
 # WebSocket接口（用于实时更新）
 @router.websocket("/realtime/{user_id}")
-async def emotion_realtime_updates(websocket, user_id: str):
+async def emotion_realtime_updates(websocket: WebSocket, user_id: str):
     """实时情感状态更新WebSocket"""
     await websocket.accept()
     
-    # 这里应该实现WebSocket的实时推送逻辑
-    # 由于时间限制，暂时保持连接
     try:
         while True:
             # 等待客户端消息或发送更新
@@ -270,9 +266,18 @@ async def emotion_realtime_updates(websocket, user_id: str):
             await websocket.send_json({
                 "type": "status_update",
                 "user_id": user_id,
-                "timestamp": datetime.now().isoformat()
+                "timestamp": utc_now().isoformat()
             })
+    except WebSocketDisconnect:
+        logger.info("WebSocket连接断开", user_id=user_id)
     except Exception as e:
-        print(f"WebSocket连接错误: {e}")
+        logger.error("情感建模WebSocket连接错误", user_id=user_id, error=str(e))
+        try:
+            await websocket.close(code=1011)
+        except Exception:
+            logger.exception("关闭WebSocket失败", exc_info=True)
     finally:
-        await websocket.close()
+        try:
+            await websocket.close()
+        except Exception:
+            logger.exception("关闭WebSocket失败", exc_info=True)

@@ -21,16 +21,6 @@ export const GroupChatMessages: React.FC<GroupChatMessagesProps> = ({
     return agents.find(agent => agent.name === senderName)
   }
 
-  // 消息分组：按轮次分组
-  const messagesByRound = messages.reduce((acc, message) => {
-    const roundKey = message.round
-    if (!acc[roundKey]) {
-      acc[roundKey] = []
-    }
-    acc[roundKey].push(message)
-    return acc
-  }, {} as Record<number, MultiAgentMessage[]>)
-
   const formatTimestamp = (timestamp: string) => {
     return new Date(timestamp).toLocaleTimeString('zh-CN', {
       hour: '2-digit',
@@ -40,118 +30,102 @@ export const GroupChatMessages: React.FC<GroupChatMessagesProps> = ({
   }
 
   return (
-    <div className={`space-y-6 ${className}`}>
-      {Object.entries(messagesByRound)
-        .sort(([a], [b]) => Number(a) - Number(b))
-        .map(([round, roundMessages]) => (
-          <div key={round} className="space-y-4">
-            {/* 轮次标识 */}
-            <div className="flex items-center justify-center">
-              <div className="bg-gray-100 text-gray-600 px-3 py-1 rounded-full text-sm font-medium">
-                第 {round} 轮讨论
+    <div className={`flex flex-col gap-4 ${className}`}>
+      {messages.map((message) => {
+        const agent = getAgentBySender(message.sender)
+        const isCurrentSpeaker = currentSpeaker === message.sender
+        const isUserMessage = message.role === 'user'
+
+        return (
+          <div
+            key={message.id}
+            className={`
+              flex gap-3 p-4 rounded-lg transition-all
+              ${isCurrentSpeaker
+                ? 'bg-blue-50 border-2 border-blue-200 shadow-md'
+                : 'bg-white border border-gray-200 hover:shadow-sm'
+              }
+              ${isUserMessage ? 'bg-gray-50' : ''}
+            `}
+          >
+            {/* 发送者头像 */}
+            <div className="flex-shrink-0">
+              {agent ? (
+                <AgentAvatar
+                  agent={agent}
+                  size="md"
+                  showStatus={isCurrentSpeaker}
+                />
+              ) : (
+                <div className="w-12 h-12 bg-gray-300 rounded-full flex items-center justify-center text-white font-medium">
+                  👤
+                </div>
+              )}
+            </div>
+
+            {/* 消息内容 */}
+            <div className="flex-1 min-w-0">
+              {/* 消息头部 */}
+              <div className="flex items-center gap-2 mb-2">
+                <div className="flex items-center gap-2">
+                  <span className="font-medium text-gray-900">
+                    {message.sender}
+                  </span>
+                  {agent && (
+                    <RoleBadge
+                      role={agent.role}
+                      capabilities={agent.capabilities.slice(0, 2)}
+                    />
+                  )}
+                </div>
+                
+                {isCurrentSpeaker && (
+                  <span className="text-xs bg-blue-100 text-blue-600 px-2 py-1 rounded-full">
+                    正在发言
+                  </span>
+                )}
+                
+                <span className="text-xs text-gray-500 ml-auto">
+                  {formatTimestamp(message.timestamp)}
+                </span>
+              </div>
+
+              {/* 消息正文 */}
+              <div className="prose prose-sm max-w-none">
+                <MarkdownRenderer content={message.content} />
+                
+                {/* 流式消息打字机效果指示器 */}
+                {message.isStreaming && !message.streamingComplete && (
+                  <div className="inline-flex items-center gap-1 ml-2">
+                    <div className="flex space-x-1">
+                      <div className="w-1 h-1 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                      <div className="w-1 h-1 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                      <div className="w-1 h-1 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                    </div>
+                    <span className="text-xs text-blue-500 ml-1">正在输入...</span>
+                  </div>
+                )}
+                
+                {/* 流式消息完成指示器 */}
+                {message.streamingComplete && (
+                  <div className="inline-flex items-center gap-1 ml-2 text-xs text-green-500">
+                    <span>✓</span>
+                    <span>完成</span>
+                  </div>
+                )}
               </div>
             </div>
-
-            {/* 轮次内的消息 */}
-            <div className="space-y-3">
-              {roundMessages.map((message) => {
-                const agent = getAgentBySender(message.sender)
-                const isCurrentSpeaker = currentSpeaker === message.sender
-                const isUserMessage = message.role === 'user'
-
-                return (
-                  <div
-                    key={message.id}
-                    className={`
-                      flex gap-3 p-4 rounded-lg transition-all
-                      ${isCurrentSpeaker
-                        ? 'bg-blue-50 border-2 border-blue-200 shadow-md'
-                        : 'bg-white border border-gray-200 hover:shadow-sm'
-                      }
-                      ${isUserMessage ? 'bg-gray-50' : ''}
-                    `}
-                  >
-                    {/* 发送者头像 */}
-                    <div className="flex-shrink-0">
-                      {agent ? (
-                        <AgentAvatar
-                          agent={agent}
-                          size="md"
-                          showStatus={isCurrentSpeaker}
-                        />
-                      ) : (
-                        <div className="w-12 h-12 bg-gray-300 rounded-full flex items-center justify-center text-white font-medium">
-                          👤
-                        </div>
-                      )}
-                    </div>
-
-                    {/* 消息内容 */}
-                    <div className="flex-1 min-w-0">
-                      {/* 消息头部 */}
-                      <div className="flex items-center gap-2 mb-2">
-                        <div className="flex items-center gap-2">
-                          <span className="font-medium text-gray-900">
-                            {message.sender}
-                          </span>
-                          {agent && (
-                            <RoleBadge
-                              role={agent.role}
-                              capabilities={agent.capabilities.slice(0, 2)}
-                            />
-                          )}
-                        </div>
-                        
-                        {isCurrentSpeaker && (
-                          <span className="text-xs bg-blue-100 text-blue-600 px-2 py-1 rounded-full">
-                            正在发言
-                          </span>
-                        )}
-                        
-                        <span className="text-xs text-gray-500 ml-auto">
-                          {formatTimestamp(message.timestamp)}
-                        </span>
-                      </div>
-
-                      {/* 消息正文 */}
-                      <div className="prose prose-sm max-w-none">
-                        <MarkdownRenderer content={message.content} />
-                        
-                        {/* 流式消息打字机效果指示器 */}
-                        {message.isStreaming && !message.streamingComplete && (
-                          <div className="inline-flex items-center gap-1 ml-2">
-                            <div className="flex space-x-1">
-                              <div className="w-1 h-1 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-                              <div className="w-1 h-1 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-                              <div className="w-1 h-1 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
-                            </div>
-                            <span className="text-xs text-blue-500 ml-1">正在输入...</span>
-                          </div>
-                        )}
-                        
-                        {/* 流式消息完成指示器 */}
-                        {message.streamingComplete && (
-                          <div className="inline-flex items-center gap-1 ml-2 text-xs text-green-500">
-                            <span>✓</span>
-                            <span>完成</span>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
           </div>
-        ))}
+        )
+      })}
 
       {/* 空状态 */}
       {messages.length === 0 && (
-        <div className="text-center py-12 text-gray-500">
+        <section className="text-center py-12 text-gray-500">
           <div className="text-4xl mb-4">💬</div>
           <div className="text-lg font-medium mb-2">多智能体对话还未开始</div>
           <div className="text-sm">发送消息启动智能体协作讨论</div>
-        </div>
+        </section>
       )}
     </div>
   )

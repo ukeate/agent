@@ -2,20 +2,23 @@
 性能基准测试
 对比LangGraph v0.6 Context API升级前后的性能
 """
+
 import pytest
 import time
 import asyncio
 from typing import List, Dict, Any
 from statistics import mean, stdev
-
 from src.ai.langgraph.context import AgentContext, create_default_context
 from src.ai.langgraph.state import MessagesState, create_initial_state
 from src.ai.langgraph.state_graph import (
+
     LangGraphWorkflowBuilder,
     create_simple_workflow,
     create_conditional_workflow
 )
 
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 class TestPerformanceBenchmark:
     """性能基准测试"""
@@ -47,12 +50,12 @@ class TestPerformanceBenchmark:
         avg_time = mean(execution_times)
         std_time = stdev(execution_times) if len(execution_times) > 1 else 0
         
-        print(f"\n简单工作流性能测试结果:")
-        print(f"  运行次数: {num_runs}")
-        print(f"  平均执行时间: {avg_time:.2f}ms")
-        print(f"  标准差: {std_time:.2f}ms")
-        print(f"  最小时间: {min(execution_times):.2f}ms")
-        print(f"  最大时间: {max(execution_times):.2f}ms")
+        logger.info(f"\n简单工作流性能测试结果:")
+        logger.info(f"  运行次数: {num_runs}")
+        logger.info(f"  平均执行时间: {avg_time:.2f}ms")
+        logger.info(f"  标准差: {std_time:.2f}ms")
+        logger.info(f"  最小时间: {min(execution_times):.2f}ms")
+        logger.info(f"  最大时间: {max(execution_times):.2f}ms")
         
         # 性能断言 - 平均执行时间应该小于100ms
         assert avg_time < 100, f"平均执行时间 {avg_time:.2f}ms 超过预期"
@@ -84,12 +87,12 @@ class TestPerformanceBenchmark:
         avg_time = mean(execution_times)
         std_time = stdev(execution_times) if len(execution_times) > 1 else 0
         
-        print(f"\n条件工作流性能测试结果:")
-        print(f"  运行次数: {num_runs}")
-        print(f"  平均执行时间: {avg_time:.2f}ms")
-        print(f"  标准差: {std_time:.2f}ms")
-        print(f"  最小时间: {min(execution_times):.2f}ms")
-        print(f"  最大时间: {max(execution_times):.2f}ms")
+        logger.info(f"\n条件工作流性能测试结果:")
+        logger.info(f"  运行次数: {num_runs}")
+        logger.info(f"  平均执行时间: {avg_time:.2f}ms")
+        logger.info(f"  标准差: {std_time:.2f}ms")
+        logger.info(f"  最小时间: {min(execution_times):.2f}ms")
+        logger.info(f"  最大时间: {max(execution_times):.2f}ms")
         
         # 性能断言 - 平均执行时间应该小于150ms
         assert avg_time < 150, f"平均执行时间 {avg_time:.2f}ms 超过预期"
@@ -120,12 +123,12 @@ class TestPerformanceBenchmark:
         avg_time = mean(creation_times)
         std_time = stdev(creation_times) if len(creation_times) > 1 else 0
         
-        print(f"\n上下文创建性能测试结果:")
-        print(f"  运行次数: {num_runs}")
-        print(f"  平均创建时间: {avg_time:.4f}ms")
-        print(f"  标准差: {std_time:.4f}ms")
-        print(f"  最小时间: {min(creation_times):.4f}ms")
-        print(f"  最大时间: {max(creation_times):.4f}ms")
+        logger.info(f"\n上下文创建性能测试结果:")
+        logger.info(f"  运行次数: {num_runs}")
+        logger.info(f"  平均创建时间: {avg_time:.4f}ms")
+        logger.info(f"  标准差: {std_time:.4f}ms")
+        logger.info(f"  最小时间: {min(creation_times):.4f}ms")
+        logger.info(f"  最大时间: {max(creation_times):.4f}ms")
         
         # 性能断言 - 平均创建时间应该小于0.1ms
         assert avg_time < 0.1, f"平均创建时间 {avg_time:.4f}ms 超过预期"
@@ -159,11 +162,11 @@ class TestPerformanceBenchmark:
         # 计算统计数据
         avg_time = mean(execution_times)
         
-        print(f"\n并发工作流性能测试结果:")
-        print(f"  并发数: {num_concurrent}")
-        print(f"  总执行时间: {total_time:.2f}ms")
-        print(f"  平均单个执行时间: {avg_time:.2f}ms")
-        print(f"  并发效率: {(sum(execution_times) / total_time * 100):.1f}%")
+        logger.info(f"\n并发工作流性能测试结果:")
+        logger.info(f"  并发数: {num_concurrent}")
+        logger.info(f"  总执行时间: {total_time:.2f}ms")
+        logger.info(f"  平均单个执行时间: {avg_time:.2f}ms")
+        logger.info(f"  并发效率: {(sum(execution_times) / total_time * 100):.1f}%")
         
         # 性能断言 - 并发执行应该比串行快
         serial_time = sum(execution_times)
@@ -191,10 +194,10 @@ class TestPerformanceBenchmark:
         total_size = sum(sys.getsizeof(ctx.to_dict()) for ctx in contexts)
         avg_size = total_size / len(contexts)
         
-        print(f"\n内存效率测试结果:")
-        print(f"  创建上下文数: {len(contexts)}")
-        print(f"  平均对象大小: {avg_size:.0f} bytes")
-        print(f"  总内存使用: {total_size / 1024:.2f} KB")
+        logger.info(f"\n内存效率测试结果:")
+        logger.info(f"  创建上下文数: {len(contexts)}")
+        logger.info(f"  平均对象大小: {avg_size:.0f} bytes")
+        logger.info(f"  总内存使用: {total_size / 1024:.2f} KB")
         
         # 内存断言 - 每个上下文应该小于2KB
         assert avg_size < 2048, f"平均对象大小 {avg_size:.0f} bytes 超过预期"

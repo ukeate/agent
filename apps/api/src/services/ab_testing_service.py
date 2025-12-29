@@ -1,23 +1,24 @@
 """
 A/B测试核心服务 - 提供实验管理、用户分配、事件追踪等核心功能
 """
+
 from typing import Optional, Dict, Any, List
 from datetime import datetime
 from src.core.utils.timezone_utils import utc_now, utc_factory
-
-from models.schemas.experiment import (
+from src.models.schemas.experiment import (
     ExperimentConfig, CreateExperimentRequest, ExperimentStatus,
     ExperimentAssignmentResponse, ExperimentResultsResponse, 
     ExperimentSummary, MetricResult, RecordEventRequest
 )
-from repositories.experiment_repository import (
+from src.repositories.experiment_repository import (
     ExperimentRepository, ExperimentAssignmentRepository,
     ExperimentEventRepository, ExperimentMetricResultRepository
 )
-from services.traffic_splitter import TrafficSplitter
-from services.statistical_analyzer import StatisticalAnalyzer
-from core.logging import logger
+from src.services.traffic_splitter import TrafficSplitter
+from src.services.statistical_analyzer import StatisticalAnalyzer
 
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 class ABTestingService:
     """A/B测试核心服务"""
@@ -130,6 +131,21 @@ class ABTestingService:
             
             # 获取最新的指标分析结果
             metric_results = self.metric_repo.get_latest_results(experiment_id)
+
+            variant_user_counts = self.assignment_repo.get_variant_assignment_counts(experiment_id)
+            total_users = sum(variant_user_counts.values())
+            total_events = self.event_repo.count_experiment_events(experiment_id)
+
+            variants_performance: Dict[str, Dict[str, float]] = {
+                v.variant_id: {} for v in self.experiment_repo.get_experiment_with_variants(experiment_id).variants
+            }
+            for metric_name in list(dict.fromkeys(experiment.success_metrics + experiment.guardrail_metrics)):
+                stats = self.event_repo.get_variant_event_stats(experiment_id, metric_name)
+                for variant_id, values in stats.items():
+                    users = variant_user_counts.get(variant_id, 0)
+                    variants_performance.setdefault(variant_id, {})[metric_name] = (
+                        values.get("count", 0) / max(users, 1)
+                    )
             
             # 构建实验摘要
             experiment_summary = ExperimentSummary(
@@ -139,11 +155,10 @@ class ABTestingService:
                 start_date=experiment.start_date,
                 end_date=experiment.end_date,
                 created_at=experiment.created_at,
-                # TODO: 计算实际统计数据
-                total_users=0,
-                total_events=0,
-                variants_performance={},
-                significant_metrics=[]
+                total_users=total_users,
+                total_events=total_events,
+                variants_performance=variants_performance,
+                significant_metrics=[r.metric_name for r in metric_results if r.is_significant]
             )
             
             # 转换指标结果
@@ -290,12 +305,52 @@ class ABTestingService:
     
     async def _check_user_eligibility(self, experiment, user_id: str, context: Dict[str, Any]) -> bool:
         """检查用户是否符合实验条件"""
-        # TODO: 实现定向规则检查
-        # 1. 检查用户属性是否匹配定向规则
-        # 2. 检查黑白名单
-        # 3. 检查其他限制条件
-        
-        return True  # 暂时返回True
+        rules = experiment.targeting_rules or []
+        if not rules:
+            return True
+
+        def _to_number(v):
+            try:
+                return float(v)
+            except Exception:
+                return None
+
+        for rule in rules:
+            attr = rule.get("attribute")
+            op = rule.get("operator")
+            expected = rule.get("value")
+            actual = context.get(attr) if attr else None
+            if attr is None or op is None:
+                return False
+
+            if op in {"eq", "ne"}:
+                ok = actual == expected
+                if op == "ne":
+                    ok = not ok
+            elif op in {"in", "not_in"}:
+                expected_list = expected if isinstance(expected, list) else [expected]
+                ok = actual in expected_list
+                if op == "not_in":
+                    ok = not ok
+            else:
+                actual_num = _to_number(actual)
+                expected_num = _to_number(expected)
+                if actual_num is None or expected_num is None:
+                    return False
+                if op == "gt":
+                    ok = actual_num > expected_num
+                elif op == "lt":
+                    ok = actual_num < expected_num
+                elif op == "gte":
+                    ok = actual_num >= expected_num
+                elif op == "lte":
+                    ok = actual_num <= expected_num
+                else:
+                    return False
+
+            if not ok:
+                return False
+        return True
     
     async def _assign_user_to_variant(self, experiment, user_id: str) -> Optional[str]:
         """为用户分配变体"""

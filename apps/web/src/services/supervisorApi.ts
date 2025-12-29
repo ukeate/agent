@@ -1,6 +1,5 @@
 /**
- * Supervisor API服务
- * 处理与后端Supervisor系统的通信
+ * Supervisor API服务（仅调用后端真实接口，不做任何静态/模拟回填）
  */
 
 import {
@@ -11,30 +10,38 @@ import {
   TaskAssignmentResponse,
   SupervisorConfig,
   SupervisorStats,
-  SupervisorApiResponse,
-  AgentLoadMetrics
+  AgentLoadMetrics,
 } from '../types/supervisor'
+import { apiFetchJson } from '../utils/apiBase'
 
-const API_BASE = '/api/v1/supervisor'
+type ApiResponse<T> = {
+  success: boolean
+  message: string
+  data: T
+  timestamp: string
+  pagination?: any
+}
+
+const API_BASE = '/supervisor'
 
 class SupervisorApiService {
+  private async request<T>(url: string, init?: RequestInit): Promise<ApiResponse<T>> {
+    const body = await apiFetchJson<ApiResponse<T>>(url, init)
+    if (body?.success === false) {
+      throw new Error(body.message || '请求失败')
+    }
+    return body
+  }
+
   /**
    * 获取Supervisor状态
    */
   async getStatus(supervisorId: string): Promise<SupervisorStatusResponse> {
-    const response = await fetch(`${API_BASE}/status?supervisor_id=${supervisorId}`)
-    
-    if (!response.ok) {
-      throw new Error(`获取Supervisor状态失败: ${response.statusText}`)
-    }
-    
-    const data: SupervisorApiResponse<SupervisorStatusResponse> = await response.json()
-    
-    if (!data.success) {
-      throw new Error(data.message || '获取状态失败')
-    }
-    
-    return data.data
+    const resp = await this.request<any>(
+      `${API_BASE}/status?supervisor_id=${encodeURIComponent(supervisorId)}`,
+    )
+    const { current_config, ...rest } = resp.data || {}
+    return { ...rest, configuration: current_config } as SupervisorStatusResponse
   }
 
   /**
@@ -44,25 +51,29 @@ class SupervisorApiService {
     supervisorId: string, 
     taskRequest: TaskSubmissionRequest
   ): Promise<TaskAssignmentResponse> {
-    const response = await fetch(`${API_BASE}/tasks?supervisor_id=${supervisorId}`, {
+    const resp = await this.request<any>(`${API_BASE}/tasks?supervisor_id=${encodeURIComponent(supervisorId)}`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(taskRequest),
     })
-    
-    if (!response.ok) {
-      throw new Error(`任务提交失败: ${response.statusText}`)
+
+    const data = resp.data || {}
+    const alternatives = Array.isArray(data?.decision_metadata?.alternatives)
+      ? data.decision_metadata.alternatives.map((alt: any) => ({
+          agent: String(alt?.agent_name ?? alt?.agent ?? ''),
+          score: Number(alt?.match_score ?? alt?.score ?? 0),
+          reason: String(alt?.reason ?? ''),
+        }))
+      : undefined
+
+    return {
+      task_id: String(data.task_id),
+      assigned_agent: String(data.assigned_agent),
+      assignment_reason: String(data.assignment_reason),
+      confidence_level: Number(data.confidence_level),
+      estimated_completion_time: data.estimated_completion_time ? String(data.estimated_completion_time) : undefined,
+      alternatives_considered: alternatives,
     }
-    
-    const data: SupervisorApiResponse<TaskAssignmentResponse> = await response.json()
-    
-    if (!data.success) {
-      throw new Error(data.message || '任务提交失败')
-    }
-    
-    return data.data
   }
 
   /**
@@ -75,26 +86,36 @@ class SupervisorApiService {
     pageSize: number
     totalPages: number
   }> {
-    // 将页码转换为offset
-    const offset = (page - 1) * pageSize
-    const response = await fetch(
-      `${API_BASE}/tasks?supervisor_id=${supervisorId}&limit=${pageSize}&offset=${offset}`
+    const offset = Math.max(0, (page - 1) * pageSize)
+    const resp = await this.request<{ tasks: any[]; pagination: { total: number } }>(
+      `${API_BASE}/tasks?supervisor_id=${encodeURIComponent(supervisorId)}&limit=${pageSize}&offset=${offset}`,
     )
-    
-    if (!response.ok) {
-      throw new Error(`获取任务列表失败: ${response.statusText}`)
-    }
-    
-    const data = await response.json()
-    
-    if (!data.success) {
-      throw new Error(data.message || '获取任务列表失败')
-    }
-    
-    // 转换后端返回的数据格式
-    const tasks = data.data.tasks || []
-    const total = data.data.pagination?.total || tasks.length
-    const totalPages = Math.ceil(total / pageSize)
+
+    const backendTasks = resp.data?.tasks || []
+    const tasks: SupervisorTask[] = backendTasks.map((t: any) => ({
+      id: String(t.id),
+      name: String(t.name),
+      description: String(t.description),
+      task_type: t.task_type,
+      priority: t.priority,
+      status: t.status,
+      assigned_agent_id: t.assigned_agent_id ?? undefined,
+      assigned_agent_name: t.assigned_agent_name ?? undefined,
+      supervisor_id: String(t.supervisor_id ?? supervisorId),
+      input_data: t.input_data ?? undefined,
+      output_data: t.output_data ?? undefined,
+      execution_metadata: t.execution_metadata ?? undefined,
+      complexity_score: t.complexity_score ?? undefined,
+      estimated_time_seconds: t.estimated_time_seconds ?? undefined,
+      actual_time_seconds: t.actual_time_seconds ?? undefined,
+      created_at: String(t.created_at),
+      updated_at: String(t.updated_at),
+      started_at: t.started_at ?? undefined,
+      completed_at: t.completed_at ?? undefined,
+    }))
+
+    const total = Number(resp.data?.pagination?.total ?? 0)
+    const totalPages = Math.ceil(total / pageSize) || 0
     
     return {
       tasks,
@@ -109,19 +130,8 @@ class SupervisorApiService {
    * 获取特定任务详情
    */
   async getTask(taskId: string): Promise<SupervisorTask> {
-    const response = await fetch(`${API_BASE}/tasks/${taskId}/details`)
-    
-    if (!response.ok) {
-      throw new Error(`获取任务详情失败: ${response.statusText}`)
-    }
-    
-    const data: SupervisorApiResponse<SupervisorTask> = await response.json()
-    
-    if (!data.success) {
-      throw new Error(data.message || '获取任务详情失败')
-    }
-    
-    return data.data
+    const resp = await this.request<any>(`${API_BASE}/tasks/${encodeURIComponent(taskId)}/details`)
+    return resp.data as SupervisorTask
   }
 
   /**
@@ -138,26 +148,14 @@ class SupervisorApiService {
     pageSize: number
     totalPages: number
   }> {
-    // 将页码转换为offset
-    const offset = (page - 1) * pageSize
-    const response = await fetch(
-      `${API_BASE}/decisions?supervisor_id=${supervisorId}&limit=${pageSize}&offset=${offset}`
+    const offset = Math.max(0, (page - 1) * pageSize)
+    const resp = await this.request<SupervisorDecision[]>(
+      `${API_BASE}/decisions?supervisor_id=${encodeURIComponent(supervisorId)}&limit=${pageSize}&offset=${offset}`,
     )
-    
-    if (!response.ok) {
-      throw new Error(`获取决策历史失败: ${response.statusText}`)
-    }
-    
-    const data = await response.json()
-    
-    if (!data.success) {
-      throw new Error(data.message || '获取决策历史失败')
-    }
-    
-    // 转换后端返回的数据格式
-    const decisions = data.data || []
-    const total = data.pagination?.total || decisions.length
-    const totalPages = Math.ceil(total / pageSize)
+
+    const decisions = (resp.data || []).map((d: any) => ({ ...d, supervisor_id: supervisorId })) as SupervisorDecision[]
+    const total = Number(resp.pagination?.total ?? decisions.length)
+    const totalPages = Math.ceil(total / pageSize) || 0
     
     return {
       decisions,
@@ -172,126 +170,74 @@ class SupervisorApiService {
    * 获取智能体负载指标
    */
   async getAgentMetrics(supervisorId: string): Promise<AgentLoadMetrics[]> {
-    const response = await fetch(`${API_BASE}/metrics?supervisor_id=${supervisorId}`)
-    
-    if (!response.ok) {
-      throw new Error(`获取智能体指标失败: ${response.statusText}`)
-    }
-    
-    const data = await response.json()
-    
-    if (!data.success) {
-      throw new Error(data.message || '获取智能体指标失败')
-    }
-    
-    // 后端返回的是LoadStatistics对象，需要转换为AgentLoadMetrics数组
-    const loadStats = data.data
-    const agentMetrics: AgentLoadMetrics[] = []
-    
-    if (loadStats.agent_loads) {
-      Object.entries(loadStats.agent_loads).forEach(([agentName, load], index) => {
-        agentMetrics.push({
-          id: `agent_${index}`,
-          agent_name: agentName,
-          supervisor_id: supervisorId,
-          current_load: typeof load === 'number' ? load : 0,
-          task_count: loadStats.task_counts?.running || 0,
-          average_task_time: 120, // 模拟数据
-          success_rate: 0.85, // 模拟数据
-          response_time_avg: 2.5, // 模拟数据
-          error_rate: 0.05, // 模拟数据
-          availability_score: typeof load === 'number' ? Math.max(0, 1 - load) : 0.5,
-          window_start: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
-          window_end: new Date().toISOString(),
-          created_at: new Date().toISOString(),
-          updated_at: loadStats.last_update || new Date().toISOString()
-        })
-      })
-    }
-    
-    return agentMetrics
+    const resp = await this.request<AgentLoadMetrics[]>(
+      `${API_BASE}/metrics?supervisor_id=${encodeURIComponent(supervisorId)}`,
+    )
+    return resp.data || []
   }
 
   /**
    * 获取Supervisor统计数据
    */
   async getStats(supervisorId: string): Promise<SupervisorStats> {
-    const response = await fetch(`${API_BASE}/stats?supervisor_id=${supervisorId}`)
-    
-    if (!response.ok) {
-      throw new Error(`获取统计数据失败: ${response.statusText}`)
-    }
-    
-    const data: SupervisorApiResponse<SupervisorStats> = await response.json()
-    
-    if (!data.success) {
-      throw new Error(data.message || '获取统计数据失败')
-    }
-    
-    return data.data
-  }
+    const resp = await this.request<any>(
+      `${API_BASE}/stats?supervisor_id=${encodeURIComponent(supervisorId)}`,
+    )
 
+    const statusDist = resp.data?.task_statistics?.status_distribution || {}
+    const totalTasks = Object.values(statusDist).reduce((sum: number, v: any) => sum + Number(v || 0), 0)
+    const completedTasks = Number(statusDist.completed || 0)
+    const failedTasks = Number(statusDist.failed || 0)
+    const runningTasks = Number(statusDist.running || 0)
+    const pendingTasks = Number(statusDist.pending || 0)
+    const successDenom = completedTasks + failedTasks
+
+    return {
+      total_tasks: totalTasks,
+      completed_tasks: completedTasks,
+      failed_tasks: failedTasks,
+      pending_tasks: pendingTasks,
+      running_tasks: runningTasks,
+      average_completion_time: Number(resp.data?.task_statistics?.average_completion_time_seconds || 0),
+      success_rate: successDenom > 0 ? completedTasks / successDenom : 0,
+      agent_utilization: resp.data?.agent_loads || {},
+      decision_accuracy: Number(resp.data?.decision_statistics?.success_rate || 0),
+      recent_decisions: [],
+    }
+  }
   /**
    * 获取Supervisor配置
    */
   async getConfig(supervisorId: string): Promise<SupervisorConfig> {
-    const response = await fetch(`${API_BASE}/config?supervisor_id=${supervisorId}`)
-    
-    if (!response.ok) {
-      throw new Error(`获取配置失败: ${response.statusText}`)
-    }
-    
-    const data: SupervisorApiResponse<SupervisorConfig> = await response.json()
-    
-    if (!data.success) {
-      throw new Error(data.message || '获取配置失败')
-    }
-    
-    return data.data
+    const resp = await this.request<SupervisorConfig>(
+      `${API_BASE}/config?supervisor_id=${encodeURIComponent(supervisorId)}`,
+    )
+    return resp.data
   }
 
   /**
    * 更新Supervisor配置
    */
   async updateConfig(supervisorId: string, config: Partial<SupervisorConfig>): Promise<SupervisorConfig> {
-    const response = await fetch(`${API_BASE}/config?supervisor_id=${supervisorId}`, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
+    const resp = await this.request<SupervisorConfig>(
+      `${API_BASE}/config?supervisor_id=${encodeURIComponent(supervisorId)}`,
+      {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(config),
       },
-      body: JSON.stringify(config),
-    })
-    
-    if (!response.ok) {
-      throw new Error(`更新配置失败: ${response.statusText}`)
-    }
-    
-    const data: SupervisorApiResponse<SupervisorConfig> = await response.json()
-    
-    if (!data.success) {
-      throw new Error(data.message || '更新配置失败')
-    }
-    
-    return data.data
+    )
+    return resp.data
   }
 
   /**
    * 健康检查
    */
   async healthCheck(): Promise<{ status: string; timestamp: string; version: string }> {
-    const response = await fetch(`${API_BASE}/health`)
-    
-    if (!response.ok) {
-      throw new Error(`健康检查失败: ${response.statusText}`)
-    }
-    
-    const data = await response.json()
-    
-    if (!data.success) {
-      throw new Error(data.message || '健康检查失败')
-    }
-    
-    return data.data
+    const resp = await this.request<{ status: string; timestamp: string; version: string }>(
+      `${API_BASE}/health`,
+    )
+    return resp.data
   }
 }
 

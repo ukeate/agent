@@ -12,7 +12,6 @@ from typing import Dict, List, Any, Optional, Tuple
 from collections import defaultdict, deque
 from enum import Enum
 
-
 class ExplorationMode(Enum):
     """探索模式"""
     EPSILON_GREEDY = "epsilon_greedy"
@@ -22,7 +21,6 @@ class ExplorationMode(Enum):
     BOLTZMANN = "boltzmann"
     NOISE_BASED = "noise_based"
     CURIOSITY_DRIVEN = "curiosity_driven"
-
 
 @dataclass
 class ExplorationConfig:
@@ -53,7 +51,6 @@ class ExplorationConfig:
     curiosity_weight: float = 0.1
     novelty_threshold: float = 0.1
 
-
 class ExplorationStrategy(ABC):
     """探索策略抽象基类"""
     
@@ -75,7 +72,7 @@ class ExplorationStrategy(ABC):
         Returns:
             int: 选择的动作
         """
-        pass
+        raise NotImplementedError
     
     @abstractmethod
     def update(self, action: int, reward: float, **kwargs):
@@ -87,7 +84,7 @@ class ExplorationStrategy(ABC):
             reward: 获得的奖励
             **kwargs: 其他参数
         """
-        pass
+        raise NotImplementedError
     
     def get_exploration_rate(self, step: Optional[int] = None) -> float:
         """获取当前探索率"""
@@ -99,7 +96,6 @@ class ExplorationStrategy(ABC):
         """重置策略状态"""
         self.step_count = 0
         self.exploration_history.clear()
-
 
 class EpsilonGreedyStrategy(ExplorationStrategy):
     """Epsilon-greedy探索策略"""
@@ -136,11 +132,10 @@ class EpsilonGreedyStrategy(ExplorationStrategy):
     
     def update(self, action: int, reward: float, **kwargs):
         """更新epsilon值（固定策略无需更新）"""
-        pass
+        return None
     
     def get_exploration_rate(self, step: Optional[int] = None) -> float:
         return self.epsilon
-
 
 class DecayingEpsilonGreedyStrategy(ExplorationStrategy):
     """衰减Epsilon-greedy策略"""
@@ -201,11 +196,10 @@ class DecayingEpsilonGreedyStrategy(ExplorationStrategy):
     
     def update(self, action: int, reward: float, **kwargs):
         """更新策略（epsilon在select_action中更新）"""
-        pass
+        return None
     
     def get_exploration_rate(self, step: Optional[int] = None) -> float:
         return self.epsilon
-
 
 class UCBStrategy(ExplorationStrategy):
     """Upper Confidence Bound探索策略"""
@@ -265,7 +259,6 @@ class UCBStrategy(ExplorationStrategy):
         self.action_counts = np.zeros(self.action_size)
         self.action_values = np.zeros(self.action_size)
 
-
 class ThompsonSamplingStrategy(ExplorationStrategy):
     """Thompson Sampling探索策略"""
     
@@ -315,7 +308,6 @@ class ThompsonSamplingStrategy(ExplorationStrategy):
         self.alpha = np.full(self.action_size, self.config.prior_alpha)
         self.beta = np.full(self.action_size, self.config.prior_beta)
 
-
 class BoltzmannExplorationStrategy(ExplorationStrategy):
     """Boltzmann (Softmax)探索策略"""
     
@@ -357,12 +349,11 @@ class BoltzmannExplorationStrategy(ExplorationStrategy):
     
     def update(self, action: int, reward: float, **kwargs):
         """更新策略（温度在select_action中衰减）"""
-        pass
+        return None
     
     def get_exploration_rate(self, step: Optional[int] = None) -> float:
         """返回当前温度作为探索率的代理"""
         return self.temperature
-
 
 class NoiseBasedExplorationStrategy(ExplorationStrategy):
     """基于噪声的探索策略"""
@@ -420,13 +411,12 @@ class NoiseBasedExplorationStrategy(ExplorationStrategy):
     def update(self, action: int, reward: float, **kwargs):
         """更新噪声参数"""
         # 可以根据性能调整噪声尺度
-        pass
+        return None
     
     def reset(self):
         """重置噪声状态"""
         super().reset()
         self.ou_state = np.zeros(self.action_size)
-
 
 class CuriosityDrivenExploration(ExplorationStrategy):
     """好奇心驱动的探索策略"""
@@ -528,7 +518,7 @@ class CuriosityDrivenExploration(ExplorationStrategy):
     def update(self, action: int, reward: float, **kwargs):
         """更新好奇心参数"""
         # 可以根据奖励调整好奇心权重
-        pass
+        return None
     
     def reset(self):
         """重置好奇心状态"""
@@ -536,7 +526,6 @@ class CuriosityDrivenExploration(ExplorationStrategy):
         self.state_action_counts.clear()
         self.state_novelty_scores.clear()
         self.recent_states.clear()
-
 
 class AdaptiveExplorationStrategy(ExplorationStrategy):
     """自适应探索策略"""

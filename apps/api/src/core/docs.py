@@ -1,12 +1,17 @@
 """
 API文档生成和增强模块
 """
+
 from typing import Dict, Any, List, Optional
 from fastapi import FastAPI
 from fastapi.openapi.utils import get_openapi
 from fastapi.openapi.docs import get_swagger_ui_html, get_redoc_html
 import json
+from ai_agent_sdk import AIAgentClient
+from ai_agent_sdk.experiments import ExperimentBuilder
 
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 def generate_enhanced_openapi_schema(app: FastAPI) -> Dict[str, Any]:
     """生成增强的OpenAPI文档"""
@@ -24,7 +29,6 @@ def generate_enhanced_openapi_schema(app: FastAPI) -> Dict[str, Any]:
     enhanced_schema = enhance_openapi_schema(openapi_schema)
     
     return enhanced_schema
-
 
 def enhance_openapi_schema(schema: Dict[str, Any]) -> Dict[str, Any]:
     """增强OpenAPI schema"""
@@ -78,7 +82,6 @@ def enhance_openapi_schema(schema: Dict[str, Any]) -> Dict[str, Any]:
     add_request_response_examples(schema)
     
     return schema
-
 
 def generate_error_schemas() -> Dict[str, Any]:
     """生成错误响应schemas"""
@@ -159,7 +162,6 @@ def generate_error_schemas() -> Dict[str, Any]:
         }
     }
 
-
 def enhance_paths_documentation(schema: Dict[str, Any]) -> None:
     """增强路径文档"""
     
@@ -221,7 +223,6 @@ def enhance_paths_documentation(schema: Dict[str, Any]) -> None:
                 for status_code, response_data in common_responses.items():
                     if status_code not in method_data["responses"]:
                         method_data["responses"][status_code] = response_data
-
 
 def add_request_response_examples(schema: Dict[str, Any]) -> None:
     """添加请求响应示例"""
@@ -381,14 +382,12 @@ def add_request_response_examples(schema: Dict[str, Any]) -> None:
                                 for content_type in responses[status_code]["content"]:
                                     responses[status_code]["content"][content_type]["example"] = method_examples["response_example"]
 
-
 def generate_sdk_code_samples() -> Dict[str, Any]:
     """生成SDK代码示例"""
     
     return {
         "python": {
             "create_agent": '''
-from ai_agent_sdk import AIAgentClient
 
 client = AIAgentClient(api_key="your-api-key")
 
@@ -400,7 +399,7 @@ agent = client.agents.create(
     model="claude-3.5-sonnet"
 )
 
-print(f"Agent ID: {agent.id}")
+logger.info("Agent ID", agent_id=agent.id)
             ''',
             
             "execute_agent": '''
@@ -410,11 +409,10 @@ result = client.agents.execute(
     context={"user_id": "user_456"}
 )
 
-print(f"Response: {result.output}")
+logger.info("Response", output=result.output)
             ''',
             
             "create_experiment": '''
-from ai_agent_sdk.experiments import ExperimentBuilder
 
 experiment = (ExperimentBuilder()
     .set_name("首页改版测试")
@@ -443,7 +441,6 @@ client.events.track(
         
         "javascript": {
             "create_agent": '''
-import { AIAgentClient } from '@ai-agent/sdk';
 
 const client = new AIAgentClient({
   apiKey: 'your-api-key'
@@ -550,7 +547,6 @@ curl -X POST "https://api.ai-agent.com/api/v1/events/track" \\
         }
     }
 
-
 def add_code_samples_to_schema(schema: Dict[str, Any]) -> None:
     """将代码示例添加到schema中"""
     
@@ -591,7 +587,6 @@ def add_code_samples_to_schema(schema: Dict[str, Any]) -> None:
                             "source": code_samples["curl"][sample_key].strip()
                         }
                     ]
-
 
 def generate_postman_collection(schema: Dict[str, Any]) -> Dict[str, Any]:
     """生成Postman集合"""
@@ -653,7 +648,6 @@ def generate_postman_collection(schema: Dict[str, Any]) -> Dict[str, Any]:
     
     return collection
 
-
 def create_postman_request_item(path: str, method: str, method_data: Dict[str, Any]) -> Dict[str, Any]:
     """创建Postman请求项"""
     
@@ -711,7 +705,6 @@ def create_postman_request_item(path: str, method: str, method_data: Dict[str, A
     
     return request_item
 
-
 def save_documentation_files(schema: Dict[str, Any], output_dir: str = "docs/api") -> None:
     """保存文档文件"""
     import os
@@ -731,7 +724,6 @@ def save_documentation_files(schema: Dict[str, Any], output_dir: str = "docs/api
     insomnia_collection = generate_insomnia_collection(schema)
     with open(f"{output_dir}/insomnia_collection.json", "w", encoding="utf-8") as f:
         json.dump(insomnia_collection, f, indent=2, ensure_ascii=False)
-
 
 def generate_insomnia_collection(schema: Dict[str, Any]) -> Dict[str, Any]:
     """生成Insomnia集合"""
@@ -801,7 +793,6 @@ def generate_insomnia_collection(schema: Dict[str, Any]) -> Dict[str, Any]:
     
     return collection
 
-
 def generate_api_changelog() -> List[Dict[str, Any]]:
     """生成API变更日志"""
     
@@ -826,7 +817,6 @@ def generate_api_changelog() -> List[Dict[str, Any]]:
             ]
         }
     ]
-
 
 # CLI工具用于生成文档
 def main():
@@ -856,12 +846,8 @@ def main():
     # 保存文档文件
     save_documentation_files(enhanced_schema, args.output)
     
-    print(f"API文档已生成到: {args.output}")
-    print("包含的文件:")
-    print("- openapi.json: OpenAPI 3.0 规范")
-    print("- postman_collection.json: Postman集合")
-    print("- insomnia_collection.json: Insomnia集合")
-
+    logger.info("API文档已生成", output_path=args.output)
+    logger.info("包含文件", files=["openapi.json", "postman_collection.json", "insomnia_collection.json"])
 
 if __name__ == "__main__":
     main()

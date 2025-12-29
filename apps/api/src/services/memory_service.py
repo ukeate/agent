@@ -1,9 +1,9 @@
 """记忆管理服务层"""
-from typing import List, Optional, Dict, Any, Tuple
-from datetime import datetime
-from src.core.utils.timezone_utils import utc_now, utc_factory
-import logging
 
+from typing import List, Optional, Dict, Any, Tuple
+from datetime import datetime, timedelta
+from src.core.utils.timezone_utils import utc_now, utc_factory
+import json
 from src.ai.memory.models import (
     Memory, MemoryType, MemoryStatus,
     MemoryCreateRequest, MemoryUpdateRequest,
@@ -15,8 +15,7 @@ from src.ai.memory.context_recall import ContextAwareRecall
 from src.ai.memory.association_graph import MemoryAssociationGraph
 from src.ai.memory.config import MemoryConfig
 
-logger = logging.getLogger(__name__)
-
+logger = get_logger(__name__)
 
 class MemoryService:
     """记忆管理服务"""
@@ -207,8 +206,14 @@ class MemoryService:
             growth_rate = 0
             
         # 估算存储使用量
-        avg_memory_size = 1024  # 假设平均每个记忆1KB
-        storage_usage_mb = (total_memories * avg_memory_size) / (1024 * 1024)
+        total_bytes = 0
+        for memory in memories:
+            try:
+                total_bytes += len((memory.content or "").encode("utf-8"))
+                total_bytes += len(json.dumps(memory.metadata or {}, ensure_ascii=False).encode("utf-8"))
+            except Exception:
+                continue
+        storage_usage_mb = total_bytes / (1024 * 1024)
         
         from src.ai.memory.models import MemoryResponse
         
@@ -279,7 +284,7 @@ class MemoryService:
             limit=10000
         )
         
-        return [memory.dict() for memory in memories]
+        return [memory.model_dump(mode="json") for memory in memories]
         
     async def associate_memories(
         self,
@@ -377,6 +382,6 @@ class MemoryService:
                 
         logger.info(f"清理了 {len(old_memories)} 个旧记忆")
 
-
 # 全局服务实例
 memory_service = MemoryService()
+from src.core.logging import get_logger

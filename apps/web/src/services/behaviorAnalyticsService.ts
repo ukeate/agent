@@ -1,3 +1,6 @@
+
+import { apiFetch, apiFetchJson, buildApiUrl, buildWsUrl } from '../utils/apiBase'
+import { logger } from '../utils/logger'
 interface EventSubmissionRequest {
   events: BehaviorEvent[];
   batch_id?: string;
@@ -47,31 +50,18 @@ interface ReportRequest {
 }
 
 class BehaviorAnalyticsService {
-  private baseUrl = '/api/v1/analytics';
-  private wsUrl: string;
-
-  constructor() {
-    // 构建WebSocket URL
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const host = window.location.host;
-    this.wsUrl = `${protocol}//${host}${this.baseUrl}/ws`;
-  }
+  private baseUrl = buildApiUrl('/analytics');
+  private wsUrl = buildWsUrl('/analytics/ws');
 
   // 提交用户行为事件
   async submitEvents(request: EventSubmissionRequest): Promise<any> {
-    const response = await fetch(`${this.baseUrl}/events`, {
+    return apiFetchJson(`${this.baseUrl}/events`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(request),
     });
-
-    if (!response.ok) {
-      throw new Error(`提交事件失败: ${response.statusText}`);
-    }
-
-    return response.json();
   }
 
   // 查询行为事件
@@ -91,12 +81,7 @@ class BehaviorAnalyticsService {
       }
     });
 
-    const response = await fetch(`${this.baseUrl}/events?${queryString}`);
-    if (!response.ok) {
-      throw new Error(`查询事件失败: ${response.statusText}`);
-    }
-
-    return response.json();
+    return apiFetchJson(`${this.baseUrl}/events?${queryString}`);
   }
 
   // 查询用户会话
@@ -104,7 +89,11 @@ class BehaviorAnalyticsService {
     user_id?: string;
     start_time?: string;
     end_time?: string;
+    status?: string;
     min_duration?: number;
+    max_duration?: number;
+    min_events?: number;
+    max_events?: number;
     limit?: number;
     offset?: number;
   } = {}): Promise<any> {
@@ -115,29 +104,30 @@ class BehaviorAnalyticsService {
       }
     });
 
-    const response = await fetch(`${this.baseUrl}/sessions?${queryString}`);
-    if (!response.ok) {
-      throw new Error(`查询会话失败: ${response.statusText}`);
-    }
+    return apiFetchJson(`${this.baseUrl}/sessions?${queryString}`);
+  }
 
-    return response.json();
+  // 获取会话统计
+  async getSessionStats(params: { user_id?: string; start_time?: string; end_time?: string } = {}): Promise<any> {
+    const queryString = new URLSearchParams();
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== undefined) {
+        queryString.append(key, String(value));
+      }
+    });
+    const suffix = queryString.toString() ? `?${queryString}` : '';
+    return apiFetchJson(`${this.baseUrl}/sessions/stats${suffix}`);
   }
 
   // 执行行为分析
   async analyzeBehavior(request: AnalysisRequest): Promise<any> {
-    const response = await fetch(`${this.baseUrl}/analyze`, {
+    return apiFetchJson(`${this.baseUrl}/analyze`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(request),
     });
-
-    if (!response.ok) {
-      throw new Error(`行为分析失败: ${response.statusText}`);
-    }
-
-    return response.json();
   }
 
   // 获取行为模式
@@ -149,12 +139,7 @@ class BehaviorAnalyticsService {
       }
     });
 
-    const response = await fetch(`${this.baseUrl}/patterns?${queryString}`);
-    if (!response.ok) {
-      throw new Error(`获取模式失败: ${response.statusText}`);
-    }
-
-    return response.json();
+    return apiFetchJson(`${this.baseUrl}/patterns?${queryString}`);
   }
 
   // 获取异常检测结果
@@ -166,48 +151,45 @@ class BehaviorAnalyticsService {
       }
     });
 
-    const response = await fetch(`${this.baseUrl}/anomalies?${queryString}`);
-    if (!response.ok) {
-      throw new Error(`获取异常失败: ${response.statusText}`);
-    }
-
-    return response.json();
+    return apiFetchJson(`${this.baseUrl}/anomalies?${queryString}`);
   }
 
   // 生成分析报告
   async generateReport(request: ReportRequest): Promise<any> {
-    const response = await fetch(`${this.baseUrl}/reports/generate`, {
+    return apiFetchJson(`${this.baseUrl}/reports/generate`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(request),
     });
-
-    if (!response.ok) {
-      throw new Error(`生成报告失败: ${response.statusText}`);
-    }
-
-    return response.json();
   }
 
   // 获取报告
   async getReport(reportId: string): Promise<any> {
-    const response = await fetch(`${this.baseUrl}/reports/${reportId}`);
-    if (!response.ok) {
-      throw new Error(`获取报告失败: ${response.statusText}`);
-    }
+    return apiFetchJson(`${this.baseUrl}/reports/${reportId}`);
+  }
 
-    return response.json();
+  // 获取报告列表
+  async getReports(params: { limit?: number; offset?: number } = {}): Promise<any> {
+    const queryString = new URLSearchParams();
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== undefined) {
+        queryString.append(key, String(value));
+      }
+    });
+    const suffix = queryString.toString() ? `?${queryString}` : '';
+    return apiFetchJson(`${this.baseUrl}/reports${suffix}`);
+  }
+
+  // 删除报告
+  async deleteReport(reportId: string): Promise<any> {
+    return apiFetchJson(`${this.baseUrl}/reports/${reportId}`, { method: 'DELETE' });
   }
 
   // 下载报告
   async downloadReport(reportId: string, format: string = 'json'): Promise<Blob> {
-    const response = await fetch(`${this.baseUrl}/reports/${reportId}/download?format=${format}`);
-    if (!response.ok) {
-      throw new Error(`下载报告失败: ${response.statusText}`);
-    }
-
+    const response = await apiFetch(`${this.baseUrl}/reports/${reportId}/download?format=${format}`);
     return response.blob();
   }
 
@@ -218,12 +200,7 @@ class BehaviorAnalyticsService {
       queryString.append('user_id', userId);
     }
 
-    const response = await fetch(`${this.baseUrl}/dashboard/stats?${queryString}`);
-    if (!response.ok) {
-      throw new Error(`获取统计失败: ${response.statusText}`);
-    }
-
-    return response.json();
+    return apiFetchJson(`${this.baseUrl}/dashboard/stats?${queryString}`);
   }
 
   // 导出事件数据
@@ -240,22 +217,46 @@ class BehaviorAnalyticsService {
       }
     });
 
-    const response = await fetch(`${this.baseUrl}/export/events?${queryString}`);
-    if (!response.ok) {
-      throw new Error(`导出数据失败: ${response.statusText}`);
-    }
-
+    const response = await apiFetch(`${this.baseUrl}/export/events?${queryString}`);
     return response.blob();
   }
 
   // 获取WebSocket连接统计
   async getWebSocketStats(): Promise<any> {
-    const response = await fetch(`${this.baseUrl}/ws/stats`);
-    if (!response.ok) {
-      throw new Error(`获取WebSocket统计失败: ${response.statusText}`);
-    }
+    return apiFetchJson(`${this.baseUrl}/ws/stats`);
+  }
 
-    return response.json();
+  // 获取实时事件流（Server-Sent Events）
+  subscribeToRealtimeEvents(
+    onEvent: (event: any) => void,
+    onConnectionChange?: (connected: boolean) => void
+  ): () => void {
+    const eventSource = new EventSource(buildApiUrl(`${this.baseUrl}/realtime/events`));
+
+    eventSource.onopen = () => {
+      onConnectionChange?.(true);
+    };
+    
+    eventSource.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        onEvent(data);
+      } catch (error) {
+        logger.error('解析实时事件失败:', error);
+      }
+    };
+
+    eventSource.onerror = (error) => {
+      logger.error('实时事件流错误:', error);
+      eventSource.close();
+      onConnectionChange?.(false);
+    };
+
+    // 返回取消订阅函数
+    return () => {
+      eventSource.close();
+      onConnectionChange?.(false);
+    };
   }
 
   // 广播实时消息
@@ -264,29 +265,18 @@ class BehaviorAnalyticsService {
     if (userId) queryString.append('user_id', userId);
     if (sessionId) queryString.append('session_id', sessionId);
 
-    const response = await fetch(`${this.baseUrl}/realtime/broadcast?${queryString}`, {
+    return apiFetchJson(`${this.baseUrl}/realtime/broadcast?${queryString}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(data),
     });
-
-    if (!response.ok) {
-      throw new Error(`广播消息失败: ${response.statusText}`);
-    }
-
-    return response.json();
   }
 
   // 健康检查
   async healthCheck(): Promise<any> {
-    const response = await fetch(`${this.baseUrl}/health`);
-    if (!response.ok) {
-      throw new Error(`健康检查失败: ${response.statusText}`);
-    }
-
-    return response.json();
+    return apiFetchJson(`${this.baseUrl}/health`);
   }
 
   // 创建WebSocket连接
@@ -304,10 +294,10 @@ class BehaviorAnalyticsService {
     const ws = new WebSocket(wsUrl);
     
     // 设置心跳
-    let heartbeatInterval: NodeJS.Timeout;
+    let heartbeatInterval: ReturnType<typeof setTimeout>;
     
     ws.onopen = () => {
-      console.log('WebSocket连接已建立');
+      logger.log('WebSocket连接已建立');
       
       // 开始心跳
       heartbeatInterval = setInterval(() => {
@@ -318,14 +308,17 @@ class BehaviorAnalyticsService {
     };
 
     ws.onclose = () => {
-      console.log('WebSocket连接已关闭');
+      logger.log('WebSocket连接已关闭');
       if (heartbeatInterval) {
         clearInterval(heartbeatInterval);
       }
     };
 
     ws.onerror = (error) => {
-      console.error('WebSocket错误:', error);
+      logger.error('WebSocket错误:', error);
+      if (ws.readyState !== WebSocket.CLOSING && ws.readyState !== WebSocket.CLOSED) {
+        ws.close();
+      }
     };
 
     return ws;
@@ -359,7 +352,7 @@ class BehaviorAnalyticsService {
     context: Record<string, any> = {}
   ): Promise<any> {
     const event: BehaviorEvent = {
-      event_id: `${eventType}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      event_id: crypto.randomUUID(),
       user_id: userId,
       event_type: eventType,
       timestamp: new Date().toISOString(),
@@ -383,21 +376,31 @@ class BehaviorAnalyticsService {
         user_agent: navigator.userAgent,
         timestamp: new Date().toISOString()
       }).catch(error => {
-        console.error('事件跟踪失败:', error);
+        logger.error('事件跟踪失败:', error);
       });
     }
   }
 
-  // 获取当前用户ID（示例实现）
+  // 获取当前用户ID
   private getCurrentUserId(): string | null {
-    // 实际应用中应该从认证状态获取
-    return localStorage.getItem('user_id') || 'anonymous_user';
+    const key = 'user_id';
+    let userId = localStorage.getItem(key);
+    if (!userId) {
+      userId = crypto.randomUUID();
+      localStorage.setItem(key, userId);
+    }
+    return userId;
   }
 
-  // 获取当前会话ID（示例实现）
+  // 获取当前会话ID
   private getCurrentSessionId(): string | null {
-    // 实际应用中应该从会话管理获取
-    return sessionStorage.getItem('session_id') || null;
+    const key = 'session_id';
+    let sessionId = sessionStorage.getItem(key);
+    if (!sessionId) {
+      sessionId = crypto.randomUUID();
+      sessionStorage.setItem(key, sessionId);
+    }
+    return sessionId;
   }
 }
 

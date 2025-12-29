@@ -7,15 +7,13 @@
 import numpy as np
 from typing import Dict, Any, List, Optional, Tuple, Union
 import asyncio
-import logging
 from datetime import datetime
 from src.core.utils.timezone_utils import utc_now, utc_factory
-
 from .pgvector_optimizer import PgVectorOptimizer
 from .vector_cache import VectorCacheManager
 
-logger = logging.getLogger(__name__)
-
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 class HybridVectorRetriever:
     """混合向量检索器（pgvector + Qdrant）"""
@@ -49,7 +47,7 @@ class HybridVectorRetriever:
         use_cache: bool = True
     ) -> List[Dict[str, Any]]:
         """混合向量搜索"""
-        start_time = asyncio.get_event_loop().time()
+        start_time = asyncio.get_running_loop().time()
         
         try:
             # 检查缓存
@@ -98,7 +96,7 @@ class HybridVectorRetriever:
                 )
             
             # 更新统计
-            end_time = asyncio.get_event_loop().time()
+            end_time = asyncio.get_running_loop().time()
             latency_ms = (end_time - start_time) * 1000
             self._update_retrieval_stats("hybrid", latency_ms)
             
@@ -231,12 +229,12 @@ class HybridVectorRetriever:
         top_k: int = 10
     ) -> List[Dict[str, Any]]:
         """仅使用PostgreSQL搜索"""
-        start_time = asyncio.get_event_loop().time()
+        start_time = asyncio.get_running_loop().time()
         
         try:
             results = await self._pg_search(query_vector, top_k)
             
-            end_time = asyncio.get_event_loop().time()
+            end_time = asyncio.get_running_loop().time()
             latency_ms = (end_time - start_time) * 1000
             self._update_retrieval_stats("pg_only", latency_ms)
             
@@ -252,12 +250,12 @@ class HybridVectorRetriever:
         top_k: int = 10
     ) -> List[Dict[str, Any]]:
         """仅使用Qdrant搜索"""
-        start_time = asyncio.get_event_loop().time()
+        start_time = asyncio.get_running_loop().time()
         
         try:
             results = await self._qdrant_search(query_vector, top_k)
             
-            end_time = asyncio.get_event_loop().time()
+            end_time = asyncio.get_running_loop().time()
             latency_ms = (end_time - start_time) * 1000
             self._update_retrieval_stats("qdrant_only", latency_ms)
             
@@ -330,7 +328,7 @@ class HybridVectorRetriever:
         ]
         
         for method_name, method_func in methods:
-            start_time = asyncio.get_event_loop().time()
+            start_time = asyncio.get_running_loop().time()
             total_results = 0
             errors = 0
             
@@ -342,7 +340,7 @@ class HybridVectorRetriever:
                     logger.error(f"Benchmark error for {method_name}: {e}")
                     errors += 1
             
-            end_time = asyncio.get_event_loop().time()
+            end_time = asyncio.get_running_loop().time()
             total_time_ms = (end_time - start_time) * 1000
             
             benchmark_results["methods"][method_name] = {

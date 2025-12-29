@@ -15,6 +15,7 @@ import {
   Divider,
   Form,
   Input,
+  Checkbox,
   Select,
   Tooltip,
   Modal,
@@ -37,40 +38,12 @@ import {
   ClearOutlined,
   ReloadOutlined
 } from '@ant-design/icons'
+import filesService from '../services/filesService'
 
 const { Title, Text, Paragraph } = Typography
 const { Option } = Select
 const { TabPane } = Tabs
 const { Dragger } = Upload
-
-// 模拟文件数据
-const generateFileList = () => {
-  const fileTypes = ['PDF', 'DOC', 'TXT', 'IMAGE', 'VIDEO', 'AUDIO', 'JSON', 'CSV']
-  const files = []
-  
-  for (let i = 0; i < 50; i++) {
-    const type = fileTypes[Math.floor(Math.random() * fileTypes.length)]
-    const size = Math.floor(Math.random() * 50000000) + 1000 // 1KB到50MB
-    
-    files.push({
-      id: `file_${i + 1}`,
-      name: `${type.toLowerCase()}_document_${i + 1}.${type.toLowerCase()}`,
-      type: type,
-      size: size,
-      sizeFormatted: formatFileSize(size),
-      uploadTime: new Date(Date.now() - Math.random() * 30 * 24 * 3600 * 1000),
-      status: Math.random() > 0.1 ? 'completed' : 'processing',
-      downloadCount: Math.floor(Math.random() * 100),
-      metadata: {
-        checksum: generateChecksum(),
-        encoding: 'UTF-8',
-        mimeType: getMimeType(type)
-      }
-    })
-  }
-  
-  return files.sort((a, b) => b.uploadTime.getTime() - a.uploadTime.getTime())
-}
 
 const formatFileSize = (bytes: number): string => {
   if (bytes === 0) return '0 Bytes'
@@ -78,10 +51,6 @@ const formatFileSize = (bytes: number): string => {
   const sizes = ['Bytes', 'KB', 'MB', 'GB']
   const i = Math.floor(Math.log(bytes) / Math.log(k))
   return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
-}
-
-const generateChecksum = () => {
-  return Math.random().toString(16).substr(2, 8).toUpperCase()
 }
 
 const getMimeType = (type: string): string => {
@@ -99,13 +68,44 @@ const getMimeType = (type: string): string => {
 }
 
 const FileManagementAdvancedPage: React.FC = () => {
-  const [fileList, setFileList] = useState(() => generateFileList())
+  const [fileList, setFileList] = useState<any[]>([])
   const [uploading, setUploading] = useState(false)
   const [selectedFiles, setSelectedFiles] = useState<string[]>([])
   const [filterType, setFilterType] = useState('all')
   const [searchKeyword, setSearchKeyword] = useState('')
   const [previewVisible, setPreviewVisible] = useState(false)
   const [previewFile, setPreviewFile] = useState<any>(null)
+
+  const loadFiles = async () => {
+    try {
+      const res = await filesService.listFiles({ limit: 100, offset: 0 })
+      const files = (res.data?.files || []).map((f) => {
+        const type = getFileTypeFromName(f.filename)
+        return {
+          id: f.file_id || f.filename,
+          name: f.filename,
+          type,
+          size: f.file_size,
+          sizeFormatted: formatFileSize(f.file_size),
+          uploadTime: new Date(f.created_at || Date.now()),
+          status: 'completed',
+          downloadCount: 0,
+          metadata: {
+            checksum: f.file_id,
+            encoding: 'UTF-8',
+            mimeType: getMimeType(type)
+          }
+        }
+      })
+      setFileList(files)
+    } catch (e: any) {
+      message.error(e?.message || '文件列表加载失败')
+    }
+  }
+
+  useEffect(() => {
+    loadFiles()
+  }, [])
 
   // 过滤文件列表
   const filteredFiles = fileList.filter(file => {
@@ -128,33 +128,19 @@ const FileManagementAdvancedPage: React.FC = () => {
   }
 
   // 文件上传处理
-  const handleUpload = (info: any) => {
-    const { status } = info.file
-    if (status === 'uploading') {
-      setUploading(true)
-    } else if (status === 'done') {
+  const handleUpload = async (options: any) => {
+    const { file, onSuccess, onError } = options
+    setUploading(true)
+    try {
+      await filesService.uploadFile(file as File)
+      await loadFiles()
+      onSuccess?.({})
+      message.success(`${file.name} 文件上传成功`)
+    } catch (e: any) {
+      onError?.(e)
+      message.error(e?.message || `${file.name} 上传失败`)
+    } finally {
       setUploading(false)
-      message.success(`${info.file.name} 文件上传成功`)
-      // 模拟添加新文件到列表
-      const newFile = {
-        id: `file_${Date.now()}`,
-        name: info.file.name,
-        type: getFileTypeFromName(info.file.name),
-        size: info.file.size,
-        sizeFormatted: formatFileSize(info.file.size),
-        uploadTime: new Date(),
-        status: 'completed',
-        downloadCount: 0,
-        metadata: {
-          checksum: generateChecksum(),
-          encoding: 'UTF-8',
-          mimeType: info.file.type
-        }
-      }
-      setFileList(prev => [newFile, ...prev])
-    } else if (status === 'error') {
-      setUploading(false)
-      message.error(`${info.file.name} 文件上传失败`)
     }
   }
 
@@ -178,8 +164,9 @@ const FileManagementAdvancedPage: React.FC = () => {
     Modal.confirm({
       title: '确认删除',
       content: '确定要删除这个文件吗？此操作不可恢复。',
-      onOk: () => {
-        setFileList(prev => prev.filter(file => file.id !== fileId))
+      onOk: async () => {
+        await filesService.deleteFile(fileId)
+        await loadFiles()
         message.success('文件删除成功')
       }
     })
@@ -385,8 +372,7 @@ const FileManagementAdvancedPage: React.FC = () => {
                   <Dragger
                     name="file"
                     multiple
-                    action="/api/v1/files/upload"
-                    onChange={handleUpload}
+                    customRequest={handleUpload}
                     showUploadList={false}
                     style={{ height: 100 }}
                   >
@@ -400,6 +386,7 @@ const FileManagementAdvancedPage: React.FC = () => {
                 <Col span={16}>
                   <Space wrap>
                     <Input.Search
+                      name="fileSearch"
                       placeholder="搜索文件名"
                       allowClear
                       value={searchKeyword}
@@ -407,6 +394,7 @@ const FileManagementAdvancedPage: React.FC = () => {
                       style={{ width: 200 }}
                     />
                     <Select
+                      name="fileTypeFilter"
                       value={filterType}
                       onChange={setFilterType}
                       style={{ width: 120 }}
@@ -426,8 +414,10 @@ const FileManagementAdvancedPage: React.FC = () => {
                     >
                       批量删除 ({selectedFiles.length})
                     </Button>
-                    <Button icon={<ClearOutlined />}>清理临时文件</Button>
-                    <Button icon={<ReloadOutlined />} onClick={() => setFileList(generateFileList())}>
+                    <Button icon={<ClearOutlined />} onClick={() => message.info('请使用后端清理接口')}>
+                      清理临时文件
+                    </Button>
+                    <Button icon={<ReloadOutlined />} onClick={loadFiles}>
                       刷新列表
                     </Button>
                   </Space>
@@ -443,7 +433,18 @@ const FileManagementAdvancedPage: React.FC = () => {
                 rowKey="id"
                 rowSelection={{
                   selectedRowKeys: selectedFiles,
-                  onChange: (keys: React.Key[]) => setSelectedFiles(keys as string[])
+                  onChange: (keys: React.Key[]) => setSelectedFiles(keys as string[]),
+                  getCheckboxProps: (record: any) => ({
+                    name: `fileSelect-${record.id}`
+                  }),
+                  columnTitle: (
+                    <Checkbox
+                      name="selectAllFiles"
+                      indeterminate={selectedFiles.length > 0 && selectedFiles.length < filteredFiles.length}
+                      checked={filteredFiles.length > 0 && selectedFiles.length === filteredFiles.length}
+                      onChange={(e) => setSelectedFiles(e.target.checked ? filteredFiles.map((item) => item.id) : [])}
+                    />
+                  )
                 }}
                 pagination={{ 
                   pageSize: 15,
@@ -518,8 +519,7 @@ const FileManagementAdvancedPage: React.FC = () => {
                       name="files"
                       multiple
                       directory
-                      action="/api/v1/files/upload/batch"
-                      onChange={handleUpload}
+                      customRequest={handleUpload}
                     >
                       <p className="ant-upload-drag-icon">
                         <FolderOutlined />
@@ -545,6 +545,11 @@ const FileManagementAdvancedPage: React.FC = () => {
                     <Button 
                       danger
                       icon={<ClearOutlined />}
+                      onClick={async () => {
+                        await filesService.cleanupOldFiles(7)
+                        await loadFiles()
+                        message.success('已清理7天前文件')
+                      }}
                       style={{ width: '100%', height: 60 }}
                     >
                       清理7天前文件

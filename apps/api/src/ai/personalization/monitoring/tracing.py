@@ -8,8 +8,6 @@ from contextlib import asynccontextmanager, contextmanager
 from dataclasses import dataclass
 from datetime import datetime
 from src.core.utils.timezone_utils import utc_now, utc_factory
-import logging
-
 from opentelemetry import trace, metrics, baggage
 from opentelemetry.trace import Status, StatusCode
 from opentelemetry.sdk.trace import TracerProvider
@@ -21,11 +19,9 @@ from opentelemetry.exporter.prometheus import PrometheusMetricReader
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 from opentelemetry.instrumentation.redis import RedisInstrumentor
 from opentelemetry.instrumentation.requests import RequestsInstrumentor
-from opentelemetry.instrumentation.aioredis import AioRedisInstrumentor
 from opentelemetry.propagate import inject, extract
 from opentelemetry.trace.propagation.tracecontext import TraceContextTextMapPropagator
-
-logger = logging.getLogger(__name__)
+import asyncio
 
 @dataclass
 class SpanInfo:
@@ -90,7 +86,6 @@ class DistributedTracer:
     def instrument_redis(self):
         """自动化Redis追踪"""
         RedisInstrumentor().instrument()
-        AioRedisInstrumentor().instrument()
         
     def instrument_requests(self):
         """自动化HTTP请求追踪"""
@@ -102,7 +97,10 @@ class DistributedTracer:
                          attributes: Dict[str, Any] = None,
                          kind: trace.SpanKind = trace.SpanKind.INTERNAL):
         """异步追踪上下文管理器"""
-        
+        parent = trace.get_current_span()
+        parent_ctx = parent.get_span_context() if parent else None
+        parent_span_id = format(parent_ctx.span_id, '016x') if parent_ctx and parent_ctx.is_valid else None
+
         with self.tracer.start_as_current_span(
             operation,
             kind=kind,
@@ -114,7 +112,7 @@ class DistributedTracer:
             span_info = SpanInfo(
                 trace_id=format(span_context.trace_id, '032x'),
                 span_id=format(span_context.span_id, '016x'),
-                parent_span_id=None,  # TODO: 获取parent span id
+                parent_span_id=parent_span_id,
                 operation=operation,
                 start_time=time.time(),
                 end_time=None,
@@ -494,7 +492,6 @@ def trace_sync(operation: str = None, **kwargs):
     return global_tracer.trace_function(operation, kwargs)
 
 # 使用示例
-import asyncio
 
 @trace_async("feature_extraction")
 async def extract_features(user_id: str) -> Dict[str, Any]:

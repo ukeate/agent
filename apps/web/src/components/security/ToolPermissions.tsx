@@ -9,6 +9,7 @@ import { Alert } from '../ui/alert';
 import { Input } from '../ui/input';
 import { securityApi } from '../../services/securityApi';
 
+import { logger } from '../../utils/logger'
 interface ToolPermission {
   tool_name: string;
   description: string;
@@ -52,28 +53,28 @@ export const ToolPermissions: React.FC = () => {
       setError(null);
     } catch (err) {
       setError('加载工具权限失败');
-      console.error('Error loading tool permissions:', err);
+      logger.error('加载工具权限失败:', err);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleToggleEnabled = async (toolName: string, enabled: boolean) => {
+  const handleToggleEnabled = async (perm: ToolPermission, enabled: boolean) => {
     try {
-      await securityApi.updateToolPermission(toolName, { enabled });
+      await securityApi.updateToolPermission(perm.tool_name, { ...perm, enabled });
       await loadToolPermissions();
     } catch (err) {
-      console.error('Error updating tool permission:', err);
+      logger.error('更新工具权限失败:', err);
       setError('更新工具权限失败');
     }
   };
 
-  const handleToggleApproval = async (toolName: string, requiresApproval: boolean) => {
+  const handleToggleApproval = async (perm: ToolPermission, requiresApproval: boolean) => {
     try {
-      await securityApi.updateToolPermission(toolName, { requires_approval: requiresApproval });
+      await securityApi.updateToolPermission(perm.tool_name, { ...perm, requires_approval: requiresApproval });
       await loadToolPermissions();
     } catch (err) {
-      console.error('Error updating tool approval:', err);
+      logger.error('更新审批要求失败:', err);
       setError('更新审批要求失败');
     }
   };
@@ -83,7 +84,7 @@ export const ToolPermissions: React.FC = () => {
       await securityApi.updateToolWhitelist(toolName, { users, roles });
       await loadToolPermissions();
     } catch (err) {
-      console.error('Error updating whitelist:', err);
+      logger.error('更新白名单失败:', err);
       setError('更新白名单失败');
     }
   };
@@ -183,7 +184,7 @@ export const ToolPermissions: React.FC = () => {
                       <span className="text-sm">启用</span>
                       <Switch
                         checked={perm.enabled}
-                        onCheckedChange={(checked) => handleToggleEnabled(perm.tool_name, checked)}
+                        onCheckedChange={(checked) => handleToggleEnabled(perm, checked)}
                       />
                     </div>
                   </div>
@@ -196,7 +197,7 @@ export const ToolPermissions: React.FC = () => {
                       <span className="text-sm">需要审批</span>
                       <Switch
                         checked={perm.requires_approval}
-                        onCheckedChange={(checked) => handleToggleApproval(perm.tool_name, checked)}
+                        onCheckedChange={(checked) => handleToggleApproval(perm, checked)}
                         disabled={!perm.enabled}
                       />
                     </div>

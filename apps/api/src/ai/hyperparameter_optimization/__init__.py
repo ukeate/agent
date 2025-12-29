@@ -21,13 +21,11 @@ from .optimizer import (
     EarlyStoppingCallback,
     ResourceManager
 )
-
 from .experiment_manager import (
     ExperimentManager,
     ExperimentRequest,
     ExperimentResponse
 )
-
 from .search_engine import HyperparameterSearchEngine
 
 __all__ = [

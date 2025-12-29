@@ -7,6 +7,7 @@
 import React, { useState, useEffect } from 'react';
 import { batchService, BatchJob, BatchTask, BatchMetrics } from '../../services/batchService';
 
+import { logger } from '../../utils/logger'
 interface BatchDashboardState {
   jobs: BatchJob[];
   metrics: BatchMetrics | null;
@@ -30,10 +31,10 @@ export const BatchProcessingDashboard: React.FC = () => {
   // 获取批处理作业列表
   const fetchJobs = async () => {
     try {
-      const response = await batchService.getJobs();
-      setState(prev => ({ ...prev, jobs: response.jobs }));
+      const jobs = await batchService.getJobs();
+      setState(prev => ({ ...prev, jobs }));
     } catch (error) {
-      console.error('获取批处理作业失败:', error);
+      logger.error('获取批处理作业失败:', error);
       setState(prev => ({ 
         ...prev, 
         error: error instanceof Error ? error.message : '获取作业列表失败' 
@@ -47,7 +48,7 @@ export const BatchProcessingDashboard: React.FC = () => {
       const metrics = await batchService.getMetrics();
       setState(prev => ({ ...prev, metrics }));
     } catch (error) {
-      console.error('获取批处理指标失败:', error);
+      logger.error('获取批处理指标失败:', error);
     }
   };
 
@@ -57,7 +58,7 @@ export const BatchProcessingDashboard: React.FC = () => {
       const job = await batchService.getJobDetails(jobId);
       setState(prev => ({ ...prev, selectedJob: job }));
     } catch (error) {
-      console.error('获取作业详情失败:', error);
+      logger.error('获取作业详情失败:', error);
     }
   };
 
@@ -82,7 +83,7 @@ export const BatchProcessingDashboard: React.FC = () => {
       await batchService.cancelJob(jobId);
       await fetchJobs();
     } catch (error) {
-      console.error('取消作业失败:', error);
+      logger.error('取消作业失败:', error);
     }
   };
 
@@ -92,7 +93,7 @@ export const BatchProcessingDashboard: React.FC = () => {
       await batchService.retryFailedTasks(jobId);
       await fetchJobs();
     } catch (error) {
-      console.error('重试任务失败:', error);
+      logger.error('重试任务失败:', error);
     }
   };
 

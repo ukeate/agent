@@ -1,6 +1,7 @@
 """
 定向规则引擎 - 实现黑白名单管理和复杂定向规则系统
 """
+
 import re
 import json
 from typing import Dict, List, Any, Optional, Set, Union, Callable
@@ -12,8 +13,8 @@ from dataclasses import dataclass, field
 import operator
 from functools import reduce
 
-from core.logging import logger
-
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 class RuleType(Enum):
     """规则类型"""
@@ -21,7 +22,6 @@ class RuleType(Enum):
     BLACKLIST = "blacklist"  # 黑名单
     TARGETING = "targeting"  # 定向规则
     EXCLUSION = "exclusion"  # 排除规则
-
 
 class RuleOperator(Enum):
     """规则操作符"""
@@ -42,13 +42,11 @@ class RuleOperator(Enum):
     EXISTS = "exists"       # 字段存在
     NOT_EXISTS = "not_exists"  # 字段不存在
 
-
 class LogicalOperator(Enum):
     """逻辑操作符"""
     AND = "and"
     OR = "or"
     NOT = "not"
-
 
 @dataclass
 class RuleCondition:
@@ -74,7 +72,6 @@ class RuleCondition:
             value=data["value"],
             case_sensitive=data.get("case_sensitive", True)
         )
-
 
 @dataclass
 class CompositeCondition:
@@ -103,7 +100,6 @@ class CompositeCondition:
             logical_operator=LogicalOperator(data["logical_operator"]),
             conditions=conditions
         )
-
 
 @dataclass
 class TargetingRule:
@@ -160,7 +156,6 @@ class TargetingRule:
             metadata=data.get("metadata", {})
         )
 
-
 @dataclass
 class EvaluationResult:
     """规则评估结果"""
@@ -173,7 +168,6 @@ class EvaluationResult:
     experiment_ids: List[str] = field(default_factory=list)
     evaluation_time: datetime = field(default_factory=lambda: utc_now())
     metadata: Dict[str, Any] = field(default_factory=dict)
-
 
 class TargetingRulesEngine:
     """定向规则引擎"""

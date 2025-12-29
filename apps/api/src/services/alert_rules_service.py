@@ -3,6 +3,7 @@
 
 实现灵活的告警规则配置和触发机制
 """
+
 from datetime import datetime
 from datetime import timedelta
 from src.core.utils.timezone_utils import utc_now, utc_factory
@@ -13,11 +14,13 @@ from dataclasses import dataclass, field
 import json
 import re
 from collections import defaultdict
-
 from ..core.database import get_db_session
+from ..core.security.expression import safe_eval_bool
 from ..services.anomaly_detection_service import AnomalyDetectionService, Anomaly, AnomalyType
 from ..services.realtime_metrics_service import RealtimeMetricsService
 
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 class AlertSeverity(str, Enum):
     """告警严重级别"""
@@ -25,7 +28,6 @@ class AlertSeverity(str, Enum):
     WARNING = "warning"
     ERROR = "error"
     CRITICAL = "critical"
-
 
 class AlertChannel(str, Enum):
     """告警通道"""
@@ -35,7 +37,6 @@ class AlertChannel(str, Enum):
     SMS = "sms"
     PAGERDUTY = "pagerduty"
     DASHBOARD = "dashboard"
-
 
 class RuleOperator(str, Enum):
     """规则操作符"""
@@ -52,14 +53,12 @@ class RuleOperator(str, Enum):
     BETWEEN = "between"
     REGEX = "regex"
 
-
 class RuleAggregation(str, Enum):
     """规则聚合方式"""
     ALL = "all"  # 所有条件都满足
     ANY = "any"  # 任一条件满足
     NONE = "none"  # 所有条件都不满足
     CUSTOM = "custom"  # 自定义表达式
-
 
 @dataclass
 class AlertCondition:
@@ -119,7 +118,6 @@ class AlertCondition:
                 
         return value
 
-
 @dataclass
 class AlertRule:
     """告警规则"""
@@ -137,8 +135,8 @@ class AlertRule:
     max_alerts_per_hour: int = 10  # 每小时最大告警数
     custom_expression: Optional[str] = None  # 自定义表达式
     metadata: Dict[str, Any] = field(default_factory=dict)
-    created_at: datetime = field(default_factory=datetime.utcnow)
-    updated_at: datetime = field(default_factory=datetime.utcnow)
+    created_at: datetime = field(default_factory=utc_now)
+    updated_at: datetime = field(default_factory=utc_now)
     
     def evaluate(self, data: Dict[str, Any]) -> bool:
         """评估规则"""
@@ -170,11 +168,9 @@ class AlertRule:
         try:
             # 将结果映射到变量
             context = {f"c{i}": r for i, r in enumerate(results)}
-            # 安全评估表达式
-            return eval(self.custom_expression, {"__builtins__": {}}, context)
+            return safe_eval_bool(self.custom_expression, context)
         except Exception:
             return False
-
 
 @dataclass
 class Alert:
@@ -192,7 +188,6 @@ class Alert:
     acknowledged_by: Optional[str] = None
     notifications_sent: List[str] = field(default_factory=list)
     metadata: Dict[str, Any] = field(default_factory=dict)
-
 
 class AlertRulesEngine:
     """告警规则引擎"""
@@ -331,27 +326,23 @@ class AlertRulesEngine:
                     await handler(alert)
                     alert.notifications_sent.append(channel.value)
                 except Exception as e:
-                    print(f"发送{channel.value}通知失败: {e}")
+                    logger.error("发送通知失败", channel=channel.value, error=str(e), exc_info=True)
                     
     async def _send_email(self, alert: Alert):
         """发送邮件通知"""
-        # 这里应该实现实际的邮件发送逻辑
-        print(f"发送邮件: {alert.title}")
+        logger.warning("邮件通知未配置", alert_title=alert.title)
         
     async def _send_slack(self, alert: Alert):
         """发送Slack通知"""
-        # 这里应该实现实际的Slack发送逻辑
-        print(f"发送Slack: {alert.title}")
+        logger.warning("Slack通知未配置", alert_title=alert.title)
         
     async def _send_webhook(self, alert: Alert):
         """发送Webhook通知"""
-        # 这里应该实现实际的Webhook调用逻辑
-        print(f"发送Webhook: {alert.title}")
+        logger.warning("Webhook通知未配置", alert_title=alert.title)
         
     async def _send_dashboard(self, alert: Alert):
         """发送到仪表板"""
-        # 这里应该实现实际的仪表板更新逻辑
-        print(f"更新仪表板: {alert.title}")
+        logger.warning("仪表板通知未配置", alert_title=alert.title)
         
     def _is_in_cooldown(self, rule_id: str) -> bool:
         """检查是否在冷却期"""
@@ -500,7 +491,6 @@ class AlertRulesEngine:
         
         return stats
 
-
 class AlertRuleBuilder:
     """告警规则构建器"""
     
@@ -577,7 +567,6 @@ class AlertRuleBuilder:
     def build(self) -> AlertRule:
         """构建规则"""
         return self.rule
-
 
 # 预定义规则模板
 class AlertRuleTemplates:

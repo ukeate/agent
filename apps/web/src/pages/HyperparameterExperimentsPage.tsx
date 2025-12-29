@@ -4,6 +4,7 @@ import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
 import { Alert } from '../components/ui/alert';
 import { Progress } from '../components/ui/progress';
+import { buildApiUrl, apiFetch } from '../utils/apiBase'
 
 interface Experiment {
   id: string;
@@ -42,20 +43,19 @@ const HyperparameterExperimentsPage: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const API_BASE = '/api/v1/hyperparameter-optimization';
+  const API_BASE = buildApiUrl('/api/v1/hyperparameter-optimization');
 
   // 加载实验列表
   const loadExperiments = async () => {
     try {
       setLoading(true);
-      const response = await fetch(`${API_BASE}/experiments`);
-      if (!response.ok) throw new Error('Failed to load experiments');
+      const response = await apiFetch(`${API_BASE}/experiments`);
       
       const data = await response.json();
       setExperiments(data);
       setError(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unknown error');
+      setError(err instanceof Error ? err.message : '未知错误');
     } finally {
       setLoading(false);
     }
@@ -64,38 +64,28 @@ const HyperparameterExperimentsPage: React.FC = () => {
   // 启动实验
   const startExperiment = async (experimentId: string) => {
     try {
-      const response = await fetch(`${API_BASE}/experiments/${experimentId}/start`, {
+      const response = await apiFetch(`${API_BASE}/experiments/${experimentId}/start`, {
         method: 'POST',
       });
-      
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.detail || 'Failed to start experiment');
-      }
-      
+      await response.json().catch(() => null);
       await loadExperiments();
       setError(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unknown error');
+      setError(err instanceof Error ? err.message : '未知错误');
     }
   };
 
   // 停止实验
   const stopExperiment = async (experimentId: string) => {
     try {
-      const response = await fetch(`${API_BASE}/experiments/${experimentId}/stop`, {
+      const response = await apiFetch(`${API_BASE}/experiments/${experimentId}/stop`, {
         method: 'POST',
       });
-      
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.detail || 'Failed to stop experiment');
-      }
-      
+      await response.json().catch(() => null);
       await loadExperiments();
       setError(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unknown error');
+      setError(err instanceof Error ? err.message : '未知错误');
     }
   };
 
@@ -106,19 +96,14 @@ const HyperparameterExperimentsPage: React.FC = () => {
     }
     
     try {
-      const response = await fetch(`${API_BASE}/experiments/${experimentId}`, {
+      const response = await apiFetch(`${API_BASE}/experiments/${experimentId}`, {
         method: 'DELETE',
       });
-      
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.detail || 'Failed to delete experiment');
-      }
-      
+      await response.json().catch(() => null);
       await loadExperiments();
       setError(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unknown error');
+      setError(err instanceof Error ? err.message : '未知错误');
     }
   };
 

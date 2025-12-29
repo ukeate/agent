@@ -1,291 +1,218 @@
 import { create } from 'zustand'
-import { persist } from 'zustand/middleware'
-import { Message, Conversation } from '../types'
+import { apiClient } from '../services/apiClient'
+import { Conversation, Message } from '../types'
+
+type AgentSessionResponse = {
+  conversation_id: string
+}
+
+type AgentChatResponse = {
+  conversation_id: string
+  response: string
+  steps: number
+  tool_calls: any[]
+  completed: boolean
+  session_summary?: Record<string, any>
+}
+
+type ConversationSummary = {
+  conversation_id: string
+  title: string
+  created_at: string
+  updated_at: string
+  message_stats?: {
+    total?: number
+    user?: number
+  }
+}
+
+type ListConversationsResponse = {
+  conversations: ConversationSummary[]
+}
+
+type ConversationHistoryResponse = {
+  conversation_id: string
+  messages: Array<{
+    id: string
+    content: string
+    sender_type: string
+    created_at: string
+    tool_calls?: any[]
+  }>
+  summary: any
+}
+
+const mapConversationSummary = (s: ConversationSummary): Conversation => ({
+  id: s.conversation_id,
+  title: s.title || '对话',
+  messages: [],
+  createdAt: s.created_at,
+  updatedAt: s.updated_at,
+  messageCount: s.message_stats?.total || 0,
+  userMessageCount: s.message_stats?.user || 0,
+})
+
+const mapHistoryToConversation = (history: ConversationHistoryResponse): Conversation => {
+  const summary = history.summary || {}
+  const messages: Message[] = (history.messages || []).map((m) => ({
+    id: m.id,
+    content: m.content,
+    role: m.sender_type === 'user' ? 'user' : 'agent',
+    timestamp: m.created_at,
+    toolCalls: m.tool_calls,
+  }))
+
+  return {
+    id: history.conversation_id,
+    title: summary.title || '对话',
+    messages,
+    createdAt: summary.created_at,
+    updatedAt: summary.updated_at,
+    messageCount: summary.message_stats?.total,
+    userMessageCount: summary.message_stats?.user,
+  }
+}
 
 interface ConversationState {
-  // 当前对话
   currentConversation: Conversation | null
-  
-  // 对话历史
   conversations: Conversation[]
-  
-  // 当前消息列表
   messages: Message[]
-  
-  // 加载状态
   loading: boolean
-  
-  // 错误状态
   error: string | null
 
-  // Actions
-  setCurrentConversation: (conversation: Conversation | null) => void
   addMessage: (message: Message) => void
-  addMessages: (messages: Message[]) => void
   updateLastMessage: (content: string) => void
   clearMessages: () => void
   setLoading: (loading: boolean) => void
   setError: (error: string | null) => void
-  
-  // 对话管理
-  createNewConversation: () => void
-  saveConversation: () => void
-  loadConversation: (conversationId: string) => void
-  deleteConversation: (conversationId: string) => void
-  
-  // 消息管理
-  deleteMessage: (messageId: string) => void
-  updateMessage: (messageId: string, updates: Partial<Message>) => void
+
+  refreshConversations: () => Promise<void>
+  createNewConversation: () => Promise<string>
+  loadConversation: (conversationId: string) => Promise<void>
+  deleteConversation: (conversationId: string) => Promise<void>
+  closeCurrentConversation: () => Promise<void>
 }
 
-export const useConversationStore = create<ConversationState>()(
-  persist(
-    (set, get) => ({
-      // 初始状态
-      currentConversation: null,
-      conversations: [],
-      messages: [],
-      loading: false,
-      error: null,
+export const useConversationStore = create<ConversationState>((set, get) => ({
+  currentConversation: null,
+  conversations: [],
+  messages: [],
+  loading: false,
+  error: null,
 
-      // 基础状态管理
-      setCurrentConversation: (conversation) => {
-        set({ 
-          currentConversation: conversation,
-          messages: conversation?.messages || [],
-          error: null 
-        })
-      },
-
-      addMessage: (message) => {
-        set((state) => {
-          const newMessages = [...state.messages, message]
-          const updatedConversation = state.currentConversation ? {
+  addMessage: (message) => {
+    set((state) => {
+      const messages = [...state.messages, message]
+      const currentConversation = state.currentConversation
+        ? {
             ...state.currentConversation,
-            messages: newMessages,
+            messages,
             updatedAt: new Date().toISOString(),
-          } : null
-          
-          // 同时更新conversations数组中的对话
-          const updatedConversations = state.currentConversation 
-            ? state.conversations.map(conv => 
-                conv.id === state.currentConversation!.id 
-                  ? updatedConversation!
-                  : conv
-              )
-            : state.conversations
-            
-          return {
-            messages: newMessages,
-            currentConversation: updatedConversation,
-            conversations: updatedConversations,
           }
-        })
-      },
+        : null
+      return { messages, currentConversation }
+    })
+  },
 
-      addMessages: (messages) => {
-        set((state) => {
-          const newMessages = [...state.messages, ...messages]
-          const updatedConversation = state.currentConversation ? {
-            ...state.currentConversation,
-            messages: newMessages,
-            updatedAt: new Date().toISOString(),
-          } : null
-          
-          // 同时更新conversations数组中的对话
-          const updatedConversations = state.currentConversation 
-            ? state.conversations.map(conv => 
-                conv.id === state.currentConversation!.id 
-                  ? updatedConversation!
-                  : conv
-              )
-            : state.conversations
-            
-          return {
-            messages: newMessages,
-            currentConversation: updatedConversation,
-            conversations: updatedConversations,
-          }
-        })
-      },
+  updateLastMessage: (content) => {
+    set((state) => {
+      if (state.messages.length === 0) return state
+      const messages = [...state.messages]
+      const last = messages[messages.length - 1]
+      messages[messages.length - 1] = { ...last, content: last.content + content }
+      const currentConversation = state.currentConversation
+        ? { ...state.currentConversation, messages, updatedAt: new Date().toISOString() }
+        : null
+      return { messages, currentConversation }
+    })
+  },
 
-      updateLastMessage: (content) => {
-        set((state) => {
-          if (state.messages.length === 0) return state
-          
-          const newMessages = [...state.messages]
-          const lastMessage = newMessages[newMessages.length - 1]
-          newMessages[newMessages.length - 1] = {
-            ...lastMessage,
-            content: lastMessage.content + content,
-          }
-          
-          const updatedConversation = state.currentConversation ? {
-            ...state.currentConversation,
-            messages: newMessages,
-            updatedAt: new Date().toISOString(),
-          } : null
-          
-          // 同时更新conversations数组中的对话
-          const updatedConversations = state.currentConversation 
-            ? state.conversations.map(conv => 
-                conv.id === state.currentConversation!.id 
-                  ? updatedConversation!
-                  : conv
-              )
-            : state.conversations
-          
-          return {
-            messages: newMessages,
-            currentConversation: updatedConversation,
-            conversations: updatedConversations,
-          }
-        })
-      },
+  clearMessages: () => set({ messages: [], currentConversation: null, error: null }),
 
-      clearMessages: () => {
-        set({ 
-          messages: [],
-          currentConversation: null,
-          error: null 
-        })
-      },
+  setLoading: (loading) => set({ loading }),
+  setError: (error) => set({ error }),
 
-      setLoading: (loading) => set({ loading }),
+  refreshConversations: async () => {
+    try {
+      const response = await apiClient.get<ListConversationsResponse>('/agents/conversations')
+      const list = response.data?.conversations || []
+      set({ conversations: list.map(mapConversationSummary) })
+    } catch (e: any) {
+      set({ error: e?.message || '加载对话列表失败' })
+    }
+  },
 
-      setError: (error) => set({ error }),
-
-      // 对话管理
-      createNewConversation: () => {
-        const newConversation: Conversation = {
-          id: `conv-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+  createNewConversation: async () => {
+    try {
+      const response = await apiClient.post<AgentSessionResponse>('/agents/sessions', {
+        agent_type: 'react',
+      })
+      const conversationId = response.data.conversation_id
+      const now = new Date().toISOString()
+      set({
+        currentConversation: {
+          id: conversationId,
           title: '新对话',
           messages: [],
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        }
-        
-        set((state) => ({
-          currentConversation: newConversation,
-          conversations: [newConversation, ...state.conversations],
-          messages: [],
-          error: null,
-        }))
-      },
-
-      saveConversation: () => {
-        set((state) => {
-          if (!state.currentConversation) return state
-          
-          const updatedConversation = {
-            ...state.currentConversation,
-            messages: state.messages,
-            updatedAt: new Date().toISOString(),
-            title: state.messages.length > 0 
-              ? state.messages[0].content.slice(0, 30) + '...'
-              : '新对话',
-          }
-          
-          const conversationIndex = state.conversations.findIndex(
-            c => c.id === updatedConversation.id
-          )
-          
-          const newConversations = [...state.conversations]
-          if (conversationIndex >= 0) {
-            newConversations[conversationIndex] = updatedConversation
-          } else {
-            newConversations.unshift(updatedConversation)
-          }
-          
-          return {
-            currentConversation: updatedConversation,
-            conversations: newConversations,
-          }
-        })
-      },
-
-      loadConversation: (conversationId) => {
-        const state = get()
-        const conversation = state.conversations.find(c => c.id === conversationId)
-        if (conversation) {
-          set({
-            currentConversation: conversation,
-            messages: conversation.messages,
-            error: null,
-          })
-        }
-      },
-
-      deleteConversation: (conversationId) => {
-        set((state) => {
-          const newConversations = state.conversations.filter(
-            c => c.id !== conversationId
-          )
-          
-          return {
-            conversations: newConversations,
-            currentConversation: state.currentConversation?.id === conversationId 
-              ? null 
-              : state.currentConversation,
-            messages: state.currentConversation?.id === conversationId 
-              ? [] 
-              : state.messages,
-          }
-        })
-      },
-
-      // 消息管理
-      deleteMessage: (messageId) => {
-        set((state) => {
-          const newMessages = state.messages.filter(m => m.id !== messageId)
-          return {
-            messages: newMessages,
-            currentConversation: state.currentConversation ? {
-              ...state.currentConversation,
-              messages: newMessages,
-              updatedAt: new Date().toISOString(),
-            } : null,
-          }
-        })
-      },
-
-      updateMessage: (messageId, updates) => {
-        set((state) => {
-          const newMessages = state.messages.map(m => 
-            m.id === messageId ? { ...m, ...updates } : m
-          )
-          
-          return {
-            messages: newMessages,
-            currentConversation: state.currentConversation ? {
-              ...state.currentConversation,
-              messages: newMessages,
-              updatedAt: new Date().toISOString(),
-            } : null,
-          }
-        })
-      },
-    }),
-    {
-      name: 'conversation-store',
-      // 持久化对话历史和当前对话ID
-      partialize: (state) => ({
-        conversations: state.conversations,
-        currentConversationId: state.currentConversation?.id || null,
-      }),
-      // 恢复状态时重新设置当前对话
-      onRehydrateStorage: () => (state) => {
-        if (state) {
-          const currentConversationId = (state as any).currentConversationId
-          if (currentConversationId) {
-            const conversation = state.conversations.find(c => c.id === currentConversationId)
-            if (conversation) {
-              state.currentConversation = conversation
-              state.messages = conversation.messages
-            }
-          }
-        }
-      },
+          createdAt: now,
+          updatedAt: now,
+        },
+        messages: [],
+        error: null,
+      })
+      await get().refreshConversations()
+      return conversationId
+    } catch (e: any) {
+      set({ error: e?.message || '创建对话失败' })
+      throw e
     }
-  )
-)
+  },
+
+  loadConversation: async (conversationId) => {
+    try {
+      const response = await apiClient.get<ConversationHistoryResponse>(
+        `/agents/conversations/${conversationId}/history`
+      )
+      const conversation = mapHistoryToConversation(response.data)
+      set({
+        currentConversation: conversation,
+        messages: conversation.messages,
+        error: null,
+      })
+    } catch (e: any) {
+      set({ error: e?.message || '加载对话失败' })
+      throw e
+    }
+  },
+
+  deleteConversation: async (conversationId) => {
+    try {
+      await apiClient.delete(`/agents/conversations/${conversationId}`)
+      await get().refreshConversations()
+      if (get().currentConversation?.id === conversationId) {
+        set({ currentConversation: null, messages: [] })
+      }
+    } catch (e: any) {
+      set({ error: e?.message || '关闭对话失败' })
+      throw e
+    }
+  },
+
+  closeCurrentConversation: async () => {
+    const id = get().currentConversation?.id
+    if (!id) {
+      set({ currentConversation: null, messages: [] })
+      return
+    }
+    await get().deleteConversation(id)
+    set({ currentConversation: null, messages: [] })
+  },
+}))
+
+export const createAgentChat = async (conversationId: string, message: string) => {
+  const response = await apiClient.post<AgentChatResponse>(`/agents/react/chat/${conversationId}`, {
+    message,
+    stream: false,
+  })
+  return response.data
+}

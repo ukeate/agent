@@ -1,19 +1,18 @@
 """
 异步智能体架构测试
 """
+
 import asyncio
 import pytest
 import pytest_asyncio
 from datetime import datetime
 from src.core.utils.timezone_utils import utc_now, utc_factory, timezone
 from unittest.mock import Mock, AsyncMock
-
 from src.ai.autogen.events import EventBus, Event, EventType, MessageQueue, StateManager
 from src.ai.autogen.async_manager import AsyncAgentManager
 from src.ai.autogen.config import AgentConfig, AgentRole, AGENT_CONFIGS
 from src.ai.autogen.enterprise import EnterpriseIntegrationService, SecurityContext, SecurityLevel
 from src.ai.autogen.monitoring import PerformanceMonitor, ConversationTracker
-
 
 class TestEventBus:
     """事件总线测试"""
@@ -90,7 +89,6 @@ class TestEventBus:
             
         finally:
             await event_bus.stop()
-
 
 class TestAsyncAgentManager:
     """异步智能体管理器测试"""
@@ -197,7 +195,6 @@ class TestAsyncAgentManager:
         assert isinstance(stats["agents"]["total"], int)
         assert isinstance(stats["tasks"]["total"], int)
 
-
 class TestEnterpriseIntegration:
     """企业级集成测试"""
     
@@ -294,7 +291,6 @@ class TestEnterpriseIntegration:
         assert error_stats["total_errors"] >= 1
         assert "ValueError" in error_stats["errors_by_type"]
 
-
 class TestMonitoringSystem:
     """监控系统测试"""
     
@@ -386,7 +382,6 @@ class TestMonitoringSystem:
         # 验证指标被记录
         summary = performance_monitor.get_metric_summary("test_duration")
         assert summary["count"] == 1
-
 
 class TestIntegrationScenarios:
     """集成场景测试"""
@@ -509,7 +504,6 @@ class TestIntegrationScenarios:
         finally:
             await agent_manager.stop()
             await event_bus.stop()
-
 
 if __name__ == "__main__":
     # 运行基本测试

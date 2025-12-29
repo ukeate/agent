@@ -2,6 +2,7 @@
 Supervisor任务监控测试
 测试任务执行状态跟踪、进度监控、性能指标收集等功能
 """
+
 import pytest
 import asyncio
 from datetime import datetime
@@ -10,7 +11,6 @@ from src.core.utils.timezone_utils import utc_now, utc_factory
 from unittest.mock import Mock, AsyncMock, patch, MagicMock
 from uuid import uuid4
 import structlog
-
 from src.services.supervisor_service import SupervisorService
 from src.ai.autogen.supervisor_agent import (
     SupervisorAgent,
@@ -27,18 +27,17 @@ from src.models.schemas.supervisor import (
     TaskStatus,
     AgentStatus
 )
-# 使用Mock代替实际数据库模型，避免SQLAlchemy表重复定义
 from unittest.mock import Mock as DBSupervisorAgent
 from unittest.mock import Mock as DBSupervisorTask
 from unittest.mock import Mock as DBSupervisorDecision
 
+# 使用Mock代替实际数据库模型，避免SQLAlchemy表重复定义
 
 @pytest.fixture
 def supervisor_service():
     """创建SupervisorService实例"""
     service = SupervisorService()
     return service
-
 
 @pytest.fixture
 def mock_db_session():
@@ -51,7 +50,6 @@ def mock_db_session():
     session.execute = AsyncMock()
     return session
 
-
 @pytest.fixture
 def mock_supervisor_agent():
     """创建模拟的SupervisorAgent"""
@@ -60,7 +58,6 @@ def mock_supervisor_agent():
     agent.get_supervisor_status = AsyncMock()
     agent.get_decision_history = AsyncMock()
     return agent
-
 
 @pytest.fixture
 def sample_task_assignment():
@@ -85,7 +82,6 @@ def sample_task_assignment():
             }
         }
     )
-
 
 class TestTaskStatusTracking:
     """任务状态跟踪测试"""
@@ -199,7 +195,6 @@ class TestTaskStatusTracking:
                     assert call_args["status"] == TaskStatus.FAILED
                     assert call_args["output_data"]["error"] == "处理失败"
 
-
 class TestProgressMonitoring:
     """进度监控测试"""
     
@@ -285,7 +280,6 @@ class TestProgressMonitoring:
         # 验证负载阈值判断
         high_load_agents = [name for name, load in loads.items() if load > 0.6]
         assert "code_expert" in high_load_agents
-
 
 class TestPerformanceMetrics:
     """性能指标收集测试"""
@@ -388,7 +382,6 @@ class TestPerformanceMetrics:
         assert metrics["success_rate"] == 0.8
         assert metrics["average_execution_time"] == 450
 
-
 class TestRealTimeMonitoring:
     """实时监控功能测试"""
     
@@ -477,7 +470,6 @@ class TestRealTimeMonitoring:
         # 验证新智能体被添加
         assert len(mock_agent.available_agents) == 2
         assert "doc_expert" in mock_agent.available_agents
-
 
 class TestMonitoringAlerts:
     """监控告警测试"""

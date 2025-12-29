@@ -3,7 +3,6 @@
 智能实体合并、关系去重、冲突解决和数据一致性维护
 """
 
-import logging
 from typing import Any, Dict, List, Optional, Tuple, Set
 from datetime import datetime
 from src.core.utils.timezone_utils import utc_now, utc_factory
@@ -13,14 +12,13 @@ import asyncio
 import uuid
 import hashlib
 from difflib import SequenceMatcher
-
 from .graph_database import Neo4jGraphDatabase
 from .graph_operations import GraphOperations, QueryResult
 from .schema import SchemaManager
 from .data_models import Entity, Relation, EntityType, RelationType
 
-logger = logging.getLogger(__name__)
-
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 class ConflictResolutionStrategy(str, Enum):
     """冲突解决策略"""
@@ -30,7 +28,6 @@ class ConflictResolutionStrategy(str, Enum):
     MANUAL_REVIEW = "manual_review"
     REJECT_DUPLICATES = "reject_duplicates"
 
-
 class UpdateOperation(str, Enum):
     """更新操作类型"""
     CREATE = "create"
@@ -38,7 +35,6 @@ class UpdateOperation(str, Enum):
     MERGE = "merge"
     DELETE = "delete"
     LINK = "link"
-
 
 @dataclass
 class EntitySimilarity:
@@ -57,7 +53,6 @@ class EntitySimilarity:
             "matching_attributes": self.matching_attributes,
             "confidence_diff": self.confidence_diff
         }
-
 
 @dataclass
 class ConflictReport:
@@ -80,7 +75,6 @@ class ConflictReport:
             "confidence": self.confidence,
             "created_at": self.created_at.isoformat()
         }
-
 
 @dataclass
 class UpdateResult:
@@ -105,7 +99,6 @@ class UpdateResult:
             "execution_time_ms": self.execution_time_ms,
             "error_message": self.error_message
         }
-
 
 class IncrementalUpdater:
     """增量更新器"""

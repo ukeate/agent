@@ -9,6 +9,7 @@ import RatingComponent from './RatingComponent';
 import LikeDislikeComponent from './LikeDislikeComponent';
 import BookmarkComponent from './BookmarkComponent';
 
+import { logger } from '../../utils/logger'
 interface FeedbackFormProps {
   itemId?: string;
   userId: string;
@@ -150,7 +151,7 @@ export const FeedbackForm: React.FC<FeedbackFormProps> = ({
         ...feedbackState
       });
     } catch (error) {
-      console.error('提交评论失败:', error);
+      logger.error('提交评论失败:', error);
       onSubmitError?.(error as Error);
     } finally {
       setIsSubmittingComment(false);

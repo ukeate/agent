@@ -1,9 +1,8 @@
+from src.core.utils.timezone_utils import utc_now
 import pytest
 import asyncio
-from datetime import datetime
 from unittest.mock import Mock, AsyncMock, patch
 import aiohttp
-
 from ....ai.fault_tolerance.fault_detector import (
     FaultDetector, 
     FaultType, 
@@ -183,7 +182,7 @@ class TestFaultDetector:
         health_status = HealthStatus(
             component_id="agent-1",
             status="unhealthy",
-            last_check=datetime.now(),
+            last_check=utc_now(),
             response_time=float('inf'),
             error_rate=1.0,
             resource_usage={}
@@ -289,7 +288,7 @@ class TestFaultDetector:
         fault_detector.health_status["agent-1"] = HealthStatus(
             component_id="agent-1",
             status="healthy",
-            last_check=datetime.now(),
+            last_check=utc_now(),
             response_time=0.5,
             error_rate=0.01,
             resource_usage={}
@@ -297,7 +296,7 @@ class TestFaultDetector:
         fault_detector.health_status["agent-2"] = HealthStatus(
             component_id="agent-2",
             status="degraded",
-            last_check=datetime.now(),
+            last_check=utc_now(),
             response_time=1.5,
             error_rate=0.05,
             resource_usage={}
@@ -329,7 +328,7 @@ class TestFaultDetector:
             fault_detector.health_status[f"agent-{i}"] = HealthStatus(
                 component_id=f"agent-{i}",
                 status="unhealthy" if i < 8 else "healthy",  # 80%不健康
-                last_check=datetime.now(),
+                last_check=utc_now(),
                 response_time=2.0,
                 error_rate=0.2,
                 resource_usage={}

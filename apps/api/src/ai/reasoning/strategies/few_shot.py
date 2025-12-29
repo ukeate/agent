@@ -3,11 +3,10 @@
 import json
 import re
 from typing import Any, Dict, List, Optional, Tuple
-
 from src.ai.reasoning.cot_engine import BaseCoTEngine
-from models.schemas.reasoning import ThoughtStepType
-from src.core.logging import logger
+from src.models.schemas.reasoning import ThoughtStepType
 
+logger = get_logger(__name__)
 
 class FewShotCoTEngine(BaseCoTEngine):
     """Few-shot链式思考推理引擎"""
@@ -130,3 +129,4 @@ class FewShotCoTEngine(BaseCoTEngine):
             "答案: 0.625 或 62.5%",
             ""
         ]
+from src.core.logging import get_logger

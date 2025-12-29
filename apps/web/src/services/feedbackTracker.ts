@@ -3,6 +3,9 @@
  * 收集隐式和显式反馈事件，支持实时传输和批量处理
  */
 
+import { apiFetch, buildApiUrl } from '../utils/apiBase';
+
+import { logger } from '../utils/logger'
 // 反馈事件类型枚举
 export enum FeedbackType {
   // 隐式反馈
@@ -83,6 +86,21 @@ class FeedbackTracker {
   private eventSequence = 0;
   private retryQueue: FeedbackEvent[] = [];
   private isOnline = true;
+  private disposed = false;
+  private shouldReconnect = true;
+  private reconnectTimer: number | null = null;
+  private scrollTimeout: number | null = null;
+  private hoverTimeout: number | null = null;
+  private flushOnHideHandler: (() => void) | null = null;
+  private visibilityChangeHandler: (() => void) | null = null;
+  private pageHideHandler: (() => void) | null = null;
+  private clickHandler: ((event: MouseEvent) => void) | null = null;
+  private scrollHandler: (() => void) | null = null;
+  private hoverHandler: ((event: MouseEvent) => void) | null = null;
+  private focusHandler: (() => void) | null = null;
+  private blurHandler: (() => void) | null = null;
+  private onlineHandler: (() => void) | null = null;
+  private offlineHandler: (() => void) | null = null;
   
   // 重复事件过滤
   private recentEvents = new Map<string, number>();
@@ -94,6 +112,8 @@ class FeedbackTracker {
   }
 
   private init(): void {
+    if (this.disposed) return;
+    if (typeof window === 'undefined' || typeof document === 'undefined') return;
     if (this.config.enableImplicitTracking) {
       this.setupImplicitTracking();
     }
@@ -105,19 +125,29 @@ class FeedbackTracker {
       this.setupWebSocket();
     }
 
-    // 页面卸载时发送剩余事件
-    window.addEventListener('beforeunload', () => {
-      this.flush(true);
-    });
+    this.flushOnHideHandler = () => {
+      this.flush(true).catch((error) => {
+        if (this.config.debug) {
+          logger.error('[FeedbackTracker] 页面隐藏时发送失败:', error);
+        }
+      });
+    };
 
     // 页面可见性变化时处理
-    document.addEventListener('visibilitychange', () => {
+    this.visibilityChangeHandler = () => {
       if (document.hidden) {
         this.onPageBlur();
+        this.flushOnHideHandler?.();
       } else {
         this.onPageFocus();
       }
-    });
+    };
+    document.addEventListener('visibilitychange', this.visibilityChangeHandler);
+
+    this.pageHideHandler = () => {
+      this.flushOnHideHandler?.();
+    };
+    window.addEventListener('pagehide', this.pageHideHandler);
   }
 
   /**
@@ -125,31 +155,34 @@ class FeedbackTracker {
    */
   private setupImplicitTracking(): void {
     // 点击事件
-    document.addEventListener('click', (event) => {
+    this.clickHandler = (event) => {
       this.trackClickEvent(event);
-    }, { capture: true });
+    };
+    document.addEventListener('click', this.clickHandler, { capture: true });
 
     // 滚动事件（节流）
-    let scrollTimeout: number | null = null;
-    document.addEventListener('scroll', () => {
-      if (scrollTimeout) clearTimeout(scrollTimeout);
-      scrollTimeout = window.setTimeout(() => {
+    this.scrollHandler = () => {
+      if (this.scrollTimeout) clearTimeout(this.scrollTimeout);
+      this.scrollTimeout = window.setTimeout(() => {
         this.trackScrollEvent();
       }, 100);
-    }, { passive: true });
+    };
+    document.addEventListener('scroll', this.scrollHandler, { passive: true });
 
     // 鼠标悬停事件（节流）
-    let hoverTimeout: number | null = null;
-    document.addEventListener('mouseover', (event) => {
-      if (hoverTimeout) clearTimeout(hoverTimeout);
-      hoverTimeout = window.setTimeout(() => {
+    this.hoverHandler = (event) => {
+      if (this.hoverTimeout) clearTimeout(this.hoverTimeout);
+      this.hoverTimeout = window.setTimeout(() => {
         this.trackHoverEvent(event);
       }, 200);
-    }, { passive: true });
+    };
+    document.addEventListener('mouseover', this.hoverHandler, { passive: true });
 
     // 页面焦点事件
-    window.addEventListener('focus', () => this.onPageFocus());
-    window.addEventListener('blur', () => this.onPageBlur());
+    this.focusHandler = () => this.onPageFocus();
+    this.blurHandler = () => this.onPageBlur();
+    window.addEventListener('focus', this.focusHandler);
+    window.addEventListener('blur', this.blurHandler);
 
     // 开始页面视图追踪
     this.startViewTracking();
@@ -159,14 +192,15 @@ class FeedbackTracker {
    * 网络状态监控
    */
   private setupNetworkMonitoring(): void {
-    window.addEventListener('online', () => {
+    this.onlineHandler = () => {
       this.isOnline = true;
       this.processRetryQueue();
-    });
-
-    window.addEventListener('offline', () => {
+    };
+    this.offlineHandler = () => {
       this.isOnline = false;
-    });
+    };
+    window.addEventListener('online', this.onlineHandler);
+    window.addEventListener('offline', this.offlineHandler);
   }
 
   /**
@@ -174,29 +208,54 @@ class FeedbackTracker {
    */
   private setupWebSocket(): void {
     if (!this.config.websocketEndpoint) return;
+    if (this.disposed) return;
+    if (
+      this.websocket &&
+      (this.websocket.readyState === WebSocket.OPEN ||
+        this.websocket.readyState === WebSocket.CONNECTING)
+    ) {
+      return;
+    }
+    this.clearReconnectTimer();
 
     try {
       this.websocket = new WebSocket(this.config.websocketEndpoint);
       
       this.websocket.onopen = () => {
         if (this.config.debug) {
-          console.log('[FeedbackTracker] WebSocket连接已建立');
+          logger.log('[FeedbackTracker] WebSocket连接已建立');
         }
       };
 
       this.websocket.onclose = () => {
         if (this.config.debug) {
-          console.log('[FeedbackTracker] WebSocket连接已关闭');
+          logger.log('[FeedbackTracker] WebSocket连接已关闭');
         }
         // 5秒后尝试重连
-        setTimeout(() => this.setupWebSocket(), 5000);
+        if (this.shouldReconnect && !this.disposed) {
+          this.reconnectTimer = window.setTimeout(() => this.setupWebSocket(), 5000);
+        }
       };
 
       this.websocket.onerror = (error) => {
-        console.error('[FeedbackTracker] WebSocket错误:', error);
+        logger.error('[FeedbackTracker] WebSocket错误:', error);
+        if (
+          this.websocket &&
+          this.websocket.readyState !== WebSocket.CLOSING &&
+          this.websocket.readyState !== WebSocket.CLOSED
+        ) {
+          this.websocket.close();
+        }
       };
     } catch (error) {
-      console.error('[FeedbackTracker] WebSocket初始化失败:', error);
+      logger.error('[FeedbackTracker] WebSocket初始化失败:', error);
+    }
+  }
+
+  private clearReconnectTimer(): void {
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
     }
   }
 
@@ -267,7 +326,7 @@ class FeedbackTracker {
     this.eventBuffer.push(event);
 
     if (this.config.debug) {
-      console.log('[FeedbackTracker] 事件已添加到缓冲区:', event);
+      logger.log('[FeedbackTracker] 事件已添加到缓冲区:', event);
     }
 
     // 检查是否需要立即发送
@@ -424,12 +483,12 @@ class FeedbackTracker {
     try {
       await this.sendEvents(events);
       if (this.config.debug) {
-        console.log('[FeedbackTracker] 重试队列处理成功');
+        logger.log('[FeedbackTracker] 重试队列处理成功');
       }
     } catch (error) {
       // 重新加入重试队列
       this.retryQueue.unshift(...events);
-      console.error('[FeedbackTracker] 重试队列处理失败:', error);
+      logger.error('[FeedbackTracker] 重试队列处理失败:', error);
     }
   }
 
@@ -451,37 +510,49 @@ class FeedbackTracker {
         }));
         return;
       } catch (error) {
-        console.warn('[FeedbackTracker] WebSocket发送失败，回退到HTTP');
+        logger.warn('[FeedbackTracker] WebSocket发送失败，回退到HTTP');
       }
     }
 
     // 回退到HTTP API
     try {
-      const response = await fetch(this.config.apiEndpoint, {
+      const payload = this.buildBatchPayload(events);
+      const response = await apiFetch(buildApiUrl(this.config.apiEndpoint), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          batch_id: this.generateEventId(),
-          user_id: this.config.userId,
-          session_id: this.config.sessionId,
-          events,
-          timestamp: Date.now()
-        }),
+        body: JSON.stringify(payload),
       });
 
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
-
       if (this.config.debug) {
-        console.log('[FeedbackTracker] 事件发送成功:', events.length);
+        logger.log('[FeedbackTracker] 事件发送成功:', events.length);
       }
     } catch (error) {
-      console.error('[FeedbackTracker] 事件发送失败:', error);
+      logger.error('[FeedbackTracker] 事件发送失败:', error);
       this.retryQueue.push(...events);
       throw error;
+    }
+  }
+
+  private buildBatchPayload(events: FeedbackEvent[]) {
+    return {
+      batch_id: this.generateEventId(),
+      user_id: this.config.userId,
+      session_id: this.config.sessionId,
+      events,
+      timestamp: Date.now()
+    };
+  }
+
+  private trySendBeacon(events: FeedbackEvent[]): boolean {
+    if (typeof navigator === 'undefined' || !navigator.sendBeacon) return false;
+    try {
+      const payload = this.buildBatchPayload(events);
+      const blob = new Blob([JSON.stringify(payload)], { type: 'application/json' });
+      return navigator.sendBeacon(buildApiUrl(this.config.apiEndpoint), blob);
+    } catch (error) {
+      return false;
     }
   }
 
@@ -495,6 +566,9 @@ class FeedbackTracker {
     this.eventBuffer = [];
 
     try {
+      if (force && this.trySendBeacon(events)) {
+        return;
+      }
       await this.sendEvents(events);
     } catch (error) {
       if (!force) {
@@ -587,16 +661,74 @@ class FeedbackTracker {
    * 销毁追踪器
    */
   public destroy(): void {
+    if (this.disposed) return;
+    this.disposed = true;
+    this.shouldReconnect = false;
+    this.clearReconnectTimer();
+
     if (this.flushTimer) {
       clearInterval(this.flushTimer);
+      this.flushTimer = null;
+    }
+
+    if (this.scrollTimeout) {
+      clearTimeout(this.scrollTimeout);
+      this.scrollTimeout = null;
+    }
+
+    if (this.hoverTimeout) {
+      clearTimeout(this.hoverTimeout);
+      this.hoverTimeout = null;
     }
 
     if (this.websocket) {
       this.websocket.close();
+      this.websocket = null;
+    }
+
+    if (this.visibilityChangeHandler) {
+      document.removeEventListener('visibilitychange', this.visibilityChangeHandler);
+      this.visibilityChangeHandler = null;
+    }
+    if (this.pageHideHandler) {
+      window.removeEventListener('pagehide', this.pageHideHandler);
+      this.pageHideHandler = null;
+    }
+    if (this.clickHandler) {
+      document.removeEventListener('click', this.clickHandler, true);
+      this.clickHandler = null;
+    }
+    if (this.scrollHandler) {
+      document.removeEventListener('scroll', this.scrollHandler);
+      this.scrollHandler = null;
+    }
+    if (this.hoverHandler) {
+      document.removeEventListener('mouseover', this.hoverHandler);
+      this.hoverHandler = null;
+    }
+    if (this.focusHandler) {
+      window.removeEventListener('focus', this.focusHandler);
+      this.focusHandler = null;
+    }
+    if (this.blurHandler) {
+      window.removeEventListener('blur', this.blurHandler);
+      this.blurHandler = null;
+    }
+    if (this.onlineHandler) {
+      window.removeEventListener('online', this.onlineHandler);
+      this.onlineHandler = null;
+    }
+    if (this.offlineHandler) {
+      window.removeEventListener('offline', this.offlineHandler);
+      this.offlineHandler = null;
     }
 
     // 最后一次刷新
-    this.flush(true).catch(console.error);
+    this.flush(true).catch((error) => {
+      if (this.config.debug) {
+        logger.error('[FeedbackTracker] 销毁时发送失败:', error);
+      }
+    });
   }
 }
 
@@ -610,7 +742,7 @@ export const DEFAULT_TRACKER_CONFIG: Omit<TrackerConfig, 'userId' | 'sessionId'>
     maxRetries: 3,
     retryDelay: 1000
   },
-  apiEndpoint: '/api/v1/feedback/implicit',
+  apiEndpoint: '/feedback/implicit',
   websocketEndpoint: undefined, // 可选配置
   debug: process.env.NODE_ENV === 'development'
 };

@@ -13,14 +13,14 @@ from datetime import datetime
 from src.core.utils.timezone_utils import utc_now, utc_factory, timezone
 from typing import Dict, Any, Optional, List
 from enum import Enum
-
 from sqlalchemy import Column, String, DateTime, Text, Integer, Float, Boolean, ForeignKey, LargeBinary
-from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import DeclarativeBase
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import relationship, Mapped, mapped_column
+from sqlalchemy import Index
 
-Base = declarative_base()
-
+class Base(DeclarativeBase):
+    ...
 
 class SourceType(Enum):
     """数据源类型枚举"""
@@ -30,7 +30,6 @@ class SourceType(Enum):
     WEB = "web"
     MANUAL = "manual"
 
-
 class DataStatus(Enum):
     """数据处理状态枚举"""
     RAW = "raw"
@@ -38,7 +37,6 @@ class DataStatus(Enum):
     VALIDATED = "validated"
     REJECTED = "rejected"
     ERROR = "error"
-
 
 class AnnotationTaskType(Enum):
     """标注任务类型枚举"""
@@ -48,7 +46,6 @@ class AnnotationTaskType(Enum):
     TEXT_GENERATION = "text_generation"
     SENTIMENT_ANALYSIS = "sentiment_analysis"
 
-
 class AnnotationStatus(Enum):
     """标注状态枚举"""
     PENDING = "pending"
@@ -56,7 +53,6 @@ class AnnotationStatus(Enum):
     COMPLETED = "completed"
     REVIEWED = "reviewed"
     REJECTED = "rejected"
-
 
 class DataSourceModel(Base):
     """数据源模型"""
@@ -78,7 +74,6 @@ class DataSourceModel(Base):
     
     # 关系
     records: Mapped[List["DataRecordModel"]] = relationship("DataRecordModel", back_populates="source")
-
 
 class DataRecordModel(Base):
     """数据记录模型"""
@@ -103,7 +98,6 @@ class DataRecordModel(Base):
     # 关系
     source: Mapped["DataSourceModel"] = relationship("DataSourceModel", back_populates="records")
     annotations: Mapped[List["AnnotationModel"]] = relationship("AnnotationModel", back_populates="data_record")
-
 
 class AnnotationTaskModel(Base):
     """标注任务模型"""
@@ -130,7 +124,6 @@ class AnnotationTaskModel(Base):
     
     # 关系
     annotations: Mapped[List["AnnotationModel"]] = relationship("AnnotationModel", back_populates="task")
-
 
 class AnnotationModel(Base):
     """标注结果模型"""
@@ -162,7 +155,6 @@ class AnnotationModel(Base):
         {"sqlite_on_conflict": "REPLACE"}  # 对于SQLite
     )
 
-
 class DataVersionModel(Base):
     """数据版本模型"""
     __tablename__ = "data_versions"
@@ -185,9 +177,7 @@ class DataVersionModel(Base):
     # 自引用关系
     parent: Mapped[Optional["DataVersionModel"]] = relationship("DataVersionModel", remote_side=[version_id])
 
-
 # 创建数据库索引
-from sqlalchemy import Index
 
 # 为常用查询字段创建索引
 Index('idx_data_sources_type', DataSourceModel.source_type)

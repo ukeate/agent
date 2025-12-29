@@ -1,13 +1,12 @@
 """记忆管理API端点"""
+
 from typing import List, Optional, Dict, Any
 from datetime import datetime, timedelta
-from src.core.utils.timezone_utils import utc_now, utc_factory
+from src.core.utils.timezone_utils import utc_now
 from fastapi import APIRouter, Depends, HTTPException, Header, Query
-from fastapi.responses import StreamingResponse
 import json
 import io
-import logging
-
+import networkx as nx
 from src.ai.memory.models import (
     MemoryCreateRequest,
     MemoryUpdateRequest,
@@ -21,9 +20,9 @@ from src.ai.memory.models import (
 from src.services.memory_service import memory_service
 from src.core.dependencies import get_current_user
 
-logger = logging.getLogger(__name__)
-router = APIRouter(prefix="/memories", tags=["Memory Management"])
+logger = get_logger(__name__)
 
+router = APIRouter(prefix="/memories", tags=["Memory Management"])
 
 @router.post("/", response_model=MemoryResponse)
 async def create_memory(
@@ -42,7 +41,7 @@ async def create_memory(
             content=request.content,
             memory_type=memory_type,
             session_id=session_id,
-            user_id="test_user",
+            user_id=user_id,
             metadata=request.metadata,
             importance=request.importance,
             tags=request.tags,
@@ -55,9 +54,7 @@ async def create_memory(
         logger.error(f"创建记忆失败: {str(e)}")
         raise HTTPException(status_code=500, detail="内部服务器错误")
 
-
 # 注意：具体路径路由必须放在路径参数路由之前，已移动到文件末尾
-
 
 @router.put("/{memory_id}", response_model=MemoryResponse)
 async def update_memory(
@@ -81,7 +78,6 @@ async def update_memory(
     
     return MemoryResponse.from_memory(updated_memory)
 
-
 @router.delete("/{memory_id}")
 async def delete_memory(
     memory_id: str,
@@ -102,7 +98,6 @@ async def delete_memory(
         raise HTTPException(status_code=500, detail="删除记忆失败")
     
     return {"message": "记忆已删除"}
-
 
 @router.get("/search", response_model=List[MemoryResponse])
 async def search_memories(
@@ -134,7 +129,6 @@ async def search_memories(
         for memory, score in results
     ]
 
-
 @router.get("/session/{session_id}", response_model=List[MemoryResponse])
 async def get_session_memories(
     session_id: str,
@@ -156,7 +150,6 @@ async def get_session_memories(
     ]
     
     return [MemoryResponse.from_memory(m) for m in filtered_memories]
-
 
 @router.post("/{memory_id}/associate")
 async def associate_memories(
@@ -187,7 +180,6 @@ async def associate_memories(
     
     return {"message": "记忆已关联"}
 
-
 @router.get("/{memory_id}/related", response_model=List[MemoryResponse])
 async def get_related_memories(
     memory_id: str,
@@ -215,7 +207,6 @@ async def get_related_memories(
         for memory, score in related
     ]
 
-
 @router.post("/consolidate/{session_id}")
 async def consolidate_session_memories(
     session_id: str,
@@ -228,114 +219,151 @@ async def consolidate_session_memories(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"记忆巩固失败: {str(e)}")
 
-
 @router.get("/analytics", response_model=MemoryAnalytics)
 async def get_memory_analytics(
     days_back: int = Query(7, ge=1, le=365),
     session_id: Optional[str] = Query(None)
 ) -> MemoryAnalytics:
     """获取记忆分析统计"""
-    # 直接返回模拟数据，避免初始化问题
-    from src.ai.memory.models import MemoryResponse
-    return MemoryAnalytics(
-        total_memories=42,
-        memories_by_type={"working": 15, "episodic": 20, "semantic": 7},
-        memories_by_status={"active": 35, "archived": 5, "compressed": 2},
-        avg_importance=0.65,
-        total_access_count=128,
-        avg_access_count=3.05,
-        most_accessed_memories=[],
-        recent_memories=[],
-        memory_growth_rate=2.1,
-        storage_usage_mb=0.85
+    start_time = utc_now() - timedelta(days=days_back)
+    end_time = utc_now()
+    return await memory_service.get_memory_analytics(
+        session_id=session_id,
+        start_time=start_time,
+        end_time=end_time
     )
-
 
 @router.get("/analytics/patterns")
 async def get_memory_patterns(
     days_back: int = Query(7, ge=1, le=365)
 ):
     """获取记忆模式分析"""
-    # 直接返回模拟数据，避免初始化问题
+    start_time = utc_now() - timedelta(days=days_back)
+    memories = await memory_service.export_memories()
+    hourly_distribution: Dict[str, int] = {str(i): 0 for i in range(24)}
+    daily_distribution: Dict[str, int] = {}
+    tag_frequency: Dict[str, int] = {}
+    type_distribution: Dict[str, int] = {}
+    for memory in memories:
+        created_at = memory.get("created_at")
+        if not created_at:
+            continue
+        created_dt = created_at if isinstance(created_at, datetime) else datetime.fromisoformat(created_at)
+        if created_dt < start_time:
+            continue
+        hour_key = str(created_dt.hour)
+        hourly_distribution[hour_key] = hourly_distribution.get(hour_key, 0) + 1
+        day_key = created_dt.date().isoformat()
+        daily_distribution[day_key] = daily_distribution.get(day_key, 0) + 1
+        for tag in memory.get("tags", []):
+            tag_frequency[tag] = tag_frequency.get(tag, 0) + 1
+        mem_type = memory.get("type")
+        if mem_type:
+            type_distribution[mem_type if isinstance(mem_type, str) else mem_type.value] = \
+                type_distribution.get(mem_type if isinstance(mem_type, str) else mem_type.value, 0) + 1
+    peak_hours = sorted(hourly_distribution.items(), key=lambda x: x[1], reverse=True)[:3]
+    most_active_days = sorted(daily_distribution.items(), key=lambda x: x[1], reverse=True)[:3]
     return {
         "time_patterns": {
-            "hourly_distribution": {str(i): 2 for i in range(24)},
-            "daily_distribution": {
-                "2025-08-23": 5, "2025-08-24": 8, "2025-08-25": 12,
-                "2025-08-26": 15, "2025-08-27": 10, "2025-08-28": 7,
-                "2025-08-29": 9, "2025-08-30": 6
-            }
+            "hourly_distribution": hourly_distribution,
+            "daily_distribution": daily_distribution
         },
         "content_patterns": {
-            "tag_frequency": {"analysis": 12, "learning": 8, "debugging": 6, "optimization": 4},
-            "type_distribution": {"working": 15, "episodic": 20, "semantic": 7}
+            "tag_frequency": tag_frequency,
+            "type_distribution": type_distribution
         },
         "usage_patterns": {
-            "peak_hours": [("14", 8), ("15", 7), ("16", 6)],
-            "most_active_days": [("2025-08-26", 15), ("2025-08-25", 12), ("2025-08-24", 8)]
+            "peak_hours": peak_hours,
+            "most_active_days": most_active_days
         }
     }
-
 
 @router.get("/analytics/trends")
 async def get_memory_trends(
     days: int = Query(30, ge=7, le=365)
 ):
     """获取记忆趋势分析"""
-    # 直接返回模拟数据，避免初始化问题
+    start_time = utc_now() - timedelta(days=days)
+    memories = await memory_service.export_memories()
+    daily_trends: Dict[str, Dict[str, Any]] = {}
+    for memory in memories:
+        created_at = memory.get("created_at")
+        if not created_at:
+            continue
+        created_dt = created_at if isinstance(created_at, datetime) else datetime.fromisoformat(created_at)
+        if created_dt < start_time:
+            continue
+        day_key = created_dt.date().isoformat()
+        entry = daily_trends.setdefault(day_key, {
+            "memory_count": 0,
+            "avg_importance": 0.0,
+            "total_access": 0,
+            "type_distribution": {}
+        })
+        entry["memory_count"] += 1
+        entry["total_access"] += memory.get("access_count", 0)
+        importance = memory.get("importance", 0)
+        # 动态平均
+        count = entry["memory_count"]
+        entry["avg_importance"] = ((entry["avg_importance"] * (count - 1)) + importance) / count
+        mem_type = memory.get("type")
+        if mem_type:
+            type_key = mem_type if isinstance(mem_type, str) else mem_type.value
+            entry["type_distribution"][type_key] = entry["type_distribution"].get(type_key, 0) + 1
+    total_memories = sum(d["memory_count"] for d in daily_trends.values())
+    avg_daily_creation = total_memories / max(len(daily_trends), 1)
+    growth_rate = total_memories / max(days, 1)
     return {
         "period": {
-            "start_date": (utc_now() - timedelta(days=days)).isoformat(),
+            "start_date": start_time.isoformat(),
             "end_date": utc_now().isoformat(),
             "total_days": days
         },
-        "daily_trends": {
-            f"2025-08-{23+i}": {
-                "memory_count": 5 + i * 2,
-                "avg_importance": 0.6 + (i * 0.05),
-                "total_access": 10 + i * 3,
-                "type_distribution": {"working": 3 + i, "episodic": 5 + i, "semantic": 2 + i}
-            }
-            for i in range(min(days, 7))
-        },
+        "daily_trends": daily_trends,
         "summary": {
-            "total_memories": 42,
-            "avg_daily_creation": 6.0,
-            "growth_rate": 1.2
+            "total_memories": total_memories,
+            "avg_daily_creation": avg_daily_creation,
+            "growth_rate": growth_rate
         }
     }
-
 
 @router.get("/analytics/graph/stats")
 async def get_memory_graph_stats():
     """获取记忆关联图统计"""
-    # 直接返回模拟数据，避免初始化问题
+    await memory_service.initialize()
+    graph = memory_service.association_graph.graph
+    total_nodes = graph.number_of_nodes()
+    total_edges = graph.number_of_edges()
+    isolated = list(nx.isolates(graph)) if total_nodes else []
+    degree_sequence = [deg for _, deg in graph.degree()] if total_nodes else []
+    max_connections = max(degree_sequence) if degree_sequence else 0
+    avg_connections = sum(degree_sequence) / total_nodes if total_nodes else 0
+    type_counts: Dict[str, int] = {}
+    for _, data in graph.nodes(data=True):
+        mem_type = data.get("memory_type")
+        if mem_type:
+            type_counts[mem_type] = type_counts.get(mem_type, 0) + 1
     return {
         "graph_overview": {
-            "total_nodes": 42,
-            "total_edges": 28,
-            "density": 0.032,
-            "connected_components": 3
+            "total_nodes": total_nodes,
+            "total_edges": total_edges,
+            "density": nx.density(graph) if total_nodes else 0,
+            "connected_components": nx.number_connected_components(graph.to_undirected()) if total_nodes else 0
         },
         "node_statistics": {
-            "isolated_nodes": 8,
-            "connected_nodes": 34,
-            "max_connections": 7,
-            "avg_connections": 1.33
+            "isolated_nodes": len(isolated),
+            "connected_nodes": total_nodes - len(isolated),
+            "max_connections": max_connections,
+            "avg_connections": avg_connections
         },
         "connectivity_distribution": {
-            "0_connections": 8,
-            "1-2_connections": 25,
-            "3-5_connections": 7,
-            "6+_connections": 2
+            "0_connections": len([d for d in degree_sequence if d == 0]),
+            "1-2_connections": len([d for d in degree_sequence if 1 <= d <= 2]),
+            "3-5_connections": len([d for d in degree_sequence if 3 <= d <= 5]),
+            "6+_connections": len([d for d in degree_sequence if d >= 6])
         },
-        "memory_types_in_graph": {
-            "working": 15,
-            "episodic": 20,
-            "semantic": 7
-        }
+        "memory_types_in_graph": type_counts
     }
-
 
 @router.post("/cleanup")
 async def cleanup_old_memories(
@@ -349,7 +377,6 @@ async def cleanup_old_memories(
         return {"message": "旧记忆清理完成"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"清理失败: {str(e)}")
-
 
 @router.get("/{memory_id}", response_model=MemoryResponse)
 async def get_memory(
@@ -366,3 +393,4 @@ async def get_memory(
         raise HTTPException(status_code=403, detail="无权访问该记忆")
     
     return MemoryResponse.from_memory(memory)
+from src.core.logging import get_logger

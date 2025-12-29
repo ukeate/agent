@@ -16,7 +16,6 @@ from dataclasses import dataclass, field
 from enum import Enum
 from datetime import datetime
 from src.core.utils.timezone_utils import utc_now, utc_factory
-
 from src.ai.agentic_rag.query_analyzer import QueryAnalysis, QueryIntent
 from src.ai.agentic_rag.query_expander import QueryExpander
 from src.ai.agentic_rag.retrieval_agents import RetrievalResult, RetrievalStrategy, MultiAgentRetriever
@@ -25,14 +24,12 @@ from src.models.schemas.agentic_rag import FailureType, FallbackStrategyType
 from src.core.config import get_settings
 from src.ai.openai_client import get_openai_client
 
-
 class FailureSeverity(Enum):
     """失败严重程度"""
     LOW = "low"        # 轻微失败，可以继续
     MEDIUM = "medium"  # 中等失败，需要调整策略
     HIGH = "high"      # 严重失败，需要重大改变
     CRITICAL = "critical"  # 致命失败，无法继续
-
 
 @dataclass
 class FailureDetection:
@@ -44,7 +41,6 @@ class FailureDetection:
     metrics: Dict[str, Any] = field(default_factory=dict)
     timestamp: datetime = field(default_factory=utc_factory)
 
-
 @dataclass
 class FallbackAction:
     """备用行动"""
@@ -55,7 +51,6 @@ class FallbackAction:
     execution_time: float = 0.0  # 预计执行时间
     success_probability: float = 0.0  # 成功概率
 
-
 @dataclass
 class UserGuidance:
     """用户指导"""
@@ -64,7 +59,6 @@ class UserGuidance:
     examples: List[str] = field(default_factory=list)
     severity_level: str = "info"  # info, warning, error
     actions_required: bool = False
-
 
 @dataclass
 class FallbackResult:
@@ -78,7 +72,6 @@ class FallbackResult:
     success: bool = False
     improvement_metrics: Dict[str, float] = field(default_factory=dict)
     total_time: float = 0.0
-
 
 class FallbackHandler:
     """检索失败处理器"""

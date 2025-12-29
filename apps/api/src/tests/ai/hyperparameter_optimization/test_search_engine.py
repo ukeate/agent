@@ -1,14 +1,13 @@
 """
 搜索引擎单元测试
 """
+
 import pytest
 from unittest.mock import Mock, patch, AsyncMock
 import numpy as np
 from typing import Dict, Any
-
 from ai.hyperparameter_optimization.search_engine import SearchEngine, SearchAlgorithm
 from ai.hyperparameter_optimization.models import OptimizationAlgorithm
-
 
 class TestSearchEngine:
     """搜索引擎测试类"""

@@ -6,13 +6,8 @@ import mimetypes
 from pathlib import Path
 from typing import Optional, Tuple
 import hashlib
-import structlog
-
 from .types import ContentType
 from .config import ModelConfig
-
-logger = structlog.get_logger(__name__)
-
 
 class ContentValidator:
     """内容验证器"""

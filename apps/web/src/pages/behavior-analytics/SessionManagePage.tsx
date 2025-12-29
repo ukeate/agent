@@ -6,6 +6,7 @@ import { Badge } from '../../components/ui/badge';
 import { Progress } from '../../components/ui/progress';
 import { behaviorAnalyticsService } from '../../services/behaviorAnalyticsService';
 
+import { logger } from '../../utils/logger'
 interface UserSession {
   session_id: string;
   user_id: string;
@@ -59,7 +60,7 @@ export const SessionManagePage: React.FC = () => {
       const stats = await behaviorAnalyticsService.getSessionStats();
       setSessionStats(stats);
     } catch (error) {
-      console.error('获取会话数据失败:', error);
+      logger.error('获取会话数据失败:', error);
     } finally {
       setLoading(false);
     }
@@ -102,41 +103,6 @@ export const SessionManagePage: React.FC = () => {
     return icons[status as keyof typeof icons] || '⚫';
   };
 
-  // 会话重放
-  const handleSessionReplay = (sessionId: string) => {
-    // TODO: 实现会话重放功能
-    console.log('开始重放会话:', sessionId);
-  };
-
-  // 终止会话
-  const handleTerminateSession = async (sessionId: string) => {
-    try {
-      // TODO: 调用终止会话API
-      setSessions(prev => 
-        prev.map(session => 
-          session.session_id === sessionId 
-            ? { ...session, status: 'inactive' as const }
-            : session
-        )
-      );
-    } catch (error) {
-      console.error('终止会话失败:', error);
-    }
-  };
-
-  // 删除会话
-  const handleDeleteSession = async (sessionId: string) => {
-    try {
-      // TODO: 调用删除会话API
-      setSessions(prev => prev.filter(session => session.session_id !== sessionId));
-      if (selectedSession?.session_id === sessionId) {
-        setSelectedSession(null);
-      }
-    } catch (error) {
-      console.error('删除会话失败:', error);
-    }
-  };
-
   return (
     <div className="p-6 space-y-6">
       {/* 页面标题 */}
@@ -148,10 +114,7 @@ export const SessionManagePage: React.FC = () => {
           </p>
         </div>
         <div className="flex space-x-3">
-          <Button variant="outline">
-            📊 会话分析报告
-          </Button>
-          <Button variant="default">
+          <Button variant="default" onClick={fetchSessions}>
             🔄 刷新数据
           </Button>
         </div>
@@ -393,30 +356,6 @@ export const SessionManagePage: React.FC = () => {
               )}
 
               {/* 操作按钮 */}
-              <div className="flex space-x-2 pt-4 border-t">
-                <Button 
-                  size="sm" 
-                  onClick={() => handleSessionReplay(selectedSession.session_id)}
-                >
-                  🎬 会话重放
-                </Button>
-                {selectedSession.status === 'active' && (
-                  <Button 
-                    size="sm" 
-                    variant="outline"
-                    onClick={() => handleTerminateSession(selectedSession.session_id)}
-                  >
-                    ⏹️ 终止会话
-                  </Button>
-                )}
-                <Button 
-                  size="sm" 
-                  variant="danger"
-                  onClick={() => handleDeleteSession(selectedSession.session_id)}
-                >
-                  🗑️ 删除
-                </Button>
-              </div>
             </div>
           ) : (
             <div className="text-center py-8 text-gray-500">

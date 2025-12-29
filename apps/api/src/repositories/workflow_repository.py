@@ -1,21 +1,16 @@
 """
 工作流数据访问层
 """
-from typing import Any, Dict, List, Optional
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy import and_, or_, desc, select
-from datetime import datetime
-from src.core.utils.timezone_utils import utc_now, utc_factory
 
+from typing import Any, Dict, List, Optional
+from sqlalchemy import and_, desc, select
+from datetime import datetime
+from src.core.utils.timezone_utils import utc_now
 from src.models.database.workflow import WorkflowModel, Task, DAGExecution as DAGExecutionModel
 from src.core.database import get_db_session
 
-
 class WorkflowRepository:
     """工作流数据仓库"""
-    
-    def __init__(self):
-        self.session_factory = sessionmaker()
     
     async def create_workflow(self, workflow_data: Dict[str, Any]) -> str:
         """创建工作流"""
@@ -32,7 +27,7 @@ class WorkflowRepository:
             stmt = select(WorkflowModel).filter(
                 and_(
                     WorkflowModel.id == workflow_id,
-                    WorkflowModel.is_deleted == False
+                    WorkflowModel.is_deleted.is_(False)
                 )
             )
             result = await session.execute(stmt)
@@ -64,7 +59,7 @@ class WorkflowRepository:
             stmt = select(WorkflowModel).filter(
                 and_(
                     WorkflowModel.id == workflow_id,
-                    WorkflowModel.is_deleted == False
+                    WorkflowModel.is_deleted.is_(False)
                 )
             )
             result = await session.execute(stmt)
@@ -86,7 +81,7 @@ class WorkflowRepository:
             stmt = select(WorkflowModel).filter(
                 and_(
                     WorkflowModel.id == workflow_id,
-                    WorkflowModel.is_deleted == False
+                    WorkflowModel.is_deleted.is_(False)
                 )
             )
             result = await session.execute(stmt)
@@ -104,7 +99,7 @@ class WorkflowRepository:
         """列出工作流"""
         async with get_db_session() as session:
             stmt = select(WorkflowModel).filter(
-                WorkflowModel.is_deleted == False
+                WorkflowModel.is_deleted.is_(False)
             )
             
             if status:
@@ -120,6 +115,7 @@ class WorkflowRepository:
                     "name": wf.name,
                     "description": wf.description,
                     "workflow_type": wf.workflow_type,
+                    "definition": wf.definition,
                     "status": wf.status,
                     "created_at": wf.created_at,
                     "started_at": wf.started_at,
@@ -144,7 +140,7 @@ class WorkflowRepository:
             stmt = select(Task).filter(
                 and_(
                     Task.id == task_id,
-                    Task.is_deleted == False
+                    Task.is_deleted.is_(False)
                 )
             )
             result = await session.execute(stmt)
@@ -175,7 +171,7 @@ class WorkflowRepository:
             stmt = select(Task).filter(
                 and_(
                     Task.id == task_id,
-                    Task.is_deleted == False
+                    Task.is_deleted.is_(False)
                 )
             )
             result = await session.execute(stmt)
@@ -197,7 +193,7 @@ class WorkflowRepository:
             stmt = select(Task).filter(
                 and_(
                     Task.workflow_id == workflow_id,
-                    Task.is_deleted == False
+                    Task.is_deleted.is_(False)
                 )
             ).order_by(Task.created_at)
             result = await session.execute(stmt)
@@ -237,7 +233,7 @@ class WorkflowRepository:
             stmt = select(DAGExecutionModel).filter(
                 and_(
                     DAGExecutionModel.id == execution_id,
-                    DAGExecutionModel.is_deleted == False
+                    DAGExecutionModel.is_deleted.is_(False)
                 )
             )
             result = await session.execute(stmt)
@@ -266,7 +262,7 @@ class WorkflowRepository:
             stmt = select(DAGExecutionModel).filter(
                 and_(
                     DAGExecutionModel.id == execution_id,
-                    DAGExecutionModel.is_deleted == False
+                    DAGExecutionModel.is_deleted.is_(False)
                 )
             )
             result = await session.execute(stmt)

@@ -2,6 +2,7 @@
 LangGraph状态管理
 统一的工作流状态管理，支持检查点和状态持久化
 """
+
 from typing import Any, Dict, List, Optional, TypedDict, Annotated
 from typing_extensions import TypedDict as TypedDictExt
 from dataclasses import dataclass, field
@@ -10,14 +11,12 @@ from src.core.utils.timezone_utils import utc_now, utc_factory, timezone
 import uuid
 import json
 
-
 class MessagesState(TypedDict):
     """LangGraph统一状态结构 - 符合LangGraph标准的消息状态定义"""
     messages: Annotated[List[Dict[str, Any]], "工作流消息列表"] 
     metadata: Annotated[Dict[str, Any], "状态元数据信息"]
     context: Annotated[Dict[str, Any], "工作流执行上下文"]
     workflow_id: Annotated[str, "工作流执行ID"]
-
 
 def create_initial_state(workflow_id: Optional[str] = None) -> MessagesState:
     """创建初始工作流状态"""
@@ -32,7 +31,6 @@ def create_initial_state(workflow_id: Optional[str] = None) -> MessagesState:
         context={},
         workflow_id=workflow_id or str(uuid.uuid4())
     )
-
 
 def validate_state(state: MessagesState) -> bool:
     """验证状态结构完整性"""
@@ -54,11 +52,9 @@ def validate_state(state: MessagesState) -> bool:
     
     return True
 
-
 def serialize_state(state: MessagesState) -> str:
     """序列化状态为JSON字符串"""
     return json.dumps(state, default=str, ensure_ascii=False)
-
 
 def deserialize_state(state_json: str) -> MessagesState:
     """从JSON字符串反序列化状态"""

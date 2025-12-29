@@ -3,7 +3,6 @@ import tempfile
 import yaml
 from pathlib import Path
 from unittest.mock import patch, mock_open
-
 from ai.model_evaluation.benchmark_manager import (
     BenchmarkManager,
     BenchmarkInfo,
@@ -11,7 +10,6 @@ from ai.model_evaluation.benchmark_manager import (
     BenchmarkType,
     DifficultyLevel
 )
-
 
 class TestBenchmarkInfo:
     """测试基准测试信息类"""
@@ -58,7 +56,6 @@ class TestBenchmarkInfo:
         assert not benchmark.requires_special_setup
         assert benchmark.estimated_runtime_minutes is None
         assert benchmark.memory_requirements_gb is None
-
 
 class TestBenchmarkSuite:
     """测试基准测试套件类"""
@@ -120,7 +117,6 @@ class TestBenchmarkSuite:
         # __post_init__ 应该自动计算这些值
         assert suite.total_tasks == 1
         assert suite.estimated_runtime_hours == 30 / 60.0  # 默认30分钟
-
 
 class TestBenchmarkManager:
     """测试基准测试管理器"""
@@ -489,7 +485,6 @@ class TestBenchmarkManager:
             # 应该记录警告并继续使用标准基准测试
             mock_warning.assert_called()
             assert "cola" in manager.benchmarks
-
 
 if __name__ == "__main__":
     pytest.main([__file__])

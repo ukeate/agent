@@ -8,7 +8,7 @@
  * - 实现索引健康状态检查和错误诊断提示
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Card,
   Row,
@@ -105,6 +105,7 @@ const RagIndexStatus: React.FC<RagIndexStatusProps> = ({
   const [indexPath, setIndexPath] = useState('');
   const [indexRecursive, setIndexRecursive] = useState(true);
   const [showResetModal, setShowResetModal] = useState(false);
+  const refreshingRef = useRef(false);
 
   // ==================== 自动刷新逻辑 ====================
   
@@ -150,11 +151,16 @@ const RagIndexStatus: React.FC<RagIndexStatusProps> = ({
   }, []);
 
   const refreshStatus = useCallback(async () => {
-    const statsSuccess = await fetchIndexStats();
-    const healthSuccess = await performHealthCheck();
-    
-    if (statsSuccess && healthSuccess) {
-      message.success('状态更新成功');
+    if (refreshingRef.current) return;
+    refreshingRef.current = true;
+    try {
+      const statsSuccess = await fetchIndexStats();
+      const healthSuccess = await performHealthCheck();
+      if (statsSuccess && healthSuccess) {
+        message.success('状态更新成功');
+      }
+    } finally {
+      refreshingRef.current = false;
     }
   }, [fetchIndexStats, performHealthCheck]);
 

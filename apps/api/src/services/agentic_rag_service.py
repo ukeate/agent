@@ -11,13 +11,11 @@ Agentic RAG服务层
 
 import asyncio
 import json
-import logging
 import time
 import uuid
 from datetime import datetime
 from src.core.utils.timezone_utils import utc_now, utc_factory
 from typing import List, Dict, Any, Optional, AsyncGenerator
-
 from src.models.schemas.agentic_rag import (
     # 枚举类型
     QueryIntentType, ExpansionStrategyType, RetrievalStrategyType, 
@@ -30,8 +28,6 @@ from src.models.schemas.agentic_rag import (
     ValidationResultInfo, ComposedContext, RetrievalExplanation,
     FallbackResultInfo, StreamEvent, AgenticRagStats, HealthCheckResponse,
 )
-
-# 导入Agentic RAG核心组件
 from src.ai.agentic_rag.query_analyzer import QueryAnalyzer, QueryAnalysis, QueryIntent
 from src.ai.agentic_rag.query_expander import QueryExpander, ExpandedQuery, ExpansionStrategy
 from src.ai.agentic_rag.retrieval_agents import MultiAgentRetriever, RetrievalStrategy
@@ -40,8 +36,10 @@ from src.ai.agentic_rag.context_composer import ContextComposer, CompositionStra
 from src.ai.agentic_rag.explainer import RetrievalExplainer
 from src.ai.agentic_rag.fallback_handler import FallbackHandler
 
-logger = logging.getLogger(__name__)
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
+# 导入Agentic RAG核心组件
 
 class AgenticRagService:
     """Agentic RAG服务"""
@@ -69,6 +67,8 @@ class AgenticRagService:
         
         # 会话管理
         self.active_sessions: Dict[str, Dict[str, Any]] = {}
+        self.explanations_by_query_id: Dict[str, Any] = {}
+        self.explanations_by_path_id: Dict[str, Any] = {}
         
         logger.info("Agentic RAG Service 初始化完成")
 
@@ -450,13 +450,18 @@ class AgenticRagService:
         
         # 生成解释
         from src.ai.agentic_rag.explainer import ExplanationLevel
-        return await self.explainer.explain_retrieval_process(
+        explanation = await self.explainer.explain_retrieval_process(
             path_id=path_id,
             retrieval_results=retrieval_results,
             validation_result=validation_result,
             composed_context=None,
             explanation_level=ExplanationLevel.DETAILED
         )
+        
+        self.explanations_by_query_id[query_id] = explanation
+        self.explanations_by_path_id[explanation.retrieval_path.path_id] = explanation
+        
+        return explanation
 
     async def _check_and_handle_failure(
         self,
@@ -569,16 +574,96 @@ class AgenticRagService:
         """转换组合上下文"""
         if not context:
             return None
-        
-        # 这里需要根据实际的ComposedContext结构进行转换
-        # 暂时返回基本信息
+
+        fragment_type_map = {
+            "code": "code",
+            "definition": "definition",
+            "example": "example",
+            "procedure": "procedure",
+            "reference": "reference",
+            "explanation": "reference",
+            "context": "reference",
+        }
+        relationship_type_map = {
+            "dependency": "dependency",
+            "sequence": "sequence",
+            "hierarchy": "hierarchy",
+            "contrast": "contrast",
+            "similarity": "supplement",
+            "complement": "supplement",
+        }
+
+        fragments = []
+        id_to_index: Dict[str, int] = {}
+        selected = getattr(context, "selected_fragments", []) or []
+
+        for idx, frag in enumerate(selected):
+            frag_id = str(getattr(frag, "id", idx))
+            id_to_index[frag_id] = idx
+
+            metadata = getattr(frag, "metadata", None) or {}
+            original_item = metadata.get("original_item") or {}
+            score = original_item.get("score", getattr(frag, "relevance_score", 0.0))
+            try:
+                score_f = float(score)
+            except Exception:
+                score_f = 0.0
+            score_f = max(0.0, min(1.0, score_f))
+
+            frag_type = getattr(getattr(frag, "fragment_type", None), "value", None) or str(
+                getattr(frag, "fragment_type", "reference")
+            )
+
+            fragments.append(
+                {
+                    "content": str(getattr(frag, "content", "")),
+                    "fragment_type": fragment_type_map.get(frag_type, "reference"),
+                    "relevance_score": max(
+                        0.0, min(1.0, float(getattr(frag, "relevance_score", 0.0) or 0.0))
+                    ),
+                    "information_density": max(
+                        0.0, min(1.0, float(getattr(frag, "information_density", 0.0) or 0.0))
+                    ),
+                    "token_count": int(getattr(frag, "tokens", 0) or 0),
+                    "source": {
+                        "id": str(original_item.get("id", frag_id)),
+                        "content": str(original_item.get("content", getattr(frag, "content", ""))),
+                        "file_path": original_item.get("file_path", getattr(frag, "source", None)),
+                        "content_type": original_item.get("file_type", original_item.get("content_type")),
+                        "metadata": original_item.get("metadata") or {},
+                        "score": score_f,
+                    },
+                }
+            )
+
+        relationships = []
+        for rel in getattr(context, "relationships", []) or []:
+            a = str(getattr(rel, "fragment_a", ""))
+            b = str(getattr(rel, "fragment_b", ""))
+            if a not in id_to_index or b not in id_to_index:
+                continue
+
+            rel_type = getattr(getattr(rel, "relationship_type", None), "value", None) or str(
+                getattr(rel, "relationship_type", "supplement")
+            )
+
+            relationships.append(
+                {
+                    "relationship_type": relationship_type_map.get(rel_type, "supplement"),
+                    "source_fragment": id_to_index[a],
+                    "target_fragment": id_to_index[b],
+                    "strength": max(0.0, min(1.0, float(getattr(rel, "strength", 0.0) or 0.0))),
+                    "explanation": getattr(rel, "explanation", None),
+                }
+            )
+
         return {
-            "fragments": [],  # 需要实际转换
-            "relationships": [],
-            "total_tokens": getattr(context, 'total_tokens', 0),
-            "diversity_score": getattr(context, 'diversity_score', 0.0),
-            "coherence_score": getattr(context, 'coherence_score', 0.0),
-            "information_density": getattr(context, 'information_density', 0.0),
+            "fragments": fragments,
+            "relationships": relationships,
+            "total_tokens": int(getattr(context, "total_tokens", 0) or 0),
+            "diversity_score": max(0.0, min(1.0, float(getattr(context, "diversity_score", 0.0) or 0.0))),
+            "coherence_score": max(0.0, min(1.0, float(getattr(context, "coherence_score", 0.0) or 0.0))),
+            "information_density": max(0.0, min(1.0, float(getattr(context, "information_density", 0.0) or 0.0))),
         }
 
     def _convert_explanation(self, explanation):
@@ -730,23 +815,16 @@ class AgenticRagService:
         try:
             if request.query_id:
                 # 根据query_id获取解释
-                explanations = self.explainer.list_path_records()
-                matching_explanations = [
-                    exp for exp in explanations 
-                    if exp.get("query_id") == request.query_id
-                ]
-                if not matching_explanations:
+                explanation = self.explanations_by_query_id.get(request.query_id)
+                if not explanation:
                     return {
                         "success": False,
                         "error": f"Query ID {request.query_id} not found"
                     }
-                explanation = matching_explanations[0]
                 
             elif request.path_id:
                 # 根据path_id获取解释
-                explanation = await self.explainer.explain_retrieval_process(
-                    request.path_id, level=request.explanation_level
-                )
+                explanation = self.explanations_by_path_id.get(request.path_id)
                 if not explanation:
                     return {
                         "success": False,
@@ -880,7 +958,6 @@ class AgenticRagService:
                 "components": {},
                 "error": str(e)
             }
-
 
 # 创建全局服务实例
 agentic_rag_service = AgenticRagService()

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { 
+import { logger } from '../utils/logger'
   Card, 
   Tabs, 
   Typography, 
@@ -56,7 +57,7 @@ const PgVectorPage: React.FC = () => {
       const status = await pgvectorApi.getSystemStatus();
       setSystemStatus(status);
     } catch (error) {
-      console.error('Failed to fetch system status:', error);
+      logger.error('获取系统状态失败:', error);
     } finally {
       setLoading(false);
     }
@@ -70,7 +71,7 @@ const PgVectorPage: React.FC = () => {
         await fetchSystemStatus();
       }
     } catch (error) {
-      console.error('Upgrade failed:', error);
+      logger.error('升级失败:', error);
     } finally {
       setUpgradeInProgress(false);
     }

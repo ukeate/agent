@@ -1,3 +1,4 @@
+import { buildApiUrl, apiFetch } from '../utils/apiBase'
 import React, { useState, useEffect } from 'react'
 import {
   Card,
@@ -60,7 +61,7 @@ import {
   StopOutlined,
   SyncOutlined,
   ClockCircleOutlined,
-  NetworkOutlined,
+  ShareAltOutlined as NetworkOutlined,
   CloudServerOutlined,
   DatabaseOutlined,
   ApiOutlined,
@@ -724,24 +725,42 @@ const MonitoringPerformanceOptimizationPage: React.FC = () => {
 
   const refreshData = () => {
     setLoading(true)
-    setTimeout(() => {
-      setPerformanceMetrics(prev => ({
-        ...prev,
-        messageLatency: {
-          ...prev.messageLatency,
-          average: prev.messageLatency.average + (Math.random() - 0.5) * 20
-        },
-        throughput: {
-          ...prev.throughput,
-          current: prev.throughput.current + (Math.random() - 0.5) * 100
-        }
-      }))
-      notification.success({
-        message: '数据刷新成功',
-        description: '监控指标已更新'
+    apiFetch(buildApiUrl('/api/v1/health/metrics'))
+      .then(res => {
+        return res.json()
       })
-      setLoading(false)
-    }, 1000)
+      .then(data => {
+        setPerformanceMetrics(prev => ({
+          ...prev,
+          messageLatency: {
+            ...prev.messageLatency,
+            average: data.latency_ms ?? prev.messageLatency.average,
+            p50: data.latency_p50 ?? prev.messageLatency.p50,
+            p95: data.latency_p95 ?? prev.messageLatency.p95,
+            p99: data.latency_p99 ?? prev.messageLatency.p99
+          },
+          throughput: {
+            ...prev.throughput,
+            current: data.throughput_qps ?? prev.throughput.current,
+            peak: prev.throughput.peak,
+            average24h: prev.throughput.average24h
+          },
+          resourceUsage: {
+            cpu: data.cpu_usage ?? prev.resourceUsage.cpu,
+            memory: data.memory_usage ?? prev.resourceUsage.memory,
+            network: data.network_usage ?? prev.resourceUsage.network,
+            disk: data.disk_usage ?? prev.resourceUsage.disk
+          }
+        }))
+        notification.success({
+          message: '数据刷新成功',
+          description: '监控指标已更新'
+        })
+      })
+      .catch(() => {
+        notification.error({ message: '数据刷新失败', description: '无法获取最新指标' })
+      })
+      .finally(() => setLoading(false))
   }
 
   const getHealthColor = (score: number) => {

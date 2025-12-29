@@ -1,0 +1,17 @@
+{
+  "export_timestamp": "2025-12-21T09:01:31.220590+00:00",
+  "time_range_hours": 24,
+  "system_metrics": [
+    {
+      "timestamp": "2025-12-21T09:01:31.105921+00:00",
+      "cpu_percent": 0.0,
+      "memory_percent": 75.4,
+      "memory_used_gb": 8.271560668945312,
+      "gpu_percent": null,
+      "gpu_memory_used_gb": null
+    }
+  ],
+  "model_metrics": {},
+  "benchmark_metrics": {},
+  "alerts": []
+}

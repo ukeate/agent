@@ -26,15 +26,15 @@ from dataclasses import dataclass, field
 from enum import Enum
 from datetime import datetime
 from src.core.utils.timezone_utils import utc_now, utc_factory
-import logging
-import pickle
+from src.core.utils import secure_pickle as pickle
 import json
 from pathlib import Path
 import faiss
 from concurrent.futures import ThreadPoolExecutor
 import threading
 
-logger = logging.getLogger(__name__)
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 class EmbeddingModel(str, Enum):
     """嵌入模型类型"""
@@ -72,7 +72,7 @@ class TrainingMetrics:
     hits_at_10: float = 0.0
     mean_rank: float = 0.0
     mean_reciprocal_rank: float = 0.0
-    timestamp: datetime = field(default_factory=datetime.utcnow)
+    timestamp: datetime = field(default_factory=utc_now)
 
 @dataclass
 class EmbeddingPrediction:
@@ -83,6 +83,22 @@ class EmbeddingPrediction:
     score: float
     confidence: float
     rank: int
+
+@dataclass
+class SimilarEntity:
+    """相似实体结果"""
+    entity: str
+    similarity: float
+    metadata: Dict[str, Any] = field(default_factory=dict)
+
+@dataclass
+class SimilarityResult:
+    """相似度查询返回"""
+    query_entity: str
+    similar_entities: List[SimilarEntity]
+    execution_time: float = 0.0
+    model: str = ""
+    metadata: Dict[str, Any] = field(default_factory=dict)
 
 class TransE(nn.Module):
     """TransE知识图谱嵌入模型"""

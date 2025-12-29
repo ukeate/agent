@@ -9,10 +9,9 @@ from typing import Any, Dict, List, Optional, Union, Callable
 from datetime import datetime
 from src.core.utils.timezone_utils import utc_now, utc_factory
 from pydantic import BaseModel, ValidationError
-import logging
 
-logger = logging.getLogger(__name__)
-
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 class ValidationError(Exception):
     """验证错误异常"""
@@ -22,7 +21,6 @@ class ValidationError(Exception):
         self.field = field
         self.code = code
         super().__init__(message)
-
 
 class Validator:
     """数据验证器"""
@@ -161,7 +159,6 @@ class Validator:
         
         return True, "枚举值符合要求"
 
-
 class SchemaValidator:
     """模式验证器"""
     
@@ -275,7 +272,6 @@ class SchemaValidator:
         
         return errors
 
-
 def validate_request_data(schema_func: Callable) -> Callable:
     """请求数据验证装饰器"""
     def decorator(f):
@@ -311,7 +307,6 @@ def validate_request_data(schema_func: Callable) -> Callable:
         return decorated_function
     return decorator
 
-
 class PydanticValidator:
     """Pydantic模型验证器"""
     
@@ -330,14 +325,12 @@ class PydanticValidator:
         validated_model = PydanticValidator.validate_model(data, model_class)
         return validated_model.model_dump()
 
-
 # 常用验证函数
 def validate_pagination_params(page: int = 1, page_size: int = 20) -> tuple[int, int]:
     """验证分页参数"""
     page = max(1, page)
     page_size = max(1, min(100, page_size))  # 限制最大页面大小
     return page, page_size
-
 
 def validate_search_query(query: Optional[str]) -> Optional[str]:
     """验证搜索查询"""

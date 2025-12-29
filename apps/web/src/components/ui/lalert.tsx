@@ -5,6 +5,10 @@ interface AlertProps extends React.HTMLAttributes<HTMLDivElement> {
   children: React.ReactNode;
 }
 
+interface AlertDescriptionProps extends React.HTMLAttributes<HTMLParagraphElement> {
+  children: React.ReactNode;
+}
+
 export const Alert: React.FC<AlertProps> = ({ 
   variant = 'default', 
   children, 
@@ -25,5 +29,20 @@ export const Alert: React.FC<AlertProps> = ({
     >
       {children}
     </div>
+  );
+};
+
+export const AlertDescription: React.FC<AlertDescriptionProps> = ({ 
+  children, 
+  className = '', 
+  ...props 
+}) => {
+  return (
+    <p
+      className={`text-sm ${className}`}
+      {...props}
+    >
+      {children}
+    </p>
   );
 };

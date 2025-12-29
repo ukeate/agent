@@ -10,9 +10,8 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from enum import Enum
 import math
-
 from ..qlearning.base import AgentState
-
+from src.core.security.expression import safe_eval
 
 class RewardType(Enum):
     """奖励类型枚举"""
@@ -22,7 +21,6 @@ class RewardType(Enum):
     POTENTIAL = "potential"
     COMPOSITE = "composite"
 
-
 @dataclass
 class RewardComponent:
     """奖励组件"""
@@ -31,7 +29,6 @@ class RewardComponent:
     reward_function: Callable[[AgentState, Any, AgentState, Dict[str, Any]], float]
     description: str = ""
     enabled: bool = True
-
 
 class BaseRewardFunction(ABC):
     """奖励函数基类"""
@@ -47,12 +44,13 @@ class BaseRewardFunction(ABC):
     def calculate_reward(self, state: AgentState, action: Any, 
                         next_state: AgentState, info: Dict[str, Any]) -> float:
         """计算奖励值"""
-        pass
+        raise NotImplementedError
     
-    @abstractmethod
     def reset(self):
         """重置奖励函数状态（新回合开始时调用）"""
-        pass
+        self.cumulative_reward = 0.0
+        self.episode_rewards = []
+        self.reward_history = []
     
     def get_reward_info(self) -> Dict[str, Any]:
         """获取奖励函数信息"""
@@ -73,7 +71,6 @@ class BaseRewardFunction(ABC):
         if episode_end:
             self.episode_rewards.append(self.cumulative_reward)
             self.cumulative_reward = 0.0
-
 
 class SparseRewardFunction(BaseRewardFunction):
     """稀疏奖励函数 - 只在特定条件下给予奖励"""
@@ -107,7 +104,7 @@ class SparseRewardFunction(BaseRewardFunction):
     
     def reset(self):
         """重置状态"""
-        pass
+        super().reset()
     
     def _check_condition(self, state: AgentState, info: Dict[str, Any], condition: Dict[str, Any]) -> bool:
         """检查条件是否满足"""
@@ -165,7 +162,6 @@ class SparseRewardFunction(BaseRewardFunction):
             return value <= threshold
         return False
 
-
 class DenseRewardFunction(BaseRewardFunction):
     """密集奖励函数 - 每步都提供奖励信号"""
     
@@ -199,7 +195,7 @@ class DenseRewardFunction(BaseRewardFunction):
     
     def reset(self):
         """重置状态"""
-        pass
+        super().reset()
     
     def _is_at_goal(self, state: AgentState) -> bool:
         """检查是否在目标位置"""
@@ -244,7 +240,6 @@ class DenseRewardFunction(BaseRewardFunction):
             return max(abs(pos1[0] - pos2[0]), abs(pos1[1] - pos2[1]))
         else:
             return abs(pos1[0] - pos2[0]) + abs(pos1[1] - pos2[1])
-
 
 class ShapedRewardFunction(BaseRewardFunction):
     """奖励塑形函数 - 结合多种奖励信号引导学习"""
@@ -347,7 +342,6 @@ class ShapedRewardFunction(BaseRewardFunction):
         
         return str(sorted(discrete_features.items()))
 
-
 class PotentialBasedRewardFunction(BaseRewardFunction):
     """基于势函数的奖励函数"""
     
@@ -412,7 +406,7 @@ class PotentialBasedRewardFunction(BaseRewardFunction):
                 try:
                     # 将状态特征作为变量
                     local_vars = state.features.copy()
-                    return float(eval(formula, {"__builtins__": {}}, local_vars))
+                    return float(safe_eval(formula, local_vars))
                 except:
                     return 0.0
             
@@ -421,7 +415,6 @@ class PotentialBasedRewardFunction(BaseRewardFunction):
         else:
             # 默认零势函数
             return lambda state: 0.0
-
 
 class CompositeRewardFunction(BaseRewardFunction):
     """组合奖励函数 - 多个奖励组件的加权组合"""
@@ -515,7 +508,6 @@ class CompositeRewardFunction(BaseRewardFunction):
             if component.name == name:
                 component.weight = weight
                 break
-
 
 class RewardFunctionFactory:
     """奖励函数工厂类"""

@@ -4,10 +4,9 @@ import pytest
 import asyncio
 from unittest.mock import Mock, AsyncMock, patch, MagicMock
 from datetime import datetime
-
 from ai.platform_integration.optimizer import PerformanceOptimizer
 from ai.platform_integration.models import PerformanceMetrics
-
+from src.core.utils.timezone_utils import utc_now
 
 @pytest.fixture
 def optimizer_config():
@@ -21,14 +20,12 @@ def optimizer_config():
         }
     }
 
-
 @pytest.fixture
 def performance_optimizer(optimizer_config):
     """性能优化器实例"""
     with patch('redis.Redis'):
         optimizer = PerformanceOptimizer(optimizer_config)
         return optimizer
-
 
 class TestPerformanceOptimizer:
     """性能优化器测试类"""
@@ -266,7 +263,7 @@ class TestPerformanceOptimizer:
             disk_usage={"read_bytes": 1024**3, "write_bytes": 512 * 1024**2},
             network_usage={"bytes_sent": 100 * 1024**2, "bytes_recv": 200 * 1024**2},
             bottlenecks=["high_memory"],
-            timestamp=datetime.now()
+            timestamp=utc_now()
         )
         
         with patch.object(performance_optimizer, 'collect_metrics', return_value=mock_metrics), \
@@ -295,7 +292,7 @@ class TestPerformanceOptimizer:
             disk_usage={},
             network_usage={},
             bottlenecks=[],
-            timestamp=datetime.now()
+            timestamp=utc_now()
         )
         
         score = performance_optimizer._calculate_performance_score(metrics)
@@ -309,7 +306,7 @@ class TestPerformanceOptimizer:
             disk_usage={},
             network_usage={},
             bottlenecks=["high_cpu", "high_memory", "high_disk_io"],  # 3 bottlenecks
-            timestamp=datetime.now()
+            timestamp=utc_now()
         )
         
         score = performance_optimizer._calculate_performance_score(metrics)
@@ -325,14 +322,13 @@ class TestPerformanceOptimizer:
             disk_usage={},
             network_usage={},
             bottlenecks=["some_bottleneck"],  # 1 bottleneck
-            timestamp=datetime.now()
+            timestamp=utc_now()
         )
         
         score = performance_optimizer._calculate_performance_score(metrics)
         # Should deduct: 5 (medium CPU) + 5 (medium memory) + 10 (1 bottleneck)
         expected_score = 100 - 5 - 5 - 10
         assert score == expected_score
-
 
 class TestPerformanceOptimizerIntegration:
     """性能优化器集成测试"""

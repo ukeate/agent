@@ -9,7 +9,6 @@ from typing import Dict, Any, List, Optional, Tuple, Union
 from enum import Enum
 from dataclasses import dataclass
 import asyncio
-import logging
 from datetime import datetime
 from src.core.utils.timezone_utils import utc_now, utc_factory, timezone
 import json
@@ -18,8 +17,8 @@ from sqlalchemy import text, select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 import math
 
-logger = logging.getLogger(__name__)
-
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 class SearchMode(str, Enum):
     """搜索模式"""
@@ -30,14 +29,12 @@ class SearchMode(str, Enum):
     CROSS_MODAL = "cross_modal"        # 跨模态搜索
     TEMPORAL = "temporal"              # 时序搜索
 
-
 class FusionStrategy(str, Enum):
     """融合策略"""
     RRF = "rrf"                        # Reciprocal Rank Fusion
     LINEAR = "linear"                  # 线性加权
     CROSS_ENCODER = "cross_encoder"    # 交叉编码器重排序
     LEARNED = "learned"                # 学习的融合权重
-
 
 @dataclass
 class SearchConfig:
@@ -52,7 +49,6 @@ class SearchConfig:
     enable_synonyms: bool = True
     min_relevance_score: float = 0.5
 
-
 @dataclass
 class SearchResult:
     """搜索结果"""
@@ -64,7 +60,6 @@ class SearchResult:
     final_score: float
     distance: float
     highlights: List[str] = None
-
 
 class HybridSearchEngine:
     """混合搜索引擎"""
@@ -86,7 +81,7 @@ class HybridSearchEngine:
         config: Optional[SearchConfig] = None
     ) -> List[SearchResult]:
         """执行混合搜索"""
-        start_time = asyncio.get_event_loop().time()
+        start_time = asyncio.get_running_loop().time()
         
         if config is None:
             config = SearchConfig()
@@ -238,20 +233,19 @@ class HybridSearchEngine:
     ) -> List[SearchResult]:
         """内部混合搜索实现"""
         # 并行执行语义搜索和关键词搜索
-        tasks = []
-        
-        if query_vector is not None:
-            tasks.append(self._semantic_search(query_vector, config))
+        semantic_task = self._semantic_search(query_vector, config) if query_vector is not None else None
+        keyword_task = self._keyword_search(query, config)
+
+        if semantic_task is not None:
+            results = await asyncio.gather(semantic_task, keyword_task, return_exceptions=True)
+            semantic_results = results[0] if not isinstance(results[0], Exception) else []
+            keyword_results = results[1] if not isinstance(results[1], Exception) else []
         else:
-            tasks.append(asyncio.create_task(asyncio.sleep(0)))  # 占位
-            
-        tasks.append(self._keyword_search(query, config))
-        
-        results = await asyncio.gather(*tasks, return_exceptions=True)
-        
-        # 处理结果
-        semantic_results = results[0] if not isinstance(results[0], Exception) and query_vector is not None else []
-        keyword_results = results[1] if not isinstance(results[1], Exception) else []
+            semantic_results = []
+            try:
+                keyword_results = await keyword_task
+            except Exception:
+                keyword_results = []
         
         # 融合结果
         fused_results = await self._fuse_results(
@@ -364,20 +358,7 @@ class HybridSearchEngine:
         config: SearchConfig
     ) -> List[SearchResult]:
         """使用交叉编码器重排序"""
-        # 这里是一个简化的实现
-        # 实际应用中应该使用真正的交叉编码器模型
-        for result in results:
-            # 模拟交叉编码器评分
-            query_terms = set(query.lower().split())
-            content_terms = set(result.content.lower().split())
-            overlap = len(query_terms & content_terms)
-            
-            # 结合原始分数和交叉编码器分数
-            cross_encoder_score = overlap / (len(query_terms) + 1)
-            result.final_score = 0.5 * result.final_score + 0.5 * cross_encoder_score
-        
-        results.sort(key=lambda x: x.final_score, reverse=True)
-        return results
+        raise RuntimeError("未集成交叉编码器模型，无法执行重排序")
     
     async def _preprocess_query(
         self,
@@ -488,7 +469,7 @@ class HybridSearchEngine:
             self.search_stats["hybrid_searches"] += 1
         
         # 更新平均延迟
-        end_time = asyncio.get_event_loop().time()
+        end_time = asyncio.get_running_loop().time()
         latency_ms = (end_time - start_time) * 1000
         
         n = self.search_stats["total_searches"]

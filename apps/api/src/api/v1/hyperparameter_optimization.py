@@ -6,14 +6,13 @@
 
 from fastapi import APIRouter, HTTPException, BackgroundTasks, Depends, Query
 from typing import Dict, List, Optional, Any
-import logging
 from datetime import datetime
 from src.core.utils.timezone_utils import utc_now, utc_factory
 import json
-
-from ...ai.hyperparameter_optimization.experiment_manager import ExperimentManager
-from ...ai.hyperparameter_optimization.search_engine import HyperparameterSearchEngine
-from ...ai.hyperparameter_optimization.models import (
+from uuid import UUID
+from src.ai.hyperparameter_optimization.experiment_manager import ExperimentManager
+from src.ai.hyperparameter_optimization.search_engine import HyperparameterSearchEngine
+from src.ai.hyperparameter_optimization.models import (
     ExperimentRequest,
     ExperimentResponse,
     ExperimentDetail,
@@ -26,7 +25,9 @@ from ...ai.hyperparameter_optimization.models import (
     OptimizationProgress,
     HyperparameterRangeSchema
 )
-from ...core.config import get_settings
+
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 # 创建路由器
 router = APIRouter(prefix="/hyperparameter-optimization", tags=["Hyperparameter Optimization"])
@@ -39,8 +40,7 @@ def get_experiment_manager() -> ExperimentManager:
     """获取实验管理器实例"""
     global experiment_manager
     if experiment_manager is None:
-        settings = get_settings()
-        experiment_manager = ExperimentManager(settings.DATABASE_URL)
+        experiment_manager = ExperimentManager()
     return experiment_manager
 
 def get_search_engine() -> HyperparameterSearchEngine:
@@ -57,9 +57,9 @@ async def create_experiment(
 ):
     """创建超参数优化实验"""
     try:
-        return await manager.create_experiment_async(request)
+        return await manager.create_experiment(request)
     except Exception as e:
-        logging.error(f"Failed to create experiment: {e}")
+        logger.error(f"Failed to create experiment: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/experiments", response_model=List[ExperimentResponse])
@@ -68,107 +68,108 @@ async def list_experiments(
 ):
     """获取所有实验列表"""
     try:
-        return await manager.list_experiments_async()
+        return await manager.list_experiments()
     except Exception as e:
-        logging.error(f"Failed to list experiments: {e}")
+        logger.error(f"Failed to list experiments: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/experiments/{experiment_id}", response_model=ExperimentDetail)
 async def get_experiment(
-    experiment_id: str,
+    experiment_id: UUID,
     manager: ExperimentManager = Depends(get_experiment_manager)
 ):
     """获取特定实验的详细信息"""
     try:
-        return await manager.get_experiment_async(experiment_id)
+        return await manager.get_experiment(str(experiment_id))
     except HTTPException:
         raise
     except Exception as e:
-        logging.error(f"Failed to get experiment {experiment_id}: {e}")
+        logger.error(f"Failed to get experiment {experiment_id}: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/experiments/{experiment_id}/start")
 async def start_experiment(
-    experiment_id: str,
+    experiment_id: UUID,
     background_tasks: BackgroundTasks,
     manager: ExperimentManager = Depends(get_experiment_manager)
 ):
     """启动超参数优化实验"""
     try:
-        await manager.start_experiment_async(experiment_id)
-        return {"status": "started", "experiment_id": experiment_id}
+        await manager.start_experiment(str(experiment_id))
+        return {"status": "started", "experiment_id": str(experiment_id)}
     except HTTPException:
         raise
     except Exception as e:
-        logging.error(f"Failed to start experiment {experiment_id}: {e}")
+        logger.error(f"Failed to start experiment {experiment_id}: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/experiments/{experiment_id}/stop")
 async def stop_experiment(
-    experiment_id: str,
+    experiment_id: UUID,
     manager: ExperimentManager = Depends(get_experiment_manager)
 ):
     """停止正在运行的实验"""
     try:
-        return await manager.stop_experiment_async(experiment_id)
+        return await manager.stop_experiment(str(experiment_id))
     except HTTPException:
         raise
     except Exception as e:
-        logging.error(f"Failed to stop experiment {experiment_id}: {e}")
+        logger.error(f"Failed to stop experiment {experiment_id}: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.delete("/experiments/{experiment_id}")
 async def delete_experiment(
-    experiment_id: str,
+    experiment_id: UUID,
     manager: ExperimentManager = Depends(get_experiment_manager)
 ):
     """删除实验及其所有数据"""
     try:
-        return await manager.delete_experiment_async(experiment_id)
+        return await manager.delete_experiment(str(experiment_id))
     except HTTPException:
         raise
     except Exception as e:
-        logging.error(f"Failed to delete experiment {experiment_id}: {e}")
+        logger.error(f"Failed to delete experiment {experiment_id}: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/experiments/{experiment_id}/trials", response_model=List[TrialResponse])
 async def get_experiment_trials(
-    experiment_id: str,
+    experiment_id: UUID,
     manager: ExperimentManager = Depends(get_experiment_manager)
 ):
     """获取实验的所有试验记录"""
     try:
-        return await manager.get_trials_async(experiment_id)
+        return await manager.get_trials(str(experiment_id))
     except Exception as e:
-        logging.error(f"Failed to get trials for experiment {experiment_id}: {e}")
+        logger.error(f"Failed to get trials for experiment {experiment_id}: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/experiments/{experiment_id}/visualizations")
 async def get_experiment_visualizations(
-    experiment_id: str,
+    experiment_id: UUID,
     manager: ExperimentManager = Depends(get_experiment_manager)
 ):
     """获取实验的可视化图表"""
     try:
-        return await manager.get_visualizations_async(experiment_id)
+        return await manager.get_visualizations(str(experiment_id))
     except HTTPException:
         raise
     except Exception as e:
-        logging.error(f"Failed to get visualizations for experiment {experiment_id}: {e}")
+        logger.error(f"Failed to get visualizations for experiment {experiment_id}: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/experiments/{experiment_id}/progress")
 async def get_experiment_progress(
-    experiment_id: str,
+    experiment_id: UUID,
     manager: ExperimentManager = Depends(get_experiment_manager)
 ):
     """获取实验的实时进度"""
     try:
-        experiment = await manager.get_experiment_async(experiment_id)
+        experiment_id_str = str(experiment_id)
+        experiment = await manager.get_experiment(experiment_id_str)
         
         # 计算进度信息
         progress = OptimizationProgress(
-            experiment_id=experiment_id,
+            experiment_id=experiment_id_str,
             current_trial=experiment.total_trials,
             total_trials=json.loads(experiment.config).get("n_trials", 100),
             best_value=experiment.best_value,
@@ -182,7 +183,7 @@ async def get_experiment_progress(
     except HTTPException:
         raise
     except Exception as e:
-        logging.error(f"Failed to get progress for experiment {experiment_id}: {e}")
+        logger.error(f"Failed to get progress for experiment {experiment_id}: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 # 搜索引擎相关接口
@@ -195,7 +196,7 @@ async def get_preset_tasks(
     try:
         return engine.get_preset_tasks()
     except Exception as e:
-        logging.error(f"Failed to get preset tasks: {e}")
+        logger.error(f"Failed to get preset tasks: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/tasks/{task_name}", response_model=TaskInfo)
@@ -209,7 +210,7 @@ async def get_task_info(
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
-        logging.error(f"Failed to get task info for {task_name}: {e}")
+        logger.error(f"Failed to get task info for {task_name}: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/tasks", response_model=str)
@@ -219,7 +220,7 @@ async def create_custom_task(
 ):
     """创建自定义任务配置"""
     try:
-        parameters = [param.dict() for param in request.parameters]
+        parameters = [param.model_dump() for param in request.parameters]
         
         return engine.create_custom_task(
             task_name=request.task_name,
@@ -232,7 +233,7 @@ async def create_custom_task(
             patience=request.patience
         )
     except Exception as e:
-        logging.error(f"Failed to create custom task: {e}")
+        logger.error(f"Failed to create custom task: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/optimize/{task_name}")
@@ -247,30 +248,20 @@ async def optimize_for_task(
         # 这里需要提供默认的目标函数
         def default_objective(params: Dict[str, Any]) -> float:
             """默认演示目标函数"""
-            import random
-            import time
-            
-            # 模拟计算时间
-            time.sleep(random.uniform(1, 3))
-            
-            # 简单的优化函数：参数值的平方和（负值，用于最大化）
             total = 0
             for key, value in params.items():
                 if isinstance(value, (int, float)):
                     total += value ** 2
-            
-            # 添加随机噪声
-            noise = random.gauss(0, 0.1)
-            return -(total + noise)
+            return -total
         
         # 启动后台优化任务
         async def run_optimization():
             try:
                 result = engine.optimize_for_task(task_name, default_objective)
-                logging.info(f"Optimization for task {task_name} completed")
+                logger.info(f"Optimization for task {task_name} completed")
                 return result
             except Exception as e:
-                logging.error(f"Optimization for task {task_name} failed: {e}")
+                logger.error(f"Optimization for task {task_name} failed: {e}")
                 raise
         
         background_tasks.add_task(run_optimization)
@@ -284,7 +275,7 @@ async def optimize_for_task(
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
-        logging.error(f"Failed to start optimization for task {task_name}: {e}")
+        logger.error(f"Failed to start optimization for task {task_name}: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/compare-algorithms/{task_name}")
@@ -296,7 +287,7 @@ async def compare_algorithms(
 ):
     """比较不同算法在指定任务上的表现"""
     try:
-        from ...ai.hyperparameter_optimization.optimizer import OptimizationAlgorithm
+        from src.ai.hyperparameter_optimization.optimizer import OptimizationAlgorithm
         
         # 转换算法名称
         algorithm_enums = []
@@ -309,11 +300,6 @@ async def compare_algorithms(
         # 默认目标函数
         def comparison_objective(params: Dict[str, Any]) -> float:
             """用于算法比较的目标函数"""
-            import random
-            import time
-            
-            time.sleep(random.uniform(0.5, 2))
-            
             # Ackley函数的简化版本
             total = 0
             count = 0
@@ -324,18 +310,18 @@ async def compare_algorithms(
             
             if count > 0:
                 result = -20 * (total / count) ** 0.5 + 20
-                return result + random.gauss(0, 0.1)
+                return result
             else:
-                return random.uniform(0, 1)
+                return 0.0
         
         # 异步执行算法比较
         async def run_comparison():
             try:
                 result = engine.compare_algorithms(task_name, comparison_objective, algorithm_enums)
-                logging.info(f"Algorithm comparison for task {task_name} completed")
+                logger.info(f"Algorithm comparison for task {task_name} completed")
                 return result
             except Exception as e:
-                logging.error(f"Algorithm comparison for task {task_name} failed: {e}")
+                logger.error(f"Algorithm comparison for task {task_name} failed: {e}")
                 raise
         
         if background_tasks:
@@ -353,7 +339,7 @@ async def compare_algorithms(
     except HTTPException:
         raise
     except Exception as e:
-        logging.error(f"Failed to compare algorithms for task {task_name}: {e}")
+        logger.error(f"Failed to compare algorithms for task {task_name}: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 # 系统状态接口
@@ -366,7 +352,7 @@ async def get_resource_status(
     try:
         return manager.get_resource_status()
     except Exception as e:
-        logging.error(f"Failed to get resource status: {e}")
+        logger.error(f"Failed to get resource status: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/active-experiments")
@@ -377,7 +363,7 @@ async def get_active_experiments(
     try:
         return manager.get_active_experiments()
     except Exception as e:
-        logging.error(f"Failed to get active experiments: {e}")
+        logger.error(f"Failed to get active experiments: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 # 健康检查接口
@@ -387,9 +373,10 @@ async def health_check():
     """健康检查接口"""
     try:
         # 检查数据库连接
+        from sqlalchemy import text
         manager = get_experiment_manager()
         db = manager.get_db()
-        db.execute("SELECT 1")
+        db.execute(text("SELECT 1"))
         db.close()
         
         return {
@@ -402,7 +389,7 @@ async def health_check():
             }
         }
     except Exception as e:
-        logging.error(f"Health check failed: {e}")
+        logger.error(f"Health check failed: {e}")
         raise HTTPException(status_code=503, detail="Service unhealthy")
 
 # 配置信息接口
@@ -410,7 +397,7 @@ async def health_check():
 @router.get("/algorithms")
 async def get_available_algorithms():
     """获取可用的优化算法列表"""
-    from ...ai.hyperparameter_optimization.optimizer import OptimizationAlgorithm
+    from src.ai.hyperparameter_optimization.optimizer import OptimizationAlgorithm
     
     return {
         "algorithms": [alg.value for alg in OptimizationAlgorithm],
@@ -420,13 +407,28 @@ async def get_available_algorithms():
             "random": "Random Search - 随机搜索",
             "grid": "Grid Search - 网格搜索",
             "nsga2": "NSGA-II - 多目标遗传算法"
+        },
+        "parameters": {
+            "tpe": {
+                "n_startup_trials": {"type": "int", "default": 10, "min": 1, "max": 200, "description": "随机试验数量"},
+                "n_ei_candidates": {"type": "int", "default": 24, "min": 10, "max": 200, "description": "EI候选点数量"},
+                "multivariate": {"type": "boolean", "default": True, "description": "是否启用多变量建模"},
+                "group": {"type": "boolean", "default": True, "description": "是否启用分组建模"}
+            },
+            "cmaes": {
+                "n_startup_trials": {"type": "int", "default": 10, "min": 1, "max": 200, "description": "启动随机试验数量"},
+                "independent_sampler": {"type": "select", "default": "tpe", "options": ["tpe"], "description": "独立采样器"}
+            },
+            "random": {},
+            "grid": {},
+            "nsga2": {}
         }
     }
 
 @router.get("/pruning-strategies")
 async def get_pruning_strategies():
     """获取可用的剪枝策略列表"""
-    from ...ai.hyperparameter_optimization.optimizer import PruningAlgorithm
+    from src.ai.hyperparameter_optimization.optimizer import PruningAlgorithm
     
     return {
         "pruning_strategies": [prune.value for prune in PruningAlgorithm],

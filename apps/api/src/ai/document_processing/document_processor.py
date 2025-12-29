@@ -1,7 +1,6 @@
 """主文档处理器"""
 
 import os
-import logging
 from pathlib import Path
 from typing import List, Dict, Any, Optional, Union
 import asyncio
@@ -9,7 +8,7 @@ from datetime import datetime
 from src.core.utils.timezone_utils import utc_now, utc_factory
 import hashlib
 import json
-
+from src.ai.openai_client import get_openai_client
 from .parsers import (
     BaseParser,
     PDFParser,
@@ -21,8 +20,7 @@ from .parsers import (
 )
 from .parsers.base_parser import ParsedDocument, ParsedElement
 
-logger = logging.getLogger(__name__)
-
+logger = get_logger(__name__)
 
 class ProcessedDocument:
     """处理后的文档完整结构"""
@@ -71,7 +69,6 @@ class ProcessedDocument:
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
         }
-
 
 class DocumentProcessor:
     """智能文档处理器
@@ -303,8 +300,7 @@ class DocumentProcessor:
         embedding_vector = None
         if generate_embeddings:
             # 这里应该调用嵌入服务生成向量
-            # embedding_vector = await self._generate_embeddings(content)
-            pass
+            embedding_vector = await self._generate_embeddings(content)
         
         return ProcessedDocument(
             doc_id=parsed_doc.doc_id,
@@ -316,6 +312,14 @@ class DocumentProcessor:
             embedding_vector=embedding_vector,
             metadata=metadata
         )
+
+    async def _generate_embeddings(self, content: str) -> Optional[List[float]]:
+        """生成文本向量嵌入"""
+        if not content:
+            return None
+        client = await get_openai_client()
+        embeddings = await client.create_embeddings(content)
+        return embeddings[0] if embeddings else None
     
     def _extract_title(self, parsed_doc: ParsedDocument, file_path: Path) -> str:
         """提取文档标题
@@ -446,3 +450,4 @@ class DocumentProcessor:
             支持的扩展名列表
         """
         return sorted(list(self.supported_extensions))
+from src.core.logging import get_logger

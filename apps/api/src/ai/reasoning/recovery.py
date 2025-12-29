@@ -3,8 +3,7 @@
 import asyncio
 from typing import List, Optional, Dict, Any
 from enum import Enum
-
-from models.schemas.reasoning import (
+from src.models.schemas.reasoning import (
     ReasoningChain,
     ThoughtStep,
     ThoughtStepType,
@@ -12,8 +11,8 @@ from models.schemas.reasoning import (
     ReasoningStrategy
 )
 from src.ai.reasoning.validation import CompositeValidator, calculate_chain_quality_score
-from src.core.logging import logger
 
+logger = get_logger(__name__)
 
 class RecoveryStrategy(Enum):
     """恢复策略类型"""
@@ -22,7 +21,6 @@ class RecoveryStrategy(Enum):
     RESTART = "restart"  # 重启
     REFINE = "refine"  # 细化
     ALTERNATIVE = "alternative"  # 替代路径
-
 
 class FailureDetector:
     """失败检测器"""
@@ -91,7 +89,6 @@ class FailureDetector:
         """判断是否应该中止推理"""
         return self.consecutive_failures >= self.max_consecutive_failures
 
-
 class BacktrackMechanism:
     """回溯机制"""
     
@@ -144,7 +141,6 @@ class BacktrackMechanism:
         
         logger.info(f"回溯到步骤 {step_number}")
         return True
-
 
 class AlternativePathGenerator:
     """替代路径生成器"""
@@ -214,7 +210,6 @@ class AlternativePathGenerator:
         }
         
         return modifiers.get(strategy, "请重新思考")
-
 
 class RecoveryManager:
     """恢复管理器"""
@@ -365,3 +360,4 @@ class RecoveryManager:
             "consecutive_failures": self.detector.consecutive_failures,
             "checkpoints_created": len(self.backtrack.checkpoints)
         }
+from src.core.logging import get_logger

@@ -2,6 +2,7 @@
 事件路由和过滤系统
 实现高级事件路由、过滤和转换功能
 """
+
 import re
 import asyncio
 from typing import Pattern, Dict, List, Any, Optional, Callable, Union, Tuple
@@ -9,13 +10,11 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from src.core.utils.timezone_utils import utc_now, utc_factory, timezone
 from enum import Enum
-import structlog
-
 from .events import Event, EventType, EventPriority
 from .event_processors import EventProcessor, EventContext, ProcessingResult
 
-logger = structlog.get_logger(__name__)
-
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 class FilterOperator(str, Enum):
     """过滤操作符"""
@@ -31,7 +30,6 @@ class FilterOperator(str, Enum):
     REGEX = "regex"
     EXISTS = "exists"
     NOT_EXISTS = "not_exists"
-
 
 @dataclass
 class FilterCondition:
@@ -108,7 +106,6 @@ class FilterCondition:
                 return None
         
         return value
-
 
 class EventFilter:
     """事件过滤器"""
@@ -193,7 +190,6 @@ class EventFilter:
             )
         }
 
-
 class EventTransformer:
     """事件转换器"""
     
@@ -227,7 +223,6 @@ class EventTransformer:
             **self.stats
         }
 
-
 @dataclass
 class Route:
     """路由规则"""
@@ -242,7 +237,6 @@ class Route:
     def __lt__(self, other):
         """用于优先级排序"""
         return self.priority < other.priority
-
 
 class EventRouter:
     """事件路由器"""
@@ -444,7 +438,6 @@ class EventRouter:
             "route_stats": self.get_route_stats()
         }
 
-
 class EventAggregator:
     """事件聚合器"""
     
@@ -566,7 +559,6 @@ class EventAggregator:
             "aggregation_functions": list(self.aggregation_functions.keys())
         }
 
-
 # 预定义的转换器
 class JsonEventTransformer(EventTransformer):
     """JSON事件转换器"""
@@ -586,7 +578,6 @@ class JsonEventTransformer(EventTransformer):
         except Exception as e:
             logger.error("JSON转换失败", error=str(e))
             return None
-
 
 class EventEnricher(EventTransformer):
     """事件增强器"""

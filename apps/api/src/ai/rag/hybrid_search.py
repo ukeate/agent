@@ -2,13 +2,11 @@
 
 import asyncio
 import hashlib
-import logging
 import re
 from collections import Counter
-from dataclasses import dataclass
+from dataclasses import dataclass, asdict
 from enum import Enum
 from typing import Any, Dict, List, Optional, Tuple, Union
-
 import numpy as np
 from qdrant_client import QdrantClient
 from qdrant_client.models import (
@@ -22,13 +20,14 @@ from qdrant_client.models import (
     Distance,
     CollectionInfo,
 )
-
 from src.ai.rag.embeddings import embedding_service
 from src.core.config import get_settings
+from functools import partial
 from src.core.qdrant import get_qdrant_client
+from src.core.utils.async_utils import run_sync_io
+from src.core.redis import get_redis
 
-logger = logging.getLogger(__name__)
-
+logger = get_logger(__name__)
 
 class SearchStrategy(str, Enum):
     """搜索策略枚举"""
@@ -37,7 +36,6 @@ class SearchStrategy(str, Enum):
     HYBRID_RRF = "hybrid_rrf"
     HYBRID_WEIGHTED = "hybrid_weighted"
     ADAPTIVE = "adaptive"
-
 
 @dataclass
 class HybridSearchConfig:
@@ -52,7 +50,6 @@ class HybridSearchConfig:
     cache_ttl: int = 3600
     rrf_k: int = 60
 
-
 @dataclass
 class ProcessedQuery:
     """预处理后的查询"""
@@ -61,7 +58,6 @@ class ProcessedQuery:
     language: str
     keywords: List[str]
     expanded_terms: List[str]
-
 
 @dataclass
 class SearchResult:
@@ -77,7 +73,6 @@ class SearchResult:
     keyword_score: float = 0.0
     final_score: float = 0.0
     collection: str = ""
-
 
 class LanguageDetector:
     """语言检测器"""
@@ -98,7 +93,6 @@ class LanguageDetector:
         else:
             return "auto"
 
-
 class ChineseTextAnalyzer:
     """中文文本分析器"""
     
@@ -114,7 +108,7 @@ class ChineseTextAnalyzer:
         """提取关键词"""
         # 简化的关键词提取
         counter = Counter(segments)
-        return [word for word, count in counter.most_common(10) if count > 1]
+        return [word for word, _ in counter.most_common(10)]
     
     def expand_synonyms(self, keywords: List[str]) -> List[str]:
         """扩展同义词（简化实现）"""
@@ -132,7 +126,6 @@ class ChineseTextAnalyzer:
                 expanded.extend(synonym_map[keyword])
         
         return list(set(expanded))
-
 
 class EnglishTextAnalyzer:
     """英文文本分析器"""
@@ -167,7 +160,6 @@ class EnglishTextAnalyzer:
             else:
                 stemmed.append(word)
         return stemmed
-
 
 class QueryPreprocessor:
     """查询预处理器"""
@@ -229,14 +221,22 @@ class QueryPreprocessor:
             expanded_terms=chinese_result.expanded_terms + english_result.expanded_terms
         )
 
-
 class QdrantBM42Client:
     """增强的Qdrant客户端，支持BM42混合搜索"""
     
-    def __init__(self, client: QdrantClient, config: HybridSearchConfig):
+    def __init__(
+        self,
+        client: QdrantClient,
+        config: HybridSearchConfig,
+        run_fn=run_sync_io,
+        partial_fn=partial,
+    ):
         self.client = client
         self.config = config
         self.settings = get_settings()
+        self._run = run_fn
+        self._partial = partial_fn
+        self.preprocessor = QueryPreprocessor()
     
     async def hybrid_search(
         self,
@@ -311,14 +311,17 @@ class QdrantBM42Client:
     ) -> List[ScoredPoint]:
         """执行向量搜索"""
         try:
-            results = self.client.search(
-                collection_name=collection_name,
-                query_vector=vector,
-                limit=self.config.rerank_size,
-                score_threshold=0.5,
-                query_filter=filters,
-                with_payload=True,
-                with_vectors=False,
+            results = await self._run(
+                self._partial(
+                    self.client.search,
+                    collection_name=collection_name,
+                    query_vector=vector,
+                    limit=self.config.rerank_size,
+                    score_threshold=0.5,
+                    query_filter=filters,
+                    with_payload=True,
+                    with_vectors=False,
+                )
             )
             return results
         except Exception as e:
@@ -334,8 +337,7 @@ class QdrantBM42Client:
         """执行BM25搜索"""
         try:
             # 提取查询关键词
-            processor = QueryPreprocessor()
-            processed_query = await processor.process(query)
+            processed_query = await self.preprocessor.process(query)
             
             if not processed_query.keywords:
                 return []
@@ -359,12 +361,15 @@ class QdrantBM42Client:
                 combined_filter = Filter(should=text_filters)
             
             # 执行搜索
-            scroll_result = self.client.scroll(
-                collection_name=collection_name,
-                scroll_filter=combined_filter,
-                limit=self.config.rerank_size,
-                with_payload=True,
-                with_vectors=False,
+            scroll_result = await self._run(
+                self._partial(
+                    self.client.scroll,
+                    collection_name=collection_name,
+                    scroll_filter=combined_filter,
+                    limit=self.config.rerank_size,
+                    with_payload=True,
+                    with_vectors=False,
+                )
             )
             
             # 计算BM25分数
@@ -576,7 +581,6 @@ class QdrantBM42Client:
         
         return [(score - min_score) / (max_score - min_score) for score in scores]
 
-
 # 全局实例
 def get_hybrid_search_config() -> HybridSearchConfig:
     """获取混合搜索配置"""
@@ -603,15 +607,19 @@ def get_hybrid_search_config() -> HybridSearchConfig:
         rrf_k=settings.HYBRID_SEARCH_RRF_K
     )
 
-
 class HybridSearchEngine:
     """混合搜索引擎"""
     
     def __init__(self):
-        self.bm42_client = get_bm42_client()
+        self.bm42_client = None
         self.preprocessor = QueryPreprocessor()
         self.cache = SearchCache() if get_settings().HYBRID_SEARCH_ENABLE_CACHE else None
         self.settings = get_settings()
+
+    def _get_bm42_client(self) -> QdrantBM42Client:
+        if self.bm42_client is None:
+            self.bm42_client = get_bm42_client()
+        return self.bm42_client
     
     async def search(
         self,
@@ -623,9 +631,10 @@ class HybridSearchEngine:
     ) -> List[SearchResult]:
         """主搜索接口"""
         try:
+            bm42_client = self._get_bm42_client()
             # 使用指定的限制或配置默认值
             if limit is None:
-                limit = self.bm42_client.config.top_k
+                limit = bm42_client.config.top_k
             
             # 1. 查询预处理
             processed_query = await self.preprocessor.process(query)
@@ -636,26 +645,30 @@ class HybridSearchEngine:
                 cached_result = await self.cache.get(cache_key)
                 if cached_result:
                     return cached_result[:limit]
-            
-            # 3. 生成查询向量
-            query_vector = await embedding_service.embed_text(processed_query.text)
-            
-            # 4. 构建过滤条件
+
+            # 3. 构建过滤条件
             qdrant_filters = self._build_filters(filters) if filters else None
-            
-            # 5. 临时调整搜索策略
-            original_strategy = self.bm42_client.config.strategy
+
+            # 4. 临时调整搜索策略
+            original_strategy = bm42_client.config.strategy
             if strategy:
-                self.bm42_client.config.strategy = strategy
+                bm42_client.config.strategy = strategy
             
             try:
-                # 6. 执行混合搜索
-                search_results = await self.bm42_client.hybrid_search(
-                    query=processed_query.text,
-                    vector=query_vector,
-                    collection_name=collection,
-                    filters=qdrant_filters
-                )
+                if bm42_client.config.strategy == SearchStrategy.BM25_ONLY:
+                    search_results = await bm42_client._bm25_search(
+                        query=processed_query.text,
+                        collection_name=collection,
+                        filters=qdrant_filters,
+                    )
+                else:
+                    query_vector = await embedding_service.embed_text(processed_query.text)
+                    search_results = await bm42_client.hybrid_search(
+                        query=processed_query.text,
+                        vector=query_vector,
+                        collection_name=collection,
+                        filters=qdrant_filters
+                    )
                 
                 # 7. 转换为SearchResult格式
                 formatted_results = self._format_results(search_results, collection)
@@ -671,13 +684,12 @@ class HybridSearchEngine:
                 
             finally:
                 # 恢复原策略
-                self.bm42_client.config.strategy = original_strategy
+                bm42_client.config.strategy = original_strategy
                 
         except Exception as e:
             logger.error(f"Hybrid search failed: {e}")
-            # 降级到语义搜索
-            return await self._fallback_search(query, collection, limit, filters)
-    
+            raise
+
     async def multi_collection_search(
         self,
         query: str,
@@ -720,16 +732,17 @@ class HybridSearchEngine:
         strategy: Optional[SearchStrategy]
     ) -> str:
         """生成缓存键"""
+        bm42_client = self._get_bm42_client()
         key_data = {
             "query": processed_query.text,
             "language": processed_query.language,
             "collection": collection,
             "filters": filters or {},
-            "strategy": strategy.value if strategy else self.bm42_client.config.strategy.value,
+            "strategy": strategy.value if strategy else bm42_client.config.strategy.value,
             "config": {
-                "vector_weight": self.bm42_client.config.vector_weight,
-                "bm25_weight": self.bm42_client.config.bm25_weight,
-                "top_k": self.bm42_client.config.top_k
+                "vector_weight": bm42_client.config.vector_weight,
+                "bm25_weight": bm42_client.config.bm25_weight,
+                "top_k": bm42_client.config.top_k
             }
         }
         
@@ -819,75 +832,48 @@ class HybridSearchEngine:
                 reranked.append(result)
         
         return reranked
-    
-    async def _fallback_search(
-        self,
-        query: str,
-        collection: str,
-        limit: int,
-        filters: Optional[Dict[str, Any]]
-    ) -> List[SearchResult]:
-        """降级搜索（纯向量搜索）"""
-        try:
-            from src.ai.rag.retriever import semantic_retriever
-            
-            # 使用现有的语义检索器作为降级
-            results = await semantic_retriever.search(
-                query=query,
-                collection=collection,
-                limit=limit,
-                filter_dict=filters
-            )
-            
-            # 转换格式
-            search_results = []
-            for result in results:
-                search_result = SearchResult(
-                    id=result["id"],
-                    score=result["score"],
-                    content=result["content"],
-                    file_path=result["file_path"],
-                    file_type=result["file_type"],
-                    chunk_index=result["chunk_index"],
-                    metadata=result["metadata"],
-                    final_score=result["score"],
-                    collection=collection
-                )
-                search_results.append(search_result)
-            
-            return search_results
-            
-        except Exception as e:
-            logger.error(f"Fallback search failed: {e}")
-            return []
-
 
 class SearchCache:
     """搜索结果缓存"""
     
     def __init__(self):
         self.settings = get_settings()
+        self.redis = get_redis()
         self.hit_count = 0
         self.miss_count = 0
     
     async def get(self, key: str) -> Optional[List[SearchResult]]:
         """获取缓存结果"""
-        try:
-            # 简化实现：在实际项目中应使用Redis
-            # 这里只做接口定义
+        if not self.redis:
             self.miss_count += 1
             return None
+        try:
+            cached = await self.redis.get(key)
+            if not cached:
+                self.miss_count += 1
+                return None
+            import json
+            self.hit_count += 1
+            return [SearchResult(**item) for item in json.loads(cached)]
         except Exception as e:
-            logger.warning(f"Cache get error: {e}")
+            self.miss_count += 1
+            logger.error(f"Cache get failed: {e}")
             return None
     
     async def set(self, key: str, results: List[SearchResult]) -> None:
         """设置缓存结果"""
+        if not self.redis:
+            return None
         try:
-            # 简化实现：在实际项目中应使用Redis
-            pass
+            import json
+            await self.redis.setex(
+                key,
+                self.settings.CACHE_TTL_DEFAULT,
+                json.dumps([asdict(result) for result in results], ensure_ascii=False),
+            )
         except Exception as e:
-            logger.warning(f"Cache set error: {e}")
+            logger.error(f"Cache set failed: {e}")
+        return None
     
     @property
     def hit_rate(self) -> float:
@@ -895,14 +881,13 @@ class SearchCache:
         total = self.hit_count + self.miss_count
         return self.hit_count / total if total > 0 else 0.0
 
-
 def get_bm42_client() -> QdrantBM42Client:
     """获取BM42客户端实例"""
     client = get_qdrant_client()
     config = get_hybrid_search_config()
-    return QdrantBM42Client(client, config)
-
+    return QdrantBM42Client(client, config, run_fn=run_sync_io, partial_fn=partial)
 
 def get_hybrid_search_engine() -> HybridSearchEngine:
     """获取混合搜索引擎实例"""
     return HybridSearchEngine()
+from src.core.logging import get_logger

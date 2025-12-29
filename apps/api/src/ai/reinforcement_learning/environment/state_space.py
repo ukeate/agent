@@ -10,16 +10,13 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from enum import Enum
 import json
-
 from ..qlearning.base import AgentState
-
 
 class StateSpaceType(Enum):
     """状态空间类型"""
     DISCRETE = "discrete"
     CONTINUOUS = "continuous" 
     HYBRID = "hybrid"
-
 
 @dataclass
 class StateFeature:
@@ -68,7 +65,6 @@ class StateFeature:
             return 0.0
         return float(value)
 
-
 class StateSpace(ABC):
     """状态空间抽象基类"""
     
@@ -81,12 +77,12 @@ class StateSpace(ABC):
     @abstractmethod
     def sample(self) -> AgentState:
         """从状态空间中随机采样一个状态"""
-        pass
+        raise NotImplementedError
     
     @abstractmethod
     def contains(self, state: AgentState) -> bool:
         """检查状态是否在状态空间内"""
-        pass
+        raise NotImplementedError
     
     def validate_state(self, state: AgentState) -> bool:
         """验证状态的所有特征是否有效"""
@@ -132,7 +128,6 @@ class StateSpace(ABC):
                 "description": feature.description
             }
         return info
-
 
 class DiscreteStateSpace(StateSpace):
     """离散状态空间"""
@@ -211,7 +206,6 @@ class DiscreteStateSpace(StateSpace):
         all_state_dicts = generate_combinations(0, {})
         return [AgentState.create(features=state_dict) for state_dict in all_state_dicts]
 
-
 class ContinuousStateSpace(StateSpace):
     """连续状态空间"""
     
@@ -271,7 +265,6 @@ class ContinuousStateSpace(StateSpace):
         
         return np.array(lows), np.array(highs)
 
-
 class HybridStateSpace(StateSpace):
     """混合状态空间（同时包含连续和离散特征）"""
     
@@ -323,7 +316,6 @@ class HybridStateSpace(StateSpace):
                     discrete_part[feature_name] = value
         
         return continuous_part, discrete_part
-
 
 class StateSpaceFactory:
     """状态空间工厂类"""

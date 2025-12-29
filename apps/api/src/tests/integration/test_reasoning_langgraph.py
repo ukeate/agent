@@ -4,7 +4,6 @@ import pytest
 import asyncio
 from unittest.mock import Mock, AsyncMock, patch
 from uuid import uuid4
-
 from src.ai.reasoning.state_integration import (
     ReasoningState,
     ReasoningGraphBuilder,
@@ -15,8 +14,8 @@ from models.schemas.reasoning import (
     ReasoningStrategy,
     ReasoningRequest,
     ThoughtStepType
-)
 
+)
 
 class TestReasoningGraphBuilder:
     """测试推理图构建器"""
@@ -225,7 +224,6 @@ class TestReasoningGraphBuilder:
         state = {"current_step": 3, "max_steps": 10}
         assert builder.should_continue(state) == "continue"
 
-
 class TestReasoningStateMachine:
     """测试推理状态机"""
 
@@ -275,7 +273,6 @@ class TestReasoningStateMachine:
             assert chain.conclusion == "4"
             assert len(chain.steps) == 1
             assert chain.confidence_score == 1.0
-
 
 class TestLangGraphIntegration:
     """测试LangGraph集成"""

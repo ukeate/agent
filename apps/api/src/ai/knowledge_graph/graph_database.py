@@ -4,12 +4,10 @@ Neo4j图数据库抽象层
 """
 
 import asyncio
-import logging
 from contextlib import asynccontextmanager
 from typing import Any, Dict, List, Optional, Union
 from datetime import datetime
 from src.core.utils.timezone_utils import utc_now, utc_factory
-
 import neo4j
 from neo4j import AsyncGraphDatabase, AsyncDriver, AsyncSession, AsyncManagedTransaction
 from neo4j.exceptions import (
@@ -19,11 +17,18 @@ from neo4j.exceptions import (
     DriverError,
     SessionExpired
 )
+from src.core.config import get_settings
 
-from core.config import get_settings
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
-logger = logging.getLogger(__name__)
-
+ROUTING_READ = getattr(neo4j, "RoutingControl", None)
+if ROUTING_READ:
+    ROUTING_WRITE = neo4j.RoutingControl.WRITE
+    ROUTING_READ = neo4j.RoutingControl.READ
+else:
+    ROUTING_WRITE = getattr(neo4j, "WRITE_ACCESS", None)
+    ROUTING_READ = getattr(neo4j, "READ_ACCESS", None)
 
 class GraphDatabaseConfig:
     """图数据库配置类"""
@@ -39,31 +44,25 @@ class GraphDatabaseConfig:
             "max_transaction_retry_time": self.settings.NEO4J_MAX_RETRY_TIME,
             "connection_timeout": self.settings.NEO4J_CONNECTION_TIMEOUT,
             "encrypted": self.settings.NEO4J_ENCRYPTED,
-            "trust": neo4j.TRUST_SYSTEM_CA_SIGNED_CERTIFICATES if self.settings.NEO4J_TRUST_SYSTEM_CA else neo4j.TRUST_ALL_CERTIFICATES,
             "max_connection_lifetime": self.settings.NEO4J_POOL_MAX_LIFETIME,
             "keep_alive": True
         }
 
-
 class GraphDatabaseError(Exception):
     """图数据库异常基类"""
-    pass
-
+    ...
 
 class GraphConnectionError(GraphDatabaseError):
     """图数据库连接异常"""
-    pass
-
+    ...
 
 class GraphQueryError(GraphDatabaseError):
     """图数据库查询异常"""
-    pass
-
+    ...
 
 class GraphTransactionError(GraphDatabaseError):
     """图数据库事务异常"""
-    pass
-
+    ...
 
 class Neo4jGraphDatabase:
     """Neo4j图数据库管理器"""
@@ -123,15 +122,17 @@ class Neo4jGraphDatabase:
     @asynccontextmanager
     async def session(self, 
                      database: Optional[str] = None,
-                     access_mode: neo4j.AccessMode = neo4j.WRITE_ACCESS,
+                     access_mode: str = "write",
                      bookmarks: Optional[neo4j.Bookmarks] = None) -> AsyncSession:
         """创建数据库会话上下文管理器"""
         if not self.driver:
             raise GraphConnectionError("数据库驱动未初始化")
         
+        routing_mode = ROUTING_WRITE if access_mode == "write" else ROUTING_READ
+        
         session = self.driver.session(
             database=database or self.settings.NEO4J_DATABASE,
-            default_access_mode=access_mode,
+            default_access_mode=routing_mode,
             bookmarks=bookmarks
         )
         
@@ -156,17 +157,18 @@ class Neo4jGraphDatabase:
                            query: str, 
                            parameters: Optional[Dict[str, Any]] = None,
                            database: Optional[str] = None,
-                           access_mode: neo4j.AccessMode = neo4j.WRITE_ACCESS) -> List[Dict[str, Any]]:
+                           access_mode: str = "write") -> List[Dict[str, Any]]:
         """执行单个查询"""
         if not self.driver:
             raise GraphConnectionError("数据库驱动未初始化")
         
         try:
+            routing_mode = ROUTING_WRITE if access_mode == "write" else ROUTING_READ
             records, summary, keys = await self.driver.execute_query(
                 query,
                 parameters or {},
                 database_=database or self.settings.NEO4J_DATABASE,
-                routing_=neo4j.RoutingControl.WRITE if access_mode == neo4j.WRITE_ACCESS else neo4j.RoutingControl.READ
+                routing_=routing_mode
             )
             
             # 转换记录为字典列表
@@ -205,7 +207,7 @@ class Neo4jGraphDatabase:
             query, 
             parameters, 
             database, 
-            access_mode=neo4j.READ_ACCESS
+            access_mode="read"
         )
     
     async def execute_write_query(self, 
@@ -217,7 +219,7 @@ class Neo4jGraphDatabase:
             query, 
             parameters, 
             database, 
-            access_mode=neo4j.WRITE_ACCESS
+            access_mode="write"
         )
     
     async def execute_transaction(self, work_func, *args, **kwargs) -> Any:
@@ -243,7 +245,7 @@ class Neo4jGraphDatabase:
         if not self.driver:
             raise GraphConnectionError("数据库驱动未初始化")
         
-        async with self.session(access_mode=neo4j.READ_ACCESS) as session:
+        async with self.session(access_mode="read") as session:
             try:
                 result = await session.execute_read(work_func, *args, **kwargs)
                 return result
@@ -330,7 +332,6 @@ class Neo4jGraphDatabase:
         """获取连接统计信息"""
         return self._connection_pool_stats.copy()
 
-
 # 全局图数据库实例
 _graph_db_instance: Optional[Neo4jGraphDatabase] = None
 
@@ -340,6 +341,7 @@ async def get_graph_database() -> Neo4jGraphDatabase:
     
     if _graph_db_instance is None:
         _graph_db_instance = Neo4jGraphDatabase()
+    if _graph_db_instance.driver is None:
         await _graph_db_instance.initialize()
     
     return _graph_db_instance

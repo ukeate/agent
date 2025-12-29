@@ -2,6 +2,7 @@
 自动化安全响应系统
 实现威胁自动检测、分类和响应机制
 """
+
 import asyncio
 import uuid
 import json
@@ -11,13 +12,11 @@ from src.core.utils.timezone_utils import utc_now, utc_factory
 from typing import Dict, Any, List, Optional, Callable, Set
 from dataclasses import dataclass, field
 from enum import Enum
-import structlog
-
 from .trism import ThreatLevel, SecurityEvent
 from .attack_detection import AttackType, DetectionResult
 
-logger = structlog.get_logger(__name__)
-
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 class ResponseAction(str, Enum):
     """响应动作"""
@@ -32,7 +31,6 @@ class ResponseAction(str, Enum):
     ROLLBACK = "rollback"
     RETRAIN = "retrain"
 
-
 class ResponseStatus(str, Enum):
     """响应状态"""
     PENDING = "pending"
@@ -40,7 +38,6 @@ class ResponseStatus(str, Enum):
     COMPLETED = "completed"
     FAILED = "failed"
     CANCELLED = "cancelled"
-
 
 @dataclass
 class ResponseRule:
@@ -93,7 +90,6 @@ class ResponseRule:
             logger.error("规则匹配检查失败", rule_id=self.id, error=str(e))
             return False
 
-
 @dataclass
 class ResponseExecution:
     """响应执行记录"""
@@ -120,7 +116,6 @@ class ResponseExecution:
             "errors": self.errors
         }
 
-
 class ActionExecutor:
     """动作执行器基类"""
     
@@ -131,7 +126,6 @@ class ActionExecutor:
     ) -> Dict[str, Any]:
         """执行动作"""
         raise NotImplementedError
-
 
 class BlockExecutor(ActionExecutor):
     """阻止执行器"""
@@ -164,7 +158,6 @@ class BlockExecutor(ActionExecutor):
         except Exception as e:
             logger.error("阻止动作执行失败", error=str(e))
             return {"action": "block", "error": str(e)}
-
 
 class QuarantineExecutor(ActionExecutor):
     """隔离执行器"""
@@ -215,7 +208,6 @@ class QuarantineExecutor(ActionExecutor):
             logger.info("解除隔离", agent_id=agent_id)
             return True
         return False
-
 
 class AlertExecutor(ActionExecutor):
     """告警执行器"""
@@ -269,7 +261,6 @@ class AlertExecutor(ActionExecutor):
     def add_alert_handler(self, handler: Callable):
         """添加告警处理器"""
         self.alert_handlers.append(handler)
-
 
 class RateLimitExecutor(ActionExecutor):
     """限流执行器"""
@@ -342,7 +333,6 @@ class RateLimitExecutor(ActionExecutor):
         
         return False
 
-
 class EscalateExecutor(ActionExecutor):
     """升级执行器"""
     
@@ -396,7 +386,6 @@ class EscalateExecutor(ActionExecutor):
     def add_escalation_handler(self, handler: Callable):
         """添加升级处理器"""
         self.escalation_handlers.append(handler)
-
 
 class SecurityResponseManager:
     """安全响应管理器"""

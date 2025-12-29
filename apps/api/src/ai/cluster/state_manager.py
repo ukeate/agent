@@ -7,18 +7,17 @@
 
 import asyncio
 import json
-import logging
 import time
 from typing import Dict, List, Optional, Set, Any, Callable
 from dataclasses import asdict
 from datetime import datetime, timedelta
-
+import httpx
 from .topology import (
     ClusterTopology, AgentInfo, AgentGroup, AgentStatus, 
-    ResourceUsage, AgentHealthCheck
+    ResourceUsage, AgentHealthCheck, AgentCapability
 )
 
-
+from src.core.logging import get_logger
 class StateChangeEvent:
     """状态变更事件"""
     
@@ -30,7 +29,6 @@ class StateChangeEvent:
         self.timestamp = time.time()
         self.event_id = f"{event_type}-{agent_id}-{int(self.timestamp)}"
 
-
 class ClusterStateManager:
     """集群状态管理器
     
@@ -41,7 +39,7 @@ class ClusterStateManager:
     def __init__(self, cluster_id: str = "default", storage_backend: Optional[Any] = None):
         self.cluster_id = cluster_id
         self.storage_backend = storage_backend
-        self.logger = logging.getLogger(__name__)
+        self.logger = get_logger(__name__)
         
         # 集群拓扑
         self.topology = ClusterTopology(cluster_id=cluster_id)
@@ -101,14 +99,14 @@ class ClusterStateManager:
                 try:
                     await self._health_check_task
                 except asyncio.CancelledError:
-                    pass
+                    raise
             
             if self._persistence_task:
                 self._persistence_task.cancel()
                 try:
                     await self._persistence_task
                 except asyncio.CancelledError:
-                    pass
+                    raise
             
             # 最终持久化
             await self._persist_state()
@@ -224,6 +222,31 @@ class ClusterStateManager:
                 
             except Exception as e:
                 self.logger.error(f"Error updating agent {agent_id} status: {e}")
+                return False
+
+    async def update_agent_config(self, agent_id: str, config: Dict[str, Any]) -> bool:
+        """更新智能体配置"""
+        async with self._sync_lock:
+            try:
+                agent = self.topology.get_agent(agent_id)
+                if not agent:
+                    self.logger.warning(f"Agent {agent_id} not found for config update")
+                    return False
+
+                old_config = dict(agent.config) if getattr(agent, "config", None) else {}
+                agent.config = config
+                agent.updated_at = time.time()
+
+                event = StateChangeEvent(
+                    "agent_config_updated",
+                    agent_id,
+                    {"config": old_config},
+                    {"config": config},
+                )
+                await self._emit_state_change(event)
+                return True
+            except Exception as e:
+                self.logger.error(f"Error updating agent {agent_id} config: {e}")
                 return False
     
     async def update_agent_resource_usage(
@@ -350,6 +373,103 @@ class ClusterStateManager:
             except Exception as e:
                 self.logger.error(f"Error adding agent {agent_id} to group {group_id}: {e}")
                 return False
+
+    async def remove_agent_from_group(self, group_id: str, agent_id: str) -> bool:
+        """将智能体从分组移除"""
+        async with self._sync_lock:
+            try:
+                group = self.topology.groups.get(group_id)
+                if not group:
+                    self.logger.warning(f"Group {group_id} not found")
+                    return False
+
+                agent = self.topology.get_agent(agent_id)
+                if not agent:
+                    self.logger.warning(f"Agent {agent_id} not found")
+                    return False
+
+                success = group.remove_agent(agent_id)
+                if success:
+                    agent.group_id = None
+                    event = StateChangeEvent(
+                        "agent_removed_from_group",
+                        agent_id,
+                        {"group_id": group_id},
+                        {"group_id": None}
+                    )
+                    await self._emit_state_change(event)
+                    self.logger.info(f"Agent {agent_id} removed from group {group_id}")
+                    return True
+
+                self.logger.warning(f"Failed to remove agent {agent_id} from group {group_id}")
+                return False
+            except Exception as e:
+                self.logger.error(f"Error removing agent {agent_id} from group {group_id}: {e}")
+                return False
+
+    async def update_group(self, group_id: str, updates: Dict[str, Any]) -> Optional[AgentGroup]:
+        """更新分组信息"""
+        async with self._sync_lock:
+            try:
+                group = self.topology.groups.get(group_id)
+                if not group:
+                    self.logger.warning(f"Group {group_id} not found")
+                    return None
+
+                old_state = asdict(group)
+                if "name" in updates and updates["name"] is not None:
+                    group.name = updates["name"]
+                if "description" in updates and updates["description"] is not None:
+                    group.description = updates["description"]
+                if "max_agents" in updates and updates["max_agents"] is not None:
+                    group.max_agents = updates["max_agents"]
+                if "min_agents" in updates and updates["min_agents"] is not None:
+                    group.min_agents = updates["min_agents"]
+                if "labels" in updates and updates["labels"] is not None:
+                    group.labels = updates["labels"]
+
+                group.updated_at = time.time()
+                event = StateChangeEvent(
+                    "group_updated",
+                    group_id,
+                    old_state,
+                    asdict(group)
+                )
+                await self._emit_state_change(event)
+                self.logger.info(f"Group {group_id} updated successfully")
+                return group
+            except Exception as e:
+                self.logger.error(f"Error updating group {group_id}: {e}")
+                return None
+
+    async def delete_group(self, group_id: str) -> bool:
+        """删除分组"""
+        async with self._sync_lock:
+            try:
+                group = self.topology.groups.get(group_id)
+                if not group:
+                    self.logger.warning(f"Group {group_id} not found")
+                    return False
+
+                old_state = asdict(group)
+                for agent_id in list(group.agent_ids):
+                    agent = self.topology.get_agent(agent_id)
+                    if agent and agent.group_id == group_id:
+                        agent.group_id = None
+
+                del self.topology.groups[group_id]
+                event = StateChangeEvent(
+                    "group_deleted",
+                    group_id,
+                    old_state,
+                    None
+                )
+                await self._emit_state_change(event)
+                self.logger.info(f"Group {group_id} deleted successfully")
+                return True
+            except Exception as e:
+                self.logger.error(f"Error deleting group {group_id}: {e}")
+                return False
     
     # 状态查询
     async def get_cluster_topology(self) -> ClusterTopology:
@@ -474,30 +594,77 @@ class ClusterStateManager:
     async def _perform_health_checks(self):
         """执行健康检查"""
         try:
-            current_time = time.time()
-            
             async with self._sync_lock:
-                for agent in self.topology.agents.values():
-                    # 检查心跳超时
-                    if not agent.health.is_responsive:
-                        if agent.status not in [AgentStatus.FAILED, AgentStatus.STOPPED]:
-                            await self.update_agent_status(
-                                agent.agent_id, 
-                                AgentStatus.FAILED, 
-                                "Health check timeout"
-                            )
-                    
-                    # 检查是否需要重启
-                    elif agent.health.needs_restart:
-                        if agent.status not in [AgentStatus.FAILED, AgentStatus.STOPPING]:
-                            await self.update_agent_status(
-                                agent.agent_id,
-                                AgentStatus.FAILED,
-                                f"Too many consecutive failures: {agent.health.consecutive_failures}"
-                            )
-                
+                agents = list(self.topology.agents.values())
+            if not agents:
                 self._metrics["health_checks_performed"] += 1
-                
+                return
+
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                async def _check(agent: AgentInfo):
+                    if not agent.endpoint:
+                        return agent, None, "missing endpoint"
+                    try:
+                        resp = await client.get(f"{agent.endpoint}/health")
+                        return agent, resp, None
+                    except Exception as e:
+                        return agent, None, str(e)
+
+                results = await asyncio.gather(*[_check(agent) for agent in agents], return_exceptions=True)
+
+            for result in results:
+                if isinstance(result, Exception):
+                    continue
+                agent, resp, error = result
+                if resp is None:
+                    failures = agent.health.consecutive_failures + 1
+                    await self.update_agent_health(
+                        agent.agent_id,
+                        AgentHealthCheck(
+                            is_healthy=False,
+                            last_heartbeat=agent.health.last_heartbeat,
+                            consecutive_failures=failures,
+                            health_details={"error": error or "health check failed"}
+                        )
+                    )
+                    if failures >= agent.health.max_failures and agent.status not in [AgentStatus.STOPPED, AgentStatus.STOPPING, AgentStatus.MAINTENANCE]:
+                        await self.update_agent_status(agent.agent_id, AgentStatus.FAILED, "Health check failed")
+                    continue
+
+                if resp.status_code == 200:
+                    try:
+                        health_data = resp.json()
+                    except Exception:
+                        health_data = {}
+                    is_healthy = health_data.get("healthy")
+                    if is_healthy is None:
+                        is_healthy = health_data.get("status") == "healthy" if isinstance(health_data.get("status"), str) else True
+                    await self.update_agent_health(
+                        agent.agent_id,
+                        AgentHealthCheck(
+                            is_healthy=bool(is_healthy),
+                            last_heartbeat=time.time(),
+                            consecutive_failures=0,
+                            health_details=health_data
+                        )
+                    )
+                    if agent.status in [AgentStatus.FAILED, AgentStatus.UNKNOWN, AgentStatus.PENDING]:
+                        await self.update_agent_status(agent.agent_id, AgentStatus.RUNNING, "Health check recovered")
+                else:
+                    failures = agent.health.consecutive_failures + 1
+                    await self.update_agent_health(
+                        agent.agent_id,
+                        AgentHealthCheck(
+                            is_healthy=False,
+                            last_heartbeat=agent.health.last_heartbeat,
+                            consecutive_failures=failures,
+                            health_details={"error": f"HTTP {resp.status_code}"}
+                        )
+                    )
+                    if failures >= agent.health.max_failures and agent.status not in [AgentStatus.STOPPED, AgentStatus.STOPPING, AgentStatus.MAINTENANCE]:
+                        await self.update_agent_status(agent.agent_id, AgentStatus.FAILED, f"Health check HTTP {resp.status_code}")
+
+            self._metrics["health_checks_performed"] += 1
         except Exception as e:
             self.logger.error(f"Error performing health checks: {e}")
     
@@ -553,7 +720,41 @@ class ClusterStateManager:
                 if topology_data:
                     # 这里可以实现更复杂的状态恢复逻辑
                     # 目前简单地从数据重建拓扑
-                    pass
+                    self.topology.name = topology_data.get("name", self.topology.name)
+                    self.topology.description = topology_data.get("description", self.topology.description)
+                    restored_agents: Dict[str, AgentInfo] = {}
+                    for agent_id, agent_data in topology_data.get("agents", {}).items():
+                        agent = AgentInfo(
+                            agent_id=agent_data.get("agent_id", agent_id),
+                            name=agent_data.get("name", ""),
+                            endpoint=agent_data.get("endpoint", ""),
+                            status=AgentStatus(agent_data.get("status", AgentStatus.UNKNOWN.value)),
+                            capabilities={
+                                AgentCapability(cap)
+                                for cap in agent_data.get("capabilities", [])
+                                if cap in {c.value for c in AgentCapability}
+                            },
+                        )
+                        usage = agent_data.get("resource_usage", {})
+                        agent.resource_usage = ResourceUsage(
+                            cpu_usage_percent=float(usage.get("cpu_usage", 0.0)),
+                            memory_usage_percent=float(usage.get("memory_usage", 0.0)),
+                            active_tasks=int(usage.get("active_tasks", 0)),
+                            total_requests=int(usage.get("total_requests", 0)),
+                            failed_requests=int(usage.get("failed_requests", 0)),
+                            avg_response_time=float(usage.get("avg_response_time", 0.0)),
+                        )
+                        restored_agents[agent.agent_id] = agent
+                    self.topology.agents = restored_agents
+
+                    restored_groups: Dict[str, AgentGroup] = {}
+                    for group_id, group_data in topology_data.get("groups", {}).items():
+                        restored_groups[group_id] = AgentGroup(
+                            group_id=group_data.get("group_id", group_id),
+                            name=group_data.get("name", ""),
+                            agent_ids=set(group_data.get("agent_ids", [])),
+                        )
+                    self.topology.groups = restored_groups
                 
                 # 恢复状态版本
                 self._state_version = state_data.get("state_version", 0)

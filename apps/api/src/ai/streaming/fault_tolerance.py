@@ -6,7 +6,6 @@
 
 import asyncio
 import time
-import logging
 from typing import Dict, List, Optional, Callable, Any, AsyncIterator
 from dataclasses import dataclass, field
 from enum import Enum
@@ -17,8 +16,8 @@ import json
 import websockets
 from contextlib import asynccontextmanager
 
-logger = logging.getLogger(__name__)
-
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 class ConnectionState(str, Enum):
     """连接状态"""
@@ -29,14 +28,12 @@ class ConnectionState(str, Enum):
     FAILED = "failed"
     PERMANENTLY_FAILED = "permanently_failed"
 
-
 class RetryStrategy(str, Enum):
     """重试策略"""
     EXPONENTIAL_BACKOFF = "exponential_backoff"
     FIXED_INTERVAL = "fixed_interval"
     LINEAR_BACKOFF = "linear_backoff"
     CUSTOM = "custom"
-
 
 @dataclass
 class ConnectionConfig:
@@ -51,7 +48,6 @@ class ConnectionConfig:
     preserve_session_state: bool = True
     max_buffer_size: int = 1000  # 消息缓冲区最大大小
 
-
 @dataclass
 class SessionState:
     """会话状态"""
@@ -64,7 +60,6 @@ class SessionState:
     message_buffer: List[Dict] = field(default_factory=list)
     context_data: Dict[str, Any] = field(default_factory=dict)
 
-
 @dataclass
 class ConnectionMetrics:
     """连接指标"""
@@ -75,7 +70,6 @@ class ConnectionMetrics:
     avg_connection_duration: float = 0.0
     last_failure_reason: Optional[str] = None
     uptime_percentage: float = 100.0
-
 
 class HeartbeatManager:
     """心跳管理器"""
@@ -107,7 +101,7 @@ class HeartbeatManager:
             try:
                 await self.heartbeat_task
             except asyncio.CancelledError:
-                pass
+                raise
         logger.debug("心跳管理器停止")
     
     async def _heartbeat_loop(self, send_heartbeat: Callable):
@@ -134,7 +128,6 @@ class HeartbeatManager:
         
         time_since_last = time.time() - self.last_heartbeat
         return time_since_last < (self.interval * 2)
-
 
 class FaultTolerantConnection:
     """容错连接管理器"""
@@ -439,7 +432,7 @@ class FaultTolerantConnection:
             try:
                 await self._send_task
             except asyncio.CancelledError:
-                pass
+                raise
             self._send_task = None
         
         # 关闭连接
@@ -497,7 +490,6 @@ class FaultTolerantConnection:
                 'last_failure_reason': self.metrics.last_failure_reason
             }
         }
-
 
 class ConnectionManager:
     """连接管理器"""
@@ -580,7 +572,6 @@ class ConnectionManager:
         
         if sessions_to_remove:
             logger.info(f"清理了 {len(sessions_to_remove)} 个失败的连接")
-
 
 # 全局连接管理器实例
 connection_manager = ConnectionManager()

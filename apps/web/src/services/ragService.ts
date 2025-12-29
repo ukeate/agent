@@ -4,51 +4,11 @@
  * 封装基础RAG和Agentic RAG的API调用
  */
 
-import axios, { AxiosResponse } from 'axios';
+import { AxiosResponse } from 'axios';
+import apiClient from './apiClient';
+import { apiFetch, buildApiUrl } from '../utils/apiBase';
 
-// API基础配置
-const API_BASE_URL = 'http://localhost:8000/api/v1';
-
-// 创建axios实例
-const ragApi = axios.create({
-  baseURL: API_BASE_URL,
-  timeout: 30000,
-  headers: {
-    'Content-Type': 'application/json',
-  },
-});
-
-// 请求拦截器
-ragApi.interceptors.request.use(
-  (config) => {
-    // 可以在这里添加认证token等
-    return config;
-  },
-  (error) => {
-    return Promise.reject(error);
-  }
-);
-
-// 响应拦截器
-ragApi.interceptors.response.use(
-  (response) => response,
-  async (error) => {
-    if (error.response?.status === 500) {
-      // 自动重试机制
-      const config = error.config;
-      if (!config._retry) {
-        config._retry = true;
-        try {
-          return await ragApi(config);
-        } catch (retryError) {
-          return Promise.reject(retryError);
-        }
-      }
-    }
-    return Promise.reject(error);
-  }
-);
-
+import { logger } from '../utils/logger'
 // ==================== 基础RAG接口类型 ====================
 
 export interface QueryRequest {
@@ -93,6 +53,20 @@ export interface StatsResponse {
     index_size: number;
     last_updated: string;
   };
+  error?: string;
+}
+
+export interface AddDocumentRequest {
+  text: string;
+  metadata?: Record<string, any>;
+}
+
+export interface AddDocumentResponse {
+  success: boolean;
+  document_id?: string;
+  message?: string;
+  text_length?: number;
+  metadata?: Record<string, any>;
   error?: string;
 }
 
@@ -207,10 +181,22 @@ export class RagService {
    */
   async query(request: QueryRequest): Promise<QueryResponse> {
     try {
-      const response: AxiosResponse<QueryResponse> = await ragApi.post('/rag/query', request);
+      const response: AxiosResponse<QueryResponse> = await apiClient.post('/rag/query', request);
       return response.data;
     } catch (error) {
       throw this.handleError(error, 'RAG查询失败');
+    }
+  }
+
+  /**
+   * 添加文本到RAG索引
+   */
+  async addDocument(request: AddDocumentRequest): Promise<AddDocumentResponse> {
+    try {
+      const response: AxiosResponse<AddDocumentResponse> = await apiClient.post('/rag/documents', request);
+      return response.data;
+    } catch (error) {
+      throw this.handleError(error, '添加文档失败');
     }
   }
 
@@ -219,7 +205,7 @@ export class RagService {
    */
   async indexFile(filePath: string, force: boolean = false): Promise<IndexResponse> {
     try {
-      const response: AxiosResponse<IndexResponse> = await ragApi.post('/rag/index/file', {
+      const response: AxiosResponse<IndexResponse> = await apiClient.post('/rag/index/file', {
         file_path: filePath,
         force,
       });
@@ -239,7 +225,7 @@ export class RagService {
     extensions?: string[]
   ): Promise<IndexResponse> {
     try {
-      const response: AxiosResponse<IndexResponse> = await ragApi.post('/rag/index/directory', {
+      const response: AxiosResponse<IndexResponse> = await apiClient.post('/rag/index/directory', {
         directory,
         recursive,
         force,
@@ -256,7 +242,7 @@ export class RagService {
    */
   async getIndexStats(): Promise<StatsResponse> {
     try {
-      const response: AxiosResponse<any> = await ragApi.get('/rag/index/stats');
+      const response: AxiosResponse<any> = await apiClient.get('/rag/index/stats');
       const backendData = response.data;
       
       // 转换后端响应格式为前端期望的格式
@@ -289,7 +275,7 @@ export class RagService {
    */
   async resetIndex(collection?: string): Promise<IndexResponse> {
     try {
-      const response: AxiosResponse<IndexResponse> = await ragApi.delete('/rag/index/reset', {
+      const response: AxiosResponse<IndexResponse> = await apiClient.delete('/rag/index/reset', {
         data: { collection },
       });
       return response.data;
@@ -303,7 +289,7 @@ export class RagService {
    */
   async healthCheck(): Promise<any> {
     try {
-      const response = await ragApi.get('/rag/health');
+      const response = await apiClient.get('/rag/health');
       return response.data;
     } catch (error) {
       throw this.handleError(error, '健康检查失败');
@@ -317,7 +303,7 @@ export class RagService {
    */
   async agenticQuery(request: AgenticQueryRequest): Promise<AgenticQueryResponse> {
     try {
-      const response: AxiosResponse<AgenticQueryResponse> = await ragApi.post('/rag/agentic/query', request);
+      const response: AxiosResponse<AgenticQueryResponse> = await apiClient.post('/rag/agentic/query', request);
       return response.data;
     } catch (error) {
       throw this.handleError(error, 'Agentic RAG查询失败');
@@ -329,17 +315,14 @@ export class RagService {
    */
   async agenticQueryStream(request: AgenticQueryRequest): Promise<ReadableStream> {
     try {
-      const response = await fetch(`${API_BASE_URL}/rag/agentic/query/stream`, {
+      const response = await apiFetch(buildApiUrl('/rag/agentic/query/stream'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Accept': 'text/event-stream',
         },
         body: JSON.stringify(request),
       });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
 
       if (!response.body) {
         throw new Error('Response body is null');
@@ -367,7 +350,7 @@ export class RagService {
       params.append('explanation_level', explanationLevel);
       params.append('include_visualization', includeVisualization.toString());
 
-      const response = await ragApi.get(`/rag/agentic/explain?${params.toString()}`);
+      const response = await apiClient.get(`/rag/agentic/explain?${params.toString()}`);
       return response.data;
     } catch (error) {
       throw this.handleError(error, '获取检索解释失败');
@@ -386,7 +369,7 @@ export class RagService {
     suggestions?: string;
   }): Promise<any> {
     try {
-      const response = await ragApi.post('/rag/agentic/feedback', feedback);
+      const response = await apiClient.post('/rag/agentic/feedback', feedback);
       return response.data;
     } catch (error) {
       throw this.handleError(error, '提交反馈失败');
@@ -398,7 +381,7 @@ export class RagService {
    */
   async getAgenticStats(): Promise<any> {
     try {
-      const response = await ragApi.get('/rag/agentic/stats');
+      const response = await apiClient.get('/rag/agentic/stats');
       return response.data;
     } catch (error) {
       throw this.handleError(error, '获取Agentic RAG统计失败');
@@ -410,7 +393,7 @@ export class RagService {
    */
   async agenticHealthCheck(): Promise<any> {
     try {
-      const response = await ragApi.get('/rag/agentic/health');
+      const response = await apiClient.get('/rag/agentic/health');
       return response.data;
     } catch (error) {
       throw this.handleError(error, 'Agentic RAG健康检查失败');
@@ -423,7 +406,7 @@ export class RagService {
    * 统一错误处理
    */
   private handleError(error: any, message: string): Error {
-    console.error(message, error);
+    logger.error(message, error);
     
     if (error.response) {
       // API返回错误
@@ -441,7 +424,7 @@ export class RagService {
    * 防抖处理
    */
   debounce<T extends (...args: any[]) => any>(func: T, delay: number): T {
-    let timeoutId: NodeJS.Timeout;
+    let timeoutId: ReturnType<typeof setTimeout>;
     return ((...args: any[]) => {
       clearTimeout(timeoutId);
       timeoutId = setTimeout(() => func.apply(this, args), delay);

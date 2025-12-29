@@ -9,6 +9,7 @@ import { Badge } from '../ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../ui/dialog';
 import { securityApi } from '../../services/securityApi';
 
+import { logger } from '../../utils/logger'
 interface APIKey {
   id: string;
   name: string;
@@ -48,7 +49,7 @@ export const APIKeyManager: React.FC = () => {
       setError(null);
     } catch (err) {
       setError('加载API密钥失败');
-      console.error('Error loading API keys:', err);
+      logger.error('加载API密钥失败:', err);
     } finally {
       setLoading(false);
     }
@@ -61,7 +62,7 @@ export const APIKeyManager: React.FC = () => {
       setNewKeyData({ name: '', permissions: [], expires_in_days: 30 });
       await loadAPIKeys();
     } catch (err) {
-      console.error('Error creating API key:', err);
+      logger.error('创建API密钥失败:', err);
       setError('创建API密钥失败');
     }
   };
@@ -75,7 +76,7 @@ export const APIKeyManager: React.FC = () => {
       await securityApi.revokeAPIKey(keyId);
       await loadAPIKeys();
     } catch (err) {
-      console.error('Error revoking API key:', err);
+      logger.error('撤销API密钥失败:', err);
       setError('撤销API密钥失败');
     }
   };

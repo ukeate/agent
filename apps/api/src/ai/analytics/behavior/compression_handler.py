@@ -7,19 +7,17 @@
 import gzip
 import lz4.frame
 import json
-import pickle
+from src.core.utils import secure_pickle as pickle
 import asyncio
 from typing import List, Dict, Any, Union, Optional, Tuple
 from datetime import datetime
 from src.core.utils.timezone_utils import utc_now, utc_factory
 from dataclasses import dataclass
 from enum import Enum
-import logging
-
 from ..models import BehaviorEvent
 
-logger = logging.getLogger(__name__)
-
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 class CompressionMethod(str, Enum):
     """压缩方法枚举"""
@@ -27,12 +25,10 @@ class CompressionMethod(str, Enum):
     LZ4 = "lz4"
     NONE = "none"
 
-
 class SerializationMethod(str, Enum):
     """序列化方法枚举"""
     JSON = "json"
     PICKLE = "pickle"
-
 
 @dataclass
 class CompressionMetrics:
@@ -44,7 +40,6 @@ class CompressionMetrics:
     decompression_time_ms: Optional[float] = None
     method: CompressionMethod = CompressionMethod.GZIP
     serialization: SerializationMethod = SerializationMethod.JSON
-
 
 class CompressionHandler:
     """数据压缩处理器"""
@@ -78,7 +73,7 @@ class CompressionHandler:
         if not events:
             return b'', CompressionMetrics(0, 0, 0.0, 0.0)
         
-        start_time = asyncio.get_event_loop().time()
+        start_time = asyncio.get_running_loop().time()
         
         try:
             # 序列化数据
@@ -99,7 +94,7 @@ class CompressionHandler:
                 compressed_data = await self._compress_data(serialized_data, method)
                 compressed_size = len(compressed_data)
             
-            compression_time = (asyncio.get_event_loop().time() - start_time) * 1000
+            compression_time = (asyncio.get_running_loop().time() - start_time) * 1000
             compression_ratio = (original_size - compressed_size) / original_size if original_size > 0 else 0.0
             
             # 更新统计
@@ -128,7 +123,7 @@ class CompressionHandler:
         serialization: SerializationMethod = SerializationMethod.JSON
     ) -> Tuple[List[BehaviorEvent], CompressionMetrics]:
         """解压缩事件列表"""
-        start_time = asyncio.get_event_loop().time()
+        start_time = asyncio.get_running_loop().time()
         
         try:
             # 解压缩数据
@@ -140,7 +135,7 @@ class CompressionHandler:
             # 反序列化事件
             events = await self._deserialize_events(decompressed_data, serialization)
             
-            decompression_time = (asyncio.get_event_loop().time() - start_time) * 1000
+            decompression_time = (asyncio.get_running_loop().time() - start_time) * 1000
             
             # 更新统计
             self.stats['total_decompressions'] += 1
@@ -169,10 +164,10 @@ class CompressionHandler:
     ) -> bytes:
         """序列化事件列表"""
         if method == SerializationMethod.JSON:
-            data = json.dumps([event.dict() for event in events], default=str)
+            data = json.dumps([event.model_dump(mode="json") for event in events])
             return data.encode('utf-8')
         elif method == SerializationMethod.PICKLE:
-            return pickle.dumps([event.dict() for event in events])
+            return pickle.dumps([event.model_dump() for event in events])
         else:
             raise ValueError(f"不支持的序列化方法: {method}")
     
@@ -259,7 +254,6 @@ class CompressionHandler:
             'avg_compression_ratio': 0.0
         }
 
-
 class StreamingCompressor:
     """流式压缩器
     
@@ -294,7 +288,6 @@ class StreamingCompressor:
         # 实现流式压缩逻辑
         # 这里需要更复杂的实现来处理流式数据
         raise NotImplementedError("流式压缩功能尚未完全实现")
-
 
 class AdaptiveCompressionManager:
     """自适应压缩管理器

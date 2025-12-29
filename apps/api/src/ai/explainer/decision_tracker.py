@@ -12,14 +12,12 @@ from datetime import datetime
 from src.core.utils.timezone_utils import utc_now, utc_factory, timezone
 from typing import Any, Dict, List, Optional, Set, Union
 from uuid import UUID
-
 from src.models.schemas.explanation import (
     ExplanationType,
     EvidenceType,
     ExplanationComponent,
     DecisionExplanation
 )
-
 
 class DecisionNode:
     """决策节点 - 表示决策树中的一个节点"""
@@ -70,7 +68,6 @@ class DecisionNode:
             "processing_time_ms": self.processing_time_ms,
             "status": self.status
         }
-
 
 class DecisionTracker:
     """决策跟踪器 - 记录和管理决策过程"""

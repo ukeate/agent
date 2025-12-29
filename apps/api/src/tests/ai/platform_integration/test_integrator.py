@@ -4,7 +4,6 @@ import pytest
 import asyncio
 from unittest.mock import Mock, AsyncMock, patch
 from datetime import datetime
-
 from ai.platform_integration.integrator import PlatformIntegrator
 from ai.platform_integration.models import (
     ComponentRegistration,
@@ -14,7 +13,7 @@ from ai.platform_integration.models import (
     WorkflowRequest,
     WorkflowStatus
 )
-
+from src.core.utils.timezone_utils import utc_now
 
 @pytest.fixture
 def platform_config():
@@ -25,14 +24,12 @@ def platform_config():
         'redis_db': 0
     }
 
-
 @pytest.fixture
 def platform_integrator(platform_config):
     """平台集成器实例"""
     with patch('redis.Redis'):
         integrator = PlatformIntegrator(platform_config)
         return integrator
-
 
 @pytest.fixture
 def sample_component_registration():
@@ -47,7 +44,6 @@ def sample_component_registration():
         metadata={"description": "Test component for unit tests"}
     )
 
-
 @pytest.fixture
 def sample_component_info():
     """示例组件信息"""
@@ -60,10 +56,9 @@ def sample_component_info():
         health_endpoint="http://localhost:8001/health",
         api_endpoint="http://localhost:8001",
         metadata={"description": "Test component for unit tests"},
-        registered_at=datetime.now(),
-        last_heartbeat=datetime.now()
+        registered_at=utc_now(),
+        last_heartbeat=utc_now()
     )
-
 
 class TestPlatformIntegrator:
     """平台集成器测试类"""
@@ -200,8 +195,8 @@ class TestPlatformIntegrator:
             health_endpoint="http://localhost:8002/health",
             api_endpoint="http://localhost:8002",
             metadata={},
-            registered_at=datetime.now(),
-            last_heartbeat=datetime.now()
+            registered_at=utc_now(),
+            last_heartbeat=utc_now()
         )
         
         platform_integrator.components = {
@@ -375,7 +370,7 @@ class TestPlatformIntegrator:
             status=WorkflowStatus.RUNNING,
             steps=[],
             parameters={},
-            started_at=datetime.now()
+            started_at=utc_now()
         )
         
         with patch.object(platform_integrator.redis_client, 'setex') as mock_setex:
@@ -464,7 +459,6 @@ class TestPlatformIntegrator:
         await platform_integrator.stop_health_monitor()
         assert platform_integrator._health_monitor_task is None
 
-
 class TestPlatformIntegratorIntegration:
     """平台集成器集成测试"""
 
@@ -517,8 +511,8 @@ class TestPlatformIntegratorIntegration:
                     health_endpoint="http://localhost:8001/health",
                     api_endpoint="http://localhost:8001",
                     metadata={},
-                    registered_at=datetime.now(),
-                    last_heartbeat=datetime.now()
+                    registered_at=utc_now(),
+                    last_heartbeat=utc_now()
                 ),
                 ComponentInfo(
                     component_id="tuning_service",
@@ -529,8 +523,8 @@ class TestPlatformIntegratorIntegration:
                     health_endpoint="http://localhost:8002/health",
                     api_endpoint="http://localhost:8002",
                     metadata={},
-                    registered_at=datetime.now(),
-                    last_heartbeat=datetime.now()
+                    registered_at=utc_now(),
+                    last_heartbeat=utc_now()
                 )
             ]
             

@@ -12,11 +12,8 @@ from datetime import timedelta
 from src.core.utils.timezone_utils import utc_now, utc_factory
 from unittest.mock import Mock, patch, AsyncMock
 import json
-
 import sys
 import os
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
-
 from src.services.feedback_collector import (
     FeedbackCollector, 
     get_feedback_collector,
@@ -29,6 +26,7 @@ from src.services.reward_generator import (
 from models.schemas.feedback import FeedbackType
 from src.core.database import get_db
 
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
 
 class TestFeedbackCollectionIntegration:
     """反馈收集集成测试"""
@@ -490,7 +488,6 @@ class TestFeedbackCollectionIntegration:
         assert stats["total_received"] >= expected_feedbacks
         assert stats["buffer_overflows"] == 0  # 不应该有缓冲区溢出
 
-
 class TestDatabaseIntegration:
     """数据库集成测试"""
     
@@ -549,7 +546,6 @@ class TestDatabaseIntegration:
         
         assert True  # 占位符
 
-
 class TestAPIEndpointIntegration:
     """API端点集成测试"""
     
@@ -591,7 +587,6 @@ class TestAPIEndpointIntegration:
         # 4. 测试分页功能
         
         assert True  # 占位符
-
 
 # 性能基准测试
 class TestPerformanceBenchmarks:

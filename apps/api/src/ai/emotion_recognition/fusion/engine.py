@@ -3,10 +3,8 @@
 import asyncio
 from typing import Dict, List, Optional, Any, Tuple
 from datetime import datetime
-import logging
 import numpy as np
 from enum import Enum
-
 from ..models.emotion_models import (
     EmotionResult, MultiModalEmotion, EmotionDimension,
     Modality, EmotionCategory, EMOTION_DIMENSIONS
@@ -16,9 +14,9 @@ from ..analyzers import (
     AudioEmotionAnalyzer,
     VisualEmotionAnalyzer
 )
+from src.core.utils.timezone_utils import utc_now
 
-logger = logging.getLogger(__name__)
-
+logger = get_logger(__name__)
 
 class FusionStrategy(str, Enum):
     """融合策略"""
@@ -27,7 +25,6 @@ class FusionStrategy(str, Enum):
     DYNAMIC_ADAPTIVE = "dynamic_adaptive"       # 动态自适应
     HIERARCHICAL = "hierarchical"               # 层次融合
     VOTING = "voting"                           # 投票机制
-
 
 class MultiModalEmotionFusion:
     """多模态情感融合引擎"""
@@ -305,7 +302,7 @@ class MultiModalEmotionFusion:
             dominance=dominance,
             modality_weights=weights,
             modality_results=modality_results,
-            timestamp=datetime.now(),
+            timestamp=utc_now(),
             fusion_strategy=self.fusion_strategy.value
         )
         
@@ -360,7 +357,7 @@ class MultiModalEmotionFusion:
             dominance=dominance,
             modality_weights=weights,
             modality_results=modality_results,
-            timestamp=datetime.now(),
+            timestamp=utc_now(),
             fusion_strategy=self.fusion_strategy.value
         )
         
@@ -445,7 +442,7 @@ class MultiModalEmotionFusion:
             dominance=dominance,
             modality_weights=weights,
             modality_results=modality_results,
-            timestamp=datetime.now(),
+            timestamp=utc_now(),
             fusion_strategy=self.fusion_strategy.value
         )
         
@@ -508,7 +505,7 @@ class MultiModalEmotionFusion:
             dominance=dominance,
             modality_weights=equal_weights,
             modality_results=modality_results,
-            timestamp=datetime.now(),
+            timestamp=utc_now(),
             fusion_strategy=self.fusion_strategy.value
         )
         
@@ -597,7 +594,7 @@ class MultiModalEmotionFusion:
             dominance=dominance,
             modality_weights=blended_weights,
             modality_results=result1.modality_results,  # 使用原始结果
-            timestamp=datetime.now(),
+            timestamp=utc_now(),
             fusion_strategy="blended"
         )
         
@@ -607,7 +604,7 @@ class MultiModalEmotionFusion:
         window = self.config["temporal_window"]
         recent_history = []
         
-        now = datetime.now()
+        now = utc_now()
         for hist in reversed(self.history):
             time_diff = (now - hist.timestamp).total_seconds()
             if time_diff <= window:
@@ -746,7 +743,7 @@ class MultiModalEmotionFusion:
             dominance=0.5,
             modality_weights=weights,
             modality_results=modality_results,
-            timestamp=datetime.now(),
+            timestamp=utc_now(),
             fusion_strategy=self.fusion_strategy.value
         )
         
@@ -802,3 +799,4 @@ class MultiModalEmotionFusion:
         self.weight_history.clear()
         
         self.is_initialized = False
+from src.core.logging import get_logger

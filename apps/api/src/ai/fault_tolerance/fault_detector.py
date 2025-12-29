@@ -1,3 +1,4 @@
+from src.core.utils.timezone_utils import utc_now
 import asyncio
 import json
 import hashlib
@@ -6,11 +7,11 @@ from typing import Dict, List, Optional, Any, Set, Tuple, Callable
 from dataclasses import dataclass, asdict, field
 from datetime import datetime, timedelta
 from enum import Enum
-import logging
 import redis.asyncio as redis
 from abc import ABC, abstractmethod
 import aiohttp
 
+from src.core.logging import get_logger
 class FaultType(Enum):
     """故障类型枚举"""
     AGENT_UNRESPONSIVE = "agent_unresponsive"
@@ -60,7 +61,7 @@ class FaultDetector:
         self.cluster_manager = cluster_manager
         self.metrics_collector = metrics_collector
         self.config = config
-        self.logger = logging.getLogger(__name__)
+        self.logger = get_logger(__name__)
         
         # 故障检测配置
         self.health_check_interval = config.get("health_check_interval", 10)
@@ -111,7 +112,7 @@ class FaultDetector:
                 return HealthStatus(
                     component_id=component_id,
                     status="unknown",
-                    last_check=datetime.now(),
+                    last_check=utc_now(),
                     response_time=0.0,
                     error_rate=1.0,
                     resource_usage={}
@@ -121,20 +122,13 @@ class FaultDetector:
             health_result = await self._perform_health_check(component_info.endpoint)
             response_time = time.time() - start_time
             
-            # 获取最新指标
-            recent_metrics = await self.metrics_collector.get_recent_metrics(component_id, 5)
-            
-            if recent_metrics:
-                latest_metric = recent_metrics[-1]
-                error_rate = latest_metric.error_rate
-                resource_usage = {
-                    "cpu": latest_metric.cpu_usage,
-                    "memory": latest_metric.memory_usage,
-                    "disk": latest_metric.disk_usage
-                }
-            else:
-                error_rate = 0.0
-                resource_usage = {}
+            usage = getattr(component_info, "resource_usage", None)
+            error_rate = float(getattr(usage, "error_rate", 0.0)) if usage else 0.0
+            resource_usage = {
+                "cpu": float(getattr(usage, "cpu_usage_percent", 0.0)),
+                "memory": float(getattr(usage, "memory_usage_percent", 0.0)),
+                "disk": float(getattr(usage, "storage_usage_percent", 0.0)),
+            } if usage else {}
             
             # 确定健康状态
             status = self._determine_health_status(
@@ -147,7 +141,7 @@ class FaultDetector:
             health_status = HealthStatus(
                 component_id=component_id,
                 status=status,
-                last_check=datetime.now(),
+                last_check=utc_now(),
                 response_time=response_time,
                 error_rate=error_rate,
                 resource_usage=resource_usage,
@@ -169,7 +163,7 @@ class FaultDetector:
             unhealthy_status = HealthStatus(
                 component_id=component_id,
                 status="unhealthy",
-                last_check=datetime.now(),
+                last_check=utc_now(),
                 response_time=float('inf'),
                 error_rate=1.0,
                 resource_usage={}
@@ -292,7 +286,7 @@ class FaultDetector:
             fault_type=fault_type,
             severity=severity,
             affected_components=affected_components,
-            detected_at=datetime.now(),
+            detected_at=utc_now(),
             description=description,
             context=context
         )
@@ -536,5 +530,5 @@ class FaultDetector:
             "avg_error_rate": total_error_rate / max(total_components, 1),
             "health_ratio": status_counts["healthy"] / max(total_components, 1),
             "active_faults": len([e for e in self.fault_events if not e.resolved]),
-            "last_update": datetime.now().isoformat()
+            "last_update": utc_now().isoformat()
         }

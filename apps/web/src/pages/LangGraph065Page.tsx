@@ -1,13 +1,15 @@
+import { buildApiUrl, apiFetch } from '../utils/apiBase'
 import React, { useState, useEffect } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/Label';
-import { Textarea } from '@/components/ui/Textarea';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/Tabs';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { AlertCircle, CheckCircle, Clock, Zap } from 'lucide-react';
 
+import { logger } from '../utils/logger'
 interface ContextAPIDemo {
   user_id: string;
   session_id: string;
@@ -61,23 +63,31 @@ const LangGraph065Page: React.FC = () => {
   const [execution, setExecution] = useState<WorkflowExecution | null>(null);
   const [cacheStats, setCacheStats] = useState<NodeCacheStats | null>(null);
   const [loading, setLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState('context-api');
 
-  // 模拟数据更新
+  const loadCacheStats = async () => {
+    try {
+      const response = await apiFetch(buildApiUrl('/api/v1/langgraph/cache/stats'));
+      const stats = await response.json();
+      setCacheStats({
+        hit_count: stats.hit_count || 0,
+        miss_count: stats.miss_count || 0,
+        total_requests: stats.total_requests || 0,
+        hit_rate: stats.hit_rate || '0.00%',
+      });
+    } catch (error) {
+      logger.error('获取缓存统计失败:', error);
+    }
+  };
+
   useEffect(() => {
-    // 模拟缓存统计
-    setCacheStats({
-      hit_count: 15,
-      miss_count: 8,
-      total_requests: 23,
-      hit_rate: '65.22%'
-    });
+    loadCacheStats();
   }, []);
 
   const executeWorkflow = async () => {
     setLoading(true);
     
     try {
-      // 模拟工作流执行
       const executionId = `exec_${Date.now()}`;
       const startTime = new Date().toISOString();
       
@@ -86,53 +96,77 @@ const LangGraph065Page: React.FC = () => {
         status: 'running',
         durability,
         start_time: startTime,
-        messages: [
-          {
-            role: 'system',
-            content: 'LangGraph 0.6.5工作流开始执行',
-            timestamp: startTime
-          }
-        ],
-        context_used: contextDemo.user_id ? 'new_context_api' : 'legacy_config',
+        messages: [],
+        context_used: 'LangGraphContextSchema',
         caching_enabled: cachingEnabled,
-        hooks_applied: hooksEnabled ? ['MessageCompressionHook', 'GuardrailsHook'] : []
+        hooks_applied: []
       });
 
-      // 模拟API调用
-      const response = await fetch('/api/v1/langgraph/execute-demo', {
+      const endpoint = {
+        'context-api': '/api/v1/langgraph/context-api/demo',
+        durability: '/api/v1/langgraph/durability/demo',
+        caching: '/api/v1/langgraph/caching/demo',
+        hooks: '/api/v1/langgraph/hooks/demo',
+      }[activeTab];
+      if (!endpoint) {
+        throw new Error('未知的功能类型');
+      }
+
+      const payload =
+        activeTab === 'context-api'
+          ? {
+              user_id: contextDemo.user_id,
+              session_id: contextDemo.session_id,
+              conversation_id: contextDemo.conversation_id || undefined,
+              message: workflowInput,
+              use_new_api: true,
+            }
+          : activeTab === 'durability'
+            ? {
+                message: workflowInput,
+                durability_mode: durability,
+              }
+            : activeTab === 'caching'
+              ? {
+                  message: workflowInput,
+                  enable_cache: cachingEnabled,
+                  cache_ttl: 300,
+                }
+              : {
+                  messages: [
+                    {
+                      role: 'user',
+                      content: workflowInput,
+                      timestamp: new Date().toISOString(),
+                    },
+                  ],
+                  enable_pre_hooks: hooksEnabled,
+                  enable_post_hooks: hooksEnabled,
+                };
+
+      const response = await apiFetch(buildApiUrl(endpoint), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          input: workflowInput,
-          context: contextDemo,
-          durability,
-          caching_enabled: cachingEnabled,
-          hooks_enabled: hooksEnabled
-        })
+        body: JSON.stringify(payload),
       });
 
-      if (response.ok) {
-        const result = await response.json();
-        setExecution(prev => prev ? {
-          ...prev,
-          status: 'completed',
-          end_time: new Date().toISOString(),
-          messages: [
-            ...prev.messages,
-            ...result.messages
-          ]
-        } : null);
-      } else {
-        setExecution(prev => prev ? {
-          ...prev,
-          status: 'failed',
-          end_time: new Date().toISOString()
-        } : null);
-      }
+      const result = await response.json();
+      const hooksApplied =
+        activeTab === 'hooks'
+          ? [...new Set((result.metadata?.hook_effects || []).map((e: any) => e.hook).filter(Boolean))]
+          : [];
+      setExecution(prev => prev ? {
+        ...prev,
+        status: 'completed',
+        end_time: new Date().toISOString(),
+        messages: result.result?.messages || [],
+        hooks_applied: hooksApplied,
+      } : null);
+      loadCacheStats();
     } catch (error) {
-      console.error('工作流执行失败:', error);
+      logger.error('工作流执行失败:', error);
       setExecution(prev => prev ? {
         ...prev,
         status: 'failed',
@@ -145,17 +179,13 @@ const LangGraph065Page: React.FC = () => {
 
   const clearCache = async () => {
     try {
-      await fetch('/api/v1/langgraph/cache/clear', {
+      const response = await apiFetch(buildApiUrl('/api/v1/langgraph/cache/clear'), {
         method: 'POST'
       });
-      setCacheStats({
-        hit_count: 0,
-        miss_count: 0,
-        total_requests: 0,
-        hit_rate: '0.00%'
-      });
+      await response.json().catch(() => null);
+      loadCacheStats();
     } catch (error) {
-      console.error('清空缓存失败:', error);
+      logger.error('清空缓存失败:', error);
     }
   };
 
@@ -181,7 +211,7 @@ const LangGraph065Page: React.FC = () => {
         </p>
       </div>
 
-      <Tabs defaultValue="context-api" className="space-y-6">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
         <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="context-api">Context API</TabsTrigger>
           <TabsTrigger value="durability">Durability控制</TabsTrigger>
@@ -380,6 +410,7 @@ const LangGraph065Page: React.FC = () => {
                     <h4 className="font-medium text-blue-900 mb-2">Pre Model Hooks (预处理)</h4>
                     <ul className="text-sm text-blue-800 space-y-1">
                       <li>• <strong>MessageCompressionHook:</strong> 压缩消息历史，减少token使用</li>
+                      <li>• <strong>InputSanitizationHook:</strong> 清理与校验输入内容</li>
                       <li>• <strong>ContextEnrichmentHook:</strong> 丰富上下文信息</li>
                     </ul>
                   </div>
@@ -387,8 +418,9 @@ const LangGraph065Page: React.FC = () => {
                   <div className="bg-green-50 p-4 rounded-lg">
                     <h4 className="font-medium text-green-900 mb-2">Post Model Hooks (后处理)</h4>
                     <ul className="text-sm text-green-800 space-y-1">
-                      <li>• <strong>GuardrailsHook:</strong> 内容安全检查和防护栏</li>
-                      <li>• <strong>ResponseQualityHook:</strong> 响应质量检查</li>
+                      <li>• <strong>ResponseFilterHook:</strong> 过滤不当内容</li>
+                      <li>• <strong>QualityCheckHook:</strong> 输出质量检查</li>
+                      <li>• <strong>ResponseEnhancementHook:</strong> 增强输出元数据</li>
                     </ul>
                   </div>
                 </div>

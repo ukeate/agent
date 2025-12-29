@@ -1,14 +1,17 @@
 """
 定向规则管理API端点
 """
+
 from typing import List, Dict, Any, Optional
 from datetime import datetime
 from src.core.utils.timezone_utils import utc_now, utc_factory, timezone
 from fastapi import APIRouter, Depends, HTTPException, status, Query
-from pydantic import BaseModel
-
-from services.targeting_rules_engine import (
+from src.services.targeting_rules_engine import (
     TargetingRulesEngine,
+    TargetingRule,
+    RuleCondition,
+    CompositeCondition,
+    RuleType,
     TargetingRule,
     RuleCondition,
     CompositeCondition,
@@ -16,26 +19,24 @@ from services.targeting_rules_engine import (
     RuleOperator,
     LogicalOperator
 )
-from core.logging import logger
 
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 router = APIRouter(prefix="/targeting", tags=["targeting-rules"])
 
-
 # 请求模型
-class RuleConditionRequest(BaseModel):
+class RuleConditionRequest(ApiBaseModel):
     field: str
     operator: str
     value: Any
     case_sensitive: bool = True
 
-
-class CompositeConditionRequest(BaseModel):
+class CompositeConditionRequest(ApiBaseModel):
     logical_operator: str
     conditions: List[Any]  # 可以是RuleConditionRequest或CompositeConditionRequest
 
-
-class CreateRuleRequest(BaseModel):
+class CreateRuleRequest(ApiBaseModel):
     rule_id: str
     name: str
     description: str
@@ -47,8 +48,7 @@ class CreateRuleRequest(BaseModel):
     variant_ids: List[str] = []
     metadata: Dict[str, Any] = {}
 
-
-class UpdateRuleRequest(BaseModel):
+class UpdateRuleRequest(ApiBaseModel):
     name: Optional[str] = None
     description: Optional[str] = None
     condition: Optional[Dict[str, Any]] = None
@@ -58,21 +58,17 @@ class UpdateRuleRequest(BaseModel):
     variant_ids: Optional[List[str]] = None
     metadata: Optional[Dict[str, Any]] = None
 
-
-class EvaluateUserRequest(BaseModel):
+class EvaluateUserRequest(ApiBaseModel):
     user_id: str
     user_context: Dict[str, Any]
     experiment_id: Optional[str] = None
 
-
-class BatchEvaluateRequest(BaseModel):
+class BatchEvaluateRequest(ApiBaseModel):
     user_contexts: List[Dict[str, Any]]
     experiment_id: Optional[str] = None
 
-
 # 全局规则引擎实例
 _rules_engine: Optional[TargetingRulesEngine] = None
-
 
 def get_rules_engine() -> TargetingRulesEngine:
     """获取规则引擎实例"""
@@ -80,7 +76,6 @@ def get_rules_engine() -> TargetingRulesEngine:
     if _rules_engine is None:
         _rules_engine = TargetingRulesEngine()
     return _rules_engine
-
 
 def _parse_condition(condition_data: Dict[str, Any]) -> Any:
     """解析条件数据"""
@@ -107,7 +102,6 @@ def _parse_condition(condition_data: Dict[str, Any]) -> Any:
             )
     except Exception as e:
         raise ValueError(f"Invalid condition format: {str(e)}")
-
 
 @router.post("/rules", status_code=status.HTTP_201_CREATED)
 async def create_targeting_rule(
@@ -162,7 +156,6 @@ async def create_targeting_rule(
             detail="Failed to create targeting rule"
         )
 
-
 @router.get("/rules")
 async def list_targeting_rules(
     rule_type: Optional[str] = Query(None, description="规则类型过滤"),
@@ -190,7 +183,6 @@ async def list_targeting_rules(
             detail="Failed to retrieve targeting rules"
         )
 
-
 @router.get("/rules/{rule_id}")
 async def get_targeting_rule(
     rule_id: str,
@@ -217,7 +209,6 @@ async def get_targeting_rule(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to retrieve targeting rule"
         )
-
 
 @router.put("/rules/{rule_id}")
 async def update_targeting_rule(
@@ -285,7 +276,6 @@ async def update_targeting_rule(
             detail="Failed to update targeting rule"
         )
 
-
 @router.delete("/rules/{rule_id}")
 async def delete_targeting_rule(
     rule_id: str,
@@ -314,7 +304,6 @@ async def delete_targeting_rule(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to delete targeting rule"
         )
-
 
 @router.post("/evaluate")
 async def evaluate_user_targeting(
@@ -355,7 +344,6 @@ async def evaluate_user_targeting(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to evaluate user targeting"
         )
-
 
 @router.post("/evaluate/batch")
 async def batch_evaluate_user_targeting(
@@ -401,7 +389,6 @@ async def batch_evaluate_user_targeting(
             detail="Failed to evaluate batch user targeting"
         )
 
-
 @router.post("/check-eligibility")
 async def check_user_eligibility(
     user_id: str = Query(..., description="用户ID"),
@@ -430,7 +417,6 @@ async def check_user_eligibility(
             detail="Failed to check user eligibility"
         )
 
-
 @router.get("/statistics")
 async def get_targeting_statistics(
     engine: TargetingRulesEngine = Depends(get_rules_engine)
@@ -446,7 +432,6 @@ async def get_targeting_statistics(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to retrieve targeting statistics"
         )
-
 
 @router.delete("/rules")
 async def clear_targeting_rules(
@@ -479,7 +464,6 @@ async def clear_targeting_rules(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to clear targeting rules"
         )
-
 
 @router.post("/rules/templates")
 async def create_rule_templates():
@@ -554,7 +538,6 @@ async def create_rule_templates():
             detail="Failed to create rule templates"
         )
 
-
 @router.get("/operators")
 async def list_available_operators():
     """列出所有可用的操作符"""
@@ -590,7 +573,6 @@ async def list_available_operators():
             detail="Failed to list operators"
         )
 
-
 def _get_operator_description(operator: RuleOperator) -> str:
     """获取操作符描述"""
     descriptions = {
@@ -612,7 +594,6 @@ def _get_operator_description(operator: RuleOperator) -> str:
         RuleOperator.NOT_EXISTS: "字段不存在"
     }
     return descriptions.get(operator, "未知操作符")
-
 
 def _get_logical_operator_description(operator: LogicalOperator) -> str:
     """获取逻辑操作符描述"""

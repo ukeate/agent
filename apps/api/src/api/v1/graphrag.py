@@ -9,15 +9,20 @@ GraphRAG API端点
 - 性能监控和调试
 """
 
-import logging
+from collections import deque
+from datetime import datetime, timedelta, timezone
 from typing import Dict, Any, List, Optional
-from fastapi import APIRouter, HTTPException, Depends, Query, Path
-from fastapi.responses import JSONResponse
-from pydantic import BaseModel, Field
-
-from ...ai.graphrag.core_engine import get_graphrag_engine
-from ...ai.graphrag.data_models import (
+from fastapi import APIRouter, HTTPException, Query, Path
+from pydantic import Field
+from src.ai.graphrag.core_engine import get_graphrag_engine
+from src.core.utils.timezone_utils import utc_now
+from src.ai.graphrag.data_models import (
     GraphRAGRequest, 
+    GraphRAGResponse,
+    GraphRAGConfig,
+    QueryType, 
+    RetrievalMode,
+    create_graph_rag_request,
     GraphRAGResponse,
     GraphRAGConfig,
     QueryType, 
@@ -26,12 +31,28 @@ from ...ai.graphrag.data_models import (
     validate_graph_rag_request
 )
 
-logger = logging.getLogger(__name__)
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 router = APIRouter(prefix="/graphrag", tags=["GraphRAG"])
 
+_query_logs = deque(maxlen=2000)
 
-class GraphRAGQueryRequest(BaseModel):
+def _parse_dt(value: str) -> datetime:
+    v = (value or "").strip()
+    if v.endswith("Z"):
+        v = v[:-1] + "+00:00"
+    dt = datetime.fromisoformat(v)
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt
+
+def _day_range(value: str) -> tuple[datetime, datetime]:
+    dt = _parse_dt(value)
+    start = datetime(dt.year, dt.month, dt.day, tzinfo=dt.tzinfo)
+    return start, start + timedelta(days=1)
+
+class GraphRAGQueryRequest(ApiBaseModel):
     """GraphRAG查询请求模型"""
     query: str = Field(..., description="查询文本", min_length=1, max_length=1000)
     retrieval_mode: RetrievalMode = Field(default=RetrievalMode.HYBRID, description="检索模式")
@@ -42,8 +63,7 @@ class GraphRAGQueryRequest(BaseModel):
     query_type: Optional[QueryType] = Field(default=None, description="查询类型(可选)")
     filters: Optional[Dict[str, Any]] = Field(default=None, description="过滤条件")
 
-
-class GraphRAGQueryResponse(BaseModel):
+class GraphRAGQueryResponse(ApiBaseModel):
     """GraphRAG查询响应模型"""
     success: bool = Field(..., description="请求是否成功")
     data: Optional[GraphRAGResponse] = Field(None, description="GraphRAG响应数据")
@@ -51,20 +71,22 @@ class GraphRAGQueryResponse(BaseModel):
     query_id: str = Field(..., description="查询ID")
     performance_metrics: Dict[str, Any] = Field(..., description="性能指标")
 
-
-class QueryAnalysisRequest(BaseModel):
+class QueryAnalysisRequest(ApiBaseModel):
     """查询分析请求模型"""
     query: str = Field(..., description="查询文本", min_length=1, max_length=1000)
     query_type: Optional[QueryType] = Field(default=None, description="查询类型(可选)")
 
-
-class ReasoningPathRequest(BaseModel):
+class ReasoningPathRequest(ApiBaseModel):
     """推理路径请求模型"""
     entity1: str = Field(..., description="源实体", min_length=1)
     entity2: str = Field(..., description="目标实体", min_length=1)
     max_hops: int = Field(default=3, ge=1, le=5, description="最大跳数")
     max_paths: int = Field(default=10, ge=1, le=50, description="最大路径数")
 
+class ConflictResolutionRequest(ApiBaseModel):
+    knowledge_sources: List[Dict[str, Any]] = Field(..., description="知识源列表")
+    conflicts: Optional[List[Dict[str, Any]]] = Field(default=None, description="可选冲突列表(不传则自动检测)")
+    strategy: str = Field(default="highest_confidence", description="冲突解决策略")
 
 @router.post("/query", response_model=GraphRAGQueryResponse)
 async def graphrag_query(request: GraphRAGQueryRequest):
@@ -98,6 +120,22 @@ async def graphrag_query(request: GraphRAGQueryRequest):
         # 执行GraphRAG查询
         engine = await get_graphrag_engine()
         result = await engine.enhanced_query(internal_request)
+
+        perf = result.get("performance_metrics") or {}
+        _query_logs.append(
+            {
+                "timestamp": utc_now(),
+                "query_id": result.get("query_id"),
+                "retrieval_mode": request.retrieval_mode.value,
+                "success": True,
+                "total_time_ms": float(perf.get("total_time", 0.0)) * 1000,
+                "retrieval_time_ms": float(perf.get("retrieval_time", 0.0)) * 1000,
+                "reasoning_time_ms": float(perf.get("reasoning_time", 0.0)) * 1000,
+                "fusion_time_ms": float(perf.get("fusion_time", 0.0)) * 1000,
+                "cache_hit": bool(perf.get("cache_hit", False)),
+                "top_score": float((result.get("documents") or [{}])[0].get("final_score", 0.0)),
+            }
+        )
         
         return GraphRAGQueryResponse(
             success=True,
@@ -111,8 +149,8 @@ async def graphrag_query(request: GraphRAGQueryRequest):
         raise
     except Exception as e:
         logger.error(f"GraphRAG查询失败: {e}")
+        _query_logs.append({"timestamp": utc_now(), "success": False, "error": str(e)})
         raise HTTPException(status_code=500, detail=f"GraphRAG查询失败: {str(e)}")
-
 
 @router.post("/query/analyze")
 async def analyze_query(request: QueryAnalysisRequest):
@@ -149,7 +187,6 @@ async def analyze_query(request: QueryAnalysisRequest):
         logger.error(f"查询分析失败: {e}")
         raise HTTPException(status_code=500, detail=f"查询分析失败: {str(e)}")
 
-
 @router.post("/query/reasoning")
 async def reasoning_paths(request: ReasoningPathRequest):
     """推理路径查询
@@ -162,7 +199,7 @@ async def reasoning_paths(request: ReasoningPathRequest):
         engine = await get_graphrag_engine()
         
         # 创建查询分解对象（用于推理路径生成）
-        from ...ai.graphrag.data_models import QueryDecomposition
+        from src.ai.graphrag.data_models import QueryDecomposition
         
         decomposition = QueryDecomposition(
             original_query=f"Find reasoning paths between {request.entity1} and {request.entity2}",
@@ -182,7 +219,7 @@ async def reasoning_paths(request: ReasoningPathRequest):
         )
         
         # 创建简化的图谱上下文
-        from ...ai.graphrag.data_models import create_empty_graph_context
+        from src.ai.graphrag.data_models import create_empty_graph_context
         graph_context = create_empty_graph_context()
         
         # 生成推理路径
@@ -209,7 +246,6 @@ async def reasoning_paths(request: ReasoningPathRequest):
         logger.error(f"推理路径查询失败: {e}")
         raise HTTPException(status_code=500, detail=f"推理路径查询失败: {str(e)}")
 
-
 @router.get("/query/{query_id}")
 async def get_query_result(query_id: str = Path(..., description="查询ID")):
     """获取查询结果
@@ -219,26 +255,23 @@ async def get_query_result(query_id: str = Path(..., description="查询ID")):
     try:
         engine = await get_graphrag_engine()
         
-        # 尝试从缓存获取结果
-        if engine.cache_manager:
-            # 这里需要扩展缓存管理器以支持按查询ID获取
-            # 目前返回示例响应
-            return {
-                "success": False,
-                "message": "Query ID lookup not implemented yet",
-                "query_id": query_id
-            }
-        else:
-            return {
-                "success": False,
-                "message": "Cache not enabled",
-                "query_id": query_id
-            }
-        
+        if not engine.cache_manager:
+            raise HTTPException(status_code=404, detail="查询结果不存在或已过期")
+
+        result = await engine.cache_manager.get_cached_result_by_query_id(query_id)
+        if not result:
+            raise HTTPException(status_code=404, detail="查询结果不存在或已过期")
+
+        return {
+            "success": True,
+            "query_id": query_id,
+            "data": result,
+        }
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"获取查询结果失败: {e}")
         raise HTTPException(status_code=500, detail=f"获取查询结果失败: {str(e)}")
-
 
 @router.post("/fusion/multi-source")
 async def multi_source_fusion(request: Dict[str, Any]):
@@ -258,7 +291,7 @@ async def multi_source_fusion(request: Dict[str, Any]):
         engine = await get_graphrag_engine()
         
         # 创建图谱上下文
-        from ...ai.graphrag.data_models import GraphContext
+        from src.ai.graphrag.data_models import GraphContext
         graph_context = GraphContext(
             entities=graph_results.get('entities', []),
             relations=graph_results.get('relations', []),
@@ -269,7 +302,7 @@ async def multi_source_fusion(request: Dict[str, Any]):
         )
         
         # 转换推理结果
-        from ...ai.graphrag.data_models import ReasoningPath
+        from src.ai.graphrag.data_models import ReasoningPath
         reasoning_paths = []
         for r in reasoning_results:
             path = ReasoningPath(
@@ -308,132 +341,286 @@ async def multi_source_fusion(request: Dict[str, Any]):
         logger.error(f"多源知识融合失败: {e}")
         raise HTTPException(status_code=500, detail=f"多源知识融合失败: {str(e)}")
 
-
 @router.post("/fusion/conflict-resolution") 
-async def conflict_resolution(request: Dict[str, Any]):
+async def conflict_resolution(request: ConflictResolutionRequest):
     """冲突解决
     
     解决知识源之间的冲突
     """
     try:
         logger.info("收到冲突解决请求")
-        
-        conflicts = request.get('conflicts', [])
-        resolution_strategy = request.get('strategy', 'highest_confidence')
-        
-        # 这里可以实现具体的冲突解决逻辑
+
+        engine = await get_graphrag_engine()
+        if not engine._initialized:
+            await engine.initialize()
+        fusion = engine.fusion_engine
+        if not fusion:
+            raise HTTPException(status_code=503, detail="融合引擎未初始化")
+
+        from src.ai.graphrag.data_models import KnowledgeSource
+
+        sources = []
+        for s in request.knowledge_sources:
+            content = str(s.get("content") or "").strip()
+            if not content:
+                continue
+            sources.append(
+                KnowledgeSource(
+                    source_type=str(s.get("source_type") or "vector"),
+                    content=content,
+                    confidence=float(s.get("confidence") or 0.0),
+                    metadata=s.get("metadata") if isinstance(s.get("metadata"), dict) else {},
+                )
+            )
+
+        if not sources:
+            raise HTTPException(status_code=400, detail="knowledge_sources不能为空")
+
+        conflicts = request.conflicts
+        if conflicts is None:
+            conflicts = await fusion._detect_conflicts(sources)
+
+        strategy = (request.strategy or "highest_confidence").strip()
+        resolver = fusion.conflict_resolution_strategies.get(strategy)
+        if not resolver:
+            raise HTTPException(status_code=400, detail=f"不支持的strategy: {strategy}")
+
+        resolved_sources = sources
         resolved_conflicts = []
-        
         for conflict in conflicts:
-            resolved_conflicts.append({
-                "original_conflict": conflict,
-                "resolution_strategy": resolution_strategy,
-                "resolved": True,
-                "confidence": 0.8
-            })
+            before = [s.confidence for s in resolved_sources]
+            resolved_sources = await resolver(resolved_sources, conflict)
+            after = [s.confidence for s in resolved_sources]
+            resolved_conflicts.append(
+                {
+                    "original_conflict": conflict,
+                    "resolution_strategy": strategy,
+                    "before_confidence": before,
+                    "after_confidence": after,
+                }
+            )
         
         return {
             "success": True,
             "data": {
                 "resolved_conflicts": resolved_conflicts,
-                "strategy_used": resolution_strategy,
-                "resolution_rate": len(resolved_conflicts) / max(1, len(conflicts))
+                "strategy_used": strategy,
+                "resolved_sources": [s.to_dict() for s in resolved_sources],
+                "resolution_rate": len(resolved_conflicts) / max(1, len(conflicts)),
             }
         }
         
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"冲突解决失败: {e}")
         raise HTTPException(status_code=500, detail=f"冲突解决失败: {str(e)}")
 
-
 @router.get("/fusion/consistency")
-async def consistency_check(
-    document_ids: List[str] = Query(..., description="文档ID列表")
-):
+async def consistency_check(query_id: Optional[str] = Query(None, description="查询ID(不传则取最近一次)")):
     """一致性检查
     
     检查指定文档之间的一致性
     """
     try:
-        logger.info(f"收到一致性检查请求，文档数: {len(document_ids)}")
-        
-        # 这里可以实现具体的一致性检查逻辑
-        consistency_score = 0.85  # 示例分数
-        
+        engine = await get_graphrag_engine()
+        if not engine._initialized:
+            await engine.initialize()
+        if not engine.cache_manager:
+            raise HTTPException(status_code=400, detail="缓存未启用，无法进行一致性评估")
+
+        cached = None
+        if query_id:
+            cached = await engine.cache_manager.get_cached_result_by_query_id(query_id)
+        else:
+            for v in reversed(list(engine.cache_manager.memory_cache.values())):
+                if isinstance(v, dict) and v.get("query_id") and isinstance(v.get("documents"), list):
+                    cached = v
+                    break
+
+        if not cached:
+            return {
+                "success": True,
+                "data": {"query_id": query_id, "consistency_score": None, "documents_checked": 0},
+            }
+
+        docs = cached.get("documents") or []
+        fusion = engine.fusion_engine
+        if not fusion:
+            raise HTTPException(status_code=503, detail="融合引擎未初始化")
+        consistency_score = await fusion._check_consistency({"documents": docs})
+
         return {
             "success": True,
             "data": {
-                "document_ids": document_ids,
-                "consistency_score": consistency_score,
-                "details": {
-                    "consistent_pairs": len(document_ids) - 1,
-                    "inconsistent_pairs": 0,
-                    "confidence_interval": [0.8, 0.9]
-                }
+                "query_id": cached.get("query_id"),
+                "consistency_score": float(consistency_score),
+                "documents_checked": len(docs),
             }
         }
         
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"一致性检查失败: {e}")
         raise HTTPException(status_code=500, detail=f"一致性检查失败: {str(e)}")
 
-
 @router.get("/performance/stats")
-async def performance_stats():
+async def performance_stats(
+    start_time: Optional[str] = Query(None, description="开始时间(ISO8601)"),
+    end_time: Optional[str] = Query(None, description="结束时间(ISO8601)"),
+):
     """性能统计
     
     获取GraphRAG系统的性能统计信息
     """
     try:
-        engine = await get_graphrag_engine()
-        stats = await engine.get_performance_stats()
+        logs = list(_query_logs)
+        if start_time:
+            start = _parse_dt(start_time)
+            logs = [l for l in logs if isinstance(l.get("timestamp"), datetime) and l["timestamp"] >= start]
+        if end_time:
+            end = _parse_dt(end_time)
+            logs = [l for l in logs if isinstance(l.get("timestamp"), datetime) and l["timestamp"] <= end]
+
+        total = len(logs)
+        successful = sum(1 for l in logs if l.get("success"))
+        failed = total - successful
+        total_time = [l.get("total_time_ms", 0.0) for l in logs if l.get("success")]
+        retrieval_time = [l.get("retrieval_time_ms", 0.0) for l in logs if l.get("success")]
+        reasoning_time = [l.get("reasoning_time_ms", 0.0) for l in logs if l.get("success")]
+        fusion_time = [l.get("fusion_time_ms", 0.0) for l in logs if l.get("success")]
+        cache_hits = sum(1 for l in logs if l.get("success") and l.get("cache_hit"))
+
+        by_mode: Dict[str, int] = {}
+        for l in logs:
+            mode = l.get("retrieval_mode") or "unknown"
+            by_mode[mode] = by_mode.get(mode, 0) + 1
+
+        def _avg(values: List[float]) -> float:
+            return float(sum(values) / len(values)) if values else 0.0
         
         return {
             "success": True,
-            "data": stats,
-            "timestamp": engine._initialized
+            "data": {
+                "query_statistics": {
+                    "total_queries": total,
+                    "successful_queries": successful,
+                    "failed_queries": failed,
+                    "average_response_time": _avg(total_time),
+                    "queries_by_type": by_mode,
+                },
+                "performance_metrics": {
+                    "average_retrieval_time": _avg(retrieval_time),
+                    "average_reasoning_time": _avg(reasoning_time),
+                    "average_fusion_time": _avg(fusion_time),
+                    "cache_hit_rate": (cache_hits / total) if total else 0.0,
+                },
+                "time_period": {
+                    "start_time": start_time,
+                    "end_time": end_time,
+                },
+            },
+            "timestamp": utc_now().isoformat(),
         }
         
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"获取性能统计失败: {e}")
         raise HTTPException(status_code=500, detail=f"获取性能统计失败: {str(e)}")
 
-
 @router.get("/performance/comparison")
-async def rag_comparison():
+async def rag_comparison(
+    baseline_date: str = Query(..., description="基线日期(ISO8601)"),
+    comparison_date: str = Query(..., description="对比日期(ISO8601)"),
+):
     """RAG对比分析
     
     比较GraphRAG与传统RAG的性能
     """
     try:
-        # 这里可以实现具体的对比分析逻辑
-        comparison_data = {
-            "traditional_rag": {
-                "avg_response_time": 1.2,
-                "accuracy_score": 0.75,
-                "context_relevance": 0.70
-            },
-            "graph_rag": {
-                "avg_response_time": 1.8,
-                "accuracy_score": 0.85,
-                "context_relevance": 0.82
-            },
-            "improvement": {
-                "accuracy_improvement": 13.3,
-                "context_improvement": 17.1,
-                "response_time_overhead": 50.0
-            }
+        base_start, base_end = _day_range(baseline_date)
+        cmp_start, cmp_end = _day_range(comparison_date)
+
+        logs = [l for l in _query_logs if l.get("success") and isinstance(l.get("timestamp"), datetime)]
+        base_logs = [l for l in logs if base_start <= l["timestamp"] < base_end]
+        cmp_logs = [l for l in logs if cmp_start <= l["timestamp"] < cmp_end]
+
+        if not base_logs or not cmp_logs:
+            raise HTTPException(status_code=404, detail="指定日期范围内没有可用于对比的查询数据")
+
+        def _avg_key(items: List[Dict[str, Any]], key: str) -> float:
+            vals = [float(i.get(key, 0.0)) for i in items]
+            return float(sum(vals) / len(vals)) if vals else 0.0
+
+        baseline_metrics = {
+            "avg_response_time_ms": _avg_key(base_logs, "total_time_ms"),
+            "avg_retrieval_time_ms": _avg_key(base_logs, "retrieval_time_ms"),
+            "avg_reasoning_time_ms": _avg_key(base_logs, "reasoning_time_ms"),
+            "avg_fusion_time_ms": _avg_key(base_logs, "fusion_time_ms"),
+            "avg_top_score": _avg_key(base_logs, "top_score"),
+            "cache_hit_rate": sum(1 for l in base_logs if l.get("cache_hit")) / len(base_logs),
+            "total_queries": len(base_logs),
         }
+        comparison_metrics = {
+            "avg_response_time_ms": _avg_key(cmp_logs, "total_time_ms"),
+            "avg_retrieval_time_ms": _avg_key(cmp_logs, "retrieval_time_ms"),
+            "avg_reasoning_time_ms": _avg_key(cmp_logs, "reasoning_time_ms"),
+            "avg_fusion_time_ms": _avg_key(cmp_logs, "fusion_time_ms"),
+            "avg_top_score": _avg_key(cmp_logs, "top_score"),
+            "cache_hit_rate": sum(1 for l in cmp_logs if l.get("cache_hit")) / len(cmp_logs),
+            "total_queries": len(cmp_logs),
+        }
+
+        baseline_rt = baseline_metrics["avg_response_time_ms"] or 1.0
+        comparison_rt = comparison_metrics["avg_response_time_ms"]
+        response_time_change = ((comparison_rt - baseline_rt) / baseline_rt) * 100
+        performance_change = ((baseline_rt - comparison_rt) / baseline_rt) * 100
+        accuracy_change = (comparison_metrics["avg_top_score"] - baseline_metrics["avg_top_score"]) * 100
+
+        base_throughput = len(base_logs) / ((base_end - base_start).total_seconds() or 1.0)
+        cmp_throughput = len(cmp_logs) / ((cmp_end - cmp_start).total_seconds() or 1.0)
+        throughput_change = ((cmp_throughput - base_throughput) / (base_throughput or 1.0)) * 100
+
+        recommendations: List[str] = []
+        if response_time_change > 10:
+            recommendations.append("响应时间上升明显，建议降低expansion_depth或max_docs")
+        if comparison_metrics["cache_hit_rate"] < baseline_metrics["cache_hit_rate"]:
+            recommendations.append("缓存命中率下降，建议开启/检查Redis并扩大缓存TTL")
+        if not recommendations:
+            recommendations.append("当前性能变化不明显，可继续观察并积累更多样本后再对比")
         
         return {
             "success": True,
-            "data": comparison_data
+            "data": {
+                "comparison_summary": {
+                    "performance_change": performance_change,
+                    "response_time_change": response_time_change,
+                    "accuracy_change": accuracy_change,
+                    "throughput_change": throughput_change,
+                },
+                "detailed_comparison": {
+                    "baseline_metrics": baseline_metrics,
+                    "comparison_metrics": comparison_metrics,
+                    "differences": {
+                        "avg_response_time_ms": comparison_metrics["avg_response_time_ms"]
+                        - baseline_metrics["avg_response_time_ms"],
+                        "avg_top_score": comparison_metrics["avg_top_score"]
+                        - baseline_metrics["avg_top_score"],
+                        "cache_hit_rate": comparison_metrics["cache_hit_rate"]
+                        - baseline_metrics["cache_hit_rate"],
+                    },
+                },
+                "recommendations": recommendations,
+            }
         }
         
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"RAG对比分析失败: {e}")
         raise HTTPException(status_code=500, detail=f"RAG对比分析失败: {str(e)}")
-
 
 @router.post("/performance/benchmark")
 async def benchmark_test(request: Dict[str, Any]):
@@ -513,7 +700,6 @@ async def benchmark_test(request: Dict[str, Any]):
         logger.error(f"基准测试失败: {e}")
         raise HTTPException(status_code=500, detail=f"基准测试失败: {str(e)}")
 
-
 @router.get("/config")
 async def get_config():
     """获取配置
@@ -535,7 +721,6 @@ async def get_config():
         logger.error(f"获取配置失败: {e}")
         raise HTTPException(status_code=500, detail=f"获取配置失败: {str(e)}")
 
-
 @router.put("/config")
 async def update_config(request: Dict[str, Any]):
     """更新配置
@@ -556,13 +741,18 @@ async def update_config(request: Dict[str, Any]):
         
         if 'max_reasoning_paths' in request:
             config_updates['max_reasoning_paths'] = max(1, min(50, request['max_reasoning_paths']))
-        
-        # 这里可以实现具体的配置更新逻辑
+
+        engine = await get_graphrag_engine()
+        if not engine._initialized:
+            await engine.initialize()
+        for k, v in config_updates.items():
+            if hasattr(engine.config, k):
+                setattr(engine.config, k, v)
         
         return {
             "success": True,
             "data": {
-                "updated_config": config_updates,
+                "updated_config": engine.config.to_dict(),
                 "message": "配置更新成功"
             }
         }
@@ -570,7 +760,6 @@ async def update_config(request: Dict[str, Any]):
     except Exception as e:
         logger.error(f"配置更新失败: {e}")
         raise HTTPException(status_code=500, detail=f"配置更新失败: {str(e)}")
-
 
 @router.post("/debug/explain")
 async def explain_result(request: Dict[str, Any]):
@@ -587,7 +776,7 @@ async def explain_result(request: Dict[str, Any]):
         engine = await get_graphrag_engine()
         
         # 转换推理路径
-        from ...ai.graphrag.data_models import ReasoningPath
+        from src.ai.graphrag.data_models import ReasoningPath
         paths = []
         for r in reasoning_paths:
             path = ReasoningPath(
@@ -619,7 +808,6 @@ async def explain_result(request: Dict[str, Any]):
         logger.error(f"结果解释失败: {e}")
         raise HTTPException(status_code=500, detail=f"结果解释失败: {str(e)}")
 
-
 @router.get("/debug/trace/{query_id}")
 async def query_trace(query_id: str = Path(..., description="查询ID")):
     """查询追踪
@@ -627,18 +815,32 @@ async def query_trace(query_id: str = Path(..., description="查询ID")):
     追踪特定查询的执行过程
     """
     try:
-        # 这里可以实现查询追踪逻辑
+        engine = await get_graphrag_engine()
+        if not engine._initialized:
+            await engine.initialize()
+        if not engine.cache_manager:
+            raise HTTPException(status_code=404, detail="查询结果不存在或已过期")
+
+        result = await engine.cache_manager.get_cached_result_by_query_id(query_id)
+        if not result:
+            raise HTTPException(status_code=404, detail="查询结果不存在或已过期")
+
+        perf = result.get("performance_metrics") or {}
+        steps = [
+            {"step": "retrieval", "duration_ms": float(perf.get("retrieval_time", 0.0)) * 1000, "status": "completed"},
+            {"step": "reasoning", "duration_ms": float(perf.get("reasoning_time", 0.0)) * 1000, "status": "completed"},
+            {"step": "fusion", "duration_ms": float(perf.get("fusion_time", 0.0)) * 1000, "status": "completed"},
+        ]
         trace_data = {
             "query_id": query_id,
-            "steps": [
-                {"step": "query_analysis", "duration": 0.1, "status": "completed"},
-                {"step": "vector_retrieval", "duration": 0.3, "status": "completed"},
-                {"step": "graph_retrieval", "duration": 0.5, "status": "completed"},
-                {"step": "context_expansion", "duration": 0.2, "status": "completed"},
-                {"step": "reasoning", "duration": 0.8, "status": "completed"},
-                {"step": "knowledge_fusion", "duration": 0.4, "status": "completed"}
-            ],
-            "total_duration": 2.3
+            "steps": steps,
+            "results": {
+                "documents": len(result.get("documents") or []),
+                "entities": len((result.get("graph_context") or {}).get("entities") or []),
+                "relations": len((result.get("graph_context") or {}).get("relations") or []),
+                "reasoning_paths": len(result.get("reasoning_results") or []),
+            },
+            "total_duration_ms": float(perf.get("total_time", 0.0)) * 1000,
         }
         
         return {
@@ -646,10 +848,10 @@ async def query_trace(query_id: str = Path(..., description="查询ID")):
             "data": trace_data
         }
         
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"查询追踪失败: {e}")
         raise HTTPException(status_code=500, detail=f"查询追踪失败: {str(e)}")
 
-
 # 导入时间模块
-import time

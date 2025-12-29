@@ -2,11 +2,11 @@
 
 import asyncio
 import json
-import logging
 from datetime import datetime, timedelta
 from typing import Dict, List, Any, Optional
-
 import redis
+from .models import MonitoringConfig
+from src.core.utils.timezone_utils import utc_now
 
 try:
     from prometheus_client import Counter, Histogram, Gauge, CollectorRegistry, generate_latest
@@ -15,15 +15,12 @@ except ImportError:
     PROMETHEUS_AVAILABLE = False
     CollectorRegistry = None
 
-from .models import MonitoringConfig
-
-
 class MonitoringSystem:
     """监控系统"""
     
     def __init__(self, config: Dict[str, Any]):
         self.config = config
-        self.logger = logging.getLogger(__name__)
+        self.logger = get_logger(__name__)
         
         # Redis客户端
         self.redis_client = redis.Redis(
@@ -43,7 +40,7 @@ class MonitoringSystem:
             self.registry = CollectorRegistry()
             self._initialize_metrics()
         else:
-            self.logger.warning("Prometheus client not available, metrics collection disabled")
+            self.logger.warning("Prometheus 客户端不可用，已禁用指标导出")
     
     def _initialize_metrics(self):
         """初始化Prometheus指标"""
@@ -123,26 +120,7 @@ class MonitoringSystem:
     
     async def setup_monitoring(self) -> Dict[str, Any]:
         """设置监控系统"""
-        
-        # 1. 初始化Prometheus指标
-        prometheus_setup = await self._setup_prometheus_metrics()
-        
-        # 2. 配置Grafana仪表板
-        grafana_setup = await self._setup_grafana_dashboards()
-        
-        # 3. 配置告警规则
-        alerting_setup = await self._setup_alerting_rules()
-        
-        # 4. 健康检查配置
-        health_check_setup = await self._setup_health_checks()
-        
-        return {
-            "prometheus": prometheus_setup,
-            "grafana": grafana_setup,
-            "alerting": alerting_setup,
-            "health_checks": health_check_setup,
-            "status": "monitoring_active"
-        }
+        raise RuntimeError("Monitoring setup requires Prometheus/Grafana integration")
     
     async def _setup_prometheus_metrics(self) -> Dict[str, Any]:
         """设置Prometheus指标"""
@@ -451,7 +429,7 @@ class MonitoringSystem:
         recommendations = await self._generate_recommendations(statistics, alert_status)
         
         return {
-            "report_generated_at": datetime.now().isoformat(),
+            "report_generated_at": utc_now().isoformat(),
             "metrics_summary": statistics,
             "alert_status": alert_status,
             "recommendations": recommendations,
@@ -460,70 +438,102 @@ class MonitoringSystem:
     
     async def _get_recent_metrics(self) -> Dict[str, Any]:
         """获取最近的指标数据"""
-        
-        # 从Redis获取最近的指标数据
-        metrics_keys = self.redis_client.keys("metrics:*")
-        recent_metrics = {}
-        
-        for key in metrics_keys[:100]:  # 限制数量避免内存问题
-            value = self.redis_client.get(key)
-            if value:
-                try:
-                    recent_metrics[key] = json.loads(value)
-                except json.JSONDecodeError:
-                    pass
-        
-        return recent_metrics
+        from src.core.monitoring import monitoring_service
+        return await monitoring_service.collect_all_metrics()
     
     async def _calculate_statistics(self, metrics: Dict[str, Any]) -> Dict[str, Any]:
         """计算统计信息"""
-        
+        system = metrics.get("system", {})
+        performance = metrics.get("performance", {})
+
+        request_rate = self._calculate_request_rate(performance)
+        error_rate = self._calculate_error_rate(performance)
+        avg_response_time = self._calculate_avg_response_time(performance)
+        cpu_usage_avg = self._calculate_avg_cpu(system)
+        memory_usage_avg = self._calculate_avg_memory(system)
+        workflow_success_rate = self._calculate_workflow_success()
+
         return {
-            "request_rate": self._calculate_request_rate(metrics),
-            "error_rate": self._calculate_error_rate(metrics),
-            "avg_response_time": self._calculate_avg_response_time(metrics),
-            "memory_usage_avg": self._calculate_avg_memory(metrics),
-            "cpu_usage_avg": self._calculate_avg_cpu(metrics),
-            "workflow_success_rate": self._calculate_workflow_success(metrics)
+            "request_rate": request_rate,
+            "requests_per_minute": performance.get("requests_per_minute", 0),
+            "total_requests": performance.get("total_requests", 0),
+            "error_rate": error_rate,
+            "avg_response_time": avg_response_time,
+            "cpu_usage_avg": cpu_usage_avg,
+            "memory_usage_avg": memory_usage_avg,
+            "workflow_success_rate": workflow_success_rate,
         }
     
-    def _calculate_request_rate(self, metrics: Dict[str, Any]) -> float:
+    def _calculate_request_rate(self, performance: Dict[str, Any]) -> float:
         """计算请求速率"""
-        # 简化实现，返回模拟值
-        return 100.0
+        rpm = performance.get("requests_per_minute", 0)
+        try:
+            return float(rpm) / 60
+        except (TypeError, ValueError):
+            return 0.0
     
-    def _calculate_error_rate(self, metrics: Dict[str, Any]) -> float:
+    def _calculate_error_rate(self, performance: Dict[str, Any]) -> float:
         """计算错误率"""
-        # 简化实现，返回模拟值
-        return 0.02
+        try:
+            return float(performance.get("error_rate", 0))
+        except (TypeError, ValueError):
+            return 0.0
     
-    def _calculate_avg_response_time(self, metrics: Dict[str, Any]) -> float:
+    def _calculate_avg_response_time(self, performance: Dict[str, Any]) -> float:
         """计算平均响应时间"""
-        # 简化实现，返回模拟值
-        return 1.2
+        ms = performance.get("average_response_time_ms", 0)
+        try:
+            return float(ms) / 1000
+        except (TypeError, ValueError):
+            return 0.0
     
-    def _calculate_avg_memory(self, metrics: Dict[str, Any]) -> float:
+    def _calculate_avg_memory(self, system: Dict[str, Any]) -> float:
         """计算平均内存使用"""
-        # 简化实现，返回模拟值
-        return 4.5
+        try:
+            return float(system.get("memory_percent", 0))
+        except (TypeError, ValueError):
+            return 0.0
     
-    def _calculate_avg_cpu(self, metrics: Dict[str, Any]) -> float:
+    def _calculate_avg_cpu(self, system: Dict[str, Any]) -> float:
         """计算平均CPU使用"""
-        # 简化实现，返回模拟值
-        return 45.0
+        try:
+            return float(system.get("cpu_percent", 0))
+        except (TypeError, ValueError):
+            return 0.0
     
-    def _calculate_workflow_success(self, metrics: Dict[str, Any]) -> float:
+    def _calculate_workflow_success(self) -> float:
         """计算工作流成功率"""
-        # 简化实现，返回模拟值
-        return 0.92
+        total = 0
+        success = 0
+        for key in self.redis_client.scan_iter("workflow:*", count=1000):
+            raw = self.redis_client.get(key)
+            if not raw:
+                continue
+            try:
+                data = json.loads(raw)
+            except json.JSONDecodeError:
+                continue
+            status = str(data.get("status", "")).lower()
+            if not status:
+                continue
+            if status in {"completed", "failed", "error"}:
+                total += 1
+                if status == "completed":
+                    success += 1
+        if total == 0:
+            return 1.0
+        return success / total
     
     async def _check_alert_status(self) -> Dict[str, Any]:
         """检查告警状态"""
-        
-        active_alerts = []
-        
-        # 简化实现，暂不实际检查告警
-        
+        raw = self.redis_client.get("platform:monitoring:alerts")
+        if not raw:
+            return {"active_alerts": [], "total_alerts": 0, "status": "healthy"}
+        try:
+            alerts = json.loads(raw)
+        except json.JSONDecodeError:
+            alerts = []
+        active_alerts = [a for a in alerts if isinstance(a, dict) and a.get("status") == "active"]
         return {
             "active_alerts": active_alerts,
             "total_alerts": len(active_alerts),
@@ -540,19 +550,19 @@ class MonitoringSystem:
         recommendations = []
         
         if statistics.get("error_rate", 0) > 0.05:
-            recommendations.append("Consider investigating high error rate")
-        
-        if statistics.get("cpu_usage_avg", 0) > 70:
-            recommendations.append("Consider scaling up compute resources")
-        
-        if statistics.get("memory_usage_avg", 0) > 7:
-            recommendations.append("Memory usage is high, consider optimization")
-        
+            recommendations.append("错误率较高，建议优先排查最近的异常请求与依赖服务状态")
+
+        if statistics.get("cpu_usage_avg", 0) > 80:
+            recommendations.append("CPU 使用率偏高，建议检查热点接口或扩容计算资源")
+
+        if statistics.get("memory_usage_avg", 0) > 85:
+            recommendations.append("内存使用率偏高，建议检查缓存策略与内存泄漏风险")
+
         if statistics.get("workflow_success_rate", 1) < 0.9:
-            recommendations.append("Workflow success rate is below target")
-        
+            recommendations.append("工作流成功率偏低，建议检查组件健康检查与工作流执行日志")
+
         if not recommendations:
-            recommendations.append("System is operating within normal parameters")
+            recommendations.append("系统运行在正常范围内")
         
         return recommendations
     
@@ -592,7 +602,7 @@ class MonitoringSystem:
     async def export_metrics_history(self, hours: int = 24) -> Dict[str, Any]:
         """导出指标历史"""
         
-        end_time = datetime.now()
+        end_time = utc_now()
         start_time = end_time - timedelta(hours=hours)
         
         # 从Redis获取历史数据
@@ -605,3 +615,4 @@ class MonitoringSystem:
             "data_points": len(history),
             "metrics": history
         }
+from src.core.logging import get_logger

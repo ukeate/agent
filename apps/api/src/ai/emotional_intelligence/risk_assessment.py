@@ -1,19 +1,17 @@
 """
 情感健康风险评估系统
 """
+
 import asyncio
 from typing import Dict, List, Optional, Any, Tuple
 from datetime import datetime, timedelta
-import logging
 import numpy as np
 from dataclasses import dataclass
-
 from .models import RiskAssessment, RiskFactor, RiskLevel, DecisionContext
 from ..emotion_modeling.models import EmotionState, PersonalityProfile
 
-
-logger = logging.getLogger(__name__)
-
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 class RiskAssessmentEngine:
     """情感健康风险评估引擎"""

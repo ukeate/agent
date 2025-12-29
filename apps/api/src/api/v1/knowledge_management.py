@@ -9,36 +9,29 @@
 """
 
 from fastapi import APIRouter, HTTPException, Query, Depends, BackgroundTasks
-from fastapi.responses import JSONResponse, StreamingResponse
+from fastapi.responses import JSONResponse
 from fastapi.openapi.utils import get_openapi
 from typing import Dict, List, Any, Optional, Union
-from pydantic import BaseModel, Field, validator
+from pydantic import Field, field_validator
 from enum import Enum
 import asyncio
-import logging
 from datetime import datetime
-from src.core.utils.timezone_utils import utc_now, utc_factory
+from src.core.utils.timezone_utils import utc_now
 import uuid
-
-from ...ai.knowledge_graph.sparql_engine import (
-    default_sparql_engine, 
-    execute_sparql_query,
-    SPARQLQuery,
-    QueryType
-)
-from ...ai.knowledge_graph.result_formatter import (
+from src.ai.knowledge_graph.sparql_engine import (
     default_formatter,
     ResultFormat
 )
-from ...ai.knowledge_graph.performance_monitor import (
+from src.ai.knowledge_graph.performance_monitor import (
     default_performance_monitor
+
 )
 
-logger = logging.getLogger(__name__)
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 # 创建路由器
-router = APIRouter(prefix="/api/v1/kg", tags=["Knowledge Graph Management"])
-
+router = APIRouter(prefix="/kg", tags=["Knowledge Graph Management"])
 
 class EntityType(str, Enum):
     """实体类型"""
@@ -50,7 +43,6 @@ class EntityType(str, Enum):
     DOCUMENT = "document"
     CUSTOM = "custom"
 
-
 class RelationType(str, Enum):
     """关系类型"""
     RELATED_TO = "related_to"
@@ -61,7 +53,6 @@ class RelationType(str, Enum):
     WORKS_FOR = "works_for"
     CUSTOM = "custom"
 
-
 class OperationType(str, Enum):
     """操作类型"""
     CREATE = "create"
@@ -69,34 +60,30 @@ class OperationType(str, Enum):
     DELETE = "delete"
     VALIDATE = "validate"
 
-
 # Pydantic模型
-class EntityBase(BaseModel):
+class EntityBase(ApiBaseModel):
     """实体基础模型"""
     name: str = Field(..., description="实体名称")
     entity_type: EntityType = Field(..., description="实体类型")
     properties: Dict[str, Any] = Field(default_factory=dict, description="实体属性")
     metadata: Dict[str, Any] = Field(default_factory=dict, description="元数据")
 
-
 class EntityCreate(EntityBase):
     """创建实体模型"""
     uri: Optional[str] = Field(None, description="实体URI，为空时自动生成")
     
-    @validator('uri')
+    @field_validator('uri')
     def validate_uri(cls, v):
         if v and not v.startswith('http'):
             raise ValueError('URI必须是有效的HTTP(S) URL')
         return v
 
-
-class EntityUpdate(BaseModel):
+class EntityUpdate(ApiBaseModel):
     """更新实体模型"""
     name: Optional[str] = Field(None, description="实体名称")
     entity_type: Optional[EntityType] = Field(None, description="实体类型")
     properties: Optional[Dict[str, Any]] = Field(None, description="实体属性")
     metadata: Optional[Dict[str, Any]] = Field(None, description="元数据")
-
 
 class EntityResponse(EntityBase):
     """实体响应模型"""
@@ -105,8 +92,7 @@ class EntityResponse(EntityBase):
     updated_at: datetime = Field(..., description="更新时间")
     version: int = Field(..., description="版本号")
 
-
-class RelationBase(BaseModel):
+class RelationBase(ApiBaseModel):
     """关系基础模型"""
     subject_uri: str = Field(..., description="主语实体URI")
     predicate: str = Field(..., description="关系谓词")
@@ -115,19 +101,16 @@ class RelationBase(BaseModel):
     properties: Dict[str, Any] = Field(default_factory=dict, description="关系属性")
     metadata: Dict[str, Any] = Field(default_factory=dict, description="元数据")
 
-
 class RelationCreate(RelationBase):
     """创建关系模型"""
-    pass
+    ...
 
-
-class RelationUpdate(BaseModel):
+class RelationUpdate(ApiBaseModel):
     """更新关系模型"""
     predicate: Optional[str] = Field(None, description="关系谓词")
     relation_type: Optional[RelationType] = Field(None, description="关系类型")
     properties: Optional[Dict[str, Any]] = Field(None, description="关系属性")
     metadata: Optional[Dict[str, Any]] = Field(None, description="元数据")
-
 
 class RelationResponse(RelationBase):
     """关系响应模型"""
@@ -136,8 +119,7 @@ class RelationResponse(RelationBase):
     updated_at: datetime = Field(..., description="更新时间")
     version: int = Field(..., description="版本号")
 
-
-class BatchOperation(BaseModel):
+class BatchOperation(ApiBaseModel):
     """批量操作模型"""
     operation_type: OperationType = Field(..., description="操作类型")
     entities: Optional[List[Union[EntityCreate, EntityUpdate]]] = Field(None, description="实体列表")
@@ -145,8 +127,7 @@ class BatchOperation(BaseModel):
     target_uris: Optional[List[str]] = Field(None, description="目标URI列表（用于删除操作）")
     transaction_id: Optional[str] = Field(None, description="事务ID")
 
-
-class BatchOperationResult(BaseModel):
+class BatchOperationResult(ApiBaseModel):
     """批量操作结果"""
     operation_id: str = Field(..., description="操作ID")
     total_items: int = Field(..., description="总项目数")
@@ -156,8 +137,7 @@ class BatchOperationResult(BaseModel):
     results: List[Dict[str, Any]] = Field(default_factory=list, description="结果列表")
     execution_time_ms: float = Field(..., description="执行时间（毫秒）")
 
-
-class ValidationRule(BaseModel):
+class ValidationRule(ApiBaseModel):
     """验证规则"""
     rule_id: str = Field(..., description="规则ID")
     rule_type: str = Field(..., description="规则类型")
@@ -165,14 +145,12 @@ class ValidationRule(BaseModel):
     error_message: str = Field(..., description="错误消息")
     enabled: bool = Field(True, description="是否启用")
 
-
-class ValidationResult(BaseModel):
+class ValidationResult(ApiBaseModel):
     """验证结果"""
     valid: bool = Field(..., description="是否通过验证")
     violations: List[Dict[str, Any]] = Field(default_factory=list, description="违规列表")
     checked_rules: int = Field(..., description="检查的规则数")
     execution_time_ms: float = Field(..., description="执行时间")
-
 
 # 实体管理API
 @router.get(
@@ -251,7 +229,6 @@ async def list_entities(
     except Exception as e:
         logger.error(f"查询实体列表失败: {e}")
         raise HTTPException(status_code=500, detail=str(e))
-
 
 @router.post(
     "/entities",
@@ -340,7 +317,6 @@ async def create_entity(entity: EntityCreate):
         logger.error(f"创建实体失败: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-
 @router.get(
     "/entities/{entity_uri:path}",
     response_model=EntityResponse,
@@ -425,7 +401,6 @@ async def get_entity(entity_uri: str):
     except Exception as e:
         logger.error(f"获取实体详情失败: {e}")
         raise HTTPException(status_code=500, detail=str(e))
-
 
 @router.put(
     "/entities/{entity_uri:path}",
@@ -512,7 +487,6 @@ async def update_entity(entity_uri: str, update_data: EntityUpdate):
         logger.error(f"更新实体失败: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-
 @router.delete(
     "/entities/{entity_uri:path}",
     status_code=204,
@@ -560,7 +534,6 @@ async def delete_entity(entity_uri: str):
     except Exception as e:
         logger.error(f"删除实体失败: {e}")
         raise HTTPException(status_code=500, detail=str(e))
-
 
 # 关系管理API
 @router.get(
@@ -641,7 +614,6 @@ async def list_relations(
         logger.error(f"查询关系列表失败: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-
 @router.post(
     "/relations",
     response_model=RelationResponse,
@@ -717,7 +689,6 @@ async def create_relation(relation: RelationCreate):
     except Exception as e:
         logger.error(f"创建关系失败: {e}")
         raise HTTPException(status_code=500, detail=str(e))
-
 
 # 批量操作API
 @router.post(
@@ -818,7 +789,6 @@ async def batch_operations(
         logger.error(f"批量操作失败: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-
 # 图谱验证API
 @router.post(
     "/validate",
@@ -904,7 +874,6 @@ async def validate_graph(
         logger.error(f"图谱验证失败: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-
 # 图谱模式API
 @router.get(
     "/schema",
@@ -958,7 +927,6 @@ async def get_graph_schema():
         logger.error(f"获取图谱模式失败: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-
 # 性能统计API
 @router.get(
     "/stats",
@@ -984,7 +952,6 @@ async def get_performance_stats():
     except Exception as e:
         logger.error(f"获取性能统计失败: {e}")
         raise HTTPException(status_code=500, detail=str(e))
-
 
 # 健康检查API
 @router.get(

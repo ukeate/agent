@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Card, Row, Col, Statistic, Progress, Button, Table, Tag, Space, Typography, Alert, Timeline, Tabs } from 'antd';
+import { Card, Row, Col, Statistic, Progress, Button, Table, Tag, Space, Typography, Alert, Timeline, Tabs, message } from 'antd';
 import { 
+import { logger } from '../utils/logger'
   TrophyOutlined, 
   ExperimentOutlined, 
   LineChartOutlined, 
@@ -10,6 +11,8 @@ import {
   DownloadOutlined,
   EyeOutlined
 } from '@ant-design/icons';
+import { modelEvaluationService } from '../services/modelEvaluationService';
+import { healthService, SystemMetrics } from '../services/healthService';
 
 const { Title, Text } = Typography;
 
@@ -44,6 +47,7 @@ const ModelEvaluationOverviewPage: React.FC = () => {
 
   const [recentEvaluations, setRecentEvaluations] = useState<RecentEvaluation[]>([]);
   const [loading, setLoading] = useState(true);
+  const [systemMetrics, setSystemMetrics] = useState<SystemMetrics | null>(null);
 
   useEffect(() => {
     loadOverviewData();
@@ -54,69 +58,67 @@ const ModelEvaluationOverviewPage: React.FC = () => {
   const loadOverviewData = async () => {
     try {
       setLoading(true);
-      
-      // 模拟API调用 - 在实际项目中替换为真实的API调用
-      const overviewData: EvaluationOverview = {
-        totalModels: 24,
-        runningEvaluations: 3,
-        completedToday: 15,
-        averageAccuracy: 0.847,
-        systemUtilization: 67,
-        queuedTasks: 8
+      const [history, metrics] = await Promise.all([
+        modelEvaluationService.getEvaluationHistory({ limit: 10 }),
+        healthService.getSystemMetrics().catch(() => null)
+      ]);
+      setSystemMetrics(metrics);
+
+      const runningEvals = history.evaluations.filter(e => e.status === 'in_progress' || e.status === 'running').length;
+      const completedToday = history.evaluations.filter(e => {
+        const evalDate = new Date(e.timestamp).toDateString();
+        const today = new Date().toDateString();
+        return evalDate === today && e.status === 'completed';
+      }).length;
+
+      const validScores = history.evaluations.filter(e => e.score > 0);
+      const avgAccuracy = validScores.length === 0
+        ? 0
+        : validScores.reduce((sum, e) => sum + e.score, 0) / validScores.length;
+
+      const cpuUsage = metrics?.cpu_usage ?? 0;
+      const utilization = Math.round(cpuUsage * 10) / 10;
+
+      setOverview({
+        totalModels: history.total,
+        runningEvaluations: runningEvals,
+        completedToday,
+        averageAccuracy: avgAccuracy,
+        systemUtilization: utilization,
+        queuedTasks: history.evaluations.filter(e => e.status === 'queued').length
+      });
+
+      const statusMap: Record<string, RecentEvaluation['status']> = {
+        in_progress: 'running',
+        running: 'running',
+        completed: 'completed',
+        failed: 'failed',
+        queued: 'queued'
       };
+      const evaluationsData: RecentEvaluation[] = history.evaluations.slice(0, 10).map(evaluation => ({
+        id: evaluation.id,
+        modelName: evaluation.model_name,
+        benchmark: evaluation.benchmark || 'unknown',
+        status: statusMap[evaluation.status] || 'queued',
+        accuracy: evaluation.score,
+        startTime: evaluation.timestamp,
+        duration: evaluation.duration || 0
+      }));
 
-      const evaluationsData: RecentEvaluation[] = [
-        {
-          id: 'eval_001',
-          modelName: 'BERT-Large-Uncased',
-          benchmark: 'GLUE',
-          status: 'running',
-          accuracy: 0.0,
-          startTime: '2024-01-15 14:30:00',
-          duration: 1800
-        },
-        {
-          id: 'eval_002',
-          modelName: 'GPT-3.5-Turbo',
-          benchmark: 'MMLU',
-          status: 'completed',
-          accuracy: 0.892,
-          startTime: '2024-01-15 13:45:00',
-          duration: 3600
-        },
-        {
-          id: 'eval_003',
-          modelName: 'Claude-3-Sonnet',
-          benchmark: 'HumanEval',
-          status: 'completed',
-          accuracy: 0.734,
-          startTime: '2024-01-15 12:15:00',
-          duration: 2700
-        },
-        {
-          id: 'eval_004',
-          modelName: 'Llama-2-70B',
-          benchmark: 'SuperGLUE',
-          status: 'failed',
-          accuracy: 0.0,
-          startTime: '2024-01-15 11:20:00',
-          duration: 450
-        },
-        {
-          id: 'eval_005',
-          modelName: 'T5-3B',
-          benchmark: 'GLUE',
-          status: 'queued',
-          accuracy: 0.0,
-          startTime: '2024-01-15 15:00:00',
-          duration: 0
-        }
-      ];
-
-      setOverview(overviewData);
       setRecentEvaluations(evaluationsData);
     } catch (error) {
-      console.error('加载概览数据失败:', error);
+      logger.error('加载评估概览数据失败:', error);
+      message.error('无法加载评估数据');
+      setOverview({
+        totalModels: 0,
+        runningEvaluations: 0,
+        completedToday: 0,
+        averageAccuracy: 0,
+        systemUtilization: 0,
+        queuedTasks: 0
+      });
+      setRecentEvaluations([]);
+      setSystemMetrics(null);
     } finally {
       setLoading(false);
     }
@@ -182,7 +184,7 @@ const ModelEvaluationOverviewPage: React.FC = () => {
             type="link" 
             size="small" 
             icon={<EyeOutlined />}
-            onClick={() => console.log('查看详情', record.id)}
+            onClick={() => logger.log('查看详情', record.id)}
           >
             详情
           </Button>
@@ -191,7 +193,7 @@ const ModelEvaluationOverviewPage: React.FC = () => {
               type="link" 
               size="small" 
               icon={<DownloadOutlined />}
-              onClick={() => console.log('下载报告', record.id)}
+              onClick={() => logger.log('下载报告', record.id)}
             >
               报告
             </Button>
@@ -206,10 +208,10 @@ const ModelEvaluationOverviewPage: React.FC = () => {
     {
       title: '系统状态',
       items: [
-        { label: 'GPU利用率', value: `${overview.systemUtilization}%`, color: overview.systemUtilization > 80 ? 'red' : 'green' },
-        { label: '内存使用', value: '14.2GB / 32GB', color: 'blue' },
-        { label: '磁盘空间', value: '2.1TB / 5TB', color: 'green' },
-        { label: '网络状态', value: '正常', color: 'green' }
+        { label: 'CPU使用率', value: systemMetrics?.cpu_usage != null ? `${systemMetrics.cpu_usage.toFixed(1)}%` : '-', color: systemMetrics?.cpu_usage && systemMetrics.cpu_usage > 80 ? 'red' : 'green' },
+        { label: '内存使用率', value: systemMetrics?.memory_usage != null ? `${systemMetrics.memory_usage.toFixed(1)}%` : '-', color: systemMetrics?.memory_usage && systemMetrics.memory_usage > 80 ? 'red' : 'green' },
+        { label: '磁盘使用率', value: systemMetrics?.disk_usage != null ? `${systemMetrics.disk_usage.toFixed(1)}%` : '-', color: systemMetrics?.disk_usage && systemMetrics.disk_usage > 85 ? 'red' : 'green' },
+        { label: '请求错误率', value: systemMetrics?.error_rate != null ? `${systemMetrics.error_rate.toFixed(2)}%` : '-', color: systemMetrics?.error_rate && systemMetrics.error_rate > 5 ? 'red' : 'green' }
       ]
     }
   ];
@@ -224,9 +226,9 @@ const ModelEvaluationOverviewPage: React.FC = () => {
       </div>
 
       <Alert
-        message="系统运行正常"
-        description="所有评估服务正常运行，当前有3个评估任务正在执行中"
-        type="success"
+        message={overview.runningEvaluations > 0 ? '评估任务运行中' : '当前无运行中的评估任务'}
+        description={`今日已完成 ${overview.completedToday} 个评估，队列中 ${overview.queuedTasks} 个任务`}
+        type={systemMetrics?.error_rate && systemMetrics.error_rate > 5 ? 'error' : systemMetrics?.error_rate && systemMetrics.error_rate > 1 ? 'warning' : 'success'}
         showIcon
         closable
         style={{ marginBottom: '24px' }}
@@ -268,8 +270,8 @@ const ModelEvaluationOverviewPage: React.FC = () => {
           <Card>
             <Statistic
               title="平均准确率"
-              value={overview.averageAccuracy}
-              precision={3}
+              value={overview.averageAccuracy * 100}
+              precision={1}
               suffix="%"
               valueStyle={{ color: '#fa8c16' }}
             />
@@ -294,7 +296,7 @@ const ModelEvaluationOverviewPage: React.FC = () => {
             }
           >
             <div style={{ marginBottom: '16px' }}>
-              <Text>GPU利用率</Text>
+              <Text>CPU使用率</Text>
               <Progress 
                 percent={overview.systemUtilization} 
                 status={overview.systemUtilization > 85 ? 'exception' : 'active'}
@@ -318,10 +320,16 @@ const ModelEvaluationOverviewPage: React.FC = () => {
             </div>
             
             <Timeline size="small" style={{ marginTop: '16px' }}>
-              <Timeline.Item color="green">系统启动完成</Timeline.Item>
-              <Timeline.Item color="blue">加载预训练模型</Timeline.Item>
-              <Timeline.Item color="orange">开始批量评估任务</Timeline.Item>
-              <Timeline.Item>等待新的评估请求...</Timeline.Item>
+              {recentEvaluations.length > 0 ? recentEvaluations.slice(0, 4).map((evaluation) => (
+                <Timeline.Item
+                  key={evaluation.id}
+                  color={evaluation.status === 'completed' ? 'green' : evaluation.status === 'failed' ? 'red' : 'blue'}
+                >
+                  {evaluation.modelName} - {evaluation.status === 'completed' ? '已完成' : evaluation.status === 'failed' ? '失败' : evaluation.status === 'running' ? '运行中' : '排队中'}
+                </Timeline.Item>
+              )) : (
+                <Timeline.Item>暂无评估记录</Timeline.Item>
+              )}
             </Timeline>
           </Card>
         </Col>
@@ -335,13 +343,13 @@ const ModelEvaluationOverviewPage: React.FC = () => {
                 <Button 
                   type="primary" 
                   icon={<PlayCircleOutlined />}
-                  onClick={() => console.log('启动新评估')}
+                  onClick={() => logger.log('启动新评估')}
                 >
                   新建评估
                 </Button>
                 <Button 
                   icon={<PauseCircleOutlined />}
-                  onClick={() => console.log('暂停所有评估')}
+                  onClick={() => logger.log('暂停所有评估')}
                 >
                   暂停所有
                 </Button>
@@ -373,7 +381,7 @@ const ModelEvaluationOverviewPage: React.FC = () => {
               type="dashed" 
               block 
               icon={<ExperimentOutlined />}
-              onClick={() => console.log('创建基准测试')}
+              onClick={() => message.info('请在模型评估管理页创建基准测试')}
             >
               创建基准测试
             </Button>
@@ -383,7 +391,7 @@ const ModelEvaluationOverviewPage: React.FC = () => {
               type="dashed" 
               block 
               icon={<TrophyOutlined />}
-              onClick={() => console.log('模型对比分析')}
+              onClick={() => message.info('请在模型评估管理页进行模型对比')}
             >
               模型对比分析
             </Button>
@@ -393,7 +401,7 @@ const ModelEvaluationOverviewPage: React.FC = () => {
               type="dashed" 
               block 
               icon={<DownloadOutlined />}
-              onClick={() => console.log('导出评估报告')}
+              onClick={() => message.info('请在评估结果详情中导出报告')}
             >
               导出评估报告
             </Button>
@@ -403,7 +411,7 @@ const ModelEvaluationOverviewPage: React.FC = () => {
               type="dashed" 
               block 
               icon={<LineChartOutlined />}
-              onClick={() => console.log('性能趋势分析')}
+              onClick={() => message.info('请在评估管理页查看性能趋势')}
             >
               性能趋势分析
             </Button>

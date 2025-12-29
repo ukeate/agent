@@ -3,23 +3,20 @@
 import asyncio
 import gc
 import json
-import logging
 from datetime import datetime
 from typing import Dict, List, Any, Optional
-
 import redis
 import psutil
 import aiohttp
-
 from .models import PerformanceMetrics
-
+from src.core.utils.timezone_utils import utc_now
 
 class PerformanceOptimizer:
     """性能优化器"""
     
     def __init__(self, config: Dict[str, Any]):
         self.config = config
-        self.logger = logging.getLogger(__name__)
+        self.logger = get_logger(__name__)
         
         # 性能监控指标
         self.metrics = {
@@ -87,7 +84,7 @@ class PerformanceOptimizer:
         
         return {
             "optimizations": optimizations,
-            "timestamp": datetime.now().isoformat(),
+            "timestamp": utc_now().isoformat(),
             "status": "completed"
         }
     
@@ -351,6 +348,7 @@ class PerformanceOptimizer:
         
         cpu_percent = psutil.cpu_percent(interval=1)
         memory = psutil.virtual_memory()
+        disk_usage = psutil.disk_usage("/")
         disk_io = psutil.disk_io_counters()
         network_io = psutil.net_io_counters()
         
@@ -365,14 +363,15 @@ class PerformanceOptimizer:
             memory_percent=memory.percent,
             disk_usage={
                 "read_bytes": disk_io.read_bytes if disk_io else 0,
-                "write_bytes": disk_io.write_bytes if disk_io else 0
+                "write_bytes": disk_io.write_bytes if disk_io else 0,
+                "percent": disk_usage.percent
             },
             network_usage={
                 "bytes_sent": network_io.bytes_sent if network_io else 0,
                 "bytes_recv": network_io.bytes_recv if network_io else 0
             },
             bottlenecks=bottlenecks,
-            timestamp=datetime.now()
+            timestamp=utc_now()
         )
     
     async def apply_optimization_profile(self, profile: str) -> Dict[str, Any]:
@@ -421,7 +420,7 @@ class PerformanceOptimizer:
         bottlenecks = await self._analyze_performance_bottlenecks()
         
         report = {
-            "timestamp": datetime.now().isoformat(),
+            "timestamp": utc_now().isoformat(),
             "current_metrics": {
                 "cpu_usage": metrics.cpu_percent,
                 "memory_usage": metrics.memory_percent,
@@ -466,3 +465,4 @@ class PerformanceOptimizer:
         score -= len(metrics.bottlenecks) * 10
         
         return max(0, min(100, score))
+from src.core.logging import get_logger

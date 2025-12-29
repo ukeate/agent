@@ -5,9 +5,10 @@ AI模型注册表系统 - 支持PyTorch、ONNX和HuggingFace模型的统一管�
 基于从Context7文档中获取的最佳实践实现。
 """
 
+from src.core.utils.timezone_utils import utc_now
 import os
 import json
-import pickle
+from src.core.utils import secure_pickle as pickle
 import shutil
 import hashlib
 import tempfile
@@ -17,8 +18,10 @@ from typing import Dict, List, Any, Optional, Union, Tuple, Type, Callable
 from dataclasses import dataclass, field, asdict
 from enum import Enum
 from abc import ABC, abstractmethod
-import logging
 from contextlib import contextmanager
+
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 try:
     import torch
@@ -50,9 +53,6 @@ except ImportError:
      AutoModelForSequenceClassification) = (None,) * 7
     HAS_TRANSFORMERS = False
 
-logger = logging.getLogger(__name__)
-
-
 class ModelFormat(Enum):
     """支持的模型格式"""
     PYTORCH = "pytorch"
@@ -60,7 +60,6 @@ class ModelFormat(Enum):
     ONNX = "onnx"
     HUGGINGFACE = "huggingface"
     SAFETENSORS = "safetensors"
-
 
 class ModelType(Enum):
     """模型类型"""
@@ -71,7 +70,6 @@ class ModelType(Enum):
     MULTIMODAL = "multimodal"
     CUSTOM = "custom"
 
-
 class CompressionType(Enum):
     """压缩类型"""
     NONE = "none"
@@ -79,7 +77,6 @@ class CompressionType(Enum):
     QUANTIZATION_INT4 = "int4"
     PRUNING = "pruning"
     DISTILLATION = "distillation"
-
 
 @dataclass
 class ModelMetadata:
@@ -90,8 +87,8 @@ class ModelMetadata:
     model_type: ModelType
     description: Optional[str] = None
     author: Optional[str] = None
-    created_at: datetime = field(default_factory=datetime.utcnow)
-    updated_at: datetime = field(default_factory=datetime.utcnow)
+    created_at: datetime = field(default_factory=utc_now)
+    updated_at: datetime = field(default_factory=utc_now)
     
     # 模型规格
     parameters_count: Optional[int] = None
@@ -123,7 +120,7 @@ class ModelMetadata:
     
     def update_timestamp(self):
         """更新修改时间"""
-        self.updated_at = datetime.utcnow()
+        self.updated_at = utc_now()
     
     def to_dict(self) -> Dict[str, Any]:
         """转换为字典"""
@@ -153,7 +150,6 @@ class ModelMetadata:
         if 'updated_at' in data and isinstance(data['updated_at'], str):
             data['updated_at'] = datetime.fromisoformat(data['updated_at'])
         return cls(**data)
-
 
 @dataclass
 class ModelEntry:
@@ -197,30 +193,28 @@ class ModelEntry:
             return True  # 没有校验和时默认通过
         return self.calculate_checksum() == self.checksum
 
-
 class ModelLoader(ABC):
     """模型加载器抽象基类"""
     
     @abstractmethod
     def load(self, model_path: str, **kwargs) -> Any:
         """加载模型"""
-        pass
+        raise NotImplementedError
     
     @abstractmethod
     def save(self, model: Any, model_path: str, **kwargs) -> None:
         """保存模型"""
-        pass
+        raise NotImplementedError
     
     @abstractmethod
     def get_metadata(self, model: Any, model_path: str = None) -> Dict[str, Any]:
         """提取模型元数据"""
-        pass
+        raise NotImplementedError
     
     @abstractmethod
     def supported_formats(self) -> List[ModelFormat]:
         """返回支持的格式"""
-        pass
-
+        raise NotImplementedError
 
 class PyTorchLoader(ModelLoader):
     """PyTorch模型加载器"""
@@ -249,12 +243,12 @@ class PyTorchLoader(ModelLoader):
                 return torch.jit.load(model_path, map_location=map_location)
             
             # 标准PyTorch模型加载
-            logger.info(f"使用weights_only={weights_only}加载PyTorch模型")
+            logger.info("加载PyTorch模型", weights_only=weights_only)
             return torch.load(model_path, map_location=map_location, 
                             weights_only=weights_only)
             
         except Exception as e:
-            logger.error(f"PyTorch模型加载失败: {e}")
+            logger.error("PyTorch模型加载失败", error=str(e), exc_info=True)
             raise
     
     def save(self, model: Any, model_path: str, 
@@ -291,7 +285,7 @@ class PyTorchLoader(ModelLoader):
             torch.save(model, model_path)
             
         except Exception as e:
-            logger.error(f"PyTorch模型保存失败: {e}")
+            logger.error("PyTorch模型保存失败", error=str(e), exc_info=True)
             raise
     
     def get_metadata(self, model: Any, model_path: str = None) -> Dict[str, Any]:
@@ -345,7 +339,6 @@ class PyTorchLoader(ModelLoader):
     def supported_formats(self) -> List[ModelFormat]:
         return [ModelFormat.PYTORCH, ModelFormat.PYTORCH_SCRIPT]
 
-
 class ONNXLoader(ModelLoader):
     """ONNX模型加载器"""
     
@@ -358,7 +351,7 @@ class ONNXLoader(ModelLoader):
             raise FileNotFoundError(f"模型文件不存在: {model_path}")
         
         try:
-            logger.info(f"加载ONNX模型: {model_path}")
+            logger.info("加载ONNX模型", model_path=str(model_path))
             
             # 检查外部数据
             if self._has_external_data(model_path):
@@ -373,7 +366,7 @@ class ONNXLoader(ModelLoader):
                 return onnx.load(model_path)
                 
         except Exception as e:
-            logger.error(f"ONNX模型加载失败: {e}")
+            logger.error("ONNX模型加载失败", error=str(e), exc_info=True)
             raise
     
     def save(self, model: Any, model_path: str, 
@@ -399,7 +392,7 @@ class ONNXLoader(ModelLoader):
                 onnx.save(model, model_path)
                 
         except Exception as e:
-            logger.error(f"ONNX模型保存失败: {e}")
+            logger.error("ONNX模型保存失败", error=str(e), exc_info=True)
             raise
     
     def get_metadata(self, model: Any, model_path: str = None) -> Dict[str, Any]:
@@ -490,7 +483,6 @@ class ONNXLoader(ModelLoader):
     def supported_formats(self) -> List[ModelFormat]:
         return [ModelFormat.ONNX]
 
-
 class HuggingFaceLoader(ModelLoader):
     """HuggingFace模型加载器"""
     
@@ -523,7 +515,7 @@ class HuggingFaceLoader(ModelLoader):
             else:
                 model_class = AutoModel
             
-            logger.info(f"加载HuggingFace模型: {model_path}")
+            logger.info("加载HuggingFace模型", model_path=str(model_path))
             
             # 加载模型
             model = model_class.from_pretrained(
@@ -537,13 +529,13 @@ class HuggingFaceLoader(ModelLoader):
             try:
                 tokenizer = AutoTokenizer.from_pretrained(model_path)
             except Exception as e:
-                logger.warning(f"无法加载tokenizer: {e}")
+                logger.warning("无法加载tokenizer", error=str(e))
                 tokenizer = None
             
             return model, tokenizer
             
         except Exception as e:
-            logger.error(f"HuggingFace模型加载失败: {e}")
+            logger.error("HuggingFace模型加载失败", error=str(e), exc_info=True)
             raise
     
     def save(self, model: Any, model_path: str, 
@@ -583,7 +575,7 @@ class HuggingFaceLoader(ModelLoader):
                 tokenizer.save_pretrained(model_path)
             
         except Exception as e:
-            logger.error(f"HuggingFace模型保存失败: {e}")
+            logger.error("HuggingFace模型保存失败", error=str(e), exc_info=True)
             raise
     
     def get_metadata(self, model: Any, model_path: str = None) -> Dict[str, Any]:
@@ -606,8 +598,8 @@ class HuggingFaceLoader(ModelLoader):
             # 转换配置为字典
             try:
                 metadata["config"] = config.to_dict()
-            except:
-                pass
+            except Exception:
+                logger.exception("模型配置转换失败", exc_info=True)
         
         # 参数统计
         if hasattr(model, 'parameters'):
@@ -634,7 +626,6 @@ class HuggingFaceLoader(ModelLoader):
     
     def supported_formats(self) -> List[ModelFormat]:
         return [ModelFormat.HUGGINGFACE, ModelFormat.SAFETENSORS]
-
 
 class ModelRegistry:
     """
@@ -769,7 +760,7 @@ class ModelRegistry:
         self.models[model_id] = entry
         self._save_registry()
         
-        logger.info(f"成功注册模型: {model_id}")
+        logger.info("模型注册成功", model_id=model_id)
         return entry
     
     def load_model(
@@ -842,7 +833,10 @@ class ModelRegistry:
     def get_model_info(self, name: str, version: str = "latest") -> Optional[ModelEntry]:
         """获取模型信息"""
         if version == "latest":
-            version = self._get_latest_version(name)
+            try:
+                version = self._get_latest_version(name)
+            except ValueError:
+                return None
         
         model_id = f"{name}:{version}"
         return self.models.get(model_id)
@@ -1011,10 +1005,10 @@ class ModelRegistry:
                 )
                 self.models[model_id] = entry
                 
-            logger.info(f"已加载 {len(self.models)} 个模型注册信息")
+            logger.info("已加载模型注册信息", model_count=len(self.models))
             
         except Exception as e:
-            logger.error(f"加载注册表失败: {e}")
+            logger.error("加载注册表失败", error=str(e), exc_info=True)
     
     def _save_registry(self):
         """保存注册表到文件"""
@@ -1033,12 +1027,10 @@ class ModelRegistry:
                 json.dump(registry_data, f, indent=2, ensure_ascii=False)
                 
         except Exception as e:
-            logger.error(f"保存注册表失败: {e}")
-
+            logger.error("保存注册表失败", error=str(e), exc_info=True)
 
 # 全局模型注册表实例
 model_registry = ModelRegistry()
-
 
 def register_pytorch_model(
     name: str,
@@ -1056,7 +1048,6 @@ def register_pytorch_model(
         **kwargs
     )
 
-
 def register_onnx_model(
     name: str,
     model: Any,
@@ -1071,7 +1062,6 @@ def register_onnx_model(
         version=version,
         **kwargs
     )
-
 
 def register_huggingface_model(
     name: str,
@@ -1090,22 +1080,26 @@ def register_huggingface_model(
         **kwargs
     )
 
-
 if __name__ == "__main__":
     # 使用示例
-    print("AI模型注册表系统测试...")
+    logger.info("AI模型注册表系统测试开始")
     
     # 创建测试注册表
     test_registry = ModelRegistry("./test_models")
     
     # 验证注册表
     validation_result = test_registry.validate_registry()
-    print(f"注册表验证结果: {validation_result}")
+    logger.info("注册表验证结果", result=validation_result)
     
     # 列出所有模型
     models = test_registry.list_models()
-    print(f"已注册模型数量: {len(models)}")
+    logger.info("已注册模型数量", model_count=len(models))
     for model in models:
-        print(f"- {model.metadata.name}:{model.metadata.version} ({model.metadata.format.value})")
+        logger.info(
+            "已注册模型",
+            name=model.metadata.name,
+            version=model.metadata.version,
+            model_format=model.metadata.format.value,
+        )
     
-    print("测试完成")
+    logger.info("AI模型注册表系统测试完成")

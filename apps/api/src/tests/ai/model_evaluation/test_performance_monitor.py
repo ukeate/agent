@@ -8,7 +8,6 @@ from unittest.mock import Mock, patch, MagicMock
 import tempfile
 import json
 from pathlib import Path
-
 from ai.model_evaluation.performance_monitor import (
     PerformanceMonitor,
     SystemMetrics,
@@ -17,7 +16,6 @@ from ai.model_evaluation.performance_monitor import (
     PerformanceAlert,
     PerformanceAnalyzer
 )
-
 
 class TestSystemMetrics:
     """测试系统性能指标类"""
@@ -47,7 +45,6 @@ class TestSystemMetrics:
         assert metrics.gpu_memory_total_gb == 24.0
         assert metrics.gpu_temperature == 65.0
 
-
 class TestModelMetrics:
     """测试模型性能指标类"""
     
@@ -73,7 +70,6 @@ class TestModelMetrics:
         assert metrics.tokens_per_second == 213.3
         assert metrics.memory_usage_mb == 1024.0
         assert metrics.gpu_utilization == 85.0
-
 
 class TestBenchmarkMetrics:
     """测试基准测试指标类"""
@@ -109,7 +105,6 @@ class TestBenchmarkMetrics:
         assert metrics.total_time_seconds == 120.0
         assert metrics.peak_memory_usage_gb == 8.5
 
-
 class TestPerformanceAlert:
     """测试性能告警类"""
     
@@ -141,7 +136,6 @@ class TestPerformanceAlert:
         assert alert.threshold_value == 90.0
         assert alert.model_name == "test_model"
         assert not alert.resolved
-
 
 class TestPerformanceMonitor:
     """测试性能监控器"""
@@ -692,7 +686,6 @@ class TestPerformanceMonitor:
             
             monitor.stop_monitoring()
 
-
 class TestPerformanceAnalyzer:
     """测试性能分析器"""
     
@@ -923,7 +916,6 @@ class TestPerformanceAnalyzer:
         
         assert comparison["detailed_metrics"]["nonexistent_model"]["error"] == "没有数据"
         assert comparison["rankings"] == {}  # 没有数据时排名为空
-
 
 if __name__ == "__main__":
     pytest.main([__file__])

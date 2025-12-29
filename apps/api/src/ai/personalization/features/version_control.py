@@ -5,10 +5,9 @@ from datetime import datetime
 from src.core.utils.timezone_utils import utc_now, utc_factory
 from dataclasses import dataclass, asdict
 from redis.asyncio import Redis
-import logging
 
-logger = logging.getLogger(__name__)
-
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 @dataclass
 class FeatureVersion:
@@ -27,7 +26,6 @@ class FeatureVersion:
             self.changes = []
         if self.metadata is None:
             self.metadata = {}
-
 
 class FeatureVersionControl:
     """特征版本控制系统"""

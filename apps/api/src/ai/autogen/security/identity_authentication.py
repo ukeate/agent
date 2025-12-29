@@ -3,12 +3,14 @@
 支持PKI证书认证、OAuth2、多因子认证等多种认证方式
 """
 
+from src.core.utils.timezone_utils import utc_now
 import asyncio
+import hmac
 import jwt
 import secrets
 import hashlib
-import aioredis
-import logging
+import time
+import redis.asyncio as redis
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Any
 from dataclasses import dataclass, field
@@ -17,13 +19,12 @@ from cryptography import x509
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import rsa, padding
 
-
+from src.core.logging import get_logger
 class AuthenticationMethod(Enum):
     PKI_CERTIFICATE = "pki_cert"
     OAUTH2 = "oauth2"
     MULTI_FACTOR = "mfa"
     BIOMETRIC = "biometric"
-
 
 class TrustLevel(Enum):
     UNTRUSTED = 0
@@ -31,7 +32,6 @@ class TrustLevel(Enum):
     MEDIUM = 2
     HIGH = 3
     CRITICAL = 4
-
 
 @dataclass
 class AgentIdentity:
@@ -45,7 +45,6 @@ class AgentIdentity:
     expires_at: datetime
     revoked: bool = False
 
-
 @dataclass
 class AuthenticationResult:
     authenticated: bool
@@ -54,7 +53,6 @@ class AuthenticationResult:
     authentication_methods: List[AuthenticationMethod]
     session_token: Optional[str]
     error_message: Optional[str] = None
-
 
 class IdentityAuthenticationService:
     """分布式身份认证服务"""
@@ -66,13 +64,11 @@ class IdentityAuthenticationService:
         self.revoked_certificates: set = set()
         self.jwt_secret = config.get('jwt_secret', secrets.token_hex(32))
         self.session_timeout = config.get('session_timeout', 3600)
-        self.logger = logging.getLogger(__name__)
+        self.logger = get_logger(__name__)
         
     async def initialize(self):
         """初始化认证服务"""
-        self.redis = await aioredis.from_url(
-            self.config.get('redis_url', 'redis://localhost:6379')
-        )
+        self.redis = redis.from_url(self.config.get('redis_url', 'redis://localhost:6379'))
         await self._load_ca_certificates()
         await self._load_revocation_list()
         self.logger.info("Identity authentication service initialized")
@@ -191,7 +187,7 @@ class IdentityAuthenticationService:
             cert = x509.load_pem_x509_certificate(certificate_data)
             
             # 验证证书有效期
-            now = datetime.utcnow()
+            now = utc_now()
             if now < cert.not_valid_before or now > cert.not_valid_after:
                 return {'success': False, 'trust_score': 0.0, 'error': 'Certificate expired'}
             
@@ -362,25 +358,48 @@ class IdentityAuthenticationService:
         return min(trust_score, 1.0)
     
     async def _validate_oauth_token(self, token: str) -> Dict[str, Any]:
-        """验证OAuth2令牌（模拟实现）"""
-        # 这里应该调用实际的OAuth2提供商API
-        # 返回模拟数据
-        return {
-            'valid': True,
-            'sub': 'agent_123',
-            'trust_score': 0.7,
-            'exp': int((datetime.utcnow() + timedelta(hours=1)).timestamp())
-        }
+        """验证OAuth2令牌"""
+        try:
+            payload = jwt.decode(token, self.jwt_secret, algorithms=["HS256"])
+        except Exception as e:
+            return {"valid": False, "error": str(e)}
+
+        sub = payload.get("sub") or payload.get("agent_id") or payload.get("user_id")
+        if not sub:
+            return {"valid": False, "error": "missing subject"}
+
+        exp = payload.get("exp")
+        return {"valid": True, "sub": str(sub), "trust_score": 0.8, "exp": exp}
     
     async def _validate_mfa_token(self, agent_id: str, token: str) -> bool:
-        """验证MFA令牌（模拟实现）"""
-        # 这里应该实现TOTP或其他MFA验证
-        return len(token) == 6 and token.isdigit()
+        """验证MFA令牌（TOTP）"""
+        if not (len(token) == 6 and token.isdigit()):
+            return False
+
+        secret = hmac.new(self.jwt_secret.encode(), agent_id.encode(), hashlib.sha1).digest()
+        timestep = 30
+        counter = int(time.time() // timestep)
+
+        for drift in (-1, 0, 1):
+            msg = (counter + drift).to_bytes(8, "big")
+            digest = hmac.new(secret, msg, hashlib.sha1).digest()
+            offset = digest[-1] & 0x0F
+            code = (int.from_bytes(digest[offset : offset + 4], "big") & 0x7FFFFFFF) % 1000000
+            if secrets.compare_digest(token, f"{code:06d}"):
+                return True
+
+        return False
     
     async def _verify_biometric_data(self, agent_id: str, data: Dict[str, Any]) -> float:
-        """验证生物特征数据（模拟实现）"""
-        # 这里应该实现实际的生物特征匹配算法
-        return 0.9  # 模拟高匹配度
+        """验证生物特征数据（挑战-响应）"""
+        nonce = data.get("nonce")
+        proof = data.get("proof")
+        if not nonce or not proof:
+            return 0.0
+
+        secret = hmac.new(self.jwt_secret.encode(), agent_id.encode(), hashlib.sha256).digest()
+        expected = hmac.new(secret, str(nonce).encode(), hashlib.sha256).hexdigest()
+        return 1.0 if secrets.compare_digest(str(proof), expected) else 0.0
     
     async def _create_agent_identity(
         self,
@@ -405,7 +424,7 @@ class IdentityAuthenticationService:
         roles = await self._extract_agent_roles(agent_id, credentials)
         attributes = await self._extract_agent_attributes(agent_id, credentials)
         
-        now = datetime.utcnow()
+        now = utc_now()
         identity = AgentIdentity(
             agent_id=agent_id,
             public_key=credentials.get('public_key', b''),
@@ -481,7 +500,7 @@ class IdentityAuthenticationService:
             'event_type': 'access_revoked',
             'agent_id': agent_id,
             'reason': reason,
-            'timestamp': datetime.utcnow().isoformat()
+            'timestamp': utc_now().isoformat()
         })
         
         self.logger.info(f"Revoked access for agent {agent_id}: {reason}")
@@ -548,12 +567,11 @@ class IdentityAuthenticationService:
     async def _log_security_event(self, event: Dict[str, Any]):
         """记录安全事件"""
         try:
-            event_key = f"security_event:{int(datetime.utcnow().timestamp())}:{secrets.token_hex(4)}"
+            event_key = f"security_event:{int(utc_now().timestamp())}:{secrets.token_hex(4)}"
             await self.redis.setex(event_key, 86400, str(event))  # 保存24小时
             self.logger.info(f"Security event logged: {event['event_type']}")
         except Exception as e:
             self.logger.error(f"Failed to log security event: {e}")
-
 
 class ZeroTrustValidator:
     """零信任验证器"""
@@ -561,7 +579,7 @@ class ZeroTrustValidator:
     def __init__(self, config: Dict[str, Any]):
         self.config = config
         self.risk_threshold = config.get('risk_threshold', 0.7)
-        self.logger = logging.getLogger(__name__)
+        self.logger = get_logger(__name__)
         
     async def validate_agent_trust(
         self,
@@ -603,7 +621,7 @@ class ZeroTrustValidator:
     
     async def _check_time_anomaly(self, identity: AgentIdentity, context: Dict[str, Any]) -> bool:
         """检查时间异常"""
-        current_hour = datetime.utcnow().hour
+        current_hour = utc_now().hour
         # 非工作时间访问视为异常
         return current_hour < 6 or current_hour > 22
     

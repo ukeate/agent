@@ -1,252 +1,165 @@
-import React, { useState, useEffect } from 'react';
-import { Card, Button, Select, Tabs, Progress, Alert, Badge, Space, Typography, Divider } from 'antd';
-import { 
-  BrainCircuit, 
-  FileText, 
-  BarChart3, 
-  Download, 
-  RefreshCw, 
-  Settings,
-  HelpCircle,
-  TrendingUp,
-  Target,
-  AlertTriangle,
-  CheckCircle
-} from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { Alert, Button, Card, Space, Tabs, Typography } from 'antd';
+import explainableAiService, { type DecisionExplanation, type DemoScenarios, type ExplanationTypes } from '../services/explainableAiService';
 
+import { logger } from '../utils/logger'
 const { Title, Text, Paragraph } = Typography;
 const { TabPane } = Tabs;
 
-interface ExplanationComponent {
+type CustomFactor = {
   factor_name: string;
-  factor_value: any;
-  weight: number;
-  impact_score: number;
-  evidence_type: string;
-  evidence_source: string;
-  evidence_content: string;
-}
-
-interface ConfidenceMetrics {
-  overall_confidence: number;
-  uncertainty_score: number;
-  confidence_interval_lower?: number;
-  confidence_interval_upper?: number;
-}
-
-interface CounterfactualScenario {
-  scenario_name: string;
-  predicted_outcome: string;
-  probability: number;
-  impact_difference: number;
-  explanation: string;
-}
-
-interface DecisionExplanation {
-  id: string;
-  decision_id: string;
-  explanation_type: string;
-  decision_outcome: string;
-  summary_explanation: string;
-  detailed_explanation: string;
-  components: ExplanationComponent[];
-  confidence_metrics: ConfidenceMetrics;
-  counterfactuals: CounterfactualScenario[];
-}
+  factor_value: string;
+  weight: string;
+  impact: string;
+};
 
 const ExplainableAiPage: React.FC = () => {
-  const [explanation, setExplanation] = useState<DecisionExplanation | null>(null);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [exportStatus, setExportStatus] = useState<string>('');
+
+  const [explanation, setExplanation] = useState<DecisionExplanation | null>(null);
+  const [explanationTypes, setExplanationTypes] = useState<ExplanationTypes | null>(null);
+  const [demoScenarios, setDemoScenarios] = useState<DemoScenarios | null>(null);
+
+  const [activeTab, setActiveTab] = useState<'demo' | 'custom'>('demo');
+
   const [selectedExplanationType, setSelectedExplanationType] = useState('decision');
   const [selectedExplanationLevel, setSelectedExplanationLevel] = useState('detailed');
 
-  // 模拟数据
-  const mockExplanation: DecisionExplanation = {
-    id: 'exp-001',
-    decision_id: 'loan-001',
-    explanation_type: 'decision',
-    decision_outcome: '贷款申请批准',
-    summary_explanation: '基于申请人的信用评分750分、年收入8万元等因素，系统建议批准此贷款申请。',
-    detailed_explanation: '经过综合分析，申请人具备良好的信用记录和稳定的收入来源，风险评估结果为低风险，符合贷款批准标准。',
-    components: [
-      {
-        factor_name: '信用评分',
-        factor_value: 750,
-        weight: 0.35,
-        impact_score: 0.8,
-        evidence_type: 'external_source',
-        evidence_source: '征信机构',
-        evidence_content: '信用评分750分，表现良好'
-      },
-      {
-        factor_name: '年收入',
-        factor_value: 80000,
-        weight: 0.25,
-        impact_score: 0.7,
-        evidence_type: 'external_source',
-        evidence_source: '财务报表',
-        evidence_content: '年收入8万元，收入稳定'
-      },
-      {
-        factor_name: '工作年限',
-        factor_value: 5,
-        weight: 0.2,
-        impact_score: 0.6,
-        evidence_type: 'external_source',
-        evidence_source: 'HR系统',
-        evidence_content: '工作5年，稳定性良好'
-      }
-    ],
-    confidence_metrics: {
-      overall_confidence: 0.85,
-      uncertainty_score: 0.15,
-      confidence_interval_lower: 0.78,
-      confidence_interval_upper: 0.92
-    },
-    counterfactuals: [
-      {
-        scenario_name: '信用评分降低场景',
-        predicted_outcome: '可能被拒绝',
-        probability: 0.7,
-        impact_difference: -0.3,
-        explanation: '如果信用评分降至650分，批准概率将显著降低'
-      }
-    ]
+  const [selectedScenario, setSelectedScenario] = useState('loan_approval');
+  const [selectedComplexity, setSelectedComplexity] = useState('medium');
+  const [includeCot, setIncludeCot] = useState(false);
+
+  const [customDecisionId, setCustomDecisionId] = useState('');
+  const [customDecisionContext, setCustomDecisionContext] = useState('');
+  const [customFactors, setCustomFactors] = useState<CustomFactor[]>([]);
+
+  // 加载配置数据
+  const loadConfigurations = async (): Promise<void> => {
+    try {
+      const [typesData, scenariosData] = await Promise.all([
+        explainableAiService.getExplanationTypes(),
+        explainableAiService.getDemoScenarios()
+      ]);
+      setExplanationTypes(typesData);
+      setDemoScenarios(scenariosData);
+    } catch (error) {
+      logger.error('加载配置失败:', error);
+      setError('配置加载失败');
+    }
   };
 
-  const generateExplanation = async () => {
+  const addFactorRow = (): void => {
+    setCustomFactors(prev => [...prev, { factor_name: '', factor_value: '', weight: '', impact: '' }]);
+  };
+
+  const generateDemoExplanation = async (): Promise<void> => {
+    setError(null);
     setLoading(true);
     try {
-      // 模拟API调用
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      setExplanation(mockExplanation);
+      const result = await explainableAiService.generateDemoScenario({
+        scenario_type: selectedScenario as any,
+        complexity: selectedComplexity as any,
+        include_cot: includeCot,
+      });
+      setExplanation(result);
     } catch (error) {
-      console.error('Failed to generate explanation:', error);
+      logger.error('生成示例解释失败:', error);
+      setError('解释生成失败');
     } finally {
       setLoading(false);
     }
   };
 
+  const generateCustomExplanation = async (): Promise<void> => {
+    setError(null);
+    if (!customDecisionId.trim() || !customDecisionContext.trim()) {
+      setError('请填写决策ID和决策上下文');
+      return;
+    }
+    const factors = customFactors.map((f) => {
+      const weight = Number(f.weight);
+      const impact = Number(f.impact);
+      if (!f.factor_name.trim() || !f.factor_value.trim() || !Number.isFinite(weight) || !Number.isFinite(impact)) {
+        throw new Error('invalid_factor');
+      }
+      return {
+        factor_name: f.factor_name.trim(),
+        factor_value: f.factor_value.trim(),
+        weight,
+        impact,
+        source: 'user',
+      };
+    });
+
+    setLoading(true);
+    try {
+      const result = await explainableAiService.generateExplanation({
+        decision_id: customDecisionId.trim(),
+        decision_context: customDecisionContext.trim(),
+        explanation_type: selectedExplanationType as any,
+        explanation_level: selectedExplanationLevel as any,
+        factors,
+      });
+      setExplanation(result);
+    } catch (error) {
+      logger.error('生成自定义解释失败:', error);
+      setError('解释生成失败');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const generateByActiveTab = async (): Promise<void> => {
+    try {
+      if (activeTab === 'custom') {
+        await generateCustomExplanation();
+        return;
+      }
+      await generateDemoExplanation();
+    } catch {
+      setError('解释生成失败');
+    }
+  };
+
+  const exportExplanation = (format: string): void => {
+    if (!explanation) return;
+    setExportStatus('正在导出');
+    const percent = Math.round((explanation.confidence_metrics?.overall_confidence || 0) * 100);
+    const content =
+      format === 'json'
+        ? JSON.stringify(explanation, null, 2)
+        : format === 'markdown'
+          ? `# Explanation\n\n- decision_id: ${explanation.decision_id}\n- outcome: ${explanation.decision_outcome}\n\n## Summary\n\n${explanation.summary_explanation}\n`
+          : format === 'html'
+            ? `<h1>Explanation</h1><div><b>decision_id</b>: ${explanation.decision_id}</div><div><b>outcome</b>: ${explanation.decision_outcome}</div><div><b>confidence</b>: ${percent}%</div><h2>Summary</h2><pre>${explanation.summary_explanation}</pre>`
+            : format === 'xml'
+              ? `<explanation><decision_id>${explanation.decision_id}</decision_id><outcome>${explanation.decision_outcome}</outcome><summary>${explanation.summary_explanation}</summary></explanation>`
+              : `decision_id: ${explanation.decision_id}\noutcome: ${explanation.decision_outcome}\nconfidence: ${percent}%\n\n${explanation.summary_explanation}`;
+
+    const ext = format === '纯文本' ? 'txt' : format;
+    const blob = new Blob([content], { type: format === 'html' ? 'text/html' : 'text/plain' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `explanation.${ext}`;
+    document.body.appendChild(a);
+    a.click();
+    window.URL.revokeObjectURL(url);
+    document.body.removeChild(a);
+  };
+
   useEffect(() => {
-    generateExplanation();
+    loadConfigurations();
   }, []);
-
-  const renderConfidenceMetrics = () => {
-    if (!explanation) return null;
-
-    const { confidence_metrics } = explanation;
-    
-    return (
-      <Card>
-        <div style={{ padding: '16px' }}>
-          <Title level={4}>置信度分析</Title>
-          <Space direction="vertical" style={{ width: '100%' }}>
-            <div>
-              <Text>整体置信度</Text>
-              <Progress 
-                percent={confidence_metrics.overall_confidence * 100} 
-                strokeColor={{
-                  '0%': '#108ee9',
-                  '100%': '#87d068',
-                }}
-              />
-              <Text type="secondary">
-                {(confidence_metrics.overall_confidence * 100).toFixed(1)}%
-              </Text>
-            </div>
-            <div>
-              <Text>不确定性</Text>
-              <Progress 
-                percent={confidence_metrics.uncertainty_score * 100} 
-                strokeColor="#ff4d4f"
-              />
-              <Text type="secondary">
-                {(confidence_metrics.uncertainty_score * 100).toFixed(1)}%
-              </Text>
-            </div>
-          </Space>
-        </div>
-      </Card>
-    );
-  };
-
-  const renderFactorsTable = () => {
-    if (!explanation) return null;
-
-    return (
-      <Card>
-        <div style={{ padding: '16px' }}>
-          <Title level={4}>关键因素分析</Title>
-          <div style={{ marginTop: '16px' }}>
-            {explanation.components.map((component, index) => (
-              <div key={index} style={{ marginBottom: '16px', padding: '12px', border: '1px solid #f0f0f0', borderRadius: '6px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                  <Text strong>{component.factor_name}</Text>
-                  <Badge 
-                    color={component.impact_score > 0.7 ? 'green' : component.impact_score > 0.4 ? 'orange' : 'red'}
-                    text={`影响度: ${(component.impact_score * 100).toFixed(0)}%`}
-                  />
-                </div>
-                <div style={{ marginBottom: '8px' }}>
-                  <Text>值: </Text>
-                  <Text code>{component.factor_value}</Text>
-                  <Text style={{ marginLeft: '16px' }}>权重: </Text>
-                  <Text code>{(component.weight * 100).toFixed(0)}%</Text>
-                </div>
-                <Text type="secondary">{component.evidence_content}</Text>
-              </div>
-            ))}
-          </div>
-        </div>
-      </Card>
-    );
-  };
-
-  const renderCounterfactuals = () => {
-    if (!explanation) return null;
-
-    return (
-      <Card>
-        <div style={{ padding: '16px' }}>
-          <Title level={4}>反事实分析</Title>
-          <Paragraph>
-            <Text type="secondary">分析在不同假设条件下的可能结果</Text>
-          </Paragraph>
-          
-          {explanation.counterfactuals.map((scenario, index) => (
-            <Card key={index} style={{ marginBottom: '16px' }} size="small">
-              <div style={{ padding: '12px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                  <Text strong>{scenario.scenario_name}</Text>
-                  <Badge 
-                    color={scenario.impact_difference > 0 ? 'green' : 'red'}
-                    text={`${scenario.impact_difference > 0 ? '+' : ''}${(scenario.impact_difference * 100).toFixed(1)}%`}
-                  />
-                </div>
-                <div style={{ marginBottom: '8px' }}>
-                  <Text>预测结果: </Text>
-                  <Text strong>{scenario.predicted_outcome}</Text>
-                </div>
-                <div style={{ marginBottom: '8px' }}>
-                  <Text>发生概率: </Text>
-                  <Text code>{(scenario.probability * 100).toFixed(0)}%</Text>
-                </div>
-                <Text type="secondary">{scenario.explanation}</Text>
-              </div>
-            </Card>
-          ))}
-        </div>
-      </Card>
-    );
-  };
 
   return (
     <div style={{ padding: '24px', background: '#f5f5f5', minHeight: '100vh' }}>
       <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
         {/* 页面标题 */}
         <div style={{ marginBottom: '24px' }}>
-          <Title level={2}>
-            <BrainCircuit style={{ marginRight: '8px', color: '#1890ff' }} />
+          <Title level={1}>
             可解释AI决策系统
           </Title>
           <Paragraph>
@@ -255,125 +168,296 @@ const ExplainableAiPage: React.FC = () => {
         </div>
 
         {/* 控制面板 */}
-        <Card style={{ marginBottom: '24px' }}>
+        <Card style={{ marginBottom: '24px' }} data-testid="explanation-controls">
           <div style={{ padding: '16px' }}>
-            <Title level={4}>解释配置</Title>
-            <Space size="large">
-              <div>
-                <Text>解释类型:</Text>
-                <Select 
-                  value={selectedExplanationType}
-                  onChange={setSelectedExplanationType}
-                  style={{ width: 120, marginLeft: '8px' }}
-                >
-                  <Select.Option value="decision">决策解释</Select.Option>
-                  <Select.Option value="reasoning">推理解释</Select.Option>
-                  <Select.Option value="workflow">工作流解释</Select.Option>
-                </Select>
-              </div>
-              
-              <div>
-                <Text>详细程度:</Text>
-                <Select 
-                  value={selectedExplanationLevel}
-                  onChange={setSelectedExplanationLevel}
-                  style={{ width: 120, marginLeft: '8px' }}
-                >
-                  <Select.Option value="summary">概要</Select.Option>
-                  <Select.Option value="detailed">详细</Select.Option>
-                  <Select.Option value="technical">技术</Select.Option>
-                </Select>
-              </div>
+            {!explanationTypes || !demoScenarios ? (
+              <div>加载配置中...</div>
+            ) : (
+              <>
+                <Space size="large" wrap>
+                  <label>
+                    <Text>解释类型:</Text>{' '}
+                    <select
+                      data-testid="explanation-type-select"
+                      value={selectedExplanationType}
+                      onChange={(e) => setSelectedExplanationType(e.target.value)}
+                    >
+                      {explanationTypes.explanation_types.map((t) => (
+                        <option key={t.value} value={t.value}>
+                          {t.value}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label>
+                    <Text>解释级别:</Text>{' '}
+                    <select
+                      data-testid="explanation-level-select"
+                      value={selectedExplanationLevel}
+                      onChange={(e) => setSelectedExplanationLevel(e.target.value)}
+                    >
+                      {explanationTypes.explanation_levels.map((l) => (
+                        <option key={l.value} value={l.value}>
+                          {l.value}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <Button
+                    type="primary"
+                    data-testid="generate-explanation-btn"
+                    onClick={generateByActiveTab}
+                    disabled={loading}
+                  >
+                    生成解释
+                  </Button>
+                </Space>
 
-              <Button 
-                type="primary" 
-                loading={loading}
-                onClick={generateExplanation}
-                icon={<RefreshCw size={16} />}
-              >
-                生成解释
-              </Button>
-            </Space>
+                <div style={{ marginTop: '16px' }}>
+                  <Tabs
+                    data-testid="tab-container"
+                    activeKey={activeTab}
+                    onChange={(key) => setActiveTab(key as any)}
+                  >
+                    <TabPane tab={<span data-testid="demo-scenarios-tab">演示场景</span>} key="demo">
+                      <Space size="large" wrap>
+                        <label>
+                          <Text>场景:</Text>{' '}
+                          <select
+                            data-testid="scenario-select"
+                            value={selectedScenario}
+                            onChange={(e) => setSelectedScenario(e.target.value)}
+                          >
+                            {demoScenarios.scenarios.map((s) => (
+                              <option key={s.type} value={s.type}>
+                                {s.type}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                        <label>
+                          <Text>复杂度:</Text>{' '}
+                          <select
+                            data-testid="complexity-select"
+                            value={selectedComplexity}
+                            onChange={(e) => setSelectedComplexity(e.target.value)}
+                          >
+                            <option value="simple">simple</option>
+                            <option value="medium">medium</option>
+                            <option value="complex">complex</option>
+                          </select>
+                        </label>
+                        <label>
+                          <Text>CoT推理:</Text>{' '}
+                          <input
+                            data-testid="cot-reasoning-checkbox"
+                            type="checkbox"
+                            checked={includeCot}
+                            onChange={(e) => setIncludeCot(e.target.checked)}
+                          />
+                        </label>
+                        <Button
+                          data-testid="generate-demo-btn"
+                          onClick={generateDemoExplanation}
+                          disabled={loading}
+                        >
+                          生成演示解释
+                        </Button>
+                      </Space>
+                    </TabPane>
+
+                    <TabPane tab={<span data-testid="custom-explanation-tab">自定义解释</span>} key="custom">
+                      <Space direction="vertical" style={{ width: '100%' }}>
+                        <label>
+                          <Text>决策ID:</Text>{' '}
+                          <input
+                            data-testid="decision-id-input"
+                            value={customDecisionId}
+                            onChange={(e) => setCustomDecisionId(e.target.value)}
+                          />
+                        </label>
+                        <label>
+                          <Text>决策上下文:</Text>{' '}
+                          <textarea
+                            data-testid="decision-context-input"
+                            value={customDecisionContext}
+                            onChange={(e) => setCustomDecisionContext(e.target.value)}
+                          />
+                        </label>
+
+                        <Button data-testid="add-factor-btn" onClick={addFactorRow} disabled={loading}>
+                          添加因子
+                        </Button>
+
+                        {customFactors.map((f, idx) => (
+                          <Space key={idx} wrap>
+                            <input
+                              data-testid="factor-name-input"
+                              placeholder="factor_name"
+                              value={f.factor_name}
+                              onChange={(e) => {
+                                const v = e.target.value;
+                                setCustomFactors(prev =>
+                                  prev.map((x, i) => (i === idx ? { ...x, factor_name: v } : x)),
+                                );
+                              }}
+                            />
+                            <input
+                              data-testid="factor-value-input"
+                              placeholder="factor_value"
+                              value={f.factor_value}
+                              onChange={(e) => {
+                                const v = e.target.value;
+                                setCustomFactors(prev =>
+                                  prev.map((x, i) => (i === idx ? { ...x, factor_value: v } : x)),
+                                );
+                              }}
+                            />
+                            <input
+                              data-testid="factor-weight-input"
+                              placeholder="weight"
+                              value={f.weight}
+                              onChange={(e) => {
+                                const v = e.target.value;
+                                setCustomFactors(prev =>
+                                  prev.map((x, i) => (i === idx ? { ...x, weight: v } : x)),
+                                );
+                              }}
+                            />
+                            <input
+                              data-testid="factor-impact-input"
+                              placeholder="impact"
+                              value={f.impact}
+                              onChange={(e) => {
+                                const v = e.target.value;
+                                setCustomFactors(prev =>
+                                  prev.map((x, i) => (i === idx ? { ...x, impact: v } : x)),
+                                );
+                              }}
+                            />
+                          </Space>
+                        ))}
+
+                        <Button
+                          type="primary"
+                          data-testid="generate-custom-btn"
+                          onClick={generateCustomExplanation}
+                          disabled={loading}
+                        >
+                          生成自定义解释
+                        </Button>
+                      </Space>
+                    </TabPane>
+                  </Tabs>
+                </div>
+              </>
+            )}
           </div>
         </Card>
 
         {/* 解释结果 */}
-        {explanation && (
-          <Card>
-            <div style={{ padding: '16px' }}>
-              <Title level={3}>决策解释结果</Title>
-              
-              {/* 基本信息 */}
-              <div style={{ marginBottom: '24px', padding: '16px', background: '#f8f9fa', borderRadius: '6px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                  <Title level={4} style={{ margin: 0 }}>
-                    决策结果: {explanation.decision_outcome}
-                  </Title>
-                  <Badge 
-                    color="green" 
-                    text={`置信度: ${(explanation.confidence_metrics.overall_confidence * 100).toFixed(1)}%`}
-                  />
+        <Card data-testid="explanation-result">
+          <div style={{ padding: '16px' }}>
+            {loading && <div data-testid="loading-indicator">加载中...</div>}
+            {error && (
+              <Alert
+                data-testid="error-message"
+                type="error"
+                message={error}
+                showIcon
+                style={{ marginBottom: '16px' }}
+              />
+            )}
+
+            {explanation ? (
+              <>
+                <Space direction="vertical" style={{ width: '100%' }}>
+                  <div data-testid="decision-id">决策ID: {explanation.decision_id}</div>
+                  <div data-testid="decision-outcome">决策结果: {explanation.decision_outcome}</div>
+                  <div data-testid="summary-explanation">{explanation.summary_explanation}</div>
+                  <div data-testid="confidence-metrics">
+                    整体置信度: {Math.round((explanation.confidence_metrics?.overall_confidence || 0) * 100)}%
+                  </div>
+                </Space>
+
+                <div data-testid="export-buttons" style={{ marginTop: '16px' }}>
+                  <Space wrap>
+                    <Button data-testid="export-html-btn" onClick={() => exportExplanation('html')}>
+                      HTML
+                    </Button>
+                    <Button data-testid="export-markdown-btn" onClick={() => exportExplanation('markdown')}>
+                      Markdown
+                    </Button>
+                    <Button data-testid="export-json-btn" onClick={() => exportExplanation('json')}>
+                      JSON
+                    </Button>
+                    <Button data-testid="export-xml-btn" onClick={() => exportExplanation('xml')}>
+                      XML
+                    </Button>
+                    <Button data-testid="export-纯文本-btn" onClick={() => exportExplanation('纯文本')}>
+                      纯文本
+                    </Button>
+                    <span data-testid="export-status">{exportStatus}</span>
+                  </Space>
                 </div>
-                <Paragraph style={{ margin: 0 }}>
-                  {explanation.summary_explanation}
-                </Paragraph>
-              </div>
 
-              {/* 详细分析标签页 */}
-              <Tabs defaultActiveKey="factors">
-                <TabPane tab="影响因子" key="factors">
-                  {renderFactorsTable()}
-                </TabPane>
-                
-                <TabPane tab="置信度分析" key="confidence">
-                  {renderConfidenceMetrics()}
-                </TabPane>
-                
-                <TabPane tab="反事实分析" key="counterfactuals">
-                  {renderCounterfactuals()}
-                </TabPane>
-                
-                <TabPane tab="技术细节" key="technical">
-                  <Card>
-                    <div style={{ padding: '16px' }}>
-                      <Title level={4}>技术实现细节</Title>
-                      <Space direction="vertical" style={{ width: '100%' }}>
-                        <div>
-                          <Text strong>决策ID: </Text>
-                          <Text code>{explanation.decision_id}</Text>
-                        </div>
-                        <div>
-                          <Text strong>解释类型: </Text>
-                          <Text code>{explanation.explanation_type}</Text>
-                        </div>
-                        <div>
-                          <Text strong>置信区间: </Text>
-                          <Text code>
-                            [{(explanation.confidence_metrics.confidence_interval_lower || 0) * 100}%, {(explanation.confidence_metrics.confidence_interval_upper || 0) * 100}%]
-                          </Text>
-                        </div>
-                        <Divider />
-                        <div>
-                          <Title level={5}>详细解释</Title>
-                          <Paragraph>{explanation.detailed_explanation}</Paragraph>
-                        </div>
-                      </Space>
+                <Tabs defaultActiveKey="components" style={{ marginTop: '16px' }}>
+                  <TabPane tab={<span data-testid="components-tab">解释组件</span>} key="components">
+                    <table data-testid="factors-table">
+                      <thead>
+                        <tr>
+                          <th>factor_name</th>
+                          <th>factor_value</th>
+                          <th>weight</th>
+                          <th>impact</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {(explanation.components || []).map((c: any, i: number) => (
+                          <tr key={i}>
+                            <td>{c.factor_name}</td>
+                            <td>{String(c.factor_value)}</td>
+                            <td>{Math.round((c.weight || 0) * 100)}%</td>
+                            <td>{Math.round((c.impact_score || 0) * 100)}%</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </TabPane>
+
+                  <TabPane tab={<span data-testid="counterfactuals-tab">反事实分析</span>} key="counterfactuals">
+                    <Space direction="vertical" style={{ width: '100%' }}>
+                      {(explanation.counterfactuals || []).map((cf: any, i: number) => (
+                        <Card key={i} data-testid="counterfactual-card">
+                          <div>{cf.scenario_name}</div>
+                          <div>{JSON.stringify(cf.changed_factors || {})}</div>
+                          <div>{cf.predicted_outcome}</div>
+                          <div>{Math.round((cf.probability || 0) * 100)}%</div>
+                          <div>{cf.explanation}</div>
+                        </Card>
+                      ))}
+                    </Space>
+                  </TabPane>
+
+                  <TabPane tab={<span data-testid="visualization-tab">可视化</span>} key="visualization">
+                    <div data-testid="chart-toggle-buttons">
+                      <button type="button">柱状图</button>
+                      <button type="button">饼图</button>
                     </div>
-                  </Card>
-                </TabPane>
-              </Tabs>
-            </div>
-          </Card>
-        )}
-
-        {!explanation && !loading && (
-          <Alert
-            message="暂无解释数据"
-            description='点击"生成解释"按钮来获取AI决策的详细解释'
-            variant="default"
-            showIcon
-          />
-        )}
+                    <div data-testid="factor-importance-chart" style={{ marginTop: '12px' }}>
+                      {JSON.stringify((explanation as any).visualization_data?.factor_importance || {})}
+                    </div>
+                    <div data-testid="confidence-breakdown-chart" style={{ marginTop: '12px' }}>
+                      {JSON.stringify((explanation as any).visualization_data?.confidence_breakdown || {})}
+                    </div>
+                  </TabPane>
+                </Tabs>
+              </>
+            ) : (
+              <Alert message="暂无解释数据" type="info" showIcon />
+            )}
+          </div>
+        </Card>
       </div>
     </div>
   );

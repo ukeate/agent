@@ -9,10 +9,8 @@ from datetime import timedelta
 from src.core.utils.timezone_utils import utc_now, utc_factory
 from unittest.mock import AsyncMock, patch
 from fastapi.testclient import TestClient
-
 from src.main import app
 from src.ai.analytics.models import BehaviorEvent
-
 
 class TestAnalyticsAPI:
     """分析API测试类"""
@@ -332,7 +330,6 @@ class TestAnalyticsAPI:
         assert response.status_code == 200
         data = response.json()
         assert data["status"] == "success"
-
 
 class TestAnalyticsAPIValidation:
     """API验证测试"""

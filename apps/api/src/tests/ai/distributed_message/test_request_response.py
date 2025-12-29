@@ -2,15 +2,14 @@
 请求-响应机制测试
 """
 
+from src.core.utils.timezone_utils import utc_now
 import pytest
 import asyncio
 import uuid
 from unittest.mock import Mock, AsyncMock
-from datetime import datetime, timedelta
-
+from datetime import timedelta
 from src.ai.distributed_message.request_response import RequestResponseManager, PendingRequest
 from src.ai.distributed_message.models import Message, MessageHeader, MessageType, MessagePriority
-
 
 class TestPendingRequest:
     """待处理请求测试"""
@@ -24,7 +23,7 @@ class TestPendingRequest:
             correlation_id=correlation_id,
             sender_id="agent-123",
             message_type=MessageType.TASK_REQUEST,
-            created_at=datetime.now(),
+            created_at=utc_now(),
             timeout=30.0,
             future=future,
             max_retries=3
@@ -43,7 +42,7 @@ class TestPendingRequest:
     def test_is_expired(self):
         """测试超时检查"""
         # 创建已过期的请求
-        past_time = datetime.now() - timedelta(seconds=31)
+        past_time = utc_now() - timedelta(seconds=31)
         future = asyncio.Future()
         
         request = PendingRequest(
@@ -65,7 +64,7 @@ class TestPendingRequest:
             correlation_id=str(uuid.uuid4()),
             sender_id="agent-123",
             message_type=MessageType.PING,
-            created_at=datetime.now(),
+            created_at=utc_now(),
             timeout=30.0,
             future=future,
             retry_count=2,
@@ -83,7 +82,6 @@ class TestPendingRequest:
         request.retry_count = 1
         future.set_result("test")
         assert not request.should_retry()
-
 
 class TestRequestResponseManager:
     """请求-响应管理器测试"""
@@ -128,7 +126,7 @@ class TestRequestResponseManager:
             def set_response():
                 manager.handle_response(response_message)
             
-            asyncio.get_event_loop().call_later(0.1, set_response)
+            asyncio.get_running_loop().call_later(0.1, set_response)
             return True
         
         # 发送请求
@@ -215,12 +213,12 @@ class TestRequestResponseManager:
         try:
             await task1
         except asyncio.CancelledError:
-            pass
+            raise
         
         try:
             await task2
         except asyncio.CancelledError:
-            pass
+            raise
     
     def test_handle_response_success(self):
         """测试成功处理响应"""
@@ -233,7 +231,7 @@ class TestRequestResponseManager:
             correlation_id=correlation_id,
             sender_id="sender",
             message_type=MessageType.TASK_REQUEST,
-            created_at=datetime.now(),
+            created_at=utc_now(),
             timeout=30.0,
             future=future
         )
@@ -450,7 +448,7 @@ class TestRequestResponseManager:
         manager = RequestResponseManager()
         
         def test_callback(message: Message):
-            pass
+            return message
         
         manager.register_response_callback(MessageType.ACK, test_callback)
         
@@ -499,7 +497,7 @@ class TestRequestResponseManager:
                 correlation_id=correlation_id,
                 sender_id=f"agent-{i}",
                 message_type=MessageType.PING,
-                created_at=datetime.now(),
+                created_at=utc_now(),
                 timeout=30.0,
                 future=future
             )
@@ -537,7 +535,7 @@ class TestRequestResponseManager:
                 correlation_id=correlation_id,
                 sender_id=f"agent-{i}",
                 message_type=MessageType.TASK_REQUEST if i == 0 else MessageType.PING,
-                created_at=datetime.now(),
+                created_at=utc_now(),
                 timeout=30.0 + i * 10,
                 future=future,
                 retry_count=i,
@@ -581,7 +579,7 @@ class TestRequestResponseManager:
             correlation_id=correlation_id,
             sender_id="agent-test",
             message_type=MessageType.PING,
-            created_at=datetime.now() - timedelta(seconds=1),  # 已经过期
+            created_at=utc_now() - timedelta(seconds=1),  # 已经过期
             timeout=0.1,
             future=future
         )

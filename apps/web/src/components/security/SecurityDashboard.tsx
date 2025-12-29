@@ -7,6 +7,7 @@ import { Badge } from '../ui/badge';
 import { Alert } from '../ui/alert';
 import { securityApi } from '../../services/securityApi';
 
+import { logger } from '../../utils/logger'
 interface SecurityStats {
   total_requests: number;
   blocked_requests: number;
@@ -49,7 +50,7 @@ export const SecurityDashboard: React.FC = () => {
       setError(null);
     } catch (err) {
       setError('加载安全数据失败');
-      console.error('Error loading security data:', err);
+      logger.error('加载安全数据失败:', err);
     } finally {
       setLoading(false);
     }
@@ -60,7 +61,7 @@ export const SecurityDashboard: React.FC = () => {
       await securityApi.resolveAlert(alertId);
       await loadSecurityData();
     } catch (err) {
-      console.error('Error resolving alert:', err);
+      logger.error('处理告警失败:', err);
     }
   };
 

@@ -2,7 +2,7 @@
  * 安全API服务
  */
 
-import { apiClient } from './apiClient';
+import apiClient from './apiClient';
 
 export interface SecurityStats {
   total_requests: number;
@@ -66,45 +66,48 @@ export interface ToolWhitelist {
 class SecurityApi {
   // 安全统计
   async getSecurityStats(): Promise<SecurityStats> {
-    const response = await apiClient.get('/api/v1/security/metrics');
-    return response.data || {
-      total_requests: 0,
-      blocked_requests: 0,
-      active_threats: 0,
-      api_keys_count: 0,
-      audit_logs_count: 0,
-      permission_rules_count: 0,
-      whitelist_entries_count: 0
+    const response = await apiClient.get('/security/metrics');
+    const metrics = response.data?.security_metrics || {};
+    const criticalAlerts = metrics.critical_alerts ?? 0;
+    const alertsLastHour = metrics.alerts_last_hour ?? 0;
+    return {
+      total_requests: metrics.total_requests_last_hour ?? 0,
+      blocked_requests: metrics.blocked_ips ?? 0,
+      active_threats: metrics.active_alerts ?? 0,
+      api_keys_count: response.data?.api_keys_count ?? 0,
+      high_risk_events: criticalAlerts,
+      medium_risk_events: Math.max(alertsLastHour - criticalAlerts, 0),
+      low_risk_events: 0,
     };
   }
 
   async getSecurityConfig(): Promise<any> {
-    const response = await apiClient.get('/api/v1/security/config');
+    const response = await apiClient.get('/security/config');
     return response.data;
   }
 
   async updateSecurityConfig(config: any): Promise<void> {
-    await apiClient.put('/api/v1/security/config', config);
+    await apiClient.put('/security/config', config);
   }
 
   // 安全告警
   async getSecurityAlerts(): Promise<SecurityAlert[]> {
-    const response = await apiClient.get('/api/v1/security/alerts');
-    return response.data;
+    const response = await apiClient.get('/security/alerts');
+    return response.data?.alerts || [];
   }
 
   async resolveAlert(alertId: string): Promise<void> {
-    await apiClient.post(`/api/v1/security/alerts/${alertId}/resolve`);
+    await apiClient.post(`/security/alerts/${alertId}/resolve`);
   }
 
   async updateAlertStatus(alertId: string, status: string): Promise<void> {
-    await apiClient.put(`/api/v1/security/alerts/${alertId}`, { status });
+    await apiClient.put(`/security/alerts/${alertId}`, { status });
   }
 
   // API密钥管理
   async getAPIKeys(): Promise<APIKey[]> {
-    const response = await apiClient.get('/api/v1/security/api-keys');
-    return response.data;
+    const response = await apiClient.get('/security/api-keys');
+    return response.data?.api_keys || [];
   }
 
   async createAPIKey(data: {
@@ -112,33 +115,44 @@ class SecurityApi {
     permissions: string[];
     expires_in_days: number;
   }): Promise<{ key: string; id: string }> {
-    const response = await apiClient.post('/api/v1/security/api-keys', data);
+    const response = await apiClient.post('/security/api-keys', data);
     return response.data;
   }
 
   async revokeAPIKey(keyId: string): Promise<void> {
-    await apiClient.delete(`/api/v1/security/api-keys/${keyId}`);
+    await apiClient.delete(`/security/api-keys/${keyId}`);
   }
 
   // MCP工具权限
   async getToolPermissions(): Promise<ToolPermission[]> {
-    const response = await apiClient.get('/api/v1/security/mcp-tools/permissions');
-    return response.data;
+    const response = await apiClient.get('/security/mcp-tools/permissions');
+    const permissions = response.data?.permissions || {};
+    return Object.entries(permissions).map(([toolName, perm]) => ({
+      tool_name: toolName,
+      ...(perm as ToolPermission),
+    }));
   }
 
   async updateToolPermission(toolName: string, updates: Partial<ToolPermission>): Promise<void> {
-    await apiClient.put(`/api/v1/security/mcp-tools/permissions/${toolName}`, updates);
+    await apiClient.put('/security/mcp-tools/permissions', updates, {
+      params: { tool_name: toolName },
+    });
   }
 
   async getToolWhitelist(): Promise<ToolWhitelist[]> {
-    const response = await apiClient.get('/api/v1/security/mcp-tools/whitelist');
-    return response.data;
+    const response = await apiClient.get('/security/mcp-tools/whitelist');
+    const whitelist = response.data?.whitelist || response.data?.current_whitelist || [];
+    return whitelist.map((toolName: string) => ({
+      tool_name: toolName,
+      users: [],
+      roles: [],
+    }));
   }
 
   async updateToolWhitelist(toolName: string, whitelist: { users: string[]; roles: string[] }): Promise<void> {
-    await apiClient.post('/api/v1/security/mcp-tools/whitelist', {
-      tool_name: toolName,
-      ...whitelist
+    const action = whitelist.users.length || whitelist.roles.length ? 'add' : 'remove';
+    await apiClient.post('/security/mcp-tools/whitelist', [toolName], {
+      params: { action },
     });
   }
 
@@ -149,14 +163,35 @@ class SecurityApi {
     user_id?: string;
     tool_name?: string;
   }): Promise<any[]> {
-    const response = await apiClient.get('/api/v1/security/mcp-tools/audit', { params });
-    return response.data;
+    const response = await apiClient.get('/security/mcp-tools/audit', { params });
+    return response.data?.logs || [];
   }
 
   // 风险评估
   async getRiskAssessment(): Promise<any> {
-    const response = await apiClient.get('/api/v1/security/risk-assessment');
+    const response = await apiClient.get('/security/risk-assessment');
     return response.data;
+  }
+
+  // 合规报告
+  async getComplianceReport(startDate: string, endDate: string, reportType?: string): Promise<any> {
+    const params = { start_date: startDate, end_date: endDate, report_type: reportType };
+    const response = await apiClient.get('/security/compliance-report', { params });
+    return response.data;
+  }
+
+  // MCP工具待审批请求
+  async getPendingApprovals(): Promise<any[]> {
+    const response = await apiClient.get('/security/mcp-tools/pending-approvals');
+    return response.data?.pending_approvals || [];
+  }
+
+  // 审批工具调用
+  async approveToolCall(requestId: string, approved: boolean, reason?: string): Promise<void> {
+    await apiClient.post(`/security/mcp-tools/approve/${requestId}`, {
+      approved,
+      reason
+    });
   }
 }
 

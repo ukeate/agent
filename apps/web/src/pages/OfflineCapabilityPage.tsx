@@ -1,5 +1,7 @@
+import { buildApiUrl, apiFetch } from '../utils/apiBase'
 import React, { useState, useEffect } from 'react';
 import { 
+import { logger } from '../utils/logger'
   Card, 
   Tabs, 
   Typography, 
@@ -98,53 +100,53 @@ const OfflineCapabilityPage: React.FC = () => {
 
   const fetchOfflineStatus = async () => {
     try {
-      const response = await fetch('/api/v1/offline/status');
+      const response = await apiFetch(buildApiUrl('/api/v1/offline/status'));
       const data = await response.json();
       setOfflineStatus(data);
     } catch (error) {
-      console.error('获取离线状态失败:', error);
+      logger.error('获取离线状态失败:', error);
     }
   };
 
   const fetchNetworkStats = async () => {
     try {
-      const response = await fetch('/api/v1/offline/network');
+      const response = await apiFetch(buildApiUrl('/api/v1/offline/network'));
       const data = await response.json();
       setNetworkStats(data);
     } catch (error) {
-      console.error('获取网络统计失败:', error);
+      logger.error('获取网络统计失败:', error);
     }
   };
 
   const fetchOfflineStats = async () => {
     try {
-      const response = await fetch('/api/v1/offline/statistics');
+      const response = await apiFetch(buildApiUrl('/api/v1/offline/statistics'));
       const data = await response.json();
       setOfflineStats(data);
     } catch (error) {
-      console.error('获取离线统计失败:', error);
+      logger.error('获取离线统计失败:', error);
     }
   };
 
   const handleForceSync = async () => {
     try {
-      await fetch('/api/v1/offline/sync', {
+      await apiFetch(buildApiUrl('/api/v1/offline/sync'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ force: true, batch_size: 100 })
+        body: JSON.stringify({ force: true), batch_size: 100 })
       });
       await fetchOfflineStatus();
     } catch (error) {
-      console.error('强制同步失败:', error);
+      logger.error('强制同步失败:', error);
     }
   };
 
   const handleModeSwitch = async (mode: string) => {
     try {
-      await fetch(`/api/v1/offline/mode/${mode}`, { method: 'POST' });
+      await apiFetch(buildApiUrl(`/api/v1/offline/mode/${mode}`), { method: 'POST' });
       await fetchOfflineStatus();
     } catch (error) {
-      console.error('切换模式失败:', error);
+      logger.error('切换模式失败:', error);
     }
   };
 

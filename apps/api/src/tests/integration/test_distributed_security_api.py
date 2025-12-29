@@ -2,17 +2,16 @@
 分布式安全框架API集成测试
 """
 
+from src.core.utils.timezone_utils import utc_now
 import pytest
 import asyncio
 import json
-from datetime import datetime, timedelta
+from datetime import timedelta
 from typing import Dict, Any
 from unittest.mock import Mock, patch
-
 import httpx
 from fastapi.testclient import TestClient
 from fastapi import status
-
 from src.main_simple import app
 from src.db.models import (
     AgentIdentity,
@@ -24,7 +23,6 @@ from src.db.models import (
     AccessControlModelEnum,
     AlertStatusEnum
 )
-
 
 class TestDistributedSecurityAPI:
     """分布式安全框架API集成测试"""
@@ -100,7 +98,7 @@ class TestDistributedSecurityAPI:
             "context_attributes": {
                 "ip_address": "10.0.1.100",
                 "user_agent": "AIAgent/1.0",
-                "timestamp": datetime.utcnow().isoformat()
+                "timestamp": utc_now().isoformat()
             }
         }
         
@@ -110,7 +108,7 @@ class TestDistributedSecurityAPI:
                 "agent_id": "test_agent_001",
                 "session_token": "jwt_session_token_here",
                 "trust_score": 95.0,
-                "session_expires_at": (datetime.utcnow() + timedelta(hours=1)).isoformat(),
+                "session_expires_at": (utc_now() + timedelta(hours=1)).isoformat(),
                 "permissions": ["read:data", "write:response", "execute:task"]
             }
             
@@ -144,8 +142,8 @@ class TestDistributedSecurityAPI:
                 "target_agent_id": "target_agent_002",
                 "encryption_algorithm": "aes_256_gcm",
                 "session_key_fingerprint": "sha256:abcd1234...",
-                "established_at": datetime.utcnow().isoformat(),
-                "expires_at": (datetime.utcnow() + timedelta(hours=1)).isoformat()
+                "established_at": utc_now().isoformat(),
+                "expires_at": (utc_now() + timedelta(hours=1)).isoformat()
             }
             
             response = client.post(
@@ -226,7 +224,7 @@ class TestDistributedSecurityAPI:
         with patch("src.api.v1.distributed_security.mock_audit_service.log_security_event") as mock_log:
             mock_log.return_value = {
                 "event_id": "event_12345",
-                "logged_at": datetime.utcnow().isoformat(),
+                "logged_at": utc_now().isoformat(),
                 "threat_detected": False,
                 "risk_assessment": {
                     "risk_level": "low",
@@ -318,7 +316,7 @@ class TestDistributedSecurityAPI:
                     "threat_level": "high",
                     "status": "active",
                     "agent_id": "test_agent_001",
-                    "created_at": datetime.utcnow().isoformat(),
+                    "created_at": utc_now().isoformat(),
                     "indicators": {
                         "failed_attempts": 5,
                         "source_ip": "192.168.1.100"
@@ -348,7 +346,7 @@ class TestDistributedSecurityAPI:
             mock_ack.return_value = {
                 "alert_id": alert_id,
                 "status": "acknowledged",
-                "acknowledged_at": datetime.utcnow().isoformat(),
+                "acknowledged_at": utc_now().isoformat(),
                 "acknowledged_by": "security_admin"
             }
             
@@ -387,7 +385,7 @@ class TestDistributedSecurityAPI:
             mock_create.return_value = {
                 "policy_id": "policy_12345",
                 "policy_name": "test_ai_agent_policy",
-                "created_at": datetime.utcnow().isoformat(),
+                "created_at": utc_now().isoformat(),
                 "is_active": True
             }
             
@@ -455,8 +453,8 @@ class TestDistributedSecurityAPI:
         """测试合规报告生成"""
         report_request = {
             "report_type": "security_compliance",
-            "start_date": (datetime.utcnow() - timedelta(days=30)).isoformat(),
-            "end_date": datetime.utcnow().isoformat(),
+            "start_date": (utc_now() - timedelta(days=30)).isoformat(),
+            "end_date": utc_now().isoformat(),
             "include_sections": [
                 "authentication_summary",
                 "access_control_decisions", 
@@ -469,7 +467,7 @@ class TestDistributedSecurityAPI:
             mock_report.return_value = {
                 "report_id": "report_12345",
                 "report_type": "security_compliance",
-                "generated_at": datetime.utcnow().isoformat(),
+                "generated_at": utc_now().isoformat(),
                 "period": "2024-01-01 to 2024-01-31",
                 "summary": {
                     "total_agents": 150,
@@ -630,7 +628,6 @@ class TestDistributedSecurityAPI:
         # 验证所有请求都成功处理
         successful_requests = [r for r in results if r["status_code"] == 200]
         assert len(successful_requests) >= concurrent_requests * 0.95  # 95%成功率
-
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

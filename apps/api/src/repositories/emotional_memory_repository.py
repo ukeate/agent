@@ -9,13 +9,13 @@ from datetime import datetime, timedelta
 from uuid import UUID
 import hashlib
 import json
+import re
 from sqlalchemy import select, update, delete, and_, or_, func, text
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload, joinedload
 from sqlalchemy.dialects.postgresql import insert
 import numpy as np
-from redis import asyncio as aioredis
-
+from redis import asyncio as redis_async
 from ..db.emotional_memory_models import (
     EmotionalMemory,
     EmotionalEvent,
@@ -26,10 +26,10 @@ from ..db.emotional_memory_models import (
     StorageLayerType,
     PrivacyLevelType
 )
+from ..core.utils.timezone_utils import utc_now
 from ..core.security.encryption import EncryptionService
 from ..core.monitoring.metrics_collector import MetricsCollector
 from ..core.exceptions import RepositoryException, DataIntegrityException
-
 
 class EmotionalMemoryRepository:
     """Repository for emotional memory operations with multi-tier storage"""
@@ -37,7 +37,7 @@ class EmotionalMemoryRepository:
     def __init__(
         self,
         db_session: AsyncSession,
-        redis_client: aioredis.Redis,
+        redis_client: redis_async.Redis,
         encryption_service: EncryptionService,
         metrics_collector: MetricsCollector
     ):
@@ -73,7 +73,7 @@ class EmotionalMemoryRepository:
                     'tags': emotion_data.get('tags', []),
                     'context_data': emotion_data.get('context', {}),
                     'source': emotion_data.get('source', 'user_input'),
-                    'storage_layer': 'hot',  # Always start in hot storage
+                    'storage_layer': StorageLayerType.HOT,
                     'importance_score': self._calculate_importance(emotion_data)
                 }
                 
@@ -169,7 +169,7 @@ class EmotionalMemoryRepository:
                         )
                     
                     # Re-cache if in hot storage
-                    if memory.storage_layer == 'hot':
+                    if memory.storage_layer == StorageLayerType.HOT:
                         await self._cache_memory(memory)
                     
                     self.metrics.increment('emotional_memories.cache_miss')
@@ -206,8 +206,11 @@ class EmotionalMemoryRepository:
                     )
                 
                 if filters.get('storage_layer'):
+                    storage_layer = filters['storage_layer']
+                    if isinstance(storage_layer, str):
+                        storage_layer = StorageLayerType(storage_layer)
                     query = query.where(
-                        EmotionalMemory.storage_layer == filters['storage_layer']
+                        EmotionalMemory.storage_layer == storage_layer
                     )
                 
                 if filters.get('min_intensity'):
@@ -230,30 +233,51 @@ class EmotionalMemoryRepository:
                         EmotionalMemory.tags.contains(filters['tags'])
                     )
                 
-                # Semantic search using embeddings
-                if filters.get('search_query'):
-                    query_embedding = await self._generate_embedding(filters['search_query'])
-                    query = query.order_by(
-                        EmotionalMemory.content_embedding.l2_distance(query_embedding)
-                    )
+                search_query = filters.get('search_query')
+                if search_query:
+                    query_embedding = await self._generate_embedding(search_query)
+                    q = np.asarray(query_embedding, dtype=np.float32)
+
+                    candidate_limit = max(limit * 50, 500)
+                    candidate_query = query.where(
+                        EmotionalMemory.content_embedding.is_not(None)
+                    ).order_by(
+                        EmotionalMemory.timestamp.desc()
+                    ).limit(candidate_limit)
+
+                    result = await self.db.execute(candidate_query)
+                    candidates = result.scalars().all()
+
+                    scored = []
+                    for memory in candidates:
+                        emb = memory.content_embedding
+                        if not emb or len(emb) != len(query_embedding):
+                            continue
+                        v = np.asarray(emb, dtype=np.float32)
+                        dist = float(np.linalg.norm(v - q))
+                        scored.append((dist, memory))
+
+                    scored.sort(key=lambda x: x[0])
+                    total = len(scored)
+                    memories = [m for _, m in scored[offset:offset + limit]]
                 else:
                     # Default ordering by importance and recency
                     query = query.order_by(
                         EmotionalMemory.importance_score.desc(),
                         EmotionalMemory.timestamp.desc()
                     )
-                
-                # Get total count
-                count_query = select(func.count()).select_from(query.subquery())
-                total_result = await self.db.execute(count_query)
-                total = total_result.scalar()
-                
-                # Apply pagination
-                query = query.limit(limit).offset(offset)
-                
-                # Execute query
-                result = await self.db.execute(query)
-                memories = result.scalars().all()
+
+                    # Get total count
+                    count_query = select(func.count()).select_from(query.subquery())
+                    total_result = await self.db.execute(count_query)
+                    total = total_result.scalar()
+
+                    # Apply pagination
+                    query = query.limit(limit).offset(offset)
+
+                    # Execute query
+                    result = await self.db.execute(query)
+                    memories = result.scalars().all()
                 
                 # Decrypt encrypted memories
                 for memory in memories:
@@ -284,8 +308,8 @@ class EmotionalMemoryRepository:
                 query = update(EmotionalMemory).where(
                     EmotionalMemory.id == memory_id
                 ).values(
-                    storage_layer=new_tier,
-                    updated_at=datetime.utcnow()
+                    storage_layer=StorageLayerType(new_tier),
+                    updated_at=utc_now()
                 )
                 
                 result = await self.db.execute(query)
@@ -318,19 +342,19 @@ class EmotionalMemoryRepository:
         try:
             with self.metrics.timer('repository.emotional_memory.archive'):
                 
-                cutoff_date = datetime.utcnow() - timedelta(days=days_threshold)
+                cutoff_date = utc_now() - timedelta(days=days_threshold)
                 
                 # Find memories to archive
                 query = update(EmotionalMemory).where(
                     and_(
-                        EmotionalMemory.storage_layer.in_(['hot', 'warm']),
+                        EmotionalMemory.storage_layer.in_([StorageLayerType.HOT, StorageLayerType.WARM]),
                         EmotionalMemory.last_accessed < cutoff_date,
                         EmotionalMemory.importance_score < 0.7,  # Don't archive important memories
                         EmotionalMemory.deleted_at.is_(None)
                     )
                 ).values(
-                    storage_layer='cold',
-                    updated_at=datetime.utcnow()
+                    storage_layer=StorageLayerType.COLD,
+                    updated_at=utc_now()
                 )
                 
                 result = await self.db.execute(query)
@@ -349,6 +373,73 @@ class EmotionalMemoryRepository:
             await self.db.rollback()
             self.metrics.increment('emotional_memories.archive_error')
             raise RepositoryException(f"Failed to archive memories: {str(e)}")
+
+    async def optimize_storage_tiers(
+        self,
+        hot_cutoff: datetime,
+        warm_cutoff: datetime,
+    ) -> Dict[str, int]:
+        """根据访问与重要性规则批量调整存储层级"""
+        try:
+            with self.metrics.timer("repository.emotional_memory.optimize_tiers"):
+                results: Dict[str, int] = {
+                    "hot_to_warm": 0,
+                    "warm_to_hot": 0,
+                    "cold_to_warm": 0,
+                }
+
+                q1 = (
+                    update(EmotionalMemory)
+                    .where(
+                        and_(
+                            EmotionalMemory.storage_layer == StorageLayerType.HOT,
+                            EmotionalMemory.last_accessed < hot_cutoff,
+                            EmotionalMemory.importance_score < 0.8,
+                            EmotionalMemory.deleted_at.is_(None),
+                        )
+                    )
+                    .values(storage_layer=StorageLayerType.WARM, updated_at=utc_now())
+                )
+                r1 = await self.db.execute(q1)
+                results["hot_to_warm"] = r1.rowcount or 0
+
+                q2 = (
+                    update(EmotionalMemory)
+                    .where(
+                        and_(
+                            EmotionalMemory.storage_layer == StorageLayerType.WARM,
+                            or_(
+                                EmotionalMemory.last_accessed >= hot_cutoff,
+                                EmotionalMemory.access_count >= 10,
+                            ),
+                            EmotionalMemory.deleted_at.is_(None),
+                        )
+                    )
+                    .values(storage_layer=StorageLayerType.HOT, updated_at=utc_now())
+                )
+                r2 = await self.db.execute(q2)
+                results["warm_to_hot"] = r2.rowcount or 0
+
+                q3 = (
+                    update(EmotionalMemory)
+                    .where(
+                        and_(
+                            EmotionalMemory.storage_layer == StorageLayerType.COLD,
+                            EmotionalMemory.last_accessed >= warm_cutoff,
+                            EmotionalMemory.importance_score >= 0.7,
+                            EmotionalMemory.deleted_at.is_(None),
+                        )
+                    )
+                    .values(storage_layer=StorageLayerType.WARM, updated_at=utc_now())
+                )
+                r3 = await self.db.execute(q3)
+                results["cold_to_warm"] = r3.rowcount or 0
+
+                await self.db.commit()
+                return results
+        except Exception as e:
+            await self.db.rollback()
+            raise RepositoryException(f"Failed to optimize storage tiers: {str(e)}")
     
     async def delete_memory(
         self,
@@ -376,7 +467,7 @@ class EmotionalMemoryRepository:
                             EmotionalMemory.user_id == user_id
                         )
                     ).values(
-                        deleted_at=datetime.utcnow(),
+                        deleted_at=utc_now(),
                         is_active=False
                     )
                 
@@ -414,11 +505,11 @@ class EmotionalMemoryRepository:
             'intensity': memory.intensity,
             'content': memory.content,
             'timestamp': memory.timestamp.isoformat(),
-            'storage_layer': memory.storage_layer
+            'storage_layer': memory.storage_layer.value
         }
         
         # Set with expiration based on storage tier
-        ttl = 3600 if memory.storage_layer == 'hot' else 300  # 1 hour for hot, 5 min for others
+        ttl = 3600 if memory.storage_layer == StorageLayerType.HOT else 300  # 1 hour for hot, 5 min for others
         await self.redis.setex(
             cache_key,
             ttl,
@@ -445,7 +536,7 @@ class EmotionalMemoryRepository:
             EmotionalMemory.id == memory_id
         ).values(
             access_count=EmotionalMemory.access_count + 1,
-            last_accessed=datetime.utcnow()
+            last_accessed=utc_now()
         )
         
         await self.db.execute(query)
@@ -489,10 +580,18 @@ class EmotionalMemoryRepository:
     
     async def _generate_embedding(self, text: str) -> List[float]:
         """Generate embedding vector for semantic search"""
-        # TODO: Integrate with actual embedding service (OpenAI, HuggingFace, etc.)
-        # For now, return mock embedding
-        return [0.0] * 768  # Standard BERT embedding size
+        tokens = re.findall(r"[\\w]+", text.lower())
+        dim = 128
+        vec = np.zeros(dim, dtype=np.float32)
+        for token in tokens:
+            h = hashlib.sha256(token.encode("utf-8")).digest()
+            idx = int.from_bytes(h[:4], "big") % dim
+            vec[idx] += 1.0 if (h[4] & 1) else -1.0
 
+        norm = float(np.linalg.norm(vec))
+        if norm > 0:
+            vec = vec / norm
+        return vec.astype(float).tolist()
 
 class EmotionalEventRepository:
     """Repository for emotional event tracking and analysis"""
@@ -580,7 +679,7 @@ class EmotionalEventRepository:
         try:
             with self.metrics.timer('repository.emotional_event.analyze_causal'):
                 
-                cutoff_date = datetime.utcnow() - time_window
+                cutoff_date = utc_now() - time_window
                 
                 # Get events within time window
                 query = select(EmotionalEvent).where(
@@ -636,7 +735,6 @@ class EmotionalEventRepository:
             # Update event's causal chain
             event.causal_chain = chain
             await self.db.flush()
-
 
 class UserPreferenceRepository:
     """Repository for user emotional preference management"""
@@ -702,7 +800,7 @@ class UserPreferenceRepository:
                     UserEmotionalPreference.user_id == user_id
                 ).values(
                     **updates,
-                    updated_at=datetime.utcnow(),
+                    updated_at=utc_now(),
                     version=UserEmotionalPreference.version + 1
                 )
                 
@@ -720,7 +818,6 @@ class UserPreferenceRepository:
             await self.db.rollback()
             self.metrics.increment('user_preferences.update_error')
             raise RepositoryException(f"Failed to update preferences: {str(e)}")
-
 
 class TriggerPatternRepository:
     """Repository for emotional trigger pattern management"""
@@ -760,7 +857,7 @@ class TriggerPatternRepository:
                     for key, value in pattern_data.items():
                         setattr(pattern, key, value)
                     pattern.frequency += 1
-                    pattern.last_triggered = datetime.utcnow()
+                    pattern.last_triggered = utc_now()
                 else:
                     # Create new pattern
                     pattern = EmotionalTriggerPattern(

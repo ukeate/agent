@@ -1,27 +1,27 @@
 """
 流量渐进调整API端点
 """
+
 from fastapi import APIRouter, HTTPException, Query, BackgroundTasks
 from typing import Dict, Any, List, Optional
-from pydantic import BaseModel, Field
+from pydantic import Field
 from datetime import datetime
 from src.core.utils.timezone_utils import utc_now, utc_factory
-
-from ...services.traffic_ramp_service import (
+from src.services.traffic_ramp_service import (
     TrafficRampService,
+    RampStrategy,
+    RampStatus,
     RampStrategy,
     RampStatus,
     RolloutPhase
 )
-
 
 router = APIRouter(prefix="/traffic-ramp", tags=["Traffic Ramp"])
 
 # 服务实例
 ramp_service = TrafficRampService()
 
-
-class CreateRampPlanRequest(BaseModel):
+class CreateRampPlanRequest(ApiBaseModel):
     """创建爬坡计划请求"""
     experiment_id: str = Field(..., description="实验ID")
     variant: str = Field("treatment", description="变体名称")
@@ -33,29 +33,24 @@ class CreateRampPlanRequest(BaseModel):
     health_checks: Optional[Dict[str, Any]] = Field(None, description="健康检查配置")
     rollback_conditions: Optional[Dict[str, Any]] = Field(None, description="回滚条件")
 
-
-class StartRampRequest(BaseModel):
+class StartRampRequest(ApiBaseModel):
     """开始爬坡请求"""
     plan_id: str = Field(..., description="计划ID")
 
-
-class ControlRampRequest(BaseModel):
+class ControlRampRequest(ApiBaseModel):
     """控制爬坡请求"""
     exec_id: str = Field(..., description="执行ID")
 
-
-class GetRecommendedPlanRequest(BaseModel):
+class GetRecommendedPlanRequest(ApiBaseModel):
     """获取推荐计划请求"""
     experiment_id: str = Field(..., description="实验ID")
     risk_level: str = Field("medium", description="风险等级: low, medium, high")
 
-
-class QuickRampRequest(BaseModel):
+class QuickRampRequest(ApiBaseModel):
     """快速爬坡请求"""
     experiment_id: str = Field(..., description="实验ID")
     phase: RolloutPhase = Field(..., description="发布阶段")
     duration_hours: Optional[float] = Field(None, description="持续时间")
-
 
 @router.post("/plans")
 async def create_ramp_plan(request: CreateRampPlanRequest) -> Dict[str, Any]:
@@ -109,7 +104,6 @@ async def create_ramp_plan(request: CreateRampPlanRequest) -> Dict[str, Any]:
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-
 @router.post("/start")
 async def start_ramp(
     request: StartRampRequest,
@@ -148,7 +142,6 @@ async def start_ramp(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-
 @router.post("/pause")
 async def pause_ramp(request: ControlRampRequest) -> Dict[str, Any]:
     """
@@ -171,7 +164,6 @@ async def pause_ramp(request: ControlRampRequest) -> Dict[str, Any]:
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-
 
 @router.post("/resume")
 async def resume_ramp(request: ControlRampRequest) -> Dict[str, Any]:
@@ -196,7 +188,6 @@ async def resume_ramp(request: ControlRampRequest) -> Dict[str, Any]:
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-
 @router.post("/rollback")
 async def rollback_ramp(
     exec_id: str,
@@ -218,7 +209,6 @@ async def rollback_ramp(
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-
 
 @router.get("/status/{exec_id}")
 async def get_ramp_status(exec_id: str) -> Dict[str, Any]:
@@ -242,7 +232,6 @@ async def get_ramp_status(exec_id: str) -> Dict[str, Any]:
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-
 
 @router.get("/plans")
 async def list_plans(
@@ -280,7 +269,6 @@ async def list_plans(
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-
 
 @router.get("/executions")
 async def list_executions(
@@ -321,7 +309,6 @@ async def list_executions(
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-
 
 @router.post("/recommended-plan")
 async def get_recommended_plan(request: GetRecommendedPlanRequest) -> Dict[str, Any]:
@@ -371,7 +358,6 @@ async def get_recommended_plan(request: GetRecommendedPlanRequest) -> Dict[str, 
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-
 
 @router.post("/quick-ramp")
 async def quick_ramp(request: QuickRampRequest) -> Dict[str, Any]:
@@ -447,7 +433,6 @@ async def quick_ramp(request: QuickRampRequest) -> Dict[str, Any]:
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-
 @router.get("/strategies")
 async def list_strategies() -> Dict[str, Any]:
     """
@@ -490,7 +475,6 @@ async def list_strategies() -> Dict[str, Any]:
         "success": True,
         "strategies": strategies
     }
-
 
 @router.get("/phases")
 async def list_phases() -> Dict[str, Any]:
@@ -535,7 +519,6 @@ async def list_phases() -> Dict[str, Any]:
         "phases": phases
     }
 
-
 @router.get("/current-phase/{exec_id}")
 async def get_current_phase(exec_id: str) -> Dict[str, Any]:
     """
@@ -560,7 +543,6 @@ async def get_current_phase(exec_id: str) -> Dict[str, Any]:
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-
 def _get_risk_description(risk_level: str) -> str:
     """获取风险等级描述"""
     descriptions = {
@@ -569,7 +551,6 @@ def _get_risk_description(risk_level: str) -> str:
         "high": "高风险配置：缓慢谨慎，充分验证每个阶段"
     }
     return descriptions.get(risk_level, "未知风险等级")
-
 
 def _get_phase_name(phase: RolloutPhase) -> str:
     """获取阶段名称"""
@@ -581,7 +562,6 @@ def _get_phase_name(phase: RolloutPhase) -> str:
         RolloutPhase.FULL: "全量发布"
     }
     return names.get(phase, "未知阶段")
-
 
 @router.get("/health")
 async def health_check() -> Dict[str, Any]:

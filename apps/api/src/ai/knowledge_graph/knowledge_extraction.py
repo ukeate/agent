@@ -10,17 +10,16 @@
 
 import asyncio
 import time
-import logging
 from typing import List, Dict, Any, Optional, Union
+from collections.abc import AsyncGenerator
+from contextlib import asynccontextmanager
 from datetime import datetime
 from src.core.utils.timezone_utils import utc_now, utc_factory
 from uuid import uuid4
-
 from fastapi import APIRouter, HTTPException, BackgroundTasks, Depends, Query, Path
 from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field
 import json
-
 from .data_models import (
     ExtractionRequest, ExtractionResponse,
     BatchProcessingRequest, BatchProcessingResponse,
@@ -33,9 +32,8 @@ from .entity_linker import EntityLinker
 from .multilingual_processor import MultilingualProcessor
 from .batch_processor import BatchProcessor, BatchConfig
 
-
-# 创建路由器
-router = APIRouter(prefix="/knowledge", tags=["knowledge-extraction"])
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 # 全局组件实例
 entity_recognizer: Optional[MultiModelEntityRecognizer] = None
@@ -45,8 +43,51 @@ multilingual_processor: Optional[MultilingualProcessor] = None
 batch_processor: Optional[BatchProcessor] = None
 
 # 日志配置
-logger = logging.getLogger(__name__)
 
+@asynccontextmanager
+async def lifespan(_: APIRouter) -> AsyncGenerator[None, None]:
+    """知识抽取路由生命周期管理"""
+    global entity_recognizer, relation_extractor, entity_linker
+    global multilingual_processor, batch_processor
+    try:
+        logger.info("正在初始化知识抽取组件...")
+
+        entity_recognizer = MultiModelEntityRecognizer()
+        await entity_recognizer.initialize()
+
+        relation_extractor = RelationExtractor()
+        await relation_extractor.initialize()
+
+        entity_linker = EntityLinker()
+        await entity_linker.initialize()
+
+        multilingual_processor = MultilingualProcessor()
+        await multilingual_processor.initialize()
+
+        batch_config = BatchConfig(
+            max_concurrent_tasks=20,
+            max_concurrent_per_model=5,
+            worker_pool_size=4,
+            memory_limit_mb=1024,
+            cache_size_limit=5000
+        )
+        batch_processor = BatchProcessor(batch_config)
+        await batch_processor.initialize()
+        await batch_processor.start_workers()
+
+        logger.info("知识抽取组件初始化完成")
+    except Exception as e:
+        logger.error(f"知识抽取组件初始化失败: {e}")
+        raise
+
+    yield
+
+    if batch_processor:
+        await batch_processor.shutdown()
+    logger.info("知识抽取组件已关闭")
+
+# 创建路由器
+router = APIRouter(prefix="/knowledge", tags=["knowledge-extraction"], lifespan=lifespan)
 
 class HealthResponse(BaseModel):
     """健康检查响应模型"""
@@ -56,7 +97,6 @@ class HealthResponse(BaseModel):
     uptime_seconds: float = 0.0
     memory_usage_mb: float = 0.0
     timestamp: datetime = Field(default_factory=datetime.now)
-
 
 class SystemMetrics(BaseModel):
     """系统指标模型"""
@@ -71,7 +111,6 @@ class SystemMetrics(BaseModel):
     memory_usage_mb: float = 0.0
     uptime_seconds: float = 0.0
     last_updated: datetime = Field(default_factory=datetime.now)
-
 
 # 全局指标收集器
 class MetricsCollector:
@@ -132,10 +171,8 @@ class MetricsCollector:
             uptime_seconds=uptime
         )
 
-
 # 全局指标收集器实例
 metrics_collector = MetricsCollector()
-
 
 async def get_components():
     """依赖注入：获取已初始化的组件"""
@@ -156,59 +193,6 @@ async def get_components():
         "multilingual_processor": multilingual_processor,
         "batch_processor": batch_processor
     }
-
-
-@router.on_event("startup")
-async def startup_event():
-    """应用启动时初始化组件"""
-    global entity_recognizer, relation_extractor, entity_linker
-    global multilingual_processor, batch_processor
-    
-    try:
-        logger.info("正在初始化知识抽取组件...")
-        
-        # 初始化各个组件
-        entity_recognizer = MultiModelEntityRecognizer()
-        await entity_recognizer.initialize()
-        
-        relation_extractor = RelationExtractor()
-        await relation_extractor.initialize()
-        
-        entity_linker = EntityLinker()
-        await entity_linker.initialize()
-        
-        multilingual_processor = MultilingualProcessor()
-        await multilingual_processor.initialize()
-        
-        # 初始化批处理器
-        batch_config = BatchConfig(
-            max_concurrent_tasks=20,
-            max_concurrent_per_model=5,
-            worker_pool_size=4,
-            memory_limit_mb=1024,
-            cache_size_limit=5000
-        )
-        batch_processor = BatchProcessor(batch_config)
-        await batch_processor.initialize()
-        await batch_processor.start_workers()
-        
-        logger.info("知识抽取组件初始化完成")
-        
-    except Exception as e:
-        logger.error(f"知识抽取组件初始化失败: {e}")
-        raise
-
-
-@router.on_event("shutdown")
-async def shutdown_event():
-    """应用关闭时清理资源"""
-    global batch_processor
-    
-    if batch_processor:
-        await batch_processor.shutdown()
-    
-    logger.info("知识抽取组件已关闭")
-
 
 @router.get("/health", response_model=HealthResponse)
 async def health_check():
@@ -270,12 +254,10 @@ async def health_check():
             components={"error": str(e)}
         )
 
-
 @router.get("/metrics", response_model=SystemMetrics)
 async def get_system_metrics():
     """获取系统指标"""
     return metrics_collector.get_metrics()
-
 
 @router.post("/extract", response_model=ExtractionResponse)
 async def extract_knowledge(
@@ -452,7 +434,6 @@ async def extract_knowledge(
             detail=f"知识抽取处理失败: {str(e)}"
         )
 
-
 @router.post("/batch", response_model=BatchProcessingResponse)
 async def process_batch(
     request: BatchProcessingRequest,
@@ -515,7 +496,6 @@ async def process_batch(
             detail=f"批处理提交失败: {str(e)}"
         )
 
-
 async def track_batch_progress(batch_id: str, batch_processor: BatchProcessor):
     """后台任务：跟踪批处理进度"""
     try:
@@ -529,7 +509,6 @@ async def track_batch_progress(batch_id: str, batch_processor: BatchProcessor):
         
     except Exception as e:
         logger.error(f"批处理跟踪失败: {batch_id}, 错误: {e}")
-
 
 @router.get("/batch/{batch_id}", response_model=BatchProcessingResponse)
 async def get_batch_status(
@@ -609,7 +588,6 @@ async def get_batch_status(
             detail=f"获取批处理状态失败: {str(e)}"
         )
 
-
 @router.get("/processing-status")
 async def get_processing_status(
     components: Dict = Depends(get_components)
@@ -626,7 +604,6 @@ async def get_processing_status(
             detail=f"获取处理状态失败: {str(e)}"
         )
 
-
 @router.post("/entities/search")
 async def search_entities(
     query: str = Query(..., description="搜索查询"),
@@ -636,14 +613,69 @@ async def search_entities(
 ):
     """实体搜索"""
     try:
-        # 这里可以实现基于已抽取实体的搜索功能
-        # 当前版本返回空结果
+        q = (query or "").strip().lower()
+        if not q:
+            return {"query": query, "entity_type": entity_type, "results": [], "total": 0, "limit": limit}
+
+        cache = components["batch_processor"].result_cache
+        with cache.lock:
+            cached_results = [item for item, _ in cache.cache.values()]
+
+        results: List[Dict[str, Any]] = []
+        seen = set()
+
+        for item in cached_results:
+            for ent in (item.get("linked_entities") or []) + (item.get("entities") or []):
+                if not ent:
+                    continue
+                if isinstance(ent, dict):
+                    text = ent.get("text")
+                    label = ent.get("label")
+                    canonical_form = ent.get("canonical_form")
+                    confidence = ent.get("confidence")
+                    entity_id = ent.get("entity_id")
+                    metadata = ent.get("metadata") or {}
+                else:
+                    text = getattr(ent, "text", None)
+                    label = getattr(ent, "label", None)
+                    canonical_form = getattr(ent, "canonical_form", None)
+                    confidence = getattr(ent, "confidence", None)
+                    entity_id = getattr(ent, "entity_id", None)
+                    metadata = getattr(ent, "metadata", None) or {}
+
+                if not text:
+                    continue
+
+                label_value = getattr(label, "value", None) or (str(label) if label is not None else None)
+                if entity_type and label_value != entity_type:
+                    continue
+
+                if q not in str(text).lower() and q not in str(canonical_form or "").lower():
+                    continue
+
+                key = (str(canonical_form or "").lower().strip() or str(text).lower().strip(), label_value)
+                if key in seen:
+                    continue
+                seen.add(key)
+
+                results.append(
+                    {
+                        "entity_id": entity_id,
+                        "text": text,
+                        "label": label_value,
+                        "canonical_form": canonical_form,
+                        "confidence": float(confidence or 0.0),
+                        "metadata": metadata,
+                    }
+                )
+
+        results.sort(key=lambda r: r.get("confidence", 0.0), reverse=True)
         return {
             "query": query,
             "entity_type": entity_type,
-            "results": [],
-            "total": 0,
-            "limit": limit
+            "results": results[:limit],
+            "total": len(results),
+            "limit": limit,
         }
         
     except Exception as e:
@@ -652,7 +684,6 @@ async def search_entities(
             status_code=500,
             detail=f"实体搜索失败: {str(e)}"
         )
-
 
 @router.post("/relations/search")
 async def search_relations(
@@ -664,15 +695,85 @@ async def search_relations(
 ):
     """关系搜索"""
     try:
-        # 这里可以实现基于已抽取关系的搜索功能
-        # 当前版本返回空结果
+        subj_q = (subject or "").strip().lower()
+        obj_q = (object or "").strip().lower()
+        pred_q = (predicate or "").strip()
+
+        cache = components["batch_processor"].result_cache
+        with cache.lock:
+            cached_results = [item for item, _ in cache.cache.values()]
+
+        results: List[Dict[str, Any]] = []
+        seen = set()
+
+        for item in cached_results:
+            for rel in item.get("relations") or []:
+                if not rel:
+                    continue
+                if isinstance(rel, dict):
+                    subj = rel.get("subject")
+                    pred = rel.get("predicate")
+                    objv = rel.get("object")
+                    confidence = rel.get("confidence")
+                    context = rel.get("context")
+                    source_sentence = rel.get("source_sentence")
+                    relation_id = rel.get("relation_id")
+                    evidence = rel.get("evidence") or []
+                    metadata = rel.get("metadata") or {}
+                else:
+                    subj = getattr(rel, "subject", None)
+                    pred = getattr(rel, "predicate", None)
+                    objv = getattr(rel, "object", None)
+                    confidence = getattr(rel, "confidence", None)
+                    context = getattr(rel, "context", None)
+                    source_sentence = getattr(rel, "source_sentence", None)
+                    relation_id = getattr(rel, "relation_id", None)
+                    evidence = getattr(rel, "evidence", None) or []
+                    metadata = getattr(rel, "metadata", None) or {}
+
+                subj_text = getattr(subj, "text", None) if subj is not None else None
+                obj_text = getattr(objv, "text", None) if objv is not None else None
+                if isinstance(subj, dict):
+                    subj_text = subj.get("text")
+                if isinstance(objv, dict):
+                    obj_text = objv.get("text")
+
+                pred_value = getattr(pred, "value", None) or (str(pred) if pred is not None else None)
+
+                if pred_q and pred_value != pred_q:
+                    continue
+                if subj_q and subj_q not in str(subj_text or "").lower():
+                    continue
+                if obj_q and obj_q not in str(obj_text or "").lower():
+                    continue
+
+                key = (str(subj_text or ""), pred_value, str(obj_text or ""))
+                if key in seen:
+                    continue
+                seen.add(key)
+
+                results.append(
+                    {
+                        "relation_id": relation_id,
+                        "subject": subj_text,
+                        "predicate": pred_value,
+                        "object": obj_text,
+                        "confidence": float(confidence or 0.0),
+                        "context": context,
+                        "source_sentence": source_sentence,
+                        "evidence": evidence,
+                        "metadata": metadata,
+                    }
+                )
+
+        results.sort(key=lambda r: r.get("confidence", 0.0), reverse=True)
         return {
             "subject": subject,
             "predicate": predicate,
             "object": object,
-            "results": [],
-            "total": 0,
-            "limit": limit
+            "results": results[:limit],
+            "total": len(results),
+            "limit": limit,
         }
         
     except Exception as e:
@@ -681,7 +782,6 @@ async def search_relations(
             status_code=500,
             detail=f"关系搜索失败: {str(e)}"
         )
-
 
 @router.delete("/cache")
 async def clear_cache(
@@ -700,7 +800,6 @@ async def clear_cache(
             status_code=500,
             detail=f"清空缓存失败: {str(e)}"
         )
-
 
 # 导出路由器
 __all__ = ["router"]

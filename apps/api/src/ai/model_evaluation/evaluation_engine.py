@@ -8,7 +8,6 @@ import asyncio
 import time
 from datetime import datetime
 from src.core.utils.timezone_utils import utc_now, utc_factory
-import logging
 from dataclasses import dataclass, asdict
 from pathlib import Path
 import pandas as pd
@@ -20,9 +19,11 @@ import evaluate
 from lm_eval import evaluator
 from lm_eval.models import huggingface
 from enum import Enum
-warnings.filterwarnings("ignore")
 
-logger = logging.getLogger(__name__)
+from src.core.logging import get_logger
+logger = get_logger(__name__)
+
+warnings.filterwarnings("ignore")
 
 class EvaluationStatus(str, Enum):
     """评估状态枚举"""
@@ -112,15 +113,7 @@ class ModelEvaluationEngine:
         self.job_history = []
         self.is_running = False
         
-        self._setup_logging()
         self._initialize_model()
-        
-    def _setup_logging(self):
-        """设置评估日志"""
-        logging.basicConfig(
-            level=logging.INFO,
-            format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-        )
         
     def load_model(self) -> None:
         """加载模型和tokenizer"""
@@ -459,7 +452,7 @@ class ModelEvaluationEngine:
     
     async def _evaluate_single_async(self, benchmark_config: BenchmarkConfig) -> List[EvaluationResult]:
         """异步评估单个基准测试"""
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         with ThreadPoolExecutor() as executor:
             results = await loop.run_in_executor(
                 executor, 
@@ -544,12 +537,12 @@ class ModelEvaluationEngine:
             
             # 初始化模型（如果还没初始化）
             if self.model is None:
-                await asyncio.get_event_loop().run_in_executor(
+                await asyncio.get_running_loop().run_in_executor(
                     None, self._initialize_model
                 )
             
             # 执行评估（在线程池中执行，避免阻塞事件循环）
-            results = await asyncio.get_event_loop().run_in_executor(
+            results = await asyncio.get_running_loop().run_in_executor(
                 None, self._execute_benchmark, benchmark_name
             )
             

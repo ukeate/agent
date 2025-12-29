@@ -3,12 +3,12 @@ Task 7隐私保护与伦理防护完整单元测试套件
 测试PrivacyEthicsGuard的所有安全功能和合规性检查
 """
 
+from src.core.utils.timezone_utils import utc_now
 import pytest
 import asyncio
-from datetime import datetime, timedelta
+from datetime import timedelta
 from typing import Dict, List, Any
 from unittest.mock import Mock, patch, AsyncMock
-
 from ai.emotion_modeling.privacy_ethics_guard import (
     PrivacyEthicsGuard,
     PrivacyLevel,
@@ -23,12 +23,10 @@ from ai.emotion_modeling.privacy_ethics_guard import (
 )
 from ai.emotion_modeling.models import EmotionVector, SocialContext
 
-
 @pytest.fixture
 def privacy_guard():
     """创建隐私伦理防护实例"""
     return PrivacyEthicsGuard()
-
 
 @pytest.fixture
 def sample_user_data():
@@ -42,12 +40,12 @@ def sample_user_data():
         },
         "emotion_history": [
             {
-                "timestamp": datetime.now() - timedelta(days=1),
+                "timestamp": utc_now() - timedelta(days=1),
                 "emotions": {"happiness": 0.8, "confidence": 0.7},
                 "context": "work_meeting"
             },
             {
-                "timestamp": datetime.now() - timedelta(hours=2),
+                "timestamp": utc_now() - timedelta(hours=2),
                 "emotions": {"stress": 0.6, "anxiety": 0.4},
                 "context": "personal_conversation"
             }
@@ -58,7 +56,6 @@ def sample_user_data():
         ]
     }
 
-
 @pytest.fixture
 def sample_consent_record():
     """创建测试同意记录"""
@@ -66,13 +63,12 @@ def sample_consent_record():
         user_id="test_user_001",
         consent_type="emotion_analysis",
         granted=True,
-        timestamp=datetime.now(),
+        timestamp=utc_now(),
         scope=["emotion_tracking", "social_analysis"],
-        expiry_date=datetime.now() + timedelta(days=365),
+        expiry_date=utc_now() + timedelta(days=365),
         withdrawal_date=None,
         version="1.0"
     )
-
 
 @pytest.fixture
 def sample_privacy_policy():
@@ -80,7 +76,7 @@ def sample_privacy_policy():
     return PrivacyPolicy(
         policy_id="test_policy_v1",
         version="1.0",
-        effective_date=datetime.now(),
+        effective_date=utc_now(),
         data_types_collected=["emotions", "messages", "social_connections"],
         purposes=["emotion_analysis", "social_insights", "user_experience"],
         retention_period_days=365,
@@ -89,7 +85,6 @@ def sample_privacy_policy():
         user_rights=["access", "rectification", "erasure", "portability"],
         contact_info="privacy@example.com"
     )
-
 
 class TestPrivacyEthicsGuard:
     """隐私伦理防护基础功能测试"""
@@ -120,7 +115,6 @@ class TestPrivacyEthicsGuard:
         privacy_guard.enable_audit_logging()
         assert privacy_guard.audit_enabled is True
 
-
 class TestDataClassificationAndSensitivity:
     """数据分类和敏感度测试"""
     
@@ -149,7 +143,7 @@ class TestDataClassificationAndSensitivity:
             },
             "emotion_history": [
                 {
-                    "timestamp": datetime.now(),
+                    "timestamp": utc_now(),
                     "emotions": {"depression": 0.9, "suicidal_thoughts": 0.7},
                     "context": "therapy_session"
                 }
@@ -174,7 +168,7 @@ class TestDataClassificationAndSensitivity:
             },
             "emotion_history": [
                 {
-                    "timestamp": datetime.now(),
+                    "timestamp": utc_now(),
                     "emotions": {"neutral": 0.8, "professional": 0.7},
                     "context": "public_presentation"
                 }
@@ -196,7 +190,6 @@ class TestDataClassificationAndSensitivity:
         assert classification.sensitivity_level == PrivacyLevel.PUBLIC.value
         assert classification.sensitivity_score == 0.0
         assert len(classification.sensitive_fields) == 0
-
 
 class TestPrivacyViolationDetection:
     """隐私违规检测测试"""
@@ -252,7 +245,7 @@ class TestPrivacyViolationDetection:
             "user_id": "expired_user",
             "emotion_history": [
                 {
-                    "timestamp": datetime.now() - timedelta(days=400),  # 超过标准保留期
+                    "timestamp": utc_now() - timedelta(days=400),  # 超过标准保留期
                     "emotions": {"happiness": 0.5},
                     "context": "old_conversation"
                 }
@@ -266,7 +259,6 @@ class TestPrivacyViolationDetection:
         # 可能检测到数据保留期违规
         retention_violations = [v for v in violations if "retention" in v.violation_type.lower() or "expired" in v.violation_type.lower()]
         # 这取决于具体的保留政策实现
-
 
 class TestEthicalViolationDetection:
     """伦理违规检测测试"""
@@ -354,7 +346,6 @@ class TestEthicalViolationDetection:
         ]
         assert len(vulnerable_violations) > 0
 
-
 class TestConsentManagement:
     """同意管理测试"""
     
@@ -400,9 +391,9 @@ class TestConsentManagement:
             user_id="expired_user",
             consent_type="emotion_analysis",
             granted=True,
-            timestamp=datetime.now() - timedelta(days=400),
+            timestamp=utc_now() - timedelta(days=400),
             scope=["emotion_tracking"],
-            expiry_date=datetime.now() - timedelta(days=1),  # 已过期
+            expiry_date=utc_now() - timedelta(days=1),  # 已过期
             withdrawal_date=None,
             version="1.0"
         )
@@ -424,10 +415,10 @@ class TestConsentManagement:
             user_id="withdrawn_user",
             consent_type="emotion_analysis",
             granted=True,
-            timestamp=datetime.now(),
+            timestamp=utc_now(),
             scope=["emotion_tracking"],
-            expiry_date=datetime.now() + timedelta(days=365),
-            withdrawal_date=datetime.now(),  # 已撤回
+            expiry_date=utc_now() + timedelta(days=365),
+            withdrawal_date=utc_now(),  # 已撤回
             version="1.0"
         )
         
@@ -460,7 +451,6 @@ class TestConsentManagement:
         )
         
         assert has_consent is False
-
 
 class TestPrivacyPolicyManagement:
     """隐私政策管理测试"""
@@ -517,7 +507,6 @@ class TestPrivacyPolicyManagement:
         assert compliance_result["compliant"] is False
         assert len(compliance_result["violations"]) > 0
 
-
 class TestAuditLogging:
     """审计日志测试"""
     
@@ -571,10 +560,9 @@ class TestAuditLogging:
         assert len(user_records) >= 1
         
         # 获取时间范围内的审计历史
-        since_time = datetime.now() - timedelta(minutes=1)
+        since_time = utc_now() - timedelta(minutes=1)
         recent_history = await privacy_guard.get_audit_history(since=since_time)
         assert len(recent_history) >= 0
-
 
 class TestComplianceReporting:
     """合规报告测试"""
@@ -601,8 +589,8 @@ class TestComplianceReporting:
     @pytest.mark.asyncio
     async def test_generate_compliance_report_time_period(self, privacy_guard):
         """测试特定时间段合规报告"""
-        start_date = datetime.now() - timedelta(days=7)
-        end_date = datetime.now()
+        start_date = utc_now() - timedelta(days=7)
+        end_date = utc_now()
         
         report = await privacy_guard.generate_compliance_report(
             start_date=start_date,
@@ -630,7 +618,6 @@ class TestComplianceReporting:
         assert report.privacy_violations_count >= 0
         if violations:
             assert report.compliance_score < 1.0
-
 
 class TestDataAnonymization:
     """数据匿名化测试"""
@@ -691,7 +678,6 @@ class TestDataAnonymization:
             # 情感数据本身应该被保留用于分析
             assert "emotions" in emotion_history[0]
 
-
 class TestSecurityMeasures:
     """安全措施测试"""
     
@@ -729,7 +715,6 @@ class TestSecurityMeasures:
         assert "transmission_id" in transmission_result
         assert "encryption_used" in transmission_result
 
-
 class TestErrorHandlingAndEdgeCases:
     """错误处理和边界条件测试"""
     
@@ -760,9 +745,9 @@ class TestErrorHandlingAndEdgeCases:
                 user_id=f"concurrent_user_{i}",
                 consent_type="test_consent",
                 granted=True,
-                timestamp=datetime.now(),
+                timestamp=utc_now(),
                 scope=["test"],
-                expiry_date=datetime.now() + timedelta(days=1),
+                expiry_date=utc_now() + timedelta(days=1),
                 withdrawal_date=None,
                 version="1.0"
             )
@@ -797,7 +782,7 @@ class TestErrorHandlingAndEdgeCases:
         policy_v1 = PrivacyPolicy(
             policy_id="conflict_test_policy",
             version="1.0",
-            effective_date=datetime.now(),
+            effective_date=utc_now(),
             data_types_collected=["emotions"],
             purposes=["analysis"],
             retention_period_days=365,
@@ -810,7 +795,7 @@ class TestErrorHandlingAndEdgeCases:
         policy_v2 = PrivacyPolicy(
             policy_id="conflict_test_policy",  # 相同ID
             version="2.0",
-            effective_date=datetime.now() + timedelta(days=1),
+            effective_date=utc_now() + timedelta(days=1),
             data_types_collected=["emotions", "messages"],
             purposes=["analysis", "improvement"],
             retention_period_days=730,
@@ -826,7 +811,6 @@ class TestErrorHandlingAndEdgeCases:
         # 应该存储最新版本
         stored_policy = privacy_guard.privacy_policies["conflict_test_policy"]
         assert stored_policy.version == "2.0"
-
 
 class TestIntegrationScenarios:
     """集成场景测试"""
@@ -880,7 +864,7 @@ class TestIntegrationScenarios:
         gdpr_policy = PrivacyPolicy(
             policy_id="gdpr_compliant_policy",
             version="1.0",
-            effective_date=datetime.now(),
+            effective_date=utc_now(),
             data_types_collected=["emotions", "social_interactions"],
             purposes=["emotion_analysis", "social_insights"],
             retention_period_days=365,
@@ -926,7 +910,6 @@ class TestIntegrationScenarios:
         )
         
         assert compliance_result["compliant"] is True
-
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

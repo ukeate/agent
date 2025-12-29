@@ -4,27 +4,21 @@
 
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
-
-import structlog
 from sqlalchemy import text
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase
-
 from .config import get_settings
 
-logger = structlog.get_logger(__name__)
-
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 class Base(DeclarativeBase):
     """数据库模型基类"""
-
-    pass
-
+    ...
 
 # 全局数据库引擎和会话工厂
-engine = None
-async_session_factory = None
-
+engine: AsyncEngine | None = None
+async_session_factory: async_sessionmaker[AsyncSession] | None = None
 
 async def init_database() -> None:
     """初始化数据库连接"""
@@ -32,7 +26,7 @@ async def init_database() -> None:
 
     settings = get_settings()
 
-    logger.info("Initializing database connection", database_url=settings.DATABASE_URL)
+    logger.info("开始初始化数据库连接")
 
     # 创建异步引擎
     engine = create_async_engine(
@@ -51,18 +45,16 @@ async def init_database() -> None:
         expire_on_commit=False,
     )
 
-    logger.info("Database connection initialized successfully")
-
+    logger.info("数据库连接初始化完成")
 
 async def close_database() -> None:
     """关闭数据库连接"""
     global engine
 
     if engine:
-        logger.info("Closing database connection")
+        logger.info("关闭数据库连接")
         await engine.dispose()
-        logger.info("Database connection closed")
-
+        logger.info("数据库连接已关闭")
 
 @asynccontextmanager
 async def get_db_session() -> AsyncGenerator[AsyncSession, None]:
@@ -79,24 +71,10 @@ async def get_db_session() -> AsyncGenerator[AsyncSession, None]:
         finally:
             await session.close()
 
-
 async def get_db() -> AsyncGenerator[AsyncSession, None]:
     """FastAPI依赖注入函数：获取数据库会话"""
-    from .config import get_settings
-
-    settings = get_settings()
-
-    if settings.TESTING:
-        # 测试模式下返回None，由端点处理
-        yield None
-    else:
-        async with get_db_session() as session:
-            yield session
-
-
-# 兼容性别名
-get_session = get_db
-
+    async with get_db_session() as session:
+        yield session
 
 async def test_database_connection() -> bool:
     """测试数据库连接"""
@@ -105,11 +83,11 @@ async def test_database_connection() -> bool:
             # 执行简单查询测试连接
             result = await session.execute(text("SELECT 1"))
             if result.scalar() == 1:
-                logger.info("Database connection test successful")
+                logger.info("数据库连接测试成功")
                 return True
             else:
-                logger.error("Database connection test failed: unexpected result")
+                logger.error("数据库连接测试失败：返回值异常")
                 return False
     except Exception as e:
-        logger.error("Database connection test failed", error=str(e), exc_info=True)
+        logger.error("数据库连接测试失败", error=str(e), exc_info=True)
         return False

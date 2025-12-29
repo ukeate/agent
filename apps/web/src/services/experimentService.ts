@@ -1,7 +1,7 @@
 /**
  * 实验服务
  */
-import { apiClient } from './apiClient';
+import apiClient from './apiClient';
 
 // 实验配置接口
 export interface ExperimentConfig {
@@ -67,13 +67,34 @@ export interface ListExperimentsResponse {
 }
 
 class ExperimentService {
-  private baseUrl = '/api/v1/experiments';
+  private baseUrl = '/experiments';
 
   /**
    * 获取实验列表
    */
   async listExperiments(params: ListExperimentsParams = {}): Promise<ListExperimentsResponse> {
-    const response = await apiClient.get(this.baseUrl, { params });
+    const response = await apiClient.get<ListExperimentsResponse>(this.baseUrl, { params });
+    return response.data;
+  }
+
+  /**
+   * 获取实验模板 - 使用实际API
+   */
+  async getExperimentTemplates(): Promise<any[]> {
+    const response = await apiClient.get(`${this.baseUrl}/templates`);
+    return response.data;
+  }
+
+  /**
+   * 计算样本量 - 使用实际API
+   */
+  async calculateSampleSize(params: {
+    baselineRate: number;
+    minimumDetectableEffect: number;
+    confidenceLevel: number;
+    power: number;
+  }): Promise<any> {
+    const response = await apiClient.post(`${this.baseUrl}/calculate-sample-size`, params);
     return response.data;
   }
 
@@ -207,18 +228,6 @@ class ExperimentService {
     return response.data;
   }
 
-  /**
-   * 计算样本量
-   */
-  async calculateSampleSize(params: {
-    baselineRate: number;
-    minimumDetectableEffect: number;
-    confidenceLevel: number;
-    power: number;
-  }): Promise<{ sampleSize: number }> {
-    const response = await apiClient.post(`${this.baseUrl}/calculate-sample-size`, params);
-    return response.data;
-  }
 
   /**
    * 获取实验模板

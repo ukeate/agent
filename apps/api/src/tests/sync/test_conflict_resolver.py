@@ -8,7 +8,6 @@ from datetime import datetime
 from datetime import timedelta
 from src.core.utils.timezone_utils import utc_now, utc_factory
 from uuid import uuid4
-
 from ...sync.conflict_detector import (
     ConflictDetector, ConflictContext, ConflictSeverity, 
     ConflictCategory, ConflictDetectionResult
@@ -21,8 +20,8 @@ from ...sync.merge_strategies import MergeStrategies, MergeResult
 from ...models.schemas.offline import (
     SyncOperation, SyncOperationType, VectorClock,
     ConflictType, ConflictResolutionStrategy
-)
 
+)
 
 class TestConflictDetector:
     """冲突检测器测试"""
@@ -230,7 +229,6 @@ class TestConflictDetector:
         assert "severity_distribution" in summary
         assert "category_distribution" in summary
         assert "type_distribution" in summary
-
 
 class TestConflictResolver:
     """冲突解决器测试"""
@@ -507,7 +505,6 @@ class TestConflictResolver:
         assert stats["interactive_resolution_rate"] == 0.3
         assert stats["manual_resolution_rate"] == 0.1
         assert stats["average_resolution_time_ms"] == 500.0
-
 
 class TestMergeStrategies:
     """合并策略测试"""

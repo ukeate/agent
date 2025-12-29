@@ -5,12 +5,12 @@
 """
 
 import re
-import logging
 from typing import Dict, List, Optional, Tuple
 from dataclasses import dataclass
 from enum import Enum
 
-logger = logging.getLogger(__name__)
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 class SentimentType(str, Enum):
     """情感类型枚举"""

@@ -1,14 +1,14 @@
 """
 监控中间件
 """
+
 import time
 import uuid
 from typing import Callable
 from fastapi import Request, Response
 from fastapi.routing import APIRoute
-from starlette.middleware.base import BaseHTTPMiddleware
-from starlette.types import ASGIApp
-
+from starlette.datastructures import MutableHeaders
+from starlette.types import ASGIApp, Receive, Scope, Send
 from .logger import (
     app_logger,
     request_logger,
@@ -17,14 +17,18 @@ from .logger import (
 )
 from .metrics_collector import request_metrics
 
-
-class MonitoringMiddleware(BaseHTTPMiddleware):
+class MonitoringMiddleware:
     """监控中间件"""
     
     def __init__(self, app: ASGIApp):
-        super().__init__(app)
+        self.app = app
     
-    async def dispatch(self, request: Request, call_next: Callable) -> Response:
+    async def __call__(self, scope: Scope, receive: Receive, send: Send):
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+
+        request = Request(scope, receive=receive)
         # 生成请求ID
         request_id = str(uuid.uuid4())
         request.state.request_id = request_id
@@ -47,71 +51,60 @@ class MonitoringMiddleware(BaseHTTPMiddleware):
         elif request.method == "GET":
             experiment_id = request.query_params.get("experiment_id")
         
+        async def send_wrapper(message):
+            if message["type"] == "http.response.start":
+                duration = time.time() - start_time
+                status_code = message["status"]
+
+                request_logger.log_request(
+                    method=request.method,
+                    path=request.url.path,
+                    status_code=status_code,
+                    duration=duration,
+                    request_id=request_id,
+                    experiment_id=experiment_id,
+                )
+
+                await request_metrics.record_request(
+                    method=request.method,
+                    path=request.url.path,
+                    status_code=status_code,
+                    duration=duration,
+                    experiment_id=experiment_id,
+                )
+
+                request_logger.log_slow_request(
+                    method=request.method,
+                    path=request.url.path,
+                    duration=duration,
+                    threshold=1.0,
+                )
+
+                headers = MutableHeaders(scope=message)
+                headers["X-Request-ID"] = request_id
+                headers["X-Response-Time"] = f"{duration:.3f}s"
+            await send(message)
+
         try:
-            # 处理请求
-            response = await call_next(request)
-            
-            # 计算响应时间
-            duration = time.time() - start_time
-            
-            # 记录请求日志
-            request_logger.log_request(
-                method=request.method,
-                path=request.url.path,
-                status_code=response.status_code,
-                duration=duration,
-                request_id=request_id,
-                experiment_id=experiment_id
-            )
-            
-            # 记录请求指标
-            await request_metrics.record_request(
-                method=request.method,
-                path=request.url.path,
-                status_code=response.status_code,
-                duration=duration,
-                experiment_id=experiment_id
-            )
-            
-            # 记录慢请求
-            request_logger.log_slow_request(
-                method=request.method,
-                path=request.url.path,
-                duration=duration,
-                threshold=1.0  # 1秒阈值
-            )
-            
-            # 添加响应头
-            response.headers["X-Request-ID"] = request_id
-            response.headers["X-Response-Time"] = f"{duration:.3f}s"
-            
-            return response
-            
+            await self.app(scope, receive, send_wrapper)
         except Exception as e:
             duration = time.time() - start_time
-            
-            # 记录错误
             app_logger.error(
                 f"Request failed: {request.method} {request.url.path}",
                 exception=e,
                 request_id=request_id,
-                duration_ms=duration * 1000
+                duration_ms=duration * 1000,
             )
-            
-            # 记录错误指标
             await request_metrics.record_request(
                 method=request.method,
                 path=request.url.path,
                 status_code=500,
                 duration=duration,
-                experiment_id=experiment_id
+                experiment_id=experiment_id,
             )
-            
             raise
         finally:
-            # 清理日志上下文
             clear_request_context()
-
 
 class LoggingRoute(APIRoute):
     """带日志的路由"""
@@ -145,7 +138,6 @@ class LoggingRoute(APIRoute):
         
         return logging_route_handler
 
-
 class HealthCheckMiddleware:
     """健康检查中间件"""
     
@@ -167,7 +159,6 @@ class HealthCheckMiddleware:
             })
         else:
             await self.app(scope, receive, send)
-
 
 class MetricsMiddleware:
     """指标暴露中间件"""
@@ -224,83 +215,3 @@ class MetricsMiddleware:
         
         return "\n".join(lines) + "\n"
 
-
-class RateLimitMiddleware(BaseHTTPMiddleware):
-    """速率限制中间件"""
-    
-    def __init__(self, app: ASGIApp, requests_per_minute: int = 60):
-        super().__init__(app)
-        self.requests_per_minute = requests_per_minute
-        self.request_times = {}
-    
-    async def dispatch(self, request: Request, call_next: Callable) -> Response:
-        # 获取客户端IP
-        client_ip = request.client.host if request.client else "unknown"
-        
-        # 获取当前时间
-        current_time = time.time()
-        
-        # 清理旧记录
-        if client_ip in self.request_times:
-            self.request_times[client_ip] = [
-                t for t in self.request_times[client_ip]
-                if current_time - t < 60
-            ]
-        else:
-            self.request_times[client_ip] = []
-        
-        # 检查速率限制
-        if len(self.request_times[client_ip]) >= self.requests_per_minute:
-            app_logger.warning(
-                f"Rate limit exceeded for {client_ip}",
-                client_ip=client_ip,
-                requests_count=len(self.request_times[client_ip])
-            )
-            
-            return Response(
-                content='{"error": "Rate limit exceeded"}',
-                status_code=429,
-                headers={"Retry-After": "60"}
-            )
-        
-        # 记录请求时间
-        self.request_times[client_ip].append(current_time)
-        
-        # 继续处理请求
-        response = await call_next(request)
-        return response
-
-
-class ErrorHandlingMiddleware(BaseHTTPMiddleware):
-    """错误处理中间件"""
-    
-    async def dispatch(self, request: Request, call_next: Callable) -> Response:
-        try:
-            response = await call_next(request)
-            return response
-        except ValueError as e:
-            app_logger.warning(f"Validation error: {str(e)}", exception=e)
-            return Response(
-                content=f'{{"error": "Validation error: {str(e)}"}}',
-                status_code=400,
-                media_type="application/json"
-            )
-        except PermissionError as e:
-            app_logger.warning(f"Permission denied: {str(e)}", exception=e)
-            return Response(
-                content=f'{{"error": "Permission denied: {str(e)}"}}',
-                status_code=403,
-                media_type="application/json"
-            )
-        except Exception as e:
-            request_id = getattr(request.state, "request_id", "unknown")
-            app_logger.error(
-                f"Unhandled exception in request {request_id}",
-                exception=e,
-                request_id=request_id
-            )
-            return Response(
-                content='{"error": "Internal server error"}',
-                status_code=500,
-                media_type="application/json"
-            )

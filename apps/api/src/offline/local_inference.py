@@ -17,10 +17,8 @@ from src.core.utils.timezone_utils import utc_now, utc_factory
 from typing import Dict, Any, Optional, List, Union, Callable
 from dataclasses import dataclass
 from enum import Enum
-
 from .model_cache import ModelCacheManager
 from ..models.schemas.offline import OfflineMode, NetworkStatus
-
 
 class InferenceMode(str, Enum):
     """推理模式枚举"""
@@ -29,14 +27,12 @@ class InferenceMode(str, Enum):
     HYBRID = "hybrid"
     AUTO = "auto"
 
-
 class ModelType(str, Enum):
     """模型类型枚举"""
     LANGUAGE_MODEL = "language_model"
     EMBEDDING_MODEL = "embedding_model"
     REASONING_MODEL = "reasoning_model"
     VISION_MODEL = "vision_model"
-
 
 @dataclass
 class InferenceRequest:
@@ -49,7 +45,6 @@ class InferenceRequest:
     max_tokens: Optional[int] = None
     temperature: Optional[float] = None
     top_p: Optional[float] = None
-
 
 @dataclass
 class InferenceResult:
@@ -64,7 +59,6 @@ class InferenceResult:
     reasoning_steps: Optional[List[Dict[str, Any]]] = None
     metadata: Dict[str, Any] = None
 
-
 @dataclass
 class CachedInference:
     """缓存的推理结果"""
@@ -73,7 +67,6 @@ class CachedInference:
     created_at: datetime
     access_count: int
     last_accessed: datetime
-
 
 class InferenceCache:
     """推理结果缓存管理器"""
@@ -177,7 +170,6 @@ class InferenceCache:
             'newest_entry': max(item.created_at for item in self._cache.values())
         }
 
-
 class LocalInferenceEngine:
     """本地推理引擎"""
     
@@ -248,19 +240,19 @@ class LocalInferenceEngine:
             # 加载模型
             model = await self._load_model_for_inference(request.model_type)
             if not model:
-                return None
+                raise RuntimeError(f"local model for {request.model_type.value} not loaded")
             
-            # 执行推理
-            if request.model_type == ModelType.LANGUAGE_MODEL:
-                response = await self._language_model_inference(model, request)
-            elif request.model_type == ModelType.REASONING_MODEL:
-                response = await self._reasoning_model_inference(model, request)
-            elif request.model_type == ModelType.EMBEDDING_MODEL:
-                response = await self._embedding_model_inference(model, request)
-            elif request.model_type == ModelType.VISION_MODEL:
-                response = await self._vision_model_inference(model, request)
-            else:
-                return None
+            # 执行推理：必须调用模型提供的真实接口
+            if not hasattr(model, "infer"):
+                raise RuntimeError("loaded model missing infer() method")
+            response = await model.infer(
+                prompt=request.prompt,
+                parameters=request.parameters,
+                context=request.context,
+                max_tokens=request.max_tokens,
+                temperature=request.temperature,
+                top_p=request.top_p
+            )
             
             # 计算推理时间
             inference_time = (utc_now() - start_time).total_seconds() * 1000
@@ -281,134 +273,27 @@ class LocalInferenceEngine:
             return result
             
         except Exception as e:
-            print(f"Local inference failed: {e}")
-            return None
+            self._inference_stats['failed_inferences'] += 1
+            raise
     
     async def _language_model_inference(self, model: Any, request: InferenceRequest) -> Dict[str, Any]:
-        """语言模型推理"""
-        # 这里是模拟实现，实际需要根据具体模型API调用
-        prompt = request.prompt
-        
-        # 简单的CoT推理模拟
-        if "step by step" in prompt.lower() or "reasoning" in request.parameters:
-            reasoning_steps = [
-                {"step": 1, "thought": "分析问题", "content": "理解用户的问题"},
-                {"step": 2, "thought": "制定策略", "content": "确定解决方法"},
-                {"step": 3, "thought": "执行推理", "content": "应用逻辑推理"},
-                {"step": 4, "thought": "生成答案", "content": "形成最终回复"}
-            ]
-        else:
-            reasoning_steps = None
-        
-        # 模拟推理延时
-        await asyncio.sleep(0.1)
-        
-        return {
-            'text': f"Local inference response for: {prompt[:100]}...",
-            'token_count': len(prompt.split()) + 20,
-            'confidence': 0.85,
-            'reasoning_steps': reasoning_steps
-        }
+        raise RuntimeError("language model inference not implemented for offline engine")
     
     async def _reasoning_model_inference(self, model: Any, request: InferenceRequest) -> Dict[str, Any]:
         """推理模型推理"""
-        # 实现Chain of Thought推理
-        prompt = request.prompt
-        
-        # 分解推理步骤
-        reasoning_steps = []
-        
-        # 步骤1：问题分解
-        reasoning_steps.append({
-            "step": 1,
-            "type": "problem_decomposition",
-            "thought": "分解问题为子问题",
-            "content": "将复杂问题分解为可管理的部分"
-        })
-        
-        # 步骤2：信息收集
-        reasoning_steps.append({
-            "step": 2,
-            "type": "information_gathering",
-            "thought": "收集相关信息",
-            "content": "基于上下文和知识库收集信息"
-        })
-        
-        # 步骤3：逻辑推理
-        reasoning_steps.append({
-            "step": 3,
-            "type": "logical_reasoning",
-            "thought": "应用逻辑推理",
-            "content": "使用演绎和归纳推理"
-        })
-        
-        # 步骤4：结论生成
-        reasoning_steps.append({
-            "step": 4,
-            "type": "conclusion_generation",
-            "thought": "生成最终结论",
-            "content": "综合信息形成答案"
-        })
-        
-        await asyncio.sleep(0.2)  # 推理时间更长
-        
-        return {
-            'text': f"Reasoning result: {prompt[:100]}...",
-            'token_count': len(prompt.split()) + 50,
-            'confidence': 0.9,
-            'reasoning_steps': reasoning_steps
-        }
+        raise RuntimeError("reasoning model inference not implemented for offline engine")
     
     async def _embedding_model_inference(self, model: Any, request: InferenceRequest) -> Dict[str, Any]:
         """嵌入模型推理"""
-        await asyncio.sleep(0.05)
-        
-        # 模拟向量嵌入
-        import random
-        embedding = [random.random() for _ in range(768)]
-        
-        return {
-            'text': json.dumps(embedding),
-            'token_count': len(request.prompt.split()),
-            'confidence': 0.95
-        }
+        raise RuntimeError("embedding inference not implemented for offline engine")
     
     async def _vision_model_inference(self, model: Any, request: InferenceRequest) -> Dict[str, Any]:
         """视觉模型推理"""
-        await asyncio.sleep(0.3)
-        
-        return {
-            'text': f"Vision analysis: {request.prompt[:50]}...",
-            'token_count': 30,
-            'confidence': 0.8
-        }
+        raise RuntimeError("vision inference not implemented for offline engine")
     
     async def _remote_inference(self, request: InferenceRequest) -> Optional[InferenceResult]:
-        """执行远程推理（模拟）"""
-        # 这里应该调用远程API
-        # 为了演示，我们模拟网络调用
-        
-        if self.network_status == NetworkStatus.DISCONNECTED:
-            return None
-        
-        await asyncio.sleep(0.5)  # 模拟网络延时
-        
-        start_time = utc_now()
-        inference_time = (utc_now() - start_time).total_seconds() * 1000
-        
-        result = InferenceResult(
-            request_id=request.request_id,
-            response=f"Remote inference response for: {request.prompt[:100]}...",
-            model_used=f"remote_{request.model_type.value}",
-            inference_time_ms=inference_time,
-            token_count=len(request.prompt.split()) + 25,
-            is_cached=False,
-            confidence_score=0.95,
-            metadata={'inference_mode': 'remote'}
-        )
-        
-        self._inference_stats['remote_inferences'] += 1
-        return result
+        """执行远程推理"""
+        raise RuntimeError("remote inference not configured; please provide remote client")
     
     async def infer(self, request: InferenceRequest) -> Optional[InferenceResult]:
         """执行推理"""

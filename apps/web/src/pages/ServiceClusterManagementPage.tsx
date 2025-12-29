@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { Card, Row, Col, Table, Badge, Button, Space, Typography, Alert, Progress, Statistic, Tag, Modal, Form, Input, Select, Tooltip, Drawer, Timeline } from 'antd'
 import { 
+import { logger } from '../utils/logger'
   CloudServerOutlined, 
   CheckCircleOutlined, 
   ExclamationCircleOutlined, 
@@ -16,13 +17,14 @@ import {
   EyeOutlined,
   ThunderboltOutlined,
   DatabaseOutlined,
-  NetworkOutlined,
+  ShareAltOutlined,
   SyncOutlined,
   CrownOutlined,
   UserOutlined,
   BookOutlined
 } from '@ant-design/icons'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as ChartTooltip, ResponsiveContainer, AreaChart, Area } from 'recharts'
+import { clusterManagementService } from '../services/clusterManagementService'
 
 const { Title, Paragraph, Text } = Typography
 const { Option } = Select
@@ -78,236 +80,9 @@ interface ClusterEvent {
 }
 
 const ServiceClusterManagementPage: React.FC<ServiceClusterManagementPageProps> = () => {
-  const [clusterNodes, setClusterNodes] = useState<ClusterNode[]>([
-    {
-      id: 'etcd-node-1',
-      name: 'etcd-master-1',
-      ip: '192.168.1.101',
-      port: 2379,
-      status: 'leader',
-      role: 'leader',
-      region: 'us-east-1',
-      datacenter: 'dc-1',
-      uptime: 99.9,
-      loadAverage: 0.45,
-      memoryUsage: 78,
-      diskUsage: 34,
-      networkIO: 125,
-      connections: 234,
-      lastSeen: '2024-08-26T14:25:00Z',
-      version: '3.5.10',
-      raftState: {
-        term: 15,
-        index: 125678,
-        applied: 125676,
-        commit: 125676
-      },
-      metrics: {
-        requestsPerSecond: 892,
-        responseTime: 12,
-        errorRate: 0.1,
-        throughput: 45.6
-      },
-      config: {
-        maxConnections: 1000,
-        timeoutMs: 5000,
-        heartbeatInterval: 100,
-        electionTimeout: 1000
-      }
-    },
-    {
-      id: 'etcd-node-2',
-      name: 'etcd-master-2',
-      ip: '192.168.1.102',
-      port: 2379,
-      status: 'follower',
-      role: 'follower',
-      region: 'us-east-1',
-      datacenter: 'dc-1',
-      uptime: 99.8,
-      loadAverage: 0.38,
-      memoryUsage: 65,
-      diskUsage: 28,
-      networkIO: 98,
-      connections: 198,
-      lastSeen: '2024-08-26T14:24:30Z',
-      version: '3.5.10',
-      raftState: {
-        term: 15,
-        index: 125677,
-        applied: 125675,
-        commit: 125675
-      },
-      metrics: {
-        requestsPerSecond: 654,
-        responseTime: 15,
-        errorRate: 0.2,
-        throughput: 32.1
-      },
-      config: {
-        maxConnections: 1000,
-        timeoutMs: 5000,
-        heartbeatInterval: 100,
-        electionTimeout: 1000
-      }
-    },
-    {
-      id: 'etcd-node-3',
-      name: 'etcd-master-3',
-      ip: '192.168.1.103',
-      port: 2379,
-      status: 'follower',
-      role: 'follower',
-      region: 'us-west-2',
-      datacenter: 'dc-2',
-      uptime: 99.7,
-      loadAverage: 0.42,
-      memoryUsage: 72,
-      diskUsage: 31,
-      networkIO: 112,
-      connections: 205,
-      lastSeen: '2024-08-26T14:24:45Z',
-      version: '3.5.10',
-      raftState: {
-        term: 15,
-        index: 125676,
-        applied: 125674,
-        commit: 125674
-      },
-      metrics: {
-        requestsPerSecond: 723,
-        responseTime: 18,
-        errorRate: 0.3,
-        throughput: 38.9
-      },
-      config: {
-        maxConnections: 1000,
-        timeoutMs: 5000,
-        heartbeatInterval: 100,
-        electionTimeout: 1000
-      }
-    },
-    {
-      id: 'etcd-node-4',
-      name: 'etcd-backup-1',
-      ip: '192.168.1.104',
-      port: 2379,
-      status: 'unhealthy',
-      role: 'learner',
-      region: 'eu-central-1',
-      datacenter: 'dc-3',
-      uptime: 85.2,
-      loadAverage: 0.95,
-      memoryUsage: 95,
-      diskUsage: 67,
-      networkIO: 45,
-      connections: 0,
-      lastSeen: '2024-08-26T13:45:00Z',
-      version: '3.5.9',
-      raftState: {
-        term: 12,
-        index: 98756,
-        applied: 98750,
-        commit: 98750
-      },
-      metrics: {
-        requestsPerSecond: 0,
-        responseTime: 0,
-        errorRate: 100,
-        throughput: 0
-      },
-      config: {
-        maxConnections: 500,
-        timeoutMs: 10000,
-        heartbeatInterval: 200,
-        electionTimeout: 2000
-      }
-    },
-    {
-      id: 'etcd-node-5',
-      name: 'etcd-backup-2',
-      ip: '192.168.1.105',
-      port: 2379,
-      status: 'joining',
-      role: 'learner',
-      region: 'ap-southeast-1',
-      datacenter: 'dc-4',
-      uptime: 0,
-      loadAverage: 0.12,
-      memoryUsage: 15,
-      diskUsage: 8,
-      networkIO: 78,
-      connections: 0,
-      lastSeen: '2024-08-26T14:20:00Z',
-      version: '3.5.10',
-      raftState: {
-        term: 0,
-        index: 0,
-        applied: 0,
-        commit: 0
-      },
-      metrics: {
-        requestsPerSecond: 0,
-        responseTime: 0,
-        errorRate: 0,
-        throughput: 0
-      },
-      config: {
-        maxConnections: 500,
-        timeoutMs: 5000,
-        heartbeatInterval: 100,
-        electionTimeout: 1000
-      }
-    }
-  ])
-
-  const [clusterEvents] = useState<ClusterEvent[]>([
-    {
-      id: 'evt-001',
-      type: 'node_joined',
-      nodeId: 'etcd-node-5',
-      nodeName: 'etcd-backup-2',
-      message: '新节点正在加入集群，正在同步数据',
-      timestamp: '2024-08-26T14:20:00Z',
-      severity: 'info'
-    },
-    {
-      id: 'evt-002',
-      type: 'member_failed',
-      nodeId: 'etcd-node-4',
-      nodeName: 'etcd-backup-1',
-      message: '节点健康检查失败，连接超时',
-      timestamp: '2024-08-26T13:45:00Z',
-      severity: 'error'
-    },
-    {
-      id: 'evt-003',
-      type: 'leader_elected',
-      nodeId: 'etcd-node-1',
-      nodeName: 'etcd-master-1',
-      message: '领导者选举完成，新领导者已确立',
-      timestamp: '2024-08-26T12:30:00Z',
-      severity: 'success'
-    },
-    {
-      id: 'evt-004',
-      type: 'config_changed',
-      nodeId: 'etcd-cluster',
-      nodeName: '集群配置',
-      message: 'etcd集群配置已更新，心跳间隔调整为100ms',
-      timestamp: '2024-08-26T11:15:00Z',
-      severity: 'info'
-    }
-  ])
-
-  const [performanceData] = useState([
-    { time: '14:00', requests: 2340, latency: 15, errors: 3 },
-    { time: '14:05', requests: 2567, latency: 12, errors: 2 },
-    { time: '14:10', requests: 2234, latency: 18, errors: 5 },
-    { time: '14:15', requests: 2456, latency: 14, errors: 1 },
-    { time: '14:20', requests: 2189, latency: 16, errors: 4 },
-    { time: '14:25', requests: 2398, latency: 13, errors: 2 }
-  ])
+  const [clusterNodes, setClusterNodes] = useState<ClusterNode[]>([])
+  const [clusterEvents, setClusterEvents] = useState<ClusterEvent[]>([])
+  const [performanceData, setPerformanceData] = useState<any[]>([])
 
   const [loading, setLoading] = useState(false)
   const [addNodeModalVisible, setAddNodeModalVisible] = useState(false)
@@ -315,6 +90,98 @@ const ServiceClusterManagementPage: React.FC<ServiceClusterManagementPageProps> 
   const [selectedNode, setSelectedNode] = useState<ClusterNode | null>(null)
 
   const [form] = Form.useForm()
+
+  const mapAgentToNode = (agent: any): ClusterNode => {
+    const usage = agent.resource_usage || {}
+    return {
+      id: agent.agent_id || agent.node_id || agent.id,
+      name: agent.name || agent.agent_id || 'unknown',
+      ip: agent.host || agent.endpoint || '',
+      port: agent.port || 0,
+      status: (agent.status || 'healthy') as ClusterNode['status'],
+      role: (agent.role || 'follower') as ClusterNode['role'],
+      region: agent.region || agent.labels?.region || 'unknown',
+      datacenter: agent.datacenter || agent.labels?.dc || 'unknown',
+      uptime: Math.min(100, agent.uptime || 0),
+      loadAverage: agent.current_load || usage.cpu_usage || 0,
+      memoryUsage: usage.memory_usage || 0,
+      diskUsage: usage.disk_usage || 0,
+      networkIO: usage.network_io || 0,
+      connections: usage.active_tasks || 0,
+      lastSeen: agent.last_heartbeat || new Date().toISOString(),
+      version: agent.version || '',
+      raftState: {
+        term: agent.raft_term || 0,
+        index: agent.raft_index || 0,
+        applied: agent.raft_applied || 0,
+        commit: agent.raft_commit || 0
+      },
+      metrics: {
+        requestsPerSecond: agent.qps || usage.requests_per_second || 0,
+        responseTime: usage.response_time || 0,
+        errorRate: usage.error_rate || 0,
+        throughput: usage.throughput || 0
+      },
+      config: {
+        maxConnections: agent.max_capacity || 0,
+        timeoutMs: 0,
+        heartbeatInterval: 0,
+        electionTimeout: 0
+      }
+    }
+  }
+
+  const loadData = async () => {
+    setLoading(true)
+    try {
+      const [agents, stats, metrics, health] = await Promise.all([
+        clusterManagementService.getAgents(),
+        clusterManagementService.getClusterStats().catch(() => null),
+        clusterManagementService.getMetrics(undefined, 1800).catch(() => []),
+        clusterManagementService.getClusterHealth().catch(() => null)
+      ])
+      setClusterNodes((agents || []).map(mapAgentToNode))
+
+      const perf = (metrics || []).map((m: any) => ({
+        time: new Date(m.timestamp).toLocaleTimeString(),
+        requests: m.request_rate || 0,
+        latency: m.response_time || 0,
+        errors: m.error_rate || 0
+      }))
+      setPerformanceData(perf)
+
+      if (health?.issues?.length) {
+        setClusterEvents(
+          health.issues.map((issue: string, idx: number) => ({
+            id: `health-${idx}`,
+            type: 'member_failed',
+            nodeId: '',
+            nodeName: 'cluster',
+            message: issue,
+            timestamp: new Date().toISOString(),
+            severity: 'warning'
+          }))
+        )
+      } else {
+        setClusterEvents([])
+      }
+
+      if (stats) {
+        // stats currently not directly bound; already computed via clusterNodes
+      }
+    } catch (error) {
+      logger.error('加载集群数据失败', error)
+      setClusterEvents([])
+      setPerformanceData([])
+      setClusterNodes([])
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    loadData()
+  }, [])
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -365,61 +232,32 @@ const ServiceClusterManagementPage: React.FC<ServiceClusterManagementPageProps> 
     healthyNodes: clusterNodes.filter(n => n.status === 'healthy' || n.status === 'leader' || n.status === 'follower').length,
     unhealthyNodes: clusterNodes.filter(n => n.status === 'unhealthy').length,
     leaderNode: clusterNodes.find(n => n.status === 'leader'),
-    avgUptime: clusterNodes.reduce((sum, n) => sum + n.uptime, 0) / clusterNodes.length || 0,
+    avgUptime: clusterNodes.length ? clusterNodes.reduce((sum, n) => sum + n.uptime, 0) / clusterNodes.length : 0,
     totalConnections: clusterNodes.reduce((sum, n) => sum + n.connections, 0),
     totalRequests: clusterNodes.reduce((sum, n) => sum + n.metrics.requestsPerSecond, 0)
   }
 
   const handleRefresh = async () => {
-    setLoading(true)
-    await new Promise(resolve => setTimeout(resolve, 1000))
-    // 模拟数据更新
-    setClusterNodes(prev => prev.map(node => ({
-      ...node,
-      lastSeen: new Date().toISOString(),
-      loadAverage: node.loadAverage + (Math.random() - 0.5) * 0.1,
-      connections: node.connections + Math.floor((Math.random() - 0.5) * 10)
-    })))
-    setLoading(false)
+    await loadData()
   }
 
   const handleAddNode = async (values: any) => {
     try {
       setLoading(true)
-      await new Promise(resolve => setTimeout(resolve, 1500))
-      
-      const newNode: ClusterNode = {
-        id: `etcd-node-${Date.now()}`,
+      await clusterManagementService.createAgent({
         name: values.name,
-        ip: values.ip,
+        host: values.ip,
         port: values.port || 2379,
-        status: 'joining',
-        role: 'learner',
-        region: values.region || 'default',
-        datacenter: values.datacenter || 'dc-default',
-        uptime: 0,
-        loadAverage: 0,
-        memoryUsage: 0,
-        diskUsage: 0,
-        networkIO: 0,
-        connections: 0,
-        lastSeen: new Date().toISOString(),
-        version: '3.5.10',
-        raftState: { term: 0, index: 0, applied: 0, commit: 0 },
-        metrics: { requestsPerSecond: 0, responseTime: 0, errorRate: 0, throughput: 0 },
-        config: {
-          maxConnections: 500,
-          timeoutMs: 5000,
-          heartbeatInterval: 100,
-          electionTimeout: 1000
+        labels: {
+          region: values.region || '',
+          datacenter: values.datacenter || ''
         }
-      }
-      
-      setClusterNodes(prev => [...prev, newNode])
+      })
+      await loadData()
       setAddNodeModalVisible(false)
       form.resetFields()
     } catch (error) {
-      console.error('添加节点失败:', error)
+      logger.error('添加节点失败:', error)
     } finally {
       setLoading(false)
     }
@@ -429,8 +267,9 @@ const ServiceClusterManagementPage: React.FC<ServiceClusterManagementPageProps> 
     Modal.confirm({
       title: '确认移除节点',
       content: '确定要从集群中移除这个节点吗？此操作可能影响集群稳定性。',
-      onOk: () => {
-        setClusterNodes(prev => prev.filter(node => node.id !== nodeId))
+      onOk: async () => {
+        await clusterManagementService.deleteAgent(nodeId)
+        await loadData()
       }
     })
   }
@@ -613,7 +452,7 @@ const ServiceClusterManagementPage: React.FC<ServiceClusterManagementPageProps> 
               <Statistic
                 title="总连接数"
                 value={clusterStats.totalConnections}
-                prefix={<NetworkOutlined />}
+                prefix={<ShareAltOutlined />}
                 valueStyle={{ color: '#faad14' }}
               />
             </Card>
@@ -637,7 +476,7 @@ const ServiceClusterManagementPage: React.FC<ServiceClusterManagementPageProps> 
             {clusterStats.unhealthyNodes > 0 && (
               <Alert
                 message={`检测到 ${clusterStats.unhealthyNodes} 个节点异常`}
-                description="etcd-backup-1 节点连接超时，可能影响集群的高可用性。"
+                description="请检查异常节点健康状况，恢复后可自动重新加入。"
                 type="error"
                 icon={<ExclamationCircleOutlined />}
                 showIcon
@@ -648,7 +487,7 @@ const ServiceClusterManagementPage: React.FC<ServiceClusterManagementPageProps> 
             {clusterNodes.some(n => n.status === 'joining') && (
               <Alert
                 message="有新节点正在加入集群"
-                description="etcd-backup-2 正在同步数据，预计需要3-5分钟完成。"
+                description="节点正在同步数据，请稍后查看状态。"
                 type="info"
                 icon={<InfoCircleOutlined />}
                 showIcon
@@ -679,35 +518,39 @@ const ServiceClusterManagementPage: React.FC<ServiceClusterManagementPageProps> 
           {/* 集群事件 */}
           <Col xs={24} lg={8}>
             <Card title="集群事件" extra={<DatabaseOutlined />}>
-              <Timeline size="small">
-                {clusterEvents.map((event) => (
-                  <Timeline.Item
-                    key={event.id}
-                    dot={getEventIcon(event.type, event.severity)}
-                  >
-                    <div>
-                      <div style={{ marginBottom: '4px' }}>
-                        <Text strong style={{ fontSize: '13px' }}>
-                          {event.nodeName}
+              {clusterEvents.length === 0 ? (
+                <Text type="secondary">暂无事件</Text>
+              ) : (
+                <Timeline size="small">
+                  {clusterEvents.map((event) => (
+                    <Timeline.Item
+                      key={event.id}
+                      dot={getEventIcon(event.type, event.severity)}
+                    >
+                      <div>
+                        <div style={{ marginBottom: '4px' }}>
+                          <Text strong style={{ fontSize: '13px' }}>
+                            {event.nodeName}
+                          </Text>
+                          <Tag size="small" color={
+                            event.severity === 'error' ? 'red' : 
+                            event.severity === 'warning' ? 'orange' : 
+                            event.severity === 'success' ? 'green' : 'blue'
+                          }>
+                            {event.type.toUpperCase().replace('_', ' ')}
+                          </Tag>
+                        </div>
+                        <div style={{ fontSize: '12px', marginBottom: '2px' }}>
+                          {event.message}
+                        </div>
+                        <Text type="secondary" style={{ fontSize: '11px' }}>
+                          {new Date(event.timestamp).toLocaleString()}
                         </Text>
-                        <Tag size="small" color={
-                          event.severity === 'error' ? 'red' : 
-                          event.severity === 'warning' ? 'orange' : 
-                          event.severity === 'success' ? 'green' : 'blue'
-                        }>
-                          {event.type.toUpperCase().replace('_', ' ')}
-                        </Tag>
                       </div>
-                      <div style={{ fontSize: '12px', marginBottom: '2px' }}>
-                        {event.message}
-                      </div>
-                      <Text type="secondary" style={{ fontSize: '11px' }}>
-                        {new Date(event.timestamp).toLocaleString()}
-                      </Text>
-                    </div>
-                  </Timeline.Item>
-                ))}
-              </Timeline>
+                    </Timeline.Item>
+                  ))}
+                </Timeline>
+              )}
             </Card>
           </Col>
         </Row>

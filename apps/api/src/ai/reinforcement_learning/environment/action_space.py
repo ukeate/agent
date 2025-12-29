@@ -11,14 +11,12 @@ from dataclasses import dataclass
 from enum import Enum
 import json
 
-
 class ActionSpaceType(Enum):
     """动作空间类型"""
     DISCRETE = "discrete"
     CONTINUOUS = "continuous"
     MULTI_DISCRETE = "multi_discrete"
     HYBRID = "hybrid"
-
 
 @dataclass
 class ActionDimension:
@@ -83,7 +81,6 @@ class ActionDimension:
             return action
         return action
 
-
 class ActionSpace(ABC):
     """动作空间抽象基类"""
     
@@ -96,12 +93,12 @@ class ActionSpace(ABC):
     @abstractmethod
     def sample(self) -> Any:
         """从动作空间中随机采样一个动作"""
-        pass
+        raise NotImplementedError
     
     @abstractmethod
     def contains(self, action: Any) -> bool:
         """检查动作是否在动作空间内"""
-        pass
+        raise NotImplementedError
     
     def validate_action(self, action: Any) -> bool:
         """验证动作的所有维度是否有效"""
@@ -135,7 +132,6 @@ class ActionSpace(ABC):
                 "description": dimension.description
             }
         return info
-
 
 class DiscreteActionSpace(ActionSpace):
     """离散动作空间"""
@@ -171,7 +167,6 @@ class DiscreteActionSpace(ActionSpace):
             return self.action_names.index(action_name)
         except ValueError:
             return None
-
 
 class ContinuousActionSpace(ActionSpace):
     """连续动作空间"""
@@ -221,7 +216,6 @@ class ContinuousActionSpace(ActionSpace):
         """裁剪动作到有效范围"""
         return np.clip(action, self.low, self.high)
 
-
 class MultiDiscreteActionSpace(ActionSpace):
     """多重离散动作空间（每个维度都是离散的）"""
     
@@ -254,7 +248,6 @@ class MultiDiscreteActionSpace(ActionSpace):
             return False
         
         return np.all(action >= 0) and np.all(action < self.nvec)
-
 
 class HybridActionSpace(ActionSpace):
     """混合动作空间（同时包含连续和离散动作）"""
@@ -314,7 +307,6 @@ class HybridActionSpace(ActionSpace):
                 continuous_action[name] = value
         
         return discrete_action, continuous_action
-
 
 class ActionSpaceFactory:
     """动作空间工厂类"""

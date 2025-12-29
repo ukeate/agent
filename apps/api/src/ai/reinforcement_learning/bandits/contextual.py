@@ -7,9 +7,7 @@ Linear Contextual Bandit 线性上下文多臂老虎机算法实现
 
 from typing import Dict, Any, Optional, List
 import numpy as np
-
 from .base import MultiArmedBandit
-
 
 class LinearContextualBandit(MultiArmedBandit):
     """线性上下文多臂老虎机算法"""

@@ -6,9 +6,9 @@ from src.core.utils.timezone_utils import utc_now, utc_factory
 import json
 import yaml
 from enum import Enum
-import logging
 
-logger = logging.getLogger(__name__)
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 @dataclass
 class BenchmarkConfig:

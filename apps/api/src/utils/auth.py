@@ -11,15 +11,14 @@ from src.core.utils.timezone_utils import utc_now, utc_factory
 from typing import Optional, Dict, Any
 from functools import wraps
 from fastapi import HTTPException, Request
-import logging
 
-logger = logging.getLogger(__name__)
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 # 配置常量
 JWT_SECRET_KEY = "your-secret-key-here"  # 应该从环境变量读取
 JWT_ALGORITHM = "HS256"
 JWT_EXPIRE_MINUTES = 60 * 24 * 7  # 7天
-
 
 class AuthUtils:
     """认证工具类"""
@@ -103,7 +102,6 @@ class AuthUtils:
         
         return parts[1]
 
-
 def require_auth(f):
     """认证装饰器"""
     @wraps(f)
@@ -140,7 +138,6 @@ def require_auth(f):
     
     return decorated_function
 
-
 def require_role(required_roles: list):
     """角色权限装饰器"""
     def decorator(f):
@@ -169,7 +166,6 @@ def require_role(required_roles: list):
         
         return decorated_function
     return decorator
-
 
 class SessionManager:
     """会话管理器"""
@@ -235,7 +231,6 @@ class SessionManager:
             logger.info(f"清理过期会话: {len(expired_sessions)} 个")
         
         return len(expired_sessions)
-
 
 # 全局会话管理器实例
 session_manager = SessionManager()

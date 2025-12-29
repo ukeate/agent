@@ -1,12 +1,14 @@
+import { buildApiUrl, apiFetch } from '../../utils/apiBase'
 import React, { useState, useEffect } from 'react';
 import { 
+import { logger } from '../../utils/logger'
+  App,
   Card, 
   Table, 
   Button, 
   Space, 
   Tag, 
   Progress, 
-  Modal, 
   message, 
   Row, 
   Col, 
@@ -61,6 +63,7 @@ interface BatchJob {
 }
 
 const CheckpointManager: React.FC = () => {
+  const { modal } = App.useApp();
   const [checkpoints, setCheckpoints] = useState<CheckpointMetadata[]>([]);
   const [jobs, setJobs] = useState<BatchJob[]>([]);
   const [stats, setStats] = useState<CheckpointStats>({
@@ -80,13 +83,11 @@ const CheckpointManager: React.FC = () => {
         ? `/api/v1/batch/checkpoints?job_id=${jobId}`
         : '/api/v1/batch/checkpoints';
       
-      const response = await fetch(url);
-      if (response.ok) {
-        const data = await response.json();
-        setCheckpoints(data.checkpoints || []);
-      }
+      const response = await apiFetch(buildApiUrl(url));
+      const data = await response.json();
+      setCheckpoints(data.checkpoints || []);
     } catch (error) {
-      console.error('获取检查点列表失败:', error);
+      logger.error('获取检查点列表失败:', error);
       message.error('获取检查点列表失败');
     } finally {
       setLoading(false);
@@ -95,68 +96,56 @@ const CheckpointManager: React.FC = () => {
 
   const fetchStats = async () => {
     try {
-      const response = await fetch('/api/v1/batch/checkpoints/stats');
-      if (response.ok) {
-        const data = await response.json();
-        setStats(data);
-      }
+      const response = await apiFetch(buildApiUrl('/api/v1/batch/checkpoints/stats'));
+      const data = await response.json();
+      setStats(data);
     } catch (error) {
-      console.error('获取检查点统计失败:', error);
+      logger.error('获取检查点统计失败:', error);
     }
   };
 
   const fetchJobs = async () => {
     try {
-      const response = await fetch('/api/v1/batch/jobs');
-      if (response.ok) {
-        const data = await response.json();
-        setJobs(data.jobs || []);
-      }
+      const response = await apiFetch(buildApiUrl('/api/v1/batch/jobs'));
+      const data = await response.json();
+      setJobs(data.jobs || []);
     } catch (error) {
-      console.error('获取作业列表失败:', error);
+      logger.error('获取作业列表失败:', error);
     }
   };
 
   const createCheckpoint = async (jobId: string) => {
     try {
-      const response = await fetch(`/api/v1/batch/jobs/${jobId}/checkpoint`, {
+      const response = await apiFetch(buildApiUrl(`/api/v1/batch/jobs/${jobId}/checkpoint`), {
         method: 'POST'
       });
       
-      if (response.ok) {
-        const data = await response.json();
-        message.success(`检查点创建成功: ${data.checkpoint_id}`);
-        fetchCheckpoints(selectedJobId);
-        fetchStats();
-      } else {
-        message.error('检查点创建失败');
-      }
+      const data = await response.json();
+      message.success(`检查点创建成功: ${data.checkpoint_id}`);
+      fetchCheckpoints(selectedJobId);
+      fetchStats();
     } catch (error) {
-      console.error('创建检查点失败:', error);
+      logger.error('创建检查点失败:', error);
       message.error('创建检查点失败');
     }
   };
 
   const restoreFromCheckpoint = async (checkpointId: string, _checkpointJobId: string) => {
-    Modal.confirm({
+    modal.confirm({
       title: '确认恢复',
       content: `确定要从检查点 ${checkpointId.slice(0, 8)}... 恢复作业吗？`,
       icon: <ExclamationCircleOutlined />,
       onOk: async () => {
         try {
-          const response = await fetch(`/api/v1/batch/checkpoints/${checkpointId}/restore`, {
+          const response = await apiFetch(buildApiUrl(`/api/v1/batch/checkpoints/${checkpointId}/restore`), {
             method: 'POST'
           });
           
-          if (response.ok) {
-            const data = await response.json();
-            message.success(`作业恢复成功: ${data.job_id}`);
-            fetchJobs();
-          } else {
-            message.error('作业恢复失败');
-          }
+          const data = await response.json();
+          message.success(`作业恢复成功: ${data.job_id}`);
+          fetchJobs();
         } catch (error) {
-          console.error('恢复作业失败:', error);
+          logger.error('恢复作业失败:', error);
           message.error('恢复作业失败');
         }
       }
@@ -164,26 +153,23 @@ const CheckpointManager: React.FC = () => {
   };
 
   const deleteCheckpoint = async (checkpointId: string) => {
-    Modal.confirm({
+    modal.confirm({
       title: '确认删除',
       content: '确定要删除这个检查点吗？此操作不可恢复。',
       icon: <ExclamationCircleOutlined />,
       okButtonProps: { danger: true },
       onOk: async () => {
         try {
-          const response = await fetch(`/api/v1/batch/checkpoints/${checkpointId}`, {
+          const response = await apiFetch(buildApiUrl(`/api/v1/batch/checkpoints/${checkpointId}`), {
             method: 'DELETE'
           });
           
-          if (response.ok) {
-            message.success('检查点删除成功');
-            fetchCheckpoints(selectedJobId);
-            fetchStats();
-          } else {
-            message.error('检查点删除失败');
-          }
+          await response.json().catch(() => null);
+          message.success('检查点删除成功');
+          fetchCheckpoints(selectedJobId);
+          fetchStats();
         } catch (error) {
-          console.error('删除检查点失败:', error);
+          logger.error('删除检查点失败:', error);
           message.error('删除检查点失败');
         }
       }

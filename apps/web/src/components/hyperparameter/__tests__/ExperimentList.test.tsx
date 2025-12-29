@@ -7,6 +7,7 @@ import '@testing-library/jest-dom';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
 import ExperimentList from '../ExperimentList';
 
+import { logger } from '../../../utils/logger'
 // 模拟API服务
 vi.mock('../../../services/apiClient', () => ({
   default: {
@@ -101,7 +102,7 @@ describe('ExperimentList', () => {
   });
 
   it('处理错误状态', async () => {
-    // 抑制console.error输出以避免测试中的错误日志
+    // 抑制logger.error输出以避免测试中的错误日志
     const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
     
     const errorMessage = 'Failed to load experiments';

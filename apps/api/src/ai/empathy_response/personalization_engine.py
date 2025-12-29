@@ -3,19 +3,18 @@
 
 基于用户个性特征和历史交互优化共情响应
 """
-import logging
+
 from typing import Dict, Any, List, Optional, Tuple
 from datetime import datetime
 import random
-
 from .models import (
     EmpathyResponse, EmpathyRequest, DialogueContext,
     ResponseTone, CulturalContext
 )
 from ..emotion_modeling.models import PersonalityProfile, PersonalityTrait, EmotionState
 
-logger = logging.getLogger(__name__)
-
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 class PersonalizationEngine:
     """个性化共情响应引擎"""
@@ -387,8 +386,11 @@ class PersonalizationEngine:
             # 如果当前策略不是偏好策略，记录但不强制更改
             preferred_strategy = patterns["strategy_preference"]
             if preferred_strategy != response.empathy_type.value:
-                # 可以在后续迭代中考虑策略切换
-                pass
+                logger.debug(
+                    "共情策略偏好与当前策略不一致",
+                    preferred_strategy=preferred_strategy,
+                    current_strategy=response.empathy_type.value,
+                )
         
         response.response_text = adjusted_text
         pattern_score = min(adjustments_applied / 3, 1.0)  # 最多3个调整

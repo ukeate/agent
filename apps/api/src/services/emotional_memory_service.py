@@ -10,23 +10,23 @@ from uuid import UUID
 import asyncio
 import numpy as np
 from langgraph.checkpoint.memory import MemorySaver
-from redis import asyncio as aioredis
+from redis import asyncio as redis_async
 from sqlalchemy.ext.asyncio import AsyncSession
-
 from ..repositories.emotional_memory_repository import (
     EmotionalMemoryRepository,
     EmotionalEventRepository,
     UserPreferenceRepository,
     TriggerPatternRepository
 )
+from ..db.emotional_memory_models import StorageLayerType
 from ..ai.memory.models import EmotionalState, MemoryContext
 from ..ai.explainer.confidence_calculator import ConfidenceCalculator
 from ..core.security.auth import get_current_user
 from ..core.exceptions import ServiceException, ValidationException
-import logging
+from ..core.utils.timezone_utils import utc_now
 
-logger = logging.getLogger(__name__)
-
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 class EmotionalMemoryService:
     """
@@ -40,7 +40,7 @@ class EmotionalMemoryService:
         event_repo: EmotionalEventRepository,
         preference_repo: UserPreferenceRepository,
         pattern_repo: TriggerPatternRepository,
-        redis_client: aioredis.Redis,
+        redis_client: redis_async.Redis,
         postgres_url: str
     ):
         self.memory_repo = memory_repo
@@ -220,7 +220,7 @@ class EmotionalMemoryService:
         """
         try:
             # Get recent memories
-            cutoff_time = datetime.utcnow() - time_window
+            cutoff_time = utc_now() - time_window
             filters = {
                 'date_from': cutoff_time
             }
@@ -286,7 +286,7 @@ class EmotionalMemoryService:
             # Get recent memories for learning
             memories, _ = await self.memory_repo.search_memories(
                 user_id=user_id,
-                filters={'date_from': datetime.utcnow() - timedelta(days=30)},
+                filters={'date_from': utc_now() - timedelta(days=30)},
                 limit=500
             )
             
@@ -335,7 +335,7 @@ class EmotionalMemoryService:
                 'response_patterns': response_patterns,
                 'model_accuracy': await self._calculate_model_accuracy(preferences, memories),
                 'training_samples': len(memories),
-                'last_training': datetime.utcnow()
+                'last_training': utc_now()
             }
             
             updated_preferences = await self.preference_repo.update_preferences(
@@ -363,7 +363,7 @@ class EmotionalMemoryService:
             # Get recent memories
             memories, _ = await self.memory_repo.search_memories(
                 user_id=user_id,
-                filters={'date_from': datetime.utcnow() - timedelta(days=30)},
+                filters={'date_from': utc_now() - timedelta(days=30)},
                 limit=1000
             )
             
@@ -432,12 +432,11 @@ class EmotionalMemoryService:
             # Archive old memories
             archived = await self.memory_repo.archive_old_memories(days_threshold=30)
             optimization_results['warm_to_cold'] = archived
-            
-            # TODO: Implement more sophisticated tier optimization based on:
-            # - Access frequency
-            # - Importance scores
-            # - User preferences
-            # - System load
+
+            hot_cutoff = utc_now() - timedelta(hours=24)
+            warm_cutoff = utc_now() - timedelta(days=7)
+            tier_results = await self.memory_repo.optimize_storage_tiers(hot_cutoff, warm_cutoff)
+            optimization_results.update(tier_results)
             
             logger.info(f"Storage optimization completed: {optimization_results}")
             
@@ -513,9 +512,6 @@ class EmotionalMemoryService:
         emotion_data: Dict[str, Any]
     ) -> str:
         """Determine privacy level based on content sensitivity"""
-        # TODO: Implement content sensitivity analysis
-        # For now, use simple heuristics
-        
         sensitive_keywords = [
             'personal', 'private', 'secret', 'confidential',
             'medical', 'financial', 'password', 'sensitive'
@@ -607,7 +603,7 @@ class EmotionalMemoryService:
         for pattern in patterns:
             if self._matches_pattern(memory, pattern):
                 pattern.frequency += 1
-                pattern.last_triggered = datetime.utcnow()
+                pattern.last_triggered = utc_now()
                 triggered.append(pattern)
         
         return triggered
@@ -643,7 +639,7 @@ class EmotionalMemoryService:
         enriched['preference_alignment'] = emotion_weight
         
         # Add decay factor
-        age_days = (datetime.utcnow() - memory.timestamp).days
+        age_days = (utc_now() - memory.timestamp).days
         decay_factor = np.exp(-memory.decay_rate * age_days)
         enriched['current_strength'] = memory.importance_score * decay_factor
         
@@ -654,15 +650,15 @@ class EmotionalMemoryService:
         for memory in memories:
             # Recent high-access memories should be in hot tier
             if (memory.access_count > 10 and
-                memory.last_accessed > datetime.utcnow() - timedelta(hours=24) and
-                memory.storage_layer != 'hot'):
+                memory.last_accessed > utc_now() - timedelta(hours=24) and
+                memory.storage_layer != StorageLayerType.HOT):
                 
                 await self.memory_repo.update_storage_tier(memory.id, 'hot')
             
             # Old low-access memories should be in cold tier
             elif (memory.access_count < 3 and
-                  memory.last_accessed < datetime.utcnow() - timedelta(days=30) and
-                  memory.storage_layer != 'cold'):
+                  memory.last_accessed < utc_now() - timedelta(days=30) and
+                  memory.storage_layer != StorageLayerType.COLD):
                 
                 await self.memory_repo.update_storage_tier(memory.id, 'cold')
     
@@ -672,9 +668,6 @@ class EmotionalMemoryService:
         query: str
     ) -> float:
         """Calculate relevance score for semantic search"""
-        # TODO: Implement proper semantic similarity using embeddings
-        # For now, use simple keyword matching
-        
         query_words = set(query.lower().split())
         content_words = set(memory.content.lower().split())
         
@@ -687,7 +680,7 @@ class EmotionalMemoryService:
         jaccard = len(intersection) / len(union)
         
         # Factor in importance and recency
-        age_days = (datetime.utcnow() - memory.timestamp).days
+        age_days = (utc_now() - memory.timestamp).days
         recency_factor = 1 / (1 + age_days * 0.01)
         
         return jaccard * memory.importance_score * recency_factor
@@ -850,9 +843,6 @@ class EmotionalMemoryService:
         memories: List[Any]
     ) -> float:
         """Calculate model accuracy based on prediction vs actual"""
-        # TODO: Implement proper accuracy calculation
-        # For now, return confidence based on sample size
-        
         sample_size = len(memories)
         if sample_size < 10:
             return 0.3

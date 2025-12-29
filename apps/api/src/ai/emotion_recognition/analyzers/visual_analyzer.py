@@ -3,20 +3,18 @@
 import asyncio
 from typing import Any, Dict, Optional, List, Tuple, Union
 from datetime import datetime
-import logging
 import numpy as np
 import torch
 import io
 from PIL import Image
-
 from .base_analyzer import BaseEmotionAnalyzer
 from ..models.emotion_models import (
     EmotionResult, EmotionDimension, Modality,
     EmotionCategory, EMOTION_DIMENSIONS
 )
+from src.core.utils.timezone_utils import utc_now
 
-logger = logging.getLogger(__name__)
-
+logger = get_logger(__name__)
 
 class VisualEmotionAnalyzer(BaseEmotionAnalyzer):
     """基于深度学习的视觉情感分析器"""
@@ -367,7 +365,7 @@ class VisualEmotionAnalyzer(BaseEmotionAnalyzer):
             emotion=emotion,
             confidence=confidence,
             intensity=intensity,
-            timestamp=datetime.now(),
+            timestamp=utc_now(),
             modality=str(self.modality.value),
             details=features,
             dimension=dimension
@@ -415,7 +413,7 @@ class VisualEmotionAnalyzer(BaseEmotionAnalyzer):
             emotion=emotion_label,
             confidence=confidence,
             intensity=intensity,
-            timestamp=datetime.now(),
+            timestamp=utc_now(),
             modality=str(self.modality.value),
             details={
                 "num_faces": num_faces,
@@ -481,7 +479,7 @@ class VisualEmotionAnalyzer(BaseEmotionAnalyzer):
             emotion=EmotionCategory.NEUTRAL.value,
             confidence=0.5,
             intensity=0.3,
-            timestamp=datetime.now(),
+            timestamp=utc_now(),
             modality=str(self.modality.value),
             details=features,
             dimension=EMOTION_DIMENSIONS[EmotionCategory.NEUTRAL]
@@ -525,3 +523,4 @@ class VisualEmotionAnalyzer(BaseEmotionAnalyzer):
             results.append(result)
             
         return results
+from src.core.logging import get_logger

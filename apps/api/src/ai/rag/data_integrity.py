@@ -6,14 +6,13 @@
 
 import numpy as np
 from typing import Dict, Any, List, Optional, Tuple
-import logging
 from datetime import datetime
 from src.core.utils.timezone_utils import utc_now, utc_factory
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-logger = logging.getLogger(__name__)
-
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 class VectorDataIntegrityValidator:
     """向量数据完整性验证器"""

@@ -6,22 +6,21 @@
 
 import os
 import tempfile
-import logging
 from pathlib import Path
-
-# 设置日志
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
-
 from model_registry import (
     ModelRegistry, ModelFormat, ModelType, CompressionType,
     register_pytorch_model, register_onnx_model, register_huggingface_model
 )
+from src.core.logging import setup_logging
 
+from src.core.logging import get_logger
+logger = get_logger(__name__)
+
+setup_logging()
 
 def example_pytorch_model_registration():
     """PyTorch模型注册示例"""
-    print("\n=== PyTorch模型注册示例 ===")
+    logger.info("PyTorch模型注册示例开始")
     
     try:
         import torch
@@ -69,29 +68,32 @@ def example_pytorch_model_registration():
                 output_shape=[10]
             )
             
-            print(f"✅ 成功注册PyTorch模型: {entry.metadata.name}:{entry.metadata.version}")
-            print(f"   参数数量: {entry.metadata.parameters_count:,}")
-            print(f"   模型大小: {entry.metadata.model_size_mb:.2f} MB")
+            logger.info(
+                "成功注册PyTorch模型",
+                name=entry.metadata.name,
+                version=entry.metadata.version,
+                parameters_count=entry.metadata.parameters_count,
+                model_size_mb=f"{entry.metadata.model_size_mb:.2f}",
+            )
             
             # 加载模型
             loaded_model, _ = registry.load_model("simple_classifier", "1.0.0")
-            print(f"✅ 成功加载模型: {type(loaded_model).__name__}")
+            logger.info("成功加载模型", model_type=type(loaded_model).__name__)
             
             # 测试推理
             test_input = torch.randn(1, 1, 28, 28)
             with torch.no_grad():
                 output = loaded_model(test_input)
-                print(f"   测试输出形状: {output.shape}")
+                logger.info("测试输出形状", output_shape=str(output.shape))
     
     except ImportError:
-        print("❌ PyTorch未安装，跳过PyTorch示例")
+        logger.warning("PyTorch未安装，跳过PyTorch示例")
     except Exception as e:
-        print(f"❌ PyTorch示例失败: {e}")
-
+        logger.error("PyTorch示例失败", error=str(e), exc_info=True)
 
 def example_onnx_model_registration():
     """ONNX模型注册示例"""
-    print("\n=== ONNX模型注册示例 ===")
+    logger.info("ONNX模型注册示例开始")
     
     try:
         import torch
@@ -148,28 +150,31 @@ def example_onnx_model_registration():
                     output_shape=[1, 5]
                 )
                 
-                print(f"✅ 成功注册ONNX模型: {entry.metadata.name}:{entry.metadata.version}")
-                print(f"   IR版本: {onnx_model.ir_version}")
-                print(f"   Producer: {onnx_model.producer_name}")
-                print(f"   模型大小: {entry.metadata.model_size_mb:.2f} MB")
+                logger.info(
+                    "成功注册ONNX模型",
+                    name=entry.metadata.name,
+                    version=entry.metadata.version,
+                    ir_version=onnx_model.ir_version,
+                    producer=onnx_model.producer_name,
+                    model_size_mb=f"{entry.metadata.model_size_mb:.2f}",
+                )
                 
                 # 加载模型
                 loaded_onnx_model, _ = registry.load_model("simple_onnx_net")
-                print(f"✅ 成功加载ONNX模型")
+                logger.info("成功加载ONNX模型")
                 
         finally:
             if os.path.exists(onnx_path):
                 os.unlink(onnx_path)
     
     except ImportError as e:
-        print(f"❌ 缺少依赖，跳过ONNX示例: {e}")
+        logger.warning("缺少依赖，跳过ONNX示例", error=str(e))
     except Exception as e:
-        print(f"❌ ONNX示例失败: {e}")
-
+        logger.error("ONNX示例失败", error=str(e), exc_info=True)
 
 def example_huggingface_model_registration():
     """HuggingFace模型注册示例"""
-    print("\n=== HuggingFace模型注册示例 ===")
+    logger.info("HuggingFace模型注册示例开始")
     
     try:
         from transformers import AutoModel, AutoTokenizer, AutoConfig
@@ -177,7 +182,7 @@ def example_huggingface_model_registration():
         # 使用小型模型进行演示
         model_name = "distilbert-base-uncased"
         
-        print(f"正在加载HuggingFace模型: {model_name}...")
+        logger.info("正在加载HuggingFace模型", model_name=model_name)
         
         # 加载模型和tokenizer
         model = AutoModel.from_pretrained(model_name)
@@ -204,36 +209,39 @@ def example_huggingface_model_registration():
                 license="Apache-2.0"
             )
             
-            print(f"✅ 成功注册HuggingFace模型: {entry.metadata.name}:{entry.metadata.version}")
-            print(f"   参数数量: {entry.metadata.parameters_count:,}")
-            print(f"   模型大小: {entry.metadata.model_size_mb:.2f} MB")
-            print(f"   配置类型: {config.model_type}")
+            logger.info(
+                "成功注册HuggingFace模型",
+                name=entry.metadata.name,
+                version=entry.metadata.version,
+                parameters_count=entry.metadata.parameters_count,
+                model_size_mb=f"{entry.metadata.model_size_mb:.2f}",
+                config_type=config.model_type,
+            )
             
             # 加载模型
             loaded_model, loaded_tokenizer = registry.load_model("distilbert_demo")
-            print(f"✅ 成功加载HuggingFace模型和tokenizer")
+            logger.info("成功加载HuggingFace模型和tokenizer")
             
             # 测试tokenizer
             test_text = "Hello, this is a test sentence."
             tokens = loaded_tokenizer.encode(test_text, return_tensors="pt")
-            print(f"   测试文本: '{test_text}'")
-            print(f"   Token数量: {tokens.shape[1]}")
+            logger.info("测试文本", text=test_text)
+            logger.info("Token数量", token_count=int(tokens.shape[1]))
             
             # 测试模型推理
             with torch.no_grad():
                 outputs = loaded_model(tokens)
                 hidden_states = outputs.last_hidden_state
-                print(f"   输出形状: {hidden_states.shape}")
+                logger.info("输出形状", output_shape=str(hidden_states.shape))
     
     except ImportError:
-        print("❌ Transformers未安装，跳过HuggingFace示例")
+        logger.warning("Transformers未安装，跳过HuggingFace示例")
     except Exception as e:
-        print(f"❌ HuggingFace示例失败: {e}")
-
+        logger.error("HuggingFace示例失败", error=str(e), exc_info=True)
 
 def example_model_management_operations():
     """模型管理操作示例"""
-    print("\n=== 模型管理操作示例 ===")
+    logger.info("模型管理操作示例开始")
     
     with tempfile.TemporaryDirectory() as temp_dir:
         registry = ModelRegistry(temp_dir)
@@ -275,57 +283,57 @@ def example_model_management_operations():
         for model_info in dummy_models:
             try:
                 entry = registry.register_model(**model_info)
-                print(f"✅ 注册模型: {entry.metadata.name}")
+                logger.info("注册模型成功", name=entry.metadata.name)
             except Exception as e:
-                print(f"❌ 注册失败: {e}")
+                logger.error("注册失败", error=str(e), exc_info=True)
         
-        print(f"\n📊 当前注册模型数量: {len(registry.models)}")
+        logger.info("当前注册模型数量", model_count=len(registry.models))
         
         # 列出所有模型
-        print("\n📋 所有模型:")
+        logger.info("所有模型")
         all_models = registry.list_models()
         for model in all_models:
-            print(f"   - {model.metadata.name}:{model.metadata.version} "
-                  f"({model.metadata.format.value}, {model.metadata.model_type.value})")
+            logger.info(
+                "模型条目",
+                name=model.metadata.name,
+                version=model.metadata.version,
+                model_format=model.metadata.format.value,
+                model_type=model.metadata.model_type.value,
+            )
         
         # 按类型筛选
-        print("\n🔍 分类模型:")
+        logger.info("分类模型")
         classification_models = registry.list_models(ModelType.CLASSIFICATION)
         for model in classification_models:
-            print(f"   - {model.metadata.name}: {model.metadata.description}")
+            logger.info("分类模型条目", name=model.metadata.name, description=model.metadata.description)
         
         # 获取模型信息
-        print("\n📄 模型详细信息:")
+        logger.info("模型详细信息")
         model_info = registry.get_model_info("model_a", "latest")
         if model_info:
-            print(f"   模型: {model_info.metadata.name}")
-            print(f"   版本: {model_info.metadata.version}")
-            print(f"   类型: {model_info.metadata.model_type.value}")
-            print(f"   格式: {model_info.metadata.format.value}")
-            print(f"   描述: {model_info.metadata.description}")
+            logger.info("模型名称", name=model_info.metadata.name)
+            logger.info("模型版本", version=model_info.metadata.version)
+            logger.info("模型类型", model_type=model_info.metadata.model_type.value)
+            logger.info("模型格式", model_format=model_info.metadata.format.value)
+            logger.info("模型描述", description=model_info.metadata.description)
         
         # 验证注册表
-        print("\n🔍 验证注册表:")
+        logger.info("验证注册表")
         validation = registry.validate_registry()
-        print(f"   总模型数: {validation['total_models']}")
-        print(f"   有效模型数: {validation['valid_models']}")
-        print(f"   错误数: {len(validation['errors'])}")
-        print(f"   警告数: {len(validation['warnings'])}")
+        logger.info("总模型数", total_models=validation["total_models"])
+        logger.info("有效模型数", valid_models=validation["valid_models"])
+        logger.info("错误数", error_count=len(validation["errors"]))
+        logger.info("警告数", warning_count=len(validation["warnings"]))
         
-        if validation['errors']:
-            print("   错误:")
-            for error in validation['errors']:
-                print(f"     - {error}")
+        if validation["errors"]:
+            logger.error("注册表验证错误", errors=validation["errors"])
         
-        if validation['warnings']:
-            print("   警告:")
-            for warning in validation['warnings']:
-                print(f"     - {warning}")
-
+        if validation["warnings"]:
+            logger.warning("注册表验证警告", warnings=validation["warnings"])
 
 def example_model_versioning():
     """模型版本控制示例"""
-    print("\n=== 模型版本控制示例 ===")
+    logger.info("模型版本控制示例开始")
     
     with tempfile.TemporaryDirectory() as temp_dir:
         registry = ModelRegistry(temp_dir)
@@ -355,10 +363,14 @@ def example_model_versioning():
                 description=version_info["description"],
                 performance_metrics={"accuracy": version_info["accuracy"]}
             )
-            print(f"✅ 注册版本 {version_info['version']}: {version_info['description']}")
+            logger.info(
+                "注册版本",
+                version=version_info["version"],
+                description=version_info["description"],
+            )
         
         # 列出所有版本
-        print(f"\n📋 '{model_name}' 的所有版本:")
+        logger.info("模型所有版本", model_name=model_name)
         all_models = registry.list_models()
         evolving_models = [m for m in all_models if m.metadata.name == model_name]
         
@@ -367,25 +379,28 @@ def example_model_versioning():
         
         for model in evolving_models:
             accuracy = model.metadata.performance_metrics.get("accuracy", "N/A")
-            print(f"   - v{model.metadata.version}: {model.metadata.description} "
-                  f"(准确率: {accuracy})")
+            logger.info(
+                "模型版本",
+                version=model.metadata.version,
+                description=model.metadata.description,
+                accuracy=accuracy,
+            )
         
         # 获取最新版本
         latest_model = registry.get_model_info(model_name, "latest")
-        print(f"\n🔥 最新版本: v{latest_model.metadata.version}")
+        logger.info("最新版本", version=latest_model.metadata.version)
         
         # 删除旧版本
-        print(f"\n🗑️  删除旧版本 v1.0.0")
+        logger.info("删除旧版本", version="1.0.0")
         registry.remove_model(model_name, "1.0.0")
         
         # 确认删除
         remaining_models = [m for m in registry.list_models() if m.metadata.name == model_name]
-        print(f"   剩余版本数: {len(remaining_models)}")
-
+        logger.info("剩余版本数", remaining_count=len(remaining_models))
 
 def example_convenience_functions():
     """便捷函数使用示例"""
-    print("\n=== 便捷函数使用示例 ===")
+    logger.info("便捷函数使用示例开始")
     
     try:
         import torch
@@ -412,22 +427,24 @@ def example_convenience_functions():
                     tags=["linear", "regression"]
                 )
                 
-                print(f"✅ 使用便捷函数注册模型: {entry.metadata.name}")
-                print(f"   参数数量: {entry.metadata.parameters_count:,}")
+                logger.info(
+                    "使用便捷函数注册模型",
+                    name=entry.metadata.name,
+                    parameters_count=entry.metadata.parameters_count,
+                )
                 
             finally:
                 # 恢复原始注册表
                 model_registry.model_registry = original_registry
     
     except ImportError:
-        print("❌ PyTorch未安装，跳过便捷函数示例")
+        logger.warning("PyTorch未安装，跳过便捷函数示例")
     except Exception as e:
-        print(f"❌ 便捷函数示例失败: {e}")
-
+        logger.error("便捷函数示例失败", error=str(e), exc_info=True)
 
 def example_error_handling():
     """错误处理示例"""
-    print("\n=== 错误处理示例 ===")
+    logger.info("错误处理示例开始")
     
     with tempfile.TemporaryDirectory() as temp_dir:
         registry = ModelRegistry(temp_dir)
@@ -436,7 +453,7 @@ def example_error_handling():
         try:
             registry.load_model("non_existent_model")
         except ValueError as e:
-            print(f"✅ 正确捕获错误: {e}")
+            logger.info("正确捕获错误", error=str(e))
         
         # 尝试注册重复模型
         mock_loader = Mock()
@@ -459,7 +476,7 @@ def example_error_handling():
                 model_format=ModelFormat.PYTORCH
             )
         except ValueError as e:
-            print(f"✅ 正确捕获重复注册错误: {e}")
+            logger.info("正确捕获重复注册错误", error=str(e))
         
         # 尝试使用不支持的格式
         try:
@@ -469,13 +486,11 @@ def example_error_handling():
                 model_format=ModelFormat.SAFETENSORS  # 假设没有loader
             )
         except ValueError as e:
-            print(f"✅ 正确捕获不支持格式错误: {e}")
-
+            logger.info("正确捕获不支持格式错误", error=str(e))
 
 def main():
     """运行所有示例"""
-    print("🚀 模型注册表使用示例")
-    print("=" * 50)
+    logger.info("模型注册表使用示例开始")
     
     try:
         example_pytorch_model_registration()
@@ -486,13 +501,10 @@ def main():
         example_convenience_functions()
         example_error_handling()
         
-        print("\n✅ 所有示例完成!")
+        logger.info("所有示例完成")
         
     except Exception as e:
-        print(f"\n❌ 运行示例时出错: {e}")
-        import traceback
-        traceback.print_exc()
-
+        logger.error("运行示例时出错", error=str(e), exc_info=True)
 
 if __name__ == "__main__":
     main()

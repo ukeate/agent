@@ -66,7 +66,6 @@ class Task:
     created_at: datetime = field(default_factory=utc_factory)
     completed_at: Optional[datetime] = None
 
-
 # ============================================================================
 # 平台集成相关模型
 # ============================================================================
@@ -81,7 +80,6 @@ class ComponentTypeEnum(str, Enum):
     MODEL_SERVICE = "model_service"
     CUSTOM = "custom"
 
-
 class ComponentStatusEnum(str, Enum):
     """组件状态枚举"""
     HEALTHY = "healthy"
@@ -89,7 +87,6 @@ class ComponentStatusEnum(str, Enum):
     STARTING = "starting"
     STOPPING = "stopping"
     ERROR = "error"
-
 
 class WorkflowStatusEnum(str, Enum):
     """工作流状态枚举"""
@@ -99,7 +96,6 @@ class WorkflowStatusEnum(str, Enum):
     FAILED = "failed"
     ERROR = "error"
     CANCELLED = "cancelled"
-
 
 @dataclass
 class PlatformComponent:
@@ -118,7 +114,6 @@ class PlatformComponent:
     last_health_check: Optional[datetime] = None
     error_message: Optional[str] = None
 
-
 @dataclass
 class WorkflowExecution:
     """工作流执行模型"""
@@ -134,7 +129,6 @@ class WorkflowExecution:
     completed_at: Optional[datetime] = None
     error_message: Optional[str] = None
     metadata: Dict[str, Any] = field(default_factory=dict)
-
 
 @dataclass
 class WorkflowStep:
@@ -154,7 +148,6 @@ class WorkflowStep:
     retry_count: int = 0
     metadata: Dict[str, Any] = field(default_factory=dict)
 
-
 @dataclass
 class PerformanceMetric:
     """性能指标模型"""
@@ -167,7 +160,6 @@ class PerformanceMetric:
     labels: Dict[str, str] = field(default_factory=dict)
     timestamp: datetime = field(default_factory=utc_factory)
     metadata: Dict[str, Any] = field(default_factory=dict)
-
 
 @dataclass
 class MonitoringAlert:
@@ -186,7 +178,6 @@ class MonitoringAlert:
     resolved_at: Optional[datetime] = None
     metadata: Dict[str, Any] = field(default_factory=dict)
 
-
 @dataclass
 class PlatformConfiguration:
     """平台配置模型"""
@@ -200,7 +191,6 @@ class PlatformConfiguration:
     updated_at: datetime = field(default_factory=utc_factory)
     updated_by: Optional[str] = None
 
-
 @dataclass
 class ComponentDependency:
     """组件依赖关系模型"""
@@ -209,7 +199,6 @@ class ComponentDependency:
     depends_on_component_id: str
     dependency_type: str = "required"  # required, optional, preferred
     created_at: datetime = field(default_factory=utc_factory)
-
 
 @dataclass
 class AuditLog:
@@ -228,7 +217,6 @@ class AuditLog:
     duration_ms: Optional[int] = None
     timestamp: datetime = field(default_factory=utc_factory)
     metadata: Dict[str, Any] = field(default_factory=dict)
-
 
 # ============================================================================
 # 分布式安全框架模型
@@ -250,7 +238,6 @@ class SecurityEventTypeEnum(str, Enum):
     CONFIGURATION_CHANGE = "config_change"
     AUDIT_LOG_ACCESS = "audit_log_access"
 
-
 class ThreatLevelEnum(str, Enum):
     """威胁级别枚举"""
     LOW = "low"
@@ -258,14 +245,12 @@ class ThreatLevelEnum(str, Enum):
     HIGH = "high"
     CRITICAL = "critical"
 
-
 class AlertStatusEnum(str, Enum):
     """告警状态枚举"""
     ACTIVE = "active"
     ACKNOWLEDGED = "acknowledged"
     RESOLVED = "resolved"
     SUPPRESSED = "suppressed"
-
 
 class AuthenticationMethodEnum(str, Enum):
     """认证方法枚举"""
@@ -276,13 +261,11 @@ class AuthenticationMethodEnum(str, Enum):
     BIOMETRIC = "biometric"
     API_KEY = "api_key"
 
-
 class AccessControlModelEnum(str, Enum):
     """访问控制模型枚举"""
     RBAC = "rbac"  # Role-Based Access Control
     ABAC = "abac"  # Attribute-Based Access Control
     HYBRID = "hybrid"
-
 
 class EncryptionAlgorithmEnum(str, Enum):
     """加密算法枚举"""
@@ -290,7 +273,6 @@ class EncryptionAlgorithmEnum(str, Enum):
     CHACHA20_POLY1305 = "chacha20_poly1305"
     RSA_2048 = "rsa_2048"
     ECDH_P256 = "ecdh_p256"
-
 
 @dataclass
 class AgentIdentity:
@@ -312,7 +294,6 @@ class AgentIdentity:
     created_at: datetime = field(default_factory=utc_factory)
     updated_at: datetime = field(default_factory=utc_factory)
 
-
 @dataclass
 class SecurityRole:
     """安全角色模型"""
@@ -324,7 +305,6 @@ class SecurityRole:
     created_at: datetime = field(default_factory=utc_factory)
     updated_at: datetime = field(default_factory=utc_factory)
     created_by: Optional[str] = None
-
 
 @dataclass
 class AccessPolicy:
@@ -343,7 +323,6 @@ class AccessPolicy:
     updated_at: datetime = field(default_factory=utc_factory)
     created_by: Optional[str] = None
 
-
 @dataclass
 class AgentRoleAssignment:
     """智能体角色分配模型"""
@@ -355,7 +334,6 @@ class AgentRoleAssignment:
     expires_at: Optional[datetime] = None
     is_active: bool = True
     metadata: Dict[str, Any] = field(default_factory=dict)
-
 
 @dataclass
 class SecurityEvent:
@@ -372,7 +350,6 @@ class SecurityEvent:
     risk_score: float = 0.0
     metadata: Dict[str, Any] = field(default_factory=dict)
     timestamp: datetime = field(default_factory=utc_factory)
-
 
 @dataclass
 class SecurityAlert:
@@ -396,7 +373,6 @@ class SecurityAlert:
     updated_at: datetime = field(default_factory=utc_factory)
     metadata: Dict[str, Any] = field(default_factory=dict)
 
-
 @dataclass
 class CommunicationSession:
     """通信会话模型"""
@@ -413,7 +389,6 @@ class CommunicationSession:
     is_active: bool = True
     integrity_verified: bool = True
     metadata: Dict[str, Any] = field(default_factory=dict)
-
 
 @dataclass
 class AccessLog:
@@ -432,7 +407,6 @@ class AccessLog:
     timestamp: datetime = field(default_factory=utc_factory)
     metadata: Dict[str, Any] = field(default_factory=dict)
 
-
 @dataclass
 class ThreatPattern:
     """威胁模式模型"""
@@ -446,7 +420,6 @@ class ThreatPattern:
     created_at: datetime = field(default_factory=utc_factory)
     updated_at: datetime = field(default_factory=utc_factory)
     created_by: Optional[str] = None
-
 
 @dataclass
 class AgentKey:
@@ -462,7 +435,6 @@ class AgentKey:
     revoked_at: Optional[datetime] = None
     is_active: bool = True
     metadata: Dict[str, Any] = field(default_factory=dict)
-
 
 @dataclass
 class Certificate:
@@ -484,7 +456,6 @@ class Certificate:
     trust_chain: list[str] = field(default_factory=list)
     created_at: datetime = field(default_factory=utc_factory)
     metadata: Dict[str, Any] = field(default_factory=dict)
-
 
 @dataclass
 class AuditConfiguration:

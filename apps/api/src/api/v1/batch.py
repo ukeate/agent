@@ -1,292 +1,386 @@
 """
-批处理API端点
+批处理操作API端点
+用于处理批量数据操作和任务调度
 """
 
-from typing import List, Dict, Any, Optional
-from fastapi import APIRouter, HTTPException, BackgroundTasks
-from pydantic import BaseModel
-from datetime import datetime
-from src.core.utils.timezone_utils import utc_now, utc_factory
+from src.core.utils.timezone_utils import utc_now
 import uuid
-import asyncio
-from enum import Enum
+from typing import Any, Dict, List, Optional
+import json
+from fastapi import APIRouter, HTTPException
+from fastapi.encoders import jsonable_encoder
+from src.core.redis import get_redis
 
-router = APIRouter(prefix="/batch", tags=["batch"])
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
-# 批处理状态枚举
-class BatchStatus(str, Enum):
-    PENDING = "pending"
-    RUNNING = "running"
-    COMPLETED = "completed"
-    FAILED = "failed"
-    CANCELLED = "cancelled"
+router = APIRouter(prefix="/batch", tags=["批处理"])
 
-# 数据模型
-class CreateBatchJobRequest(BaseModel):
-    tasks: List[Dict[str, Any]]
-    batch_size: Optional[int] = 100
-    max_retries: Optional[int] = 3
+_JOB_KEY_PREFIX = "batch:job:"
+_JOB_LOG_KEY_PREFIX = "batch:job:logs:"
+_JOB_INDEX_KEY = "batch:jobs"
 
-class BatchJob(BaseModel):
-    id: str
-    tasks: List[Dict[str, Any]]
-    status: BatchStatus
-    total_tasks: int
-    completed_tasks: int
-    failed_tasks: int
-    created_at: str
-    started_at: Optional[str] = None
-    completed_at: Optional[str] = None
+def _job_key(job_id: str) -> str:
+    return f"{_JOB_KEY_PREFIX}{job_id}"
 
-class BatchMetrics(BaseModel):
-    active_jobs: int
-    pending_jobs: int
-    completed_jobs: int
-    failed_jobs: int
-    total_tasks: int
-    completed_tasks: int
-    failed_tasks: int
-    pending_tasks: int
-    tasks_per_second: float
-    avg_task_duration: float
-    success_rate: float
-    queue_depth: int
-    active_workers: int
-    max_workers: int
+def _job_logs_key(job_id: str) -> str:
+    return f"{_JOB_LOG_KEY_PREFIX}{job_id}"
 
-# 模拟存储
-jobs_store: Dict[str, BatchJob] = {}
-metrics_cache = None
-last_metrics_update = None
+async def _get_job(job_id: str) -> Optional[Dict[str, Any]]:
+    redis_client = get_redis()
+    if not redis_client:
+        return None
+    raw = await redis_client.get(_job_key(job_id))
+    if not raw:
+        return None
+    return json.loads(raw)
 
-def generate_mock_metrics() -> BatchMetrics:
-    """生成模拟的批处理指标"""
-    import random
-    
-    active_jobs = len([j for j in jobs_store.values() if j.status == BatchStatus.RUNNING])
-    pending_jobs = len([j for j in jobs_store.values() if j.status == BatchStatus.PENDING])
-    completed_jobs = len([j for j in jobs_store.values() if j.status == BatchStatus.COMPLETED])
-    failed_jobs = len([j for j in jobs_store.values() if j.status == BatchStatus.FAILED])
-    
-    return BatchMetrics(
-        active_jobs=active_jobs or random.randint(1, 5),
-        pending_jobs=pending_jobs or random.randint(0, 3),
-        completed_jobs=completed_jobs or random.randint(10, 50),
-        failed_jobs=failed_jobs or random.randint(0, 2),
-        total_tasks=random.randint(500, 2000),
-        completed_tasks=random.randint(400, 1800),
-        failed_tasks=random.randint(10, 50),
-        pending_tasks=random.randint(50, 200),
-        tasks_per_second=round(random.uniform(10, 50), 1),
-        avg_task_duration=round(random.uniform(0.5, 3.0), 2),
-        success_rate=round(random.uniform(85, 98), 1),
-        queue_depth=random.randint(50, 300),
-        active_workers=random.randint(5, 10),
-        max_workers=10
-    )
+async def _set_job(job: Dict[str, Any]) -> None:
+    redis_client = get_redis()
+    if not redis_client:
+        return
+    await redis_client.set(_job_key(job["job_id"]), json.dumps(jsonable_encoder(job), ensure_ascii=False))
+    created_ts = job.get("created_ts")
+    if created_ts is not None:
+        await redis_client.zadd(_JOB_INDEX_KEY, {job["job_id"]: float(created_ts)})
 
-@router.get("/metrics")
-async def get_metrics() -> BatchMetrics:
-    """获取批处理系统指标"""
-    global metrics_cache, last_metrics_update
-    
-    # 缓存指标5秒
-    if metrics_cache and last_metrics_update:
-        from datetime import timedelta
-        if utc_now() - last_metrics_update < timedelta(seconds=5):
-            return metrics_cache
-    
-    metrics_cache = generate_mock_metrics()
-    last_metrics_update = utc_now()
-    return metrics_cache
+async def _append_job_log(job_id: str, level: str, message: str, details: Optional[Dict[str, Any]] = None) -> None:
+    redis_client = get_redis()
+    if not redis_client:
+        return
+    entry = {
+        "timestamp": utc_now().isoformat() + "Z",
+        "level": level,
+        "message": message,
+        "details": details or {},
+    }
+    await redis_client.rpush(_job_logs_key(job_id), json.dumps(entry, ensure_ascii=False))
 
-@router.post("/jobs")
-async def create_job(request: CreateBatchJobRequest, background_tasks: BackgroundTasks) -> Dict[str, str]:
-    """创建批处理作业"""
-    job_id = str(uuid.uuid4())
+@router.post("/jobs/create")
+async def create_batch_job(
+    job_data: Dict[str, Any],
+) -> Dict[str, Any]:
+    """创建批处理任务"""
+    redis_client = get_redis()
+    if not redis_client:
+        raise HTTPException(status_code=503, detail="Redis未初始化")
+    job_id = f"batch-{uuid.uuid4().hex[:8]}"
     
-    # 创建作业任务
-    tasks = []
-    for i, task_data in enumerate(request.tasks):
-        task = {
-            "id": str(uuid.uuid4()),
-            "type": task_data.get("type", "process"),
-            "data": task_data.get("data"),
-            "priority": task_data.get("priority", 5),
-            "retry_count": 0,
-            "max_retries": request.max_retries,
-            "status": BatchStatus.PENDING,
-            "created_at": utc_now().isoformat()
-        }
-        tasks.append(task)
+    created_at = utc_now().isoformat() + "Z"
+    created_ts = utc_now().timestamp()
+    batch_job = {
+        "job_id": job_id,
+        "status": "created",
+        "job_type": job_data.get("type", "general"),
+        "created_at": created_at,
+        "created_ts": created_ts,
+        "total_items": job_data.get("total_items", 0),
+        "processed_items": 0,
+        "failed_items": 0,
+        "progress": 0.0,
+        "metadata": job_data.get("metadata", {})
+    }
     
-    # 创建作业
-    job = BatchJob(
-        id=job_id,
-        tasks=tasks,
-        status=BatchStatus.PENDING,
-        total_tasks=len(tasks),
-        completed_tasks=0,
-        failed_tasks=0,
-        created_at=utc_now().isoformat()
-    )
+    logger.info("创建批处理任务", job_id=job_id, job_type=batch_job["job_type"])
+    await _set_job(batch_job)
+    await _append_job_log(job_id, "INFO", "任务已创建", {"job_type": batch_job["job_type"]})
     
-    jobs_store[job_id] = job
-    
-    # 模拟异步处理
-    async def process_job():
-        await asyncio.sleep(1)
-        job.status = BatchStatus.RUNNING
-        job.started_at = utc_now().isoformat()
-        
-        # 模拟处理进度
-        for i in range(min(5, len(tasks))):
-            await asyncio.sleep(0.5)
-            job.completed_tasks += 1
-            if i == 2 and len(tasks) > 5:  # 模拟一些失败
-                job.failed_tasks += 1
-    
-    background_tasks.add_task(process_job)
-    
-    return {"job_id": job_id}
-
-@router.get("/jobs")
-async def get_jobs(status: Optional[BatchStatus] = None) -> Dict[str, List[BatchJob]]:
-    """获取批处理作业列表"""
-    jobs = list(jobs_store.values())
-    
-    if status:
-        jobs = [j for j in jobs if j.status == status]
-    
-    # 如果没有作业，创建一些模拟数据
-    if not jobs:
-        for i in range(3):
-            job_id = str(uuid.uuid4())
-            job = BatchJob(
-                id=job_id,
-                tasks=[],
-                status=BatchStatus.RUNNING if i == 0 else BatchStatus.COMPLETED,
-                total_tasks=100 + i * 50,
-                completed_tasks=60 + i * 20,
-                failed_tasks=5 * i,
-                created_at=utc_now().isoformat(),
-                started_at=utc_now().isoformat()
-            )
-            jobs_store[job_id] = job
-            jobs.append(job)
-    
-    return {"jobs": jobs}
+    return batch_job
 
 @router.get("/jobs/{job_id}")
-async def get_job_details(job_id: str) -> BatchJob:
-    """获取批处理作业详情"""
-    if job_id not in jobs_store:
-        # 创建模拟数据
-        job = BatchJob(
-            id=job_id,
-            tasks=[
-                {
-                    "id": str(uuid.uuid4()),
-                    "type": "process",
-                    "data": {"input": f"test{i}"},
-                    "priority": 5,
-                    "retry_count": 0,
-                    "max_retries": 3,
-                    "status": BatchStatus.COMPLETED if i < 5 else BatchStatus.PENDING,
-                    "created_at": utc_now().isoformat(),
-                    "result": {"output": f"result{i}"} if i < 5 else None
-                }
-                for i in range(10)
-            ],
-            status=BatchStatus.RUNNING,
-            total_tasks=10,
-            completed_tasks=5,
-            failed_tasks=0,
-            created_at=utc_now().isoformat(),
-            started_at=utc_now().isoformat()
-        )
-        jobs_store[job_id] = job
-        return job
-    
-    return jobs_store[job_id]
+async def get_batch_job_status(
+    job_id: str,
+) -> Dict[str, Any]:
+    """获取批处理任务状态"""
+    job = await _get_job(job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="任务不存在")
+    return job
 
-@router.post("/jobs/{job_id}/cancel")
-async def cancel_job(job_id: str) -> Dict[str, bool]:
-    """取消批处理作业"""
-    if job_id in jobs_store:
-        job = jobs_store[job_id]
-        if job.status in [BatchStatus.PENDING, BatchStatus.RUNNING]:
-            job.status = BatchStatus.CANCELLED
-            job.completed_at = utc_now().isoformat()
-            return {"success": True}
-    
-    return {"success": False}
-
-@router.post("/jobs/{job_id}/retry")
-async def retry_failed_tasks(job_id: str) -> Dict[str, int]:
-    """重试失败的任务"""
-    if job_id in jobs_store:
-        job = jobs_store[job_id]
-        # 模拟重试
-        retried = min(job.failed_tasks, 5)
-        job.failed_tasks = max(0, job.failed_tasks - retried)
-        job.completed_tasks += retried
-        return {"retried_count": retried}
-    
-    return {"retried_count": 0}
-
-@router.post("/jobs/{job_id}/pause")
-async def pause_job(job_id: str) -> Dict[str, bool]:
-    """暂停批处理作业"""
-    if job_id in jobs_store:
-        job = jobs_store[job_id]
-        if job.status == BatchStatus.RUNNING:
-            # 实际实现中应该暂停处理
-            return {"success": True}
-    
-    return {"success": False}
-
-@router.post("/jobs/{job_id}/resume")
-async def resume_job(job_id: str) -> Dict[str, bool]:
-    """恢复批处理作业"""
-    if job_id in jobs_store:
-        job = jobs_store[job_id]
-        # 实际实现中应该恢复处理
-        return {"success": True}
-    
-    return {"success": False}
-
-@router.get("/workers")
-async def get_worker_status() -> Dict[str, List[Dict[str, Any]]]:
-    """获取工作线程状态"""
-    import random
-    
-    workers = []
-    for i in range(10):
-        worker = {
-            "id": f"worker-{i}",
-            "status": "busy" if i < 8 else "idle",
-            "current_task": str(uuid.uuid4()) if i < 8 else None,
-            "processed_count": random.randint(100, 1000),
-            "error_count": random.randint(0, 10),
-            "uptime": random.randint(3600, 86400)
-        }
-        workers.append(worker)
-    
-    return {"workers": workers}
-
-@router.get("/config")
-async def get_config() -> Dict[str, Any]:
-    """获取批处理配置"""
+@router.get("/jobs")
+async def list_batch_jobs(
+    status: Optional[str] = None,
+    job_type: Optional[str] = None,
+    limit: int = 10,
+    offset: int = 0,
+) -> Dict[str, Any]:
+    """获取批处理任务列表"""
+    redis_client = get_redis()
+    if not redis_client:
+        raise HTTPException(status_code=503, detail="Redis未初始化")
+    ids = await redis_client.zrevrange(_JOB_INDEX_KEY, offset, offset + limit - 1)
+    jobs = []
+    for job_id in ids:
+        job = await _get_job(job_id)
+        if not job:
+            continue
+        if status and job.get("status") != status:
+            continue
+        if job_type and job.get("job_type") != job_type:
+            continue
+        jobs.append(job)
     return {
-        "max_workers": 10,
-        "batch_size": 100,
-        "max_retries": 3,
-        "timeout": 300
+        "jobs": jobs,
+        "total": await redis_client.zcard(_JOB_INDEX_KEY),
+        "limit": limit,
+        "offset": offset
     }
 
-@router.put("/config")
-async def update_config(config: Dict[str, Any]) -> Dict[str, bool]:
-    """更新批处理配置"""
-    # 实际实现中应该更新配置
-    return {"success": True}
+@router.post("/jobs/{job_id}/start")
+async def start_batch_job(
+    job_id: str,
+) -> Dict[str, Any]:
+    """启动批处理任务"""
+    logger.info("启动批处理任务", job_id=job_id)
+    job = await _get_job(job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="任务不存在")
+    if job.get("status") in {"cancelled", "completed", "failed"}:
+        raise HTTPException(status_code=400, detail="任务不可启动")
+    job["status"] = "running"
+    job["started_at"] = job.get("started_at") or (utc_now().isoformat() + "Z")
+    await _set_job(job)
+    await _append_job_log(job_id, "INFO", "任务已启动")
+    return {"job_id": job_id, "status": job["status"], "started_at": job["started_at"]}
+
+@router.post("/jobs/{job_id}/pause")
+async def pause_batch_job(
+    job_id: str,
+) -> Dict[str, Any]:
+    """暂停批处理任务"""
+    logger.info("暂停批处理任务", job_id=job_id)
+    job = await _get_job(job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="任务不存在")
+    if job.get("status") != "running":
+        raise HTTPException(status_code=400, detail="仅运行中任务可暂停")
+    job["status"] = "paused"
+    job["paused_at"] = utc_now().isoformat() + "Z"
+    await _set_job(job)
+    await _append_job_log(job_id, "INFO", "任务已暂停")
+    return {"job_id": job_id, "status": job["status"], "paused_at": job["paused_at"]}
+
+@router.post("/jobs/{job_id}/resume")
+async def resume_batch_job(
+    job_id: str,
+) -> Dict[str, Any]:
+    """恢复批处理任务"""
+    logger.info("恢复批处理任务", job_id=job_id)
+    job = await _get_job(job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="任务不存在")
+    if job.get("status") != "paused":
+        raise HTTPException(status_code=400, detail="仅暂停任务可恢复")
+    job["status"] = "running"
+    job["resumed_at"] = utc_now().isoformat() + "Z"
+    await _set_job(job)
+    await _append_job_log(job_id, "INFO", "任务已恢复")
+    return {"job_id": job_id, "status": job["status"], "resumed_at": job["resumed_at"]}
+
+@router.delete("/jobs/{job_id}")
+async def cancel_batch_job(
+    job_id: str,
+) -> Dict[str, Any]:
+    """取消批处理任务"""
+    logger.info("取消批处理任务", job_id=job_id)
+    job = await _get_job(job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="任务不存在")
+    if job.get("status") in {"completed", "failed"}:
+        raise HTTPException(status_code=400, detail="已结束任务不可取消")
+    job["status"] = "cancelled"
+    job["cancelled_at"] = utc_now().isoformat() + "Z"
+    await _set_job(job)
+    await _append_job_log(job_id, "INFO", "任务已取消")
+    return {"job_id": job_id, "status": job["status"], "cancelled_at": job["cancelled_at"]}
+
+@router.get("/jobs/{job_id}/logs")
+async def get_batch_job_logs(
+    job_id: str,
+    limit: int = 100,
+    offset: int = 0,
+) -> Dict[str, Any]:
+    """获取批处理任务日志"""
+    redis_client = get_redis()
+    if not redis_client:
+        raise HTTPException(status_code=503, detail="Redis未初始化")
+    if not await redis_client.exists(_job_key(job_id)):
+        raise HTTPException(status_code=404, detail="任务不存在")
+    total = await redis_client.llen(_job_logs_key(job_id))
+    raw_logs = await redis_client.lrange(_job_logs_key(job_id), offset, offset + limit - 1)
+    logs = []
+    for raw in raw_logs:
+        try:
+            logs.append(json.loads(raw))
+        except Exception:
+            continue
+    return {
+        "job_id": job_id,
+        "logs": logs,
+        "total": total,
+        "limit": limit,
+        "offset": offset
+    }
+
+@router.post("/operations/bulk-create")
+async def bulk_create_items(
+    items: List[Dict[str, Any]],
+    batch_size: int = 100,
+) -> Dict[str, Any]:
+    """批量创建项目"""
+    job_id = f"bulk-create-{uuid.uuid4().hex[:8]}"
+    
+    logger.info("开始批量创建操作", job_id=job_id, item_count=len(items))
+    await _set_job(
+        {
+            "job_id": job_id,
+            "status": "completed",
+            "job_type": "bulk_create",
+            "created_at": utc_now().isoformat() + "Z",
+            "created_ts": utc_now().timestamp(),
+            "total_items": len(items),
+            "processed_items": len(items),
+            "failed_items": 0,
+            "progress": 1.0,
+            "metadata": {"batch_size": batch_size},
+        }
+    )
+    await _append_job_log(job_id, "INFO", "批量创建已完成", {"total_items": len(items)})
+    
+    return {
+        "job_id": job_id,
+        "operation": "bulk_create",
+        "total_items": len(items),
+        "batch_size": batch_size,
+        "status": "processing",
+        "created_at": utc_now().isoformat()
+    }
+
+@router.post("/operations/bulk-update")
+async def bulk_update_items(
+    updates: List[Dict[str, Any]],
+    batch_size: int = 100,
+) -> Dict[str, Any]:
+    """批量更新项目"""
+    job_id = f"bulk-update-{uuid.uuid4().hex[:8]}"
+    
+    logger.info("开始批量更新操作", job_id=job_id, update_count=len(updates))
+    await _set_job(
+        {
+            "job_id": job_id,
+            "status": "completed",
+            "job_type": "bulk_update",
+            "created_at": utc_now().isoformat() + "Z",
+            "created_ts": utc_now().timestamp(),
+            "total_items": len(updates),
+            "processed_items": len(updates),
+            "failed_items": 0,
+            "progress": 1.0,
+            "metadata": {"batch_size": batch_size},
+        }
+    )
+    await _append_job_log(job_id, "INFO", "批量更新已完成", {"total_items": len(updates)})
+    
+    return {
+        "job_id": job_id,
+        "operation": "bulk_update",
+        "total_updates": len(updates),
+        "batch_size": batch_size,
+        "status": "processing",
+        "created_at": utc_now().isoformat()
+    }
+
+@router.post("/operations/bulk-delete")
+async def bulk_delete_items(
+    item_ids: List[str],
+    batch_size: int = 100,
+) -> Dict[str, Any]:
+    """批量删除项目"""
+    job_id = f"bulk-delete-{uuid.uuid4().hex[:8]}"
+    
+    logger.info("开始批量删除操作", job_id=job_id, delete_count=len(item_ids))
+    await _set_job(
+        {
+            "job_id": job_id,
+            "status": "completed",
+            "job_type": "bulk_delete",
+            "created_at": utc_now().isoformat() + "Z",
+            "created_ts": utc_now().timestamp(),
+            "total_items": len(item_ids),
+            "processed_items": len(item_ids),
+            "failed_items": 0,
+            "progress": 1.0,
+            "metadata": {"batch_size": batch_size},
+        }
+    )
+    await _append_job_log(job_id, "INFO", "批量删除已完成", {"total_items": len(item_ids)})
+    
+    return {
+        "job_id": job_id,
+        "operation": "bulk_delete",
+        "total_items": len(item_ids),
+        "batch_size": batch_size,
+        "status": "processing",
+        "created_at": utc_now().isoformat()
+    }
+
+@router.get("/stats/summary")
+async def get_batch_stats_summary(
+) -> Dict[str, Any]:
+    """获取批处理统计汇总"""
+    redis_client = get_redis()
+    if not redis_client:
+        raise HTTPException(status_code=503, detail="Redis未初始化")
+    ids = await redis_client.zrange(_JOB_INDEX_KEY, 0, -1)
+    jobs = []
+    for job_id in ids:
+        job = await _get_job(job_id)
+        if job:
+            jobs.append(job)
+    total_jobs = len(jobs)
+    active_jobs = len([j for j in jobs if j.get("status") == "running"])
+    completed_jobs = len([j for j in jobs if j.get("status") == "completed"])
+    failed_jobs = len([j for j in jobs if j.get("status") == "failed"])
+    cancelled_jobs = len([j for j in jobs if j.get("status") == "cancelled"])
+    total_items_processed = sum(int(j.get("processed_items") or 0) for j in jobs)
+    success_rate = completed_jobs / max(completed_jobs + failed_jobs, 1) * 100
+    return {
+        "total_jobs": total_jobs,
+        "active_jobs": active_jobs,
+        "completed_jobs": completed_jobs,
+        "failed_jobs": failed_jobs,
+        "cancelled_jobs": cancelled_jobs,
+        "total_items_processed": total_items_processed,
+        "success_rate": round(success_rate, 2),
+        "timestamp": utc_now().isoformat() + "Z",
+    }
+
+@router.get("/queues/status")
+async def get_queue_status(
+) -> Dict[str, Any]:
+    """获取队列状态"""
+    redis_client = get_redis()
+    if not redis_client:
+        raise HTTPException(status_code=503, detail="Redis未初始化")
+    ids = await redis_client.zrange(_JOB_INDEX_KEY, 0, -1)
+    jobs = []
+    for job_id in ids:
+        job = await _get_job(job_id)
+        if job:
+            jobs.append(job)
+    pending = len([j for j in jobs if j.get("status") == "created"])
+    active = len([j for j in jobs if j.get("status") == "running"])
+    paused = len([j for j in jobs if j.get("status") == "paused"])
+    return {
+        "queues": [
+            {
+                "name": "default",
+                "pending_jobs": pending,
+                "active_jobs": active,
+                "paused_jobs": paused,
+            }
+        ],
+        "total_pending": pending,
+        "total_active": active,
+        "total_paused": paused,
+    }

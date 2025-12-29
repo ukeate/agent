@@ -8,7 +8,6 @@ from datetime import datetime
 from src.core.utils.timezone_utils import utc_now, utc_factory, timezone
 from typing import Any, Dict, List, Optional, Tuple, Union
 from uuid import uuid4
-
 from src.ai.openai_client import OpenAIClient
 from src.ai.explainer.decision_tracker import DecisionTracker
 from src.models.schemas.explanation import (
@@ -20,7 +19,6 @@ from src.models.schemas.explanation import (
     ConfidenceMetrics,
     CounterfactualScenario
 )
-
 
 class WorkflowNode:
     """工作流节点数据结构"""
@@ -45,7 +43,6 @@ class WorkflowNode:
         self.status = status
         self.metadata = metadata or {}
         self.timestamp = utc_now()
-
 
 class WorkflowExecution:
     """工作流执行数据结构"""
@@ -101,7 +98,6 @@ class WorkflowExecution:
             "error_count": len(self.error_messages),
             "state_variables": len(self.global_state)
         }
-
 
 class WorkflowExplainer:
     """工作流解释器"""

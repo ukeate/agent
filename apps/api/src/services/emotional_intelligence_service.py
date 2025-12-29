@@ -1,11 +1,11 @@
 """
 情感智能决策引擎综合服务
 """
+
+from src.core.utils.timezone_utils import utc_now
 import asyncio
 from typing import Dict, List, Optional, Any, Tuple
 from datetime import datetime, timedelta
-import logging
-
 from ..ai.emotional_intelligence.decision_engine import EmotionalDecisionEngine
 from ..ai.emotional_intelligence.risk_assessment import RiskAssessmentEngine
 from ..ai.emotional_intelligence.intervention_engine import InterventionStrategySelector
@@ -17,11 +17,12 @@ from ..ai.emotional_intelligence.models import (
 )
 from ..ai.emotion_modeling.models import EmotionState, PersonalityProfile
 from ..ai.empathy_response.models import EmpathyResponse
+from ..ai.emotion_recognition.analyzers.text_analyzer import TextEmotionAnalyzer
+from ..repositories.emotion_modeling_repository import EmotionModelingRepository
 from ..ai.memory.models import EmotionalMemory
 
-
-logger = logging.getLogger(__name__)
-
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 class EmotionalIntelligenceService:
     """情感智能决策引擎综合服务"""
@@ -33,6 +34,7 @@ class EmotionalIntelligenceService:
         self.intervention_engine = InterventionStrategySelector()
         self.crisis_system = CrisisDetectionSystem()
         self.health_monitor = HealthMonitoringSystem()
+        self._text_analyzer = TextEmotionAnalyzer()
         
         # 状态跟踪
         self.active_interventions: Dict[str, InterventionPlan] = {}
@@ -116,7 +118,7 @@ class EmotionalIntelligenceService:
             # 6. 生成综合响应
             comprehensive_response = {
                 'user_id': user_id,
-                'timestamp': datetime.now().isoformat(),
+                'timestamp': utc_now().isoformat(),
                 'decision': decision.to_dict() if decision else None,
                 'risk_assessment': risk_assessment.to_dict() if risk_assessment else None,
                 'crisis_assessment': crisis_assessment.to_dict() if crisis_assessment else None,
@@ -185,7 +187,7 @@ class EmotionalIntelligenceService:
             # 综合健康报告
             health_report = {
                 'user_id': user_id,
-                'generated_at': datetime.now().isoformat(),
+                'generated_at': utc_now().isoformat(),
                 'dashboard_data': dashboard_data.to_dict(),
                 'emotional_patterns': emotional_patterns,
                 'crisis_prediction': {
@@ -282,7 +284,7 @@ class EmotionalIntelligenceService:
             
             return {
                 'user_id': user_id,
-                'management_timestamp': datetime.now().isoformat(),
+                'management_timestamp': utc_now().isoformat(),
                 'interventions_managed': len(interventions),
                 'management_results': management_results,
                 'active_interventions_count': len([
@@ -347,14 +349,14 @@ class EmotionalIntelligenceService:
             escalation_result = {
                 'user_id': user_id,
                 'crisis_id': crisis_assessment.assessment_id,
-                'escalation_timestamp': datetime.now().isoformat(),
+                'escalation_timestamp': utc_now().isoformat(),
                 'severity_level': crisis_assessment.severity_level,
                 'emergency_response': emergency_response,
                 'intervention_adjustments': intervention_adjustments,
                 'crisis_intervention_created': crisis_intervention.plan_id if crisis_intervention else None,
                 'notifications_sent': notifications_sent,
                 'monitoring_setup': monitoring_setup,
-                'next_check_time': (datetime.now() + crisis_assessment.check_frequency).isoformat()
+                'next_check_time': (utc_now() + crisis_assessment.check_frequency).isoformat()
             }
             
             logger.critical(f"危机升级处理 - 用户: {user_id}, 严重程度: {crisis_assessment.severity_level}")
@@ -465,7 +467,7 @@ class EmotionalIntelligenceService:
             actions.append({
                 'type': 'crisis_response',
                 'details': crisis_response,
-                'timestamp': datetime.now().isoformat()
+                'timestamp': utc_now().isoformat()
             })
         
         elif strategy == 'high_risk_intervention' and risk_assessment:
@@ -479,7 +481,7 @@ class EmotionalIntelligenceService:
                 actions.append({
                     'type': 'intervention_activation',
                     'intervention_id': intervention_plan.plan_id,
-                    'timestamp': datetime.now().isoformat()
+                    'timestamp': utc_now().isoformat()
                 })
         
         else:
@@ -487,7 +489,7 @@ class EmotionalIntelligenceService:
             actions.append({
                 'type': 'general_support',
                 'details': 'Provided emotional support and guidance',
-                'timestamp': datetime.now().isoformat()
+                'timestamp': utc_now().isoformat()
             })
         
         return actions
@@ -522,7 +524,7 @@ class EmotionalIntelligenceService:
         
         return recommendations[:5]  # 限制建议数量
     
-    # 数据获取方法（模拟实现，实际应从数据库获取）
+    # 数据获取方法（基于真实存储与计算）
     async def _get_user_emotion_history(
         self, 
         user_id: str, 
@@ -530,8 +532,18 @@ class EmotionalIntelligenceService:
         limit: Optional[int] = None
     ) -> List[EmotionState]:
         """获取用户情感历史"""
-        # 模拟数据，实际应从数据库获取
-        return []
+        from ..core.database import get_db_session
+
+        async with get_db_session() as session:
+            repo = EmotionModelingRepository(session)
+            start_time, end_time = (time_period or (None, None))
+            limit_value = int(limit or 500)
+            return await repo.get_user_emotion_history(
+                user_id=user_id,
+                limit=limit_value,
+                start_time=start_time,
+                end_time=end_time,
+            )
     
     async def _get_user_risk_history(
         self,
@@ -539,8 +551,26 @@ class EmotionalIntelligenceService:
         time_period: Optional[Tuple[datetime, datetime]] = None
     ) -> List[RiskAssessment]:
         """获取用户风险评估历史"""
-        # 模拟数据，实际应从数据库获取
-        return []
+        emotion_history = await self._get_user_emotion_history(user_id, time_period, limit=500)
+        if not emotion_history:
+            return []
+
+        buckets: Dict[str, List[EmotionState]] = {}
+        for state in emotion_history:
+            key = state.timestamp.date().isoformat()
+            buckets.setdefault(key, []).append(state)
+
+        assessments: List[RiskAssessment] = []
+        for _, bucket in sorted(buckets.items()):
+            assessment = await self.risk_engine.assess_comprehensive_risk(
+                user_id=user_id,
+                emotion_history=bucket,
+                personality_profile=None,
+                context=None,
+            )
+            assessments.append(assessment)
+
+        return assessments
     
     async def _get_user_interventions(
         self,
@@ -548,18 +578,31 @@ class EmotionalIntelligenceService:
         time_period: Optional[Tuple[datetime, datetime]] = None
     ) -> List[InterventionPlan]:
         """获取用户干预计划"""
-        # 模拟数据，实际应从数据库获取
-        return []
+        interventions = [
+            plan for plan in self.active_interventions.values()
+            if plan.user_id == user_id
+        ]
+        if not time_period:
+            return interventions
+        start, end = time_period
+        return [plan for plan in interventions if start <= plan.created_at <= end]
     
     async def _get_user_personality_profile(self, user_id: str) -> Optional[PersonalityProfile]:
         """获取用户个性画像"""
-        # 模拟数据，实际应从数据库获取
-        return None
+        from ..core.database import get_db_session
+
+        async with get_db_session() as session:
+            repo = EmotionModelingRepository(session)
+            return await repo.get_personality_profile(user_id)
     
     async def _get_recent_decisions(self, user_id: str, limit: int = 10) -> List[EmotionalDecision]:
         """获取最近决策"""
-        # 模拟数据，实际应从数据库获取
-        return []
+        decisions = [
+            d for d in self.decision_engine.decision_history
+            if d.user_id == user_id
+        ]
+        decisions.sort(key=lambda d: d.timestamp, reverse=True)
+        return decisions[:limit]
     
     async def _analyze_current_emotion(
         self, 
@@ -567,15 +610,25 @@ class EmotionalIntelligenceService:
         context: Optional[Dict[str, Any]]
     ) -> Dict[str, Any]:
         """分析当前情感状态"""
-        # 这里应该调用情感识别模块
-        # 简化实现，返回默认情感状态
+        if not user_input:
+            return {
+                'emotion': 'neutral',
+                'intensity': 0.3,
+                'valence': 0.0,
+                'arousal': 0.2,
+                'dominance': 0.5,
+                'confidence': 0.5
+            }
+
+        result = await self._text_analyzer.analyze(user_input)
+        dimension = result.dimension
         return {
-            'emotion': 'neutral',
-            'intensity': 0.5,
-            'valence': 0.0,
-            'arousal': 0.3,
-            'dominance': 0.5,
-            'confidence': 0.8
+            'emotion': result.emotion,
+            'intensity': float(result.intensity),
+            'valence': float(dimension.valence) if dimension else 0.0,
+            'arousal': float(dimension.arousal) if dimension else 0.0,
+            'dominance': float(dimension.dominance) if dimension else 0.0,
+            'confidence': float(result.confidence)
         }
     
     def _get_cached_health_data(self, user_id: str) -> Optional[Dict[str, Any]]:
@@ -584,7 +637,7 @@ class EmotionalIntelligenceService:
         if cached:
             # 检查缓存是否过期
             cache_time = datetime.fromisoformat(cached['generated_at'])
-            if datetime.now() - cache_time < timedelta(hours=self.config['health_cache_ttl_hours']):
+            if utc_now() - cache_time < timedelta(hours=self.config['health_cache_ttl_hours']):
                 return cached
         return None
     
@@ -670,7 +723,7 @@ class EmotionalIntelligenceService:
         intervention.progress = 1.0
         
         return {
-            'completion_time': datetime.now().isoformat(),
+            'completion_time': utc_now().isoformat(),
             'final_effectiveness': 0.8,
             'user_feedback': 'positive',
             'follow_up_needed': False
@@ -711,9 +764,9 @@ class EmotionalIntelligenceService:
             status='active',
             target_risk_factors=['crisis_indicators'],
             timeline={
-                'immediate_response': datetime.now(),
-                'first_check': datetime.now() + timedelta(hours=1),
-                'follow_up': datetime.now() + timedelta(hours=6)
+                'immediate_response': utc_now(),
+                'first_check': utc_now() + timedelta(hours=1),
+                'follow_up': utc_now() + timedelta(hours=6)
             }
         )
         

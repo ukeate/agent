@@ -7,7 +7,6 @@
 from typing import Dict, List, Optional, Any, Callable
 from dataclasses import dataclass, field
 import asyncio
-import logging
 import time
 from datetime import datetime
 from datetime import timedelta
@@ -15,8 +14,8 @@ from src.core.utils.timezone_utils import utc_now, utc_factory
 from collections import deque
 import weakref
 
-logger = logging.getLogger(__name__)
-
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 @dataclass
 class QueueMetrics:
@@ -28,7 +27,7 @@ class QueueMetrics:
     dequeue_rate: float  # 出队速率（项目/秒）
     average_wait_time: float  # 平均等待时间（秒）
     oldest_item_age: float  # 最老项目年龄（秒）
-    timestamp: datetime = field(default_factory=datetime.utcnow)
+    timestamp: datetime = field(default_factory=utc_now)
     
     @property
     def utilization(self) -> float:
@@ -45,7 +44,6 @@ class QueueMetrics:
         """吞吐量比率（出队/入队）"""
         return self.dequeue_rate / self.enqueue_rate if self.enqueue_rate > 0 else 1.0
 
-
 @dataclass
 class QueueOperation:
     """队列操作记录"""
@@ -55,7 +53,6 @@ class QueueOperation:
     queue_size_after: int
     item_id: Optional[str] = None
     processing_time: Optional[float] = None
-
 
 class QueueMonitor:
     """队列监控器"""
@@ -104,7 +101,7 @@ class QueueMonitor:
             try:
                 await self._monitor_task
             except asyncio.CancelledError:
-                pass
+                raise
         
         logger.info(f"队列监控已停止: {self.name}")
     
@@ -254,7 +251,6 @@ class QueueMonitor:
         self._metrics_history.clear()
         self.current_size = 0
 
-
 class QueueMonitorManager:
     """队列监控管理器"""
     
@@ -360,7 +356,6 @@ class QueueMonitorManager:
             "average_utilization": avg_utilization,
             "is_running": self.is_running
         }
-
 
 # 全局队列监控管理器实例
 queue_monitor_manager = QueueMonitorManager()

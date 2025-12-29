@@ -6,24 +6,31 @@
 """
 
 from fastapi import APIRouter, HTTPException, Depends, WebSocket, WebSocketDisconnect, BackgroundTasks, Request
+from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
 from typing import Dict, List, Optional, Any
 import asyncio
 import json
-import logging
 import time
+import uuid
 from datetime import datetime, timedelta
-from pydantic import BaseModel, Field
-
-from ...ai.cluster import (
+from pydantic import Field
+from src.ai.cluster import (
     ClusterStateManager, LifecycleManager, MetricsCollector, AutoScaler,
     AgentInfo, AgentStatus, AgentGroup, ScalingPolicy, AgentCapability, ResourceSpec
 )
+from src.api.base_model import ApiBaseModel
+from src.core.utils.timezone_utils import utc_now
 
-logger = logging.getLogger(__name__)
+from src.core.logging import get_logger
+logger = get_logger(__name__)
+
+def _rethrow_http_exception(error: Exception) -> None:
+    if isinstance(error, HTTPException):
+        raise error
 
 # Pydantic models for API
-class AgentInfoCreate(BaseModel):
+class AgentInfoCreate(ApiBaseModel):
     """创建智能体的请求模型"""
     name: str = Field(..., description="智能体名称")
     host: str = Field(..., description="智能体主机地址")
@@ -34,8 +41,7 @@ class AgentInfoCreate(BaseModel):
     labels: Dict[str, str] = Field(default={}, description="智能体标签")
     resource_spec: Dict[str, Any] = Field(default={}, description="资源规格")
 
-
-class AgentGroupCreate(BaseModel):
+class AgentGroupCreate(ApiBaseModel):
     """创建智能体分组的请求模型"""
     name: str = Field(..., description="分组名称")
     description: str = Field(default="", description="分组描述")
@@ -43,8 +49,15 @@ class AgentGroupCreate(BaseModel):
     min_agents: int = Field(default=0, description="最小智能体数量")
     labels: Dict[str, str] = Field(default={}, description="分组标签")
 
+class AgentGroupUpdate(ApiBaseModel):
+    """更新智能体分组的请求模型"""
+    name: Optional[str] = Field(None, description="分组名称")
+    description: Optional[str] = Field(None, description="分组描述")
+    max_agents: Optional[int] = Field(None, description="最大智能体数量")
+    min_agents: Optional[int] = Field(None, description="最小智能体数量")
+    labels: Optional[Dict[str, str]] = Field(None, description="分组标签")
 
-class ScalingPolicyCreate(BaseModel):
+class ScalingPolicyCreate(ApiBaseModel):
     """创建扩缩容策略的请求模型"""
     name: str = Field(..., description="策略名称")
     target_cpu_percent: float = Field(default=70.0, description="目标CPU使用率")
@@ -58,19 +71,66 @@ class ScalingPolicyCreate(BaseModel):
     cooldown_period_seconds: int = Field(default=180, description="冷却时间")
     enabled: bool = Field(default=True, description="是否启用")
 
+class ScalingPolicyUpdate(ApiBaseModel):
+    """更新扩缩容策略的请求模型"""
+    name: Optional[str] = Field(None, description="策略名称")
+    target_cpu_percent: Optional[float] = Field(None, description="目标CPU使用率")
+    target_memory_percent: Optional[float] = Field(None, description="目标内存使用率")
+    scale_up_cpu_threshold: Optional[float] = Field(None, description="CPU扩容阈值")
+    scale_up_memory_threshold: Optional[float] = Field(None, description="内存扩容阈值")
+    scale_down_cpu_threshold: Optional[float] = Field(None, description="CPU缩容阈值")
+    scale_down_memory_threshold: Optional[float] = Field(None, description="内存缩容阈值")
+    min_instances: Optional[int] = Field(None, description="最小实例数")
+    max_instances: Optional[int] = Field(None, description="最大实例数")
+    cooldown_period_seconds: Optional[int] = Field(None, description="冷却时间")
+    enabled: Optional[bool] = Field(None, description="是否启用")
 
-class ManualScalingRequest(BaseModel):
+class ManualScalingRequest(ApiBaseModel):
     """手动扩缩容请求模型"""
     target_instances: int = Field(..., description="目标实例数")
     reason: str = Field(default="Manual scaling", description="扩缩容原因")
 
-
-class MetricsQueryRequest(BaseModel):
+class MetricsQueryRequest(ApiBaseModel):
     """指标查询请求模型"""
     metric_names: Optional[List[str]] = Field(None, description="指标名称列表")
     duration_seconds: int = Field(default=3600, description="查询时长（秒）")
     agent_id: Optional[str] = Field(None, description="智能体ID")
 
+class LoadBalancingStrategyCreate(ApiBaseModel):
+    """负载均衡策略创建模型"""
+    name: str = Field(..., description="策略名称")
+    algorithm: str = Field(..., description="算法类型")
+    weights: Optional[Dict[str, float]] = Field(default=None, description="权重配置")
+    health_check_settings: Dict[str, Any] = Field(default_factory=dict, description="健康检查设置")
+    failover_settings: Dict[str, Any] = Field(default_factory=dict, description="故障转移设置")
+    is_active: bool = Field(default=True, description="是否启用")
+
+class CapacityForecastRequest(ApiBaseModel):
+    """容量预测请求"""
+    forecast_horizon_days: int = Field(default=30, ge=1, le=365)
+    scenarios: List[str] = Field(default_factory=lambda: ["moderate"])
+    include_recommendations: bool = Field(default=True)
+
+class AnomalyDetectionRequest(ApiBaseModel):
+    """异常检测请求"""
+    detection_window_hours: int = Field(default=24, ge=1, le=168)
+    sensitivity: str = Field(default="medium")
+    include_predictions: bool = Field(default=True)
+
+class WorkflowCreate(ApiBaseModel):
+    """自动化工作流创建模型"""
+    name: str = Field(..., description="工作流名称")
+    workflow_type: str = Field(default="maintenance", description="工作流类型")
+    trigger_type: str = Field(default="manual", description="触发类型")
+    is_enabled: bool = Field(default=True, description="是否启用")
+
+class SecurityAuditRequest(ApiBaseModel):
+    """安全审计请求"""
+    audit_scope: str = Field(default="cluster")
+    target_id: Optional[str] = None
+    audit_frameworks: List[str] = Field(default_factory=list)
+    security_domains: List[str] = Field(default_factory=list)
+    audit_depth: str = Field(default="standard")
 
 # WebSocket连接管理
 class ConnectionManager:
@@ -128,9 +188,13 @@ class ConnectionManager:
             for conn in disconnected:
                 self.agent_connections[agent_id].remove(conn)
 
-
 # 全局连接管理器
 manager = ConnectionManager()
+
+# 增强集群管理数据存储（内存态，避免静态假数据）
+_load_balancing_strategies: Dict[str, Dict[str, Any]] = {}
+_security_audits: List[Dict[str, Any]] = []
+_automation_workflows: Dict[str, Dict[str, Any]] = {}
 
 # 依赖注入 - 这些应该从应用配置中获取
 async def get_cluster_manager(request: Request):
@@ -146,9 +210,123 @@ async def get_metrics_collector(request: Request):
 async def get_auto_scaler(request: Request):
     return request.app.state.auto_scaler
 
-
 router = APIRouter(prefix="/cluster", tags=["cluster"])
 
+def _group_to_dict(group: AgentGroup) -> Dict[str, Any]:
+    return {
+        "group_id": group.group_id,
+        "name": group.name,
+        "description": group.description,
+        "agent_ids": list(group.agent_ids),
+        "agent_count": group.agent_count,
+        "min_agents": group.min_agents,
+        "max_agents": group.max_agents,
+        "is_full": group.is_full,
+        "can_scale_down": group.can_scale_down,
+        "labels": group.labels,
+        "created_at": group.created_at,
+        "updated_at": group.updated_at
+    }
+
+def _policy_to_dict(policy: ScalingPolicy) -> Dict[str, Any]:
+    created_at = getattr(policy, "created_at", time.time())
+    updated_at = getattr(policy, "updated_at", created_at)
+    return {
+        "policy_id": policy.policy_id,
+        "name": policy.name,
+        "target_cpu_percent": policy.target_cpu_percent,
+        "target_memory_percent": policy.target_memory_percent,
+        "scale_up_cpu_threshold": policy.scale_up_cpu_threshold,
+        "scale_up_memory_threshold": policy.scale_up_memory_threshold,
+        "scale_down_cpu_threshold": policy.scale_down_cpu_threshold,
+        "scale_down_memory_threshold": policy.scale_down_memory_threshold,
+        "min_instances": policy.min_instances,
+        "max_instances": policy.max_instances,
+        "cooldown_period_seconds": policy.cooldown_period_seconds,
+        "enabled": policy.enabled,
+        "created_at": created_at,
+        "updated_at": updated_at
+    }
+
+def _iso_from_ts(ts: float) -> str:
+    return datetime.fromtimestamp(ts).isoformat()
+
+def _build_performance_trends(cluster_metrics: Dict[str, List[Any]]) -> List[Dict[str, Any]]:
+    bucket: Dict[int, Dict[str, Any]] = {}
+    mapping = {
+        "cluster_cpu_usage": "cpu_trend",
+        "cluster_memory_usage": "memory_trend",
+        "cluster_avg_response_time": "response_time_trend",
+    }
+    for metric_name, points in cluster_metrics.items():
+        key_name = mapping.get(metric_name)
+        if not key_name:
+            continue
+        for point in points:
+            ts = int(getattr(point, "timestamp", 0))
+            if ts <= 0:
+                continue
+            entry = bucket.setdefault(ts, {"timestamp": _iso_from_ts(ts)})
+            entry[key_name] = float(getattr(point, "value", 0) or 0)
+
+    if not bucket:
+        return []
+
+    ordered = [bucket[k] for k in sorted(bucket.keys())]
+    return ordered[-20:]
+
+def _build_performance_profile(agent: AgentInfo) -> Dict[str, Any]:
+    usage = agent.resource_usage
+    cpu = float(usage.cpu_usage_percent or 0)
+    memory = float(usage.memory_usage_percent or 0)
+    response_time = float(usage.avg_response_time or 0)
+    error_rate = float(usage.error_rate or 0) * 100
+
+    bottlenecks: List[str] = []
+    if cpu >= 80:
+        bottlenecks.append("CPU压力过高")
+    if memory >= 80:
+        bottlenecks.append("内存压力过高")
+    if response_time >= 1000:
+        bottlenecks.append("响应时间过长")
+    if error_rate >= 5:
+        bottlenecks.append("错误率偏高")
+
+    score_penalty = (cpu * 0.4) + (memory * 0.4) + min(response_time / 20, 20) + min(error_rate * 2, 20)
+    overall_score = max(0, min(100, round(100 - score_penalty)))
+
+    recommendations = []
+    if "CPU压力过高" in bottlenecks:
+        recommendations.append("优化CPU密集型任务或增加实例")
+    if "内存压力过高" in bottlenecks:
+        recommendations.append("优化内存使用或扩展内存资源")
+    if "响应时间过长" in bottlenecks:
+        recommendations.append("优化请求路径或启用缓存策略")
+    if "错误率偏高" in bottlenecks:
+        recommendations.append("检查错误日志并修复异常")
+
+    expected_improvement = min(30, len(recommendations) * 10)
+
+    return {
+        "agent_id": agent.agent_id,
+        "overall_performance_score": overall_score,
+        "bottlenecks": bottlenecks,
+        "optimization_recommendations": recommendations,
+        "expected_improvement": expected_improvement,
+    }
+
+def _build_scaling_suggestions(stats: Dict[str, Any]) -> List[str]:
+    usage = stats.get("resource_usage") or {}
+    cpu = float(usage.get("cpu_usage_percent") or 0)
+    memory = float(usage.get("memory_usage_percent") or 0)
+    suggestions: List[str] = []
+    if cpu >= 75 or memory >= 75:
+        suggestions.append("资源利用率偏高，建议增加实例或扩容资源")
+    if cpu <= 30 and memory <= 30 and stats.get("total_agents", 0) > 1:
+        suggestions.append("资源利用率偏低，可考虑缩容以节省成本")
+    if not suggestions:
+        suggestions.append("当前资源利用率稳定，保持现有规模")
+    return suggestions
 
 # 集群状态API
 @router.get("/status")
@@ -160,9 +338,9 @@ async def get_cluster_status(
         stats = await cluster_manager.get_cluster_stats()
         return JSONResponse(content={"success": True, "data": stats})
     except Exception as e:
+        _rethrow_http_exception(e)
         logger.error(f"Error getting cluster status: {e}")
         raise HTTPException(status_code=500, detail=str(e))
-
 
 @router.get("/topology")
 async def get_cluster_topology(
@@ -173,9 +351,9 @@ async def get_cluster_topology(
         topology = await cluster_manager.get_cluster_topology()
         return JSONResponse(content={"success": True, "data": topology.to_dict()})
     except Exception as e:
+        _rethrow_http_exception(e)
         logger.error(f"Error getting cluster topology: {e}")
         raise HTTPException(status_code=500, detail=str(e))
-
 
 @router.get("/health")
 async def get_cluster_health(
@@ -197,9 +375,9 @@ async def get_cluster_health(
         
         return JSONResponse(content={"success": True, "data": health_info})
     except Exception as e:
+        _rethrow_http_exception(e)
         logger.error(f"Error getting cluster health: {e}")
         raise HTTPException(status_code=500, detail=str(e))
-
 
 # 智能体管理API
 @router.post("/agents")
@@ -231,16 +409,16 @@ async def create_agent(
         
         if result.success:
             return JSONResponse(content={
-                "success": True, 
-                "data": {"agent_id": agent.agent_id, "result": result.__dict__}
+                "success": True,
+                "data": {"agent_id": agent.agent_id, "result": jsonable_encoder(result)}
             })
         else:
             raise HTTPException(status_code=400, detail=result.message)
             
     except Exception as e:
+        _rethrow_http_exception(e)
         logger.error(f"Error creating agent: {e}")
         raise HTTPException(status_code=500, detail=str(e))
-
 
 @router.get("/agents")
 async def list_agents(
@@ -283,9 +461,9 @@ async def list_agents(
         
         return JSONResponse(content={"success": True, "data": agents_data})
     except Exception as e:
+        _rethrow_http_exception(e)
         logger.error(f"Error listing agents: {e}")
         raise HTTPException(status_code=500, detail=str(e))
-
 
 @router.get("/agents/{agent_id}")
 async def get_agent_details(
@@ -345,9 +523,9 @@ async def get_agent_details(
         
         return JSONResponse(content={"success": True, "data": agent_data})
     except Exception as e:
+        _rethrow_http_exception(e)
         logger.error(f"Error getting agent details: {e}")
         raise HTTPException(status_code=500, detail=str(e))
-
 
 @router.post("/agents/{agent_id}/start")
 async def start_agent(
@@ -367,14 +545,14 @@ async def start_agent(
                 "timestamp": time.time()
             }))
             
-            return JSONResponse(content={"success": True, "data": result.__dict__})
+            return JSONResponse(content={"success": True, "data": jsonable_encoder(result)})
         else:
             raise HTTPException(status_code=400, detail=result.message)
             
     except Exception as e:
+        _rethrow_http_exception(e)
         logger.error(f"Error starting agent {agent_id}: {e}")
         raise HTTPException(status_code=500, detail=str(e))
-
 
 @router.post("/agents/{agent_id}/stop")
 async def stop_agent(
@@ -394,14 +572,14 @@ async def stop_agent(
                 "timestamp": time.time()
             }))
             
-            return JSONResponse(content={"success": True, "data": result.__dict__})
+            return JSONResponse(content={"success": True, "data": jsonable_encoder(result)})
         else:
             raise HTTPException(status_code=400, detail=result.message)
             
     except Exception as e:
+        _rethrow_http_exception(e)
         logger.error(f"Error stopping agent {agent_id}: {e}")
         raise HTTPException(status_code=500, detail=str(e))
-
 
 @router.post("/agents/{agent_id}/restart")
 async def restart_agent(
@@ -420,14 +598,14 @@ async def restart_agent(
                 "timestamp": time.time()
             }))
             
-            return JSONResponse(content={"success": True, "data": result.__dict__})
+            return JSONResponse(content={"success": True, "data": jsonable_encoder(result)})
         else:
             raise HTTPException(status_code=400, detail=result.message)
             
     except Exception as e:
+        _rethrow_http_exception(e)
         logger.error(f"Error restarting agent {agent_id}: {e}")
         raise HTTPException(status_code=500, detail=str(e))
-
 
 @router.delete("/agents/{agent_id}")
 async def delete_agent(
@@ -446,14 +624,14 @@ async def delete_agent(
                 "timestamp": time.time()
             }))
             
-            return JSONResponse(content={"success": True, "data": result.__dict__})
+            return JSONResponse(content={"success": True, "data": jsonable_encoder(result)})
         else:
             raise HTTPException(status_code=400, detail=result.message)
             
     except Exception as e:
+        _rethrow_http_exception(e)
         logger.error(f"Error deleting agent {agent_id}: {e}")
         raise HTTPException(status_code=500, detail=str(e))
-
 
 # 分组管理API
 @router.post("/groups")
@@ -475,16 +653,16 @@ async def create_group(
         
         if success:
             return JSONResponse(content={
-                "success": True, 
-                "data": {"group_id": group.group_id}
+                "success": True,
+                "data": _group_to_dict(group)
             })
         else:
             raise HTTPException(status_code=400, detail="Failed to create group")
             
     except Exception as e:
+        _rethrow_http_exception(e)
         logger.error(f"Error creating group: {e}")
         raise HTTPException(status_code=500, detail=str(e))
-
 
 @router.get("/groups")
 async def list_groups(
@@ -496,26 +674,66 @@ async def list_groups(
         
         groups_data = []
         for group in topology.groups.values():
-            group_data = {
-                "group_id": group.group_id,
-                "name": group.name,
-                "description": group.description,
-                "agent_count": group.agent_count,
-                "min_agents": group.min_agents,
-                "max_agents": group.max_agents,
-                "is_full": group.is_full,
-                "can_scale_down": group.can_scale_down,
-                "labels": group.labels,
-                "created_at": group.created_at,
-                "updated_at": group.updated_at
-            }
-            groups_data.append(group_data)
+            groups_data.append(_group_to_dict(group))
         
         return JSONResponse(content={"success": True, "data": groups_data})
     except Exception as e:
+        _rethrow_http_exception(e)
         logger.error(f"Error listing groups: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+@router.get("/groups/{group_id}")
+async def get_group_details(
+    group_id: str,
+    cluster_manager: ClusterStateManager = Depends(get_cluster_manager)
+):
+    """获取分组详情"""
+    try:
+        topology = await cluster_manager.get_cluster_topology()
+        group = topology.groups.get(group_id)
+        if not group:
+            raise HTTPException(status_code=404, detail="Group not found")
+        return JSONResponse(content={"success": True, "data": _group_to_dict(group)})
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting group {group_id}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.put("/groups/{group_id}")
+async def update_group(
+    group_id: str,
+    group_data: AgentGroupUpdate,
+    cluster_manager: ClusterStateManager = Depends(get_cluster_manager)
+):
+    """更新分组信息"""
+    try:
+        updated = await cluster_manager.update_group(group_id, group_data.model_dump(exclude_unset=True))
+        if not updated:
+            raise HTTPException(status_code=404, detail="Group not found")
+        return JSONResponse(content={"success": True, "data": _group_to_dict(updated)})
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error updating group {group_id}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.delete("/groups/{group_id}")
+async def delete_group(
+    group_id: str,
+    cluster_manager: ClusterStateManager = Depends(get_cluster_manager)
+):
+    """删除分组"""
+    try:
+        success = await cluster_manager.delete_group(group_id)
+        if not success:
+            raise HTTPException(status_code=404, detail="Group not found")
+        return JSONResponse(content={"success": True})
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error deleting group {group_id}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/groups/{group_id}/agents/{agent_id}")
 async def add_agent_to_group(
@@ -533,9 +751,27 @@ async def add_agent_to_group(
             raise HTTPException(status_code=400, detail="Failed to add agent to group")
             
     except Exception as e:
+        _rethrow_http_exception(e)
         logger.error(f"Error adding agent to group: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+@router.delete("/groups/{group_id}/agents/{agent_id}")
+async def remove_agent_from_group(
+    group_id: str,
+    agent_id: str,
+    cluster_manager: ClusterStateManager = Depends(get_cluster_manager)
+):
+    """将智能体从分组移除"""
+    try:
+        success = await cluster_manager.remove_agent_from_group(group_id, agent_id)
+        if success:
+            return JSONResponse(content={"success": True})
+        raise HTTPException(status_code=400, detail="Failed to remove agent from group")
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error removing agent from group: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 # 监控指标API
 @router.post("/metrics/query")
@@ -580,9 +816,9 @@ async def query_metrics(
         
         return JSONResponse(content={"success": True, "data": formatted_metrics})
     except Exception as e:
+        _rethrow_http_exception(e)
         logger.error(f"Error querying metrics: {e}")
         raise HTTPException(status_code=500, detail=str(e))
-
 
 @router.get("/metrics/summary")
 async def get_metrics_summary(
@@ -595,9 +831,9 @@ async def get_metrics_summary(
         summary = await metrics_collector.get_metrics_summary(agent_id, duration_seconds)
         return JSONResponse(content={"success": True, "data": summary})
     except Exception as e:
+        _rethrow_http_exception(e)
         logger.error(f"Error getting metrics summary: {e}")
         raise HTTPException(status_code=500, detail=str(e))
-
 
 @router.get("/metrics/trends/{metric_name}")
 async def analyze_metric_trend(
@@ -613,11 +849,41 @@ async def analyze_metric_trend(
         )
         return JSONResponse(content={"success": True, "data": trend})
     except Exception as e:
+        _rethrow_http_exception(e)
         logger.error(f"Error analyzing trend: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-
 # 自动扩缩容API
+@router.get("/scaling/policies")
+async def list_scaling_policies(
+    auto_scaler: AutoScaler = Depends(get_auto_scaler)
+):
+    """获取扩缩容策略列表"""
+    try:
+        policies = auto_scaler.get_policies()
+        return JSONResponse(content={"success": True, "data": [_policy_to_dict(p) for p in policies]})
+    except Exception as e:
+        _rethrow_http_exception(e)
+        logger.error(f"Error listing scaling policies: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/scaling/policies/{policy_id}")
+async def get_scaling_policy(
+    policy_id: str,
+    auto_scaler: AutoScaler = Depends(get_auto_scaler)
+):
+    """获取扩缩容策略详情"""
+    try:
+        policy = auto_scaler.policies.get(policy_id)
+        if not policy:
+            raise HTTPException(status_code=404, detail="Policy not found")
+        return JSONResponse(content={"success": True, "data": _policy_to_dict(policy)})
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting scaling policy {policy_id}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 @router.post("/scaling/policies")
 async def create_scaling_policy(
     policy_data: ScalingPolicyCreate,
@@ -625,7 +891,9 @@ async def create_scaling_policy(
 ):
     """创建扩缩容策略"""
     try:
+        policy_id = f"policy-{uuid.uuid4().hex[:8]}"
         policy = ScalingPolicy(
+            policy_id=policy_id,
             name=policy_data.name,
             target_cpu_percent=policy_data.target_cpu_percent,
             target_memory_percent=policy_data.target_memory_percent,
@@ -638,17 +906,59 @@ async def create_scaling_policy(
             cooldown_period_seconds=policy_data.cooldown_period_seconds,
             enabled=policy_data.enabled
         )
+        policy.created_at = time.time()
+        policy.updated_at = policy.created_at
         
         auto_scaler.add_policy(policy)
         
         return JSONResponse(content={
             "success": True, 
-            "data": {"policy_id": policy.policy_id}
+            "data": _policy_to_dict(policy)
         })
     except Exception as e:
+        _rethrow_http_exception(e)
         logger.error(f"Error creating scaling policy: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+@router.put("/scaling/policies/{policy_id}")
+async def update_scaling_policy(
+    policy_id: str,
+    policy_data: ScalingPolicyUpdate,
+    auto_scaler: AutoScaler = Depends(get_auto_scaler)
+):
+    """更新扩缩容策略"""
+    try:
+        policy = auto_scaler.policies.get(policy_id)
+        if not policy:
+            raise HTTPException(status_code=404, detail="Policy not found")
+
+        updates = policy_data.model_dump(exclude_unset=True)
+        for key, value in updates.items():
+            setattr(policy, key, value)
+        policy.updated_at = time.time()
+        return JSONResponse(content={"success": True, "data": _policy_to_dict(policy)})
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error updating scaling policy {policy_id}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.delete("/scaling/policies/{policy_id}")
+async def delete_scaling_policy(
+    policy_id: str,
+    auto_scaler: AutoScaler = Depends(get_auto_scaler)
+):
+    """删除扩缩容策略"""
+    try:
+        if policy_id not in auto_scaler.policies:
+            raise HTTPException(status_code=404, detail="Policy not found")
+        auto_scaler.remove_policy(policy_id)
+        return JSONResponse(content={"success": True})
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error deleting scaling policy {policy_id}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/scaling/recommendations")
 async def get_scaling_recommendations(
@@ -680,9 +990,9 @@ async def get_scaling_recommendations(
         
         return JSONResponse(content={"success": True, "data": formatted_recommendations})
     except Exception as e:
+        _rethrow_http_exception(e)
         logger.error(f"Error getting scaling recommendations: {e}")
         raise HTTPException(status_code=500, detail=str(e))
-
 
 @router.post("/scaling/groups/{group_id}/manual")
 async def manual_scale_group(
@@ -716,9 +1026,9 @@ async def manual_scale_group(
             }
         })
     except Exception as e:
+        _rethrow_http_exception(e)
         logger.error(f"Error manual scaling group {group_id}: {e}")
         raise HTTPException(status_code=500, detail=str(e))
-
 
 @router.get("/scaling/history")
 async def get_scaling_history(
@@ -746,9 +1056,9 @@ async def get_scaling_history(
         
         return JSONResponse(content={"success": True, "data": history_data})
     except Exception as e:
+        _rethrow_http_exception(e)
         logger.error(f"Error getting scaling history: {e}")
         raise HTTPException(status_code=500, detail=str(e))
-
 
 # WebSocket实时推送
 @router.websocket("/ws")
@@ -784,7 +1094,6 @@ async def websocket_endpoint(websocket: WebSocket):
     except WebSocketDisconnect:
         manager.disconnect(websocket)
 
-
 @router.websocket("/ws/agent/{agent_id}")
 async def agent_websocket_endpoint(websocket: WebSocket, agent_id: str):
     """智能体专用WebSocket连接"""
@@ -797,7 +1106,6 @@ async def agent_websocket_endpoint(websocket: WebSocket, agent_id: str):
     except WebSocketDisconnect:
         manager.disconnect(websocket, agent_id)
 
-
 # 批量操作API
 @router.post("/agents/batch/start")
 async def batch_start_agents(
@@ -806,7 +1114,7 @@ async def batch_start_agents(
 ):
     """批量启动智能体"""
     try:
-        from ...ai.cluster.lifecycle_manager import AgentOperation
+        from src.ai.cluster.lifecycle_manager import AgentOperation
         
         result = await lifecycle_manager.batch_operation(
             agent_ids, AgentOperation.START
@@ -822,11 +1130,11 @@ async def batch_start_agents(
             "timestamp": time.time()
         }))
         
-        return JSONResponse(content={"success": True, "data": result.__dict__})
+        return JSONResponse(content={"success": True, "data": jsonable_encoder(result)})
     except Exception as e:
+        _rethrow_http_exception(e)
         logger.error(f"Error in batch start operation: {e}")
         raise HTTPException(status_code=500, detail=str(e))
-
 
 @router.post("/agents/batch/stop")
 async def batch_stop_agents(
@@ -836,7 +1144,7 @@ async def batch_stop_agents(
 ):
     """批量停止智能体"""
     try:
-        from ...ai.cluster.lifecycle_manager import AgentOperation
+        from src.ai.cluster.lifecycle_manager import AgentOperation
         
         result = await lifecycle_manager.batch_operation(
             agent_ids, AgentOperation.STOP, {"graceful": graceful}
@@ -851,11 +1159,303 @@ async def batch_stop_agents(
             "timestamp": time.time()
         }))
         
-        return JSONResponse(content={"success": True, "data": result.__dict__})
+        return JSONResponse(content={"success": True, "data": jsonable_encoder(result)})
     except Exception as e:
+        _rethrow_http_exception(e)
         logger.error(f"Error in batch stop operation: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+# ========== 增强集群管理接口 ==========
+@router.get("/load-balancing/strategies")
+async def list_load_balancing_strategies():
+    return {"strategies": list(_load_balancing_strategies.values())}
+
+@router.post("/load-balancing/strategies")
+async def create_load_balancing_strategy(
+    request: LoadBalancingStrategyCreate,
+    cluster_manager: ClusterStateManager = Depends(get_cluster_manager),
+):
+    stats = await cluster_manager.get_cluster_stats()
+    health_score = float(stats.get("health_score") or 0)
+    strategy_id = f"lbs_{uuid.uuid4().hex[:8]}"
+    now = utc_now().isoformat()
+    improvement = max(0, round(100 - health_score))
+    strategy = {
+        "strategy_id": strategy_id,
+        "name": request.name,
+        "algorithm": request.algorithm,
+        "weights": request.weights,
+        "health_check_settings": request.health_check_settings,
+        "failover_settings": request.failover_settings,
+        "estimated_performance_improvement": improvement,
+        "is_active": request.is_active,
+        "created_at": now,
+        "updated_at": now,
+    }
+    _load_balancing_strategies[strategy_id] = strategy
+    return {
+        "strategy_id": strategy_id,
+        "created_at": now,
+        "estimated_performance_improvement": improvement,
+    }
+
+@router.get("/health/deep-analysis")
+async def get_deep_health_analysis(
+    cluster_manager: ClusterStateManager = Depends(get_cluster_manager),
+    metrics_collector: MetricsCollector = Depends(get_metrics_collector),
+):
+    stats = await cluster_manager.get_cluster_stats()
+    usage = stats.get("resource_usage") or {}
+    health_score = float(stats.get("health_score") or 0)
+    unhealthy = max(0, stats.get("total_agents", 0) - stats.get("healthy_agents", 0))
+    summary = "系统运行正常" if health_score >= 80 else "系统存在风险，需要关注"
+
+    upcoming: List[Dict[str, Any]] = []
+    cpu = float(usage.get("cpu_usage_percent") or 0)
+    memory = float(usage.get("memory_usage_percent") or 0)
+    if cpu >= 80:
+        upcoming.append({
+            "description": "CPU负载持续偏高，建议扩容或优化负载",
+            "estimated_time": utc_now().date().isoformat(),
+            "urgency": "high" if cpu >= 90 else "medium",
+        })
+    if memory >= 80:
+        upcoming.append({
+            "description": "内存压力偏高，建议检查内存占用",
+            "estimated_time": utc_now().date().isoformat(),
+            "urgency": "high" if memory >= 90 else "medium",
+        })
+    if unhealthy > 0:
+        upcoming.append({
+            "description": f"{unhealthy} 个智能体健康异常，建议排查",
+            "estimated_time": utc_now().date().isoformat(),
+            "urgency": "medium",
+        })
+
+    cluster_metrics = await metrics_collector.get_cluster_metrics(
+        metric_names=["cluster_cpu_usage", "cluster_memory_usage", "cluster_avg_response_time"],
+        duration_seconds=3600,
+    )
+    performance_trends = _build_performance_trends(cluster_metrics)
+
+    return {
+        "overall_health_score": round(health_score),
+        "health_summary": summary,
+        "predictive_maintenance": {"upcoming_maintenance": upcoming},
+        "performance_trends": performance_trends,
+    }
+
+@router.get("/performance/profiles")
+async def get_performance_profiles(
+    cluster_manager: ClusterStateManager = Depends(get_cluster_manager),
+):
+    topology = await cluster_manager.get_cluster_topology()
+    profiles = [_build_performance_profile(agent) for agent in topology.agents.values()]
+    return {"profiles": profiles}
+
+@router.post("/capacity/forecast")
+async def generate_capacity_forecast(
+    request: CapacityForecastRequest,
+    cluster_manager: ClusterStateManager = Depends(get_cluster_manager),
+):
+    stats = await cluster_manager.get_cluster_stats()
+    usage = stats.get("resource_usage") or {}
+    total_agents = int(stats.get("total_agents") or 0)
+    cpu = float(usage.get("cpu_usage_percent") or 0)
+    memory = float(usage.get("memory_usage_percent") or 0)
+    pressure = max(cpu, memory) / 100 if max(cpu, memory) > 0 else 0
+
+    horizon = request.forecast_horizon_days
+    base = total_agents
+    forecast_data: List[Dict[str, Any]] = []
+    for i in range(1, horizon + 1):
+        factor = i / horizon if horizon > 0 else 0
+        conservative = round(base * (1 + pressure * factor * 0.05))
+        moderate = round(base * (1 + pressure * factor * 0.1))
+        aggressive = round(base * (1 + pressure * factor * 0.2))
+        forecast_data.append({
+            "date": (utc_now().date() + timedelta(days=i)).isoformat(),
+            "conservative": conservative,
+            "moderate": moderate,
+            "aggressive": aggressive,
+        })
+
+    recommendations = {
+        "resource_scaling_suggestions": _build_scaling_suggestions(stats) if request.include_recommendations else []
+    }
+    result: Dict[str, Any] = {
+        "forecast_data": forecast_data,
+        "recommendations": recommendations,
+    }
+    return result
+
+@router.get("/security/audits")
+async def list_security_audits():
+    return {"audits": _security_audits}
+
+@router.post("/security/audit")
+async def create_security_audit(
+    request: SecurityAuditRequest,
+    cluster_manager: ClusterStateManager = Depends(get_cluster_manager),
+):
+    stats = await cluster_manager.get_cluster_stats()
+    health_score = float(stats.get("health_score") or 0)
+    usage = stats.get("resource_usage") or {}
+    cpu = float(usage.get("cpu_usage_percent") or 0)
+    memory = float(usage.get("memory_usage_percent") or 0)
+    error_rate = float(usage.get("error_rate") or 0) * 100
+    findings: List[Dict[str, Any]] = []
+    if cpu >= 85:
+        findings.append({
+            "category": "resource",
+            "severity": "high",
+            "description": "CPU负载过高",
+            "affected_components": ["cluster"],
+            "remediation_steps": ["扩容或优化负载"],
+            "compliance_impact": request.audit_frameworks or [],
+        })
+    if memory >= 85:
+        findings.append({
+            "category": "resource",
+            "severity": "high",
+            "description": "内存占用过高",
+            "affected_components": ["cluster"],
+            "remediation_steps": ["检查内存泄漏或扩容"],
+            "compliance_impact": request.audit_frameworks or [],
+        })
+    if error_rate >= 5:
+        findings.append({
+            "category": "reliability",
+            "severity": "medium",
+            "description": "错误率偏高",
+            "affected_components": ["cluster"],
+            "remediation_steps": ["排查失败请求来源"],
+            "compliance_impact": request.audit_frameworks or [],
+        })
+
+    risk_score = max(0, round(100 - health_score))
+    compliance_status = "compliant" if risk_score < 30 and not findings else "partial"
+    audit_id = f"aud_{uuid.uuid4().hex[:8]}"
+    audit = {
+        "audit_id": audit_id,
+        "audit_types": list({*request.audit_frameworks, *request.security_domains}),
+        "overall_risk_score": risk_score,
+        "findings": findings,
+        "compliance_status": compliance_status,
+        "created_at": utc_now().isoformat(),
+    }
+    _security_audits.insert(0, audit)
+    _security_audits[:] = _security_audits[:200]
+    return audit
+
+@router.post("/anomaly-detection/detect")
+async def detect_anomalies(
+    request: AnomalyDetectionRequest,
+    cluster_manager: ClusterStateManager = Depends(get_cluster_manager),
+):
+    topology = await cluster_manager.get_cluster_topology()
+    sensitivity = request.sensitivity.lower()
+    threshold = 80
+    if sensitivity == "high":
+        threshold = 70
+    elif sensitivity == "low":
+        threshold = 90
+
+    anomalies: List[Dict[str, Any]] = []
+    now = utc_now().isoformat()
+    for agent in topology.agents.values():
+        usage = agent.resource_usage
+        cpu = float(usage.cpu_usage_percent or 0)
+        memory = float(usage.memory_usage_percent or 0)
+        error_rate = float(usage.error_rate or 0)
+        response_time = float(usage.avg_response_time or 0)
+
+        if cpu >= threshold:
+            anomalies.append({
+                "anomaly_type": "cpu_usage",
+                "severity": "high" if cpu >= 90 else "medium",
+                "confidence": min(1.0, cpu / 100),
+                "affected_agents": [agent.agent_id],
+                "description": f"CPU使用率达到 {cpu:.1f}%",
+                "detected_at": now,
+            })
+        if memory >= threshold:
+            anomalies.append({
+                "anomaly_type": "memory_usage",
+                "severity": "high" if memory >= 90 else "medium",
+                "confidence": min(1.0, memory / 100),
+                "affected_agents": [agent.agent_id],
+                "description": f"内存使用率达到 {memory:.1f}%",
+                "detected_at": now,
+            })
+        if error_rate >= 0.05:
+            anomalies.append({
+                "anomaly_type": "error_rate",
+                "severity": "medium",
+                "confidence": min(1.0, error_rate * 10),
+                "affected_agents": [agent.agent_id],
+                "description": f"错误率达到 {error_rate * 100:.1f}%",
+                "detected_at": now,
+            })
+        if response_time >= 1000:
+            anomalies.append({
+                "anomaly_type": "response_time",
+                "severity": "medium",
+                "confidence": min(1.0, response_time / 2000),
+                "affected_agents": [agent.agent_id],
+                "description": f"响应时间达到 {response_time:.1f}ms",
+                "detected_at": now,
+            })
+
+    return {"anomalies": anomalies}
+
+@router.get("/automation/workflows")
+async def list_automation_workflows():
+    return {"workflows": list(_automation_workflows.values())}
+
+@router.post("/automation/workflows")
+async def create_automation_workflow(request: WorkflowCreate):
+    workflow_id = f"wf_{uuid.uuid4().hex[:8]}"
+    workflow = {
+        "workflow_id": workflow_id,
+        "name": request.name,
+        "workflow_type": request.workflow_type,
+        "trigger_type": request.trigger_type,
+        "is_enabled": request.is_enabled,
+        "execution_count": 0,
+        "success_rate": 0.0,
+        "created_at": utc_now().isoformat(),
+    }
+    _automation_workflows[workflow_id] = workflow
+    return workflow
+
+@router.get("/reports")
+async def get_comprehensive_reports(
+    cluster_manager: ClusterStateManager = Depends(get_cluster_manager),
+):
+    stats = await cluster_manager.get_cluster_stats()
+    health_score = float(stats.get("health_score") or 0)
+    total_agents = int(stats.get("total_agents") or 0)
+    healthy_agents = int(stats.get("healthy_agents") or 0)
+    reports: List[Dict[str, Any]] = []
+
+    reports.append({
+        "report_id": f"rpt_health_{uuid.uuid4().hex[:6]}",
+        "name": "集群健康报告",
+        "description": f"健康评分 {health_score:.0f}，健康/总数 {healthy_agents}/{total_agents}",
+        "report_type": "health",
+    })
+
+    if _security_audits:
+        latest = _security_audits[0]
+        reports.append({
+            "report_id": f"rpt_security_{uuid.uuid4().hex[:6]}",
+            "name": "安全审计报告",
+            "description": f"最新风险评分 {latest.get('overall_risk_score', 0)}",
+            "report_type": "security",
+        })
+
+    return {"reports": reports}
 
 # 操作历史API
 @router.get("/operations/history")
@@ -867,7 +1467,7 @@ async def get_operation_history(
 ):
     """获取操作历史"""
     try:
-        from ...ai.cluster.lifecycle_manager import AgentOperation
+        from src.ai.cluster.lifecycle_manager import AgentOperation
         
         operation_enum = None
         if operation_type:
@@ -880,13 +1480,12 @@ async def get_operation_history(
             agent_id, operation_enum, limit
         )
         
-        history_data = [result.__dict__ for result in history]
+        history_data = [jsonable_encoder(result) for result in history]
         
         return JSONResponse(content={"success": True, "data": history_data})
     except Exception as e:
         logger.error(f"Error getting operation history: {e}")
         raise HTTPException(status_code=500, detail=str(e))
-
 
 # 后台任务：定期推送实时数据
 async def broadcast_real_time_data(

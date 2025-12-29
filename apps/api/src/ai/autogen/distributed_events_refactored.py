@@ -9,17 +9,10 @@ from typing import Dict, List, Optional, Any, Callable
 from datetime import datetime
 from src.core.utils.timezone_utils import utc_now, utc_factory, timezone
 from dataclasses import dataclass
-import structlog
-try:
-    import redis.asyncio as aioredis
-except ImportError:
-    try:
-        import aioredis
-    except ImportError:
-        aioredis = None
+import redis.asyncio as redis_async
 
-logger = structlog.get_logger(__name__)
-
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 @dataclass
 class DistributedEvent:
@@ -33,7 +26,6 @@ class DistributedEvent:
     priority: int = 0
     retry_count: int = 0
     max_retries: int = 3
-
 
 class EventSerializer:
     """事件序列化器"""
@@ -68,11 +60,10 @@ class EventSerializer:
             max_retries=data.get("max_retries", 3)
         )
 
-
 class EventPublisher:
     """事件发布器"""
     
-    def __init__(self, redis_client, event_stream_prefix: str = "events:", max_stream_length: int = 10000):
+    def __init__(self, redis_client: redis_async.Redis, event_stream_prefix: str = "events:", max_stream_length: int = 10000):
         self.redis_client = redis_client
         self.event_stream_prefix = event_stream_prefix
         self.max_stream_length = max_stream_length
@@ -141,11 +132,10 @@ class EventPublisher:
             logger.warning("发送通知失败", target_node=target_node, error=str(e))
             return False
 
-
 class EventConsumer:
     """事件消费器"""
     
-    def __init__(self, redis_client, node_id: str):
+    def __init__(self, redis_client: redis_async.Redis, node_id: str):
         self.redis_client = redis_client
         self.node_id = node_id
         self.running = False
@@ -230,7 +220,6 @@ class EventConsumer:
         """处理监听错误"""
         await asyncio.sleep(1)
 
-
 class LoadBalancingStrategy:
     """负载均衡策略"""
     
@@ -264,7 +253,6 @@ class LoadBalancingStrategy:
             node_id for node_id, node in nodes.items()
             if node.get('load', 0) < threshold
         ]
-
 
 class LoadBalancer:
     """负载均衡器 - 重构后的版本"""
@@ -370,11 +358,10 @@ class LoadBalancer:
             "execution_time": 1.2
         }
 
-
 class EventLoopProcessor:
     """事件循环处理器 - 重构后的版本"""
     
-    def __init__(self, redis_client, node_id: str, event_queue_prefix: str = "event_queue:"):
+    def __init__(self, redis_client: redis_async.Redis, node_id: str, event_queue_prefix: str = "event_queue:"):
         self.redis_client = redis_client
         self.node_id = node_id
         self.event_queue_prefix = event_queue_prefix
@@ -468,12 +455,11 @@ class EventLoopProcessor:
         """获取处理统计"""
         return self.stats.copy()
 
-
 # 重构后的分布式事件总线
 class RefactoredDistributedEventBus:
     """重构后的分布式事件总线"""
     
-    def __init__(self, redis_client, node_id: str):
+    def __init__(self, redis_client: redis_async.Redis, node_id: str):
         self.redis_client = redis_client
         self.node_id = node_id
         

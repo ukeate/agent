@@ -12,20 +12,17 @@
 import re
 import hashlib
 import json
-import logging
 from datetime import datetime
 from src.core.utils.timezone_utils import utc_now, utc_factory, timezone
 from typing import Dict, Any, List, Optional, Tuple
 from abc import ABC, abstractmethod
-
 import pandas as pd
 import numpy as np
-
 from .core import DataRecord, ProcessingRule, QualityAssessor
+from src.core.utils.timezone_utils import utc_now, utc_factory
 
-
-logger = logging.getLogger(__name__)
-
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 class TextCleaningRule(ProcessingRule):
     """文本清理规则"""
@@ -84,7 +81,6 @@ class TextCleaningRule(ProcessingRule):
         
         return text
 
-
 class DeduplicationRule(ProcessingRule):
     """数据去重规则"""
     
@@ -142,7 +138,6 @@ class DeduplicationRule(ProcessingRule):
                 features['trigram_sample'] = trigrams[:10]  # 只保留前10个
         
         return features
-
 
 class FormatStandardizationRule(ProcessingRule):
     """格式标准化规则"""
@@ -204,7 +199,6 @@ class FormatStandardizationRule(ProcessingRule):
             if isinstance(timestamp, str):
                 # 尝试解析常见的时间戳格式
                 from datetime import datetime
-from src.core.utils.timezone_utils import utc_now, utc_factory
                 import dateutil.parser
                 
                 # 清理时间戳字符串
@@ -240,7 +234,6 @@ from src.core.utils.timezone_utils import utc_now, utc_factory
             url = url[:-1]
         
         return url
-
 
 class QualityFilteringRule(ProcessingRule):
     """质量过滤规则"""
@@ -297,7 +290,6 @@ class QualityFilteringRule(ProcessingRule):
             if field in data:
                 return field
         return None
-
 
 class DataEnrichmentRule(ProcessingRule):
     """数据丰富化规则"""
@@ -446,7 +438,6 @@ class DataEnrichmentRule(ProcessingRule):
         sorted_words = sorted(word_freq.items(), key=lambda x: x[1], reverse=True)
         return [word for word, freq in sorted_words[:max_keywords]]
 
-
 class DataQualityAssessor(QualityAssessor):
     """数据质量评估器"""
     
@@ -571,13 +562,12 @@ class DataQualityAssessor(QualityAssessor):
                 return field
         return None
 
-
 class DataPreprocessor:
     """数据预处理器"""
     
     def __init__(self, config: Dict[str, Any] = None):
         self.config = config or {}
-        self.logger = logging.getLogger(__name__)
+        self.logger = get_logger(__name__)
         
         # 初始化处理规则
         self.rules = {

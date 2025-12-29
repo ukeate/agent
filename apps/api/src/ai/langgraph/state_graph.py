@@ -3,6 +3,7 @@ LangGraph StateGraph核心实现
 基于LangGraph 0.6.5框架的状态图管理和执行引擎
 支持新Context API和durability控制
 """
+
 from typing import Any, Dict, List, Optional, Callable, Literal
 from langgraph.graph import StateGraph, START, END
 from langgraph.graph.message import MessagesState as LangGraphMessagesState
@@ -10,15 +11,16 @@ from langgraph.types import RunnableConfig
 from langgraph.runtime import Runtime, get_runtime
 import asyncio
 from datetime import datetime
-from src.core.utils.timezone_utils import utc_now, utc_factory, timezone
-
+from src.core.utils.timezone_utils import utc_now
 from .state import MessagesState, create_initial_state, validate_state
 from .checkpoints import CheckpointManager, checkpoint_manager
 from .context import AgentContext, create_default_context, validate_context, LangGraphContextSchema
 from src.core.config import get_settings
 
-settings = get_settings()
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
+settings = get_settings()
 
 class WorkflowNode:
     """工作流节点基类"""
@@ -100,7 +102,6 @@ class WorkflowNode:
             })
             raise
 
-
 class ConditionalRouter:
     """条件路由器"""
     
@@ -158,7 +159,6 @@ class ConditionalRouter:
             state["metadata"]["error"] = f"路由失败: {str(e)}"
             return END
 
-
 class LangGraphWorkflowBuilder:
     """LangGraph 0.6.5工作流构建器 - 支持新Context API"""
     
@@ -214,7 +214,7 @@ class LangGraphWorkflowBuilder:
                         try:
                             runtime = get_runtime()
                         except Exception:
-                            pass  # runtime可能不可用，使用fallback
+                            logger.exception("获取runtime失败，使用fallback", exc_info=True)
                         return await node_instance.execute(state, config, runtime)
                     return node_wrapper
                 
@@ -250,10 +250,10 @@ class LangGraphWorkflowBuilder:
         if checkpointer is None and hasattr(settings, 'database_url') and settings.database_url:
             try:
                 # checkpointer = PostgresSaver.from_conn_string(settings.database_url)
-                print("PostgreSQL检查点保存器暂时禁用")
+                logger.warning("PostgreSQL检查点保存器暂时禁用")
                 checkpointer = None
             except Exception as e:
-                print(f"创建PostgreSQL检查点保存器失败: {e}")
+                logger.error("创建PostgreSQL检查点保存器失败", error=str(e), exc_info=True)
                 checkpointer = None
         
         # 如果没有checkpointer但使用了durability，提供默认内存checkpointer来避免警告
@@ -261,9 +261,9 @@ class LangGraphWorkflowBuilder:
             try:
                 from langgraph.checkpoint.memory import MemorySaver
                 checkpointer = MemorySaver()
-                print(f"使用内存检查点保存器 (durability_mode: {durability_mode})")
+                logger.info("使用内存检查点保存器", durability_mode=durability_mode)
             except ImportError:
-                print("无法导入MemorySaver，将不使用checkpointer")
+                logger.warning("无法导入MemorySaver，将不使用检查点保存器")
                 checkpointer = None
         
         self.compiled_graph = self.graph.compile(checkpointer=checkpointer)
@@ -389,7 +389,7 @@ class LangGraphWorkflowBuilder:
                 return True
             return False
         except Exception as e:
-            print(f"暂停工作流失败: {e}")
+            logger.error("暂停工作流失败", error=str(e), exc_info=True)
             return False
     
     async def resume_workflow(self, workflow_id: str, context: Optional[AgentContext] = None, config: Optional[Dict[str, Any]] = None) -> Optional[MessagesState]:
@@ -408,7 +408,7 @@ class LangGraphWorkflowBuilder:
             return await self.execute(state, context, config)
             
         except Exception as e:
-            print(f"恢复工作流失败: {e}")
+            logger.error("恢复工作流失败", error=str(e), exc_info=True)
             return None
     
     async def cancel_workflow(self, workflow_id: str) -> bool:
@@ -427,9 +427,68 @@ class LangGraphWorkflowBuilder:
                 return True
             return False
         except Exception as e:
-            print(f"取消工作流失败: {e}")
+            logger.error("取消工作流失败", error=str(e), exc_info=True)
             return False
 
+def _process_input_records(state: MessagesState) -> Dict[str, Any]:
+    started_at = utc_now()
+    input_data = state["context"].get("input") or {}
+    raw_records: List[Dict[str, Any]] = []
+    if isinstance(input_data, dict):
+        records = input_data.get("records")
+        if isinstance(records, list):
+            raw_records = [r for r in records if isinstance(r, dict)]
+        else:
+            raw_records = [input_data]
+    elif isinstance(input_data, list):
+        raw_records = [r for r in input_data if isinstance(r, dict)]
+
+    processed_data: List[Dict[str, Any]] = []
+    by_category: Dict[str, int] = {}
+    by_status: Dict[str, int] = {}
+    total_value = 0.0
+
+    for i, record in enumerate(raw_records):
+        now = utc_now().isoformat()
+        category = str(record.get("category") or record.get("type") or "unknown")
+        status_value = record.get("status")
+        if not status_value and record.get("warning"):
+            status_value = "warning"
+        status = str(status_value or "info")
+        value = 0.0
+        try:
+            value = float(record.get("value") or 0)
+        except Exception:
+            value = 0.0
+
+        processed = dict(record)
+        processed["id"] = str(record.get("id") or f"record_{i+1:04d}")
+        processed["category"] = category
+        processed["status"] = status
+        processed["value"] = value
+        processed["processed_at"] = now
+        if "timestamp" not in processed:
+            processed["timestamp"] = now
+
+        processed_data.append(processed)
+        by_category[category] = by_category.get(category, 0) + 1
+        by_status[status] = by_status.get(status, 0) + 1
+        total_value += value
+
+    total_records = len(processed_data)
+    avg_value = round(total_value / total_records, 2) if total_records else 0.0
+    processing_time_ms = int((utc_now() - started_at).total_seconds() * 1000)
+
+    return {
+        "processed_data": processed_data,
+        "processing_stats": {
+            "total_records": total_records,
+            "by_category": by_category,
+            "by_status": by_status,
+            "avg_value": avg_value,
+            "processing_time_ms": processing_time_ms,
+        },
+    }
 
 def create_simple_workflow() -> LangGraphWorkflowBuilder:
     """创建简单线性工作流示例"""
@@ -444,45 +503,10 @@ def create_simple_workflow() -> LangGraphWorkflowBuilder:
         return state
     
     def process_node(state: MessagesState) -> MessagesState:
-        import random
-        import json
-        
-        # 生成真实的模拟数据处理结果
-        sample_data = []
-        categories = ['用户行为', '交易记录', '系统日志', '设备状态', '网络流量']
-        
-        # 生成随机数量的数据记录
-        record_count = random.randint(120, 200)
-        
-        for i in range(record_count):
-            record = {
-                'id': f'record_{i+1:04d}',
-                'category': random.choice(categories),
-                'timestamp': utc_now().isoformat(),
-                'value': round(random.uniform(10.5, 999.9), 2),
-                'status': random.choice(['success', 'warning', 'info']),
-                'processed_at': utc_now().isoformat()
-            }
-            sample_data.append(record)
-        
-        # 计算处理统计
-        processing_stats = {
-            'total_records': len(sample_data),
-            'by_category': {},
-            'by_status': {},
-            'avg_value': round(sum(r['value'] for r in sample_data) / len(sample_data), 2),
-            'processing_time_ms': random.randint(200, 500)
-        }
-        
-        # 统计各类别数量
-        for record in sample_data:
-            category = record['category']
-            status = record['status']
-            processing_stats['by_category'][category] = processing_stats['by_category'].get(category, 0) + 1
-            processing_stats['by_status'][status] = processing_stats['by_status'].get(status, 0) + 1
-        
-        # 保存处理结果到状态
-        state["context"]["processed_data"] = sample_data
+        result = _process_input_records(state)
+        processed_data = result["processed_data"]
+        processing_stats = result["processing_stats"]
+        state["context"]["processed_data"] = processed_data
         state["context"]["processing_stats"] = processing_stats
         state["context"]["processed"] = True
         
@@ -493,7 +517,7 @@ def create_simple_workflow() -> LangGraphWorkflowBuilder:
             "timestamp": utc_now().isoformat(),
             "metadata": {
                 "processing_stats": processing_stats,
-                "sample_records": sample_data[:5]  # 只包含前5条作为示例
+                "sample_records": processed_data[:5]  # 只包含前5条作为示例
             }
         })
         
@@ -521,7 +545,6 @@ def create_simple_workflow() -> LangGraphWorkflowBuilder:
     
     return builder
 
-
 def create_conditional_workflow() -> LangGraphWorkflowBuilder:
     """创建完整的条件分支工作流：开始 → 数据处理 → 条件判断 → 路径A/B → 结束"""
     builder = LangGraphWorkflowBuilder()
@@ -535,50 +558,16 @@ def create_conditional_workflow() -> LangGraphWorkflowBuilder:
         return state
     
     def process_node(state: MessagesState) -> MessagesState:
-        import random
-        import json
-        
-        # 生成真实的模拟数据处理结果
-        sample_data = []
-        categories = ['用户行为', '交易记录', '系统日志', '设备状态', '网络流量']
-        
-        # 生成随机数量的数据记录
-        record_count = random.randint(120, 200)
-        
-        for i in range(record_count):
-            record = {
-                'id': f'record_{i+1:04d}',
-                'category': random.choice(categories),
-                'timestamp': utc_now().isoformat(),
-                'value': round(random.uniform(10.5, 999.9), 2),
-                'status': random.choice(['success', 'warning', 'info']),
-                'processed_at': utc_now().isoformat()
-            }
-            sample_data.append(record)
-        
-        # 计算处理统计
-        processing_stats = {
-            'total_records': len(sample_data),
-            'by_category': {},
-            'by_status': {},
-            'avg_value': round(sum(r['value'] for r in sample_data) / len(sample_data), 2),
-            'processing_time_ms': random.randint(200, 500)
-        }
-        
-        # 统计各类别数量
-        for record in sample_data:
-            category = record['category']
-            status = record['status']
-            processing_stats['by_category'][category] = processing_stats['by_category'].get(category, 0) + 1
-            processing_stats['by_status'][status] = processing_stats['by_status'].get(status, 0) + 1
-        
-        # 保存处理结果到状态
-        state["context"]["processed_data"] = sample_data
+        result = _process_input_records(state)
+        processed_data = result["processed_data"]
+        processing_stats = result["processing_stats"]
+        state["context"]["processed_data"] = processed_data
         state["context"]["processing_stats"] = processing_stats
         state["context"]["processed"] = True
         
         # 根据数据质量决定路径（基于错误率）
-        error_rate = processing_stats['by_status'].get('warning', 0) / processing_stats['total_records']
+        total_records = processing_stats["total_records"] or 1
+        error_rate = processing_stats["by_status"].get("warning", 0) / total_records
         state["context"]["data_quality"] = "high" if error_rate < 0.3 else "low"
         
         # 添加处理消息
@@ -588,7 +577,7 @@ def create_conditional_workflow() -> LangGraphWorkflowBuilder:
             "timestamp": utc_now().isoformat(),
             "metadata": {
                 "processing_stats": processing_stats,
-                "sample_records": sample_data[:5]  # 只包含前5条作为示例
+                "sample_records": processed_data[:5]  # 只包含前5条作为示例
             }
         })
         

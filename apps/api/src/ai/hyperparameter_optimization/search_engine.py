@@ -7,10 +7,8 @@
 from typing import Dict, List, Optional, Any, Callable
 from datetime import datetime
 from src.core.utils.timezone_utils import utc_now, utc_factory
-import logging
 import numpy as np
 from enum import Enum
-
 from .optimizer import (
     HyperparameterOptimizer,
     OptimizationConfig,
@@ -19,14 +17,13 @@ from .optimizer import (
     PruningAlgorithm
 )
 
-
+from src.core.logging import get_logger
 class SearchAlgorithm(Enum):
     """搜索算法枚举"""
     RANDOM = "random"
     GRID = "grid"
     BAYESIAN = "bayesian"
     EVOLUTIONARY = "evolutionary"
-
 
 class SearchAlgorithmImpl:
     """搜索算法实现基类"""
@@ -42,7 +39,6 @@ class SearchAlgorithmImpl:
     def evolve_population(self, population: List, fitness_scores: List, parameter_space: Dict) -> List:
         """进化种群"""
         raise NotImplementedError
-
 
 class RandomSearchAlgorithm(SearchAlgorithmImpl):
     """随机搜索算法"""
@@ -65,7 +61,6 @@ class RandomSearchAlgorithm(SearchAlgorithmImpl):
             elif config["type"] == "categorical":
                 candidate[param_name] = np.random.choice(config["choices"])
         return candidate
-
 
 class GridSearchAlgorithm(SearchAlgorithmImpl):
     """网格搜索算法"""
@@ -97,7 +92,6 @@ class GridSearchAlgorithm(SearchAlgorithmImpl):
                 break
         
         return candidates
-
 
 class BayesianSearchAlgorithm(SearchAlgorithmImpl):
     """贝叶斯搜索算法"""
@@ -140,7 +134,6 @@ class BayesianSearchAlgorithm(SearchAlgorithmImpl):
             # 没有历史，使用随机搜索
             random_algo = RandomSearchAlgorithm()
             return random_algo.generate_candidate(parameter_space)
-
 
 class EvolutionarySearchAlgorithm(SearchAlgorithmImpl):
     """进化搜索算法"""
@@ -194,7 +187,6 @@ class EvolutionarySearchAlgorithm(SearchAlgorithmImpl):
             new_generation.append(child)
         
         return new_generation[:len(population)]
-
 
 class SearchEngine:
     """搜索引擎"""
@@ -253,13 +245,11 @@ class SearchEngine:
         
         return importance
 
-
 # 保留原有的HyperparameterSearchEngine类
 class ResourceManager:
     """资源管理器（简化实现）"""
     def __init__(self):
-        pass
-
+        self.resources: Dict[str, Any] = {}
 
 class HyperparameterSearchEngine:
     """集成的超参数搜索引擎"""
@@ -268,7 +258,7 @@ class HyperparameterSearchEngine:
         self.resource_manager = ResourceManager()
         self.presets = self._load_presets()
         
-        self.logger = logging.getLogger(__name__)
+        self.logger = get_logger(__name__)
     
     def _load_presets(self) -> Dict[str, Dict[str, Any]]:
         """加载预设配置"""

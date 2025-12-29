@@ -1,50 +1,92 @@
+/**
+ * 多模态处理服务
+ * 
+ * 提供多模态内容处理相关的API调用服务
+ */
+
 import apiClient from './apiClient';
 
-export interface UploadFileResponse {
+// 内容类型
+export enum ContentType {
+  IMAGE = 'image',
+  DOCUMENT = 'document',
+  VIDEO = 'video',
+  AUDIO = 'audio'
+}
+
+// 模型优先级
+export enum ModelPriority {
+  SPEED = 'speed',
+  BALANCED = 'balanced',
+  QUALITY = 'quality'
+}
+
+// 模型复杂度
+export enum ModelComplexity {
+  LOW = 'low',
+  MEDIUM = 'medium',
+  HIGH = 'high'
+}
+
+// 处理状态
+export enum ProcessingStatus {
+  PENDING = 'pending',
+  PROCESSING = 'processing',
+  COMPLETED = 'completed',
+  FAILED = 'failed'
+}
+
+// 文件上传响应
+export interface FileUploadResponse {
   content_id: string;
   content_type: string;
   file_size: number;
-  mime_type?: string;
+  mime_type: string;
   metadata?: Record<string, any>;
 }
 
-export interface ProcessingRequest {
-  contentId: string;
-  contentType: string;
-  priority?: string;
-  complexity?: string;
-  maxTokens?: number;
-  temperature?: number;
-  enableCache?: boolean;
-  extractText?: boolean;
-  extractObjects?: boolean;
-  extractSentiment?: boolean;
+export interface TokenUsage {
+  prompt_tokens?: number;
+  completion_tokens?: number;
+  total_tokens?: number;
 }
 
+// 处理请求
+export interface ProcessingRequest {
+  content_id: string;
+  content_type: string;
+  priority?: string;
+  complexity?: string;
+  max_tokens?: number;
+  temperature?: number;
+  enable_cache?: boolean;
+  extract_text?: boolean;
+  extract_objects?: boolean;
+  extract_sentiment?: boolean;
+}
+
+// 处理响应
 export interface ProcessingResponse {
   content_id: string;
   status: string;
-  extracted_data: Record<string, any>;
-  structured_data?: Record<string, any>;
+  extracted_data: any;
+  structured_data?: any;
   confidence_score: number;
   processing_time: number;
-  model_used?: string;
-  tokens_used?: {
-    prompt_tokens: number;
-    completion_tokens: number;
-    total_tokens: number;
-  };
-  cost?: number;
+  model_used: string;
+  tokens_used: number | TokenUsage;
   error_message?: string;
 }
 
+// 批量处理请求
 export interface BatchProcessingRequest {
-  contentIds: string[];
+  content_ids: string[];
   priority?: string;
   complexity?: string;
-  maxTokens?: number;
+  max_tokens?: number;
 }
 
+// 批量处理响应
 export interface BatchProcessingResponse {
   batch_id: string;
   content_ids: string[];
@@ -53,38 +95,74 @@ export interface BatchProcessingResponse {
   completed_items: number;
 }
 
-export interface ProcessingStatus {
+// 处理状态响应
+export interface ProcessingStatusResponse {
   content_id: string;
   status: string;
   confidence_score?: number;
   processing_time?: number;
   model_used?: string;
-  tokens_used?: Record<string, number>;
+  tokens_used?: number | TokenUsage;
   error_message?: string;
 }
 
+// 队列状态
 export interface QueueStatus {
-  is_running: boolean;
-  active_tasks: number;
-  queued_tasks: number;
-  completed_tasks: number;
-  failed_tasks: number;
+  total_jobs: number;
+  pending_jobs: number;
+  processing_jobs: number;
+  completed_jobs: number;
+  failed_jobs: number;
+  average_wait_time: number;
+  average_processing_time: number;
+}
+
+export interface MultimodalModelConfig {
+  name: string;
+  cost_per_1k_tokens: {
+    input: number;
+    output: number;
+  };
+  max_tokens?: number;
+  max_image_size?: number;
+  capabilities?: string[];
+  best_for?: string[];
+  supports_vision?: boolean;
+  supports_file_upload?: boolean;
+}
+
+// 图像分析结果
+export interface ImageAnalysisResult {
+  extracted_data: {
+    description?: string;
+    objects?: string[];
+    text?: string;
+    keyPoints?: string[];
+  };
+  structured_data?: any;
+  model_used: string;
+  tokens_used: number | TokenUsage;
+  cost: number;
+  processing_time: number;
 }
 
 class MultimodalService {
-  private baseURL = '/api/v1/multimodal';
+  private baseUrl = '/multimodal';
+  private modelPricing: Record<string, { input: number; output: number }> = {};
+  private pricingLoaded = false;
+  private pricingLoading: Promise<void> | null = null;
 
   /**
    * 上传文件
    */
-  async uploadFile(file: File): Promise<UploadFileResponse> {
+  async uploadFile(file: File): Promise<FileUploadResponse> {
     const formData = new FormData();
     formData.append('file', file);
 
-    const response = await apiClient.post(`${this.baseURL}/upload`, formData, {
+    const response = await apiClient.post(`${this.baseUrl}/upload`, formData, {
       headers: {
-        'Content-Type': 'multipart/form-data',
-      },
+        'Content-Type': 'multipart/form-data'
+      }
     });
     return response.data;
   }
@@ -93,21 +171,7 @@ class MultimodalService {
    * 处理内容
    */
   async processContent(request: ProcessingRequest): Promise<ProcessingResponse> {
-    // 转换为API格式
-    const apiRequest = {
-      content_id: request.contentId,
-      content_type: request.contentType,
-      priority: request.priority,
-      complexity: request.complexity,
-      max_tokens: request.maxTokens,
-      temperature: request.temperature,
-      enable_cache: request.enableCache,
-      extract_text: request.extractText,
-      extract_objects: request.extractObjects,
-      extract_sentiment: request.extractSentiment,
-    };
-
-    const response = await apiClient.post(`${this.baseURL}/process`, apiRequest);
+    const response = await apiClient.post(`${this.baseUrl}/process`, request);
     return response.data;
   }
 
@@ -115,22 +179,15 @@ class MultimodalService {
    * 批量处理
    */
   async processBatch(request: BatchProcessingRequest): Promise<BatchProcessingResponse> {
-    const apiRequest = {
-      content_ids: request.contentIds,
-      priority: request.priority,
-      complexity: request.complexity,
-      max_tokens: request.maxTokens,
-    };
-
-    const response = await apiClient.post(`${this.baseURL}/process/batch`, apiRequest);
+    const response = await apiClient.post(`${this.baseUrl}/process/batch`, request);
     return response.data;
   }
 
   /**
    * 获取处理状态
    */
-  async getProcessingStatus(contentId: string): Promise<ProcessingStatus> {
-    const response = await apiClient.get(`${this.baseURL}/status/${contentId}`);
+  async getProcessingStatus(contentId: string): Promise<ProcessingStatusResponse> {
+    const response = await apiClient.get(`${this.baseUrl}/status/${contentId}`);
     return response.data;
   }
 
@@ -138,116 +195,119 @@ class MultimodalService {
    * 获取队列状态
    */
   async getQueueStatus(): Promise<QueueStatus> {
-    const response = await apiClient.get(`${this.baseURL}/queue/status`);
+    const response = await apiClient.get(`${this.baseUrl}/queue/status`);
     return response.data;
   }
 
+  async getModelConfigs(): Promise<MultimodalModelConfig[]> {
+    const response = await apiClient.get(`${this.baseUrl}/models`);
+    return response.data?.models || [];
+  }
+
+  async ensureModelPricing(): Promise<void> {
+    if (this.pricingLoaded) return;
+    if (this.pricingLoading) return this.pricingLoading;
+    this.pricingLoading = this.getModelConfigs()
+      .then((models) => {
+        const pricing: Record<string, { input: number; output: number }> = {};
+        models.forEach((model) => {
+          if (model.cost_per_1k_tokens) {
+            pricing[model.name] = {
+              input: Number(model.cost_per_1k_tokens.input) || 0,
+              output: Number(model.cost_per_1k_tokens.output) || 0,
+            };
+          }
+        });
+        this.modelPricing = pricing;
+        this.pricingLoaded = true;
+      })
+      .finally(() => {
+        this.pricingLoading = null;
+      });
+    return this.pricingLoading;
+  }
+
+  getPricingMap(): Record<string, { input: number; output: number }> {
+    return this.modelPricing;
+  }
+
   /**
-   * 直接分析图像（不保存文件）
+   * 分析图像（快速分析，不保存）
    */
-  async analyzeImageDirect(
+  async analyzeImage(
     file: File,
-    prompt: string,
-    options?: {
-      extractText?: boolean;
-      extractObjects?: boolean;
-      extractSentiment?: boolean;
-      priority?: string;
-    }
-  ): Promise<any> {
+    prompt: string = '分析这张图像',
+    extractText: boolean = true,
+    extractObjects: boolean = true,
+    priority: ModelPriority = ModelPriority.BALANCED
+  ): Promise<ImageAnalysisResult> {
     const formData = new FormData();
     formData.append('file', file);
-    
-    // 添加查询参数
-    const params = new URLSearchParams();
-    params.append('prompt', prompt);
-    if (options?.extractText !== undefined) {
-      params.append('extract_text', String(options.extractText));
-    }
-    if (options?.extractObjects !== undefined) {
-      params.append('extract_objects', String(options.extractObjects));
-    }
-    if (options?.priority) {
-      params.append('priority', options.priority);
-    }
 
-    const response = await apiClient.post(
-      `${this.baseURL}/analyze/image?${params.toString()}`,
-      formData,
-      {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
+    const params = {
+      prompt,
+      extract_text: extractText,
+      extract_objects: extractObjects,
+      priority
+    };
+
+    const response = await apiClient.post(`${this.baseUrl}/analyze/image`, formData, {
+      params,
+      headers: {
+        'Content-Type': 'multipart/form-data'
       }
-    );
+    });
     return response.data;
   }
 
   /**
    * 删除文件
    */
-  async deleteFile(contentId: string): Promise<void> {
-    await apiClient.delete(`${this.baseURL}/file/${contentId}`);
+  async deleteFile(contentId: string): Promise<{ message: string; content_id: string }> {
+    const response = await apiClient.delete(`${this.baseUrl}/file/${contentId}`);
+    return response.data;
   }
 
   /**
-   * 获取支持的文件格式
+   * 计算Token成本
    */
-  getSupportedFormats(): Record<string, string[]> {
-    return {
-      image: ['jpg', 'jpeg', 'png', 'webp', 'gif'],
-      document: ['pdf', 'txt', 'docx', 'md', 'csv'],
-      video: ['mp4', 'avi', 'mov', 'mkv', 'webm'],
-      audio: ['mp3', 'wav', 'flac', 'ogg', 'm4a'],
-    };
+  calculateCost(model: string, inputTokens: number, outputTokens: number): number {
+    const modelPricing = this.modelPricing[model];
+    if (!modelPricing) return 0;
+    return (inputTokens * modelPricing.input + outputTokens * modelPricing.output) / 1000;
   }
 
   /**
-   * 获取模型配置
+   * 获取支持的文件类型
    */
-  getModelConfigs(): Record<string, any> {
-    return {
-      'gpt-4o': {
-        name: 'GPT-4o',
-        maxTokens: 4096,
-        costPerKTokens: { input: 5, output: 15 },
-        capabilities: ['text', 'image', 'pdf'],
-      },
-      'gpt-4o-mini': {
-        name: 'GPT-4o Mini',
-        maxTokens: 16384,
-        costPerKTokens: { input: 0.15, output: 0.6 },
-        capabilities: ['text', 'image', 'pdf'],
-      },
-      'gpt-5': {
-        name: 'GPT-5',
-        maxTokens: 8192,
-        costPerKTokens: { input: 12.5, output: 25 },
-        capabilities: ['text', 'image', 'pdf', 'video'],
-      },
-      'gpt-5-nano': {
-        name: 'GPT-5 Nano',
-        maxTokens: 128000,
-        costPerKTokens: { input: 0.05, output: 0.4 },
-        capabilities: ['text', 'image'],
-      },
-    };
+  getSupportedFileTypes(): string[] {
+    return [
+      '.jpg', '.jpeg', '.png', '.webp', '.gif',  // 图像
+      '.pdf', '.txt', '.docx', '.md', '.csv', '.xlsx',  // 文档
+      '.mp4', '.avi', '.mov', '.mkv', '.webm',  // 视频
+      '.mp3', '.wav', '.flac', '.ogg', '.m4a'  // 音频
+    ];
   }
 
   /**
-   * 计算预估成本
+   * 验证文件
    */
-  calculateEstimatedCost(
-    model: string,
-    inputTokens: number,
-    outputTokens: number
-  ): number {
-    const config = this.getModelConfigs()[model];
-    if (!config) return 0;
+  validateFile(file: File): { valid: boolean; error?: string } {
+    // 检查文件大小（20MB限制）
+    if (file.size > 20 * 1024 * 1024) {
+      return { valid: false, error: '文件大小超过20MB限制' };
+    }
 
-    const inputCost = (inputTokens / 1000) * config.costPerKTokens.input;
-    const outputCost = (outputTokens / 1000) * config.costPerKTokens.output;
-    return inputCost + outputCost;
+    // 检查文件类型
+    const fileName = file.name.toLowerCase();
+    const supportedTypes = this.getSupportedFileTypes();
+    const hasValidExtension = supportedTypes.some(ext => fileName.endsWith(ext));
+    
+    if (!hasValidExtension) {
+      return { valid: false, error: '不支持的文件类型' };
+    }
+
+    return { valid: true };
   }
 }
 

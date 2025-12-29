@@ -3,6 +3,7 @@
 
 专注于分享和镜像情感，提供情感上的共鸣和连接
 """
+
 import time
 import random
 from typing import Dict, Any, Optional, List
@@ -12,7 +13,6 @@ from ..models import (
 )
 from ...emotion_modeling.models import EmotionState, PersonalityProfile
 from .base_strategy import EmpathyStrategy
-
 
 class AffectiveEmpathyStrategy(EmpathyStrategy):
     """情感共情策略实现"""

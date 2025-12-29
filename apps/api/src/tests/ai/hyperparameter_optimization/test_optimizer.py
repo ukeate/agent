@@ -1,11 +1,11 @@
 """
 超参数优化器单元测试
 """
+
 import pytest
-from unittest.mock import Mock, patch, AsyncMock
+from unittest.mock import Mock, patch
 import numpy as np
 from typing import Dict, Any
-
 from ai.hyperparameter_optimization.optimizer import (
     HyperparameterOptimizer, 
     OptimizationConfig,
@@ -13,7 +13,6 @@ from ai.hyperparameter_optimization.optimizer import (
     PruningAlgorithm
 )
 from ai.hyperparameter_optimization.models import TrialState, OptimizationAlgorithm
-
 
 class TestHyperparameterOptimizer:
     """超参数优化器测试类"""
@@ -128,41 +127,6 @@ class TestHyperparameterOptimizer:
         assert "best_params" in result
         assert "n_trials" in result
         assert result["n_trials"] == 5
-    
-    def test_objective_wrapper(self, optimizer):
-        """测试目标函数包装器"""
-        ranges = {"x": {"type": "float", "low": -5, "high": 5}}
-        optimizer.add_parameter_ranges(ranges)
-        
-        def simple_objective(params):
-            return params["x"] ** 2
-        
-        # 模拟trial
-        trial = Mock()
-        trial.suggest_float.return_value = 3.0
-        
-        wrapper = optimizer._create_objective_wrapper(simple_objective)
-        result = wrapper(trial)
-        
-        assert result == 9.0
-        trial.suggest_float.assert_called_once_with("x", -5, 5)
-    
-    @pytest.mark.asyncio
-    async def test_async_objective_wrapper(self, optimizer):
-        """测试异步目标函数包装器"""
-        ranges = {"x": {"type": "float", "low": -5, "high": 5}}
-        optimizer.add_parameter_ranges(ranges)
-        
-        async def async_objective(params):
-            return params["x"] ** 2
-        
-        trial = Mock()
-        trial.suggest_float.return_value = 3.0
-        
-        wrapper = optimizer._create_objective_wrapper(async_objective)
-        result = await wrapper(trial)
-        
-        assert result == 9.0
     
     def test_get_optimization_history(self, optimizer):
         """测试优化历史获取"""

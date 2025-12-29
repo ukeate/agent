@@ -1,32 +1,33 @@
 """
 假设检验API端点 - 提供t检验、卡方检验等统计推断功能
 """
+
 from typing import List, Dict, Any, Optional, Union
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel, Field, validator
-
-from core.logging import get_logger
-from services.hypothesis_testing_service import (
+from pydantic import Field, field_validator, model_validator, ValidationInfo
+from src.services.hypothesis_testing_service import (
     get_hypothesis_testing_service,
     HypothesisType,
     HypothesisTestResult
 )
-from services.statistical_analysis_service import MetricType
+from src.api.base_model import ApiBaseModel
+from src.services.statistical_analysis_service import MetricType
+from src.services.statistical_analysis_service import get_stats_calculator
 
+from src.core.logging import get_logger
 logger = get_logger(__name__)
+
 router = APIRouter(prefix="/hypothesis-testing", tags=["假设检验"])
 
-
 # 请求模型
-class OneSampleTTestRequest(BaseModel):
+class OneSampleTTestRequest(ApiBaseModel):
     """单样本t检验请求"""
     sample: List[float] = Field(..., min_items=2, description="样本数据")
     population_mean: float = Field(..., description="总体均值（零假设值）")
     hypothesis_type: HypothesisType = Field(HypothesisType.TWO_SIDED, description="假设检验类型")
     alpha: float = Field(0.05, ge=0.001, le=0.1, description="显著性水平")
 
-
-class TwoSampleTTestRequest(BaseModel):
+class TwoSampleTTestRequest(ApiBaseModel):
     """双样本t检验请求"""
     sample1: List[float] = Field(..., min_items=2, description="样本1数据")
     sample2: List[float] = Field(..., min_items=2, description="样本2数据")
@@ -34,44 +35,41 @@ class TwoSampleTTestRequest(BaseModel):
     hypothesis_type: HypothesisType = Field(HypothesisType.TWO_SIDED, description="假设检验类型")
     alpha: float = Field(0.05, ge=0.001, le=0.1, description="显著性水平")
 
-
-class PairedTTestRequest(BaseModel):
+class PairedTTestRequest(ApiBaseModel):
     """配对t检验请求"""
     sample1: List[float] = Field(..., min_items=2, description="配对样本1")
     sample2: List[float] = Field(..., min_items=2, description="配对样本2")
     hypothesis_type: HypothesisType = Field(HypothesisType.TWO_SIDED, description="假设检验类型")
     alpha: float = Field(0.05, ge=0.001, le=0.1, description="显著性水平")
     
-    @validator('sample2')
-    def validate_paired_samples(cls, v, values):
-        sample1 = values.get('sample1', [])
+    @field_validator('sample2')
+    def validate_paired_samples(cls, v, info: ValidationInfo):
+        sample1 = info.data.get('sample1', [])
         if len(v) != len(sample1):
             raise ValueError("Paired samples must have the same length")
         return v
 
-
-class ChiSquareGoodnessOfFitRequest(BaseModel):
+class ChiSquareGoodnessOfFitRequest(ApiBaseModel):
     """卡方拟合优度检验请求"""
     observed: List[int] = Field(..., min_items=2, description="观测频数")
     expected: List[float] = Field(..., min_items=2, description="期望频数")
     alpha: float = Field(0.05, ge=0.001, le=0.1, description="显著性水平")
     
-    @validator('expected')
-    def validate_expected_frequencies(cls, v, values):
-        observed = values.get('observed', [])
+    @field_validator('expected')
+    def validate_expected_frequencies(cls, v, info: ValidationInfo):
+        observed = info.data.get('observed', [])
         if len(v) != len(observed):
             raise ValueError("Observed and expected frequencies must have the same length")
         if any(e <= 0 for e in v):
             raise ValueError("All expected frequencies must be positive")
         return v
 
-
-class ChiSquareIndependenceRequest(BaseModel):
+class ChiSquareIndependenceRequest(ApiBaseModel):
     """卡方独立性检验请求"""
     contingency_table: List[List[int]] = Field(..., description="列联表")
     alpha: float = Field(0.05, ge=0.001, le=0.1, description="显著性水平")
     
-    @validator('contingency_table')
+    @field_validator('contingency_table')
     def validate_contingency_table(cls, v):
         if len(v) < 2 or len(v[0]) < 2:
             raise ValueError("Contingency table must be at least 2x2")
@@ -85,8 +83,7 @@ class ChiSquareIndependenceRequest(BaseModel):
         
         return v
 
-
-class TwoProportionTestRequest(BaseModel):
+class TwoProportionTestRequest(ApiBaseModel):
     """两比例检验请求"""
     successes1: int = Field(..., ge=0, description="组1成功数")
     total1: int = Field(..., gt=0, description="组1总数")
@@ -95,22 +92,15 @@ class TwoProportionTestRequest(BaseModel):
     hypothesis_type: HypothesisType = Field(HypothesisType.TWO_SIDED, description="假设检验类型")
     alpha: float = Field(0.05, ge=0.001, le=0.1, description="显著性水平")
     
-    @validator('successes1')
-    def validate_successes1(cls, v, values):
-        total1 = values.get('total1', 0)
-        if v > total1:
+    @model_validator(mode="after")
+    def validate_successes(self):
+        if self.successes1 > self.total1:
             raise ValueError("successes1 cannot exceed total1")
-        return v
-    
-    @validator('successes2')
-    def validate_successes2(cls, v, values):
-        total2 = values.get('total2', 0)
-        if v > total2:
+        if self.successes2 > self.total2:
             raise ValueError("successes2 cannot exceed total2")
-        return v
+        return self
 
-
-class ABTestComparisonRequest(BaseModel):
+class ABTestComparisonRequest(ApiBaseModel):
     """A/B测试比较请求"""
     control_group: Dict[str, Any] = Field(..., description="对照组数据")
     treatment_group: Dict[str, Any] = Field(..., description="实验组数据")
@@ -119,41 +109,30 @@ class ABTestComparisonRequest(BaseModel):
     alpha: float = Field(0.05, ge=0.001, le=0.1, description="显著性水平")
     equal_variances: bool = Field(True, description="是否假定等方差（仅对连续指标有效）")
     
-    @validator('control_group')
-    def validate_control_group(cls, v, values):
-        metric_type = values.get('metric_type')
-        if metric_type == MetricType.CONVERSION:
+    @model_validator(mode="after")
+    def validate_groups(self):
+        if self.metric_type == MetricType.CONVERSION:
             required_fields = ['conversions', 'total_users']
-            if not all(field in v for field in required_fields):
+            if not all(field in self.control_group for field in required_fields):
                 raise ValueError(f"Conversion metric requires {required_fields} in control_group")
-        else:
-            if 'values' not in v:
-                raise ValueError("Non-conversion metrics require 'values' in control_group")
-        return v
-    
-    @validator('treatment_group')
-    def validate_treatment_group(cls, v, values):
-        metric_type = values.get('metric_type')
-        if metric_type == MetricType.CONVERSION:
-            required_fields = ['conversions', 'total_users']
-            if not all(field in v for field in required_fields):
+            if not all(field in self.treatment_group for field in required_fields):
                 raise ValueError(f"Conversion metric requires {required_fields} in treatment_group")
         else:
-            if 'values' not in v:
+            if 'values' not in self.control_group:
+                raise ValueError("Non-conversion metrics require 'values' in control_group")
+            if 'values' not in self.treatment_group:
                 raise ValueError("Non-conversion metrics require 'values' in treatment_group")
-        return v
-
+        return self
 
 # 响应模型
-class HypothesisTestResponse(BaseModel):
+class HypothesisTestResponse(ApiBaseModel):
     """假设检验响应"""
     result: Dict[str, Any] = Field(..., description="检验结果")
     interpretation: Dict[str, str] = Field(..., description="结果解释")
     recommendations: List[str] = Field(default_factory=list, description="建议")
     message: str = Field(default="Test completed successfully")
 
-
-class ABTestComparisonResponse(BaseModel):
+class ABTestComparisonResponse(ApiBaseModel):
     """A/B测试比较响应"""
     test_result: Dict[str, Any] = Field(..., description="检验结果")
     control_stats: Dict[str, Any] = Field(..., description="对照组统计")
@@ -162,7 +141,6 @@ class ABTestComparisonResponse(BaseModel):
     interpretation: Dict[str, str] = Field(..., description="结果解释")
     recommendations: List[str] = Field(default_factory=list, description="建议")
     message: str = Field(default="A/B test comparison completed successfully")
-
 
 # 辅助函数
 def _interpret_test_result(result: HypothesisTestResult, test_context: str = "") -> Dict[str, str]:
@@ -200,7 +178,6 @@ def _interpret_test_result(result: HypothesisTestResult, test_context: str = "")
     
     return interpretation
 
-
 def _generate_recommendations(result: HypothesisTestResult, metric_type: MetricType = None) -> List[str]:
     """生成建议"""
     recommendations = []
@@ -222,7 +199,6 @@ def _generate_recommendations(result: HypothesisTestResult, metric_type: MetricT
             recommendations.append("转化率差异不显著，建议检查实验设计和样本分布")
     
     return recommendations
-
 
 # API端点
 @router.post("/t-test/one-sample", response_model=HypothesisTestResponse)
@@ -252,7 +228,6 @@ async def one_sample_t_test(request: OneSampleTTestRequest):
     except Exception as e:
         logger.error(f"One-sample t-test failed: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"One-sample t-test failed: {str(e)}")
-
 
 @router.post("/t-test/two-sample", response_model=HypothesisTestResponse)
 async def two_sample_t_test(request: TwoSampleTTestRequest):
@@ -285,7 +260,6 @@ async def two_sample_t_test(request: TwoSampleTTestRequest):
         logger.error(f"Two-sample t-test failed: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Two-sample t-test failed: {str(e)}")
 
-
 @router.post("/t-test/paired", response_model=HypothesisTestResponse)
 async def paired_t_test(request: PairedTTestRequest):
     """配对t检验"""
@@ -314,7 +288,6 @@ async def paired_t_test(request: PairedTTestRequest):
         logger.error(f"Paired t-test failed: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Paired t-test failed: {str(e)}")
 
-
 @router.post("/chi-square/goodness-of-fit", response_model=HypothesisTestResponse)
 async def chi_square_goodness_of_fit(request: ChiSquareGoodnessOfFitRequest):
     """卡方拟合优度检验"""
@@ -341,7 +314,6 @@ async def chi_square_goodness_of_fit(request: ChiSquareGoodnessOfFitRequest):
     except Exception as e:
         logger.error(f"Chi-square goodness of fit test failed: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Chi-square goodness of fit test failed: {str(e)}")
-
 
 @router.post("/chi-square/independence", response_model=HypothesisTestResponse)
 async def chi_square_independence(request: ChiSquareIndependenceRequest):
@@ -371,7 +343,6 @@ async def chi_square_independence(request: ChiSquareIndependenceRequest):
     except Exception as e:
         logger.error(f"Chi-square independence test failed: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Chi-square independence test failed: {str(e)}")
-
 
 @router.post("/proportion-test", response_model=HypothesisTestResponse)
 async def two_proportion_test(request: TwoProportionTestRequest):
@@ -405,7 +376,6 @@ async def two_proportion_test(request: TwoProportionTestRequest):
     except Exception as e:
         logger.error(f"Two proportion test failed: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Two proportion test failed: {str(e)}")
-
 
 @router.post("/ab-test-comparison", response_model=ABTestComparisonResponse)
 async def ab_test_comparison(request: ABTestComparisonRequest):
@@ -500,7 +470,6 @@ async def ab_test_comparison(request: ABTestComparisonRequest):
         logger.error(f"A/B test comparison failed: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"A/B test comparison failed: {str(e)}")
 
-
 @router.get("/health")
 async def health_check():
     """假设检验服务健康检查"""
@@ -524,8 +493,8 @@ async def health_check():
             "service": "hypothesis-testing",
             "test_calculation": {
                 "test_type": test_result.test_type,
-                "p_value": test_result.p_value,
-                "is_significant": test_result.is_significant,
+                "p_value": float(test_result.p_value) if test_result.p_value is not None else None,
+                "is_significant": bool(test_result.is_significant) if test_result.is_significant is not None else None,
                 "passed": test_result.p_value is not None
             },
             "message": "Hypothesis testing service is running properly"
@@ -540,6 +509,4 @@ async def health_check():
             "message": "Hypothesis testing service has issues"
         }
 
-
 # 导入统计分析服务
-from services.statistical_analysis_service import get_stats_calculator

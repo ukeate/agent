@@ -7,7 +7,6 @@ import hashlib
 from datetime import datetime
 from src.core.utils.timezone_utils import utc_now, utc_factory
 
-
 class ParsedElement:
     """解析的文档元素"""
     
@@ -20,7 +19,6 @@ class ParsedElement:
         self.content = content
         self.element_type = element_type
         self.metadata = metadata or {}
-
 
 class ParsedDocument:
     """解析后的文档结构"""
@@ -40,15 +38,10 @@ class ParsedDocument:
         self.metadata = metadata or {}
         self.parsed_at = utc_now()
 
-
 class BaseParser(ABC):
     """文档解析器基类"""
     
     SUPPORTED_EXTENSIONS: List[str] = []
-    
-    def __init__(self):
-        """初始化解析器"""
-        pass
     
     def can_parse(self, file_path: Path) -> bool:
         """检查是否可以解析该文件
@@ -71,7 +64,7 @@ class BaseParser(ABC):
         Returns:
             解析后的文档
         """
-        pass
+        raise NotImplementedError
     
     def generate_doc_id(self, file_path: Path) -> str:
         """生成文档ID

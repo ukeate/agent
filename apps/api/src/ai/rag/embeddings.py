@@ -1,18 +1,15 @@
 """OpenAI Embeddings服务实现"""
 
 import hashlib
-import logging
 from typing import Dict, List, Optional
-
 import numpy as np
 from openai import AsyncOpenAI
-
 from src.core.config import get_settings
 from src.core.redis import get_redis
 
-logger = logging.getLogger(__name__)
-settings = get_settings()
+logger = get_logger(__name__)
 
+settings = get_settings()
 
 class EmbeddingService:
     """OpenAI嵌入服务"""
@@ -22,14 +19,6 @@ class EmbeddingService:
         self.model = "text-embedding-ada-002"
         self.dimension = 1536
         self.cache_ttl = 86400  # 24小时缓存
-        self._use_mock = settings.USE_MOCK_EMBEDDINGS
-        self._mock_service = None
-        
-        # 检查是否需要使用Mock服务
-        if self._use_mock:
-            from .mock_embeddings import mock_embedding_service
-            self._mock_service = mock_embedding_service
-            logger.warning("Using Mock embedding service - embeddings will not be real!")
 
     def _get_cache_key(self, text: str) -> str:
         """生成缓存键"""
@@ -71,10 +60,6 @@ class EmbeddingService:
 
     async def embed_text(self, text: str) -> List[float]:
         """生成单个文本的嵌入向量"""
-        # 如果启用了Mock服务，直接使用
-        if self._use_mock:
-            return await self._mock_service.embed_text(text)
-        
         # 检查缓存
         cached = await self._get_cached_embedding(text)
         if cached:
@@ -95,13 +80,7 @@ class EmbeddingService:
             return embedding
         except Exception as e:
             logger.error(f"Failed to generate embedding: {e}")
-            # 自动降级到Mock服务
-            logger.warning("Falling back to mock embedding service due to API failure")
-            if not self._mock_service:
-                from .mock_embeddings import mock_embedding_service
-                self._mock_service = mock_embedding_service
-                self._use_mock = True
-            return await self._mock_service.embed_text(text)
+            raise
 
     async def embed_batch(self, texts: List[str], batch_size: int = 20) -> List[List[float]]:
         """批量生成文本嵌入向量"""
@@ -110,10 +89,6 @@ class EmbeddingService:
         # 检查输入列表是否为空
         if not texts:
             return embeddings
-        
-        # 如果启用了Mock服务，直接使用
-        if self._use_mock:
-            return await self._mock_service.embed_batch(texts, batch_size)
         
         for i in range(0, len(texts), batch_size):
             batch = texts[i:i + batch_size]
@@ -147,13 +122,7 @@ class EmbeddingService:
                         
                 except Exception as e:
                     logger.error(f"Failed to generate batch embeddings: {e}")
-                    # 自动降级到Mock服务
-                    logger.warning("Falling back to mock embedding service for batch processing")
-                    if not self._mock_service:
-                        from .mock_embeddings import mock_embedding_service
-                        self._mock_service = mock_embedding_service
-                        self._use_mock = True
-                    return await self._mock_service.embed_batch(texts, batch_size)
+                    raise
             
             # 按原顺序排列
             batch_embeddings.sort(key=lambda x: x[0])
@@ -174,7 +143,6 @@ class EmbeddingService:
             return 0.0
             
         return float(dot_product / (norm1 * norm2))
-
 
 class TextChunker:
     """文本分块器"""
@@ -296,7 +264,7 @@ class TextChunker:
         
         return chunks
 
-
 # 全局嵌入服务实例
 embedding_service = EmbeddingService()
 text_chunker = TextChunker()
+from src.core.logging import get_logger

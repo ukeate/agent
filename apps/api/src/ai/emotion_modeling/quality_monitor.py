@@ -3,6 +3,7 @@
 提供实时质量评估、准确率监控和性能优化建议
 """
 
+from src.core.utils.timezone_utils import utc_now
 import asyncio
 import time
 import statistics
@@ -12,17 +13,15 @@ from enum import Enum
 from dataclasses import dataclass, field
 from collections import defaultdict, deque
 import numpy as np
-import logging
 from abc import ABC, abstractmethod
-
 from .core_interfaces import (
     EmotionType, ModalityType, EmotionState, MultiModalEmotion,
     UnifiedEmotionalData, EmotionalIntelligenceResponse
 )
 from .result_formatter import FormattingConfig, OutputFormat, result_formatter_manager
 
-logger = logging.getLogger(__name__)
-
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 class QualityMetricType(str, Enum):
     """质量指标类型"""
@@ -37,14 +36,12 @@ class QualityMetricType(str, Enum):
     DATA_QUALITY = "data_quality"     # 数据质量
     DRIFT_DETECTION = "drift_detection" # 数据漂移
 
-
 class AlertSeverity(str, Enum):
     """告警严重级别"""
     INFO = "info"
     WARNING = "warning"
     ERROR = "error"
     CRITICAL = "critical"
-
 
 @dataclass
 class QualityThreshold:
@@ -54,7 +51,6 @@ class QualityThreshold:
     critical_threshold: float
     comparison_operator: str = "less_than"  # "less_than", "greater_than"
     enabled: bool = True
-
 
 @dataclass
 class QualityMetric:
@@ -66,7 +62,6 @@ class QualityMetric:
     user_id: Optional[str] = None
     confidence: Optional[float] = None
     context: Dict[str, Any] = field(default_factory=dict)
-
 
 @dataclass
 class QualityAlert:
@@ -83,7 +78,6 @@ class QualityAlert:
     resolved: bool = False
     context: Dict[str, Any] = field(default_factory=dict)
 
-
 @dataclass
 class GroundTruthData:
     """真实标签数据"""
@@ -94,7 +88,6 @@ class GroundTruthData:
     source: str  # "expert_annotation", "user_feedback", "self_report"
     confidence: float = 1.0
     metadata: Dict[str, Any] = field(default_factory=dict)
-
 
 class AccuracyCalculator:
     """准确率计算器"""
@@ -193,7 +186,6 @@ class AccuracyCalculator:
             "per_class_precision": dict(zip([e.value for e in emotion_types], precisions)),
             "per_class_recall": dict(zip([e.value for e in emotion_types], recalls))
         }
-
 
 class DataDriftDetector:
     """数据漂移检测器"""
@@ -309,7 +301,6 @@ class DataDriftDetector:
         
         return is_drift, drift_score, drift_details
 
-
 class QualityMonitor:
     """质量监控器"""
     
@@ -398,7 +389,7 @@ class QualityMonitor:
         data_quality: float
     ):
         """记录预测结果"""
-        timestamp = datetime.now()
+        timestamp = utc_now()
         
         # 记录预测
         self.prediction_cache.append({
@@ -465,7 +456,7 @@ class QualityMonitor:
         await self._record_metric(
             QualityMetricType.ACCURACY,
             accuracy,
-            datetime.now(),
+            utc_now(),
             ground_truth.modality,
             ground_truth.user_id,
             confidence=ground_truth.confidence
@@ -599,7 +590,7 @@ class QualityMonitor:
     
     async def _run_periodic_checks(self):
         """运行周期性检查"""
-        current_time = datetime.now()
+        current_time = utc_now()
         
         # 计算吞吐量
         recent_predictions = [
@@ -630,7 +621,7 @@ class QualityMonitor:
     
     async def _calculate_aggregate_metrics(self):
         """计算聚合分类指标"""
-        current_time = datetime.now()
+        current_time = utc_now()
         window_start = current_time - self.monitoring_window
         
         # 收集窗口内的预测和真实标签
@@ -679,7 +670,7 @@ class QualityMonitor:
     
     async def _cleanup_old_data(self):
         """清理过期数据"""
-        cutoff_time = datetime.now() - self.metric_retention_period
+        cutoff_time = utc_now() - self.metric_retention_period
         
         # 清理指标历史
         for metric_type, history in self.metrics_history.items():
@@ -695,7 +686,7 @@ class QualityMonitor:
         # 清理已解决的旧告警
         resolved_alerts = [
             alert_id for alert_id, alert in self.active_alerts.items()
-            if alert.resolved and (datetime.now() - alert.timestamp).days > 7
+            if alert.resolved and (utc_now() - alert.timestamp).days > 7
         ]
         
         for alert_id in resolved_alerts:
@@ -719,10 +710,10 @@ class QualityMonitor:
     def get_quality_report(self, time_window: Optional[timedelta] = None) -> Dict[str, Any]:
         """获取质量报告"""
         window = time_window or self.monitoring_window
-        cutoff_time = datetime.now() - window
+        cutoff_time = utc_now() - window
         
         report = {
-            "report_time": datetime.now().isoformat(),
+            "report_time": utc_now().isoformat(),
             "time_window_hours": window.total_seconds() / 3600,
             "metrics": {},
             "alerts": {
@@ -820,7 +811,7 @@ class QualityMonitor:
     ) -> str:
         """导出指标数据"""
         window = time_window or self.monitoring_window
-        cutoff_time = datetime.now() - window
+        cutoff_time = utc_now() - window
         
         export_data = []
         
@@ -855,7 +846,6 @@ class QualityMonitor:
             return output.getvalue()
         else:
             raise ValueError(f"Unsupported export format: {format_type}")
-
 
 # 全局质量监控器实例
 quality_monitor = QualityMonitor()

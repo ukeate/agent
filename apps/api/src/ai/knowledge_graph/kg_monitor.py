@@ -14,9 +14,10 @@ from typing import Dict, List, Any, Optional, Callable, Set
 from dataclasses import dataclass, asdict
 from enum import Enum
 from collections import defaultdict, deque
-import logging
-import logging.handlers
-from pathlib import Path
+from src.core.logging import get_logger, setup_logging
+
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 try:
     import prometheus_client
@@ -26,9 +27,6 @@ except ImportError:
     HAS_PROMETHEUS = False
     Counter = Histogram = Gauge = CollectorRegistry = None
 
-logger = logging.getLogger(__name__)
-
-
 class LogLevel(Enum):
     """日志级别"""
     DEBUG = "DEBUG"
@@ -37,7 +35,6 @@ class LogLevel(Enum):
     ERROR = "ERROR"
     CRITICAL = "CRITICAL"
 
-
 class AlertLevel(Enum):
     """告警级别"""
     LOW = "LOW"
@@ -45,14 +42,12 @@ class AlertLevel(Enum):
     HIGH = "HIGH"
     CRITICAL = "CRITICAL"
 
-
 class MetricType(Enum):
     """指标类型"""
     COUNTER = "counter"
     GAUGE = "gauge"
     HISTOGRAM = "histogram"
     SUMMARY = "summary"
-
 
 @dataclass
 class MetricData:
@@ -70,7 +65,6 @@ class MetricData:
         if self.labels is None:
             self.labels = {}
 
-
 @dataclass
 class HealthCheckResult:
     """健康检查结果"""
@@ -80,7 +74,6 @@ class HealthCheckResult:
     timestamp: datetime
     duration_ms: float
     metadata: Optional[Dict[str, Any]] = None
-
 
 @dataclass
 class AlertRule:
@@ -95,7 +88,6 @@ class AlertRule:
     last_triggered: Optional[datetime] = None
     callback: Optional[Callable] = None
 
-
 @dataclass
 class Alert:
     """告警信息"""
@@ -107,7 +99,6 @@ class Alert:
     resolved: bool = False
     resolved_at: Optional[datetime] = None
     metadata: Optional[Dict[str, Any]] = None
-
 
 class PerformanceMonitor:
     """性能监控器"""
@@ -289,7 +280,6 @@ class PerformanceMonitor:
         
         return summary
 
-
 class HealthChecker:
     """健康检查器"""
     
@@ -389,7 +379,6 @@ class HealthChecker:
             return "WARNING"
         else:
             return "OK"
-
 
 class AlertManager:
     """告警管理器"""
@@ -501,64 +490,27 @@ class AlertManager:
         """获取活跃告警"""
         return [alert for alert in self.alerts.values() if not alert.resolved]
 
-
 class StructuredLogger:
     """结构化日志记录器"""
     
-    def __init__(self, name: str, log_dir: str = "/tmp/kg_logs", max_file_size_mb: int = 100):
+    def __init__(self, name: str, log_dir: str = "/tmp/kg_logs"):
         self.name = name
-        self.log_dir = Path(log_dir)
-        self.log_dir.mkdir(parents=True, exist_ok=True)
-        
-        # 设置日志记录器
-        self.logger = logging.getLogger(name)
-        self.logger.setLevel(logging.DEBUG)
-        
-        # 文件处理器
-        log_file = self.log_dir / f"{name}.log"
-        file_handler = logging.handlers.RotatingFileHandler(
-            log_file,
-            maxBytes=max_file_size_mb * 1024 * 1024,
-            backupCount=5
-        )
-        
-        # JSON格式化器
-        formatter = logging.Formatter(
-            '{"timestamp": "%(asctime)s", "level": "%(levelname)s", '
-            '"logger": "%(name)s", "message": "%(message)s"}'
-        )
-        file_handler.setFormatter(formatter)
-        
-        self.logger.addHandler(file_handler)
-        
-        # 控制台处理器
-        console_handler = logging.StreamHandler()
-        console_formatter = logging.Formatter(
-            '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-        )
-        console_handler.setFormatter(console_formatter)
-        self.logger.addHandler(console_handler)
+        self.log_dir = log_dir
+        self.logger = get_logger(name).bind(log_dir=str(log_dir))
     
     def log_event(self, level: LogLevel, event_type: str, message: str, **kwargs):
         """记录结构化事件"""
-        log_data = {
-            "event_type": event_type,
-            "message": message,
-            **kwargs
-        }
-        
-        log_message = json.dumps(log_data, ensure_ascii=False, default=str)
-        
+        payload = {"event_type": event_type, **kwargs}
         if level == LogLevel.DEBUG:
-            self.logger.debug(log_message)
+            self.logger.debug(message, **payload)
         elif level == LogLevel.INFO:
-            self.logger.info(log_message)
+            self.logger.info(message, **payload)
         elif level == LogLevel.WARNING:
-            self.logger.warning(log_message)
+            self.logger.warning(message, **payload)
         elif level == LogLevel.ERROR:
-            self.logger.error(log_message)
+            self.logger.error(message, **payload)
         elif level == LogLevel.CRITICAL:
-            self.logger.critical(log_message)
+            self.logger.critical(message, **payload)
     
     def log_query(self, query: str, duration: float, result_count: int, error: str = None):
         """记录查询日志"""
@@ -584,7 +536,6 @@ class StructuredLogger:
             success=success,
             **kwargs
         )
-
 
 class KnowledgeGraphMonitor:
     """知识图谱监控系统"""
@@ -715,7 +666,7 @@ class KnowledgeGraphMonitor:
             try:
                 await self.monitoring_task
             except asyncio.CancelledError:
-                pass
+                raise
         
         self.logger.log_event(LogLevel.INFO, "monitor_stop", "监控系统已停止")
     
@@ -790,10 +741,8 @@ class KnowledgeGraphMonitor:
         """记录操作"""
         self.logger.log_operation(operation, resource, user_id, success, **kwargs)
 
-
 # 全局监控实例
 kg_monitor = KnowledgeGraphMonitor()
-
 
 # 装饰器
 def monitor_performance(operation_name: str = None):
@@ -841,11 +790,11 @@ def monitor_performance(operation_name: str = None):
         return wrapper
     return decorator
 
-
 if __name__ == "__main__":
     # 测试监控系统
     async def test_monitoring():
-        print("测试监控系统...")
+        setup_logging()
+        logger.info("测试监控系统")
         
         monitor = KnowledgeGraphMonitor("/tmp/test_kg_monitor")
         
@@ -870,13 +819,16 @@ if __name__ == "__main__":
             
             # 获取系统状态
             status = await monitor.get_system_status()
-            print(f"系统状态: {status['overall_status']}")
-            print(f"活跃告警: {len(status['active_alerts'])}")
-            print(f"性能指标: 请求数={status['performance_metrics'].get('total_requests', 0)}")
+            logger.info("系统状态", status=status["overall_status"])
+            logger.info("活跃告警数量", active_alerts=len(status["active_alerts"]))
+            logger.info(
+                "性能指标",
+                total_requests=status["performance_metrics"].get("total_requests", 0),
+            )
             
             # 测试告警
-            print("测试告警...")
-            alert_handler = lambda alert: print(f"收到告警: {alert.message}")
+            logger.info("测试告警")
+            alert_handler = lambda alert: logger.warning("收到告警", message=alert.message)
             monitor.alert_manager.add_alert_handler(alert_handler)
             
             # 手动检查告警（模拟高错误率）
@@ -890,11 +842,11 @@ if __name__ == "__main__":
             
             await monitor.alert_manager.check_rules(test_metrics)
             active_alerts = monitor.alert_manager.get_active_alerts()
-            print(f"触发的告警数: {len(active_alerts)}")
+            logger.info("触发的告警数", active_alerts=len(active_alerts))
             
         finally:
             await monitor.stop_monitoring()
         
-        print("监控系统测试完成")
+        logger.info("监控系统测试完成")
     
     asyncio.run(test_monitoring())

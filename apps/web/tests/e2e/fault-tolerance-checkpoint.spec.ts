@@ -161,16 +161,16 @@ test.describe('容错和检查点功能 E2E 测试', () => {
 
     // 验证统计卡片
     await expect(page.locator('text=活跃连接')).toBeVisible();
-    await expect(page.locator('text=3')).toBeVisible(); // 总连接数
+    await expect(page.locator('.ant-statistic').filter({ hasText: '活跃连接' }).locator('.ant-statistic-content')).toContainText('3'); // 总连接数
     
     await expect(page.locator('text=健康连接')).toBeVisible();
-    await expect(page.locator('text=2')).toBeVisible(); // 健康连接数
+    await expect(page.locator('.ant-statistic').filter({ hasText: '健康连接' }).locator('.ant-statistic-content')).toContainText('2'); // 健康连接数
     
     await expect(page.locator('text=失败连接')).toBeVisible();
-    await expect(page.locator('text=1')).toBeVisible(); // 失败连接数
+    await expect(page.locator('.ant-statistic').filter({ hasText: '失败连接' }).locator('.ant-statistic-content')).toContainText('1'); // 失败连接数
     
     await expect(page.locator('text=总重连次数')).toBeVisible();
-    await expect(page.locator('text=5')).toBeVisible(); // 重连次数
+    await expect(page.locator('.ant-statistic').filter({ hasText: '总重连次数' }).locator('.ant-statistic-content')).toContainText('5'); // 重连次数
 
     // 验证连接健康度
     await expect(page.locator('text=67%')).toBeVisible(); // 2/3 = 67%
@@ -188,8 +188,8 @@ test.describe('容错和检查点功能 E2E 测试', () => {
     await expect(page.locator('.ant-tag:has-text("FAILED")')).toBeVisible();
 
     // 验证心跳状态
-    await expect(page.locator('text=正常')).toBeVisible();
-    await expect(page.locator('text=异常')).toBeVisible();
+    await expect(page.locator('.ant-tag:has-text("正常")').first()).toBeVisible();
+    await expect(page.locator('.ant-tag:has-text("异常")').first()).toBeVisible();
 
     // 验证最近错误部分
     await expect(page.locator('text=最近错误')).toBeVisible();
@@ -217,10 +217,10 @@ test.describe('容错和检查点功能 E2E 测试', () => {
     const enabledReconnectButton = reconnectButtons.nth(1); // 第二个按钮应该是启用的
     
     // 点击重连按钮
-    await enabledReconnectButton.click();
-    
-    // 验证重连请求被发送
-    await page.waitForResponse('**/api/v1/streaming/fault-tolerance/reconnect/session-002');
+    await Promise.all([
+      page.waitForResponse('**/api/v1/streaming/fault-tolerance/reconnect/session-002'),
+      enabledReconnectButton.click(),
+    ]);
   });
 
   test('检查点管理功能完整性测试', async ({ page }) => {
@@ -233,13 +233,13 @@ test.describe('容错和检查点功能 E2E 测试', () => {
     await expect(page.locator('text=覆盖作业数')).toBeVisible();
 
     // 验证统计数据
-    await expect(page.locator('text=2')).toBeVisible(); // 总检查点数
+    await expect(page.locator('.ant-statistic').filter({ hasText: '总检查点数' }).locator('.ant-statistic-content')).toContainText('2'); // 总检查点数
     await expect(page.locator('text=5.86 MB')).toBeVisible(); // 存储空间
-    await expect(page.locator('text=2')).toBeVisible(); // 覆盖作业数
+    await expect(page.locator('.ant-statistic').filter({ hasText: '覆盖作业数' }).locator('.ant-statistic-content')).toContainText('2'); // 覆盖作业数
 
     // 验证检查点类型分布
-    await expect(page.locator('.ant-tag:has-text("manual")')).toBeVisible();
-    await expect(page.locator('.ant-tag:has-text("auto")')).toBeVisible();
+    await expect(page.locator('.ant-tag:has-text("manual")').first()).toBeVisible();
+    await expect(page.locator('.ant-tag:has-text("auto")').first()).toBeVisible();
 
     // 验证检查点列表
     await expect(page.locator('text=检查点列表')).toBeVisible();
@@ -247,16 +247,16 @@ test.describe('容错和检查点功能 E2E 测试', () => {
     await expect(page.locator('text=ckpt-002')).toBeVisible();
     
     // 验证类型标签
-    await expect(page.locator('.ant-tag:has-text("MANUAL")')).toBeVisible();
-    await expect(page.locator('.ant-tag:has-text("AUTO")')).toBeVisible();
+    await expect(page.locator('.ant-tag', { hasText: /^MANUAL$/ })).toBeVisible();
+    await expect(page.locator('.ant-tag', { hasText: /^AUTO$/ })).toBeVisible();
 
     // 验证进度显示
     await expect(page.locator('text=75/100')).toBeVisible(); // 第一个检查点进度
     await expect(page.locator('text=180/200')).toBeVisible(); // 第二个检查点进度
 
     // 验证文件大小显示
-    await expect(page.locator('text=2 MB')).toBeVisible(); // 第一个文件大小
-    await expect(page.locator('text=4 MB')).toBeVisible(); // 第二个文件大小
+    await expect(page.locator('text=1.95 MB')).toBeVisible(); // 第一个文件大小
+    await expect(page.locator('text=3.91 MB')).toBeVisible(); // 第二个文件大小
   });
 
   test('检查点管理作业筛选功能测试', async ({ page }) => {
@@ -324,28 +324,28 @@ test.describe('容错和检查点功能 E2E 测试', () => {
     await expect(page.locator('text=ckpt-001')).toBeVisible();
     
     // 测试恢复操作
-    const restoreButtons = page.locator('button:has-text("恢复")');
+    const restoreButtons = page.locator('.checkpoint-manager button:has-text("恢复")');
     await restoreButtons.first().click();
     
     // 确认对话框
     await expect(page.locator('text=确认恢复')).toBeVisible();
-    await page.click('button:has-text("确定")');
+    await page.click('button:has-text("确 定")');
     
     // 验证恢复请求
     await page.waitForResponse('**/api/v1/batch/checkpoints/ckpt-001/restore');
     
     // 测试删除操作  
-    const deleteButtons = page.locator('button:has-text("删除")');
+    const deleteButtons = page.locator('.checkpoint-manager button:has-text("删除")');
     await deleteButtons.first().click();
     
     // 确认删除对话框
     await expect(page.locator('text=确认删除')).toBeVisible();
-    await page.click('button:has-text("确定")');
+    await page.click('button:has-text("确 定")');
     
     // 验证删除请求
-    await page.waitForResponse(request => 
-      request.url().includes('/api/v1/batch/checkpoints/ckpt-001') && 
-      request.method() === 'DELETE'
+    await page.waitForResponse(response => 
+      response.url().includes('/api/v1/batch/checkpoints/ckpt-001') && 
+      response.request().method() === 'DELETE'
     );
   });
 

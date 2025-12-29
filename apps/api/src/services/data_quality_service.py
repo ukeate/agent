@@ -1,6 +1,7 @@
 """
 数据质量服务 - 高级数据去重和质量检查机制
 """
+
 import json
 import hashlib
 import asyncio
@@ -13,13 +14,11 @@ from enum import Enum
 from collections import Counter, defaultdict
 import statistics
 import re
+from src.models.schemas.event_tracking import CreateEventRequest, DataQuality, EventType, EventValidationResult
+from src.repositories.event_tracking_repository import EventDeduplicationRepository, EventSchemaRepository
 
-from core.logging import get_logger
-from models.schemas.event_tracking import CreateEventRequest, DataQuality, EventType, EventValidationResult
-from repositories.event_tracking_repository import EventDeduplicationRepository, EventSchemaRepository
-
+from src.core.logging import get_logger
 logger = get_logger(__name__)
-
 
 class QualityCheckType(str, Enum):
     """质量检查类型"""
@@ -30,7 +29,6 @@ class QualityCheckType(str, Enum):
     VALIDITY = "validity"            # 有效性检查
     UNIQUENESS = "uniqueness"        # 唯一性检查
     INTEGRITY = "integrity"          # 完整性检查
-
 
 class QualityIssue(str, Enum):
     """质量问题类型"""
@@ -43,7 +41,6 @@ class QualityIssue(str, Enum):
     ANOMALOUS_VALUE = "anomalous_value"
     SCHEMA_VIOLATION = "schema_violation"
 
-
 @dataclass
 class QualityCheckResult:
     """质量检查结果"""
@@ -53,7 +50,6 @@ class QualityCheckResult:
     issues: List[QualityIssue] = field(default_factory=list)
     details: Dict[str, Any] = field(default_factory=dict)
     suggestions: List[str] = field(default_factory=list)
-
 
 @dataclass
 class DeduplicationResult:
@@ -66,7 +62,6 @@ class DeduplicationResult:
     duplicate_reasons: List[str] = field(default_factory=list)
     confidence: float = 1.0
 
-
 @dataclass
 class QualityProfile:
     """数据质量档案"""
@@ -78,7 +73,6 @@ class QualityProfile:
     field_completeness: Dict[str, float] = field(default_factory=dict)
     value_distributions: Dict[str, Dict[str, int]] = field(default_factory=dict)
     last_updated: datetime = field(default_factory=lambda: utc_now())
-
 
 class AdvancedDeduplicationEngine:
     """高级去重引擎"""
@@ -263,9 +257,14 @@ class AdvancedDeduplicationEngine:
         if not event.properties or not hasattr(duplicate_record, 'event_data'):
             return 0.5
         
-        # 这里返回一个模拟的相似度分数
-        return 0.87  # 模拟高相似度
-
+        try:
+            event_props = json.dumps(event.properties, sort_keys=True)
+            dup_props = json.dumps(duplicate_record.event_data, sort_keys=True)
+            overlap = len(set(event_props.split()) & set(dup_props.split()))
+            union = len(set(event_props.split()) | set(dup_props.split()))
+            return overlap / union if union else 0.0
+        except Exception:
+            return 0.5
 
 class DataQualityChecker:
     """数据质量检查器"""
@@ -598,15 +597,37 @@ class DataQualityChecker:
             
             if not schema:
                 return None  # 没有Schema定义，跳过检查
-            
-            # TODO: 实现JSONSchema验证逻辑
-            # 这里简化实现，返回通过结果
-            
+
+            from jsonschema import Draft202012Validator
+
+            data = event.model_dump()
+            validator = Draft202012Validator(schema.schema_definition)
+            errors = sorted(validator.iter_errors(data), key=lambda e: list(e.path))
+
+            if not errors:
+                return QualityCheckResult(
+                    check_type=QualityCheckType.VALIDITY,
+                    passed=True,
+                    score=1.0,
+                    details={"schema_version": schema.schema_version},
+                )
+
+            messages = []
+            for e in errors[:10]:
+                path = ".".join(str(p) for p in e.path) if e.path else "$"
+                messages.append(f"{path}: {e.message}")
+
+            score = max(0.0, 1.0 - min(len(errors), 20) / 20.0)
             return QualityCheckResult(
                 check_type=QualityCheckType.VALIDITY,
-                passed=True,
-                score=1.0,
-                details={'schema_version': schema.schema_version}
+                passed=False,
+                score=score,
+                issues=[QualityIssue.SCHEMA_VIOLATION],
+                suggestions=messages or ["Schema验证失败，请检查事件结构"],
+                details={
+                    "schema_version": schema.schema_version,
+                    "error_count": len(errors),
+                },
             )
             
         except Exception as e:
@@ -618,7 +639,6 @@ class DataQualityChecker:
                 issues=[QualityIssue.SCHEMA_VIOLATION],
                 suggestions=["Schema验证失败，请检查事件结构"]
             )
-
 
 class DataQualityService:
     """数据质量服务主入口"""

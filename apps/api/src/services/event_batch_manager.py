@@ -1,6 +1,7 @@
 """
 事件批处理管理器 - 协调缓冲、队列和处理流程
 """
+
 import asyncio
 import json
 from datetime import datetime
@@ -10,17 +11,14 @@ from typing import Dict, List, Optional, Any, Union, Callable
 from dataclasses import dataclass
 from enum import Enum
 import uuid
-from contextlib import asynccontextmanager
+from src.core.database import get_db_session
+from src.models.schemas.event_tracking import CreateEventRequest, BatchEventsRequest, EventStatus
+from src.repositories.event_tracking_repository import EventStreamRepository, EventDeduplicationRepository, EventSchemaRepository, EventErrorRepository
+from src.services.event_processing_service import EventProcessingService
+from src.services.event_buffer_service import EventBufferService, BufferConfig, BufferPriority, BufferedEvent
 
-from core.logging import get_logger
-from core.database import get_db
-from models.schemas.event_tracking import CreateEventRequest, BatchEventsRequest, EventStatus
-from repositories.event_tracking_repository import EventStreamRepository, EventDeduplicationRepository, EventSchemaRepository, EventErrorRepository
-from services.event_processing_service import EventProcessingService
-from services.event_buffer_service import EventBufferService, BufferConfig, BufferPriority, BufferedEvent
-
+from src.core.logging import get_logger
 logger = get_logger(__name__)
-
 
 class ProcessingMode(str, Enum):
     """处理模式"""
@@ -28,7 +26,6 @@ class ProcessingMode(str, Enum):
     BUFFERED = "buffered"      # 缓冲处理
     QUEUED = "queued"          # 队列处理
     ADAPTIVE = "adaptive"      # 自适应处理
-
 
 @dataclass
 class BatchJobConfig:
@@ -45,7 +42,6 @@ class BatchJobConfig:
         if self.created_at is None:
             self.created_at = utc_now()
 
-
 @dataclass
 class BatchJobStatus:
     """批处理任务状态"""
@@ -58,7 +54,6 @@ class BatchJobStatus:
     completed_at: Optional[datetime] = None
     error_message: Optional[str] = None
     progress_percentage: float = 0.0
-
 
 class EventBatchManager:
     """事件批处理管理器"""
@@ -90,7 +85,7 @@ class EventBatchManager:
         
         try:
             # 获取数据库会话
-            async with asynccontextmanager(get_async_db)() as db:
+            async with get_db_session() as db:
                 # 初始化repositories
                 event_repo = EventStreamRepository(db)
                 dedup_repo = EventDeduplicationRepository(db)
@@ -414,7 +409,6 @@ class EventBatchManager:
         """设置最大并发任务数"""
         self.max_concurrent_jobs = max_jobs
         self.job_semaphore = asyncio.Semaphore(max_jobs)
-
 
 # 全局批处理管理器实例
 _batch_manager_instance: Optional[EventBatchManager] = None

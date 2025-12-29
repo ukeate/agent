@@ -3,19 +3,18 @@
 支持异步请求-响应模式，消息关联和超时处理
 """
 
+from src.core.utils.timezone_utils import utc_now
 import asyncio
 import uuid
 import time
-import logging
 from typing import Dict, List, Optional, Any, Callable, Union
 from datetime import datetime, timedelta
 from dataclasses import dataclass, field
 from concurrent.futures import ThreadPoolExecutor
-
 from .models import Message, MessageType, MessagePriority
 
-logger = logging.getLogger(__name__)
-
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 @dataclass
 class PendingRequest:
@@ -31,13 +30,12 @@ class PendingRequest:
     
     def is_expired(self) -> bool:
         """检查是否已超时"""
-        elapsed = (datetime.now() - self.created_at).total_seconds()
+        elapsed = (utc_now() - self.created_at).total_seconds()
         return elapsed > self.timeout
     
     def should_retry(self) -> bool:
         """检查是否应该重试"""
         return self.retry_count < self.max_retries and not self.future.done()
-
 
 class RequestResponseManager:
     """请求-响应管理器"""
@@ -86,7 +84,7 @@ class RequestResponseManager:
             try:
                 await self.cleanup_task
             except asyncio.CancelledError:
-                pass
+                raise
         
         # 关闭线程池
         self.thread_pool.shutdown(wait=True)
@@ -133,7 +131,7 @@ class RequestResponseManager:
                 correlation_id=correlation_id,
                 sender_id=receiver_id,
                 message_type=message_type,
-                created_at=datetime.now(),
+                created_at=utc_now(),
                 timeout=request_timeout,
                 future=response_future,
                 max_retries=max_retries
@@ -272,7 +270,7 @@ class RequestResponseManager:
                     result = await handler(message)
                 else:
                     # 在线程池中执行同步处理器
-                    loop = asyncio.get_event_loop()
+                    loop = asyncio.get_running_loop()
                     result = await loop.run_in_executor(self.thread_pool, handler, message)
                 
                 # 发送成功响应
@@ -342,7 +340,7 @@ class RequestResponseManager:
             try:
                 await asyncio.sleep(self.cleanup_interval)
                 
-                current_time = datetime.now()
+                current_time = utc_now()
                 expired_requests = []
                 
                 for correlation_id, request in self.pending_requests.items():
@@ -392,7 +390,7 @@ class RequestResponseManager:
         requests_info = []
         
         for correlation_id, request in self.pending_requests.items():
-            elapsed = (datetime.now() - request.created_at).total_seconds()
+            elapsed = (utc_now() - request.created_at).total_seconds()
             requests_info.append({
                 "correlation_id": correlation_id,
                 "sender_id": request.sender_id,

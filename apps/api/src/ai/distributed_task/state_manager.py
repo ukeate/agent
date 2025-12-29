@@ -1,12 +1,10 @@
 """分布式状态管理器实现"""
 
 import asyncio
-import logging
 from datetime import datetime
 from typing import Dict, List, Optional, Any, Callable
-
 from .models import TaskStatus
-
+from src.core.utils.timezone_utils import utc_now
 
 class DistributedStateManager:
     """分布式状态管理器"""
@@ -14,7 +12,7 @@ class DistributedStateManager:
     def __init__(self, node_id: str, raft_consensus=None):
         self.node_id = node_id
         self.raft_consensus = raft_consensus
-        self.logger = logging.getLogger(__name__)
+        self.logger = get_logger(__name__)
         
         # 状态存储
         self.global_state: Dict[str, Any] = {}
@@ -50,7 +48,7 @@ class DistributedStateManager:
                     "action": "set_state",
                     "key": key,
                     "value": value,
-                    "timestamp": datetime.now().isoformat(),
+                    "timestamp": utc_now().isoformat(),
                     "node_id": self.node_id
                 }
                 
@@ -87,7 +85,7 @@ class DistributedStateManager:
                 command = {
                     "action": "delete_state",
                     "key": key,
-                    "timestamp": datetime.now().isoformat(),
+                    "timestamp": utc_now().isoformat(),
                     "node_id": self.node_id
                 }
                 
@@ -116,7 +114,7 @@ class DistributedStateManager:
                     "action": "acquire_lock",
                     "lock_name": lock_name,
                     "node_id": self.node_id,
-                    "timestamp": datetime.now().isoformat(),
+                    "timestamp": utc_now().isoformat(),
                     "timeout": timeout
                 }
                 
@@ -165,7 +163,7 @@ class DistributedStateManager:
                     "action": "release_lock",
                     "lock_name": lock_name,
                     "node_id": self.node_id,
-                    "timestamp": datetime.now().isoformat()
+                    "timestamp": utc_now().isoformat()
                 }
                 
                 success = await self.raft_consensus.append_entry(command)
@@ -205,7 +203,7 @@ class DistributedStateManager:
                     "action": "atomic_update",
                     "updates": updates,
                     "conditions": conditions,
-                    "timestamp": datetime.now().isoformat(),
+                    "timestamp": utc_now().isoformat(),
                     "node_id": self.node_id
                 }
                 
@@ -233,7 +231,7 @@ class DistributedStateManager:
         try:
             checkpoint = {
                 "state_snapshot": self.global_state.copy(),
-                "timestamp": datetime.now().isoformat(),
+                "timestamp": utc_now().isoformat(),
                 "node_id": self.node_id
             }
             
@@ -269,7 +267,7 @@ class DistributedStateManager:
                 command = {
                     "action": "rollback_state",
                     "checkpoint": checkpoint_name,
-                    "timestamp": datetime.now().isoformat(),
+                    "timestamp": utc_now().isoformat(),
                     "node_id": self.node_id
                 }
                 
@@ -341,7 +339,7 @@ class DistributedStateManager:
         
         # 这里简化实现，实际应该通过消息总线同步
         # 在Raft共识层已经处理了状态同步
-        pass
+        self.logger.debug("状态同步由共识层处理，跳过直接同步")
     
     async def _start_consistency_check_loop(self):
         """启动一致性检查循环"""
@@ -416,3 +414,4 @@ class DistributedStateManager:
             "checkpoints": list(self.checkpoints.keys()),
             "listeners": len(self.state_listeners)
         }
+from src.core.logging import get_logger

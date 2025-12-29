@@ -2,16 +2,15 @@
 LangGraph图构建器
 提供图构建和执行能力
 """
+
 from typing import Any, Dict, List, Optional, Callable
 import asyncio
-import logging
 from dataclasses import dataclass, field
-
 from .state import MessagesState
 from .nodes import BaseNode, StartNode, EndNode, NodeConfig
 
-logger = logging.getLogger(__name__)
-
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 @dataclass
 class Edge:
@@ -20,7 +19,6 @@ class Edge:
     to_node: str
     condition: Optional[Callable[[GraphState], bool]] = None
     metadata: Dict[str, Any] = field(default_factory=dict)
-
 
 class AgentGraph:
     """智能体图定义"""
@@ -110,7 +108,6 @@ class AgentGraph:
             return False
         
         return True
-
 
 class GraphBuilder:
     """图构建器"""
@@ -276,7 +273,6 @@ class GraphBuilder:
         graph.add_edge(previous_node, "__end__")
         
         return graph
-
 
 # 全局图构建器实例
 graph_builder = GraphBuilder()

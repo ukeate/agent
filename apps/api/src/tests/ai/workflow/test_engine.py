@@ -8,9 +8,7 @@ from unittest.mock import Mock, AsyncMock, patch
 from datetime import datetime
 from src.core.utils.timezone_utils import utc_now, utc_factory
 from uuid import uuid4
-
 import networkx as nx
-
 from src.ai.workflow.engine import WorkflowEngine, WorkflowValidationError, WorkflowExecutionError
 from src.ai.workflow.executor import SequentialExecutor, ParallelExecutor, BaseStepExecutor
 from models.schemas.workflow import (
@@ -18,7 +16,6 @@ from models.schemas.workflow import (
     WorkflowExecution, WorkflowStepExecution, WorkflowStepStatus,
     TaskDependencyType
 )
-
 
 class TestWorkflowEngine:
     """工作流引擎测试"""
@@ -119,7 +116,6 @@ class TestWorkflowEngine:
             steps=steps
         )
 
-
 class TestWorkflowValidation:
     """工作流验证测试"""
     
@@ -195,7 +191,6 @@ class TestWorkflowValidation:
         assert len(errors) > 0
         assert any("不存在的依赖" in error for error in errors)
 
-
 class TestWorkflowExecution:
     """工作流执行测试"""
     
@@ -260,7 +255,6 @@ class TestWorkflowExecution:
         retrieved_execution = await engine.get_execution_status(execution.id)
         assert retrieved_execution is None
 
-
 class TestDependencyGraph:
     """依赖图测试"""
     
@@ -316,7 +310,6 @@ class TestDependencyGraph:
         assert set(parallel_groups[1]) == {"task1", "task2"}  # 并行组
         assert ["end"] == parallel_groups[2]
 
-
 class TestConditionValidation:
     """条件验证测试"""
     
@@ -344,7 +337,6 @@ class TestConditionValidation:
             result = engine._validate_condition_expression(condition)
             assert result is False, f"条件应该无效: {condition}"
 
-
 class TestEngineStatistics:
     """引擎统计测试"""
     
@@ -371,7 +363,6 @@ class TestEngineStatistics:
         assert stats["status_distribution"]["pending"] == 1
         assert stats["status_distribution"]["running"] == 1
 
-
 class TestEngineBuilder:
     """引擎构建器测试"""
     
@@ -396,7 +387,6 @@ class TestEngineBuilder:
                  .build())
         
         assert engine.executors[WorkflowExecutionMode.SEQUENTIAL] == custom_executor
-
 
 class TestErrorHandling:
     """错误处理测试"""
@@ -424,7 +414,6 @@ class TestErrorHandling:
             await engine.execute_workflow(nonexistent_id)
         
         assert "执行实例不存在" in str(exc_info.value)
-
 
 class TestWorkflowControl:
     """工作流控制测试"""
@@ -472,7 +461,6 @@ class TestWorkflowControl:
         
         cancel_result = await engine.cancel_execution(nonexistent_id)
         assert cancel_result is False
-
 
 @pytest.mark.integration
 class TestIntegration:

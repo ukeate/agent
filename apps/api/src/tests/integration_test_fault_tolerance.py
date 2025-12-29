@@ -13,12 +13,7 @@ import os
 from datetime import datetime
 from src.core.utils.timezone_utils import utc_now, utc_factory
 from unittest.mock import AsyncMock, MagicMock
-
-# 导入要测试的模块
 import sys
-import os
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
 from src.ai.streaming.fault_tolerance import (
     FaultTolerantConnection, 
     ConnectionManager, 
@@ -27,7 +22,12 @@ from src.ai.streaming.fault_tolerance import (
 )
 from src.ai.batch.checkpoint_manager import CheckpointManager, CheckpointConfig
 from src.ai.batch.batch_processor import BatchJob, BatchTask, BatchStatus
+from src.core.logging import setup_logging
 
+from src.core.logging import get_logger
+logger = get_logger(__name__)
+
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 class TestFaultToleranceIntegration:
     """容错功能集成测试"""
@@ -103,7 +103,6 @@ class TestFaultToleranceIntegration:
         retrieved_conn = await manager.get_connection("session-001")
         assert retrieved_conn is None
 
-
 class TestCheckpointManagerIntegration:
     """检查点管理器集成测试"""
     
@@ -162,7 +161,6 @@ class TestCheckpointManagerIntegration:
             # 验证删除
             final_stats = await manager.get_checkpoint_stats()
             assert final_stats['total_checkpoints'] == 0
-
 
 class TestEndToEndIntegration:
     """端到端集成测试"""
@@ -262,32 +260,31 @@ class TestEndToEndIntegration:
             # 清理
             await manager.unregister_job(job.id)
 
-
 # 运行测试的辅助函数
 async def run_integration_tests():
     """运行所有集成测试"""
-    print("开始运行集成测试...")
+    logger.info("开始运行集成测试...")
     
     # 容错功能测试
     fault_tolerance_tests = TestFaultToleranceIntegration()
     await fault_tolerance_tests.test_fault_tolerance_connection_lifecycle()
     await fault_tolerance_tests.test_connection_manager_integration()
-    print("✓ 容错功能测试通过")
+    logger.info("✓ 容错功能测试通过")
     
     # 检查点管理测试
     checkpoint_tests = TestCheckpointManagerIntegration()
     await checkpoint_tests.test_checkpoint_manager_lifecycle()
-    print("✓ 检查点管理测试通过")
+    logger.info("✓ 检查点管理测试通过")
     
     # 端到端测试
     e2e_tests = TestEndToEndIntegration()
     await e2e_tests.test_streaming_with_fault_tolerance()
     await e2e_tests.test_batch_processing_with_checkpoints()
-    print("✓ 端到端集成测试通过")
+    logger.info("✓ 端到端集成测试通过")
     
-    print("所有集成测试通过！")
-
+    logger.info("所有集成测试通过！")
 
 if __name__ == "__main__":
+    setup_logging()
     # 直接运行测试
     asyncio.run(run_integration_tests())

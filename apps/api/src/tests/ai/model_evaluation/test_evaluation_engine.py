@@ -8,7 +8,6 @@ from pathlib import Path
 import asyncio
 import tempfile
 import shutil
-
 from ai.model_evaluation.evaluation_engine import (
     ModelEvaluationEngine,
     EvaluationConfig,
@@ -333,7 +332,6 @@ class TestModelEvaluationEngine:
             assert mock_model_engine.tokenizer is None
             mock_gc_collect.assert_called_once()
 
-
 class TestBatchEvaluationManager:
     """测试批量评估管理器"""
     
@@ -460,7 +458,6 @@ class TestBatchEvaluationManager:
             time_diff = abs((call_times[1] - call_times[0]).total_seconds())
             assert time_diff < 0.05  # 应该几乎同时开始
 
-
 class TestEvaluationIntegration:
     """集成测试"""
     
@@ -571,7 +568,6 @@ class TestEvaluationIntegration:
             assert engine.model is None
             assert engine.tokenizer is None
             mock_gc_collect.assert_called_once()
-
 
 if __name__ == "__main__":
     pytest.main([__file__])

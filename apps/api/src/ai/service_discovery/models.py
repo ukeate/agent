@@ -5,10 +5,9 @@ Pydantic models for request/response schemas in the service discovery API.
 """
 
 from typing import Dict, List, Optional, Any
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, field_validator, ConfigDict, ValidationInfo
 from datetime import datetime
 from enum import Enum
-
 
 class AgentStatusModel(str, Enum):
     """Agent status model"""
@@ -16,7 +15,6 @@ class AgentStatusModel(str, Enum):
     INACTIVE = "inactive" 
     UNHEALTHY = "unhealthy"
     MAINTENANCE = "maintenance"
-
 
 class AgentCapabilityModel(BaseModel):
     """Agent capability model"""
@@ -28,8 +26,8 @@ class AgentCapabilityModel(BaseModel):
     performance_metrics: Dict[str, float] = Field(default_factory=dict, description="Performance metrics")
     constraints: Dict[str, Any] = Field(default_factory=dict, description="Capability constraints")
 
-    class Config:
-        schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "name": "text_generation",
                 "description": "Generate text based on prompts",
@@ -44,7 +42,7 @@ class AgentCapabilityModel(BaseModel):
                 }
             }
         }
-
+    )
 
 class AgentRegistrationRequest(BaseModel):
     """Agent registration request"""
@@ -62,13 +60,13 @@ class AgentRegistrationRequest(BaseModel):
     group: str = Field(default="default", description="Agent group")
     region: str = Field(default="default", description="Agent region")
 
-    @validator('agent_id')
+    @field_validator('agent_id')
     def validate_agent_id(cls, v):
         if not v or len(v.strip()) == 0:
             raise ValueError('Agent ID cannot be empty')
         return v.strip()
 
-    @validator('capabilities')
+    @field_validator('capabilities')
     def validate_capabilities(cls, v):
         if not v:
             raise ValueError('At least one capability is required')
@@ -80,8 +78,8 @@ class AgentRegistrationRequest(BaseModel):
         
         return v
 
-    class Config:
-        schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "agent_id": "llm-agent-1",
                 "agent_type": "language_model",
@@ -111,7 +109,7 @@ class AgentRegistrationRequest(BaseModel):
                 "region": "us-west-1"
             }
         }
-
+    )
 
 class AgentMetadataResponse(BaseModel):
     """Agent metadata response"""
@@ -135,12 +133,6 @@ class AgentMetadataResponse(BaseModel):
     error_count: int
     avg_response_time: float
 
-    class Config:
-        json_encoders = {
-            datetime: lambda dt: dt.isoformat()
-        }
-
-
 class AgentDiscoveryRequest(BaseModel):
     """Agent discovery request"""
     capability: Optional[str] = Field(None, description="Required capability")
@@ -150,8 +142,8 @@ class AgentDiscoveryRequest(BaseModel):
     region: Optional[str] = Field(None, description="Agent region filter")
     limit: Optional[int] = Field(None, ge=1, le=1000, description="Maximum number of results")
 
-    class Config:
-        schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "capability": "text_generation",
                 "tags": ["nlp"],
@@ -161,7 +153,7 @@ class AgentDiscoveryRequest(BaseModel):
                 "limit": 10
             }
         }
-
+    )
 
 class AgentDiscoveryResponse(BaseModel):
     """Agent discovery response"""
@@ -169,27 +161,27 @@ class AgentDiscoveryResponse(BaseModel):
     total_count: int = Field(..., description="Total number of matching agents")
     query_time: float = Field(..., description="Query execution time in seconds")
 
-    class Config:
-        schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "agents": [],
                 "total_count": 0,
                 "query_time": 0.05
             }
         }
-
+    )
 
 class AgentStatusUpdate(BaseModel):
     """Agent status update request"""
     status: AgentStatusModel = Field(..., description="New agent status")
 
-    class Config:
-        schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "status": "maintenance"
             }
         }
-
+    )
 
 class AgentMetricsUpdate(BaseModel):
     """Agent metrics update request"""
@@ -197,22 +189,23 @@ class AgentMetricsUpdate(BaseModel):
     error_count: Optional[int] = Field(None, ge=0, description="Total error count")
     avg_response_time: Optional[float] = Field(None, ge=0.0, description="Average response time in seconds")
 
-    @validator('error_count')
-    def validate_error_count(cls, v, values):
-        if v is not None and 'request_count' in values and values['request_count'] is not None:
-            if v > values['request_count']:
+    @field_validator('error_count')
+    def validate_error_count(cls, v, info: ValidationInfo):
+        request_count = info.data.get('request_count')
+        if v is not None and request_count is not None:
+            if v > request_count:
                 raise ValueError('Error count cannot exceed request count')
         return v
 
-    class Config:
-        schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "request_count": 1000,
                 "error_count": 15,
                 "avg_response_time": 1.25
             }
         }
-
+    )
 
 class LoadBalancerRequest(BaseModel):
     """Load balancer selection request"""
@@ -221,7 +214,7 @@ class LoadBalancerRequest(BaseModel):
     tags: Optional[List[str]] = Field(None, description="Required tags")
     requirements: Optional[Dict[str, Any]] = Field(None, description="Performance requirements")
 
-    @validator('strategy')
+    @field_validator('strategy')
     def validate_strategy(cls, v):
         valid_strategies = [
             "round_robin", "weighted_random", "least_connections",
@@ -231,8 +224,8 @@ class LoadBalancerRequest(BaseModel):
             raise ValueError(f'Invalid strategy. Must be one of: {", ".join(valid_strategies)}')
         return v
 
-    class Config:
-        schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "capability": "text_generation",
                 "strategy": "capability_based",
@@ -244,7 +237,7 @@ class LoadBalancerRequest(BaseModel):
                 }
             }
         }
-
+    )
 
 class LoadBalancerResponse(BaseModel):
     """Load balancer selection response"""
@@ -252,15 +245,15 @@ class LoadBalancerResponse(BaseModel):
     selection_time: float = Field(..., description="Selection time in seconds")
     strategy_used: str = Field(..., description="Strategy used for selection")
 
-    class Config:
-        schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "selected_agent": None,
                 "selection_time": 0.01,
                 "strategy_used": "capability_based"
             }
         }
-
+    )
 
 class ServiceStats(BaseModel):
     """Service discovery system statistics"""
@@ -268,8 +261,8 @@ class ServiceStats(BaseModel):
     load_balancer: Dict[str, Any] = Field(..., description="Load balancer statistics")
     system_status: str = Field(..., description="Overall system status")
 
-    class Config:
-        schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "registry": {
                     "registered_agents": 5,
@@ -303,7 +296,7 @@ class ServiceStats(BaseModel):
                 "system_status": "healthy"
             }
         }
-
+    )
 
 class HealthCheckResponse(BaseModel):
     """Health check response"""
@@ -312,11 +305,8 @@ class HealthCheckResponse(BaseModel):
     version: str = Field(..., description="Service version")
     uptime_seconds: float = Field(..., description="Service uptime in seconds")
 
-    class Config:
-        json_encoders = {
-            datetime: lambda dt: dt.isoformat()
-        }
-        schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "status": "healthy",
                 "timestamp": "2025-08-26T12:00:00Z",
@@ -324,7 +314,7 @@ class HealthCheckResponse(BaseModel):
                 "uptime_seconds": 3600.0
             }
         }
-
+    )
 
 class ErrorResponse(BaseModel):
     """Error response"""
@@ -332,8 +322,8 @@ class ErrorResponse(BaseModel):
     message: str = Field(..., description="Error message")
     details: Optional[Dict[str, Any]] = Field(None, description="Additional error details")
 
-    class Config:
-        schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "error": "ValidationError",
                 "message": "Invalid agent registration data",
@@ -347,3 +337,4 @@ class ErrorResponse(BaseModel):
                 }
             }
         }
+    )

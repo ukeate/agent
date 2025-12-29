@@ -1,8 +1,7 @@
+from src.core.utils.timezone_utils import utc_now
 import pytest
 from fastapi.testclient import TestClient
 from unittest.mock import Mock, AsyncMock, patch
-from datetime import datetime
-
 from ...main import app
 from ...ai.fault_tolerance import FaultToleranceSystem
 
@@ -49,7 +48,7 @@ class TestFaultToleranceAPI:
             "backup_statistics": {"total_backups": 10},
             "consistency_statistics": {"consistency_rate": 0.98},
             "active_faults": [],
-            "last_updated": datetime.now().isoformat()
+            "last_updated": utc_now().isoformat()
         }
         
         mock_fault_tolerance_system.get_system_status.return_value = mock_status
@@ -86,7 +85,7 @@ class TestFaultToleranceAPI:
         mock_health = {
             "component_id": "agent-1",
             "status": "healthy",
-            "last_check": datetime.now().isoformat(),
+            "last_check": utc_now().isoformat(),
             "response_time": 0.5,
             "error_rate": 0.01,
             "resource_usage": {"cpu": 45.0, "memory": 60.0}
@@ -110,7 +109,7 @@ class TestFaultToleranceAPI:
                 "fault_type": "agent_error",
                 "severity": "high",
                 "affected_components": ["agent-1"],
-                "detected_at": datetime.now().isoformat(),
+                "detected_at": utc_now().isoformat(),
                 "description": "Agent error",
                 "resolved": False
             }
@@ -218,7 +217,7 @@ class TestFaultToleranceAPI:
         """测试触发一致性检查"""
         mock_result = Mock()
         mock_result.check_id = "check-123"
-        mock_result.checked_at = datetime.now()
+        mock_result.checked_at = utc_now()
         mock_result.components = ["agent-1", "agent-2"]
         mock_result.consistent = False
         mock_result.inconsistencies = [{"type": "value_mismatch", "data_key": "test"}]
@@ -316,7 +315,7 @@ class TestFaultToleranceAPI:
             "backup_metrics": {"total_backups": 10},
             "consistency_metrics": {"consistency_rate": 0.98},
             "system_availability": 0.96,
-            "last_updated": datetime.now().isoformat()
+            "last_updated": utc_now().isoformat()
         }
         
         mock_fault_tolerance_system.get_system_metrics.return_value = mock_metrics
@@ -332,7 +331,7 @@ class TestFaultToleranceAPI:
     def test_get_detailed_system_report(self, client, mock_fault_tolerance_system):
         """测试获取详细系统报告"""
         mock_report = {
-            "report_generated_at": datetime.now().isoformat(),
+            "report_generated_at": utc_now().isoformat(),
             "system_status": {"system_started": True},
             "system_metrics": {"system_availability": 0.95},
             "recent_faults": [],

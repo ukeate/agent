@@ -3,17 +3,17 @@
 
 基于Big Five人格理论和情感历史数据构建个性化情感画像
 """
+
+from src.core.utils.timezone_utils import utc_now
 import numpy as np
 from typing import Dict, List, Tuple, Optional, Any
-from datetime import datetime, timedelta
+from datetime import timedelta
 from collections import Counter, defaultdict
-import logging
-
 from .models import EmotionState, PersonalityProfile, PersonalityTrait, EmotionType
 from .space_mapper import EmotionSpaceMapper
 
-logger = logging.getLogger(__name__)
-
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 class PersonalityProfileBuilder:
     """个性化画像构建器"""
@@ -115,7 +115,7 @@ class PersonalityProfileBuilder:
             trigger_patterns=trigger_patterns,
             sample_count=len(history_sorted),
             confidence_score=confidence_score,
-            updated_at=datetime.now()
+            updated_at=utc_now()
         )
         
         logger.info(f"已构建用户 {user_id} 的个性画像 (样本数: {len(history_sorted)})")

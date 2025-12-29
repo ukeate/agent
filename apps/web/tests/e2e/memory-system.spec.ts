@@ -49,9 +49,9 @@ test.describe('记忆管理系统E2E测试', () => {
     await expect(page.locator('text=存储使用')).toBeVisible()
     
     // 验证三层记忆架构
-    await expect(page.locator('text=工作记忆')).toBeVisible()
-    await expect(page.locator('text=情景记忆')).toBeVisible()
-    await expect(page.locator('text=语义记忆')).toBeVisible()
+    await expect(page.locator('.ant-card-head-title').filter({ hasText: '工作记忆' })).toBeVisible()
+    await expect(page.locator('.ant-card-head-title').filter({ hasText: '情景记忆' })).toBeVisible()
+    await expect(page.locator('.ant-card-head-title').filter({ hasText: '语义记忆' })).toBeVisible()
     
     // 验证操作按钮
     await expect(page.locator('text=巩固记忆')).toBeVisible()

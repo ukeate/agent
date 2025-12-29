@@ -9,12 +9,12 @@ This module provides data models for analyzing interpersonal relationship dynami
 - Relationship health metrics
 """
 
+from src.core.utils.timezone_utils import utc_now
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Dict, List, Any, Optional, Tuple
 from enum import Enum
 import uuid
-
 
 class RelationshipType(Enum):
     """关系类型"""
@@ -26,7 +26,6 @@ class RelationshipType(Enum):
     ACQUAINTANCE = "acquaintance"  # 熟人关系
     STRANGER = "stranger"  # 陌生人关系
 
-
 class IntimacyLevel(Enum):
     """亲密程度等级"""
     VERY_HIGH = "very_high"  # 极高亲密度 (0.8-1.0)
@@ -35,13 +34,11 @@ class IntimacyLevel(Enum):
     LOW = "low"  # 低亲密度 (0.2-0.4)
     VERY_LOW = "very_low"  # 极低亲密度 (0.0-0.2)
 
-
 class PowerDynamics(Enum):
     """权力动态"""
     DOMINANT = "dominant"  # 支配型 (0.5-1.0)
     BALANCED = "balanced"  # 平衡型 (-0.2-0.2)
     SUBMISSIVE = "submissive"  # 从属型 (-1.0--0.5)
-
 
 class SupportType(Enum):
     """支持类型"""
@@ -50,7 +47,6 @@ class SupportType(Enum):
     INSTRUMENTAL = "instrumental"  # 工具性支持
     APPRAISAL = "appraisal"  # 评价支持
 
-
 class ConflictStyle(Enum):
     """冲突风格"""
     COMPETING = "competing"  # 竞争型
@@ -58,7 +54,6 @@ class ConflictStyle(Enum):
     COMPROMISING = "compromising"  # 妥协型
     AVOIDING = "avoiding"  # 回避型
     ACCOMMODATING = "accommodating"  # 迁就型
-
 
 @dataclass
 class EmotionalSupportPattern:
@@ -79,7 +74,6 @@ class EmotionalSupportPattern:
     empathy_expression: bool = False  # 同理心表达
     problem_solving: bool = False  # 问题解决
     resource_sharing: bool = False  # 资源分享
-
 
 @dataclass
 class ConflictIndicator:
@@ -106,7 +100,6 @@ class ConflictIndicator:
         if self.conflict_styles is None:
             self.conflict_styles = {}
 
-
 @dataclass
 class RelationshipMilestone:
     """关系里程碑"""
@@ -125,7 +118,6 @@ class RelationshipMilestone:
     trust_building: bool = False  # 信任建立
     boundary_setting: bool = False  # 边界设定
     conflict_resolution: bool = False  # 冲突解决
-
 
 @dataclass
 class RelationshipDynamics:
@@ -188,8 +180,7 @@ class RelationshipDynamics:
         if self.significant_events is None:
             self.significant_events = []
         if self.analysis_timestamp is None:
-            self.analysis_timestamp = datetime.now()
-
+            self.analysis_timestamp = utc_now()
 
 @dataclass
 class RelationshipProfile:
@@ -231,7 +222,7 @@ class RelationshipProfile:
     
     def get_relationship_trend(self, days: int = 30) -> List[float]:
         """获取关系趋势"""
-        cutoff_time = datetime.now() - timedelta(days=days)
+        cutoff_time = utc_now() - timedelta(days=days)
         recent_dynamics = [
             dynamics for dynamics in self.relationship_history
             if dynamics.analysis_timestamp > cutoff_time
@@ -248,7 +239,6 @@ class RelationshipProfile:
         stability = 1.0 - (max(health_scores) - min(health_scores))
         
         return max(0.0, min(1.0, stability))
-
 
 @dataclass
 class RelationshipAnalysisConfig:
@@ -283,28 +273,23 @@ class RelationshipAnalysisConfig:
     min_interaction_threshold: int = 5  # 最少交互阈值
     confidence_threshold: float = 0.6  # 最低置信度
 
-
 def generate_relationship_id(participant1: str, participant2: str) -> str:
     """生成关系ID"""
     # 确保ID的一致性：按字母顺序排列参与者
     participants = sorted([participant1, participant2])
     return f"rel_{participants[0]}_{participants[1]}_{uuid.uuid4().hex[:8]}"
 
-
 def generate_support_id() -> str:
     """生成支持ID"""
     return f"support_{uuid.uuid4().hex[:8]}"
-
 
 def generate_conflict_id() -> str:
     """生成冲突ID"""
     return f"conflict_{uuid.uuid4().hex[:8]}"
 
-
 def generate_milestone_id() -> str:
     """生成里程碑ID"""
     return f"milestone_{uuid.uuid4().hex[:8]}"
-
 
 def classify_intimacy_level(intimacy_score: float) -> IntimacyLevel:
     """根据分数分类亲密程度等级"""
@@ -318,7 +303,6 @@ def classify_intimacy_level(intimacy_score: float) -> IntimacyLevel:
         return IntimacyLevel.LOW
     else:
         return IntimacyLevel.VERY_LOW
-
 
 def classify_power_dynamics(power_balance: float) -> PowerDynamics:
     """根据权力平衡分数分类权力动态"""

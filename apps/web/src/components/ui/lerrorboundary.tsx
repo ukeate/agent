@@ -2,6 +2,7 @@ import { Component, ErrorInfo, ReactNode } from 'react'
 import { Button, Result, Typography } from 'antd'
 import { ReloadOutlined, BugOutlined } from '@ant-design/icons'
 
+import { logger } from '../../utils/logger'
 const { Paragraph, Text } = Typography
 
 interface Props {
@@ -29,7 +30,7 @@ class ErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    console.error('ErrorBoundary caught an error:', error, errorInfo)
+    logger.error('错误边界捕获到异常:', error, errorInfo)
     this.setState({
       error,
       errorInfo,

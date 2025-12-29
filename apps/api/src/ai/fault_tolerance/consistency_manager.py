@@ -1,12 +1,13 @@
+from src.core.utils.timezone_utils import utc_now
 import asyncio
 import json
 import hashlib
 import time
 from typing import Dict, List, Optional, Any
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, asdict
 from datetime import datetime
-import logging
 
+from src.core.logging import get_logger
 @dataclass
 class ConsistencyCheckResult:
     """一致性检查结果"""
@@ -24,7 +25,7 @@ class ConsistencyManager:
         self.cluster_manager = cluster_manager
         self.storage_backend = storage_backend
         self.config = config
-        self.logger = logging.getLogger(__name__)
+        self.logger = get_logger(__name__)
         
         # 一致性检查配置
         self.check_interval = config.get("consistency_check_interval", 300)  # 5分钟
@@ -38,6 +39,10 @@ class ConsistencyManager:
     
     async def start(self):
         """启动一致性管理器"""
+        if not self.cluster_manager:
+            raise RuntimeError("cluster manager not configured for consistency checks")
+        if not self.storage_backend:
+            raise RuntimeError("storage backend not configured for consistency checks")
         self.running = True
         
         # 启动一致性检查循环
@@ -64,7 +69,7 @@ class ConsistencyManager:
             if not topology or not hasattr(topology, 'agents'):
                 return ConsistencyCheckResult(
                     check_id=check_id,
-                    checked_at=datetime.now(),
+                    checked_at=utc_now(),
                     components=[],
                     consistent=False,
                     inconsistencies=[{"error": "No cluster topology available"}]
@@ -80,7 +85,7 @@ class ConsistencyManager:
             # 创建检查结果
             result = ConsistencyCheckResult(
                 check_id=check_id,
-                checked_at=datetime.now(),
+                checked_at=utc_now(),
                 components=component_ids,
                 consistent=len(inconsistencies) == 0,
                 inconsistencies=inconsistencies
@@ -104,7 +109,7 @@ class ConsistencyManager:
             self.logger.error(f"Consistency check failed: {e}")
             return ConsistencyCheckResult(
                 check_id=check_id,
-                checked_at=datetime.now(),
+                checked_at=utc_now(),
                 components=[],
                 consistent=False,
                 inconsistencies=[{"error": str(e)}]
@@ -193,58 +198,66 @@ class ConsistencyManager:
     async def _get_cluster_state_from_component(self, component_id: str) -> Dict[str, Any]:
         """从组件获取集群状态"""
         try:
-            # 这里应该调用组件的API获取集群状态
-            # 简化实现中返回模拟数据
-            return {
-                "cluster_id": "cluster_1",
-                "leader": "agent_leader",
-                "members": ["agent_1", "agent_2", "agent_3"],
-                "version": 1
-            }
+            if hasattr(self.cluster_manager, "get_cluster_topology"):
+                topology = await self.cluster_manager.get_cluster_topology()
+                agent_info = topology.agents.get(component_id) if topology and getattr(topology, "agents", None) else None
+                return {
+                    "cluster_id": topology.cluster_id if topology else None,
+                    "leader": topology.config.get("leader") if topology and hasattr(topology, "config") else None,
+                    "members": list(topology.agents.keys()) if topology and getattr(topology, "agents", None) else [],
+                    "agent": asdict(agent_info) if agent_info else None,
+                    "version": getattr(topology, "state_version", None)
+                }
+            getter = getattr(self.storage_backend, "get_cluster_state", None)
+            if getter:
+                state = getter(component_id)
+                if asyncio.iscoroutine(state):
+                    state = await state
+                return state or {}
+            raise RuntimeError("no cluster state provider configured")
         except Exception:
             return None
     
     async def _get_task_assignments_from_component(self, component_id: str) -> Dict[str, Any]:
         """从组件获取任务分配"""
         try:
-            # 这里应该调用组件的API获取任务分配
-            # 简化实现中返回模拟数据
-            import random
-            # 模拟偶尔出现不一致的任务分配
-            if random.random() < 0.1:  # 10%的概率不一致
-                return {
-                    "assignments": {
-                        "task_1": f"inconsistent_{component_id}",
-                        "task_2": "agent_2"
-                    }
-                }
-            else:
-                return {
-                    "assignments": {
-                        "task_1": "agent_1",
-                        "task_2": "agent_2"
-                    }
-                }
+            getter = getattr(self.storage_backend, "get_task_assignments", None)
+            if getter:
+                assignments = getter(component_id)
+                if asyncio.iscoroutine(assignments):
+                    assignments = await assignments
+                return assignments or {}
+            raise RuntimeError("task assignment provider not configured")
         except Exception:
             return None
     
     async def _get_agent_config_from_component(self, component_id: str) -> Dict[str, Any]:
         """从组件获取代理配置"""
         try:
-            # 这里应该调用组件的API获取配置
-            return {
-                "agent_id": component_id,
-                "capabilities": ["chat", "analysis"],
-                "max_tasks": 10
-            }
+            if hasattr(self.cluster_manager, "get_agent_info"):
+                agent_info = await self.cluster_manager.get_agent_info(component_id)
+                if agent_info:
+                    return asdict(agent_info)
+            getter = getattr(self.storage_backend, "get_agent_config", None)
+            if getter:
+                config = getter(component_id)
+                if asyncio.iscoroutine(config):
+                    config = await config
+                return config or {}
+            raise RuntimeError("agent config provider not configured")
         except Exception:
             return None
     
     async def _get_generic_data_from_component(self, component_id: str, data_key: str) -> Any:
         """从组件获取通用数据"""
         try:
-            # 这里应该实现通用的数据获取逻辑
-            return f"generic_data_for_{data_key}_from_{component_id}"
+            getter = getattr(self.storage_backend, "get_component_data", None)
+            if getter:
+                data = getter(component_id, data_key)
+                if asyncio.iscoroutine(data):
+                    data = await data
+                return data
+            raise RuntimeError(f"generic data provider missing for key {data_key}")
         except Exception:
             return None
     

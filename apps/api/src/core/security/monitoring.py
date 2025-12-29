@@ -11,17 +11,15 @@ from datetime import timedelta
 from src.core.utils.timezone_utils import utc_now, utc_factory
 from enum import Enum
 from typing import Any, Dict, List, Optional, Set
-
-import structlog
 from fastapi import Request
 from pydantic import BaseModel
-
 from src.core.config import get_settings
 from src.core.redis import get_redis
 
-logger = structlog.get_logger(__name__)
-settings = get_settings()
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
+settings = get_settings()
 
 class ThreatLevel(str, Enum):
     """威胁级别"""
@@ -29,7 +27,6 @@ class ThreatLevel(str, Enum):
     MEDIUM = "medium"
     HIGH = "high"
     CRITICAL = "critical"
-
 
 class SecurityEventType(str, Enum):
     """安全事件类型"""
@@ -44,7 +41,6 @@ class SecurityEventType(str, Enum):
     DATA_BREACH = "data_breach"
     ANOMALY = "anomaly"
 
-
 class SecurityAssessment(BaseModel):
     """安全评估结果"""
     risk_score: float  # 0.0 - 1.0
@@ -52,7 +48,6 @@ class SecurityAssessment(BaseModel):
     detected_threats: List[SecurityEventType]
     details: Dict[str, Any]
     recommendations: List[str]
-
 
 class SecurityAlert(BaseModel):
     """安全告警"""
@@ -67,7 +62,6 @@ class SecurityAlert(BaseModel):
     status: str  # active, investigating, resolved, false_positive
     auto_blocked: bool
     action_taken: List[str]
-
 
 class SecurityMonitor:
     """安全监控器"""
@@ -303,9 +297,14 @@ class SecurityMonitor:
         if not any(auth_path in path for auth_path in auth_paths):
             return False
         
-        # 检查失败尝试次数
-        # TODO: 实现基于Redis的失败计数
-        return False
+        if not self.redis:
+            return False
+
+        key = f"security:auth_attempts:{client_ip}"
+        count = await self.redis.incr(key)
+        if count == 1:
+            await self.redis.expire(key, 300)
+        return count >= 20
     
     async def _auto_block(self, client_ip: str, threats: List[SecurityEventType]):
         """自动阻断IP"""
@@ -444,7 +443,6 @@ class SecurityMonitor:
             recommendations.append("System security is within normal parameters")
         
         return recommendations
-
 
 # 全局实例
 security_monitor = SecurityMonitor()

@@ -9,7 +9,6 @@ from typing import Dict, List, Optional, Any
 from datetime import datetime
 from enum import Enum
 
-
 class SceneType(Enum):
     """场景类型枚举"""
     FORMAL_BUSINESS = "formal_business"         # 正式商务
@@ -22,7 +21,6 @@ class SceneType(Enum):
     RELIGIOUS = "religious"                    # 宗教场所
     LEGAL = "legal"                           # 法律场合
     EMERGENCY = "emergency"                    # 紧急情况
-
 
 class SocialRole(Enum):
     """社交角色枚举"""
@@ -37,7 +35,6 @@ class SocialRole(Enum):
     PROFESSIONAL = "professional"            # 专业人士
     CLIENT = "client"                        # 客户
 
-
 class CommunicationStyle(Enum):
     """沟通风格枚举"""
     DIRECT = "direct"                        # 直接
@@ -48,7 +45,6 @@ class CommunicationStyle(Enum):
     ANALYTICAL = "analytical"                # 分析性
     EXPRESSIVE = "expressive"                # 表达性
     DIPLOMATIC = "diplomatic"                # 外交性
-
 
 @dataclass
 class SocialContext:
@@ -77,7 +73,6 @@ class SocialContext:
     empathy_expectation: float = 0.5                  # 共情期望 [0,1]
     conflict_tolerance: float = 0.5                   # 冲突容忍度 [0,1]
 
-
 @dataclass
 class RoleExpectation:
     """角色期望数据结构"""
@@ -92,7 +87,6 @@ class RoleExpectation:
     forbidden_topics: List[str] = field(default_factory=list)     # 禁止话题
     required_courtesy: List[str] = field(default_factory=list)    # 必要礼貌
     emotional_boundaries: Dict[str, float] = field(default_factory=dict)  # 情感边界
-
 
 @dataclass
 class SceneFeatureProfile:
@@ -116,7 +110,6 @@ class SceneFeatureProfile:
     cultural_variations: Dict[str, Dict[str, Any]]    # 文化变异
     language_specific_norms: Dict[str, Dict[str, Any]]  # 语言特定规范
 
-
 @dataclass
 class AdaptationStrategy:
     """适应策略数据结构"""
@@ -138,7 +131,6 @@ class AdaptationStrategy:
     response_timing_preferences: Dict[str, float]     # 响应时机偏好
     empathy_expression_methods: List[str]            # 共情表达方式
     conflict_avoidance_strategies: List[str]         # 冲突回避策略
-
 
 # 预定义场景特征画像
 SCENE_PROFILES: Dict[SceneType, SceneFeatureProfile] = {

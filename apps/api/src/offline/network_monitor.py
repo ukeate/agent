@@ -17,17 +17,16 @@ from src.core.utils.timezone_utils import utc_now, utc_factory
 from typing import Dict, Any, List, Optional, Callable
 from dataclasses import dataclass, field
 from enum import Enum
-
 from ..models.schemas.offline import NetworkStatus
+from ..core.logging import get_logger
 
-
+from src.core.logging import get_logger
 class ConnectionTest(str, Enum):
     """连接测试类型"""
     PING = "ping"
     HTTP = "http"
     DNS = "dns"
     WEBSOCKET = "websocket"
-
 
 @dataclass
 class NetworkMetrics:
@@ -36,8 +35,7 @@ class NetworkMetrics:
     packet_loss_rate: float
     bandwidth_kbps: Optional[float] = None
     jitter_ms: Optional[float] = None
-    timestamp: datetime = field(default_factory=datetime.utcnow)
-
+    timestamp: datetime = field(default_factory=utc_now)
 
 @dataclass
 class ConnectionResult:
@@ -46,13 +44,13 @@ class ConnectionResult:
     success: bool
     latency_ms: float
     error_message: Optional[str] = None
-    timestamp: datetime = field(default_factory=datetime.utcnow)
-
+    timestamp: datetime = field(default_factory=utc_now)
 
 class NetworkMonitor:
     """网络监控器"""
     
     def __init__(self):
+        self.logger = get_logger(__name__)
         self.current_status = NetworkStatus.UNKNOWN
         self.current_metrics = NetworkMetrics(latency_ms=0, packet_loss_rate=0)
         
@@ -106,7 +104,7 @@ class NetworkMonitor:
             try:
                 await self._monitoring_task
             except asyncio.CancelledError:
-                pass
+                raise
     
     async def _monitoring_loop(self):
         """监控循环"""
@@ -121,7 +119,7 @@ class NetworkMonitor:
             except asyncio.CancelledError:
                 break
             except Exception as e:
-                print(f"网络监控错误: {e}")
+                self.logger.error("网络监控错误", error=str(e))
                 await asyncio.sleep(self.monitor_interval)
     
     async def _perform_network_check(self):
@@ -164,7 +162,7 @@ class NetworkMonitor:
                     try:
                         await callback(new_status, metrics)
                     except Exception as e:
-                        print(f"状态变化回调错误: {e}")
+                        self.logger.error("状态变化回调错误", error=str(e))
     
     async def _test_http_connectivity(self) -> List[ConnectionResult]:
         """测试HTTP连接"""
@@ -206,7 +204,7 @@ class NetworkMonitor:
             start_time = time.time()
             try:
                 # 测试DNS解析
-                loop = asyncio.get_event_loop()
+                loop = asyncio.get_running_loop()
                 await loop.getaddrinfo("www.google.com", 80, family=socket.AF_INET)
                 
                 latency = (time.time() - start_time) * 1000
@@ -404,11 +402,11 @@ class NetworkMonitor:
             "last_check": self.current_metrics.timestamp.isoformat()
         }
 
-
 class ModeSwitcher:
     """自动模式切换器"""
     
     def __init__(self, network_monitor: NetworkMonitor):
+        self.logger = get_logger(__name__)
         self.network_monitor = network_monitor
         self.mode_change_callbacks: List[Callable[[NetworkStatus], None]] = []
         
@@ -459,14 +457,14 @@ class ModeSwitcher:
             old_mode = self.current_mode
             self.current_mode = new_mode
             
-            print(f"网络模式切换: {old_mode} -> {new_mode}")
+            self.logger.info("网络模式切换", old_mode=old_mode, new_mode=new_mode)
             
             # 通知所有回调
             for callback in self.mode_change_callbacks:
                 try:
                     await callback(new_mode)
                 except Exception as e:
-                    print(f"模式切换回调错误: {e}")
+                    self.logger.error("模式切换回调错误", error=str(e))
     
     def add_mode_change_callback(self, callback: Callable[[str], None]):
         """添加模式变化回调"""

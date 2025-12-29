@@ -1,21 +1,17 @@
 """MCP客户端连接管理器"""
 
 import asyncio
-import logging
 from typing import Any, Dict, List, Optional
 from contextlib import asynccontextmanager
 from collections.abc import AsyncGenerator
-
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
-
 from src.core.config import get_settings
 from .exceptions import MCPConnectionError, MCPToolError, MCPTimeoutError, handle_mcp_exception
 from .retry import RetryManager, RetryConfig, get_retry_manager
 from .monitoring import MonitoringContextManager, get_mcp_monitor
 
-logger = logging.getLogger(__name__)
-
+logger = get_logger(__name__)
 
 class MCPClientManager:
     """MCP客户端连接管理器"""
@@ -100,7 +96,7 @@ class MCPClientManager:
                 return await call_filesystem_tool(name, arguments)
                 
             async def close(self):
-                pass
+                return None
         
         return FilesystemMCPClient()
     
@@ -120,7 +116,7 @@ class MCPClientManager:
                 return await call_database_tool(name, arguments)
                 
             async def close(self):
-                pass
+                return None
         
         return DatabaseMCPClient()
     
@@ -141,7 +137,7 @@ class MCPClientManager:
                 return await call_system_tool(name, arguments)
                 
             async def close(self):
-                pass
+                return None
         
         return SystemMCPClient()
     
@@ -332,10 +328,8 @@ class MCPClientManager:
             self._initialized = False
             logger.info("所有MCP连接已关闭")
 
-
 # 全局MCP客户端管理器实例 - 延迟初始化
 _mcp_client_manager: Optional[MCPClientManager] = None
-
 
 async def get_mcp_client_manager() -> MCPClientManager:
     """获取MCP客户端管理器依赖注入"""
@@ -345,3 +339,4 @@ async def get_mcp_client_manager() -> MCPClientManager:
     if not _mcp_client_manager._initialized:
         await _mcp_client_manager.initialize()
     return _mcp_client_manager
+from src.core.logging import get_logger

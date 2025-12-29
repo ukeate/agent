@@ -6,7 +6,6 @@
 from datetime import datetime, timezone
 from typing import Optional
 
-
 def utc_now() -> datetime:
     """
     获取当前UTC时间
@@ -14,18 +13,16 @@ def utc_now() -> datetime:
     """
     return datetime.now(timezone.utc)
 
-
 def to_utc(dt: datetime) -> datetime:
     """
     将datetime对象转换为UTC时区
     """
     if dt.tzinfo is None:
-        # 如果没有时区信息，假设为本地时区
+        # 如果没有时区信息，假设为UTC
         return dt.replace(tzinfo=timezone.utc)
     else:
         # 转换到UTC时区
         return dt.astimezone(timezone.utc)
-
 
 def from_timestamp(timestamp: float) -> datetime:
     """
@@ -33,20 +30,17 @@ def from_timestamp(timestamp: float) -> datetime:
     """
     return datetime.fromtimestamp(timestamp, tz=timezone.utc)
 
-
 def to_timestamp(dt: datetime) -> float:
     """
     将datetime对象转换为时间戳
     """
     return dt.timestamp()
 
-
 def utc_factory() -> datetime:
     """
     工厂函数，用于dataclass的default_factory
     """
     return utc_now()
-
 
 def parse_iso_string(iso_string: str) -> Optional[datetime]:
     """
@@ -57,7 +51,6 @@ def parse_iso_string(iso_string: str) -> Optional[datetime]:
         return to_utc(dt)
     except (ValueError, AttributeError):
         return None
-
 
 def format_iso_string(dt: datetime) -> str:
     """

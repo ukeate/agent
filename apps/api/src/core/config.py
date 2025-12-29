@@ -4,10 +4,8 @@
 
 import secrets
 from functools import lru_cache
-
-from pydantic import ConfigDict, Field, field_validator
-from pydantic_settings import BaseSettings
-
+from pydantic import Field, field_validator, model_validator
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     """应用配置类"""
@@ -24,6 +22,28 @@ class Settings(BaseSettings):
         default=["http://localhost:3000", "http://127.0.0.1:3000", "http://localhost:3001", "http://127.0.0.1:3001", "http://localhost:3004", "http://127.0.0.1:3004"],
         description="允许的跨域来源",
     )
+    CORS_ALLOW_METHODS: list[str] = Field(
+        default=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+        description="允许的CORS方法",
+    )
+    CORS_ALLOW_HEADERS: list[str] = Field(
+        default=["Authorization", "Content-Type", "Accept", "X-Requested-With", "X-Request-ID"],
+        description="允许的CORS请求头",
+    )
+    CORS_EXPOSE_HEADERS: list[str] = Field(
+        default=["X-Request-ID"],
+        description="允许浏览器访问的响应头",
+    )
+    TRUSTED_HOSTS: list[str] = Field(
+        default=["localhost", "127.0.0.1"],
+        description="允许的Host头列表",
+    )
+    TRUSTED_HOSTS_WWW_REDIRECT: bool = Field(
+        default=False,
+        description="TrustedHostMiddleware是否启用www重定向",
+    )
+    GZIP_MINIMUM_SIZE: int = Field(default=1000, description="GZip最小压缩大小（字节）")
+    GZIP_COMPRESS_LEVEL: int = Field(default=6, description="GZip压缩级别(1-9)")
     JWT_ALGORITHM: str = Field(default="HS256", description="JWT算法")
     ACCESS_TOKEN_EXPIRE_MINUTES: int = Field(default=30, description="访问令牌过期时间（分钟）")
     REFRESH_TOKEN_EXPIRE_DAYS: int = Field(default=7, description="刷新令牌过期时间（天）")
@@ -39,10 +59,18 @@ class Settings(BaseSettings):
     MAX_REQUESTS_PER_MINUTE: int = Field(default=60, description="每分钟最大请求数")
     MAX_REQUEST_SIZE: int = Field(default=10485760, description="最大请求大小（字节）")
     DEFAULT_RATE_LIMIT: str = Field(default="100/minute", description="默认频率限制")
+    
+    # 邮件配置
+    SMTP_HOST: str = Field(default="", description="SMTP服务器地址")
+    SMTP_PORT: int = Field(default=587, description="SMTP服务器端口")
+    SMTP_USERNAME: str = Field(default="", description="SMTP用户名")
+    SMTP_PASSWORD: str = Field(default="", description="SMTP密码")
+    SMTP_USE_TLS: bool = Field(default=True, description="SMTP是否启用TLS")
+    SMTP_FROM: str = Field(default="", description="SMTP发件人地址")
 
     # 数据库配置
     DATABASE_URL: str = Field(
-        default="postgresql+asyncpg://ai_agent_user:ai_agent_password@localhost:5433/ai_agent_db",
+        default="postgresql+asyncpg://root:asdf@localhost:5432/ai_agent_db",
         description="数据库连接URL",
     )
 
@@ -82,7 +110,7 @@ class Settings(BaseSettings):
     PGVECTOR_ENABLED: bool = Field(default=True, description="启用pgvector支持")
     PGVECTOR_VERSION: str = Field(default="0.8.0", description="pgvector版本")
     PGVECTOR_DATABASE_URL: str = Field(
-        default="postgresql://ai_agent_user:ai_agent_password@localhost:5433/ai_agent_db",
+        default="postgresql://root:asdf@localhost:5432/ai_agent_db",
         description="pgvector专用数据库连接URL（纯PostgreSQL格式）"
     )
     
@@ -125,6 +153,9 @@ class Settings(BaseSettings):
     VECTOR_METRICS_COLLECTION_INTERVAL: int = Field(default=60, description="向量指标收集间隔（秒）")
     VECTOR_PERFORMANCE_LOGGING: bool = Field(default=True, description="启用向量性能日志")
     VECTOR_SLOW_QUERY_THRESHOLD: float = Field(default=1.0, description="慢查询阈值（秒）")
+
+    # TensorFlow控制
+    TENSORFLOW_DISABLED: bool = Field(default=False, description="是否禁用TensorFlow")
     
     # 向量数据完整性配置
     VECTOR_BACKUP_ENABLED: bool = Field(default=True, description="启用向量数据备份")
@@ -155,7 +186,6 @@ class Settings(BaseSettings):
     CACHE_REDIS_URL: str = Field(default="redis://localhost:6379/1", description="缓存专用Redis URL")
     CACHE_COMPRESSION: bool = Field(default=True, description="启用缓存压缩")
     CACHE_MONITORING: bool = Field(default=True, description="启用缓存监控")
-    CACHE_SERIALIZE_METHOD: str = Field(default="pickle", description="缓存序列化方法")
     CACHE_CLEANUP_INTERVAL: int = Field(default=300, description="缓存清理间隔（秒）")
 
     # 离线能力配置
@@ -188,28 +218,41 @@ class Settings(BaseSettings):
     @field_validator("SECRET_KEY", mode="before")
     @classmethod
     def secret_key_validator(cls, v):
-        """验证密钥 - 为开发环境生成加密安全的密钥"""
+        """验证密钥"""
         if not v:
-            # 生成加密安全的32字节密钥用于开发环境
-            dev_key = secrets.token_urlsafe(32)
-            return dev_key
+            return ""
         return v
 
-    @field_validator("ALLOWED_HOSTS", mode="before")
+    @model_validator(mode="after")
+    def ensure_secret_key(self):
+        """确保非调试/非测试环境必须配置密钥"""
+        if not self.SECRET_KEY:
+            if self.DEBUG or self.TESTING:
+                self.SECRET_KEY = secrets.token_urlsafe(32)
+            else:
+                raise ValueError("SECRET_KEY必须在非调试/非测试环境设置")
+        return self
+
+    @field_validator(
+        "ALLOWED_HOSTS",
+        "CORS_ALLOW_METHODS",
+        "CORS_ALLOW_HEADERS",
+        "CORS_EXPOSE_HEADERS",
+        mode="before",
+    )
     @classmethod
-    def parse_allowed_hosts(cls, v):
-        """解析允许的主机列表"""
+    def parse_list_settings(cls, v):
+        """解析列表配置"""
         if isinstance(v, str):
             return [host.strip() for host in v.split(",") if host.strip()]
         return v
 
-    model_config = ConfigDict(
+    model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
         case_sensitive=True,
         env_nested_delimiter="__",
     )
-
 
 @lru_cache
 def get_settings() -> Settings:

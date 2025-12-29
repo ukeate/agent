@@ -3,6 +3,7 @@
 实现智能体间的标准化消息格式和通信协议
 """
 
+from src.core.utils.timezone_utils import utc_now
 import asyncio
 import json
 import uuid
@@ -12,10 +13,9 @@ from typing import Dict, List, Optional, Any, Callable, Union, Set
 from dataclasses import dataclass, asdict, field
 from datetime import datetime, timedelta
 from enum import Enum
-import logging
 
-logger = logging.getLogger(__name__)
-
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 class MessageType(str, Enum):
     """消息类型枚举"""
@@ -63,7 +63,6 @@ class MessageType(str, Enum):
     BROADCAST = "broadcast"
     MULTICAST = "multicast"
 
-
 class MessagePriority(int, Enum):
     """消息优先级"""
     LOW = 1
@@ -71,13 +70,11 @@ class MessagePriority(int, Enum):
     HIGH = 8
     CRITICAL = 10
 
-
 class DeliveryMode(str, Enum):
     """消息投递模式"""
     AT_MOST_ONCE = "at_most_once"      # 最多一次
     AT_LEAST_ONCE = "at_least_once"    # 至少一次
     EXACTLY_ONCE = "exactly_once"      # 恰好一次
-
 
 @dataclass
 class MessageHeader:
@@ -95,7 +92,6 @@ class MessageHeader:
     # 高级通信字段
     stream_id: Optional[str] = None  # 数据流ID
     multicast_group: Optional[str] = None  # 多播组ID
-
 
 @dataclass
 class Message:
@@ -168,7 +164,6 @@ class Message:
             logger.error(f"消息反序列化失败: {e}")
             raise
 
-
 class MessageHandler:
     """消息处理器"""
     
@@ -199,12 +194,12 @@ class MessageHandler:
                 if self.is_async:
                     result = await self.handler(message)
                 else:
-                    loop = asyncio.get_event_loop()
+                    loop = asyncio.get_running_loop()
                     result = await loop.run_in_executor(None, self.handler, message)
                 
                 # 更新统计信息
                 self.stats["handled"] += 1
-                self.stats["last_handled"] = datetime.now()
+                self.stats["last_handled"] = utc_now()
                 
                 processing_time = time.time() - start_time
                 logger.debug(f"消息 {message.header.message_id} 处理完成, 耗时: {processing_time:.3f}s")
@@ -215,7 +210,6 @@ class MessageHandler:
                 self.stats["errors"] += 1
                 logger.error(f"消息处理失败 {message.header.message_id}: {e}")
                 raise
-
 
 @dataclass
 class StreamConfig:
@@ -243,7 +237,6 @@ class StreamConfig:
             "num_replicas": self.replicas
         }
 
-
 class ConnectionState(str, Enum):
     """连接状态"""
     DISCONNECTED = "disconnected"
@@ -252,7 +245,6 @@ class ConnectionState(str, Enum):
     RECONNECTING = "reconnecting"
     DRAINING = "draining"
     CLOSED = "closed"
-
 
 @dataclass
 class ConnectionMetrics:
@@ -279,7 +271,6 @@ class ConnectionMetrics:
     def to_dict(self) -> Dict[str, Any]:
         """转换为字典"""
         return asdict(self)
-
 
 @dataclass
 class TopicConfig:

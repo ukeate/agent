@@ -1,23 +1,24 @@
 """记忆分析API端点"""
+
+import time
 from typing import Optional
 from datetime import datetime
 from datetime import timedelta
-from src.core.utils.timezone_utils import utc_now, utc_factory
+from src.core.utils.timezone_utils import utc_now
 from fastapi import APIRouter, Depends, Query, HTTPException
-from pydantic import BaseModel
-
 from src.ai.memory.models import MemoryAnalytics, MemoryStatus, MemoryFilters
 from src.services.memory_service import memory_service
 from src.core.dependencies import get_current_user
+from src.api.base_model import ApiBaseModel
+
+logger = get_logger(__name__)
 
 router = APIRouter(prefix="/memories/analytics", tags=["Memory Analytics"])
 
-
-class TimeRange(BaseModel):
+class TimeRange(ApiBaseModel):
     """时间范围参数"""
     start: Optional[datetime] = None
     end: Optional[datetime] = None
-
 
 @router.get("/", response_model=MemoryAnalytics)
 async def get_memory_analytics(
@@ -41,11 +42,8 @@ async def get_memory_analytics(
         # 重新抛出HTTP异常
         raise
     except Exception as e:
-        import traceback
-        print(f"Memory analytics error: {str(e)}")
-        print(f"Traceback: {traceback.format_exc()}")
+        logger.exception("获取记忆统计分析失败", error=str(e))
         raise HTTPException(status_code=500, detail=f"获取分析数据失败: {str(e)}")
-
 
 @router.get("/patterns")
 async def get_memory_patterns(
@@ -71,7 +69,6 @@ async def get_memory_patterns(
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"获取记忆模式失败: {str(e)}")
-
 
 @router.get("/graph/stats")
 async def get_graph_statistics(
@@ -128,7 +125,6 @@ async def get_graph_statistics(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"获取图统计失败: {str(e)}")
 
-
 @router.get("/trends")
 async def get_memory_trends(
     days: int = Query(30, ge=7, le=365),
@@ -184,7 +180,6 @@ async def get_memory_trends(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"获取趋势分析失败: {str(e)}")
 
-
 @router.get("/health")
 async def get_memory_system_health(
     user_id: Optional[str] = Depends(get_current_user)
@@ -202,10 +197,18 @@ async def get_memory_system_health(
         from src.ai.memory.models import MemoryFilters
         
         filters = MemoryFilters(status=[MemoryStatus.ACTIVE])
-        active_memories = await memory_service.hierarchy_manager.storage.search_memories(
-            filters,
-            limit=1
-        )
+        recall_start = time.perf_counter()
+        await memory_service.hierarchy_manager.storage.search_memories(filters, limit=10)
+        avg_recall_time_ms = (time.perf_counter() - recall_start) * 1000
+
+        cache_hit_rate = 0.0
+        redis_cache = memory_service.hierarchy_manager.storage.redis_cache
+        if redis_cache:
+            info = await redis_cache.info()
+            hits = float(info.get("keyspace_hits", 0) or 0)
+            misses = float(info.get("keyspace_misses", 0) or 0)
+            total = hits + misses
+            cache_hit_rate = hits / total if total else 0.0
         
         return {
             "status": "healthy" if storage_ok else "degraded",
@@ -223,8 +226,8 @@ async def get_memory_system_health(
                 }
             },
             "performance": {
-                "avg_recall_time_ms": 50,  # 示例值
-                "cache_hit_rate": 0.8  # 示例值
+                "avg_recall_time_ms": avg_recall_time_ms,
+                "cache_hit_rate": cache_hit_rate
             }
         }
     except Exception as e:
@@ -232,3 +235,4 @@ async def get_memory_system_health(
             "status": "error",
             "error": str(e)
         }
+from src.core.logging import get_logger

@@ -3,8 +3,10 @@
  * 处理与事件API的交互
  */
 
+import { buildWsUrl } from '../utils/apiBase'
 import apiClient from './apiClient'
 
+import { logger } from '../utils/logger'
 export interface Event {
   id: string
   timestamp: string
@@ -53,6 +55,10 @@ export interface ClusterStatus {
 class EventService {
   private wsConnection: WebSocket | null = null
   private eventHandlers: Set<(event: Event) => void> = new Set()
+  private reconnectTimer: ReturnType<typeof setTimeout> | null = null
+  private heartbeatInterval: ReturnType<typeof setInterval> | null = null
+  private reconnectAttempts = 0
+  private readonly maxReconnectAttempts = 10
 
   /**
    * 获取事件列表
@@ -76,9 +82,8 @@ class EventService {
       const response = await apiClient.get(`/events/list?${params.toString()}`)
       return response.data
     } catch (error) {
-      console.error('获取事件列表失败:', error)
-      // 返回模拟数据作为fallback
-      return this.getMockEvents()
+      logger.error('获取事件列表失败:', error)
+      throw error
     }
   }
 
@@ -90,18 +95,8 @@ class EventService {
       const response = await apiClient.get(`/events/stats?hours=${hours}`)
       return response.data
     } catch (error) {
-      console.error('获取事件统计失败:', error)
-      // 返回模拟数据
-      return {
-        total: 10,
-        info: 4,
-        warning: 3,
-        error: 2,
-        success: 1,
-        critical: 0,
-        by_source: { 'System': 5, 'Agent Manager': 3, 'Task Scheduler': 2 },
-        by_type: { 'MESSAGE_SENT': 4, 'TASK_COMPLETED': 3, 'ERROR_OCCURRED': 3 }
-      }
+      logger.error('获取事件统计失败:', error)
+      throw error
     }
   }
 
@@ -113,16 +108,8 @@ class EventService {
       const response = await apiClient.get('/events/cluster/status')
       return response.data
     } catch (error) {
-      console.error('获取集群状态失败:', error)
-      return {
-        node_id: 'local',
-        role: 'standalone',
-        status: 'active',
-        load: 0.1,
-        active_nodes: 1,
-        nodes: { 'local': { status: 'active', role: 'leader', load: 0.1 } },
-        stats: { events_processed: 0 }
-      }
+      logger.error('获取集群状态失败:', error)
+      throw error
     }
   }
 
@@ -134,13 +121,8 @@ class EventService {
       const response = await apiClient.get('/events/monitoring/metrics')
       return response.data
     } catch (error) {
-      console.error('获取监控指标失败:', error)
-      return {
-        event_counts: {},
-        processing_times: {},
-        error_rates: {},
-        queue_sizes: {}
-      }
+      logger.error('获取监控指标失败:', error)
+      throw error
     }
   }
 
@@ -157,7 +139,7 @@ class EventService {
       const response = await apiClient.post('/events/replay', params)
       return response.data
     } catch (error) {
-      console.error('重播事件失败:', error)
+      logger.error('重播事件失败:', error)
       throw error
     }
   }
@@ -175,7 +157,7 @@ class EventService {
       const response = await apiClient.post('/events/submit', null, { params })
       return response.data
     } catch (error) {
-      console.error('提交事件失败:', error)
+      logger.error('提交事件失败:', error)
       throw error
     }
   }
@@ -184,77 +166,16 @@ class EventService {
    * 连接WebSocket事件流
    */
   connectEventStream(onEvent: (event: Event) => void): void {
-    // 断开现有连接
-    this.disconnectEventStream()
-    
     // 添加事件处理器
     this.eventHandlers.add(onEvent)
-    
-    // 建立WebSocket连接
-    const wsUrl = `ws://localhost:8000/api/v1/events/stream`
-    
-    try {
-      this.wsConnection = new WebSocket(wsUrl)
-      
-      this.wsConnection.onopen = () => {
-        console.log('事件流WebSocket连接已建立')
-      }
-      
-      this.wsConnection.onmessage = (event) => {
-        try {
-          const data = JSON.parse(event.data)
-          
-          if (data.type === 'event' && data.data) {
-            // 广播事件到所有处理器
-            this.eventHandlers.forEach(handler => {
-              handler(data.data as Event)
-            })
-          }
-        } catch (error) {
-          console.error('解析事件消息失败:', error)
-        }
-      }
-      
-      this.wsConnection.onerror = (error) => {
-        console.error('WebSocket错误:', error)
-      }
-      
-      this.wsConnection.onclose = () => {
-        console.log('事件流WebSocket连接已关闭')
-        this.wsConnection = null
-        
-        // 5秒后尝试重连
-        setTimeout(() => {
-          if (this.eventHandlers.size > 0) {
-            console.log('尝试重新连接事件流...')
-            const handlers = Array.from(this.eventHandlers)
-            this.connectEventStream(handlers[0])
-          }
-        }, 5000)
-      }
-      
-      // 定期发送心跳
-      const heartbeatInterval = setInterval(() => {
-        if (this.wsConnection?.readyState === WebSocket.OPEN) {
-          this.wsConnection.send('ping')
-        } else {
-          clearInterval(heartbeatInterval)
-        }
-      }, 30000)
-      
-    } catch (error) {
-      console.error('建立WebSocket连接失败:', error)
-    }
+    this.connectIfNeeded()
   }
 
   /**
    * 断开WebSocket连接
    */
   disconnectEventStream(): void {
-    if (this.wsConnection) {
-      this.wsConnection.close()
-      this.wsConnection = null
-    }
+    this.closeConnection()
     this.eventHandlers.clear()
   }
 
@@ -270,52 +191,113 @@ class EventService {
     }
   }
 
-  /**
-   * 获取模拟事件数据
-   */
-  private getMockEvents(): Event[] {
-    const now = new Date()
-    return [
-      {
-        id: '1',
-        timestamp: new Date(now.getTime() - 1000 * 60 * 5).toISOString(),
-        type: 'error',
-        source: 'Agent Manager',
-        title: '智能体连接失败',
-        message: 'RAG处理器智能体连接超时，正在尝试重连',
-        agent: 'RAG处理器',
-        severity: 'high'
-      },
-      {
-        id: '2',
-        timestamp: new Date(now.getTime() - 1000 * 60 * 10).toISOString(),
-        type: 'success',
-        source: 'Task Scheduler',
-        title: '任务完成',
-        message: '文档分析任务已成功完成，处理了125个文档',
-        agent: '文档分析器',
-        severity: 'low'
-      },
-      {
-        id: '3',
-        timestamp: new Date(now.getTime() - 1000 * 60 * 15).toISOString(),
-        type: 'warning',
-        source: 'Resource Monitor',
-        title: 'CPU使用率过高',
-        message: '代码生成器CPU使用率达到85%，建议优化性能',
-        agent: '代码生成器',
-        severity: 'medium'
-      },
-      {
-        id: '4',
-        timestamp: new Date(now.getTime() - 1000 * 60 * 20).toISOString(),
-        type: 'info',
-        source: 'System',
-        title: '系统启动',
-        message: '多智能体系统已成功启动，所有组件运行正常',
-        severity: 'low'
+  private connectIfNeeded(): void {
+    if (this.wsConnection && this.wsConnection.readyState !== WebSocket.CLOSED) {
+      return
+    }
+    this.clearReconnectTimer()
+    this.openConnection()
+  }
+
+  private openConnection(): void {
+    const wsUrl = buildWsUrl('/events/stream')
+
+    try {
+      this.wsConnection = new WebSocket(wsUrl)
+
+      this.wsConnection.onopen = () => {
+        logger.log('事件流WebSocket连接已建立')
+        this.reconnectAttempts = 0
+        this.startHeartbeat()
       }
-    ]
+
+      this.wsConnection.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data)
+
+          if (data.type === 'event' && data.data) {
+            this.eventHandlers.forEach(handler => {
+              handler(data.data as Event)
+            })
+          }
+        } catch (error) {
+          logger.error('解析事件消息失败:', error)
+        }
+      }
+
+      this.wsConnection.onerror = (error) => {
+        logger.error('WebSocket错误:', error)
+        if (
+          this.wsConnection &&
+          this.wsConnection.readyState !== WebSocket.CLOSING &&
+          this.wsConnection.readyState !== WebSocket.CLOSED
+        ) {
+          this.wsConnection.close()
+        }
+      }
+
+      this.wsConnection.onclose = () => {
+        logger.log('事件流WebSocket连接已关闭')
+        this.wsConnection = null
+        this.stopHeartbeat()
+        this.scheduleReconnect()
+      }
+    } catch (error) {
+      logger.error('建立WebSocket连接失败:', error)
+      this.scheduleReconnect()
+    }
+  }
+
+  private scheduleReconnect(): void {
+    if (this.eventHandlers.size === 0) return
+    this.clearReconnectTimer()
+    if (this.reconnectAttempts >= this.maxReconnectAttempts) {
+      logger.error('事件流重连次数已达上限')
+      return
+    }
+    this.reconnectAttempts += 1
+    const delay = Math.min(5000 * Math.pow(2, this.reconnectAttempts - 1), 30000)
+    this.reconnectTimer = setTimeout(() => {
+      if (this.eventHandlers.size > 0) {
+        logger.log('尝试重新连接事件流...')
+        this.openConnection()
+      }
+    }, delay)
+  }
+
+  private clearReconnectTimer(): void {
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer)
+      this.reconnectTimer = null
+    }
+  }
+
+  private startHeartbeat(): void {
+    this.stopHeartbeat()
+    this.heartbeatInterval = setInterval(() => {
+      if (this.wsConnection?.readyState === WebSocket.OPEN) {
+        this.wsConnection.send('ping')
+      } else {
+        this.stopHeartbeat()
+      }
+    }, 30000)
+  }
+
+  private stopHeartbeat(): void {
+    if (this.heartbeatInterval) {
+      clearInterval(this.heartbeatInterval)
+      this.heartbeatInterval = null
+    }
+  }
+
+  private closeConnection(): void {
+    this.clearReconnectTimer()
+    this.stopHeartbeat()
+    this.reconnectAttempts = 0
+    if (this.wsConnection) {
+      this.wsConnection.close()
+      this.wsConnection = null
+    }
   }
 }
 

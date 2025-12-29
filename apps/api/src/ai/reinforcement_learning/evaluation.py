@@ -13,9 +13,7 @@ from src.core.utils.timezone_utils import utc_now, utc_factory
 from dataclasses import dataclass, asdict
 from abc import ABC, abstractmethod
 import uuid
-
 from .bandits.base import MultiArmedBandit
-
 
 @dataclass
 class InteractionEvent:
@@ -29,7 +27,6 @@ class InteractionEvent:
     context: Optional[Dict[str, Any]] = None
     algorithm: Optional[str] = None
     experiment_id: Optional[str] = None
-
 
 @dataclass
 class EvaluationMetrics:
@@ -46,7 +43,6 @@ class EvaluationMetrics:
     precision_at_k: Optional[Dict[int, float]] = None
     recall_at_k: Optional[Dict[int, float]] = None
     ndcg_at_k: Optional[Dict[int, float]] = None
-
 
 class MetricCalculator:
     """评估指标计算器"""
@@ -168,7 +164,6 @@ class MetricCalculator:
         
         return dcg / idcg if idcg > 0 else 0.0
 
-
 class OnlineEvaluator:
     """在线评估器"""
     
@@ -247,7 +242,6 @@ class OnlineEvaluator:
             "recent_diversity": self.calculator.calculate_diversity(recent_events),
             "events_count": len(recent_events)
         }
-
 
 class OfflineEvaluator:
     """离线评估器（回放测试）"""
@@ -369,7 +363,6 @@ class OfflineEvaluator:
                 "best_avg_reward": sorted_policies[0][1]["metrics"]["average_reward"] if sorted_policies else 0.0
             }
         }
-
 
 class ABTestManager:
     """A/B测试管理器"""

@@ -8,17 +8,15 @@ from datetime import datetime
 from datetime import timedelta
 from src.core.utils.timezone_utils import utc_now, utc_factory
 from typing import Any, Dict, List, Optional
-
-import structlog
 from fastapi import Request, Response
 from pydantic import BaseModel
-
 from src.core.config import get_settings
 from src.core.redis import get_redis
 
-logger = structlog.get_logger(__name__)
-settings = get_settings()
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
+settings = get_settings()
 
 class APIMetrics(BaseModel):
     """API指标模型"""
@@ -35,7 +33,6 @@ class APIMetrics(BaseModel):
     cache_key: Optional[str] = None
     error_type: Optional[str] = None
     error_message: Optional[str] = None
-
 
 class MetricsCollector:
     """指标收集器"""
@@ -65,10 +62,14 @@ class MetricsCollector:
         """初始化指标收集器"""
         if self.enabled:
             try:
-                self.redis = await get_redis()
-                logger.info("Metrics collector initialized")
+                self.redis = get_redis()
+                if not self.redis:
+                    logger.warning("指标收集器初始化失败：Redis未就绪")
+                    self.enabled = False
+                    return
+                logger.info("指标收集器初始化完成")
             except Exception as e:
-                logger.error("Failed to initialize metrics collector", error=str(e))
+                logger.error("指标收集器初始化失败", error=str(e))
                 self.enabled = False
     
     async def collect(
@@ -167,7 +168,7 @@ class MetricsCollector:
                 # 存储到时间序列
                 key = f"metrics:api:{metric.endpoint}:{metric.method}"
                 score = metric.timestamp.timestamp()
-                value = metric.json()
+                value = metric.model_dump_json()
                 
                 # 添加到有序集合（保留1天的数据）
                 pipeline.zadd(key, {value: score})
@@ -227,7 +228,7 @@ class MetricsCollector:
                 withscores=False
             )
             
-            metrics = [APIMetrics.parse_raw(r) for r in results]
+            metrics = [APIMetrics.model_validate_json(r) for r in results]
             
             # 计算统计
             if metrics:
@@ -290,7 +291,7 @@ class MetricsCollector:
             reverse=True
         )
         
-        return [q.dict() for q in sorted_queries[:limit]]
+        return [q.model_dump() for q in sorted_queries[:limit]]
     
     async def get_performance_summary(self) -> Dict[str, Any]:
         """获取性能摘要"""
@@ -330,7 +331,6 @@ class MetricsCollector:
             "top_slow_queries": slow_queries[:5],
             "endpoint_stats": real_time_stats
         }
-
 
 # 全局指标收集器实例
 metrics_collector = MetricsCollector()

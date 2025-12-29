@@ -1,22 +1,23 @@
 """
 共情响应生成API端点
 """
-import logging
+
+from src.core.utils.timezone_utils import utc_now
 from typing import Dict, Any, Optional, List
 from fastapi import APIRouter, HTTPException, Depends, BackgroundTasks
-from pydantic import BaseModel, Field
-from datetime import datetime
-
-from ...ai.empathy_response.response_engine import EmpathyResponseEngine
-from ...ai.empathy_response.models import (
+from pydantic import Field
+from src.ai.empathy_response.response_engine import EmpathyResponseEngine
+from src.ai.empathy_response.models import (
     EmpathyRequest, EmpathyResponse, EmpathyType,
     CulturalContext, ResponseTone
 )
-from ...ai.emotion_modeling.models import EmotionState, PersonalityProfile
-from ...ai.emotion_recognition.models.emotion_models import MultiModalEmotion
-from ...core.dependencies import get_current_user
+from src.api.base_model import ApiBaseModel
+from src.ai.emotion_modeling.models import EmotionState, PersonalityProfile
+from src.ai.emotion_recognition.models.emotion_models import MultiModalEmotion
+from src.core.dependencies import get_current_user
 
-logger = logging.getLogger(__name__)
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 # 创建路由器
 router = APIRouter(prefix="/empathy", tags=["empathy"])
@@ -24,9 +25,8 @@ router = APIRouter(prefix="/empathy", tags=["empathy"])
 # 全局共情响应引擎实例
 empathy_engine = EmpathyResponseEngine()
 
-
 # Pydantic模型用于API
-class EmotionStateRequest(BaseModel):
+class EmotionStateRequest(ApiBaseModel):
     """情感状态请求模型"""
     emotion: str = Field(..., description="情感类型")
     intensity: float = Field(..., ge=0.0, le=1.0, description="情感强度")
@@ -36,24 +36,21 @@ class EmotionStateRequest(BaseModel):
     confidence: float = Field(1.0, ge=0.0, le=1.0, description="置信度")
     source: str = Field("api", description="来源")
 
-
-class PersonalityProfileRequest(BaseModel):
+class PersonalityProfileRequest(ApiBaseModel):
     """个性画像请求模型"""
     emotional_traits: Dict[str, float] = Field(..., description="情感特质")
     baseline_emotions: Dict[str, float] = Field(default_factory=dict, description="基线情感")
     emotion_volatility: float = Field(0.5, ge=0.0, le=1.0, description="情感波动性")
     recovery_rate: float = Field(0.5, ge=0.0, le=1.0, description="恢复速度")
 
-
-class EmpathyFeedbackRequest(BaseModel):
+class EmpathyFeedbackRequest(ApiBaseModel):
     """共情反馈请求模型"""
     response_id: str = Field(..., description="响应ID")
     rating: float = Field(..., ge=0.0, le=5.0, description="评分 (0-5)")
     feedback_text: Optional[str] = Field(None, description="反馈文本")
     user_id: Optional[str] = Field(None, description="用户ID")
 
-
-class EmpathyGenerateRequest(BaseModel):
+class EmpathyGenerateRequest(ApiBaseModel):
     """共情响应生成请求"""
     user_id: str = Field(..., description="用户ID")
     message: str = Field(..., description="用户消息")
@@ -65,8 +62,7 @@ class EmpathyGenerateRequest(BaseModel):
     urgency_level: float = Field(0.5, ge=0.0, le=1.0, description="紧急程度")
     max_generation_time_ms: float = Field(300.0, gt=0, description="最大生成时间(毫秒)")
 
-
-class EmpathyResponseModel(BaseModel):
+class EmpathyResponseModel(ApiBaseModel):
     """共情响应模型"""
     id: str
     response_text: str
@@ -83,17 +79,15 @@ class EmpathyResponseModel(BaseModel):
     template_used: Optional[str]
     metadata: Dict[str, Any]
 
-
-class BatchEmpathyRequest(BaseModel):
+class BatchEmpathyRequest(ApiBaseModel):
     """批量共情响应请求"""
     requests: List[EmpathyGenerateRequest] = Field(..., max_items=10, description="请求列表")
-
 
 @router.post("/generate", response_model=EmpathyResponseModel)
 async def generate_empathy_response(
     request: EmpathyGenerateRequest,
     background_tasks: BackgroundTasks,
-    current_user: Dict = Depends(get_current_user)
+    current_user: str = Depends(get_current_user)
 ) -> EmpathyResponseModel:
     """
     生成共情响应
@@ -111,7 +105,7 @@ async def generate_empathy_response(
         background_tasks.add_task(
             _log_empathy_interaction,
             user_id=request.user_id,
-            request_data=request.dict(),
+            request_data=request.model_dump(),
             response_data=response.to_dict()
         )
         
@@ -124,12 +118,11 @@ async def generate_empathy_response(
             detail=f"Failed to generate empathy response: {str(e)}"
         )
 
-
 @router.post("/batch-generate", response_model=List[EmpathyResponseModel])
 async def batch_generate_empathy_responses(
     batch_request: BatchEmpathyRequest,
     background_tasks: BackgroundTasks,
-    current_user: Dict = Depends(get_current_user)
+    current_user: str = Depends(get_current_user)
 ) -> List[EmpathyResponseModel]:
     """
     批量生成共情响应
@@ -150,7 +143,7 @@ async def batch_generate_empathy_responses(
             background_tasks.add_task(
                 _log_empathy_interaction,
                 user_id=req.user_id,
-                request_data=req.dict(),
+                request_data=req.model_dump(),
                 response_data=resp.to_dict()
             )
         
@@ -163,12 +156,11 @@ async def batch_generate_empathy_responses(
             detail=f"Failed to batch generate empathy responses: {str(e)}"
         )
 
-
 @router.get("/strategies", response_model=Dict[str, Any])
 async def get_empathy_strategies(
     emotion: Optional[str] = None,
     user_id: Optional[str] = None,
-    current_user: Dict = Depends(get_current_user)
+    current_user: str = Depends(get_current_user)
 ) -> Dict[str, Any]:
     """
     获取可用的共情策略信息
@@ -223,11 +215,10 @@ async def get_empathy_strategies(
             detail=f"Failed to get empathy strategies: {str(e)}"
         )
 
-
 @router.get("/analytics", response_model=Dict[str, Any])
 async def get_empathy_analytics(
     user_id: Optional[str] = None,
-    current_user: Dict = Depends(get_current_user)
+    current_user: str = Depends(get_current_user)
 ) -> Dict[str, Any]:
     """
     获取共情响应分析数据
@@ -261,11 +252,10 @@ async def get_empathy_analytics(
             detail=f"Failed to get empathy analytics: {str(e)}"
         )
 
-
 @router.post("/feedback")
 async def submit_empathy_feedback(
     feedback_request: EmpathyFeedbackRequest,
-    current_user: Dict = Depends(get_current_user)
+    current_user: str = Depends(get_current_user)
 ):
     """
     提交共情响应反馈
@@ -277,8 +267,8 @@ async def submit_empathy_feedback(
             "response_id": feedback_request.response_id,
             "rating": feedback_request.rating,
             "feedback_text": feedback_request.feedback_text,
-            "user_id": feedback_request.user_id or current_user.get("user_id"),
-            "timestamp": datetime.now().isoformat(),
+            "user_id": feedback_request.user_id or current_user,
+            "timestamp": utc_now().isoformat(),
             "source": "api"
         }
         
@@ -292,7 +282,7 @@ async def submit_empathy_feedback(
         
         return {
             "message": "Feedback submitted successfully",
-            "feedback_id": f"feedback_{int(datetime.now().timestamp())}",
+            "feedback_id": f"feedback_{int(utc_now().timestamp())}",
             "status": "processed"
         }
         
@@ -302,7 +292,6 @@ async def submit_empathy_feedback(
             status_code=500,
             detail=f"Failed to submit feedback: {str(e)}"
         )
-
 
 @router.get("/health")
 async def empathy_health_check() -> Dict[str, Any]:
@@ -315,7 +304,7 @@ async def empathy_health_check() -> Dict[str, Any]:
         health_data = empathy_engine.health_check()
         return {
             "status": "healthy" if health_data["healthy"] else "unhealthy",
-            "timestamp": datetime.now().isoformat(),
+            "timestamp": utc_now().isoformat(),
             "details": health_data
         }
         
@@ -323,15 +312,14 @@ async def empathy_health_check() -> Dict[str, Any]:
         logger.error(f"Health check failed: {e}")
         return {
             "status": "unhealthy",
-            "timestamp": datetime.now().isoformat(),
+            "timestamp": utc_now().isoformat(),
             "error": str(e)
         }
-
 
 @router.delete("/context/{user_id}")
 async def clear_user_context(
     user_id: str,
-    current_user: Dict = Depends(get_current_user)
+    current_user: str = Depends(get_current_user)
 ):
     """
     清除用户对话上下文
@@ -349,7 +337,7 @@ async def clear_user_context(
             "message": f"User context cleared for {user_id}",
             "context_cleared": context_cleared,
             "patterns_cleared": patterns_cleared,
-            "timestamp": datetime.now().isoformat()
+            "timestamp": utc_now().isoformat()
         }
         
     except Exception as e:
@@ -358,7 +346,6 @@ async def clear_user_context(
             status_code=500,
             detail=f"Failed to clear user context: {str(e)}"
         )
-
 
 # 辅助函数
 def _convert_api_request(api_request: EmpathyGenerateRequest) -> EmpathyRequest:
@@ -400,7 +387,6 @@ def _convert_api_request(api_request: EmpathyGenerateRequest) -> EmpathyRequest:
         max_generation_time_ms=api_request.max_generation_time_ms
     )
 
-
 async def _log_empathy_interaction(
     user_id: str,
     request_data: Dict[str, Any],
@@ -410,7 +396,7 @@ async def _log_empathy_interaction(
     try:
         interaction_log = {
             "user_id": user_id,
-            "timestamp": datetime.now().isoformat(),
+            "timestamp": utc_now().isoformat(),
             "request": request_data,
             "response": response_data,
             "type": "empathy_interaction"

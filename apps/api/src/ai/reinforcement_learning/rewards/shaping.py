@@ -5,11 +5,11 @@
 """
 
 import numpy as np
+import ast
 import math
 from typing import Dict, Any, Optional, Callable, List, Tuple
 from collections import deque
 from .base import RewardFunction, RewardConfig
-
 
 class PotentialBasedShaping(RewardFunction):
     """基于势能的奖励塑形"""
@@ -72,7 +72,6 @@ class PotentialBasedShaping(RewardFunction):
         """回合开始时重置势能"""
         super().on_episode_start()
         self.previous_potential = None
-
 
 class DifferenceReward(RewardFunction):
     """差分奖励函数"""
@@ -145,7 +144,6 @@ class DifferenceReward(RewardFunction):
         self.update_metrics(reward)
         
         return reward
-
 
 class CuriosityReward(RewardFunction):
     """基于好奇心的内在奖励"""
@@ -242,7 +240,7 @@ class CuriosityReward(RewardFunction):
         for state_key in recent_states:
             try:
                 # 尝试恢复状态向量（简化实现）
-                state_list = eval(state_key)
+                state_list = ast.literal_eval(state_key)
                 historical_state = np.array(state_list)
                 distance = np.linalg.norm(current_state - historical_state)
                 distances.append(distance)
@@ -257,7 +255,6 @@ class CuriosityReward(RewardFunction):
             similarity_bonus = 0.0
         
         return similarity_bonus * 0.1  # 缩放因子
-
 
 class DenseRewardShaping(RewardFunction):
     """密集奖励塑形"""
@@ -318,7 +315,6 @@ class DenseRewardShaping(RewardFunction):
     def update_shaping_decay(self, new_decay: float):
         """更新塑形衰减因子"""
         self.shaping_decay = max(0.0, min(1.0, new_decay))
-
 
 class HindsightExperienceReward(RewardFunction):
     """后见之明经验奖励"""
@@ -401,7 +397,6 @@ class HindsightExperienceReward(RewardFunction):
                     her_rewards.append(-0.01)  # 小的负奖励
         
         return her_rewards
-
 
 class RewardClipping(RewardFunction):
     """奖励裁剪和缩放"""

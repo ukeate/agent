@@ -91,16 +91,35 @@ export interface MemoryGraphEdge {
 }
 
 export interface MemoryPattern {
-  frequently_accessed: string[]
-  recently_accessed: string[]
-  co_accessed: string[]
-  central_memories: string[]
+  time_patterns: {
+    hourly_distribution: Record<string, number>
+    daily_distribution: Record<string, number>
+  }
+  content_patterns: {
+    tag_frequency: Record<string, number>
+    type_distribution: Record<string, number>
+  }
+  usage_patterns: {
+    peak_hours: Array<[string, number]>
+    most_active_days: Array<[string, number]>
+  }
 }
 
 export interface MemoryTrend {
-  daily_counts: Record<string, number>
-  type_trends: Record<string, Record<string, number>>
-  total_memories: number
-  growth_rate_percentage: number
-  avg_daily_memories: number
+  period: {
+    start_date: string
+    end_date: string
+    total_days: number
+  }
+  daily_trends: Record<string, {
+    memory_count: number
+    avg_importance: number
+    total_access: number
+    type_distribution: Record<string, number>
+  }>
+  summary: {
+    total_memories: number
+    avg_daily_creation: number
+    growth_rate: number
+  }
 }

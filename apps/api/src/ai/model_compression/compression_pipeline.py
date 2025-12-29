@@ -10,7 +10,6 @@
 import torch
 import torch.nn as nn
 from typing import Dict, Any, Optional, List, Tuple, Union, Callable
-import logging
 import time
 import os
 import json
@@ -22,7 +21,6 @@ import shutil
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
 import threading
-
 from .models import (
     CompressionJob,
     CompressionResult,
@@ -38,9 +36,7 @@ from .distillation_trainer import DistillationTrainer
 from .pruning_engine import PruningEngine
 from .compression_evaluator import CompressionEvaluator
 
-logger = logging.getLogger(__name__)
-
-
+from src.core.logging import get_logger
 @dataclass
 class PipelineStatus:
     """流水线状态"""
@@ -61,7 +57,6 @@ class PipelineStatus:
             "recent_logs": self.logs[-10:]  # 只返回最近10条日志
         }
 
-
 class CompressionPipeline:
     """模型压缩流水线
     
@@ -80,7 +75,7 @@ class CompressionPipeline:
         self.workspace_dir.mkdir(parents=True, exist_ok=True)
         
         self.max_concurrent_jobs = max_concurrent_jobs
-        self.logger = logging.getLogger(__name__)
+        self.logger = get_logger(__name__)
         
         # 初始化压缩引擎
         self.quantization_engine = QuantizationEngine()

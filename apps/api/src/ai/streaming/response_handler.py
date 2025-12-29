@@ -7,17 +7,16 @@
 from typing import AsyncIterator, Dict, Any, Optional, Callable
 import asyncio
 import json
-import logging
 from fastapi import WebSocket, WebSocketDisconnect
 from fastapi.responses import StreamingResponse
 from datetime import datetime
 from src.core.utils.timezone_utils import utc_now, utc_factory
-
 from .token_streamer import TokenStreamer, StreamEvent, StreamType
 from .stream_buffer import StreamBuffer
+from src.ai.openai_client import get_openai_client
 
-logger = logging.getLogger(__name__)
-
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 class StreamingResponseHandler:
     """流式响应处理器"""
@@ -197,7 +196,7 @@ class StreamingResponseHandler:
                 try:
                     await task
                 except asyncio.CancelledError:
-                    pass
+                    raise
                     
         except WebSocketDisconnect:
             logger.info(f"WebSocket连接断开: {session_id}")
@@ -208,16 +207,16 @@ class StreamingResponseHandler:
                     "type": "error",
                     "data": {"message": str(e), "error_type": type(e).__name__}
                 })
-            except:
-                pass
+            except Exception:
+                logger.exception("发送WebSocket错误消息失败", exc_info=True)
         finally:
             # 清理资源
             self.active_connections.pop(session_id, None)
             self.token_streamer.unsubscribe(queue)
             try:
                 await websocket.close()
-            except:
-                pass
+            except Exception:
+                logger.exception("关闭WebSocket失败", exc_info=True)
     
     async def _handle_websocket_receive(self, websocket: WebSocket, session_id: str):
         """处理WebSocket接收消息"""
@@ -251,9 +250,8 @@ class StreamingResponseHandler:
                     await processor(websocket, session_id, message_data)
                 else:
                     logger.warning(f"未知的WebSocket消息类型: {message_type}")
-                    
         except WebSocketDisconnect:
-            pass
+            logger.info("WebSocket连接断开", session_id=session_id)
         except Exception as e:
             logger.error(f"WebSocket接收处理出错: {e}")
     
@@ -277,9 +275,8 @@ class StreamingResponseHandler:
                 # 检查是否是结束事件
                 if event.type in [StreamType.COMPLETE, StreamType.ERROR]:
                     break
-                    
         except WebSocketDisconnect:
-            pass
+            logger.info("WebSocket连接断开")
         except Exception as e:
             logger.error(f"WebSocket发送处理出错: {e}")
     
@@ -292,28 +289,26 @@ class StreamingResponseHandler:
         """
         处理智能体消息
         
-        这是一个抽象方法，需要在具体实现中定义智能体处理逻辑
+        通过OpenAI流式接口生成回复，并写入TokenStreamer。
         """
-        # 这里应该集成实际的智能体处理逻辑
-        # 现在提供一个模拟实现
+        if not self.token_streamer:
+            raise RuntimeError("token_streamer 未设置")
+
+        async def token_iter():
+            client = await get_openai_client()
+            messages = client.format_messages_for_openai(
+                system_prompt=f"你是一个名为{agent_id}的智能助手。",
+                user_message=message,
+            )
+            async for chunk in client.create_streaming_completion(messages=messages, temperature=0.7, max_tokens=1000):
+                if chunk.get("content"):
+                    yield chunk["content"]
+
         try:
-            # 模拟异步LLM响应
-            async def mock_llm_response():
-                response_text = f"智能体 {agent_id} 处理消息: {message}"
-                for i, token in enumerate(response_text.split()):
-                    yield f"{token} "
-                    await asyncio.sleep(0.1)  # 模拟处理延迟
-            
-            # 使用token streamer处理响应
-            async for _ in self.token_streamer.stream_tokens(
-                mock_llm_response(), 
-                session_id
-            ):
-                pass  # 事件已通过订阅机制发送
-                
+            async for _ in self.token_streamer.stream_tokens(token_iter(), session_id=session_id):
+                continue
         except Exception as e:
-            logger.error(f"智能体消息处理出错: {e}")
-            raise
+            logger.error(f"智能体流式处理失败: {e}")
     
     def _format_sse_event(self, data: Dict[str, Any]) -> str:
         """格式化SSE事件"""
@@ -353,8 +348,8 @@ class StreamingResponseHandler:
             websocket = self.active_connections[session_id]
             try:
                 await websocket.close()
-            except:
-                pass
+            except Exception:
+                logger.exception("关闭WebSocket失败", exc_info=True)
             finally:
                 self.active_connections.pop(session_id, None)
     

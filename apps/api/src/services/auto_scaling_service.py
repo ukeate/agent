@@ -3,6 +3,7 @@
 
 基于实验指标和规则自动调整流量
 """
+
 from datetime import datetime
 from datetime import timedelta
 from src.core.utils.timezone_utils import utc_now, utc_factory
@@ -11,20 +12,21 @@ from enum import Enum
 import asyncio
 from dataclasses import dataclass, field
 import statistics
-
 from ..core.database import get_db_session
 from ..services.realtime_metrics_service import RealtimeMetricsService
 from ..services.anomaly_detection_service import AnomalyDetectionService
 from ..services.statistical_analysis_service import StatisticalAnalysisService
 from ..services.hypothesis_testing_service import HypothesisTestingService
+from ..services.traffic_allocation_service import set_variant_traffic
 
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 class ScalingDirection(str, Enum):
     """扩量方向"""
     UP = "up"  # 增加流量
     DOWN = "down"  # 减少流量
     HOLD = "hold"  # 保持不变
-
 
 class ScalingTrigger(str, Enum):
     """扩量触发器"""
@@ -35,14 +37,12 @@ class ScalingTrigger(str, Enum):
     CONFIDENCE_INTERVAL = "confidence_interval"  # 置信区间
     CUSTOM_RULE = "custom_rule"  # 自定义规则
 
-
 class ScalingMode(str, Enum):
     """扩量模式"""
     AGGRESSIVE = "aggressive"  # 激进模式
     CONSERVATIVE = "conservative"  # 保守模式
     BALANCED = "balanced"  # 平衡模式
     ADAPTIVE = "adaptive"  # 自适应模式
-
 
 @dataclass
 class ScalingCondition:
@@ -94,7 +94,6 @@ class ScalingCondition:
             return value != threshold
         return False
 
-
 @dataclass
 class ScalingRule:
     """扩量规则"""
@@ -113,9 +112,8 @@ class ScalingRule:
     max_percentage: float = 100.0  # 最大流量百分比
     cooldown_minutes: int = 30  # 冷却时间
     enabled: bool = True
-    created_at: datetime = field(default_factory=datetime.utcnow)
-    updated_at: datetime = field(default_factory=datetime.utcnow)
-
+    created_at: datetime = field(default_factory=utc_now)
+    updated_at: datetime = field(default_factory=utc_now)
 
 @dataclass
 class ScalingDecision:
@@ -131,7 +129,6 @@ class ScalingDecision:
     metrics_snapshot: Dict[str, Any]
     applied: bool = False
 
-
 @dataclass
 class ScalingHistory:
     """扩量历史"""
@@ -141,7 +138,6 @@ class ScalingHistory:
     total_scale_ups: int = 0
     total_scale_downs: int = 0
     current_percentage: float = 50.0
-
 
 class AutoScalingService:
     """自动扩量服务"""
@@ -323,7 +319,7 @@ class AutoScalingService:
             except asyncio.CancelledError:
                 break
             except Exception as e:
-                print(f"自动扩量监控错误: {e}")
+                logger.error("自动扩量监控错误", error=str(e), exc_info=True)
                 await asyncio.sleep(60)
                 
     async def _evaluate_scaling(
@@ -391,11 +387,10 @@ class AutoScalingService:
         
     async def _apply_scaling(self, decision: ScalingDecision):
         """应用扩量决策"""
-        # 这里应该调用实际的流量调整服务
-        print(f"扩量决策: {decision.experiment_id} "
-              f"从 {decision.current_percentage}% "
-              f"到 {decision.target_percentage}%")
-        
+        rule = self.rules.get(decision.rule_id)
+        if not rule:
+            raise ValueError("规则不存在")
+        await set_variant_traffic(decision.experiment_id, rule.variant, decision.target_percentage)
         decision.applied = True
         
     async def _calculate_statistics(
@@ -568,40 +563,73 @@ class AutoScalingService:
         Returns:
             模拟结果
         """
-        simulations = []
-        current_percentage = 10.0
-        
-        for day in range(days):
-            # 模拟每天的指标
-            sample_size = 1000 * (day + 1)
-            conversion_rate = 0.1 + (day * 0.01)  # 逐渐提升
-            p_value = max(0.001, 0.1 - (day * 0.015))  # 逐渐显著
-            
-            # 决定是否扩量
-            if p_value < 0.05 and sample_size >= 1000:
-                # 扩量
-                new_percentage = min(current_percentage + 15, 100)
-                action = "scale_up"
-            else:
-                new_percentage = current_percentage
-                action = "hold"
-                
-            simulations.append({
-                "day": day + 1,
-                "current_percentage": current_percentage,
-                "new_percentage": new_percentage,
-                "action": action,
-                "metrics": {
-                    "sample_size": sample_size,
-                    "conversion_rate": conversion_rate,
-                    "p_value": p_value
-                }
-            })
-            
-            current_percentage = new_percentage
-            
-        return simulations
+        history = self.histories.get(experiment_id)
+        current_percentage = history.current_percentage if history else 50.0
 
+        rules = [
+            rule
+            for rule in self.rules.values()
+            if rule.experiment_id == experiment_id and rule.enabled
+        ]
+        rule = rules[0] if rules else None
+
+        simulations: List[Dict[str, Any]] = []
+        start_time = utc_now()
+
+        for day in range(days):
+            if not rule:
+                simulations.append(
+                    {
+                        "day": day + 1,
+                        "date": (start_time + timedelta(days=day)).date().isoformat(),
+                        "current_percentage": current_percentage,
+                        "action": "hold",
+                        "new_percentage": current_percentage,
+                        "reason": "无扩量规则",
+                        "confidence": 1.0,
+                    }
+                )
+                continue
+
+            metrics = await self.metrics_service.get_experiment_metrics(experiment_id)
+            stats = await self._calculate_statistics(experiment_id, rule.variant)
+
+            should_scale_up = all(cond.evaluate(metrics, stats) for cond in rule.scale_up_conditions)
+            should_scale_down = any(cond.evaluate(metrics, stats) for cond in rule.scale_down_conditions)
+
+            if should_scale_up and not should_scale_down:
+                action = "scale_up"
+                new_percentage = min(current_percentage + rule.scale_increment, rule.max_percentage)
+                reason = "满足扩量条件"
+                confidence = self._calculate_confidence(metrics, stats, "up")
+            elif should_scale_down:
+                action = "scale_down"
+                new_percentage = max(current_percentage - rule.scale_decrement, rule.min_percentage)
+                reason = "触发缩量条件"
+                confidence = self._calculate_confidence(metrics, stats, "down")
+            else:
+                action = "hold"
+                new_percentage = current_percentage
+                reason = "保持当前流量"
+                confidence = 1.0
+
+            if new_percentage == current_percentage:
+                action = "hold"
+
+            simulations.append(
+                {
+                    "day": day + 1,
+                    "date": (start_time + timedelta(days=day)).date().isoformat(),
+                    "current_percentage": current_percentage,
+                    "action": action,
+                    "new_percentage": new_percentage,
+                    "reason": reason,
+                    "confidence": confidence,
+                }
+            )
+            current_percentage = new_percentage
+
+        return simulations
 
 class ScalingTemplates:
     """扩量模板"""

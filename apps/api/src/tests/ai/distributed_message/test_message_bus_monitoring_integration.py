@@ -7,10 +7,8 @@ import pytest
 import asyncio
 import uuid
 from unittest.mock import Mock, AsyncMock, patch
-
 from src.ai.distributed_message.message_bus import DistributedMessageBus
 from src.ai.distributed_message.models import MessageType, MessagePriority
-
 
 class TestMessageBusMonitoringIntegration:
     """消息总线监控集成测试"""

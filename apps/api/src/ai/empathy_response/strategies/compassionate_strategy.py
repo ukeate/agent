@@ -3,6 +3,7 @@
 
 专注于理解并提供支持行动，提供情感安慰和建设性帮助
 """
+
 import time
 import random
 from typing import Dict, Any, Optional, List
@@ -12,7 +13,6 @@ from ..models import (
 )
 from ...emotion_modeling.models import EmotionState, PersonalityProfile
 from .base_strategy import EmpathyStrategy
-
 
 class CompassionateEmpathyStrategy(EmpathyStrategy):
     """慈悲共情策略实现"""

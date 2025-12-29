@@ -10,19 +10,18 @@ GraphRAG查询分析和分解器
 """
 
 import re
-import logging
 from typing import List, Dict, Any, Optional, Pattern, Tuple
 from dataclasses import asdict
-
 from .data_models import (
     QueryType, 
     QueryDecomposition, 
     EntityRecognitionResult,
     GraphRAGConfig
 )
-from ...openai_client import get_openai_client
+from ..openai_client import get_openai_client
 
-logger = logging.getLogger(__name__)
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 # 可选导入知识图谱组件
 try:
@@ -35,7 +34,6 @@ except ImportError:
     Entity = None
     EntityType = None
     KNOWLEDGE_GRAPH_AVAILABLE = False
-
 
 class QueryAnalyzer:
     """查询分析器"""
@@ -585,7 +583,10 @@ class QueryAnalyzer:
             # 重排实体查询 - 高置信度实体优先
             if decomposition.entity_queries:
                 # 这里可以添加基于图谱统计的排序逻辑
-                pass
+                decomposition.entity_queries.sort(
+                    key=lambda x: x.get("confidence", 0.0),
+                    reverse=True
+                )
             
             # 重排关系查询 - 短路径优先
             if decomposition.relation_queries:

@@ -1,5 +1,6 @@
 import React, { useState } from 'react'
 import { 
+import { logger } from '../../utils/logger'
   Card, 
   Row, 
   Col, 
@@ -200,11 +201,11 @@ const QLearningEnvironmentPanel: React.FC = () => {
 
   const handleSaveEnvironment = async (values: any) => {
     try {
-      console.log('保存环境配置:', values)
+      logger.log('保存环境配置:', values)
       // 这里应该调用API保存配置
       setIsCustomizing(false)
     } catch (error) {
-      console.error('保存环境配置失败:', error)
+      logger.error('保存环境配置失败:', error)
     }
   }
 

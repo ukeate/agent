@@ -2,7 +2,7 @@
  * 多臂老虎机推荐系统API服务
  */
 
-import { apiClient } from './apiClient';
+import apiClient from './apiClient';
 
 export interface RecommendationRequest {
   user_id: string;
@@ -265,7 +265,7 @@ class BanditRecommendationService {
   }
 
   /**
-   * 模拟用户交互序列
+   * 多次请求推荐，收集真实返回
    */
   async simulateUserSession(
     userId: string,
@@ -281,7 +281,6 @@ class BanditRecommendationService {
     let totalReward = 0;
 
     for (let i = 0; i < numInteractions; i++) {
-      // 获取推荐
       const context = contextGenerator ? contextGenerator() : undefined;
       const recResponse = await this.getRecommendations({
         user_id: userId,
@@ -290,29 +289,6 @@ class BanditRecommendationService {
         include_explanations: false
       });
       recommendations.push(recResponse);
-
-      // 模拟用户反馈
-      if (recResponse.recommendations.length > 0) {
-        const selectedItem = recResponse.recommendations[0];
-        const feedbackValue = Math.random(); // 0-1 随机反馈
-        const feedbackType = feedbackValue > 0.7 ? 'click' : 'view';
-        
-        await this.submitFeedback({
-          user_id: userId,
-          item_id: selectedItem.item_id,
-          feedback_type: feedbackType,
-          feedback_value: feedbackValue,
-          context
-        });
-
-        feedbacks.push({
-          item_id: selectedItem.item_id,
-          feedback_type: feedbackType,
-          feedback_value: feedbackValue
-        });
-
-        totalReward += feedbackValue;
-      }
     }
 
     return { recommendations, feedbacks, totalReward };

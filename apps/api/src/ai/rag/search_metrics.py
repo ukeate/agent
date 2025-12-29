@@ -1,18 +1,15 @@
 """搜索质量监控和评估模块"""
 
 import asyncio
-import logging
 import time
 from dataclasses import dataclass
 from typing import Dict, List, Optional, Any
 from collections import defaultdict
 import json
-
 from src.ai.rag.hybrid_search import HybridSearchEngine, SearchResult, SearchStrategy
 from src.core.config import get_settings
 
-logger = logging.getLogger(__name__)
-
+logger = get_logger(__name__)
 
 @dataclass
 class SearchMetrics:
@@ -29,7 +26,6 @@ class SearchMetrics:
         if self.quality_scores is None:
             self.quality_scores = {}
 
-
 @dataclass
 class BenchmarkQuery:
     """基准测试查询"""
@@ -38,7 +34,6 @@ class BenchmarkQuery:
     expected_results: List[str]  # 期望的文档ID列表
     relevance_scores: Dict[str, float]  # 相关性分数
     category: str  # 查询类别
-
 
 class SearchQualityEvaluator:
     """搜索质量评估器"""
@@ -245,7 +240,6 @@ class SearchQualityEvaluator:
         
         return results
 
-
 class MetricsCollector:
     """指标收集器"""
     
@@ -313,7 +307,6 @@ class MetricsCollector:
         self.response_times.clear()
         self.strategy_usage.clear()
         self.cache_stats = {"hits": 0, "misses": 0}
-
 
 class ABTestFramework:
     """A/B测试框架"""
@@ -429,22 +422,19 @@ class ABTestFramework:
             "statistical_significance": "需要更复杂的统计检验"  # 简化提示
         }
 
-
 # 全局实例
 global_metrics_collector = MetricsCollector()
 global_ab_framework = ABTestFramework()
-
 
 def get_search_evaluator() -> SearchQualityEvaluator:
     """获取搜索质量评估器"""
     return SearchQualityEvaluator()
 
-
 def get_ab_framework() -> ABTestFramework:
     """获取A/B测试框架"""
     return global_ab_framework
 
-
 def get_metrics_collector() -> MetricsCollector:
     """获取指标收集器"""
     return global_metrics_collector
+from src.core.logging import get_logger

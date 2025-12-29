@@ -1,14 +1,12 @@
 """多模态上下文组装器"""
 
-import logging
 import base64
 from typing import List, Dict, Any, Optional
 import json
-
 from .multimodal_config import RetrievalResults, MultimodalContext
+from src.core.logging import get_logger
 
-logger = logging.getLogger(__name__)
-
+logger = get_logger(__name__)
 
 class MultimodalContextAssembler:
     """多模态上下文组装"""
@@ -118,7 +116,7 @@ class MultimodalContextAssembler:
                     logger.warning(f"Failed to encode image: {e}")
             
             # 添加图像描述作为替代文本
-            description = image_item.get("description", "")
+            description = image_item.get("content", "")
             if description and not encoded_images:
                 # 如果无法获取图像，至少提供描述
                 encoded_images.append(f"[图像描述: {description}]")
@@ -137,9 +135,9 @@ class MultimodalContextAssembler:
         formatted_tables = []
         
         for idx, table_item in enumerate(tables, 1):
-            table_data = table_item.get("table_data", {})
-            description = table_item.get("description", "")
             metadata = table_item.get("metadata", {})
+            table_data = metadata.get("table_data", {})
+            description = table_item.get("content", "")
             score = table_item.get("score", 0.0)
             
             formatted_table = {

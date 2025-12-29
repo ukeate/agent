@@ -9,13 +9,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from datetime import datetime
 from datetime import timedelta
 from src.core.utils.timezone_utils import utc_now, utc_factory
-import logging
-
 from .base import BaseRepository
 from src.models.database.workflow import Task
 
-logger = logging.getLogger(__name__)
-
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 class TaskRepository(BaseRepository[Task, str]):
     """任务仓储"""

@@ -3,13 +3,14 @@ Unit tests for Relationship Dynamics Analysis System
 关系动态分析系统单元测试
 """
 
+from src.core.utils.timezone_utils import utc_now
 import pytest
 import asyncio
-from datetime import datetime, timedelta
+from datetime import timedelta
 from typing import Dict, List, Any
 import numpy as np
-
 from ai.emotion_modeling.relationship_models import (
+
     RelationshipDynamics,
     RelationshipType,
     IntimacyLevel,
@@ -25,7 +26,10 @@ from ai.emotion_modeling.relationship_models import (
 )
 from ai.emotion_modeling.relationship_analyzer import RelationshipDynamicsAnalyzer
 from ai.emotion_modeling.group_emotion_models import EmotionState
+from src.core.logging import setup_logging
 
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 class TestRelationshipModels:
     """测试关系动态数据模型"""
@@ -72,7 +76,7 @@ class TestRelationshipModels:
             intensity=0.8,
             reciprocity_score=0.7,
             effectiveness_score=0.85,
-            timestamp=datetime.now(),
+            timestamp=utc_now(),
             verbal_affirmation=True,
             active_listening=True,
             empathy_expression=True
@@ -95,7 +99,7 @@ class TestRelationshipModels:
             severity_level=0.6,
             escalation_risk=0.4,
             resolution_potential=0.7,
-            timestamp=datetime.now(),
+            timestamp=utc_now(),
             verbal_disagreement=True,
             emotional_tension=False,
             conflict_styles={"user_1": ConflictStyle.COLLABORATING}
@@ -121,7 +125,6 @@ class TestRelationshipModels:
         assert classify_power_dynamics(0.5) == PowerDynamics.DOMINANT
         assert classify_power_dynamics(0.0) == PowerDynamics.BALANCED
         assert classify_power_dynamics(-0.5) == PowerDynamics.SUBMISSIVE
-
 
 class TestRelationshipDynamicsAnalyzer:
     """测试关系动态分析器"""
@@ -150,7 +153,7 @@ class TestRelationshipDynamicsAnalyzer:
                 valence=0.9,
                 arousal=0.7,
                 dominance=0.8,
-                timestamp=datetime.now()
+                timestamp=utc_now()
             ),
             EmotionState(
                 participant_id="user_1",
@@ -159,7 +162,7 @@ class TestRelationshipDynamicsAnalyzer:
                 valence=0.8,
                 arousal=0.5,
                 dominance=0.7,
-                timestamp=datetime.now()
+                timestamp=utc_now()
             )
         ]
     
@@ -174,7 +177,7 @@ class TestRelationshipDynamicsAnalyzer:
                 valence=0.8,
                 arousal=0.6,
                 dominance=0.6,
-                timestamp=datetime.now()
+                timestamp=utc_now()
             ),
             EmotionState(
                 participant_id="user_2",
@@ -183,14 +186,14 @@ class TestRelationshipDynamicsAnalyzer:
                 valence=0.9,
                 arousal=0.7,
                 dominance=0.7,
-                timestamp=datetime.now()
+                timestamp=utc_now()
             )
         ]
     
     @pytest.fixture
     def friendship_interaction_history(self):
         """创建友谊关系交互历史"""
-        base_time = datetime.now() - timedelta(days=7)
+        base_time = utc_now() - timedelta(days=7)
         return [
             {
                 "sender_id": "user_1",
@@ -240,7 +243,7 @@ class TestRelationshipDynamicsAnalyzer:
     @pytest.fixture
     def professional_interaction_history(self):
         """创建职业关系交互历史"""
-        base_time = datetime.now() - timedelta(days=5)
+        base_time = utc_now() - timedelta(days=5)
         return [
             {
                 "sender_id": "user_1",
@@ -272,7 +275,7 @@ class TestRelationshipDynamicsAnalyzer:
     @pytest.fixture
     def conflict_interaction_history(self):
         """创建冲突交互历史"""
-        base_time = datetime.now() - timedelta(hours=2)
+        base_time = utc_now() - timedelta(hours=2)
         return [
             {
                 "sender_id": "user_1",
@@ -365,13 +368,13 @@ class TestRelationshipDynamicsAnalyzer:
             {
                 "sender_id": "user_1",
                 "content": "I want to share something very personal and private with you.",
-                "timestamp": datetime.now(),
+                "timestamp": utc_now(),
                 "emotion_support_provided": True
             },
             {
                 "sender_id": "user_2",
                 "content": "I feel comfortable sharing my emotions and family details with you.",
-                "timestamp": datetime.now() + timedelta(minutes=30),
+                "timestamp": utc_now() + timedelta(minutes=30),
                 "emotion_support_provided": True
             }
         ] * 5  # 重复以增加频率
@@ -440,13 +443,13 @@ class TestRelationshipDynamicsAnalyzer:
                 "sender_id": "user_1",
                 "content": "I want to provide emotional support and comfort to help you feel better.",
                 "emotion_intensity": 0.8,
-                "timestamp": datetime.now()
+                "timestamp": utc_now()
             },
             {
                 "sender_id": "user_2",
                 "content": "Let me give you some advice and information to solve this problem.",
                 "emotion_intensity": 0.7,
-                "timestamp": datetime.now() + timedelta(minutes=30)
+                "timestamp": utc_now() + timedelta(minutes=30)
             }
         ]
         
@@ -467,14 +470,14 @@ class TestRelationshipDynamicsAnalyzer:
                 "content": "I disagree and think you are wrong. This is frustrating.",
                 "detected_emotion": "anger",
                 "emotion_intensity": 0.8,
-                "timestamp": datetime.now()
+                "timestamp": utc_now()
             },
             {
                 "sender_id": "user_2",
                 "content": "I feel criticized and defensive about your blame.",
                 "detected_emotion": "defensive",
                 "emotion_intensity": 0.7,
-                "timestamp": datetime.now() + timedelta(minutes=30)
+                "timestamp": utc_now() + timedelta(minutes=30)
             }
         ]
         
@@ -495,12 +498,12 @@ class TestRelationshipDynamicsAnalyzer:
             {
                 "sender_id": "user_1",
                 "content": "I agree with your approach and appreciate your cooperation.",
-                "timestamp": datetime.now()
+                "timestamp": utc_now()
             },
             {
                 "sender_id": "user_2",
                 "content": "Thank you for your support. I respect and value our teamwork.",
-                "timestamp": datetime.now() + timedelta(minutes=30)
+                "timestamp": utc_now() + timedelta(minutes=30)
             }
         ]
         
@@ -536,7 +539,7 @@ class TestRelationshipDynamicsAnalyzer:
                 intensity=0.8,
                 reciprocity_score=0.7,
                 effectiveness_score=0.8,
-                timestamp=datetime.now()
+                timestamp=utc_now()
             )
         ] * 3  # 多个支持模式
         
@@ -559,11 +562,11 @@ class TestRelationshipDynamicsAnalyzer:
         """测试关系趋势预测"""
         # 改善趋势的历史
         improving_history = [
-            {"emotion_intensity": 0.4, "timestamp": datetime.now() - timedelta(days=5)},
-            {"emotion_intensity": 0.5, "timestamp": datetime.now() - timedelta(days=4)},
-            {"emotion_intensity": 0.6, "timestamp": datetime.now() - timedelta(days=3)},
-            {"emotion_intensity": 0.7, "timestamp": datetime.now() - timedelta(days=2)},
-            {"emotion_intensity": 0.8, "timestamp": datetime.now() - timedelta(days=1)}
+            {"emotion_intensity": 0.4, "timestamp": utc_now() - timedelta(days=5)},
+            {"emotion_intensity": 0.5, "timestamp": utc_now() - timedelta(days=4)},
+            {"emotion_intensity": 0.6, "timestamp": utc_now() - timedelta(days=3)},
+            {"emotion_intensity": 0.7, "timestamp": utc_now() - timedelta(days=2)},
+            {"emotion_intensity": 0.8, "timestamp": utc_now() - timedelta(days=1)}
         ]
         
         health = {'overall_health': 0.7}
@@ -573,11 +576,11 @@ class TestRelationshipDynamicsAnalyzer:
         
         # 下降趋势的历史
         declining_history = [
-            {"emotion_intensity": 0.8, "timestamp": datetime.now() - timedelta(days=5)},
-            {"emotion_intensity": 0.7, "timestamp": datetime.now() - timedelta(days=4)},
-            {"emotion_intensity": 0.5, "timestamp": datetime.now() - timedelta(days=3)},
-            {"emotion_intensity": 0.4, "timestamp": datetime.now() - timedelta(days=2)},
-            {"emotion_intensity": 0.3, "timestamp": datetime.now() - timedelta(days=1)}
+            {"emotion_intensity": 0.8, "timestamp": utc_now() - timedelta(days=5)},
+            {"emotion_intensity": 0.7, "timestamp": utc_now() - timedelta(days=4)},
+            {"emotion_intensity": 0.5, "timestamp": utc_now() - timedelta(days=3)},
+            {"emotion_intensity": 0.4, "timestamp": utc_now() - timedelta(days=2)},
+            {"emotion_intensity": 0.3, "timestamp": utc_now() - timedelta(days=1)}
         ]
         
         health_low = {'overall_health': 0.3}
@@ -613,12 +616,12 @@ class TestRelationshipDynamicsAnalyzer:
             {
                 "sender_id": "user_1",
                 "content": "I really enjoy spending time with you as a friend.",
-                "timestamp": datetime.now()
+                "timestamp": utc_now()
             },
             {
                 "sender_id": "user_2", 
                 "content": "Me too! Our shared interests make this friendship special.",
-                "timestamp": datetime.now() + timedelta(minutes=30)
+                "timestamp": utc_now() + timedelta(minutes=30)
             }
         ] * 3
         
@@ -635,7 +638,7 @@ class TestRelationshipDynamicsAnalyzer:
         
         # 创建中等大小的交互历史
         interaction_history = []
-        base_time = datetime.now() - timedelta(days=30)
+        base_time = utc_now() - timedelta(days=30)
         
         for i in range(20):  # 20次交互
             interaction_history.append({
@@ -663,7 +666,6 @@ class TestRelationshipDynamicsAnalyzer:
         assert isinstance(result, RelationshipDynamics)
         assert 0 <= result.relationship_health <= 1
 
-
 class TestIntegration:
     """集成测试"""
     
@@ -681,7 +683,7 @@ class TestIntegration:
                 valence=0.9,
                 arousal=0.7,
                 dominance=0.8,
-                timestamp=datetime.now()
+                timestamp=utc_now()
             )
         ]
         
@@ -693,7 +695,7 @@ class TestIntegration:
                 valence=0.8,
                 arousal=0.6,
                 dominance=0.7,
-                timestamp=datetime.now()
+                timestamp=utc_now()
             )
         ]
         
@@ -705,7 +707,7 @@ class TestIntegration:
                 "content": "Hi! Nice to meet you. I'm looking forward to working together.",
                 "detected_emotion": "friendly",
                 "emotion_intensity": 0.6,
-                "timestamp": datetime.now() - timedelta(days=30),
+                "timestamp": utc_now() - timedelta(days=30),
                 "is_conversation_starter": True,
                 "response_count": 1
             },
@@ -715,7 +717,7 @@ class TestIntegration:
                 "content": "I really appreciate your help and emotional support during difficult times.",
                 "detected_emotion": "gratitude",
                 "emotion_intensity": 0.8,
-                "timestamp": datetime.now() - timedelta(days=20),
+                "timestamp": utc_now() - timedelta(days=20),
                 "emotion_support_provided": True,
                 "response_count": 1
             },
@@ -725,7 +727,7 @@ class TestIntegration:
                 "content": "I want to share something personal with you. I trust you with my private thoughts.",
                 "detected_emotion": "trust",
                 "emotion_intensity": 0.7,
-                "timestamp": datetime.now() - timedelta(days=15),
+                "timestamp": utc_now() - timedelta(days=15),
                 "response_count": 1
             },
             # 经历小冲突
@@ -734,7 +736,7 @@ class TestIntegration:
                 "content": "I disagree with your approach on this matter. It's frustrating.",
                 "detected_emotion": "frustration",
                 "emotion_intensity": 0.6,
-                "timestamp": datetime.now() - timedelta(days=10),
+                "timestamp": utc_now() - timedelta(days=10),
                 "response_count": 1
             },
             # 解决冲突
@@ -743,7 +745,7 @@ class TestIntegration:
                 "content": "I understand your perspective. Let's work together to find a solution.",
                 "detected_emotion": "understanding",
                 "emotion_intensity": 0.7,
-                "timestamp": datetime.now() - timedelta(days=9),
+                "timestamp": utc_now() - timedelta(days=9),
                 "response_count": 1
             },
             # 关系深化
@@ -752,7 +754,7 @@ class TestIntegration:
                 "content": "Thank you for listening and understanding. Our shared experiences mean a lot.",
                 "detected_emotion": "appreciation",
                 "emotion_intensity": 0.9,
-                "timestamp": datetime.now() - timedelta(days=5),
+                "timestamp": utc_now() - timedelta(days=5),
                 "response_count": 0
             }
         ]
@@ -792,17 +794,17 @@ class TestIntegration:
         assert result.data_quality_score > 0
         assert result.confidence_level >= 0.6
         
-        print(f"关系分析完成:")
-        print(f"- 关系类型: {result.relationship_type}")
-        print(f"- 亲密度: {result.intimacy_level} ({result.intimacy_score:.2f})")
-        print(f"- 权力平衡: {result.power_dynamics} ({result.power_balance:.2f})")
-        print(f"- 关系健康度: {result.relationship_health:.2f}")
-        print(f"- 发展趋势: {result.development_trend}")
-        print(f"- 未来展望: {result.future_outlook}")
-        print(f"- 支持模式数量: {len(result.support_patterns)}")
-        print(f"- 冲突指标数量: {len(result.conflict_indicators)}")
-        print(f"- 和谐指标: {result.harmony_indicators}")
-
+        logger.info(f"关系分析完成:")
+        logger.info(f"- 关系类型: {result.relationship_type}")
+        logger.info(f"- 亲密度: {result.intimacy_level} ({result.intimacy_score:.2f})")
+        logger.info(f"- 权力平衡: {result.power_dynamics} ({result.power_balance:.2f})")
+        logger.info(f"- 关系健康度: {result.relationship_health:.2f}")
+        logger.info(f"- 发展趋势: {result.development_trend}")
+        logger.info(f"- 未来展望: {result.future_outlook}")
+        logger.info(f"- 支持模式数量: {len(result.support_patterns)}")
+        logger.info(f"- 冲突指标数量: {len(result.conflict_indicators)}")
+        logger.info(f"- 和谐指标: {result.harmony_indicators}")
 
 if __name__ == "__main__":
+    setup_logging()
     pytest.main([__file__, "-v"])
