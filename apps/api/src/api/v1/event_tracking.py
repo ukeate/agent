@@ -2,17 +2,13 @@
 事件追踪API端点 - 提供事件收集、查询和管理功能
 """
 
-from datetime import datetime
 from datetime import timedelta
-from src.core.utils.timezone_utils import utc_now, utc_factory
+from src.core.utils.timezone_utils import utc_now
 from typing import List, Optional, Dict, Any
 from fastapi import APIRouter, HTTPException, Depends, Query, BackgroundTasks, Request
-from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 import asyncio
 import time
-import hashlib
-import json
 from src.core.database import get_db, get_db_session
 from src.models.schemas.event_tracking import (
     CreateEventRequest, BatchEventsRequest, EventResponse, BatchEventsResponse,

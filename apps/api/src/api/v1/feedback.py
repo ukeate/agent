@@ -4,7 +4,7 @@
 提供隐式和显式反馈收集、处理、分析的REST API接口
 """
 
-from fastapi import APIRouter, HTTPException, BackgroundTasks, WebSocket, WebSocketDisconnect, Depends
+from fastapi import APIRouter, HTTPException, BackgroundTasks, WebSocket, WebSocketDisconnect, Depends, Query
 from pydantic import Field, field_validator, ValidationInfo
 from typing import Dict, List, Any, Optional, Union
 from datetime import datetime, timedelta
@@ -156,13 +156,25 @@ class FeedbackWebSocketManager:
         await websocket.send_text(message)
         
     async def broadcast(self, message: str):
-        for connection in self.active_connections:
+        for connection in list(self.active_connections):
             try:
                 await connection.send_text(message)
             except Exception as e:
                 logger.error(f"广播消息失败: {e}")
+                self.disconnect(connection)
 
 manager = FeedbackWebSocketManager()
+
+def _log_task_exception(task: asyncio.Task) -> None:
+    try:
+        task.result()
+    except Exception as e:
+        logger.error(f"后台任务异常: {e}", exc_info=True)
+
+def _schedule_task(coro: Any) -> asyncio.Task:
+    task = asyncio.create_task(coro)
+    task.add_done_callback(_log_task_exception)
+    return task
 
 def _serialize_feedback_event(event: FeedbackEventModel) -> Dict[str, Any]:
     batch_id = None
@@ -361,8 +373,8 @@ async def get_user_feedback_history(
     end_date: Optional[datetime] = None,
     feedback_types: Optional[str] = None,
     item_id: Optional[str] = None,
-    limit: int = 100,
-    offset: int = 0,
+    limit: int = Query(100, ge=1, le=1000),
+    offset: int = Query(0, ge=0),
     repo: FeedbackRepository = Depends(get_feedback_repo),
 ):
     """
@@ -372,7 +384,10 @@ async def get_user_feedback_history(
         # 解析反馈类型
         parsed_types = None
         if feedback_types:
-            parsed_types = [FeedbackType(t.strip()) for t in feedback_types.split(',')]
+            try:
+                parsed_types = [FeedbackType(t.strip()) for t in feedback_types.split(',')]
+            except Exception:
+                raise HTTPException(status_code=400, detail="无效的反馈类型")
         
         query = FeedbackHistoryQuery(
             user_id=user_id,
@@ -595,7 +610,20 @@ async def websocket_endpoint(websocket: WebSocket):
     try:
         while True:
             data = await websocket.receive_text()
-            message = json.loads(data)
+            try:
+                message = json.loads(data)
+            except json.JSONDecodeError:
+                await manager.send_personal_message(
+                    json.dumps({'type': 'error', 'message': '消息格式无效'}),
+                    websocket
+                )
+                continue
+            if not isinstance(message, dict):
+                await manager.send_personal_message(
+                    json.dumps({'type': 'error', 'message': '消息体必须是对象'}),
+                    websocket
+                )
+                continue
             
             if message.get('type') == 'feedback_batch':
                 # 处理实时反馈批次
@@ -603,7 +631,7 @@ async def websocket_endpoint(websocket: WebSocket):
                 logger.info(f"WebSocket收到{len(events)}个反馈事件")
                 
                 # 异步处理事件
-                asyncio.create_task(process_websocket_feedback(events))
+                _schedule_task(process_websocket_feedback(events))
                 
                 # 确认收到
                 await manager.send_personal_message(
