@@ -16,7 +16,7 @@ from fastapi import APIRouter, HTTPException, Depends, BackgroundTasks, Query, U
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
-from ....core.database import get_async_session
+from src.core.database import get_db, get_db_session
 from .models import SourceType, DataStatus, AnnotationTaskType, AnnotationStatus
 from .core import (
 
@@ -138,7 +138,7 @@ class ExportJobCreate(BaseModel):
 @router.post("/sources", response_model=DataSourceResponse)
 async def create_data_source(
     source_data: DataSourceCreate,
-    db: AsyncSession = Depends(get_async_session)
+    db: AsyncSession = Depends(get_db)
 ):
     """创建数据源"""
     import uuid
@@ -186,7 +186,7 @@ async def create_data_source(
 
 @router.get("/sources", response_model=List[DataSourceResponse])
 async def list_data_sources(
-    db: AsyncSession = Depends(get_async_session),
+    db: AsyncSession = Depends(get_db),
     active_only: bool = Query(True, description="Only return active sources")
 ):
     """获取数据源列表"""
@@ -216,7 +216,7 @@ async def list_data_sources(
 @router.get("/sources/{source_id}", response_model=DataSourceResponse)
 async def get_data_source(
     source_id: str,
-    db: AsyncSession = Depends(get_async_session)
+    db: AsyncSession = Depends(get_db)
 ):
     """获取特定数据源"""
     from sqlalchemy import select
@@ -246,7 +246,7 @@ async def start_collection_job(
     source_id: str,
     job_data: CollectionJobCreate,
     background_tasks: BackgroundTasks,
-    db: AsyncSession = Depends(get_async_session)
+    db: AsyncSession = Depends(get_db)
 ):
     """启动数据收集任务"""
     from sqlalchemy import select
@@ -272,7 +272,6 @@ async def start_collection_job(
     # 添加后台任务
     background_tasks.add_task(
         _run_collection_job,
-        db,
         data_source,
         job_data.processing_rules,
         job_data.batch_size
@@ -281,7 +280,6 @@ async def start_collection_job(
     return {"message": "Collection job started", "source_id": source_id}
 
 async def _run_collection_job(
-    db: AsyncSession,
     data_source: DataSource,
     processing_rules: List[str],
     batch_size: int
@@ -290,25 +288,49 @@ async def _run_collection_job(
     from .models import DataRecordModel
     
     try:
-        # 创建收集器
-        collector = CollectorFactory.create_collector(data_source)
-        
-        # 创建预处理器
-        preprocessor = DataPreprocessor(db)
-        
-        # 收集数据
-        records_batch = []
-        async for record in collector.collect_data():
-            records_batch.append(record)
+        async with get_db_session() as db:
+            # 创建收集器
+            collector = CollectorFactory.create_collector(data_source)
             
-            if len(records_batch) >= batch_size:
-                # 预处理
+            # 创建预处理器
+            preprocessor = DataPreprocessor(db)
+            
+            # 收集数据
+            records_batch = []
+            async for record in collector.collect_data():
+                records_batch.append(record)
+                
+                if len(records_batch) >= batch_size:
+                    # 预处理
+                    if processing_rules:
+                        records_batch = await preprocessor.preprocess_records(
+                            records_batch, processing_rules
+                        )
+                    
+                    # 保存到数据库
+                    for record in records_batch:
+                        record_model = DataRecordModel(
+                            record_id=record.record_id,
+                            source_id=record.source_id,
+                            raw_data=record.raw_data,
+                            processed_data=record.processed_data,
+                            metadata=record.metadata,
+                            quality_score=record.quality_score,
+                            status=record.status,
+                            processed_at=record.processed_at
+                        )
+                        db.add(record_model)
+                    
+                    await db.commit()
+                    records_batch = []
+            
+            # 处理剩余的记录
+            if records_batch:
                 if processing_rules:
                     records_batch = await preprocessor.preprocess_records(
                         records_batch, processing_rules
                     )
                 
-                # 保存到数据库
                 for record in records_batch:
                     record_model = DataRecordModel(
                         record_id=record.record_id,
@@ -323,36 +345,13 @@ async def _run_collection_job(
                     db.add(record_model)
                 
                 await db.commit()
-                records_batch = []
-        
-        # 处理剩余的记录
-        if records_batch:
-            if processing_rules:
-                records_batch = await preprocessor.preprocess_records(
-                    records_batch, processing_rules
-                )
-            
-            for record in records_batch:
-                record_model = DataRecordModel(
-                    record_id=record.record_id,
-                    source_id=record.source_id,
-                    raw_data=record.raw_data,
-                    processed_data=record.processed_data,
-                    metadata=record.metadata,
-                    quality_score=record.quality_score,
-                    status=record.status,
-                    processed_at=record.processed_at
-                )
-                db.add(record_model)
-            
-            await db.commit()
     
     except Exception as e:
         logger.error("数据采集任务失败", error=str(e), exc_info=True)
 
 @router.get("/records", response_model=List[DataRecordResponse])
 async def list_records(
-    db: AsyncSession = Depends(get_async_session),
+    db: AsyncSession = Depends(get_db),
     source_id: Optional[str] = Query(None),
     status: Optional[DataStatus] = Query(None),
     min_quality_score: Optional[float] = Query(None),
@@ -400,7 +399,7 @@ async def list_records(
 async def create_annotation_task(
     task_data: AnnotationTaskCreate,
     current_user: str = "system",  # 这里应该从认证中获取
-    db: AsyncSession = Depends(get_async_session)
+    db: AsyncSession = Depends(get_db)
 ):
     """创建标注任务"""
     import uuid
@@ -441,7 +440,7 @@ async def create_annotation_task(
 
 @router.get("/annotation-tasks", response_model=List[AnnotationTaskResponse])
 async def list_annotation_tasks(
-    db: AsyncSession = Depends(get_async_session),
+    db: AsyncSession = Depends(get_db),
     status: Optional[AnnotationStatus] = Query(None),
     created_by: Optional[str] = Query(None),
     limit: int = Query(100, le=1000),
@@ -486,7 +485,7 @@ async def list_annotation_tasks(
 async def submit_annotation(
     annotation_data: AnnotationCreate,
     current_user: str = "annotator",  # 这里应该从认证中获取
-    db: AsyncSession = Depends(get_async_session)
+    db: AsyncSession = Depends(get_db)
 ):
     """提交标注结果"""
     import uuid
@@ -522,7 +521,7 @@ async def submit_annotation(
 @router.get("/annotation-tasks/{task_id}/progress")
 async def get_task_progress(
     task_id: str,
-    db: AsyncSession = Depends(get_async_session)
+    db: AsyncSession = Depends(get_db)
 ):
     """获取标注任务进度"""
     annotation_manager = AnnotationManager(db)
@@ -541,7 +540,7 @@ async def get_task_progress(
 @router.get("/annotation-tasks/{task_id}/quality-report")
 async def get_quality_report(
     task_id: str,
-    db: AsyncSession = Depends(get_async_session)
+    db: AsyncSession = Depends(get_db)
 ):
     """获取标注质量报告"""
     quality_controller = QualityController(db)
@@ -562,7 +561,7 @@ async def get_quality_report(
 async def create_version(
     version_data: VersionCreate,
     current_user: str = "system",  # 这里应该从认证中获取
-    db: AsyncSession = Depends(get_async_session)
+    db: AsyncSession = Depends(get_db)
 ):
     """创建数据版本"""
     version_manager = DataVersionManager(db)
@@ -605,7 +604,7 @@ async def create_version(
 
 @router.get("/versions", response_model=List[VersionResponse])
 async def list_versions(
-    db: AsyncSession = Depends(get_async_session),
+    db: AsyncSession = Depends(get_db),
     dataset_name: Optional[str] = Query(None),
     limit: int = Query(100, le=1000),
     offset: int = Query(0, ge=0)
@@ -645,7 +644,7 @@ async def list_versions(
 async def compare_versions(
     version1_id: str,
     version2_id: str,
-    db: AsyncSession = Depends(get_async_session)
+    db: AsyncSession = Depends(get_db)
 ):
     """比较两个版本"""
     version_manager = DataVersionManager(db)
@@ -665,7 +664,7 @@ async def rollback_version(
     target_version_id: str,
     new_version_number: str,
     current_user: str = "system",  # 这里应该从认证中获取
-    db: AsyncSession = Depends(get_async_session)
+    db: AsyncSession = Depends(get_db)
 ):
     """回滚到指定版本"""
     version_manager = DataVersionManager(db)
@@ -684,7 +683,7 @@ async def merge_versions(
     new_version_number: str,
     current_user: str = "system",  # 这里应该从认证中获取
     merge_strategy: ConflictResolution = ConflictResolution.AUTO_MERGE,
-    db: AsyncSession = Depends(get_async_session)
+    db: AsyncSession = Depends(get_db)
 ):
     """合并两个版本"""
     version_manager = DataVersionManager(db)
@@ -710,15 +709,12 @@ async def merge_versions(
 async def export_version(
     export_data: ExportJobCreate,
     background_tasks: BackgroundTasks,
-    db: AsyncSession = Depends(get_async_session)
+    db: AsyncSession = Depends(get_db)
 ):
     """导出版本数据"""
-    version_manager = DataVersionManager(db)
-    
     # 添加后台任务
     background_tasks.add_task(
         _run_export_job,
-        version_manager,
         export_data.version_id,
         export_data.export_format,
         export_data.output_filename
@@ -727,18 +723,19 @@ async def export_version(
     return {"message": "Export job started", "version_id": export_data.version_id}
 
 async def _run_export_job(
-    version_manager: DataVersionManager,
     version_id: str,
     export_format: ExportFormat,
     output_filename: Optional[str]
 ):
     """运行导出任务"""
     try:
-        output_path = await version_manager.export_version(
-            version_id=version_id,
-            export_format=export_format,
-            output_path=output_filename
-        )
+        async with get_db_session() as db:
+            version_manager = DataVersionManager(db)
+            output_path = await version_manager.export_version(
+                version_id=version_id,
+                export_format=export_format,
+                output_path=output_filename
+            )
         logger.info("数据导出完成", output_path=output_path)
     except Exception as e:
         logger.error("数据导出失败", error=str(e), exc_info=True)
@@ -757,7 +754,7 @@ async def download_export_file(filename: str):
 
 @router.get("/stats/overview")
 async def get_overview_stats(
-    db: AsyncSession = Depends(get_async_session)
+    db: AsyncSession = Depends(get_db)
 ):
     """获取系统概览统计"""
     from sqlalchemy import select, func

@@ -26,7 +26,6 @@ router = APIRouter(prefix="/personalization", tags=["个性化推荐"])
 async def get_recommendations(
     request: RecommendationRequest,
     background_tasks: BackgroundTasks,
-    redis: Redis = Depends(get_redis),
     service: PersonalizationService = Depends(get_personalization_service)
 ) -> RecommendationResponse:
     """获取个性化推荐
@@ -34,7 +33,6 @@ async def get_recommendations(
     Args:
         request: 推荐请求
         background_tasks: 后台任务
-        redis: Redis客户端
         service: 个性化服务
         
     Returns:
@@ -48,8 +46,7 @@ async def get_recommendations(
         background_tasks.add_task(
             log_recommendation_request,
             request,
-            response,
-            redis
+            response
         )
         
         return response
@@ -61,14 +58,12 @@ async def get_recommendations(
 @router.get("/user/{user_id}/profile", response_model=UserProfile)
 async def get_user_profile(
     user_id: str,
-    redis: Redis = Depends(get_redis),
     service: PersonalizationService = Depends(get_personalization_service)
 ) -> UserProfile:
     """获取用户画像
     
     Args:
         user_id: 用户ID
-        redis: Redis客户端
         service: 个性化服务
         
     Returns:
@@ -92,7 +87,6 @@ async def get_user_profile(
 async def update_user_profile(
     user_id: str,
     profile: UserProfile,
-    redis: Redis = Depends(get_redis),
     service: PersonalizationService = Depends(get_personalization_service)
 ) -> JSONResponse:
     """更新用户画像
@@ -100,7 +94,6 @@ async def update_user_profile(
     Args:
         user_id: 用户ID
         profile: 用户画像
-        redis: Redis客户端
         service: 个性化服务
         
     Returns:
@@ -190,7 +183,6 @@ async def reset_preferences(
 async def submit_feedback(
     feedback: UserFeedback,
     background_tasks: BackgroundTasks,
-    redis: Redis = Depends(get_redis),
     service: PersonalizationService = Depends(get_personalization_service)
 ) -> JSONResponse:
     """提交用户反馈
@@ -198,7 +190,6 @@ async def submit_feedback(
     Args:
         feedback: 用户反馈
         background_tasks: 后台任务
-        redis: Redis客户端
         service: 个性化服务
         
     Returns:
@@ -214,8 +205,7 @@ async def submit_feedback(
         # 记录反馈
         background_tasks.add_task(
             log_user_feedback,
-            feedback,
-            redis
+            feedback
         )
         
         return JSONResponse(
@@ -229,14 +219,12 @@ async def submit_feedback(
 @router.websocket("/stream")
 async def recommendation_stream(
     websocket: WebSocket,
-    redis: Redis = Depends(get_redis),
     service: PersonalizationService = Depends(get_personalization_service)
 ):
     """WebSocket实时推荐流
     
     Args:
         websocket: WebSocket连接
-        redis: Redis客户端
         service: 个性化服务
     """
     await websocket.accept()
@@ -340,14 +328,12 @@ async def recommendation_stream(
 @router.get("/features/realtime/{user_id}")
 async def get_realtime_features(
     user_id: str,
-    redis: Redis = Depends(get_redis),
     service: PersonalizationService = Depends(get_personalization_service)
 ) -> Dict[str, Any]:
     """获取实时特征
     
     Args:
         user_id: 用户ID
-        redis: Redis客户端
         service: 个性化服务
         
     Returns:
@@ -371,7 +357,6 @@ async def get_realtime_features(
 async def compute_features_batch(
     user_ids: List[str],
     context: Optional[Dict[str, Any]] = None,
-    redis: Redis = Depends(get_redis),
     service: PersonalizationService = Depends(get_personalization_service)
 ) -> Dict[str, Any]:
     """批量计算特征
@@ -379,7 +364,6 @@ async def compute_features_batch(
     Args:
         user_ids: 用户ID列表
         context: 上下文
-        redis: Redis客户端
         service: 个性化服务
         
     Returns:
@@ -412,14 +396,12 @@ async def compute_features_batch(
 @router.get("/models/status")
 async def get_model_status(
     model_id: Optional[str] = None,
-    redis: Redis = Depends(get_redis),
     service: PersonalizationService = Depends(get_personalization_service)
 ) -> Dict[str, Any]:
     """获取模型服务状态
     
     Args:
         model_id: 模型ID（可选）
-        redis: Redis客户端
         service: 个性化服务
         
     Returns:
@@ -437,7 +419,6 @@ async def get_model_status(
 async def model_predict(
     model_id: str,
     features: List[float],
-    redis: Redis = Depends(get_redis),
     service: PersonalizationService = Depends(get_personalization_service)
 ) -> Dict[str, Any]:
     """模型预测
@@ -445,7 +426,6 @@ async def model_predict(
     Args:
         model_id: 模型ID
         features: 特征向量
-        redis: Redis客户端
         service: 个性化服务
         
     Returns:
@@ -474,7 +454,6 @@ async def model_predict(
 async def update_model(
     model_config: ModelConfig,
     background_tasks: BackgroundTasks,
-    redis: Redis = Depends(get_redis),
     service: PersonalizationService = Depends(get_personalization_service)
 ) -> JSONResponse:
     """增量更新模型
@@ -482,7 +461,6 @@ async def update_model(
     Args:
         model_config: 模型配置
         background_tasks: 后台任务
-        redis: Redis客户端
         service: 个性化服务
         
     Returns:
@@ -509,13 +487,11 @@ async def update_model(
 
 @router.get("/cache/stats")
 async def get_cache_stats(
-    redis: Redis = Depends(get_redis),
     service: PersonalizationService = Depends(get_personalization_service)
 ) -> Dict[str, Any]:
     """获取缓存统计信息
     
     Args:
-        redis: Redis客户端
         service: 个性化服务
         
     Returns:
@@ -532,14 +508,12 @@ async def get_cache_stats(
 @router.post("/cache/invalidate/{user_id}")
 async def invalidate_user_cache(
     user_id: str,
-    redis: Redis = Depends(get_redis),
     service: PersonalizationService = Depends(get_personalization_service)
 ) -> JSONResponse:
     """失效用户缓存
     
     Args:
         user_id: 用户ID
-        redis: Redis客户端
         service: 个性化服务
         
     Returns:
@@ -561,13 +535,11 @@ async def invalidate_user_cache(
 
 @router.get("/metrics")
 async def get_performance_metrics(
-    redis: Redis = Depends(get_redis),
     service: PersonalizationService = Depends(get_personalization_service)
 ) -> Dict[str, Any]:
     """获取性能指标
     
     Args:
-        redis: Redis客户端
         service: 个性化服务
         
     Returns:
@@ -585,8 +557,7 @@ async def get_performance_metrics(
 
 async def log_recommendation_request(
     request: RecommendationRequest,
-    response: RecommendationResponse,
-    redis: Redis
+    response: RecommendationResponse
 ):
     """记录推荐请求
     
@@ -606,6 +577,7 @@ async def log_recommendation_request(
             "timestamp": utc_now().isoformat()
         }
         
+        redis = get_redis()
         # 保存到Redis（用于分析）
         log_key = f"recommendation_log:{response.request_id}"
         await redis.setex(
@@ -657,8 +629,7 @@ def _build_preferences_payload(user_id: str, features: Optional[Any]) -> Dict[st
     return payload
 
 async def log_user_feedback(
-    feedback: UserFeedback,
-    redis: Redis
+    feedback: UserFeedback
 ):
     """记录用户反馈
     
@@ -675,6 +646,7 @@ async def log_user_feedback(
             "timestamp": feedback.timestamp.isoformat()
         }
         
+        redis = get_redis()
         # 保存到Redis
         feedback_key = f"feedback_log:{feedback.user_id}:{feedback.timestamp.timestamp()}"
         await redis.setex(
