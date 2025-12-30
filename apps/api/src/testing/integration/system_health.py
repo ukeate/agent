@@ -1,8 +1,9 @@
 """系统健康监控模块"""
 
-from typing import Dict, List, Any, Optional
-from datetime import datetime
-from datetime import timedelta
+from abc import ABC, abstractmethod
+from datetime import datetime, timedelta
+from typing import Any, Dict, List, Optional
+
 from src.core.utils.timezone_utils import utc_now
 import asyncio
 import os
@@ -522,12 +523,13 @@ class SystemHealthMonitor:
         return recommendations if recommendations else ["系统已准备好投入生产"]
 
 # 组件监控器基类
-class ComponentMonitor:
+class ComponentMonitor(ABC):
     """组件监控器基类"""
     
+    @abstractmethod
     async def check_health(self) -> ComponentHealth:
         """检查组件健康状态"""
-        raise NotImplementedError
+        ...
 
 class LangGraphMonitor(ComponentMonitor):
     """LangGraph监控器"""

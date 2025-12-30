@@ -81,10 +81,7 @@ class MultimodalVectorStore:
                 )
             )
         else:
-            # 其他向量存储类型的实现
-            raise NotImplementedError(
-                f"Vector store type {self.config.vector_store_type} not implemented"
-            )
+            raise ValueError(f"不支持的向量存储类型: {self.config.vector_store_type}")
     
     async def add_documents(self, processed_doc: ProcessedDocument) -> bool:
         """添加处理后的文档到向量存储

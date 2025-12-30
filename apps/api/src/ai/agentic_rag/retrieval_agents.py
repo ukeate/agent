@@ -78,7 +78,7 @@ class BaseRetrievalAgent(ABC):
                       limit: int = 10,
                       filters: Optional[Dict[str, Any]] = None) -> RetrievalResult:
         """执行检索"""
-        raise NotImplementedError
+        ...
     
     def is_suitable_for_query(self, query_analysis: QueryAnalysis) -> float:
         """评估代理对查询的适用性 (0-1)"""

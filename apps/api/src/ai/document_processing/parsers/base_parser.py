@@ -1,11 +1,12 @@
 """基础文档解析器接口"""
 
-from abc import ABC, abstractmethod
-from typing import Dict, Any, List, Optional
-from pathlib import Path
 import hashlib
 from datetime import datetime
-from src.core.utils.timezone_utils import utc_now, utc_factory
+from abc import ABC, abstractmethod
+from pathlib import Path
+from typing import Any, Dict, List, Optional
+
+from src.core.utils.timezone_utils import utc_now
 
 class ParsedElement:
     """解析的文档元素"""
@@ -64,7 +65,7 @@ class BaseParser(ABC):
         Returns:
             解析后的文档
         """
-        raise NotImplementedError
+        ...
     
     def generate_doc_id(self, file_path: Path) -> str:
         """生成文档ID

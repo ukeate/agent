@@ -72,7 +72,7 @@ class ExplorationStrategy(ABC):
         Returns:
             int: 选择的动作
         """
-        raise NotImplementedError
+        ...
     
     @abstractmethod
     def update(self, action: int, reward: float, **kwargs):
@@ -84,7 +84,7 @@ class ExplorationStrategy(ABC):
             reward: 获得的奖励
             **kwargs: 其他参数
         """
-        raise NotImplementedError
+        ...
     
     def get_exploration_rate(self, step: Optional[int] = None) -> float:
         """获取当前探索率"""

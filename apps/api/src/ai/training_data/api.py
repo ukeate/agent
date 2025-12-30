@@ -68,7 +68,7 @@ class AnnotationTaskCreate(BaseModel):
     data_records: List[str]
     annotation_schema: Dict[str, Any]
     guidelines: str
-    assignees: List[str] = []
+    assignees: List[str] = Field(default_factory=list)
     deadline: Optional[datetime] = None
 
 class AnnotationTaskResponse(BaseModel):
@@ -125,7 +125,7 @@ class VersionResponse(BaseModel):
 
 class CollectionJobCreate(BaseModel):
     source_id: str
-    processing_rules: List[str] = []
+    processing_rules: List[str] = Field(default_factory=list)
     batch_size: int = 100
 
 class ExportJobCreate(BaseModel):

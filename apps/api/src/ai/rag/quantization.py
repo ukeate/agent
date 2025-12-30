@@ -3,10 +3,12 @@
 实现Product Quantization (PQ)、Binary Quantization和Half-precision向量
 """
 
-import numpy as np
-from typing import List, Dict, Any, Optional, Tuple, Union
 import asyncio
 import json
+from abc import ABC, abstractmethod
+from typing import Any, Dict, List, Optional, Tuple, Union
+
+import numpy as np
 from ...core.config import get_settings
 
 from src.core.logging import get_logger
@@ -14,28 +16,32 @@ logger = get_logger(__name__)
 
 settings = get_settings()
 
-class VectorQuantizer:
+class VectorQuantizer(ABC):
     """向量量化器基类"""
     
     def __init__(self, name: str = "base"):
         self.name = name
         self.is_trained = False
         
+    @abstractmethod
     def train(self, vectors: np.ndarray) -> bool:
         """训练量化器"""
-        raise NotImplementedError
+        ...
         
+    @abstractmethod
     def encode(self, vectors: np.ndarray) -> np.ndarray:
         """编码向量"""
-        raise NotImplementedError
+        ...
         
+    @abstractmethod
     def decode(self, codes: np.ndarray) -> np.ndarray:
         """解码向量"""
-        raise NotImplementedError
+        ...
         
+    @abstractmethod
     def get_params(self) -> Dict[str, Any]:
         """获取量化器参数"""
-        raise NotImplementedError
+        ...
 
 class BinaryQuantizer(VectorQuantizer):
     """二进制量化器"""

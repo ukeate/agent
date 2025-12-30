@@ -8,6 +8,7 @@ from contextlib import asynccontextmanager
 from typing import List, Dict, Any, Optional, Tuple
 from datetime import datetime
 from sqlalchemy import select, and_
+from sqlalchemy.ext.asyncio import AsyncSession
 from src.core.utils.timezone_utils import utc_now, utc_factory
 from fastapi import APIRouter, Depends, HTTPException, status, Query, BackgroundTasks
 from src.services.user_assignment_cache import (
@@ -16,7 +17,7 @@ from src.services.user_assignment_cache import (
     CacheStrategy
 )
 from src.api.base_model import ApiBaseModel
-from src.core.database import get_db_session
+from src.core.database import get_db
 from src.models.database.experiment import Experiment, ExperimentVariant
 
 from src.core.logging import get_logger
@@ -93,30 +94,30 @@ async def get_user_assignment(
 @router.post("/assignments", status_code=status.HTTP_201_CREATED)
 async def create_assignment(
     request: CreateAssignmentRequest,
+    db: AsyncSession = Depends(get_db),
     cache: UserAssignmentCache = Depends(get_cache)
 ):
     """创建用户分配"""
     try:
-        async with get_db_session() as db:
-            experiment_exists = await db.get(Experiment, request.experiment_id)
-            if not experiment_exists:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Experiment not found"
-                )
-            variant_query = await db.execute(
-                select(ExperimentVariant).where(
-                    and_(
-                        ExperimentVariant.experiment_id == request.experiment_id,
-                        ExperimentVariant.variant_id == request.variant_id
-                    )
+        experiment_exists = await db.get(Experiment, request.experiment_id)
+        if not experiment_exists:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Experiment not found"
+            )
+        variant_query = await db.execute(
+            select(ExperimentVariant).where(
+                and_(
+                    ExperimentVariant.experiment_id == request.experiment_id,
+                    ExperimentVariant.variant_id == request.variant_id
                 )
             )
-            if not variant_query.scalar_one_or_none():
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Experiment variant not found"
-                )
+        )
+        if not variant_query.scalar_one_or_none():
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Experiment variant not found"
+            )
 
         assignment = CachedAssignment(
             user_id=request.user_id,

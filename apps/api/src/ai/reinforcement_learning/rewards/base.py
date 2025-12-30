@@ -97,7 +97,7 @@ class RewardFunction(ABC):
         Returns:
             float: 计算的奖励值
         """
-        raise NotImplementedError
+        ...
     
     def compute_multi_dimensional_reward(self, 
                                        state: np.ndarray, 

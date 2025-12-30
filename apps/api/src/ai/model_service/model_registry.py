@@ -199,22 +199,22 @@ class ModelLoader(ABC):
     @abstractmethod
     def load(self, model_path: str, **kwargs) -> Any:
         """加载模型"""
-        raise NotImplementedError
+        ...
     
     @abstractmethod
     def save(self, model: Any, model_path: str, **kwargs) -> None:
         """保存模型"""
-        raise NotImplementedError
+        ...
     
     @abstractmethod
     def get_metadata(self, model: Any, model_path: str = None) -> Dict[str, Any]:
         """提取模型元数据"""
-        raise NotImplementedError
+        ...
     
     @abstractmethod
     def supported_formats(self) -> List[ModelFormat]:
         """返回支持的格式"""
-        raise NotImplementedError
+        ...
 
 class PyTorchLoader(ModelLoader):
     """PyTorch模型加载器"""
@@ -894,7 +894,7 @@ class ModelRegistry:
             name: 模型名称
             version: 版本号
             export_path: 导出路径
-            export_format: 导出格式，None表示保持原格式
+        export_format: 导出格式，None表示保持原格式（不支持跨格式转换）
             
         Returns:
             导出的文件路径
@@ -913,8 +913,7 @@ class ModelRegistry:
                 shutil.copy2(entry.model_path, export_path)
             return export_path
         
-        # 格式转换（需要实现具体的转换逻辑）
-        raise NotImplementedError("格式转换功能尚未实现")
+        raise ValueError("当前仅支持导出为原始格式，跨格式转换需使用对应框架工具完成")
     
     def validate_registry(self) -> Dict[str, List[str]]:
         """

@@ -7,6 +7,7 @@ import time
 from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Optional, Tuple
 from uuid import uuid4
+from src.core.logging import get_logger
 from src.models.schemas.reasoning import (
     ReasoningChain,
     ReasoningStrategy,
@@ -33,12 +34,12 @@ class BaseCoTEngine(ABC):
     @abstractmethod
     async def generate_prompt(self, problem: str, context: Optional[str] = None, **kwargs) -> str:
         """生成推理提示词"""
-        raise NotImplementedError
+        ...
 
     @abstractmethod
     async def parse_response(self, response: str) -> Tuple[ThoughtStepType, str, str, float]:
         """解析模型响应，返回(步骤类型, 内容, 推理, 置信度)"""
-        raise NotImplementedError
+        ...
 
     async def execute_step(
         self,

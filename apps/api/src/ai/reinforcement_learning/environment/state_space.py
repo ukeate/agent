@@ -77,12 +77,12 @@ class StateSpace(ABC):
     @abstractmethod
     def sample(self) -> AgentState:
         """从状态空间中随机采样一个状态"""
-        raise NotImplementedError
+        ...
     
     @abstractmethod
     def contains(self, state: AgentState) -> bool:
         """检查状态是否在状态空间内"""
-        raise NotImplementedError
+        ...
     
     def validate_state(self, state: AgentState) -> bool:
         """验证状态的所有特征是否有效"""

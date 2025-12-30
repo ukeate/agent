@@ -55,12 +55,12 @@ class BaseEntityRecognizer(ABC):
     @abstractmethod
     async def load_model(self):
         """加载模型"""
-        raise NotImplementedError
+        ...
     
     @abstractmethod  
     async def extract_entities(self, text: str, language: str = "auto") -> List[Entity]:
         """抽取实体"""
-        raise NotImplementedError
+        ...
     
     def is_loaded(self) -> bool:
         """检查模型是否已加载"""

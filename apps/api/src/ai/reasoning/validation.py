@@ -16,7 +16,7 @@ class BaseValidator(ABC):
     @abstractmethod
     async def validate(self, step: ThoughtStep, chain: ReasoningChain) -> ReasoningValidation:
         """验证推理步骤"""
-        raise NotImplementedError
+        ...
 
 class ConsistencyValidator(BaseValidator):
     """一致性验证器"""

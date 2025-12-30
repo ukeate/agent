@@ -35,11 +35,11 @@ class AgentInfoCreate(ApiBaseModel):
     name: str = Field(..., description="智能体名称")
     host: str = Field(..., description="智能体主机地址")
     port: int = Field(..., description="智能体端口")
-    capabilities: List[str] = Field(default=[], description="智能体能力")
+    capabilities: List[str] = Field(default_factory=list, description="智能体能力")
     version: str = Field(default="1.0.0", description="智能体版本")
-    config: Dict[str, Any] = Field(default={}, description="智能体配置")
-    labels: Dict[str, str] = Field(default={}, description="智能体标签")
-    resource_spec: Dict[str, Any] = Field(default={}, description="资源规格")
+    config: Dict[str, Any] = Field(default_factory=dict, description="智能体配置")
+    labels: Dict[str, str] = Field(default_factory=dict, description="智能体标签")
+    resource_spec: Dict[str, Any] = Field(default_factory=dict, description="资源规格")
 
 class AgentGroupCreate(ApiBaseModel):
     """创建智能体分组的请求模型"""
@@ -47,7 +47,7 @@ class AgentGroupCreate(ApiBaseModel):
     description: str = Field(default="", description="分组描述")
     max_agents: Optional[int] = Field(None, description="最大智能体数量")
     min_agents: int = Field(default=0, description="最小智能体数量")
-    labels: Dict[str, str] = Field(default={}, description="分组标签")
+    labels: Dict[str, str] = Field(default_factory=dict, description="分组标签")
 
 class AgentGroupUpdate(ApiBaseModel):
     """更新智能体分组的请求模型"""

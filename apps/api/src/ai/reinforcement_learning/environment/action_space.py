@@ -93,12 +93,12 @@ class ActionSpace(ABC):
     @abstractmethod
     def sample(self) -> Any:
         """从动作空间中随机采样一个动作"""
-        raise NotImplementedError
+        ...
     
     @abstractmethod
     def contains(self, action: Any) -> bool:
         """检查动作是否在动作空间内"""
-        raise NotImplementedError
+        ...
     
     def validate_action(self, action: Any) -> bool:
         """验证动作的所有维度是否有效"""

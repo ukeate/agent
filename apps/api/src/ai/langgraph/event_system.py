@@ -70,12 +70,12 @@ class EventListener(ABC):
     @abstractmethod
     async def handle_event(self, event: WorkflowEvent):
         """处理事件"""
-        raise NotImplementedError
+        ...
     
     @abstractmethod
     def get_interested_events(self) -> List[EventType]:
         """获取感兴趣的事件类型"""
-        raise NotImplementedError
+        ...
 
 class LoggingEventListener(EventListener):
     """日志事件监听器"""

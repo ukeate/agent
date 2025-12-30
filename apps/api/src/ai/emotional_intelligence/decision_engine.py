@@ -24,18 +24,18 @@ class DecisionStrategy(ABC):
     @abstractmethod
     async def evaluate(self, context: DecisionContext) -> float:
         """评估策略适用性"""
-        raise NotImplementedError
+        ...
     
     @abstractmethod
     async def execute(self, context: DecisionContext) -> Dict[str, Any]:
         """执行策略"""
-        raise NotImplementedError
+        ...
     
     @property
     @abstractmethod
     def strategy_name(self) -> str:
         """策略名称"""
-        raise NotImplementedError
+        ...
 
 class EmotionalDecisionEngine:
     """情感智能决策引擎主类"""

@@ -6,6 +6,7 @@ from src.core.utils.timezone_utils import utc_now
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, WebSocket, WebSocketDisconnect
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Dict, List, Optional, Any
+from pydantic import Field
 from datetime import datetime
 from src.core.database import get_db
 from src.services.emotion_modeling_service import EmotionModelingService
@@ -26,8 +27,8 @@ class EmotionStateInput(ApiBaseModel):
     dominance: Optional[float] = None
     confidence: float = 1.0
     timestamp: Optional[str] = None
-    triggers: List[str] = []
-    context: Dict[str, Any] = {}
+    triggers: List[str] = Field(default_factory=list)
+    context: Dict[str, Any] = Field(default_factory=dict)
     source: str = "manual"
     session_id: Optional[str] = None
 

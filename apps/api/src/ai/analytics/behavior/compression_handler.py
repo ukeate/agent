@@ -4,16 +4,18 @@
 负责事件数据的压缩、解压缩和传输优化。
 """
 
-import gzip
-import lz4.frame
-import json
-from src.core.utils import secure_pickle as pickle
 import asyncio
-from typing import List, Dict, Any, Union, Optional, Tuple
-from datetime import datetime
-from src.core.utils.timezone_utils import utc_now, utc_factory
+import gzip
+import json
 from dataclasses import dataclass
+from datetime import datetime
 from enum import Enum
+from typing import Any, Dict, List, Optional, Tuple, Union
+
+import lz4.frame
+
+from src.core.utils import secure_pickle as pickle
+from src.core.utils.timezone_utils import utc_now
 from ..models import BehaviorEvent
 
 from src.core.logging import get_logger
@@ -273,21 +275,88 @@ class StreamingCompressor:
         data_stream: asyncio.StreamReader
     ) -> Tuple[asyncio.StreamReader, CompressionMetrics]:
         """流式压缩数据"""
+        start_time = asyncio.get_running_loop().time()
+        original_size = 0
+        compressed_size = 0
+
+        output_stream = asyncio.StreamReader()
+
         if self.method == CompressionMethod.NONE:
-            return data_stream, CompressionMetrics(0, 0, 0.0, 0.0)
-        
-        # 创建压缩器
+            while True:
+                chunk = await data_stream.read(self.chunk_size)
+                if not chunk:
+                    break
+                original_size += len(chunk)
+                output_stream.feed_data(chunk)
+                compressed_size += len(chunk)
+            output_stream.feed_eof()
+            compression_time = (asyncio.get_running_loop().time() - start_time) * 1000
+            metrics = CompressionMetrics(
+                original_size=original_size,
+                compressed_size=compressed_size,
+                compression_ratio=0.0,
+                compression_time_ms=compression_time,
+                method=self.method,
+            )
+            return output_stream, metrics
+
         if self.method == CompressionMethod.GZIP:
-            compressor = gzip.GzipFile(mode='wb', fileobj=None)
+            import io
+            gzip_buffer = io.BytesIO()
+            gzip_file = gzip.GzipFile(mode="wb", fileobj=gzip_buffer)
+
+            while True:
+                chunk = await data_stream.read(self.chunk_size)
+                if not chunk:
+                    break
+                original_size += len(chunk)
+                gzip_file.write(chunk)
+                gzip_file.flush()
+                data = gzip_buffer.getvalue()
+                if data:
+                    output_stream.feed_data(data)
+                    compressed_size += len(data)
+                    gzip_buffer.seek(0)
+                    gzip_buffer.truncate(0)
+
+            gzip_file.close()
+            remaining = gzip_buffer.getvalue()
+            if remaining:
+                output_stream.feed_data(remaining)
+                compressed_size += len(remaining)
+            output_stream.feed_eof()
+
         elif self.method == CompressionMethod.LZ4:
-            # LZ4流式压缩需要特殊处理
-            raise NotImplementedError("LZ4流式压缩尚未实现")
+            compressor = lz4.frame.LZ4FrameCompressor()
+            while True:
+                chunk = await data_stream.read(self.chunk_size)
+                if not chunk:
+                    break
+                original_size += len(chunk)
+                compressed_chunk = compressor.compress(chunk)
+                if compressed_chunk:
+                    output_stream.feed_data(compressed_chunk)
+                    compressed_size += len(compressed_chunk)
+            flushed = compressor.flush()
+            if flushed:
+                output_stream.feed_data(flushed)
+                compressed_size += len(flushed)
+            output_stream.feed_eof()
         else:
             raise ValueError(f"不支持的流式压缩方法: {self.method}")
-        
-        # 实现流式压缩逻辑
-        # 这里需要更复杂的实现来处理流式数据
-        raise NotImplementedError("流式压缩功能尚未完全实现")
+
+        compression_time = (asyncio.get_running_loop().time() - start_time) * 1000
+        compression_ratio = (
+            (original_size - compressed_size) / original_size if original_size > 0 else 0.0
+        )
+        metrics = CompressionMetrics(
+            original_size=original_size,
+            compressed_size=compressed_size,
+            compression_ratio=compression_ratio,
+            compression_time_ms=compression_time,
+            method=self.method,
+        )
+        return output_stream, metrics
 
 class AdaptiveCompressionManager:
     """自适应压缩管理器

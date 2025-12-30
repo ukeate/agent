@@ -5,9 +5,11 @@
 from src.core.utils.timezone_utils import utc_now
 from fastapi import APIRouter, HTTPException, Depends, BackgroundTasks, Body
 from typing import Dict, List, Optional, Any, Tuple
+from pydantic import Field
 from datetime import datetime, timedelta
 from collections import defaultdict
 from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncSession
 from src.ai.emotional_intelligence.decision_engine import EmotionalDecisionEngine
 from src.ai.emotional_intelligence.risk_assessment import RiskAssessmentEngine
 from src.ai.emotional_intelligence.intervention_engine import InterventionStrategySelector
@@ -20,7 +22,7 @@ from src.ai.emotional_intelligence.models import (
 from src.api.base_model import ApiBaseModel
 from src.ai.emotion_modeling.models import EmotionState, PersonalityProfile
 from src.core.dependencies import get_current_user
-from src.core.database import get_db_session
+from src.core.database import get_db
 from src.repositories.emotion_modeling_repository import EmotionModelingRepository
 
 from src.core.logging import get_logger
@@ -35,6 +37,11 @@ intervention_engine = InterventionStrategySelector()
 crisis_system = CrisisDetectionSystem()
 health_monitor = HealthMonitoringSystem()
 
+async def get_emotion_repo(
+    db: AsyncSession = Depends(get_db),
+) -> EmotionModelingRepository:
+    return EmotionModelingRepository(db)
+
 system_start_time = utc_now()
 intervention_plan_store: Dict[str, InterventionPlan] = {}
 intervention_effectiveness_log: Dict[str, Dict[str, Any]] = {}
@@ -48,19 +55,18 @@ emotional_intelligence_config: Dict[str, Any] = {
 }
 
 async def _load_emotion_history(
+    repo: EmotionModelingRepository,
     user_id: str,
     limit: int = 200,
     start_time: Optional[datetime] = None,
     end_time: Optional[datetime] = None
 ) -> List[EmotionState]:
-    async with get_db_session() as session:
-        repo = EmotionModelingRepository(session)
-        history = await repo.get_user_emotion_history(
-            user_id=user_id,
-            limit=limit,
-            start_time=start_time,
-            end_time=end_time
-        )
+    history = await repo.get_user_emotion_history(
+        user_id=user_id,
+        limit=limit,
+        start_time=start_time,
+        end_time=end_time
+    )
     return sorted(history, key=lambda item: item.timestamp)
 
 def _group_emotions_by_day(emotion_history: List[EmotionState]) -> Dict[str, List[EmotionState]]:
@@ -114,6 +120,7 @@ def _calculate_intervention_effectiveness(
     }
 
 async def _get_high_risk_users(
+    db: AsyncSession,
     threshold: float = 0.7,
     lookback_days: int = 30,
     limit: int = 50
@@ -122,35 +129,34 @@ async def _get_high_risk_users(
     start_time = end_time - timedelta(days=lookback_days)
     high_risk_users: List[Dict[str, Any]] = []
     try:
-        async with get_db_session() as session:
-            result = await session.execute(
-                text("SELECT DISTINCT user_id FROM emotion_states WHERE timestamp >= :start_time"),
-                {"start_time": start_time}
-            )
-            user_ids = [row[0] for row in result.fetchall()]
-            repo = EmotionModelingRepository(session)
+        result = await db.execute(
+            text("SELECT DISTINCT user_id FROM emotion_states WHERE timestamp >= :start_time"),
+            {"start_time": start_time}
+        )
+        user_ids = [row[0] for row in result.fetchall()]
+        repo = EmotionModelingRepository(db)
 
-            for user_id in user_ids:
-                history = await repo.get_user_emotion_history(
-                    user_id=user_id,
-                    limit=200,
-                    start_time=start_time,
-                    end_time=end_time
-                )
-                if not history:
-                    continue
-                assessment = await risk_engine.assess_comprehensive_risk(
-                    user_id=user_id,
-                    emotion_history=history,
-                    personality_profile=None,
-                    context=None
-                )
-                if assessment.risk_score >= threshold:
-                    high_risk_users.append({
-                        "user_id": user_id,
-                        "risk_score": assessment.risk_score,
-                        "risk_level": assessment.risk_level
-                    })
+        for user_id in user_ids:
+            history = await repo.get_user_emotion_history(
+                user_id=user_id,
+                limit=200,
+                start_time=start_time,
+                end_time=end_time
+            )
+            if not history:
+                continue
+            assessment = await risk_engine.assess_comprehensive_risk(
+                user_id=user_id,
+                emotion_history=history,
+                personality_profile=None,
+                context=None
+            )
+            if assessment.risk_score >= threshold:
+                high_risk_users.append({
+                    "user_id": user_id,
+                    "risk_score": assessment.risk_score,
+                    "risk_level": assessment.risk_level
+                })
     except Exception as e:
         logger.warning(f"高风险用户查询失败，返回空列表: {e}")
         return []
@@ -163,10 +169,10 @@ class EmotionalDecisionRequest(ApiBaseModel):
     session_id: Optional[str] = None
     user_input: str
     current_emotion_state: Dict[str, Any]
-    emotion_history: List[Dict[str, Any]] = []
+    emotion_history: List[Dict[str, Any]] = Field(default_factory=list)
     personality_profile: Optional[Dict[str, Any]] = None
-    environmental_factors: Dict[str, Any] = {}
-    previous_decisions: List[Dict[str, Any]] = []
+    environmental_factors: Dict[str, Any] = Field(default_factory=dict)
+    previous_decisions: List[Dict[str, Any]] = Field(default_factory=list)
 
 class RiskAssessmentRequest(ApiBaseModel):
     user_id: str
@@ -252,6 +258,7 @@ async def make_emotional_decision(
 @router.post("/risk-assessment")
 async def assess_emotional_risk(
     request: RiskAssessmentRequest,
+    repo: EmotionModelingRepository = Depends(get_emotion_repo),
     current_user: str = Depends(get_current_user)
 ) -> Dict[str, Any]:
     """
@@ -269,6 +276,7 @@ async def assess_emotional_risk(
                 emotion_history.append(emotion)
         else:
             emotion_history = await _load_emotion_history(
+                repo=repo,
                 user_id=request.user_id,
                 limit=200
             )
@@ -429,6 +437,7 @@ async def create_intervention_plan(
 async def get_health_dashboard(
     user_id: str,
     time_period_days: int = 30,
+    repo: EmotionModelingRepository = Depends(get_emotion_repo),
     current_user: str = Depends(get_current_user)
 ) -> Dict[str, Any]:
     """
@@ -438,6 +447,7 @@ async def get_health_dashboard(
         end_time = utc_now()
         start_time = end_time - timedelta(days=time_period_days)
         emotion_history = await _load_emotion_history(
+            repo=repo,
             user_id=user_id,
             limit=1000,
             start_time=start_time,
@@ -460,9 +470,7 @@ async def get_health_dashboard(
             if plan.user_id == user_id
         ]
 
-        async with get_db_session() as session:
-            repo = EmotionModelingRepository(session)
-            personality_profile = await repo.get_personality_profile(user_id)
+        personality_profile = await repo.get_personality_profile(user_id)
 
         dashboard = await health_monitor.generate_health_dashboard(
             user_id=user_id,
@@ -487,6 +495,7 @@ async def get_health_dashboard(
 async def analyze_emotional_patterns(
     user_id: str,
     analysis_days: int = 7,
+    repo: EmotionModelingRepository = Depends(get_emotion_repo),
     current_user: str = Depends(get_current_user)
 ) -> Dict[str, Any]:
     """
@@ -496,6 +505,7 @@ async def analyze_emotional_patterns(
         end_time = utc_now()
         start_time = end_time - timedelta(days=analysis_days)
         emotion_history = await _load_emotion_history(
+            repo=repo,
             user_id=user_id,
             limit=500,
             start_time=start_time,
@@ -587,6 +597,7 @@ async def assess_suicide_risk(
 async def analyze_risk_trends(
     user_id: str,
     time_period_days: int = 30,
+    repo: EmotionModelingRepository = Depends(get_emotion_repo),
     current_user: str = Depends(get_current_user)
 ) -> Dict[str, Any]:
     """
@@ -596,6 +607,7 @@ async def analyze_risk_trends(
         end_time = utc_now()
         start_time = end_time - timedelta(days=time_period_days)
         emotion_history = await _load_emotion_history(
+            repo=repo,
             user_id=user_id,
             limit=1000,
             start_time=start_time,
@@ -621,6 +633,7 @@ async def analyze_risk_trends(
 async def predict_crisis_probability(
     user_id: str,
     prediction_hours: int = 24,
+    repo: EmotionModelingRepository = Depends(get_emotion_repo),
     current_user: str = Depends(get_current_user)
 ) -> Dict[str, Any]:
     """
@@ -630,6 +643,7 @@ async def predict_crisis_probability(
         end_time = utc_now()
         start_time = end_time - timedelta(days=30)
         emotion_history = await _load_emotion_history(
+            repo=repo,
             user_id=user_id,
             limit=500,
             start_time=start_time,
@@ -833,6 +847,7 @@ async def acknowledge_crisis(
 @router.get("/health-insights/{user_id}")
 async def get_health_insights(
     user_id: str,
+    repo: EmotionModelingRepository = Depends(get_emotion_repo),
     current_user: str = Depends(get_current_user)
 ) -> Dict[str, Any]:
     """
@@ -842,6 +857,7 @@ async def get_health_insights(
         end_time = utc_now()
         start_time = end_time - timedelta(days=30)
         emotion_history = await _load_emotion_history(
+            repo=repo,
             user_id=user_id,
             limit=500,
             start_time=start_time,
@@ -863,9 +879,7 @@ async def get_health_insights(
             if plan.user_id == user_id
         ]
 
-        async with get_db_session() as session:
-            repo = EmotionModelingRepository(session)
-            personality_profile = await repo.get_personality_profile(user_id)
+        personality_profile = await repo.get_personality_profile(user_id)
 
         dashboard = await health_monitor.generate_health_dashboard(
             user_id=user_id,
@@ -892,11 +906,13 @@ async def get_high_risk_users(
     threshold: float = 0.7,
     lookback_days: int = 30,
     limit: int = 50,
+    db: AsyncSession = Depends(get_db),
     current_user: str = Depends(get_current_user)
 ) -> Dict[str, Any]:
     """获取高风险用户列表"""
     try:
         users = await _get_high_risk_users(
+            db=db,
             threshold=threshold,
             lookback_days=lookback_days,
             limit=limit
@@ -913,6 +929,7 @@ async def get_high_risk_users(
 
 @router.get("/stats")
 async def get_system_stats(
+    db: AsyncSession = Depends(get_db),
     current_user: str = Depends(get_current_user)
 ) -> Dict[str, Any]:
     """获取情感智能系统统计"""
@@ -936,7 +953,12 @@ async def get_system_stats(
             if record.get("score", 0.0) >= 0.7
             and record.get("timestamp") >= utc_now() - timedelta(days=30)
         ])
-        high_risk_users = await _get_high_risk_users(threshold=0.7, lookback_days=30, limit=500)
+        high_risk_users = await _get_high_risk_users(
+            db=db,
+            threshold=0.7,
+            lookback_days=30,
+            limit=500,
+        )
         return {
             "total_decisions": total_decisions,
             "average_confidence": average_confidence,

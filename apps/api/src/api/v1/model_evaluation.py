@@ -64,7 +64,7 @@ class EvaluationJob(ApiBaseModel):
     completed_at: Optional[datetime] = None
     progress: float = 0.0
     current_task: Optional[str] = None
-    results: List[Dict[str, Any]] = []
+    results: List[Dict[str, Any]] = Field(default_factory=list)
     error: Optional[str] = None
     models_count: int = 0
     benchmarks_count: int = 0

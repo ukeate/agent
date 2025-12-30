@@ -693,11 +693,13 @@ class HybridSearchEngine:
     async def multi_collection_search(
         self,
         query: str,
-        collections: List[str] = ["documents", "code"],
+        collections: Optional[List[str]] = None,
         limit: int = 20,
         strategy: Optional[SearchStrategy] = None
     ) -> List[SearchResult]:
         """跨多个集合搜索"""
+        if collections is None:
+            collections = ["documents", "code"]
         all_results = []
         
         for collection in collections:

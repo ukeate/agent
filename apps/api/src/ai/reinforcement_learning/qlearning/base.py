@@ -6,12 +6,15 @@ Q-Learning智能体抽象基类
 
 from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Optional, Tuple, Union
-import numpy as np
-from dataclasses import dataclass
-from enum import Enum
 import uuid
+from dataclasses import dataclass
 from datetime import datetime
-from src.core.utils.timezone_utils import utc_now, utc_factory
+from enum import Enum
+from typing import Any, Dict, List, Optional, Tuple, Union
+
+import numpy as np
+
+from src.core.utils.timezone_utils import utc_now
 
 class AlgorithmType(Enum):
     """Q-Learning算法类型枚举"""
@@ -136,7 +139,7 @@ class QLearningAgent(ABC):
         Returns:
             选择的动作
         """
-        raise NotImplementedError
+        ...
     
     @abstractmethod 
     def update_q_value(self, experience: Experience) -> Optional[float]:
@@ -149,7 +152,7 @@ class QLearningAgent(ABC):
         Returns:
             训练损失（如果适用）
         """
-        raise NotImplementedError
+        ...
     
     @abstractmethod
     def get_q_values(self, state: AgentState) -> Dict[str, float]:
@@ -162,17 +165,17 @@ class QLearningAgent(ABC):
         Returns:
             动作到Q值的映射
         """
-        raise NotImplementedError
+        ...
     
     @abstractmethod
     def save_model(self, filepath: str) -> None:
         """保存模型"""
-        raise NotImplementedError
+        ...
     
     @abstractmethod
     def load_model(self, filepath: str) -> None:
         """加载模型"""
-        raise NotImplementedError
+        ...
     
     def decay_epsilon(self) -> None:
         """衰减探索率"""
@@ -292,7 +295,7 @@ class ExplorationStrategy(ABC):
     @abstractmethod
     def select_action(self, q_values: Dict[str, float], available_actions: List[str], epsilon: float) -> str:
         """根据探索策略选择动作"""
-        raise NotImplementedError
+        ...
 
 class EpsilonGreedyStrategy(ExplorationStrategy):
     """epsilon-greedy探索策略"""

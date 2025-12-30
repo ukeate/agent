@@ -5,6 +5,7 @@
 """
 
 from fastapi import APIRouter, HTTPException, BackgroundTasks, Depends, Query
+from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Dict, List, Optional, Any
 from datetime import datetime
 from src.core.utils.timezone_utils import utc_now, utc_factory
@@ -25,6 +26,7 @@ from src.ai.hyperparameter_optimization.models import (
     OptimizationProgress,
     HyperparameterRangeSchema
 )
+from src.core.database import get_db
 
 from src.core.logging import get_logger
 logger = get_logger(__name__)
@@ -281,8 +283,8 @@ async def optimize_for_task(
 @router.post("/compare-algorithms/{task_name}")
 async def compare_algorithms(
     task_name: str,
+    background_tasks: BackgroundTasks,
     algorithms: List[str] = Query(default=["tpe", "cmaes", "random"]),
-    background_tasks: BackgroundTasks = None,
     engine: HyperparameterSearchEngine = Depends(get_search_engine)
 ):
     """比较不同算法在指定任务上的表现"""
@@ -324,17 +326,13 @@ async def compare_algorithms(
                 logger.error(f"Algorithm comparison for task {task_name} failed: {e}")
                 raise
         
-        if background_tasks:
-            background_tasks.add_task(run_comparison)
-            return {
-                "status": "comparison_started",
-                "task_name": task_name,
-                "algorithms": algorithms,
-                "message": "Algorithm comparison running in background"
-            }
-        else:
-            # 同步执行（仅用于演示）
-            return await run_comparison()
+        background_tasks.add_task(run_comparison)
+        return {
+            "status": "comparison_started",
+            "task_name": task_name,
+            "algorithms": algorithms,
+            "message": "Algorithm comparison running in background"
+        }
             
     except HTTPException:
         raise
@@ -369,15 +367,14 @@ async def get_active_experiments(
 # 健康检查接口
 
 @router.get("/health")
-async def health_check():
+async def health_check(
+    db: AsyncSession = Depends(get_db),
+):
     """健康检查接口"""
     try:
         # 检查数据库连接
         from sqlalchemy import text
-        manager = get_experiment_manager()
-        db = manager.get_db()
-        db.execute(text("SELECT 1"))
-        db.close()
+        await db.execute(text("SELECT 1"))
         
         return {
             "status": "healthy",

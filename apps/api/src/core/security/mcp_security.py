@@ -9,7 +9,7 @@ from datetime import timedelta
 from src.core.utils.timezone_utils import utc_now, utc_factory
 from enum import Enum
 from typing import Any, Dict, List, Optional, Set
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 from src.core.config import get_settings
 from src.core.redis import get_redis
@@ -40,9 +40,9 @@ class ToolPermission(BaseModel):
     risk_level: ToolRiskLevel
     allowed_roles: List[str]
     requires_approval: bool
-    auto_approve_for_roles: List[str] = []
+    auto_approve_for_roles: List[str] = Field(default_factory=list)
     max_calls_per_hour: Optional[int] = None
-    restricted_params: Dict[str, Any] = {}
+    restricted_params: Dict[str, Any] = Field(default_factory=dict)
 
 class ToolCallRequest(BaseModel):
     """工具调用请求"""
@@ -69,7 +69,7 @@ class SecurityCheck(BaseModel):
     risk_score: float
     requires_approval: bool
     denial_reason: Optional[str] = None
-    warnings: List[str] = []
+    warnings: List[str] = Field(default_factory=list)
 
 class MCPToolSecurityManager:
     """MCP工具安全管理器"""
@@ -148,7 +148,10 @@ class MCPToolSecurityManager:
     def __init__(self):
         self.tool_whitelist: Set[str] = set()
         self.tool_blacklist: Set[str] = set()
-        self.tool_permissions: Dict[str, ToolPermission] = self.DEFAULT_TOOL_PERMISSIONS.copy()
+        self.tool_permissions: Dict[str, ToolPermission] = {
+            name: permission.model_copy(deep=True)
+            for name, permission in self.DEFAULT_TOOL_PERMISSIONS.items()
+        }
         self.audit_logger = AuditLogger()
         self.pending_approvals: Dict[str, ToolCallRequest] = {}
         self.call_history: Dict[str, List[datetime]] = {}  # 用于频率限制

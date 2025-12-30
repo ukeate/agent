@@ -4,26 +4,29 @@
 提供隐式和显式反馈收集、处理、分析的REST API接口
 """
 
-from fastapi import APIRouter, HTTPException, BackgroundTasks, WebSocket, WebSocketDisconnect
-from fastapi.security import HTTPBearer
+from fastapi import APIRouter, HTTPException, BackgroundTasks, WebSocket, WebSocketDisconnect, Depends
 from pydantic import Field, field_validator, ValidationInfo
 from typing import Dict, List, Any, Optional, Union
-from datetime import datetime
-from datetime import timedelta
-from src.core.utils.timezone_utils import utc_now, utc_factory
+from datetime import datetime, timedelta
+from src.core.utils.timezone_utils import utc_now
 import json
 import asyncio
-from src.core.database import get_db_session
-from src.models.schemas.feedback import FeedbackType
+import uuid
+from src.core.database import get_db, get_db_session
+from src.models.schemas.feedback import FeedbackType, FeedbackEvent as FeedbackEventModel
 from src.services.reward_generator import FeedbackNormalizer
-from sqlalchemy import text, bindparam
+from sqlalchemy import select, func, desc
+from sqlalchemy.ext.asyncio import AsyncSession
 from src.api.base_model import ApiBaseModel
+from src.repositories.feedback_repository import FeedbackRepository
 
 from src.core.logging import get_logger
 logger = get_logger(__name__)
 
 router = APIRouter(prefix="/feedback", tags=["Feedback"])
-security = HTTPBearer()
+
+async def get_feedback_repo(db: AsyncSession = Depends(get_db)) -> FeedbackRepository:
+    return FeedbackRepository(db)
 
 # Pydantic模型定义
 class FeedbackContext(ApiBaseModel):
@@ -160,140 +163,66 @@ class FeedbackWebSocketManager:
                 logger.error(f"广播消息失败: {e}")
 
 manager = FeedbackWebSocketManager()
-_feedback_tables_initialized = False
-_feedback_tables_lock = asyncio.Lock()
 
-async def _ensure_feedback_tables(db):
-    global _feedback_tables_initialized
-    if _feedback_tables_initialized:
-        return
-    async with _feedback_tables_lock:
-        if _feedback_tables_initialized:
-            return
+def _serialize_feedback_event(event: FeedbackEventModel) -> Dict[str, Any]:
+    batch_id = None
+    if getattr(event, "batch", None) and getattr(event.batch, "batch_id", None):
+        batch_id = event.batch.batch_id
+    elif event.batch_id:
+        batch_id = str(event.batch_id)
+    return {
+        "event_id": event.event_id,
+        "batch_id": batch_id,
+        "user_id": event.user_id,
+        "session_id": event.session_id,
+        "item_id": event.item_id,
+        "feedback_type": event.feedback_type,
+        "value": event.value,
+        "raw_value": event.raw_value,
+        "context": event.context or {},
+        "metadata": event.event_metadata or {},
+        "timestamp": event.timestamp.isoformat() if event.timestamp else None,
+    }
 
-        await db.execute(text("""
-            CREATE TABLE IF NOT EXISTS feedback_events (
-                id BIGSERIAL PRIMARY KEY,
-                event_id TEXT UNIQUE NOT NULL,
-                batch_id TEXT,
-                user_id TEXT NOT NULL,
-                session_id TEXT NOT NULL,
-                item_id TEXT,
-                feedback_type TEXT NOT NULL,
-                value JSONB NOT NULL,
-                raw_value JSONB,
-                context JSONB NOT NULL,
-                metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
-                timestamp TIMESTAMPTZ NOT NULL DEFAULT NOW()
-            )
-        """))
-        await db.execute(text("CREATE INDEX IF NOT EXISTS idx_feedback_events_user_time ON feedback_events (user_id, timestamp DESC)"))
-        await db.execute(text("CREATE INDEX IF NOT EXISTS idx_feedback_events_item_time ON feedback_events (item_id, timestamp DESC)"))
-        await db.execute(text("CREATE INDEX IF NOT EXISTS idx_feedback_events_type_time ON feedback_events (feedback_type, timestamp DESC)"))
-        await db.execute(text("CREATE INDEX IF NOT EXISTS idx_feedback_events_batch ON feedback_events (batch_id)"))
-        await db.commit()
-
-        _feedback_tables_initialized = True
-
-async def _insert_events(db, events: List[Dict[str, Any]]):
-    if not events:
-        return
-    await _ensure_feedback_tables(db)
-    stmt = text("""
-        INSERT INTO feedback_events (
-            event_id, batch_id, user_id, session_id, item_id, feedback_type,
-            value, raw_value, context, metadata, timestamp
-        )
-        VALUES (
-            :event_id, :batch_id, :user_id, :session_id, :item_id, :feedback_type,
-            CAST(:value AS jsonb),
-            CAST(:raw_value AS jsonb),
-            CAST(:context AS jsonb),
-            CAST(:metadata AS jsonb),
-            :timestamp
-        )
-        ON CONFLICT (event_id) DO NOTHING
-    """)
-    await db.execute(stmt, events)
-
-async def _store_event(event: Dict[str, Any]):
-    async with get_db_session() as db:
-        await _insert_events(db, [{
-            "event_id": event.get("event_id"),
-            "batch_id": event.get("batch_id"),
-            "user_id": event.get("user_id"),
-            "session_id": event.get("session_id"),
-            "item_id": event.get("item_id") or None,
-            "feedback_type": event.get("feedback_type"),
-            "value": json.dumps(event.get("value")),
-            "raw_value": json.dumps(event.get("raw_value")) if event.get("raw_value") is not None else None,
-            "context": json.dumps(event.get("context") or {}),
-            "metadata": json.dumps(event.get("metadata") or {}),
-            "timestamp": event.get("timestamp") or utc_now(),
-        }])
-        await db.commit()
-
-async def _fetch_events(
-    user_id: Optional[str] = None,
-    item_id: Optional[str] = None,
-    start: Optional[datetime] = None,
-    end: Optional[datetime] = None,
-    types: Optional[List[FeedbackType]] = None,
-    limit: int = 100,
-    offset: int = 0,
+def _build_event_payload(
+    *,
+    event_id: str,
+    user_id: str,
+    session_id: str,
+    item_id: Optional[str],
+    feedback_type: FeedbackType,
+    value: Any,
+    raw_value: Any = None,
+    context: Optional[Dict[str, Any]] = None,
+    metadata: Optional[Dict[str, Any]] = None,
+    timestamp: Optional[datetime] = None,
 ) -> Dict[str, Any]:
-    where = []
-    params: Dict[str, Any] = {"limit": limit, "offset": offset}
-    if user_id:
-        where.append("user_id = :user_id")
-        params["user_id"] = user_id
-    if item_id:
-        where.append("item_id = :item_id")
-        params["item_id"] = item_id
-    if start:
-        where.append("timestamp >= :start")
-        params["start"] = start
-    if end:
-        where.append("timestamp <= :end")
-        params["end"] = end
+    return {
+        "event_id": event_id,
+        "user_id": user_id,
+        "session_id": session_id,
+        "item_id": item_id or None,
+        "feedback_type": feedback_type.value,
+        "value": value,
+        "raw_value": raw_value,
+        "context": context or {},
+        "event_metadata": metadata or {},
+        "timestamp": timestamp or utc_now(),
+    }
 
-    stmt_types = None
-    if types:
-        where.append("feedback_type IN :types")
-        params["types"] = [t.value for t in types]
-        stmt_types = bindparam("types", expanding=True)
-
-    where_sql = f"WHERE {' AND '.join(where)}" if where else ""
-    count_sql = f"SELECT COUNT(*) AS total FROM feedback_events {where_sql}"
-    data_sql = f"""
-        SELECT event_id, batch_id, user_id, session_id, item_id, feedback_type,
-               value, raw_value, context, metadata, timestamp
-        FROM feedback_events
-        {where_sql}
-        ORDER BY timestamp DESC
-        OFFSET :offset
-        LIMIT :limit
-    """
-
-    count_stmt = text(count_sql)
-    data_stmt = text(data_sql)
-    if stmt_types is not None:
-        count_stmt = count_stmt.bindparams(stmt_types)
-        data_stmt = data_stmt.bindparams(stmt_types)
-
-    async with get_db_session() as db:
-        await _ensure_feedback_tables(db)
-        total_result = await db.execute(count_stmt, params)
-        total = int(total_result.scalar() or 0)
-        rows = await db.execute(data_stmt, params)
-        items = [dict(r) for r in rows.mappings().all()]
-        return {"total": total, "items": items}
+def _parse_feedback_type(value: Any) -> FeedbackType:
+    if isinstance(value, FeedbackType):
+        return value
+    try:
+        return FeedbackType(str(value))
+    except Exception:
+        return FeedbackType.VIEW
 
 # API端点实现
 @router.post("/implicit", response_model=ApiResponse)
 async def submit_implicit_feedback(
     batch: FeedbackBatch,
-    background_tasks: BackgroundTasks
+    repo: FeedbackRepository = Depends(get_feedback_repo),
 ):
     """
     提交隐式反馈批次
@@ -307,37 +236,80 @@ async def submit_implicit_feedback(
         
         if len(batch.events) > 100:
             raise HTTPException(status_code=400, detail="单次批次事件数不能超过100")
-        
-        events_data = []
+
         for ev in batch.events:
-            events_data.append({
-                "event_id": ev.event_id,
-                "batch_id": batch.batch_id,
-                "user_id": ev.user_id,
-                "session_id": ev.session_id,
-                "item_id": ev.item_id or "",
-                "feedback_type": ev.feedback_type.value,
-                "value": ev.value,
-                "raw_value": ev.raw_value,
-                "context": ev.context.model_dump(),
-                "metadata": ev.metadata or {},
-                "timestamp": utc_now(),
-            })
-        await asyncio.gather(*[_store_event(e) for e in events_data])
+            if ev.user_id != batch.user_id or ev.session_id != batch.session_id:
+                raise HTTPException(status_code=400, detail="批次内事件的用户或会话不一致")
+
+        event_ids = [ev.event_id for ev in batch.events]
+        if len(event_ids) != len(set(event_ids)):
+            raise HTTPException(status_code=400, detail="批次内事件ID重复")
+
+        existing_batch = await repo.get_feedback_batch_by_batch_id(batch.batch_id)
+        if existing_batch:
+            return ApiResponse(
+                success=True,
+                message="批次已存在，忽略重复提交",
+                data={
+                    "batch_id": existing_batch.batch_id,
+                    "stored_events": existing_batch.event_count,
+                },
+            )
+
+        events_data = [
+            _build_event_payload(
+                event_id=ev.event_id,
+                user_id=ev.user_id,
+                session_id=ev.session_id,
+                item_id=ev.item_id,
+                feedback_type=ev.feedback_type,
+                value=ev.value,
+                raw_value=ev.raw_value,
+                context=ev.context.model_dump(),
+                metadata=ev.metadata,
+            )
+            for ev in batch.events
+        ]
+
+        existing_events = await repo.get_feedback_events_by_ids(event_ids)
+        existing_ids = {e.event_id for e in existing_events}
+        events_data = [e for e in events_data if e["event_id"] not in existing_ids]
+
+        if not events_data:
+            return ApiResponse(
+                success=True,
+                message="批次事件已存在，忽略重复提交",
+                data={"batch_id": batch.batch_id, "stored_events": 0},
+            )
+
+        batch_data = {
+            "batch_id": batch.batch_id,
+            "user_id": batch.user_id,
+            "session_id": batch.session_id,
+            "start_time": batch.start_time,
+            "end_time": batch.end_time,
+            "processed_at": batch.processed_at,
+        }
+        created_batch = await repo.create_feedback_batch(events_data, batch_data)
         return ApiResponse(
             success=True,
-            message=f"成功接收{len(batch.events)}个隐式反馈事件",
-            data={"batch_id": batch.batch_id}
+            message=f"成功接收{len(events_data)}个隐式反馈事件",
+            data={
+                "batch_id": created_batch.batch_id,
+                "stored_events": created_batch.event_count,
+            },
         )
         
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error(f"提交隐式反馈失败: {e}")
+        logger.error(f"提交隐式反馈失败: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"处理失败: {str(e)}")
 
 @router.post("/explicit", response_model=ApiResponse)
 async def submit_explicit_feedback(
     feedback: ExplicitFeedbackRequest,
-    background_tasks: BackgroundTasks
+    repo: FeedbackRepository = Depends(get_feedback_repo),
 ):
     """
     提交显式反馈
@@ -345,43 +317,41 @@ async def submit_explicit_feedback(
     try:
         logger.info(f"收到显式反馈: 用户{feedback.user_id}, 类型{feedback.feedback_type}")
         
-        # 创建反馈事件
-        event = FeedbackEvent(
-            event_id=f"explicit-{int(utc_now().timestamp() * 1000)}",
-            user_id=feedback.user_id,
-            session_id=feedback.session_id,
-            item_id=feedback.item_id,
-            feedback_type=feedback.feedback_type,
-            value=feedback.value,
-            context=FeedbackContext(
-                url=feedback.context.get('url', '') if feedback.context else '',
-                page_title=feedback.context.get('page_title', '') if feedback.context else '',
-                timestamp=int(utc_now().timestamp() * 1000),
-                user_agent=feedback.context.get('user_agent', '') if feedback.context else ''
-            ),
-            metadata=feedback.metadata
+        context_data = feedback.context or {}
+        context = FeedbackContext(
+            url=context_data.get('url', ''),
+            page_title=context_data.get('page_title', ''),
+            element_id=context_data.get('element_id'),
+            element_type=context_data.get('element_type'),
+            coordinates=context_data.get('coordinates'),
+            viewport=context_data.get('viewport'),
+            timestamp=int(context_data.get('timestamp') or (utc_now().timestamp() * 1000)),
+            user_agent=context_data.get('user_agent', '')
         )
-        
-        await _store_event({
-            "event_id": event.event_id,
-            "user_id": event.user_id,
-            "session_id": event.session_id,
-            "item_id": event.item_id or "",
-            "feedback_type": event.feedback_type.value,
-            "value": event.value,
-            "raw_value": event.raw_value,
-            "context": event.context.model_dump(),
-            "metadata": event.metadata or {},
-            "timestamp": utc_now(),
-        })
+        event_id = f"explicit-{uuid.uuid4().hex}"
+        created_event = await repo.create_feedback_event(
+            _build_event_payload(
+                event_id=event_id,
+                user_id=feedback.user_id,
+                session_id=feedback.session_id,
+                item_id=feedback.item_id,
+                feedback_type=feedback.feedback_type,
+                value=feedback.value,
+                raw_value=None,
+                context=context.model_dump(),
+                metadata=feedback.metadata,
+            )
+        )
         return ApiResponse(
             success=True,
             message="显式反馈提交成功",
-            data={"event_id": event.event_id}
+            data={"event_id": created_event.event_id}
         )
         
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error(f"提交显式反馈失败: {e}")
+        logger.error(f"提交显式反馈失败: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"处理失败: {str(e)}")
 
 @router.get("/user/{user_id}", response_model=ApiResponse)
@@ -392,7 +362,8 @@ async def get_user_feedback_history(
     feedback_types: Optional[str] = None,
     item_id: Optional[str] = None,
     limit: int = 100,
-    offset: int = 0
+    offset: int = 0,
+    repo: FeedbackRepository = Depends(get_feedback_repo),
 ):
     """
     获取用户反馈历史
@@ -412,65 +383,89 @@ async def get_user_feedback_history(
             limit=limit,
             offset=offset
         )
-        result = await _fetch_events(
+        type_values = [t.value for t in parsed_types] if parsed_types else None
+        events = await repo.get_feedback_events(
             user_id=user_id,
             item_id=item_id,
-            start=start_date,
-            end=end_date,
-            types=parsed_types,
+            feedback_types=type_values,
+            start_date=start_date,
+            end_date=end_date,
             limit=limit,
             offset=offset,
         )
+        total = await repo.count_feedback_events(
+            user_id=user_id,
+            item_id=item_id,
+            feedback_types=type_values,
+            start_date=start_date,
+            end_date=end_date,
+        )
+        items = [_serialize_feedback_event(ev) for ev in events]
         
         return ApiResponse(
             success=True,
             data={
-                "total": result["total"],
-                "items": result["items"],
+                "total": total,
+                "items": items,
                 "query": query.model_dump()
             }
         )
         
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error(f"获取用户反馈历史失败: {e}")
+        logger.error(f"获取用户反馈历史失败: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"查询失败: {str(e)}")
 
 @router.get("/analytics/user/{user_id}", response_model=ApiResponse)
-async def get_user_feedback_analytics(user_id: str):
+async def get_user_feedback_analytics(
+    user_id: str,
+    repo: FeedbackRepository = Depends(get_feedback_repo),
+):
     """
     获取用户反馈分析
     """
     try:
-        analytics = await get_user_analytics(user_id)
+        analytics = await get_user_analytics(user_id, repo)
         
         return ApiResponse(
             success=True,
             data=analytics.model_dump()
         )
         
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error(f"获取用户反馈分析失败: {e}")
+        logger.error(f"获取用户反馈分析失败: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"分析失败: {str(e)}")
 
 @router.get("/analytics/item/{item_id}", response_model=ApiResponse)
-async def get_item_feedback_analytics(item_id: str):
+async def get_item_feedback_analytics(
+    item_id: str,
+    repo: FeedbackRepository = Depends(get_feedback_repo),
+):
     """
     获取推荐项反馈分析
     """
     try:
-        analytics = await get_item_analytics(item_id)
+        analytics = await get_item_analytics(item_id, repo)
         
         return ApiResponse(
             success=True,
             data=analytics.model_dump()
         )
         
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error(f"获取推荐项反馈分析失败: {e}")
+        logger.error(f"获取推荐项反馈分析失败: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"分析失败: {str(e)}")
 
 @router.post("/quality/score", response_model=ApiResponse)
-async def get_feedback_quality_score(feedback_ids: List[str]):
+async def get_feedback_quality_score(
+    feedback_ids: List[str],
+    repo: FeedbackRepository = Depends(get_feedback_repo),
+):
     """
     获取反馈质量评分
     """
@@ -481,15 +476,17 @@ async def get_feedback_quality_score(feedback_ids: List[str]):
         if len(feedback_ids) > 50:
             raise HTTPException(status_code=400, detail="单次查询ID数不能超过50")
         
-        scores = await calculate_quality_scores(feedback_ids)
+        scores = await calculate_quality_scores(feedback_ids, repo)
         
         return ApiResponse(
             success=True,
             data=scores
         )
         
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error(f"获取反馈质量评分失败: {e}")
+        logger.error(f"获取反馈质量评分失败: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"计算失败: {str(e)}")
 
 @router.post("/process/batch", response_model=ApiResponse)
@@ -508,21 +505,24 @@ async def process_feedback_batch_endpoint(
             message=f"批次{batch_id}处理任务已启动"
         )
         
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error(f"处理反馈批次失败: {e}")
+        logger.error(f"处理反馈批次失败: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"处理失败: {str(e)}")
 
 @router.post("/reward/calculate", response_model=ApiResponse)
 async def calculate_reward_signal(
     user_id: str,
     item_id: str,
-    time_window: int = 3600  # 默认1小时
+    time_window: int = 3600,  # 默认1小时
+    repo: FeedbackRepository = Depends(get_feedback_repo),
 ):
     """
     计算奖励信号
     """
     try:
-        reward = await compute_reward_signal(user_id, item_id, time_window)
+        reward = await compute_reward_signal(user_id, item_id, time_window, repo)
         
         return ApiResponse(
             success=True,
@@ -535,45 +535,54 @@ async def calculate_reward_signal(
             }
         )
         
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error(f"计算奖励信号失败: {e}")
+        logger.error(f"计算奖励信号失败: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"计算失败: {str(e)}")
 
 @router.get("/overview", response_model=ApiResponse)
 async def get_feedback_overview(
     start_date: Optional[datetime] = None,
-    end_date: Optional[datetime] = None
+    end_date: Optional[datetime] = None,
+    db: AsyncSession = Depends(get_db),
 ):
     """
     获取反馈系统概览
     """
     try:
-        overview = await get_system_overview(start_date, end_date)
+        overview = await get_system_overview(start_date, end_date, db)
         
         return ApiResponse(
             success=True,
             data=overview
         )
         
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error(f"获取反馈系统概览失败: {e}")
+        logger.error(f"获取反馈系统概览失败: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"查询失败: {str(e)}")
 
 @router.get("/metrics/realtime", response_model=ApiResponse)
-async def get_realtime_feedback_metrics():
+async def get_realtime_feedback_metrics(
+    db: AsyncSession = Depends(get_db),
+):
     """
     获取实时反馈指标
     """
     try:
-        metrics = await get_realtime_metrics()
+        metrics = await get_realtime_metrics(db)
         
         return ApiResponse(
             success=True,
             data=metrics
         )
         
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error(f"获取实时反馈指标失败: {e}")
+        logger.error(f"获取实时反馈指标失败: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"获取失败: {str(e)}")
 
 @router.websocket("/ws")
@@ -622,142 +631,116 @@ async def process_feedback_batch(batch: FeedbackBatch):
     try:
         events = batch.events
         logger.info(f"开始处理反馈批次: {batch.batch_id}, 数量: {len(events)}")
-        await asyncio.gather(*[_store_event({
-            "event_id": ev.event_id,
-            "batch_id": batch.batch_id,
-            "user_id": ev.user_id,
-            "session_id": ev.session_id,
-            "item_id": ev.item_id or "",
-            "feedback_type": ev.feedback_type.value,
-            "value": ev.value,
-            "raw_value": ev.raw_value,
-            "context": ev.context.model_dump(),
-            "metadata": ev.metadata or {},
-            "timestamp": utc_now(),
-        }) for ev in events])
+
+        if not events:
+            logger.info(f"反馈批次为空: {batch.batch_id}")
+            return
+
+        async with get_db_session() as db:
+            repo = FeedbackRepository(db)
+            existing_batch = await repo.get_feedback_batch_by_batch_id(batch.batch_id)
+            if existing_batch:
+                logger.info(f"反馈批次已存在: {batch.batch_id}")
+                return
+
+            events_data = [
+                _build_event_payload(
+                    event_id=ev.event_id,
+                    user_id=ev.user_id,
+                    session_id=ev.session_id,
+                    item_id=ev.item_id,
+                    feedback_type=ev.feedback_type,
+                    value=ev.value,
+                    raw_value=ev.raw_value,
+                    context=ev.context.model_dump(),
+                    metadata=ev.metadata,
+                )
+                for ev in events
+            ]
+            batch_data = {
+                "batch_id": batch.batch_id,
+                "user_id": batch.user_id,
+                "session_id": batch.session_id,
+                "start_time": batch.start_time,
+                "end_time": batch.end_time,
+                "processed_at": batch.processed_at,
+            }
+            await repo.create_feedback_batch(events_data, batch_data)
+
         logger.info(f"反馈批次处理完成: {batch.batch_id}")
     except Exception as e:
-        logger.error(f"处理反馈批次失败: {batch.batch_id}, 错误: {e}")
+        logger.error(f"处理反馈批次失败: {batch.batch_id}, 错误: {e}", exc_info=True)
 
 async def process_single_feedback(event: FeedbackEvent):
     """处理单个反馈事件"""
     try:
         logger.info(f"开始处理反馈事件: {event.event_id}")
-        await _store_event({
-            "event_id": event.event_id,
-            "user_id": event.user_id,
-            "session_id": event.session_id,
-            "item_id": event.item_id or "",
-            "feedback_type": event.feedback_type.value,
-            "value": event.value,
-            "raw_value": event.raw_value,
-            "context": event.context.model_dump(),
-            "metadata": event.metadata or {},
-            "timestamp": utc_now(),
-        })
+        async with get_db_session() as db:
+            repo = FeedbackRepository(db)
+            existing = await repo.get_feedback_events_by_ids([event.event_id])
+            if existing:
+                logger.info(f"反馈事件已存在: {event.event_id}")
+                return
+            await repo.create_feedback_event(
+                _build_event_payload(
+                    event_id=event.event_id,
+                    user_id=event.user_id,
+                    session_id=event.session_id,
+                    item_id=event.item_id,
+                    feedback_type=event.feedback_type,
+                    value=event.value,
+                    raw_value=event.raw_value,
+                    context=event.context.model_dump(),
+                    metadata=event.metadata,
+                )
+            )
         logger.info(f"反馈事件处理完成: {event.event_id}")
     except Exception as e:
-        logger.error(f"处理反馈事件失败: {event.event_id}, 错误: {e}")
+        logger.error(f"处理反馈事件失败: {event.event_id}, 错误: {e}", exc_info=True)
 
 async def process_websocket_feedback(events: List[Dict]):
     """处理WebSocket反馈事件"""
     try:
         logger.info(f"处理WebSocket反馈事件: {len(events)}")
-        
-        store_jobs = []
+
+        payloads: List[Dict[str, Any]] = []
         for event_data in events:
             try:
-                store_jobs.append(_store_event({
-                    "event_id": event_data.get("event_id") or f"ws-{utc_now().timestamp()}",
-                    "user_id": event_data.get("user_id", ""),
-                    "session_id": event_data.get("session_id", ""),
-                    "item_id": event_data.get("item_id", ""),
-                    "feedback_type": event_data.get("feedback_type", FeedbackType.VIEW.value),
-                    "value": event_data.get("value", 0),
-                    "raw_value": event_data.get("raw_value"),
-                    "context": event_data.get("context", {}),
-                    "metadata": event_data.get("metadata", {}),
-                    "timestamp": utc_now(),
-                }))
+                feedback_type = _parse_feedback_type(event_data.get("feedback_type"))
+                payloads.append(
+                    _build_event_payload(
+                        event_id=event_data.get("event_id") or f"ws-{uuid.uuid4().hex}",
+                        user_id=event_data.get("user_id", ""),
+                        session_id=event_data.get("session_id", ""),
+                        item_id=event_data.get("item_id"),
+                        feedback_type=feedback_type,
+                        value=event_data.get("value", 0),
+                        raw_value=event_data.get("raw_value"),
+                        context=event_data.get("context") or {},
+                        metadata=event_data.get("metadata"),
+                    )
+                )
             except Exception as e:
-                logger.error(f"解析WebSocket事件失败: {e}")
-        if store_jobs:
-            await asyncio.gather(*store_jobs)
-        
+                logger.error(f"解析WebSocket事件失败: {e}", exc_info=True)
+
+        if payloads:
+            async with get_db_session() as db:
+                repo = FeedbackRepository(db)
+                await repo.create_feedback_events(payloads)
     except Exception as e:
-        logger.error(f"处理WebSocket反馈失败: {e}")
+        logger.error(f"处理WebSocket反馈失败: {e}", exc_info=True)
 
-async def get_feedback_history(query: FeedbackHistoryQuery) -> List[Dict]:
-    """获取反馈历史"""
-    result = await _fetch_events(
-        user_id=query.user_id,
-        item_id=query.item_id,
-        start=query.start_date,
-        end=query.end_date,
-        types=query.feedback_types,
-        limit=query.limit,
-        offset=query.offset,
-    )
-    return result["items"]
-
-async def get_user_analytics(user_id: str) -> FeedbackAnalyticsResponse:
+async def get_user_analytics(user_id: str, repo: FeedbackRepository) -> FeedbackAnalyticsResponse:
     """获取用户分析数据"""
-    async with get_db_session() as db:
-        await _ensure_feedback_tables(db)
-
-        total_result = await db.execute(
-            text("SELECT COUNT(*) FROM feedback_events WHERE user_id = :user_id"),
-            {"user_id": user_id},
-        )
-        total = int(total_result.scalar() or 0)
-
-        dist_result = await db.execute(
-            text(
-                """
-                SELECT feedback_type, COUNT(*) AS count
-                FROM feedback_events
-                WHERE user_id = :user_id
-                GROUP BY feedback_type
-                """
-            ),
-            {"user_id": user_id},
-        )
-        distribution: Dict[FeedbackType, int] = {}
-        for row in dist_result.mappings().all():
-            try:
-                distribution[FeedbackType(row["feedback_type"])] = int(row["count"])
-            except Exception:
-                continue
-
-        rating_result = await db.execute(
-            text(
-                """
-                SELECT AVG((value #>> '{}')::double precision) AS avg_rating
-                FROM feedback_events
-                WHERE user_id = :user_id AND feedback_type = :ftype
-                """
-            ),
-            {"user_id": user_id, "ftype": FeedbackType.RATING.value},
-        )
-        average_rating = rating_result.scalar()
-
-        last_result = await db.execute(
-            text("SELECT MAX(timestamp) FROM feedback_events WHERE user_id = :user_id"),
-            {"user_id": user_id},
-        )
-        last_ts = last_result.scalar()
-
-        trust_result = await db.execute(
-            text(
-                """
-                SELECT COUNT(DISTINCT session_id)::double precision / NULLIF(COUNT(*), 0) AS trust
-                FROM feedback_events
-                WHERE user_id = :user_id
-                """
-            ),
-            {"user_id": user_id},
-        )
-        trust_score = float(trust_result.scalar() or 0.0)
+    stats = await repo.get_user_feedback_stats(user_id)
+    total = int(stats.get("total_feedbacks") or 0)
+    distribution_raw = stats.get("type_distribution") or {}
+    distribution: Dict[FeedbackType, int] = {}
+    for key, value in distribution_raw.items():
+        try:
+            distribution[FeedbackType(key)] = int(value)
+        except Exception:
+            continue
 
     engagement_score = min(1.0, total / 200) if total else 0.0
     total_safe = max(total, 1)
@@ -766,158 +749,88 @@ async def get_user_analytics(user_id: str) -> FeedbackAnalyticsResponse:
         user_id=user_id,
         total_feedbacks=total,
         feedback_distribution={k: v for k, v in distribution.items()},
-        average_rating=float(average_rating) if average_rating is not None else None,
+        average_rating=stats.get("average_rating"),
         engagement_score=engagement_score,
-        last_activity=last_ts,
+        last_activity=stats.get("last_feedback_time"),
         preference_vector=preference_vector,
-        trust_score=trust_score
+        trust_score=float(stats.get("trust_score") or 0.0),
     )
 
-async def get_item_analytics(item_id: str) -> ItemFeedbackAnalyticsResponse:
+async def get_item_analytics(item_id: str, repo: FeedbackRepository) -> ItemFeedbackAnalyticsResponse:
     """获取推荐项分析数据"""
-    async with get_db_session() as db:
-        await _ensure_feedback_tables(db)
-
-        total_result = await db.execute(
-            text("SELECT COUNT(*) FROM feedback_events WHERE item_id = :item_id"),
-            {"item_id": item_id},
-        )
-        total = int(total_result.scalar() or 0)
-
-        dist_result = await db.execute(
-            text(
-                """
-                SELECT feedback_type, COUNT(*) AS count
-                FROM feedback_events
-                WHERE item_id = :item_id
-                GROUP BY feedback_type
-                """
-            ),
-            {"item_id": item_id},
-        )
-        distribution: Dict[str, int] = {row["feedback_type"]: int(row["count"]) for row in dist_result.mappings().all()}
-
-        rating_result = await db.execute(
-            text(
-                """
-                SELECT AVG((value #>> '{}')::double precision) AS avg_rating
-                FROM feedback_events
-                WHERE item_id = :item_id AND feedback_type = :ftype
-                """
-            ),
-            {"item_id": item_id, "ftype": FeedbackType.RATING.value},
-        )
-        average_rating = rating_result.scalar()
-
-        dwell_result = await db.execute(
-            text(
-                """
-                SELECT AVG((value #>> '{}')::double precision) AS avg_dwell
-                FROM feedback_events
-                WHERE item_id = :item_id AND feedback_type = :ftype
-                """
-            ),
-            {"item_id": item_id, "ftype": FeedbackType.DWELL_TIME.value},
-        )
-        dwell_time_avg = float(dwell_result.scalar() or 0.0)
-
-        scroll_result = await db.execute(
-            text(
-                """
-                SELECT AVG((value #>> '{}')::double precision) AS avg_scroll
-                FROM feedback_events
-                WHERE item_id = :item_id AND feedback_type = :ftype
-                """
-            ),
-            {"item_id": item_id, "ftype": FeedbackType.SCROLL_DEPTH.value},
-        )
-        scroll_depth_avg = float(scroll_result.scalar() or 0.0)
-
-    likes = distribution.get(FeedbackType.LIKE.value, 0)
-    dislikes = distribution.get(FeedbackType.DISLIKE.value, 0)
-    like_ratio = likes / max(likes + dislikes, 1)
-    click_count = distribution.get(FeedbackType.CLICK.value, 0)
-    view_count = distribution.get(FeedbackType.VIEW.value, 0)
+    stats = await repo.get_item_feedback_stats(item_id)
+    total = int(stats.get("total_feedbacks") or 0)
+    distribution_raw = stats.get("type_distribution") or {}
+    likes = distribution_raw.get(FeedbackType.LIKE.value, 0)
+    dislikes = distribution_raw.get(FeedbackType.DISLIKE.value, 0)
+    like_ratio = stats.get("like_ratio")
+    if like_ratio is None:
+        like_ratio = likes / max(likes + dislikes, 1)
+    click_count = distribution_raw.get(FeedbackType.CLICK.value, 0)
+    view_count = distribution_raw.get(FeedbackType.VIEW.value, 0)
     interaction_rate = (click_count + likes + dislikes) / max(total, 1)
     engagement_metrics = {
         "click_through_rate": click_count / max(view_count, 1),
-        "dwell_time_avg": dwell_time_avg,
-        "scroll_depth_avg": scroll_depth_avg,
+        "dwell_time_avg": float(stats.get("dwell_time_avg") or 0.0),
+        "scroll_depth_avg": float(stats.get("scroll_depth_avg") or 0.0),
         "interaction_rate": interaction_rate,
         "completion_rate": view_count / max(total, 1),
         "bounce_rate": 1 - interaction_rate if total else 0.0,
     }
+    distribution: Dict[FeedbackType, int] = {}
+    for key, value in distribution_raw.items():
+        try:
+            distribution[FeedbackType(key)] = int(value)
+        except Exception:
+            continue
     return ItemFeedbackAnalyticsResponse(
         item_id=item_id,
         total_feedbacks=total,
-        average_rating=float(average_rating) if average_rating is not None else None,
+        average_rating=stats.get("average_rating"),
         like_ratio=like_ratio,
         engagement_metrics=engagement_metrics,
-        feedback_distribution=distribution
+        feedback_distribution=distribution,
     )
 
-async def calculate_quality_scores(feedback_ids: List[str]) -> List[FeedbackQualityScore]:
+async def calculate_quality_scores(
+    feedback_ids: List[str],
+    repo: FeedbackRepository,
+) -> List[FeedbackQualityScore]:
     """计算反馈质量评分"""
     if not feedback_ids:
         return []
+    events = await repo.get_feedback_events_by_ids(feedback_ids)
+    if not events:
+        return []
 
-    async with get_db_session() as db:
-        await _ensure_feedback_tables(db)
-
-        stmt = text(
-            """
-            SELECT event_id, user_id, session_id, feedback_type, value, context, timestamp
-            FROM feedback_events
-            WHERE event_id IN :event_ids
-            """
-        ).bindparams(bindparam("event_ids", expanding=True))
-        rows = await db.execute(stmt, {"event_ids": feedback_ids})
-        events = list(rows.mappings().all())
-
-        user_ids = {e["user_id"] for e in events if e.get("user_id")}
-        user_stats: Dict[str, Dict[str, int]] = {}
-        if user_ids:
-            stats_stmt = text(
-                """
-                SELECT user_id, COUNT(*) AS total, COUNT(DISTINCT feedback_type) AS types
-                FROM feedback_events
-                WHERE user_id IN :user_ids
-                GROUP BY user_id
-                """
-            ).bindparams(bindparam("user_ids", expanding=True))
-            stats_rows = await db.execute(stats_stmt, {"user_ids": list(user_ids)})
-            user_stats = {
-                r["user_id"]: {"total": int(r["total"]), "types": int(r["types"])}
-                for r in stats_rows.mappings().all()
-            }
+    user_ids = {e.user_id for e in events if e.user_id}
+    user_stats = await repo.get_user_basic_stats(list(user_ids))
 
     quality_scores = []
     now = utc_now()
     total_type_count = len(list(FeedbackType)) or 1
 
     for ev in events:
-        feedback_id = ev.get("event_id")
+        feedback_id = ev.event_id
         if not feedback_id:
             continue
 
-        ts: datetime = ev.get("timestamp") or now
+        ts: datetime = ev.timestamp or now
         hours = (now - ts).total_seconds() / 3600
         timing = 1.0 if hours <= 24 else max(0.2, 1 - hours / 240)
 
-        context = ev.get("context") or {}
+        context = ev.context or {}
         context_relevance = 1.0 if context.get("url") else 0.6
 
-        try:
-            normalized_val = FeedbackNormalizer.normalize_feedback_value(
-                FeedbackType(ev["feedback_type"]),
-                ev.get("value"),
-            )
-        except Exception:
-            normalized_val = 0.0
+        feedback_type = _parse_feedback_type(ev.feedback_type)
+        normalized_val = FeedbackNormalizer.normalize_feedback_value(
+            feedback_type,
+            ev.value,
+        )
 
-        authenticity = 1.0 if ev.get("session_id") else 0.7
+        authenticity = 1.0 if ev.session_id else 0.7
 
-        stats = user_stats.get(ev.get("user_id") or "", {})
+        stats = user_stats.get(ev.user_id or "", {})
         frequency = min(1.0, (stats.get("total", 0) / 50)) if stats else 0.0
         diversity = min(1.0, (stats.get("types", 0) / total_type_count)) if stats else 0.0
 
@@ -955,19 +868,8 @@ async def calculate_quality_scores(feedback_ids: List[str]) -> List[FeedbackQual
 async def reprocess_feedback_batch(batch_id: str):
     """重新处理反馈批次"""
     async with get_db_session() as db:
-        await _ensure_feedback_tables(db)
-        rows = await db.execute(
-            text(
-                """
-                SELECT event_id, user_id, item_id, feedback_type, value, timestamp, context, metadata
-                FROM feedback_events
-                WHERE batch_id = :batch_id
-                ORDER BY timestamp ASC
-                """
-            ),
-            {"batch_id": batch_id},
-        )
-        events = list(rows.mappings().all())
+        repo = FeedbackRepository(db)
+        events = await repo.get_feedback_events_by_batch_id(batch_id)
 
     if not events:
         logger.info(f"批次无事件: {batch_id}")
@@ -978,35 +880,32 @@ async def reprocess_feedback_batch(batch_id: str):
     payloads = []
     for ev in events:
         payloads.append({
-            "feedback_id": ev["event_id"],
-            "user_id": ev["user_id"],
-            "item_id": ev.get("item_id") or "unknown",
-            "feedback_type": ev["feedback_type"],
-            "value": ev.get("value"),
-            "timestamp": ev.get("timestamp") or utc_now(),
-            "context": ev.get("context") or {},
-            "metadata": ev.get("metadata") or {},
+            "feedback_id": ev.event_id,
+            "user_id": ev.user_id,
+            "item_id": ev.item_id or "unknown",
+            "feedback_type": ev.feedback_type,
+            "value": ev.value,
+            "timestamp": ev.timestamp or utc_now(),
+            "context": ev.context or {},
+            "metadata": ev.event_metadata or {},
         })
 
     await feedback_processor.process_feedback_batch(payloads)
 
-async def compute_reward_signal(user_id: str, item_id: str, time_window: int) -> float:
+async def compute_reward_signal(
+    user_id: str,
+    item_id: str,
+    time_window: int,
+    repo: FeedbackRepository,
+) -> float:
     """计算奖励信号"""
     cutoff = utc_now() - timedelta(seconds=time_window)
-    async with get_db_session() as db:
-        await _ensure_feedback_tables(db)
-        rows = await db.execute(
-            text(
-                """
-                SELECT feedback_type, value
-                FROM feedback_events
-                WHERE user_id = :user_id AND item_id = :item_id AND timestamp >= :cutoff
-                ORDER BY timestamp DESC
-                """
-            ),
-            {"user_id": user_id, "item_id": item_id, "cutoff": cutoff},
-        )
-        events = list(rows.mappings().all())
+    events = await repo.get_feedback_events(
+        user_id=user_id,
+        item_id=item_id,
+        start_date=cutoff,
+        limit=None,
+    )
     if not events:
         return 0.0
     weights = {
@@ -1024,9 +923,9 @@ async def compute_reward_signal(user_id: str, item_id: str, time_window: int) ->
     total = 0.0
     weight_sum = 0.0
     for ev in events:
-        ftype = FeedbackType(ev["feedback_type"])
+        ftype = _parse_feedback_type(ev.feedback_type)
         weight = weights.get(ftype, 0.1)
-        normalized = FeedbackNormalizer.normalize_feedback_value(ftype, ev.get("value"))
+        normalized = FeedbackNormalizer.normalize_feedback_value(ftype, ev.value)
         total += weight * normalized
         weight_sum += abs(weight)
     if weight_sum == 0:
@@ -1034,56 +933,54 @@ async def compute_reward_signal(user_id: str, item_id: str, time_window: int) ->
     reward = total / weight_sum
     return max(-1.0, min(1.0, reward))
 
-async def get_system_overview(start_date: Optional[datetime], end_date: Optional[datetime]) -> Dict:
+async def get_system_overview(
+    start_date: Optional[datetime],
+    end_date: Optional[datetime],
+    db: AsyncSession,
+) -> Dict:
     """获取系统概览"""
-    where = []
-    params: Dict[str, Any] = {}
+    filters = [FeedbackEventModel.valid.is_(True)]
     if start_date:
-        where.append("timestamp >= :start")
-        params["start"] = start_date
+        filters.append(FeedbackEventModel.timestamp >= start_date)
     if end_date:
-        where.append("timestamp <= :end")
-        params["end"] = end_date
-    where_sql = f"WHERE {' AND '.join(where)}" if where else ""
+        filters.append(FeedbackEventModel.timestamp <= end_date)
 
-    async with get_db_session() as db:
-        await _ensure_feedback_tables(db)
+    total_result = await db.execute(
+        select(func.count(FeedbackEventModel.id)).where(*filters)
+    )
+    total = int(total_result.scalar() or 0)
 
-        total_sql = "SELECT COUNT(*) FROM feedback_events " + where_sql
-        total_result = await db.execute(text(total_sql), params)
-        total = int(total_result.scalar() or 0)
+    user_result = await db.execute(
+        select(func.count(func.distinct(FeedbackEventModel.user_id))).where(*filters)
+    )
+    unique_users = int(user_result.scalar() or 0)
 
-        user_result = await db.execute(
-            text("SELECT COUNT(DISTINCT user_id) FROM feedback_events " + where_sql),
-            params,
+    type_result = await db.execute(
+        select(
+            FeedbackEventModel.feedback_type,
+            func.count(FeedbackEventModel.id).label("count"),
         )
-        unique_users = int(user_result.scalar() or 0)
+        .where(*filters)
+        .group_by(FeedbackEventModel.feedback_type)
+    )
+    counts = {r.feedback_type: int(r.count) for r in type_result.all()}
 
-        type_sql = (
-            "SELECT feedback_type, COUNT(*) AS count\n"
-            "FROM feedback_events\n"
-            + where_sql
-            + "\nGROUP BY feedback_type"
-        )
-        type_rows = await db.execute(text(type_sql), params)
-        counts = {r["feedback_type"]: int(r["count"]) for r in type_rows.mappings().all()}
-
-        item_where = (
-            where_sql + (" AND " if where_sql else "WHERE ") + "item_id IS NOT NULL AND item_id <> ''"
-        )
-        item_sql = (
-            "SELECT item_id, COUNT(*) AS count\n"
-            "FROM feedback_events\n"
-            + item_where
-            + "\nGROUP BY item_id\n"
-            "ORDER BY count DESC\n"
-            "LIMIT 5"
-        )
-        item_rows = await db.execute(text(item_sql), params)
-        top_items = [
-            {"item_id": r["item_id"], "feedback_count": int(r["count"])}
-            for r in item_rows.mappings().all()
-        ]
+    item_filters = filters + [
+        FeedbackEventModel.item_id.is_not(None),
+        FeedbackEventModel.item_id != "",
+    ]
+    item_count = func.count(FeedbackEventModel.id).label("count")
+    item_result = await db.execute(
+        select(FeedbackEventModel.item_id, item_count)
+        .where(*item_filters)
+        .group_by(FeedbackEventModel.item_id)
+        .order_by(desc(item_count))
+        .limit(5)
+    )
+    top_items = [
+        {"item_id": r.item_id, "feedback_count": int(r.count)}
+        for r in item_result.all()
+    ]
 
     return {
         "total_feedbacks": total,
@@ -1093,28 +990,27 @@ async def get_system_overview(start_date: Optional[datetime], end_date: Optional
         "top_items": top_items
     }
 
-async def get_realtime_metrics() -> Dict:
+async def get_realtime_metrics(db: AsyncSession) -> Dict:
     """获取实时指标"""
     now = utc_now()
     window_start = now - timedelta(minutes=5)
-    async with get_db_session() as db:
-        await _ensure_feedback_tables(db)
-        recent_result = await db.execute(
-            text(
-                """
-                SELECT session_id
-                FROM feedback_events
-                WHERE timestamp >= :start AND timestamp <= :end
-                """
-            ),
-            {"start": window_start, "end": now},
-        )
-        recent_sessions = [r["session_id"] for r in recent_result.mappings().all()]
-        active_sessions = len({s for s in recent_sessions if s})
-        recent_count = len(recent_sessions)
 
-        total_result = await db.execute(text("SELECT COUNT(*) FROM feedback_events"))
-        total_processed = int(total_result.scalar() or 0)
+    recent_stmt = select(
+        func.count(FeedbackEventModel.id).label("recent_count"),
+        func.count(func.distinct(FeedbackEventModel.session_id)).label("active_sessions"),
+    ).where(
+        FeedbackEventModel.timestamp >= window_start,
+        FeedbackEventModel.timestamp <= now,
+        FeedbackEventModel.valid.is_(True),
+    )
+    recent_row = (await db.execute(recent_stmt)).one()
+    recent_count = int(recent_row.recent_count or 0)
+    active_sessions = int(recent_row.active_sessions or 0)
+
+    total_result = await db.execute(
+        select(func.count(FeedbackEventModel.id)).where(FeedbackEventModel.valid.is_(True))
+    )
+    total_processed = int(total_result.scalar() or 0)
 
     events_per_minute = recent_count / 5 if recent_count else 0
     return {

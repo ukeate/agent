@@ -66,7 +66,7 @@ class AnalysisRequest(ApiBaseModel):
     start_time: Optional[datetime] = None
     end_time: Optional[datetime] = None
     event_types: Optional[List[str]] = None
-    analysis_types: List[str] = ["patterns", "anomalies", "insights"]
+    analysis_types: List[str] = Field(default_factory=lambda: ["patterns", "anomalies", "insights"])
 
 class ReportRequest(ApiBaseModel):
     """报告生成请求"""

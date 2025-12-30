@@ -4,14 +4,15 @@
 """
 
 import asyncio
-import uuid
 import json
-from datetime import datetime
-from datetime import timedelta
-from src.core.utils.timezone_utils import utc_now, utc_factory
-from typing import Dict, Any, List, Optional, Callable, Set
+import uuid
+from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
+from datetime import datetime, timedelta
 from enum import Enum
+from typing import Any, Callable, Dict, List, Optional, Set
+
+from src.core.utils.timezone_utils import utc_now, utc_factory
 from .trism import ThreatLevel, SecurityEvent
 from .attack_detection import AttackType, DetectionResult
 
@@ -116,16 +117,17 @@ class ResponseExecution:
             "errors": self.errors
         }
 
-class ActionExecutor:
+class ActionExecutor(ABC):
     """动作执行器基类"""
     
+    @abstractmethod
     async def execute(
         self, 
         event: SecurityEvent, 
         context: Dict[str, Any]
     ) -> Dict[str, Any]:
         """执行动作"""
-        raise NotImplementedError
+        ...
 
 class BlockExecutor(ActionExecutor):
     """阻止执行器"""

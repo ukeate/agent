@@ -66,7 +66,7 @@ class Subject:
 class PolicyEvaluator(ABC):
     @abstractmethod
     async def evaluate(self, request: AccessRequest, policies: List[AccessPolicy]) -> AccessDecision:
-        raise NotImplementedError
+        ...
 
 class RBACEvaluator(PolicyEvaluator):
     """基于角色的访问控制评估器"""

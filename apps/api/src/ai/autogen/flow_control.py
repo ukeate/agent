@@ -64,12 +64,12 @@ class BackpressureController(ABC):
     @abstractmethod
     async def should_apply_backpressure(self, metrics: FlowControlMetrics) -> bool:
         """判断是否应该应用背压"""
-        raise NotImplementedError
+        ...
     
     @abstractmethod
     async def calculate_throttle_rate(self, metrics: FlowControlMetrics) -> float:
         """计算限流比例 (0-1)"""
-        raise NotImplementedError
+        ...
 
 class QueueBasedBackpressure(BackpressureController):
     """基于队列大小的背压控制"""

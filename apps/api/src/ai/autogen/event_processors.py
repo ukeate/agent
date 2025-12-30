@@ -10,7 +10,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime
 from datetime import timedelta
-from src.core.utils.timezone_utils import utc_now, utc_factory
+from src.core.utils.timezone_utils import utc_now
 from enum import Enum
 from typing import Dict, List, Any, Callable, Optional, Union
 from .events import Event, EventType, EventPriority, EventBus
@@ -75,12 +75,12 @@ class EventProcessor(ABC):
     @abstractmethod
     async def process(self, event: Event, context: EventContext) -> ProcessingResult:
         """处理事件"""
-        raise NotImplementedError
+        ...
     
     @abstractmethod
     def can_handle(self, event: Event) -> bool:
         """判断是否能处理该事件"""
-        raise NotImplementedError
+        ...
     
     @property
     def priority(self) -> int:

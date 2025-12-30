@@ -15,16 +15,18 @@
 import asyncio
 import csv
 import json
-import xml.etree.ElementTree as ET
-from typing import Dict, List, Any, Optional, Union, AsyncGenerator
-from dataclasses import dataclass, field
-from enum import Enum
-from io import StringIO, BytesIO
-import uuid
-import time
-from datetime import datetime
-from src.core.utils.timezone_utils import utc_now, utc_factory
 import re
+import time
+import uuid
+import xml.etree.ElementTree as ET
+from abc import ABC, abstractmethod
+from dataclasses import dataclass, field
+from datetime import datetime
+from enum import Enum
+from io import BytesIO, StringIO
+from typing import Any, AsyncGenerator, Dict, List, Optional, Union
+
+from src.core.utils.timezone_utils import utc_now
 
 from src.core.security.expression import safe_eval_bool
 from src.core.logging import get_logger
@@ -228,19 +230,20 @@ class FormatDetector:
             logger.warning(f"格式检测失败: {e}")
             return ImportFormat.TURTLE
 
-class BaseFormatProcessor:
+class BaseFormatProcessor(ABC):
     """格式处理器基类"""
     
     def __init__(self):
         self.format_type = None
     
+    @abstractmethod
     async def parse(
         self, 
         data: Union[str, bytes, Dict], 
         mapping_rules: Dict[str, str] = None
     ) -> List[Dict[str, Any]]:
         """解析数据，返回标准化的三元组列表"""
-        raise NotImplementedError
+        ...
     
     async def validate(
         self, 

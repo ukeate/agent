@@ -4,9 +4,11 @@
 提供预设的任务配置和算法对比功能，简化不同场景下的超参数优化。
 """
 
-from typing import Dict, List, Optional, Any, Callable
+from abc import ABC, abstractmethod
 from datetime import datetime
-from src.core.utils.timezone_utils import utc_now, utc_factory
+from typing import Any, Callable, Dict, List, Optional
+
+from src.core.utils.timezone_utils import utc_now
 import numpy as np
 from enum import Enum
 from .optimizer import (
@@ -25,20 +27,23 @@ class SearchAlgorithm(Enum):
     BAYESIAN = "bayesian"
     EVOLUTIONARY = "evolutionary"
 
-class SearchAlgorithmImpl:
+class SearchAlgorithmImpl(ABC):
     """搜索算法实现基类"""
     
+    @abstractmethod
     def generate_candidate(self, parameter_space: Dict, history: List = None) -> Dict:
         """生成候选参数"""
-        raise NotImplementedError
+        ...
     
+    @abstractmethod
     def generate_grid(self, parameter_space: Dict, max_candidates: int = 100) -> List[Dict]:
         """生成网格搜索参数"""
-        raise NotImplementedError
+        ...
     
+    @abstractmethod
     def evolve_population(self, population: List, fitness_scores: List, parameter_space: Dict) -> List:
         """进化种群"""
-        raise NotImplementedError
+        ...
 
 class RandomSearchAlgorithm(SearchAlgorithmImpl):
     """随机搜索算法"""

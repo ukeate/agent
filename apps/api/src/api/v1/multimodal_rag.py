@@ -349,8 +349,8 @@ async def stream_multimodal_query(
 
 @router.post("/upload-document", response_model=DocumentUploadResponse)
 async def upload_document(
+    background_tasks: BackgroundTasks,
     file: UploadFile = File(..., description="要上传的文档"),
-    background_tasks: BackgroundTasks = BackgroundTasks(),
     document_processor: MultimodalDocumentProcessor = Depends(get_document_processor),
     vector_store: MultimodalVectorStore = Depends(get_vector_store)
 ) -> DocumentUploadResponse:
@@ -417,8 +417,8 @@ async def upload_document(
 
 @router.post("/batch-upload")
 async def batch_upload_documents(
+    background_tasks: BackgroundTasks,
     files: List[UploadFile] = File(..., description="要上传的文档列表"),
-    background_tasks: BackgroundTasks = BackgroundTasks(),
     document_processor: MultimodalDocumentProcessor = Depends(get_document_processor),
     vector_store: MultimodalVectorStore = Depends(get_vector_store)
 ) -> Dict[str, Any]:

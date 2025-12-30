@@ -29,17 +29,17 @@ class ModalityProcessor(ABC):
     @abstractmethod
     async def process(self, data: Any) -> EmotionState:
         """处理特定模态数据"""
-        raise NotImplementedError
+        ...
     
     @abstractmethod
     def validate_input(self, data: Any) -> bool:
         """验证输入数据格式"""
-        raise NotImplementedError
+        ...
     
     @abstractmethod
     def get_supported_formats(self) -> List[str]:
         """获取支持的数据格式"""
-        raise NotImplementedError
+        ...
 
 class TextEmotionProcessor(ModalityProcessor):
     """文本情感处理器"""

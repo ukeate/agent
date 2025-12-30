@@ -94,27 +94,27 @@ class NodeCache(ABC):
     @abstractmethod
     async def get(self, key: str) -> Optional[Any]:
         """从缓存获取值"""
-        raise NotImplementedError
+        ...
     
     @abstractmethod
     async def set(self, key: str, value: Any, ttl: Optional[int] = None) -> bool:
         """设置缓存值"""
-        raise NotImplementedError
+        ...
     
     @abstractmethod
     async def delete(self, key: str) -> bool:
         """删除缓存值"""
-        raise NotImplementedError
+        ...
     
     @abstractmethod
     async def exists(self, key: str) -> bool:
         """检查缓存是否存在"""
-        raise NotImplementedError
+        ...
     
     @abstractmethod
     async def clear(self, pattern: str = "*") -> int:
         """清理缓存"""
-        raise NotImplementedError
+        ...
     
     def generate_cache_key(
         self, 

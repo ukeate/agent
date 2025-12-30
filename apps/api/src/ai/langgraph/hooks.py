@@ -7,7 +7,7 @@ from typing import Any, Dict, List, Optional, Callable, Union, Literal
 from dataclasses import dataclass
 from abc import ABC, abstractmethod
 from datetime import datetime
-from src.core.utils.timezone_utils import utc_now, utc_factory
+from src.core.utils.timezone_utils import utc_now
 import asyncio
 import json
 import re
@@ -34,7 +34,7 @@ class BaseHook(ABC):
     @abstractmethod
     async def execute(self, state: MessagesState, context: Optional[AgentContext] = None) -> MessagesState:
         """执行钩子逻辑"""
-        raise NotImplementedError
+        ...
 
 class PreModelHook(BaseHook):
     """模型调用前钩子基类"""

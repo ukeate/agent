@@ -4,20 +4,21 @@
 
 import asyncio
 import time
-from datetime import datetime
-from datetime import timedelta
-from src.core.utils.timezone_utils import utc_now, utc_factory
-from typing import Dict, List, Optional, Any, Callable, Union, AsyncIterator
-from dataclasses import dataclass, field
-from enum import Enum
 import uuid
-from contextlib import asynccontextmanager
-from src.core.database import get_db
+from abc import ABC, abstractmethod
+from dataclasses import dataclass, field
+from datetime import datetime, timedelta
+from enum import Enum
+from typing import Any, AsyncIterator, Callable, Dict, List, Optional, Union
+
+from src.core.database import get_db_session
+from src.core.utils.timezone_utils import utc_now
 from src.models.schemas.event_tracking import CreateEventRequest, EventStatus, DataQuality
 from src.repositories.event_tracking_repository import (
-
-    EventStreamRepository, EventDeduplicationRepository, 
-    EventSchemaRepository, EventErrorRepository
+    EventDeduplicationRepository,
+    EventErrorRepository,
+    EventSchemaRepository,
+    EventStreamRepository,
 )
 from src.services.event_processing_service import EventProcessingService, EventValidationResult
 from src.services.event_buffer_service import EventBufferService, BufferConfig, BufferPriority
@@ -92,7 +93,7 @@ class PipelineMetrics:
     p95_latency_ms: float = 0.0
     last_updated: datetime = field(default_factory=lambda: utc_now())
 
-class EventStageProcessor:
+class EventStageProcessor(ABC):
     """事件阶段处理器基类"""
     
     def __init__(self, stage: PipelineStage):
@@ -113,6 +114,7 @@ class EventStageProcessor:
             # 记录处理时间
             processing_time = (time.time() - start_time) * 1000
             self._record_processing_time(processing_time)
+            pipeline_event.processing_metadata.setdefault("stage_durations_ms", {})[self.stage] = processing_time
             
             return result
             
@@ -123,9 +125,10 @@ class EventStageProcessor:
             pipeline_event.updated_at = utc_now()
             return pipeline_event
     
+    @abstractmethod
     async def _process_internal(self, pipeline_event: PipelineEvent) -> PipelineEvent:
         """内部处理逻辑，由子类实现"""
-        raise NotImplementedError
+        ...
     
     def _record_processing_time(self, processing_time_ms: float):
         """记录处理时间"""
@@ -411,56 +414,37 @@ class EventStreamPipeline:
         logger.info("Initializing Event Stream Pipeline")
         
         try:
-            # 初始化数据库连接和仓库
-            async with asynccontextmanager(get_async_db)() as db:
-                event_repo = EventStreamRepository(db)
-                dedup_repo = EventDeduplicationRepository(db)
-                schema_repo = EventSchemaRepository(db)
-                error_repo = EventErrorRepository(db)
-                
-                # 初始化服务
-                self.processing_service = EventProcessingService(
-                    event_repo, dedup_repo, schema_repo, error_repo
-                )
-                
-                self.quality_service = DataQualityService(dedup_repo, schema_repo)
-                
-                # 初始化缓冲服务
-                buffer_config = BufferConfig(
-                    max_buffer_size=1000,
-                    flush_interval_seconds=30,
-                    max_batch_size=100
-                )
-                self.buffer_service = EventBufferService(buffer_config, self.processing_service)
-                
-                # 初始化队列服务
-                self.queue_service = EventQueueService()
-                await self.queue_service.initialize()
-                
-                # 构建处理器链
-                await self._build_processor_chain(event_repo)
-                
-                self.is_running = True
-                logger.info("Event Stream Pipeline initialized successfully")
+            # 初始化队列服务（可选）
+            self.queue_service = EventQueueService()
+            await self.queue_service.initialize()
+
+            self.is_running = True
+            logger.info("Event Stream Pipeline initialized successfully")
         
         except Exception as e:
             logger.error(f"Failed to initialize pipeline: {e}", exc_info=True)
             await self.shutdown()
             raise
     
-    async def _build_processor_chain(self, event_repo: EventStreamRepository):
+    def _build_processor_chain(
+        self,
+        event_repo: EventStreamRepository,
+        processing_service: EventProcessingService,
+        quality_service: DataQualityService,
+    ) -> List[EventStageProcessor]:
         """构建处理器链"""
-        self.processors = [
+        processors = [
             IngestionProcessor(),
-            ValidationProcessor(self.processing_service),
-            DeduplicationProcessor(self.quality_service),
-            QualityCheckProcessor(self.quality_service),
+            ValidationProcessor(processing_service),
+            DeduplicationProcessor(quality_service),
+            QualityCheckProcessor(quality_service),
             EnrichmentProcessor(),
             RoutingProcessor(),
             PersistenceProcessor(event_repo)
         ]
         
-        logger.info(f"Built processor chain with {len(self.processors)} stages")
+        logger.info(f"Built processor chain with {len(processors)} stages")
+        return processors
     
     async def process_event(self, event: CreateEventRequest) -> PipelineEvent:
         """处理单个事件"""
@@ -476,16 +460,33 @@ class EventStreamPipeline:
             start_time = time.time()
             
             try:
-                # 依次通过所有处理器
-                for processor in self.processors:
-                    pipeline_event = await processor.process(pipeline_event)
-                    
-                    # 调用阶段回调
-                    await self._call_stage_callbacks(processor.stage, pipeline_event)
-                    
-                    # 如果事件失败，提前结束处理
-                    if pipeline_event.status == EventStatus.FAILED:
-                        break
+                async with get_db_session() as db:
+                    event_repo = EventStreamRepository(db)
+                    dedup_repo = EventDeduplicationRepository(db)
+                    schema_repo = EventSchemaRepository(db)
+                    error_repo = EventErrorRepository(db)
+
+                    processing_service = EventProcessingService(
+                        event_repo, dedup_repo, schema_repo, error_repo
+                    )
+                    quality_service = DataQualityService(dedup_repo, schema_repo)
+
+                    processors = self._build_processor_chain(
+                        event_repo,
+                        processing_service,
+                        quality_service,
+                    )
+
+                    # 依次通过所有处理器
+                    for processor in processors:
+                        pipeline_event = await processor.process(pipeline_event)
+                        
+                        # 调用阶段回调
+                        await self._call_stage_callbacks(processor.stage, pipeline_event)
+                        
+                        # 如果事件失败，提前结束处理
+                        if pipeline_event.status == EventStatus.FAILED:
+                            break
                 
                 # 更新指标
                 processing_time = (time.time() - start_time) * 1000
@@ -549,6 +550,16 @@ class EventStreamPipeline:
             # 按阶段统计
             for stage in pipeline_event.stage_timestamps:
                 self.metrics.events_by_stage[stage] = self.metrics.events_by_stage.get(stage, 0) + 1
+            
+            stage_durations = pipeline_event.processing_metadata.get("stage_durations_ms", {})
+            for stage, duration in stage_durations.items():
+                processed_count = self.metrics.events_by_stage.get(stage, 0)
+                if processed_count <= 0:
+                    continue
+                prev_avg = self.metrics.avg_processing_time_ms.get(stage, 0.0)
+                self.metrics.avg_processing_time_ms[stage] = (
+                    (prev_avg * (processed_count - 1) + duration) / processed_count
+                )
             
             # 按状态统计
             self.metrics.events_by_status[pipeline_event.status] = \
@@ -634,10 +645,10 @@ class EventStreamPipeline:
         """获取各阶段指标"""
         stage_metrics = {}
         
-        for processor in self.processors:
-            stage_metrics[processor.stage] = {
-                'avg_processing_time_ms': processor.get_avg_processing_time(),
-                'total_processed': self.metrics.events_by_stage.get(processor.stage, 0)
+        for stage in PipelineStage:
+            stage_metrics[stage] = {
+                "avg_processing_time_ms": self.metrics.avg_processing_time_ms.get(stage, 0.0),
+                "total_processed": self.metrics.events_by_stage.get(stage, 0),
             }
         
         return stage_metrics

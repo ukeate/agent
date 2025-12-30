@@ -1,10 +1,13 @@
 """基础情感分析器抽象类"""
 
-from abc import ABC, abstractmethod
-from typing import Any, Dict, Optional, List
 import asyncio
 from datetime import datetime
-from ..models.emotion_models import EmotionResult, EmotionDimension, Modality
+from abc import ABC, abstractmethod
+from typing import Any, Dict, List, Optional
+
+from src.core.logging import get_logger
+
+from ..models.emotion_models import EmotionDimension, EmotionResult, Modality
 
 logger = get_logger(__name__)
 
@@ -36,7 +39,7 @@ class BaseEmotionAnalyzer(ABC):
     @abstractmethod
     async def _load_model(self):
         """加载模型和处理器"""
-        raise NotImplementedError
+        ...
         
     @abstractmethod
     async def analyze(self, input_data: Any) -> EmotionResult:
@@ -49,7 +52,7 @@ class BaseEmotionAnalyzer(ABC):
         Returns:
             EmotionResult: 情感分析结果
         """
-        raise NotImplementedError
+        ...
         
     @abstractmethod
     async def preprocess(self, input_data: Any) -> Any:
@@ -62,7 +65,7 @@ class BaseEmotionAnalyzer(ABC):
         Returns:
             预处理后的数据
         """
-        raise NotImplementedError
+        ...
         
     @abstractmethod
     async def postprocess(self, raw_output: Any) -> EmotionResult:
@@ -75,7 +78,7 @@ class BaseEmotionAnalyzer(ABC):
         Returns:
             EmotionResult: 格式化的情感结果
         """
-        raise NotImplementedError
+        ...
         
     def calculate_intensity(self, confidence: float, features: Dict[str, Any]) -> float:
         """
@@ -185,7 +188,7 @@ class BaseEmotionAnalyzer(ABC):
         return {
             "modality": self.modality,
             "is_initialized": self.is_initialized,
-            "config": self.config
+            "config": self.config,
         }
         
     async def cleanup(self):
@@ -194,4 +197,3 @@ class BaseEmotionAnalyzer(ABC):
         self.model = None
         self.processor = None
         self.is_initialized = False
-from src.core.logging import get_logger

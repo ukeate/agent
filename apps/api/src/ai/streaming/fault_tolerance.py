@@ -323,7 +323,7 @@ class FaultTolerantConnection:
                 await self.connection.send(str(message))
         else:
             # 其他类型连接的处理
-            raise NotImplementedError("Connection type not supported")
+            raise ValueError("不支持的连接类型")
     
     async def _send_heartbeat(self):
         """发送心跳"""

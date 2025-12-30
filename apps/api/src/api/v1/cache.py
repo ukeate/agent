@@ -605,9 +605,10 @@ async def warm_cache(payload: Dict[str, Any] = Body(...)):
 
 # 管理端点 - 需要特殊权限
 @router.post("/warmup", summary="执行缓存预热")
-async def warmup_cache(payload: Dict[str, Any] = Body(default={})):
+async def warmup_cache(payload: Optional[Dict[str, Any]] = Body(default=None)):
     """执行缓存预热操作"""
     try:
+        payload = payload or {}
         cache = get_node_cache()
         keys = payload.get("keys", [])
         ttl = payload.get("ttl_seconds")

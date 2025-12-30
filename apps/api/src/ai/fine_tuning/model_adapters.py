@@ -21,22 +21,22 @@ class BaseModelAdapter(ABC):
     @abstractmethod
     def get_target_modules(self) -> List[str]:
         """获取目标模块列表"""
-        raise NotImplementedError
+        ...
     
     @abstractmethod
     def get_architecture(self) -> ModelArchitecture:
         """获取模型架构"""
-        raise NotImplementedError
+        ...
     
     @abstractmethod
     def get_max_sequence_length(self) -> int:
         """获取最大序列长度"""
-        raise NotImplementedError
+        ...
     
     @abstractmethod
     def get_optimization_config(self) -> Dict[str, Any]:
         """获取优化配置"""
-        raise NotImplementedError
+        ...
     
     def get_attention_implementation(self) -> str:
         """获取注意力实现方式"""

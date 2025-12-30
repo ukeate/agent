@@ -60,12 +60,12 @@ class EmotionalMemory(ApiBaseModel):
     emotion_type: EmotionType
     intensity: float = Field(ge=0.0, le=1.0)
     context: str
-    trigger_factors: List[str] = []
+    trigger_factors: List[str] = Field(default_factory=list)
     importance_score: float = Field(ge=0.0, le=1.0)
-    related_memories: List[str] = []
+    related_memories: List[str] = Field(default_factory=list)
     storage_layer: StorageLayer = StorageLayer.HOT
-    tags: List[str] = []
-    metadata: Dict[str, Any] = {}
+    tags: List[str] = Field(default_factory=list)
+    metadata: Dict[str, Any] = Field(default_factory=dict)
 
 class EmotionalEvent(ApiBaseModel):
     """情感事件模型"""

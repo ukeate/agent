@@ -7,12 +7,7 @@ import uuid
 from pathlib import Path
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
-from fastapi import (
-    ModelRegistry, 
-    ModelRegistrationRequest, 
-    ModelFormat,
-    ModelMetadata
-)
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Query, BackgroundTasks
 from src.api.base_model import ApiBaseModel
 from src.ai.model_service.inference import (
     InferenceEngine, 
@@ -31,6 +26,12 @@ from src.ai.model_service.online_learning import (
     ABTestConfig
 )
 from src.ai.model_service.monitoring import MonitoringSystem
+from src.ai.model_service.registry import (
+    ModelRegistry,
+    ModelRegistrationRequest,
+    ModelFormat,
+    ModelMetadata,
+)
 from src.core.dependencies import get_current_user
 
 logger = get_logger(__name__)
@@ -51,7 +52,6 @@ async def lifespan(_: APIRouter) -> AsyncGenerator[None, None]:
         logger.error(f"关闭监控系统失败: {e}")
 
 router = APIRouter(prefix="/model-service", tags=["Model Service"], lifespan=lifespan)
-security = HTTPBearer()
 
 # ============= Pydantic Models =============
 
@@ -146,7 +146,6 @@ monitoring_system = MonitoringSystem()
 async def upload_model(
     model_file: UploadFile = File(...),
     request: str = Query(..., description="JSON格式的模型注册请求"),
-    background_tasks: BackgroundTasks = BackgroundTasks(),
     current_user: dict = Depends(get_current_user)
 ):
     """上传并注册模型"""

@@ -4,7 +4,7 @@
 
 from typing import List, Optional, Dict, Any
 from datetime import datetime, timedelta
-from sqlalchemy import text
+from sqlalchemy import text, bindparam
 from sqlalchemy.ext.asyncio import AsyncSession
 from ..ai.emotion_modeling.models import (
     EmotionState, PersonalityProfile, EmotionTransition, 
@@ -29,9 +29,9 @@ class EmotionModelingRepository:
             INSERT INTO emotion_states 
             (user_id, emotion, intensity, valence, arousal, dominance, confidence,
              timestamp, duration, triggers, context, source, session_id)
-            VALUES (%(user_id)s, %(emotion)s, %(intensity)s, %(valence)s, %(arousal)s, 
-                   %(dominance)s, %(confidence)s, %(timestamp)s, %(duration)s, 
-                   %(triggers)s, %(context)s, %(source)s, %(session_id)s)
+            VALUES (:user_id, :emotion, :intensity, :valence, :arousal, 
+                   :dominance, :confidence, :timestamp, :duration, 
+                   :triggers, :context, :source, :session_id)
             RETURNING id
             """
             
@@ -78,28 +78,29 @@ class EmotionModelingRepository:
             SELECT user_id, emotion, intensity, valence, arousal, dominance, confidence,
                    timestamp, duration, triggers, context, source, session_id, id
             FROM emotion_states 
-            WHERE user_id = %(user_id)s
+            WHERE user_id = :user_id
             """
             params = {'user_id': user_id}
             
             if start_time:
-                query += " AND timestamp >= %(start_time)s"
+                query += " AND timestamp >= :start_time"
                 params['start_time'] = start_time
                 
             if end_time:
-                query += " AND timestamp <= %(end_time)s" 
+                query += " AND timestamp <= :end_time" 
                 params['end_time'] = end_time
                 
             if emotions:
-                placeholders = ','.join(f"%(emotion_{i})s" for i in range(len(emotions)))
-                query += f" AND emotion IN ({placeholders})"
-                for i, emotion in enumerate(emotions):
-                    params[f'emotion_{i}'] = emotion
+                query += " AND emotion IN :emotions"
+                params['emotions'] = emotions
             
-            query += " ORDER BY timestamp DESC LIMIT %(limit)s"
+            query += " ORDER BY timestamp DESC LIMIT :limit"
             params['limit'] = limit
             
-            result = await self.db.execute(text(query), params)
+            stmt = text(query)
+            if emotions:
+                stmt = stmt.bindparams(bindparam("emotions", expanding=True))
+            result = await self.db.execute(stmt, params)
             rows = result.fetchall()
             
             states = []
@@ -140,9 +141,9 @@ class EmotionModelingRepository:
             SELECT user_id, emotion, intensity, valence, arousal, dominance, confidence,
                    timestamp, duration, triggers, context, source, session_id, id
             FROM emotion_states
-            WHERE session_id = %(session_id)s
+            WHERE session_id = :session_id
             ORDER BY timestamp DESC
-            LIMIT %(limit)s
+            LIMIT :limit
             """
 
             params = {'session_id': session_id, 'limit': 1000}
@@ -184,20 +185,20 @@ class EmotionModelingRepository:
             INSERT INTO personality_profiles 
             (user_id, emotional_traits, baseline_emotions, emotion_volatility, recovery_rate,
              dominant_emotions, trigger_patterns, created_at, updated_at, sample_count, confidence_score)
-            VALUES (%(user_id)s, %(emotional_traits)s, %(baseline_emotions)s, %(emotion_volatility)s, 
-                   %(recovery_rate)s, %(dominant_emotions)s, %(trigger_patterns)s, %(created_at)s,
-                   %(updated_at)s, %(sample_count)s, %(confidence_score)s)
+            VALUES (:user_id, :emotional_traits, :baseline_emotions, :emotion_volatility, 
+                   :recovery_rate, :dominant_emotions, :trigger_patterns, :created_at,
+                   :updated_at, :sample_count, :confidence_score)
             ON CONFLICT (user_id) 
             DO UPDATE SET
-                emotional_traits = %(emotional_traits)s,
-                baseline_emotions = %(baseline_emotions)s,
-                emotion_volatility = %(emotion_volatility)s,
-                recovery_rate = %(recovery_rate)s,
-                dominant_emotions = %(dominant_emotions)s,
-                trigger_patterns = %(trigger_patterns)s,
-                updated_at = %(updated_at)s,
-                sample_count = %(sample_count)s,
-                confidence_score = %(confidence_score)s
+                emotional_traits = :emotional_traits,
+                baseline_emotions = :baseline_emotions,
+                emotion_volatility = :emotion_volatility,
+                recovery_rate = :recovery_rate,
+                dominant_emotions = :dominant_emotions,
+                trigger_patterns = :trigger_patterns,
+                updated_at = :updated_at,
+                sample_count = :sample_count,
+                confidence_score = :confidence_score
             RETURNING id
             """
             
@@ -236,7 +237,7 @@ class EmotionModelingRepository:
                    recovery_rate, dominant_emotions, trigger_patterns, created_at, updated_at,
                    sample_count, confidence_score
             FROM personality_profiles 
-            WHERE user_id = %(user_id)s
+            WHERE user_id = :user_id
             """
             
             result = await self.db.execute(text(query), {'user_id': user_id})
@@ -273,15 +274,15 @@ class EmotionModelingRepository:
             INSERT INTO emotion_transitions 
             (user_id, from_emotion, to_emotion, transition_probability, occurrence_count,
              avg_duration, updated_at, context_factors)
-            VALUES (%(user_id)s, %(from_emotion)s, %(to_emotion)s, %(transition_probability)s, 
-                   %(occurrence_count)s, %(avg_duration)s, %(updated_at)s, %(context_factors)s)
+            VALUES (:user_id, :from_emotion, :to_emotion, :transition_probability, 
+                   :occurrence_count, :avg_duration, :updated_at, :context_factors)
             ON CONFLICT ON CONSTRAINT emotion_transitions_user_from_to_unique
             DO UPDATE SET
-                transition_probability = %(transition_probability)s,
-                occurrence_count = %(occurrence_count)s,
-                avg_duration = %(avg_duration)s,
-                updated_at = %(updated_at)s,
-                context_factors = %(context_factors)s
+                transition_probability = :transition_probability,
+                occurrence_count = :occurrence_count,
+                avg_duration = :avg_duration,
+                updated_at = :updated_at,
+                context_factors = :context_factors
             RETURNING id
             """
             
@@ -316,7 +317,7 @@ class EmotionModelingRepository:
             SELECT id, user_id, from_emotion, to_emotion, transition_probability, 
                    occurrence_count, avg_duration, updated_at, context_factors
             FROM emotion_transitions 
-            WHERE user_id = %(user_id)s
+            WHERE user_id = :user_id
             ORDER BY occurrence_count DESC
             """
             
@@ -357,8 +358,8 @@ class EmotionModelingRepository:
             INSERT INTO emotion_predictions 
             (user_id, current_emotion, predicted_emotions, confidence, time_horizon_seconds,
              prediction_time, factors)
-            VALUES (%(user_id)s, %(current_emotion)s, %(predicted_emotions)s, %(confidence)s, 
-                   %(time_horizon_seconds)s, %(prediction_time)s, %(factors)s)
+            VALUES (:user_id, :current_emotion, :predicted_emotions, :confidence, 
+                   :time_horizon_seconds, :prediction_time, :factors)
             RETURNING id
             """
             
@@ -404,9 +405,9 @@ class EmotionModelingRepository:
                 AVG(arousal) as avg_arousal,
                 AVG(dominance) as avg_dominance
             FROM emotion_states
-            WHERE user_id = %(user_id)s 
-              AND timestamp >= %(start_time)s 
-              AND timestamp <= %(end_time)s
+            WHERE user_id = :user_id 
+              AND timestamp >= :start_time 
+              AND timestamp <= :end_time
             GROUP BY emotion
             ORDER BY count DESC
             """
@@ -465,7 +466,7 @@ class EmotionModelingRepository:
     async def count_user_emotion_records(self, user_id: str) -> int:
         """统计用户情感记录数量"""
         try:
-            query = "SELECT COUNT(*) FROM emotion_states WHERE user_id = %(user_id)s"
+            query = "SELECT COUNT(*) FROM emotion_states WHERE user_id = :user_id"
             result = await self.db.execute(text(query), {'user_id': user_id})
             count = result.fetchone()
             return count[0] if count else 0

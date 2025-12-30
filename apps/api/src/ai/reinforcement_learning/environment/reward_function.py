@@ -44,7 +44,7 @@ class BaseRewardFunction(ABC):
     def calculate_reward(self, state: AgentState, action: Any, 
                         next_state: AgentState, info: Dict[str, Any]) -> float:
         """计算奖励值"""
-        raise NotImplementedError
+        ...
     
     def reset(self):
         """重置奖励函数状态（新回合开始时调用）"""

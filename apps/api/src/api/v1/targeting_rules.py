@@ -6,6 +6,8 @@ from typing import List, Dict, Any, Optional
 from datetime import datetime
 from src.core.utils.timezone_utils import utc_now, utc_factory, timezone
 from fastapi import APIRouter, Depends, HTTPException, status, Query
+from pydantic import Field
+from src.api.base_model import ApiBaseModel
 from src.services.targeting_rules_engine import (
     TargetingRulesEngine,
     TargetingRule,
@@ -44,9 +46,9 @@ class CreateRuleRequest(ApiBaseModel):
     condition: Dict[str, Any]
     priority: int = 0
     is_active: bool = True
-    experiment_ids: List[str] = []
-    variant_ids: List[str] = []
-    metadata: Dict[str, Any] = {}
+    experiment_ids: List[str] = Field(default_factory=list)
+    variant_ids: List[str] = Field(default_factory=list)
+    metadata: Dict[str, Any] = Field(default_factory=dict)
 
 class UpdateRuleRequest(ApiBaseModel):
     name: Optional[str] = None
@@ -393,11 +395,12 @@ async def batch_evaluate_user_targeting(
 async def check_user_eligibility(
     user_id: str = Query(..., description="用户ID"),
     experiment_id: str = Query(..., description="实验ID"),
-    user_context: Dict[str, Any] = {},
+    user_context: Optional[Dict[str, Any]] = None,
     engine: TargetingRulesEngine = Depends(get_rules_engine)
 ):
     """检查用户实验参与资格"""
     try:
+        user_context = user_context or {}
         eligibility_result = engine.check_user_eligibility(
             user_id,
             user_context,

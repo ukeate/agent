@@ -115,7 +115,7 @@ class DataCollector(ABC):
     @abstractmethod
     async def collect_data(self) -> AsyncIterator[DataRecord]:
         """收集数据的抽象方法"""
-        raise NotImplementedError
+        ...
     
     def generate_record_id(self, data: Dict[str, Any]) -> str:
         """生成唯一的记录ID"""
@@ -131,7 +131,7 @@ class ProcessingRule(ABC):
     @abstractmethod
     async def apply(self, data: Dict[str, Any], metadata: Dict[str, Any]) -> Dict[str, Any]:
         """应用处理规则"""
-        raise NotImplementedError
+        ...
 
 # 质量评估器抽象基类
 class QualityAssessor(ABC):
@@ -140,7 +140,7 @@ class QualityAssessor(ABC):
     @abstractmethod
     def assess(self, data: Dict[str, Any]) -> float:
         """评估数据质量"""
-        raise NotImplementedError
+        ...
 
 # 数据导出格式枚举
 class ExportFormat(Enum):

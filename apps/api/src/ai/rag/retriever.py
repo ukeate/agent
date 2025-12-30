@@ -91,11 +91,13 @@ class SemanticRetriever:
     async def multi_collection_search(
         self,
         query: str,
-        collections: List[str] = ["documents", "code"],
+        collections: Optional[List[str]] = None,
         limit: int = 10,
         score_threshold: float = 0.7,
     ) -> List[Dict]:
         """跨多个集合搜索"""
+        if collections is None:
+            collections = ["documents", "code"]
         all_results = []
         
         for collection in collections:

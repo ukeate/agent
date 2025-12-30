@@ -446,17 +446,17 @@ class SerializerInterface(ABC, Generic[T]):
     @abstractmethod
     def serialize(self, obj: T) -> bytes:
         """序列化对象"""
-        raise NotImplementedError
+        ...
     
     @abstractmethod
     def deserialize(self, data: bytes) -> T:
         """反序列化对象"""
-        raise NotImplementedError
+        ...
     
     @abstractmethod
     def get_format(self) -> SerializationFormat:
         """获取序列化格式"""
-        raise NotImplementedError
+        ...
 
 class JSONSerializer(SerializerInterface[T]):
     """JSON序列化器"""

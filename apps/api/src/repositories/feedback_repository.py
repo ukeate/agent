@@ -4,14 +4,15 @@
 提供反馈数据的CRUD操作和查询功能
 """
 
-from typing import List, Optional, Dict, Any
+from typing import Any, Dict, List, Optional
 from datetime import datetime, timedelta
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import or_, desc, func, select, update, case, cast, Float
+from sqlalchemy import desc, func, select, update, case, cast, Float, or_
+from sqlalchemy.orm import selectinload
 from sqlalchemy.exc import SQLAlchemyError
 from src.core.utils.timezone_utils import utc_now
 from ..models.schemas.feedback import (
-    FeedbackEvent, FeedbackBatch, UserFeedbackProfile,
+    FeedbackEvent, FeedbackBatch, UserFeedbackProfile, FeedbackType,
     ItemFeedbackSummary, RewardSignal, FeedbackQualityLog,
     FeedbackAggregation,
 )
@@ -61,6 +62,22 @@ class FeedbackRepository:
             logger.error(f"批量创建反馈事件失败: {e}")
             raise
 
+    async def create_feedback_events(self, events: List[Dict]) -> List[FeedbackEvent]:
+        """批量创建反馈事件（不创建批次）"""
+        if not events:
+            return []
+        try:
+            objects = [FeedbackEvent(**event) for event in events]
+            self.db.add_all(objects)
+            await self.db.commit()
+            for obj in objects:
+                await self.db.refresh(obj)
+            return objects
+        except SQLAlchemyError as e:
+            await self.db.rollback()
+            logger.error(f"批量创建反馈事件失败: {e}")
+            raise
+
     async def get_feedback_events(
         self,
         user_id: str = None,
@@ -68,12 +85,16 @@ class FeedbackRepository:
         feedback_types: List[str] = None,
         start_date: datetime = None,
         end_date: datetime = None,
-        limit: int = 100,
+        limit: Optional[int] = 100,
         offset: int = 0,
     ) -> List[FeedbackEvent]:
         """查询反馈事件"""
         try:
-            stmt = select(FeedbackEvent).where(FeedbackEvent.valid.is_(True))
+            stmt = (
+                select(FeedbackEvent)
+                .options(selectinload(FeedbackEvent.batch))
+                .where(FeedbackEvent.valid.is_(True))
+            )
 
             if user_id:
                 stmt = stmt.where(FeedbackEvent.user_id == user_id)
@@ -86,11 +107,87 @@ class FeedbackRepository:
             if end_date:
                 stmt = stmt.where(FeedbackEvent.timestamp <= end_date)
 
-            stmt = stmt.order_by(desc(FeedbackEvent.timestamp)).offset(offset).limit(limit)
+            stmt = stmt.order_by(desc(FeedbackEvent.timestamp))
+            if limit is not None:
+                stmt = stmt.offset(offset).limit(limit)
+            elif offset:
+                stmt = stmt.offset(offset)
             result = await self.db.execute(stmt)
             return result.scalars().all()
         except SQLAlchemyError as e:
             logger.error(f"查询反馈事件失败: {e}")
+            raise
+
+    async def count_feedback_events(
+        self,
+        user_id: str = None,
+        item_id: str = None,
+        feedback_types: List[str] = None,
+        start_date: datetime = None,
+        end_date: datetime = None,
+    ) -> int:
+        """统计反馈事件数量"""
+        try:
+            stmt = select(func.count(FeedbackEvent.id)).where(FeedbackEvent.valid.is_(True))
+            if user_id:
+                stmt = stmt.where(FeedbackEvent.user_id == user_id)
+            if item_id:
+                stmt = stmt.where(FeedbackEvent.item_id == item_id)
+            if feedback_types:
+                stmt = stmt.where(FeedbackEvent.feedback_type.in_(feedback_types))
+            if start_date:
+                stmt = stmt.where(FeedbackEvent.timestamp >= start_date)
+            if end_date:
+                stmt = stmt.where(FeedbackEvent.timestamp <= end_date)
+            result = await self.db.execute(stmt)
+            return int(result.scalar() or 0)
+        except SQLAlchemyError as e:
+            logger.error(f"统计反馈事件数量失败: {e}")
+            raise
+
+    async def get_feedback_events_by_ids(self, event_ids: List[str]) -> List[FeedbackEvent]:
+        """根据事件ID列表获取反馈事件"""
+        if not event_ids:
+            return []
+        try:
+            stmt = (
+                select(FeedbackEvent)
+                .options(selectinload(FeedbackEvent.batch))
+                .where(FeedbackEvent.event_id.in_(event_ids))
+            )
+            result = await self.db.execute(stmt)
+            return result.scalars().all()
+        except SQLAlchemyError as e:
+            logger.error(f"按ID查询反馈事件失败: {e}")
+            raise
+
+    async def get_user_basic_stats(self, user_ids: List[str]) -> Dict[str, Dict[str, int]]:
+        """获取用户基础统计（总量与类型数）"""
+        if not user_ids:
+            return {}
+        try:
+            stmt = (
+                select(
+                    FeedbackEvent.user_id.label("user_id"),
+                    func.count(FeedbackEvent.id).label("total"),
+                    func.count(func.distinct(FeedbackEvent.feedback_type)).label("types"),
+                )
+                .where(
+                    FeedbackEvent.user_id.in_(user_ids),
+                    FeedbackEvent.valid.is_(True),
+                )
+                .group_by(FeedbackEvent.user_id)
+            )
+            rows = (await self.db.execute(stmt)).all()
+            return {
+                row.user_id: {
+                    "total": int(row.total or 0),
+                    "types": int(row.types or 0),
+                }
+                for row in rows
+            }
+        except SQLAlchemyError as e:
+            logger.error(f"获取用户基础统计失败: {e}")
             raise
 
     async def update_feedback_processing_status(self, event_ids: List[str], processed: bool = True) -> None:
@@ -168,6 +265,26 @@ class FeedbackRepository:
             ).group_by(FeedbackEvent.feedback_type)
             type_distribution = (await self.db.execute(type_stmt)).all()
 
+            rating_stmt = select(
+                func.avg(cast(FeedbackEvent.value, Float)).label("avg_rating"),
+                func.count(FeedbackEvent.id).label("rating_count"),
+            ).where(
+                FeedbackEvent.user_id == user_id,
+                FeedbackEvent.feedback_type == FeedbackType.RATING.value,
+                FeedbackEvent.valid.is_(True),
+            )
+            rating_stats = (await self.db.execute(rating_stmt)).one()
+
+            trust_stmt = select(
+                (func.count(func.distinct(FeedbackEvent.session_id)) /
+                 func.nullif(func.count(FeedbackEvent.id), 0))
+                .label("trust_score")
+            ).where(
+                FeedbackEvent.user_id == user_id,
+                FeedbackEvent.valid.is_(True),
+            )
+            trust_score = (await self.db.execute(trust_stmt)).scalar()
+
             return {
                 'total_feedbacks': stats.total_count or 0,
                 'unique_items': stats.unique_items or 0,
@@ -175,6 +292,9 @@ class FeedbackRepository:
                 'first_feedback_time': stats.first_feedback,
                 'last_feedback_time': stats.last_feedback,
                 'type_distribution': {t.feedback_type: t.count for t in type_distribution},
+                'average_rating': float(rating_stats.avg_rating) if rating_stats.avg_rating else None,
+                'rating_count': rating_stats.rating_count or 0,
+                'trust_score': float(trust_score or 0.0),
             }
         except SQLAlchemyError as e:
             logger.error(f"获取用户反馈统计失败: {e}")
@@ -234,20 +354,50 @@ class FeedbackRepository:
                 func.count(FeedbackEvent.id).label('rating_count'),
             ).where(
                 FeedbackEvent.item_id == item_id,
-                FeedbackEvent.feedback_type == 'rating',
+                FeedbackEvent.feedback_type == FeedbackType.RATING.value,
                 FeedbackEvent.valid.is_(True),
             )
             rating_stats = (await self.db.execute(rating_stmt)).one()
 
             like_stmt = select(
-                func.count(case((FeedbackEvent.feedback_type == 'like', 1))).label('like_count'),
-                func.count(case((FeedbackEvent.feedback_type == 'dislike', 1))).label('dislike_count'),
+                func.count(case((FeedbackEvent.feedback_type == FeedbackType.LIKE.value, 1))).label('like_count'),
+                func.count(case((FeedbackEvent.feedback_type == FeedbackType.DISLIKE.value, 1))).label('dislike_count'),
             ).where(
                 FeedbackEvent.item_id == item_id,
-                FeedbackEvent.feedback_type.in_(['like', 'dislike']),
+                FeedbackEvent.feedback_type.in_([
+                    FeedbackType.LIKE.value,
+                    FeedbackType.DISLIKE.value,
+                ]),
                 FeedbackEvent.valid.is_(True),
             )
             like_stats = (await self.db.execute(like_stmt)).one()
+
+            dwell_stmt = select(
+                func.avg(cast(FeedbackEvent.value, Float)).label('avg_dwell'),
+            ).where(
+                FeedbackEvent.item_id == item_id,
+                FeedbackEvent.feedback_type == FeedbackType.DWELL_TIME.value,
+                FeedbackEvent.valid.is_(True),
+            )
+            dwell_stats = (await self.db.execute(dwell_stmt)).one()
+
+            scroll_stmt = select(
+                func.avg(cast(FeedbackEvent.value, Float)).label('avg_scroll'),
+            ).where(
+                FeedbackEvent.item_id == item_id,
+                FeedbackEvent.feedback_type == FeedbackType.SCROLL_DEPTH.value,
+                FeedbackEvent.valid.is_(True),
+            )
+            scroll_stats = (await self.db.execute(scroll_stmt)).one()
+
+            type_stmt = select(
+                FeedbackEvent.feedback_type,
+                func.count(FeedbackEvent.id).label("count"),
+            ).where(
+                FeedbackEvent.item_id == item_id,
+                FeedbackEvent.valid.is_(True),
+            ).group_by(FeedbackEvent.feedback_type)
+            type_distribution = (await self.db.execute(type_stmt)).all()
 
             total_likes = (like_stats.like_count or 0) + (like_stats.dislike_count or 0)
             like_ratio = (like_stats.like_count or 0) / total_likes if total_likes > 0 else 0.0
@@ -263,9 +413,39 @@ class FeedbackRepository:
                 'like_count': like_stats.like_count or 0,
                 'dislike_count': like_stats.dislike_count or 0,
                 'like_ratio': like_ratio,
+                'dwell_time_avg': float(dwell_stats.avg_dwell) if dwell_stats.avg_dwell else 0.0,
+                'scroll_depth_avg': float(scroll_stats.avg_scroll) if scroll_stats.avg_scroll else 0.0,
+                'type_distribution': {t.feedback_type: t.count for t in type_distribution},
             }
         except SQLAlchemyError as e:
             logger.error(f"获取推荐项反馈统计失败: {e}")
+            raise
+
+    async def get_feedback_batch_by_batch_id(self, batch_id: str) -> Optional[FeedbackBatch]:
+        """根据批次ID获取反馈批次"""
+        try:
+            result = await self.db.execute(
+                select(FeedbackBatch).where(FeedbackBatch.batch_id == batch_id)
+            )
+            return result.scalar_one_or_none()
+        except SQLAlchemyError as e:
+            logger.error(f"获取反馈批次失败: {e}")
+            raise
+
+    async def get_feedback_events_by_batch_id(self, batch_id: str) -> List[FeedbackEvent]:
+        """根据批次ID获取反馈事件"""
+        try:
+            stmt = (
+                select(FeedbackEvent)
+                .options(selectinload(FeedbackEvent.batch))
+                .join(FeedbackBatch, FeedbackEvent.batch_id == FeedbackBatch.id)
+                .where(FeedbackBatch.batch_id == batch_id)
+                .order_by(FeedbackEvent.timestamp.asc())
+            )
+            result = await self.db.execute(stmt)
+            return result.scalars().all()
+        except SQLAlchemyError as e:
+            logger.error(f"获取批次反馈事件失败: {e}")
             raise
 
     async def save_reward_signal(self, reward_data: Dict) -> RewardSignal:

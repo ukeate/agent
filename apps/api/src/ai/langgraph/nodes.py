@@ -32,7 +32,7 @@ class BaseNode(ABC):
     @abstractmethod
     async def execute(self, state: GraphState) -> GraphState:
         """执行节点逻辑"""
-        raise NotImplementedError
+        ...
     
     async def run_with_error_handling(self, state: GraphState) -> GraphState:
         """带错误处理的执行"""

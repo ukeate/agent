@@ -30,7 +30,7 @@ class EmpathyStrategy(ABC):
         Returns:
             EmpathyResponse: 生成的共情响应
         """
-        raise NotImplementedError
+        ...
     
     @abstractmethod
     def is_suitable(
@@ -50,7 +50,7 @@ class EmpathyStrategy(ABC):
         Returns:
             float: 适合度评分 [0,1]
         """
-        raise NotImplementedError
+        ...
     
     def calculate_comfort_level(
         self,

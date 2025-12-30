@@ -11,6 +11,7 @@ from datetime import datetime
 from datetime import timedelta
 from src.core.utils.timezone_utils import utc_now, utc_factory
 from typing import List, Optional
+from pydantic import Field
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -37,7 +38,7 @@ class APIKeyCreate(ApiBaseModel):
     name: str
     description: Optional[str] = None
     expires_in_days: Optional[int] = 30
-    permissions: List[str] = []
+    permissions: List[str] = Field(default_factory=list)
 
 class APIKeyResponse(ApiBaseModel):
     """API密钥响应"""

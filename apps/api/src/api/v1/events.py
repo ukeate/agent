@@ -53,7 +53,7 @@ class EventResponse(ApiBaseModel):
     message: str
     agent: Optional[str] = None
     severity: str
-    data: Dict[str, Any] = {}
+    data: Dict[str, Any] = Field(default_factory=dict)
 
 class EventStats(ApiBaseModel):
     """事件统计"""

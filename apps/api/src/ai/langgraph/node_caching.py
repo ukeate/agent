@@ -50,22 +50,22 @@ class CacheBackend(ABC):
     @abstractmethod
     async def get(self, key: str) -> Optional[Any]:
         """获取缓存值"""
-        raise NotImplementedError
+        ...
     
     @abstractmethod
     async def set(self, key: str, value: Any, ttl: Optional[int] = None) -> None:
         """设置缓存值"""
-        raise NotImplementedError
+        ...
     
     @abstractmethod
     async def delete(self, key: str) -> None:
         """删除缓存值"""
-        raise NotImplementedError
+        ...
     
     @abstractmethod
     async def clear(self) -> None:
         """清空所有缓存"""
-        raise NotImplementedError
+        ...
 
 class InMemoryCache(CacheBackend):
     """内存缓存实现"""

@@ -4,10 +4,10 @@
 """
 
 import asyncio
-from datetime import datetime
-from datetime import timedelta
-from src.core.utils.timezone_utils import utc_now, utc_factory
-from typing import Dict, List, Any, Optional, Callable
+from datetime import datetime, timedelta
+from typing import Any, Callable, Dict, List, Optional
+
+from src.core.utils.timezone_utils import utc_now
 from dataclasses import dataclass, field
 from enum import Enum
 import json
@@ -85,12 +85,12 @@ class AlertChannel(ABC):
     @abstractmethod
     async def send_alert(self, alert: Alert) -> bool:
         """发送告警"""
-        raise NotImplementedError
+        ...
     
     @abstractmethod
     async def send_resolution(self, alert: Alert) -> bool:
         """发送解决通知"""
-        raise NotImplementedError
+        ...
 
 class WebhookAlertChannel(AlertChannel):
     """Webhook告警通道"""

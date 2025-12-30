@@ -455,9 +455,11 @@ class PatternRecognitionEngine:
         self,
         user_ids: Optional[List[str]] = None,
         time_range_days: int = 30,
-        pattern_types: List[str] = ["sequence", "clustering"]
+        pattern_types: Optional[List[str]] = None
     ) -> Dict[str, PatternMiningResult]:
         """分析行为模式"""
+        if pattern_types is None:
+            pattern_types = ["sequence", "clustering"]
         results = {}
         
         try:

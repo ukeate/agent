@@ -9,7 +9,7 @@ from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.middleware.httpsredirect import HTTPSRedirectMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from src.core.security.middleware import SecureHeadersMiddleware
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import List, Dict, Any, Optional
 import uuid
 import random
@@ -58,7 +58,7 @@ class CreateConversationRequest(BaseModel):
 class AgentRequest(BaseModel):
     name: str
     type: str
-    config: Optional[Dict[str, Any]] = {}
+    config: Optional[Dict[str, Any]] = Field(default_factory=dict)
 
 # 基础端点
 @app.get("/")

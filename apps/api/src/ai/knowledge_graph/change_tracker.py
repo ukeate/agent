@@ -4,18 +4,18 @@
 
 import asyncio
 import json
-import time
-from datetime import datetime
-from src.core.utils.timezone_utils import utc_now, utc_factory
-from typing import Dict, List, Any, Optional, Set, Callable, AsyncIterator
-from dataclasses import dataclass, asdict
-from enum import Enum
-from collections import defaultdict, deque
 import threading
+import time
+from abc import ABC, abstractmethod
+from collections import defaultdict, deque
 from concurrent.futures import ThreadPoolExecutor
-from src.core.logging import get_logger, setup_logging
+from dataclasses import dataclass, asdict
+from datetime import datetime
+from enum import Enum
+from typing import Any, AsyncIterator, Callable, Dict, List, Optional, Set
 
-from src.core.logging import get_logger
+from src.core.logging import get_logger, setup_logging
+from src.core.utils.timezone_utils import utc_now
 logger = get_logger(__name__)
 
 class EventType(Enum):
@@ -81,16 +81,17 @@ class ChangeStatistics:
     events_per_minute: float
     most_active_resources: List[str]
 
-class ChangeListener:
+class ChangeListener(ABC):
     """变更监听器基类"""
     
     def __init__(self, name: str):
         self.name = name
         self.enabled = True
     
+    @abstractmethod
     async def on_change(self, event: ChangeEvent) -> bool:
         """处理变更事件"""
-        raise NotImplementedError
+        ...
     
     def should_process(self, event: ChangeEvent) -> bool:
         """判断是否应该处理此事件"""

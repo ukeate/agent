@@ -8,7 +8,7 @@ import json
 import uuid
 from abc import ABC, abstractmethod
 from datetime import datetime
-from src.core.utils.timezone_utils import utc_now, utc_factory, timezone
+from src.core.utils.timezone_utils import utc_now
 from enum import Enum
 from typing import Dict, List, Optional, Any, Callable, Union
 from dataclasses import dataclass, field, asdict
@@ -90,13 +90,13 @@ class EventHandler(ABC):
     @abstractmethod
     async def handle(self, event: Event) -> None:
         """处理事件"""
-        raise NotImplementedError
+        ...
     
     @property
     @abstractmethod
     def supported_events(self) -> List[EventType]:
         """支持的事件类型"""
-        raise NotImplementedError
+        ...
 
 class EventBus:
     """异步事件总线"""

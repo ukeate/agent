@@ -45,7 +45,7 @@ class DataCollector(ABC):
     @abstractmethod
     async def collect_data(self) -> AsyncIterator[DataRecord]:
         """收集数据的抽象方法"""
-        raise NotImplementedError
+        ...
     
     def generate_record_id(self, data: Dict[str, Any]) -> str:
         """生成唯一的记录ID"""

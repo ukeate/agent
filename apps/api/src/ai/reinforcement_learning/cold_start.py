@@ -28,7 +28,7 @@ class ColdStartStrategy(ABC):
         Returns:
             冷启动策略结果
         """
-        raise NotImplementedError
+        ...
     
     @abstractmethod
     def handle_new_item(
@@ -46,7 +46,7 @@ class ColdStartStrategy(ABC):
         Returns:
             冷启动策略结果
         """
-        raise NotImplementedError
+        ...
 
 class ContentBasedColdStart(ColdStartStrategy):
     """基于内容的冷启动策略"""

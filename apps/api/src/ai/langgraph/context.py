@@ -5,7 +5,7 @@ LangGraph Context API类型定义
 """
 
 from typing import Optional, Any, Dict, TypeVar, Generic, List, Union
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import BaseModel, Field, field_validator, model_validator, ConfigDict
 from dataclasses import dataclass
 from enum import Enum
 from datetime import datetime
@@ -95,15 +95,15 @@ class AgentContext(BaseModel, Generic[T]):
     max_iterations: int = Field(default=10, ge=1, le=1000, description="最大迭代次数")
     timeout_seconds: int = Field(default=300, ge=1, le=3600, description="超时时间(秒)")
     
-    model_config = {
+    model_config = ConfigDict(
         # 启用类型验证
-        "validate_assignment": True,
+        validate_assignment=True,
         # 序列化时使用枚举值
-        "use_enum_values": True,
+        use_enum_values=True,
         # 允许任意类型（为了泛型支持）
-        "arbitrary_types_allowed": True,
+        arbitrary_types_allowed=True,
         # 模式示例
-        "json_schema_extra": {
+        json_schema_extra={
             "example": {
                 "user_id": "user_123",
                 "session_id": "550e8400-e29b-41d4-a716-446655440000",
@@ -113,7 +113,7 @@ class AgentContext(BaseModel, Generic[T]):
                 }
             }
         }
-    }
+    )
     
     @model_validator(mode='after')
     def validate_consistency(self):

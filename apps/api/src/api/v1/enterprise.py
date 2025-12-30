@@ -19,7 +19,8 @@ from src.ai.autogen.security.auto_response import SecurityResponseManager
 from src.ai.autogen.performance_optimization import PerformanceOptimizer, PerformanceProfile
 from src.ai.autogen.compliance_testing import ComplianceFramework, ComplianceStandard
 from src.core.config import get_settings
-from src.core.database import get_db_session, test_database_connection
+from sqlalchemy.ext.asyncio import AsyncSession
+from src.core.database import get_db, test_database_connection
 from src.core.monitoring import monitoring_service
 from src.core.qdrant import qdrant_manager
 from src.core.redis import get_redis, test_redis_connection
@@ -795,63 +796,63 @@ async def get_audit_logs(
     event_type: Optional[str] = Query(None),
     user_id: Optional[str] = Query(None),
     limit: int = Query(100, ge=1, le=1000),
-    offset: int = Query(0, ge=0)
+    offset: int = Query(0, ge=0),
+    db: AsyncSession = Depends(get_db),
 ):
     """获取审计日志"""
     start_dt = _parse_datetime(start_time) if start_time else None
     end_dt = _parse_datetime(end_time) if end_time else None
-    async with get_db_session() as session:
-        table = await session.execute(text("SELECT to_regclass('public.audit_logs')"))
-        if not table.scalar():
-            return {"logs": [], "total": 0}
-        where = []
-        params: Dict[str, Any] = {"limit": limit, "offset": offset}
-        if start_dt:
-            where.append("timestamp >= :start_time")
-            params["start_time"] = start_dt
-        if end_dt:
-            where.append("timestamp <= :end_time")
-            params["end_time"] = end_dt
-        if user_id:
-            where.append("user_id = :user_id")
-            params["user_id"] = user_id
-        if event_type:
-            where.append("event_type LIKE :event_type")
-            params["event_type"] = f"{event_type}%"
-        where_sql = f"WHERE {' AND '.join(where)}" if where else ""
-        total_row = await session.execute(text("SELECT COUNT(*) FROM audit_logs " + where_sql), params)
-        total = int(total_row.scalar() or 0)
-        query_sql = (
-            "SELECT id, event_type, timestamp, user_id, action, result, details\n"
-            "FROM audit_logs\n"
-            + where_sql
-            + "\nORDER BY timestamp DESC\n"
-            "LIMIT :limit OFFSET :offset"
+    table = await db.execute(text("SELECT to_regclass('public.audit_logs')"))
+    if not table.scalar():
+        return {"logs": [], "total": 0}
+    where = []
+    params: Dict[str, Any] = {"limit": limit, "offset": offset}
+    if start_dt:
+        where.append("timestamp >= :start_time")
+        params["start_time"] = start_dt
+    if end_dt:
+        where.append("timestamp <= :end_time")
+        params["end_time"] = end_dt
+    if user_id:
+        where.append("user_id = :user_id")
+        params["user_id"] = user_id
+    if event_type:
+        where.append("event_type LIKE :event_type")
+        params["event_type"] = f"{event_type}%"
+    where_sql = f"WHERE {' AND '.join(where)}" if where else ""
+    total_row = await db.execute(text("SELECT COUNT(*) FROM audit_logs " + where_sql), params)
+    total = int(total_row.scalar() or 0)
+    query_sql = (
+        "SELECT id, event_type, timestamp, user_id, action, result, details\n"
+        "FROM audit_logs\n"
+        + where_sql
+        + "\nORDER BY timestamp DESC\n"
+        "LIMIT :limit OFFSET :offset"
+    )
+    rows = await db.execute(
+        text(query_sql),
+        params,
+    )
+    logs: List[Dict[str, Any]] = []
+    for row in rows.mappings():
+        details = row.get("details")
+        if isinstance(details, str):
+            try:
+                details = json.loads(details)
+            except Exception:
+                details = {}
+        logs.append(
+            {
+                "event_id": row.get("id"),
+                "event_type": row.get("event_type"),
+                "timestamp": row.get("timestamp").isoformat() if row.get("timestamp") else utc_now().isoformat(),
+                "user_id": row.get("user_id"),
+                "action": row.get("action") or "",
+                "result": row.get("result") or "",
+                "details": details or {},
+            }
         )
-        rows = await session.execute(
-            text(query_sql),
-            params,
-        )
-        logs: List[Dict[str, Any]] = []
-        for row in rows.mappings():
-            details = row.get("details")
-            if isinstance(details, str):
-                try:
-                    details = json.loads(details)
-                except Exception:
-                    details = {}
-            logs.append(
-                {
-                    "event_id": row.get("id"),
-                    "event_type": row.get("event_type"),
-                    "timestamp": row.get("timestamp").isoformat() if row.get("timestamp") else utc_now().isoformat(),
-                    "user_id": row.get("user_id"),
-                    "action": row.get("action") or "",
-                    "result": row.get("result") or "",
-                    "details": details or {},
-                }
-            )
-        return {"logs": logs, "total": total}
+    return {"logs": logs, "total": total}
 
 @router.get("/compliance/export")
 async def export_compliance_report(format: str = Query("pdf")):
@@ -979,7 +980,9 @@ async def get_architecture_topology():
     return {"nodes": nodes, "edges": edges}
 
 @router.post("/test/connections")
-async def test_connections():
+async def test_connections(
+    db: AsyncSession = Depends(get_db),
+):
     """测试企业组件连接"""
     results: List[Dict[str, Any]] = []
 
@@ -999,8 +1002,7 @@ async def test_connections():
             )
 
     async def check_db():
-        async with get_db_session() as session:
-            await session.execute(text("SELECT 1"))
+        await db.execute(text("SELECT 1"))
 
     async def check_redis():
         redis_client = _get_redis_client()

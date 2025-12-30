@@ -8,7 +8,7 @@ import time
 from abc import ABC, abstractmethod
 from typing import Dict, List, Optional, Any, Set
 from datetime import datetime
-from src.core.utils.timezone_utils import utc_now, utc_factory
+from src.core.utils.timezone_utils import utc_now
 from uuid import uuid4
 import networkx as nx
 from src.models.schemas.workflow import (
@@ -39,22 +39,22 @@ class WorkflowExecutor(ABC):
         stream_callback: Optional[callable] = None
     ) -> None:
         """执行工作流"""
-        raise NotImplementedError
+        ...
     
     @abstractmethod
     async def pause(self, execution_id: str) -> None:
         """暂停执行"""
-        raise NotImplementedError
+        ...
     
     @abstractmethod
     async def resume(self, execution_id: str) -> None:
         """恢复执行"""
-        raise NotImplementedError
+        ...
     
     @abstractmethod
     async def cancel(self, execution_id: str) -> None:
         """取消执行"""
-        raise NotImplementedError
+        ...
 
 class BaseStepExecutor:
     """基础步骤执行器"""

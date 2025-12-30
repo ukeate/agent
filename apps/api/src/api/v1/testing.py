@@ -67,13 +67,13 @@ penetration_tester = PenetrationTester()
 class TestSuiteRequest(ApiBaseModel):
     """测试套件请求"""
     suite_name: str = Field(..., description="测试套件名称")
-    test_types: List[str] = Field(default=["integration"], description="测试类型列表")
+    test_types: List[str] = Field(default_factory=lambda: ["integration"], description="测试类型列表")
     async_execution: bool = Field(default=False, description="是否异步执行")
 
 class BenchmarkRequest(ApiBaseModel):
     """性能基准测试请求"""
     benchmark_types: List[str] = Field(
-        default=["cpu", "memory", "io", "network", "database"],
+        default_factory=lambda: ["cpu", "memory", "io", "network", "database"],
         description="基准测试类型"
     )
     compare_with_baseline: bool = Field(default=True, description="是否与基线对比")
@@ -93,7 +93,7 @@ class HealthCheckRequest(ApiBaseModel):
 class SecurityAuditRequest(ApiBaseModel):
     """安全审计请求"""
     audit_types: List[str] = Field(
-        default=["owasp", "mcp", "api", "data"],
+        default_factory=lambda: ["owasp", "mcp", "api", "data"],
         description="审计类型"
     )
     run_penetration_test: bool = Field(default=False, description="是否运行渗透测试")

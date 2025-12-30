@@ -194,12 +194,12 @@ class BaseFormatter(ABC):
     @abstractmethod
     def format_data(self, data: UnifiedEmotionalData) -> str:
         """格式化数据"""
-        raise NotImplementedError
+        ...
     
     @abstractmethod
     def format_response(self, response: EmotionalIntelligenceResponse) -> str:
         """格式化响应"""
-        raise NotImplementedError
+        ...
     
     def _prepare_data(self, data: UnifiedEmotionalData) -> Dict[str, Any]:
         """准备数据用于格式化"""

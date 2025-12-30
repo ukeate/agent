@@ -98,12 +98,12 @@ class MessageHandler(ABC):
     @abstractmethod
     async def handle_message(self, message: Message) -> Optional[Message]:
         """处理消息"""
-        raise NotImplementedError
+        ...
     
     @abstractmethod
     def can_handle(self, message: Message) -> bool:
         """判断是否能处理消息"""
-        raise NotImplementedError
+        ...
 
 class EventBus:
     """事件总线"""

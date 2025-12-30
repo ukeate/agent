@@ -499,13 +499,14 @@ async def get_statistics(
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/test")
-async def test_rule(rule_id: str, test_data: Dict[str, Any] = {}) -> Dict[str, Any]:
+async def test_rule(rule_id: str, test_data: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     """
     测试规则
     
     使用测试数据验证规则是否会触发
     """
     try:
+        test_data = test_data or {}
         if rule_id not in alert_engine.rules:
             raise HTTPException(status_code=404, detail="规则不存在")
             

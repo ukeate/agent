@@ -8,6 +8,7 @@ from datetime import datetime
 from src.core.utils.timezone_utils import utc_now, utc_factory
 from fastapi import APIRouter, HTTPException, Depends, Query, Path, status
 from fastapi.responses import JSONResponse
+from sqlalchemy.ext.asyncio import AsyncSession
 from src.services.supervisor_service import supervisor_service
 from src.models.schemas.supervisor import (
     TaskSubmissionRequest, TaskSubmissionResponse,
@@ -17,6 +18,7 @@ from src.models.schemas.supervisor import (
 )
 from src.models.schemas.base import BaseResponse, ErrorResponse
 from src.api.exceptions import ValidationError, NotFoundError
+from src.core.database import get_db
 
 from src.core.logging import get_logger
 logger = get_logger(__name__)
@@ -378,12 +380,12 @@ async def update_task_completion(
     description="获取Supervisor统计数据"
 )
 async def get_supervisor_stats(
-    supervisor_id: str = Query(..., description="Supervisor ID")
+    supervisor_id: str = Query(..., description="Supervisor ID"),
+    db: AsyncSession = Depends(get_db),
 ) -> BaseResponse:
     """获取Supervisor统计数据"""
     try:
         logger.info("查询Supervisor统计数据", supervisor_id=supervisor_id)
-        from src.core.database import get_db_session
         from src.repositories.supervisor_repository import (
             SupervisorRepository,
             SupervisorTaskRepository,
@@ -391,24 +393,23 @@ async def get_supervisor_stats(
             AgentLoadMetricsRepository,
         )
 
-        async with get_db_session() as db:
-            supervisor_repo = SupervisorRepository(db)
-            supervisor = await supervisor_repo.get_by_id(supervisor_id)
-            if not supervisor:
-                supervisor = await supervisor_repo.get_by_name(supervisor_id)
-            if not supervisor:
-                created_id = await supervisor_service.initialize_supervisor(supervisor_id)
-                supervisor = await supervisor_repo.get_by_id(created_id)
-            if not supervisor:
-                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Supervisor不存在")
+        supervisor_repo = SupervisorRepository(db)
+        supervisor = await supervisor_repo.get_by_id(supervisor_id)
+        if not supervisor:
+            supervisor = await supervisor_repo.get_by_name(supervisor_id)
+        if not supervisor:
+            created_id = await supervisor_service.initialize_supervisor(supervisor_id)
+            supervisor = await supervisor_repo.get_by_id(created_id)
+        if not supervisor:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Supervisor不存在")
 
-            task_repo = SupervisorTaskRepository(db)
-            decision_repo = SupervisorDecisionRepository(db)
-            load_repo = AgentLoadMetricsRepository(db)
+        task_repo = SupervisorTaskRepository(db)
+        decision_repo = SupervisorDecisionRepository(db)
+        load_repo = AgentLoadMetricsRepository(db)
 
-            task_stats = await task_repo.get_task_statistics(supervisor.id)
-            decision_stats = await decision_repo.get_decision_statistics(supervisor.id)
-            current_loads = await load_repo.get_current_loads(supervisor.id)
+        task_stats = await task_repo.get_task_statistics(supervisor.id)
+        decision_stats = await decision_repo.get_decision_statistics(supervisor.id)
+        current_loads = await load_repo.get_current_loads(supervisor.id)
 
         return BaseResponse(
             success=True,
@@ -438,41 +439,40 @@ async def get_supervisor_stats(
     description="获取智能体负载和性能统计信息"
 )
 async def get_load_statistics(
-    supervisor_id: str = Query(..., description="Supervisor ID")
+    supervisor_id: str = Query(..., description="Supervisor ID"),
+    db: AsyncSession = Depends(get_db),
 ) -> LoadStatisticsApiResponse:
     """获取负载统计信息"""
     try:
         logger.info("查询负载统计", supervisor_id=supervisor_id)
         from sqlalchemy import select, func
 
-        from src.core.database import get_db_session
         from src.models.database.supervisor import SupervisorTask
         from src.repositories.supervisor_repository import (
             SupervisorRepository,
             AgentLoadMetricsRepository,
         )
 
-        async with get_db_session() as db:
-            supervisor_repo = SupervisorRepository(db)
-            supervisor = await supervisor_repo.get_by_id(supervisor_id)
-            if not supervisor:
-                supervisor = await supervisor_repo.get_by_name(supervisor_id)
-            if not supervisor:
-                created_id = await supervisor_service.initialize_supervisor(supervisor_id)
-                supervisor = await supervisor_repo.get_by_id(created_id)
-            if not supervisor:
-                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Supervisor不存在")
+        supervisor_repo = SupervisorRepository(db)
+        supervisor = await supervisor_repo.get_by_id(supervisor_id)
+        if not supervisor:
+            supervisor = await supervisor_repo.get_by_name(supervisor_id)
+        if not supervisor:
+            created_id = await supervisor_service.initialize_supervisor(supervisor_id)
+            supervisor = await supervisor_repo.get_by_id(created_id)
+        if not supervisor:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Supervisor不存在")
 
-            load_repo = AgentLoadMetricsRepository(db)
-            agent_loads = await load_repo.get_current_loads(supervisor.id)
+        load_repo = AgentLoadMetricsRepository(db)
+        agent_loads = await load_repo.get_current_loads(supervisor.id)
 
-            stmt = (
-                select(SupervisorTask.assigned_agent_name, func.count(SupervisorTask.id))
-                .where(SupervisorTask.supervisor_id == supervisor.id)
-                .group_by(SupervisorTask.assigned_agent_name)
-            )
-            rows = await db.execute(stmt)
-            task_counts = {name or "未分配": int(count) for name, count in rows.all()}
+        stmt = (
+            select(SupervisorTask.assigned_agent_name, func.count(SupervisorTask.id))
+            .where(SupervisorTask.supervisor_id == supervisor.id)
+            .group_by(SupervisorTask.assigned_agent_name)
+        )
+        rows = await db.execute(stmt)
+        task_counts = {name or "未分配": int(count) for name, count in rows.all()}
 
         loads = list(agent_loads.values())
         average_load = float(sum(loads) / len(loads)) if loads else 0.0
@@ -522,7 +522,8 @@ async def get_load_statistics(
     description="获取Supervisor管理的智能体负载指标"
 )
 async def get_agent_metrics(
-    supervisor_id: str = Query(..., description="Supervisor ID")
+    supervisor_id: str = Query(..., description="Supervisor ID"),
+    db: AsyncSession = Depends(get_db),
 ) -> BaseResponse:
     """获取智能体指标"""
     try:
@@ -530,28 +531,26 @@ async def get_agent_metrics(
         from sqlalchemy import select
         from sqlalchemy import desc as sql_desc
 
-        from src.core.database import get_db_session
         from src.models.database.supervisor import AgentLoadMetrics
         from src.repositories.supervisor_repository import SupervisorRepository
 
-        async with get_db_session() as db:
-            supervisor_repo = SupervisorRepository(db)
-            supervisor = await supervisor_repo.get_by_id(supervisor_id)
-            if not supervisor:
-                supervisor = await supervisor_repo.get_by_name(supervisor_id)
-            if not supervisor:
-                created_id = await supervisor_service.initialize_supervisor(supervisor_id)
-                supervisor = await supervisor_repo.get_by_id(created_id)
-            if not supervisor:
-                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Supervisor不存在")
+        supervisor_repo = SupervisorRepository(db)
+        supervisor = await supervisor_repo.get_by_id(supervisor_id)
+        if not supervisor:
+            supervisor = await supervisor_repo.get_by_name(supervisor_id)
+        if not supervisor:
+            created_id = await supervisor_service.initialize_supervisor(supervisor_id)
+            supervisor = await supervisor_repo.get_by_id(created_id)
+        if not supervisor:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Supervisor不存在")
 
-            stmt = (
-                select(AgentLoadMetrics)
-                .where(AgentLoadMetrics.supervisor_id == supervisor.id)
-                .order_by(sql_desc(AgentLoadMetrics.updated_at))
-            )
-            result = await db.execute(stmt)
-            rows = result.scalars().all()
+        stmt = (
+            select(AgentLoadMetrics)
+            .where(AgentLoadMetrics.supervisor_id == supervisor.id)
+            .order_by(sql_desc(AgentLoadMetrics.updated_at))
+        )
+        result = await db.execute(stmt)
+        rows = result.scalars().all()
 
         metrics = []
         seen = set()
@@ -598,7 +597,8 @@ async def get_tasks(
     supervisor_id: str = Query(..., description="Supervisor ID"),
     status_filter: Optional[str] = Query(None, description="任务状态过滤"),
     limit: int = Query(10, ge=1, le=100, description="返回记录数量"),
-    offset: int = Query(0, ge=0, description="偏移量")
+    offset: int = Query(0, ge=0, description="偏移量"),
+    db: AsyncSession = Depends(get_db),
 ) -> BaseResponse:
     """获取任务列表"""
     try:
@@ -609,39 +609,37 @@ async def get_tasks(
                    offset=offset)
         
         # 获取真实的任务数据
-        from src.core.database import get_db_session
         from src.repositories.supervisor_repository import SupervisorTaskRepository
+
+        task_repo = SupervisorTaskRepository(db)
         
-        async with get_db_session() as db:
-            task_repo = SupervisorTaskRepository(db)
-            
-            # 根据supervisor_id获取任务，支持按名称或ID查询
-            tasks = await task_repo.get_tasks_by_supervisor(
-                supervisor_id, limit, offset, status_filter
-            )
-            total = await task_repo.count_tasks_by_supervisor(supervisor_id, status_filter)
-            
-            # 转换为API响应格式
-            task_list = []
-            for task in tasks:
-                task_list.append({
-                    "id": task.id,
-                    "name": task.name,
-                    "description": task.description,
-                    "task_type": task.task_type,  # 修正字段名
-                    "priority": task.priority,
-                    "status": task.status,
-                    "complexity_score": task.complexity_score,
-                    "estimated_time_seconds": task.estimated_time_seconds,  # 修正字段名
-                    "actual_time_seconds": task.actual_time_seconds,
-                    "assigned_agent_id": task.assigned_agent_id,
-                    "assigned_agent_name": task.assigned_agent_name,
-                    "supervisor_id": task.supervisor_id,
-                    "created_at": task.created_at.isoformat(),
-                    "updated_at": task.updated_at.isoformat(),
-                    "started_at": task.started_at.isoformat() if task.started_at else None,
-                    "completed_at": task.completed_at.isoformat() if task.completed_at else None,
-                })
+        # 根据supervisor_id获取任务，支持按名称或ID查询
+        tasks = await task_repo.get_tasks_by_supervisor(
+            supervisor_id, limit, offset, status_filter
+        )
+        total = await task_repo.count_tasks_by_supervisor(supervisor_id, status_filter)
+        
+        # 转换为API响应格式
+        task_list = []
+        for task in tasks:
+            task_list.append({
+                "id": task.id,
+                "name": task.name,
+                "description": task.description,
+                "task_type": task.task_type,  # 修正字段名
+                "priority": task.priority,
+                "status": task.status,
+                "complexity_score": task.complexity_score,
+                "estimated_time_seconds": task.estimated_time_seconds,  # 修正字段名
+                "actual_time_seconds": task.actual_time_seconds,
+                "assigned_agent_id": task.assigned_agent_id,
+                "assigned_agent_name": task.assigned_agent_name,
+                "supervisor_id": task.supervisor_id,
+                "created_at": task.created_at.isoformat(),
+                "updated_at": task.updated_at.isoformat(),
+                "started_at": task.started_at.isoformat() if task.started_at else None,
+                "completed_at": task.completed_at.isoformat() if task.completed_at else None,
+            })
         
         return BaseResponse(
             success=True,
@@ -670,29 +668,27 @@ async def get_tasks(
     description="获取Supervisor的当前配置信息"
 )
 async def get_supervisor_config(
-    supervisor_id: str = Query(..., description="Supervisor ID")
+    supervisor_id: str = Query(..., description="Supervisor ID"),
+    db: AsyncSession = Depends(get_db),
 ) -> SupervisorConfigApiResponse:
     """获取Supervisor配置"""
     try:
         logger.info("查询Supervisor配置", supervisor_id=supervisor_id)
-        from src.core.database import get_db_session
         from src.repositories.supervisor_repository import SupervisorConfigRepository, SupervisorRepository
+        supervisor_repo = SupervisorRepository(db)
+        supervisor = await supervisor_repo.get_by_id(supervisor_id)
+        if not supervisor:
+            supervisor = await supervisor_repo.get_by_name(supervisor_id)
+        if not supervisor:
+            created_id = await supervisor_service.initialize_supervisor(supervisor_id)
+            supervisor = await supervisor_repo.get_by_id(created_id)
+        if not supervisor:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Supervisor不存在")
 
-        async with get_db_session() as db:
-            supervisor_repo = SupervisorRepository(db)
-            supervisor = await supervisor_repo.get_by_id(supervisor_id)
-            if not supervisor:
-                supervisor = await supervisor_repo.get_by_name(supervisor_id)
-            if not supervisor:
-                created_id = await supervisor_service.initialize_supervisor(supervisor_id)
-                supervisor = await supervisor_repo.get_by_id(created_id)
-            if not supervisor:
-                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Supervisor不存在")
-
-            config_repo = SupervisorConfigRepository(db)
-            config = await config_repo.get_active_config(supervisor.id)
-            if not config:
-                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="未找到活跃配置")
+        config_repo = SupervisorConfigRepository(db)
+        config = await config_repo.get_active_config(supervisor.id)
+        if not config:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="未找到活跃配置")
 
         return SupervisorConfigApiResponse(
             success=True,
@@ -828,53 +824,51 @@ async def get_scheduler_status() -> BaseResponse:
     description="获取任务的详细信息，包括执行结果和输出数据"
 )
 async def get_task_details(
-    task_id: str = Path(..., description="任务ID")
+    task_id: str = Path(..., description="任务ID"),
+    db: AsyncSession = Depends(get_db),
 ) -> BaseResponse:
     """获取任务详细信息"""
     try:
         logger.info("查询任务详细信息", task_id=task_id)
         
-        from src.core.database import get_db_session
         from src.repositories.supervisor_repository import SupervisorTaskRepository
+        task_repo = SupervisorTaskRepository(db)
+        task = await task_repo.get_by_id(task_id)
         
-        async with get_db_session() as db:
-            task_repo = SupervisorTaskRepository(db)
-            task = await task_repo.get_by_id(task_id)
-            
-            if not task:
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND,
-                    detail="任务不存在"
-                )
-            
-            # 转换为详细格式
-            task_details = {
-                "id": task.id,
-                "name": task.name,
-                "description": task.description,
-                "task_type": task.task_type,
-                "priority": task.priority,
-                "status": task.status,
-                "assigned_agent_id": task.assigned_agent_id,
-                "assigned_agent_name": task.assigned_agent_name,
-                "supervisor_id": task.supervisor_id,
-                "input_data": task.input_data,
-                "output_data": task.output_data,
-                "execution_metadata": task.execution_metadata,
-                "complexity_score": task.complexity_score,
-                "estimated_time_seconds": task.estimated_time_seconds,
-                "actual_time_seconds": task.actual_time_seconds,
-                "created_at": task.created_at.isoformat() if task.created_at else None,
-                "updated_at": task.updated_at.isoformat() if task.updated_at else None,
-                "started_at": task.started_at.isoformat() if task.started_at else None,
-                "completed_at": task.completed_at.isoformat() if task.completed_at else None
-            }
-            
-            return BaseResponse(
-                success=True,
-                message="任务详细信息查询成功",
-                data=task_details
+        if not task:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="任务不存在"
             )
+        
+        # 转换为详细格式
+        task_details = {
+            "id": task.id,
+            "name": task.name,
+            "description": task.description,
+            "task_type": task.task_type,
+            "priority": task.priority,
+            "status": task.status,
+            "assigned_agent_id": task.assigned_agent_id,
+            "assigned_agent_name": task.assigned_agent_name,
+            "supervisor_id": task.supervisor_id,
+            "input_data": task.input_data,
+            "output_data": task.output_data,
+            "execution_metadata": task.execution_metadata,
+            "complexity_score": task.complexity_score,
+            "estimated_time_seconds": task.estimated_time_seconds,
+            "actual_time_seconds": task.actual_time_seconds,
+            "created_at": task.created_at.isoformat() if task.created_at else None,
+            "updated_at": task.updated_at.isoformat() if task.updated_at else None,
+            "started_at": task.started_at.isoformat() if task.started_at else None,
+            "completed_at": task.completed_at.isoformat() if task.completed_at else None
+        }
+        
+        return BaseResponse(
+            success=True,
+            message="任务详细信息查询成功",
+            data=task_details
+        )
         
     except HTTPException:
         raise
