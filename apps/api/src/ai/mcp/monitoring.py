@@ -2,13 +2,15 @@
 
 import asyncio
 import time
-from typing import Any, Dict, List, Optional
+import threading
+from collections import defaultdict, deque
 from dataclasses import dataclass, field
 from datetime import datetime
 from datetime import timedelta
+from typing import Any, Dict, List, Optional
+from src.core.logging import get_logger
+from src.core.utils.async_utils import create_task_with_logging
 from src.core.utils.timezone_utils import utc_now, utc_factory
-from collections import defaultdict, deque
-import threading
 
 logger = get_logger(__name__)
 
@@ -71,8 +73,12 @@ class MCPMonitor:
         
         try:
             # 尝试获取当前运行的事件循环
-            loop = asyncio.get_running_loop()
-            self._cleanup_task = loop.create_task(cleanup_loop())
+            asyncio.get_running_loop()
+            self._cleanup_task = create_task_with_logging(
+                cleanup_loop(),
+                logger=logger,
+                keep_reference=False,
+            )
         except RuntimeError:
             # 如果没有运行的事件循环，稍后创建
             self._cleanup_task = None
@@ -350,4 +356,3 @@ def monitor_operation(
 async def get_monitor_dependency() -> MCPMonitor:
     """FastAPI依赖注入：获取监控器"""
     return get_mcp_monitor()
-from src.core.logging import get_logger
