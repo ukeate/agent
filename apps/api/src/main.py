@@ -94,7 +94,6 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
                 from src.ai.autogen.event_processors import AsyncEventProcessingEngine
                 from src.ai.autogen.event_store import EventStore, EventReplayService
                 from src.ai.autogen.monitoring import EventProcessingMonitor
-                from src.api.v1 import analytics as analytics_api
                 from src.core.redis import get_redis
 
                 dsn = settings.DATABASE_URL
@@ -121,8 +120,6 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
                     event_store=store,
                     distributed_coordinator=coordinator,
                 )
-
-                analytics_api.init_services(store)
 
                 app.state.autogen_postgres_pool = postgres_pool
                 app.state.autogen_event_store = store

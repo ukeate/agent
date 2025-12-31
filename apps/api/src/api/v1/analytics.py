@@ -14,7 +14,8 @@ import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional
-from fastapi import APIRouter, HTTPException, Query, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, HTTPException, Query, WebSocket, WebSocketDisconnect, Depends
+from starlette.requests import HTTPConnection
 from fastapi.responses import Response, StreamingResponse
 from pydantic import Field
 from src.ai.autogen.events import Event, EventPriority, EventType
@@ -27,18 +28,14 @@ logger = get_logger(__name__)
 
 router = APIRouter(prefix="/analytics", tags=["用户行为分析"])
 
-event_store: Optional[EventStore] = None
 export_tasks: List[Dict[str, Any]] = []
 reports_data: Dict[str, Dict[str, Any]] = {}
 
-def init_services(store: EventStore) -> None:
-    global event_store
-    event_store = store
-
-def _require_event_store() -> EventStore:
-    if event_store is None:
+def get_event_store(connection: HTTPConnection) -> EventStore:
+    store = getattr(connection.app.state, "autogen_event_store", None)
+    if store is None:
         raise HTTPException(status_code=503, detail="事件存储未初始化")
-    return event_store
+    return store
 
 class BehaviorEvent(ApiBaseModel):
     """用户行为事件"""
@@ -274,13 +271,13 @@ def _to_event(behavior: BehaviorEvent) -> Event:
     )
 
 async def _filter_events(
+    store: EventStore,
     user_id: Optional[str] = None,
     session_id: Optional[str] = None,
     event_type: Optional[str] = None,
     start_time: Optional[datetime] = None,
     end_time: Optional[datetime] = None,
 ) -> List[Dict[str, Any]]:
-    store = _require_event_store()
     start = start_time or utc_now() - timedelta(days=7)
     end = end_time or utc_now()
 
@@ -332,10 +329,12 @@ async def _filter_events(
     return results
 
 @router.post("/events", summary="提交用户行为事件")
-async def submit_events(request: EventSubmissionRequest):
+async def submit_events(
+    request: EventSubmissionRequest,
+    store: EventStore = Depends(get_event_store),
+):
     """批量提交用户行为事件"""
     try:
-        store = _require_event_store()
         if not request.events:
             raise HTTPException(status_code=400, detail="事件列表不能为空")
         if len(request.events) > 1000:
@@ -366,9 +365,10 @@ async def get_events(
     end_time: Optional[datetime] = Query(None, description="结束时间"),
     limit: int = Query(50, ge=1, le=1000, description="返回数量限制"),
     offset: int = Query(0, ge=0, description="偏移量"),
+    store: EventStore = Depends(get_event_store),
 ):
     """查询行为事件数据"""
-    events = await _filter_events(user_id, session_id, event_type, start_time, end_time)
+    events = await _filter_events(store, user_id, session_id, event_type, start_time, end_time)
     total = len(events)
     result_events = events[offset : offset + limit]
     return {
@@ -391,9 +391,10 @@ async def get_sessions(
     max_events: Optional[int] = Query(None, description="最大事件数"),
     limit: int = Query(50, ge=1, le=1000, description="返回数量限制"),
     offset: int = Query(0, ge=0, description="偏移量"),
+    store: EventStore = Depends(get_event_store),
 ):
     """查询用户会话数据"""
-    events = await _filter_events(user_id=user_id, start_time=start_time, end_time=end_time)
+    events = await _filter_events(store, user_id=user_id, start_time=start_time, end_time=end_time)
     sessions: Dict[str, Dict[str, Any]] = {}
 
     for ev in events:
@@ -468,8 +469,9 @@ async def get_session_stats(
     user_id: Optional[str] = Query(None, description="用户ID"),
     start_time: Optional[datetime] = Query(None, description="开始时间"),
     end_time: Optional[datetime] = Query(None, description="结束时间"),
+    store: EventStore = Depends(get_event_store),
 ):
-    events = await _filter_events(user_id=user_id, start_time=start_time, end_time=end_time)
+    events = await _filter_events(store, user_id=user_id, start_time=start_time, end_time=end_time)
     sessions: Dict[str, Dict[str, Any]] = {}
     for ev in events:
         sid = ev.get("session_id") or "unknown"
@@ -504,9 +506,13 @@ async def get_session_stats(
     }
 
 @router.post("/analyze", summary="执行行为分析")
-async def analyze_behavior(request: AnalysisRequest):
+async def analyze_behavior(
+    request: AnalysisRequest,
+    store: EventStore = Depends(get_event_store),
+):
     """执行用户行为分析"""
     events = await _filter_events(
+        store,
         user_id=request.user_id,
         session_id=request.session_id,
         start_time=request.start_time,
@@ -558,8 +564,9 @@ async def get_behavior_patterns(
     user_id: Optional[str] = Query(None, description="用户ID"),
     min_support: float = Query(0.1, ge=0.01, le=1.0, description="最小支持度"),
     limit: int = Query(50, ge=1, le=200, description="返回数量限制"),
+    store: EventStore = Depends(get_event_store),
 ):
-    events = await _filter_events(user_id=user_id)
+    events = await _filter_events(store, user_id=user_id)
     freq: Dict[str, int] = {}
     for ev in events:
         et = ev.get("event_type")
@@ -578,8 +585,9 @@ async def get_anomalies(
     start_time: Optional[datetime] = Query(None, description="开始时间"),
     end_time: Optional[datetime] = Query(None, description="结束时间"),
     limit: int = Query(100, ge=1, le=500, description="返回数量限制"),
+    store: EventStore = Depends(get_event_store),
 ):
-    events = await _filter_events(user_id=user_id, start_time=start_time, end_time=end_time)
+    events = await _filter_events(store, user_id=user_id, start_time=start_time, end_time=end_time)
     freq: Dict[str, int] = {}
     for ev in events:
         et = ev.get("event_type")
@@ -610,7 +618,10 @@ def _parse_datetime(value: Any) -> Optional[datetime]:
     return None
 
 @router.post("/reports/generate", summary="生成分析报告")
-async def generate_report(request: ReportRequest):
+async def generate_report(
+    request: ReportRequest,
+    store: EventStore = Depends(get_event_store),
+):
     valid_types = ["comprehensive", "summary", "custom"]
     if request.report_type not in valid_types:
         raise HTTPException(status_code=400, detail=f"无效的报告类型，支持: {valid_types}")
@@ -621,6 +632,7 @@ async def generate_report(request: ReportRequest):
 
     filters = request.filters or {}
     events = await _filter_events(
+        store,
         user_id=filters.get("user_id"),
         session_id=filters.get("session_id"),
         event_type=filters.get("event_type"),
@@ -717,6 +729,7 @@ async def download_report(report_id: str, format: str = Query("json", descriptio
 async def get_dashboard_stats(
     time_range: str = Query("24h", description="时间范围: 1h, 24h, 7d, 30d"),
     user_id: Optional[str] = Query(None, description="用户ID"),
+    store: EventStore = Depends(get_event_store),
 ):
     now = utc_now()
     if time_range == "1h":
@@ -730,7 +743,7 @@ async def get_dashboard_stats(
     else:
         raise HTTPException(status_code=400, detail="无效的时间范围")
 
-    events = await _filter_events(start_time=start_time, end_time=now, user_id=user_id)
+    events = await _filter_events(store, start_time=start_time, end_time=now, user_id=user_id)
     stats: Dict[str, int] = {}
     for ev in events:
         et = ev.get("event_type")
@@ -743,12 +756,11 @@ async def get_dashboard_stats(
     }
 
 @router.get("/realtime/events", summary="实时事件流")
-async def stream_events():
-    _require_event_store()
-
+async def stream_events(store: EventStore = Depends(get_event_store)):
     async def event_stream():
         while True:
             recent_events = await _filter_events(
+                store,
                 start_time=utc_now() - timedelta(minutes=5),
                 end_time=utc_now(),
             )
@@ -823,11 +835,12 @@ async def export_events(
     start_time: Optional[datetime] = Query(None, description="开始时间"),
     end_time: Optional[datetime] = Query(None, description="结束时间"),
     limit: int = Query(10000, ge=1, le=50000, description="导出数量限制"),
+    store: EventStore = Depends(get_event_store),
 ):
     if format not in ["csv", "json", "xlsx"]:
         raise HTTPException(status_code=400, detail="不支持的导出格式")
 
-    events = await _filter_events(user_id=user_id, start_time=start_time, end_time=end_time)
+    events = await _filter_events(store, user_id=user_id, start_time=start_time, end_time=end_time)
     events = events[:limit]
     if not events:
         raise HTTPException(status_code=404, detail="没有找到匹配的数据")
@@ -869,12 +882,13 @@ async def export_events(
     )
 
 @router.get("/health", summary="健康检查")
-async def health_check():
+async def health_check(connection: HTTPConnection):
+    store = getattr(connection.app.state, "autogen_event_store", None)
     return {
-        "status": "healthy" if event_store else "unhealthy",
+        "status": "healthy" if store else "unhealthy",
         "timestamp": utc_now().isoformat(),
         "components": {
-            "event_store": "healthy" if event_store else "uninitialized",
+            "event_store": "healthy" if store else "uninitialized",
             "websocket_manager": "healthy",
         },
         "ws_stats": ws_manager.get_stats(),
