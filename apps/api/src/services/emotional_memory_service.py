@@ -7,7 +7,6 @@ Integrates with LangGraph 0.6.0 for advanced memory operations
 from typing import List, Optional, Dict, Any, Tuple
 from datetime import datetime, timedelta
 from uuid import UUID
-import asyncio
 import numpy as np
 from langgraph.checkpoint.memory import MemorySaver
 from redis import asyncio as redis_async

@@ -4,6 +4,8 @@
 """
 
 from src.core.utils.timezone_utils import utc_now
+
+from src.core.utils.async_utils import create_task_with_logging
 import asyncio
 import uuid
 import time
@@ -201,15 +203,15 @@ class DistributedMessageBus:
         """启动后台任务"""
         try:
             # 心跳任务
-            heartbeat_task = asyncio.create_task(self._heartbeat_loop())
+            heartbeat_task = create_task_with_logging(self._heartbeat_loop())
             self.cleanup_tasks.add(heartbeat_task)
             
             # 请求超时清理任务
-            timeout_task = asyncio.create_task(self._cleanup_expired_requests())
+            timeout_task = create_task_with_logging(self._cleanup_expired_requests())
             self.cleanup_tasks.add(timeout_task)
             
             # 指标收集任务
-            metrics_task = asyncio.create_task(self._metrics_collection_loop())
+            metrics_task = create_task_with_logging(self._metrics_collection_loop())
             self.cleanup_tasks.add(metrics_task)
             
             logger.debug("后台任务已启动")

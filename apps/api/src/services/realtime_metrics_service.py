@@ -8,6 +8,8 @@ from typing import Dict, List, Optional, Any, Tuple, Union
 from datetime import datetime
 from datetime import timedelta
 from src.core.utils.timezone_utils import utc_now, timezone
+
+from src.core.utils.async_utils import create_task_with_logging
 from dataclasses import dataclass, field
 from enum import Enum
 from collections import defaultdict, deque
@@ -846,7 +848,7 @@ class RealtimeMetricsService:
                     self.logger.error(f"Background update failed: {e}")
                     await asyncio.sleep(self._update_interval)
         
-        task = asyncio.create_task(update_task())
+        task = create_task_with_logging(update_task())
         self._background_tasks.append(task)
         
         self.logger.info(f"Started background updates for experiment {experiment_id}")

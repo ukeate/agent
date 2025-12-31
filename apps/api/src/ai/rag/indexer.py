@@ -3,7 +3,6 @@ RAG文档索引器
 提供文档分块和向量化能力
 """
 
-import asyncio
 from typing import Any, Dict, List, Optional
 import re
 from datetime import datetime

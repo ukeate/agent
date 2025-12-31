@@ -18,6 +18,8 @@ from .lifecycle_manager import LifecycleManager, BatchOperationResult
 from .metrics_collector import MetricsCollector
 
 from src.core.logging import get_logger
+
+from src.core.utils.async_utils import create_task_with_logging
 class ScalingAction(Enum):
     """扩缩容动作"""
     SCALE_UP = "scale_up"
@@ -228,7 +230,7 @@ class AutoScaler:
         """启动自动扩缩容引擎"""
         try:
             # 启动扩缩容评估任务
-            self.scaling_task = asyncio.create_task(self._scaling_loop())
+            self.scaling_task = create_task_with_logging(self._scaling_loop())
             
             self.logger.info("AutoScaler started successfully")
             

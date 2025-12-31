@@ -4,7 +4,6 @@
 """
 
 from src.core.utils.timezone_utils import utc_now
-import asyncio
 import hashlib
 import json
 from dataclasses import dataclass, field

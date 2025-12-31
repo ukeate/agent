@@ -8,6 +8,8 @@ import asyncio
 import time
 from datetime import datetime
 from src.core.utils.timezone_utils import utc_now
+
+from src.core.utils.async_utils import create_task_with_logging
 from dataclasses import dataclass, asdict
 from pathlib import Path
 import pandas as pd
@@ -422,7 +424,7 @@ class ModelEvaluationEngine:
         """异步评估多个基准测试"""
         tasks = []
         for config in benchmark_configs:
-            task = asyncio.create_task(
+            task = create_task_with_logging(
                 self._evaluate_single_async(config)
             )
             tasks.append(task)
@@ -524,7 +526,7 @@ class ModelEvaluationEngine:
         }
         
         # 启动异步任务
-        task = asyncio.create_task(self._run_evaluation_task(job_id, benchmark_name))
+        task = create_task_with_logging(self._run_evaluation_task(job_id, benchmark_name))
         self.current_jobs[job_id]['task'] = task
         
         logger.info(f"评估任务已启动: {job_id}")
@@ -682,7 +684,7 @@ class BatchEvaluationManager:
         tasks = []
         
         for model_config in model_configs:
-            task = asyncio.create_task(
+            task = create_task_with_logging(
                 self._evaluate_model_with_semaphore(
                     semaphore, model_config, benchmark_configs
                 )

@@ -12,6 +12,8 @@ from enum import Enum
 from datetime import datetime
 from datetime import timedelta
 from src.core.utils.timezone_utils import utc_now
+
+from src.core.utils.async_utils import create_task_with_logging
 import weakref
 
 from src.core.logging import get_logger
@@ -105,7 +107,7 @@ class BackpressureManager:
             return
             
         self.is_monitoring = True
-        self._monitor_task = asyncio.create_task(self._monitor_pressure())
+        self._monitor_task = create_task_with_logging(self._monitor_pressure())
         logger.info("背压监控已启动")
     
     async def stop_monitoring(self):

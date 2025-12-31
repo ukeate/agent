@@ -15,7 +15,6 @@
 - GPU/CPU自适应计算
 """
 
-import asyncio
 import numpy as np
 import torch
 import torch.nn as nn

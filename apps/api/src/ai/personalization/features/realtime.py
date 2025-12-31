@@ -5,6 +5,8 @@ from typing import Dict, Optional, Any, List
 from datetime import datetime
 from datetime import timedelta
 from src.core.utils.timezone_utils import utc_now
+
+from src.core.utils.async_utils import create_task_with_logging
 from dataclasses import dataclass
 from redis.asyncio import Redis
 import numpy as np
@@ -81,11 +83,11 @@ class RealTimeFeatureEngine:
         
         # 启动后台任务
         if self.config.enable_precompute:
-            task = asyncio.create_task(self._precompute_features())
+            task = create_task_with_logging(self._precompute_features())
             self._background_tasks.append(task)
             
         # 启动缓存清理任务
-        cleanup_task = asyncio.create_task(self._cleanup_expired_features())
+        cleanup_task = create_task_with_logging(self._cleanup_expired_features())
         self._background_tasks.append(cleanup_task)
         
     async def stop(self):

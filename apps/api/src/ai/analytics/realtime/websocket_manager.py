@@ -10,6 +10,8 @@ from typing import Dict, Set, List, Optional, Any, Callable
 from datetime import datetime
 from datetime import timedelta
 from src.core.utils.timezone_utils import utc_now
+
+from src.core.utils.async_utils import create_task_with_logging
 from fastapi import WebSocket, WebSocketDisconnect
 from dataclasses import dataclass, asdict
 from contextlib import asynccontextmanager
@@ -84,7 +86,7 @@ class WebSocketManager:
             return
         
         self.running = True
-        self.broadcast_task = asyncio.create_task(self._broadcast_loop())
+        self.broadcast_task = create_task_with_logging(self._broadcast_loop())
         logger.info("WebSocket管理器已启动")
     
     async def stop(self):
@@ -291,7 +293,7 @@ class RealtimeAnalyticsManager:
         """启动实时分析管理器"""
         await self.websocket_manager.start()
         self.running = True
-        self.analysis_task = asyncio.create_task(self._realtime_analysis_loop())
+        self.analysis_task = create_task_with_logging(self._realtime_analysis_loop())
         logger.info("实时分析管理器已启动")
     
     async def stop(self):

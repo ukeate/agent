@@ -4,7 +4,6 @@
 """
 
 from src.core.utils.timezone_utils import utc_now
-import asyncio
 import json
 from datetime import timedelta
 from typing import Dict, List, Optional, Any

@@ -3,7 +3,6 @@ AutoGen与LangGraph集成桥接器
 实现AutoGen和LangGraph的深度集成和统一上下文管理
 """
 
-import asyncio
 from datetime import datetime
 from src.core.utils.timezone_utils import utc_now, timezone
 from typing import Dict, List, Optional, Any, Union, Callable

@@ -8,7 +8,6 @@ from typing import Dict, List, Optional, Any
 from datetime import datetime, timedelta
 from src.core.utils.timezone_utils import utc_now
 from src.core.utils.async_utils import create_task_with_logging
-import asyncio
 from uuid import uuid4
 import psutil
 import networkx as nx

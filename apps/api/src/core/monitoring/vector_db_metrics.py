@@ -3,7 +3,6 @@ pgvector性能监控模块
 收集和分析向量数据库的性能指标
 """
 
-import asyncio
 from typing import Dict, List, Any, Optional
 from datetime import datetime
 from datetime import timedelta

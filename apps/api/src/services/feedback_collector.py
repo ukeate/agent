@@ -11,6 +11,8 @@ import time
 from datetime import datetime
 from datetime import timedelta
 from src.core.utils.timezone_utils import utc_now
+
+from src.core.utils.async_utils import create_task_with_logging
 from typing import Dict, List, Optional, Any, Set
 from dataclasses import dataclass, asdict
 from enum import Enum
@@ -244,7 +246,7 @@ class FeedbackCollector:
         self._running = True
         
         # 启动后台任务
-        task = asyncio.create_task(self._background_flush_task())
+        task = create_task_with_logging(self._background_flush_task())
         self._background_tasks.add(task)
         task.add_done_callback(self._background_tasks.discard)
         

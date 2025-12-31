@@ -7,6 +7,8 @@ from typing import Any, Dict, List, Optional, Callable, Union
 from dataclasses import dataclass, field
 from datetime import datetime
 from src.core.utils.timezone_utils import utc_now, utc_factory
+
+from src.core.utils.async_utils import create_task_with_logging
 from enum import Enum
 import asyncio
 from abc import ABC, abstractmethod
@@ -227,7 +229,7 @@ class EventBus:
             return
         
         self.is_running = True
-        self.processing_task = asyncio.create_task(self._process_events())
+        self.processing_task = create_task_with_logging(self._process_events())
     
     async def stop(self):
         """停止事件处理"""

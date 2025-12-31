@@ -4,6 +4,8 @@
 """
 
 from src.core.utils.timezone_utils import utc_now
+
+from src.core.utils.async_utils import create_task_with_logging
 import asyncio
 import uuid
 import time
@@ -196,9 +198,9 @@ class ReliabilityManager:
         self.is_running = True
         
         # 启动后台任务
-        self.retry_task = asyncio.create_task(self._retry_loop())
-        self.cleanup_task = asyncio.create_task(self._cleanup_loop())
-        self.ack_timeout_task = asyncio.create_task(self._ack_timeout_loop())
+        self.retry_task = create_task_with_logging(self._retry_loop())
+        self.cleanup_task = create_task_with_logging(self._cleanup_loop())
+        self.ack_timeout_task = create_task_with_logging(self._ack_timeout_loop())
         
         logger.info("可靠性管理器已启动")
     

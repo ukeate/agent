@@ -9,6 +9,8 @@ import uuid
 from abc import ABC, abstractmethod
 from datetime import datetime
 from src.core.utils.timezone_utils import utc_now
+
+from src.core.utils.async_utils import create_task_with_logging
 from enum import Enum
 from typing import Dict, List, Optional, Any, Callable, Union
 from dataclasses import dataclass, field, asdict
@@ -126,7 +128,7 @@ class EventBus:
         
         # 启动多个工作协程处理事件
         for i in range(worker_count):
-            task = asyncio.create_task(self._event_worker(f"worker-{i}"))
+            task = create_task_with_logging(self._event_worker(f"worker-{i}"))
             self._worker_tasks.append(task)
         
         logger.info("事件总线启动", worker_count=worker_count)
@@ -263,7 +265,7 @@ class EventBus:
             # 并行处理所有处理器
             tasks = []
             for handler in handlers:
-                task = asyncio.create_task(
+                task = create_task_with_logging(
                     self._safe_handle_event(handler, event)
                 )
                 tasks.append(task)

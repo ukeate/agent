@@ -9,6 +9,8 @@ from typing import Dict, Any, List, Optional, Tuple, Union
 import asyncio
 from datetime import datetime
 from src.core.utils.timezone_utils import utc_now
+
+from src.core.utils.async_utils import create_task_with_logging
 from .pgvector_optimizer import PgVectorOptimizer
 from .vector_cache import VectorCacheManager
 
@@ -59,11 +61,11 @@ class HybridVectorRetriever:
                     return cached_result[1].get("results", [])
             
             # 并行执行两个搜索
-            pg_task = asyncio.create_task(
+            pg_task = create_task_with_logging(
                 self._pg_search(query_vector, top_k * 2)
             )
             
-            qdrant_task = asyncio.create_task(
+            qdrant_task = create_task_with_logging(
                 self._qdrant_search(query_vector, top_k * 2)
             )
             

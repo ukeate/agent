@@ -7,6 +7,8 @@ from typing import Dict, List, Any, Optional
 from dataclasses import dataclass, asdict
 from datetime import datetime
 from src.core.utils.timezone_utils import utc_now
+
+from src.core.utils.async_utils import create_task_with_logging
 import numpy as np
 import pandas as pd
 from pathlib import Path
@@ -379,7 +381,7 @@ class PerformanceBenchmark:
                 await asyncio.sleep(1)
                 
         # 启动监控
-        monitor_task = asyncio.create_task(monitor_resources())
+        monitor_task = create_task_with_logging(monitor_resources())
         
         # 运行负载测试
         await tester.run_load_test(

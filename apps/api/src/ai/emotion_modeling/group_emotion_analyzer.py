@@ -13,7 +13,6 @@ from src.core.utils.timezone_utils import utc_now
 import numpy as np
 from typing import Dict, List, Any, Optional, Tuple
 from datetime import timedelta
-import asyncio
 from collections import defaultdict, Counter
 import statistics
 from .group_emotion_models import (

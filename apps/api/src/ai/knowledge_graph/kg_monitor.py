@@ -10,6 +10,8 @@ import threading
 from datetime import datetime
 from datetime import timedelta
 from src.core.utils.timezone_utils import utc_now
+
+from src.core.utils.async_utils import create_task_with_logging
 from typing import Dict, List, Any, Optional, Callable, Set
 from dataclasses import dataclass, asdict
 from enum import Enum
@@ -648,7 +650,7 @@ class KnowledgeGraphMonitor:
             return
         
         self.is_monitoring = True
-        self.monitoring_task = asyncio.create_task(self._monitoring_loop(interval_seconds))
+        self.monitoring_task = create_task_with_logging(self._monitoring_loop(interval_seconds))
         
         self.logger.log_event(
             LogLevel.INFO,

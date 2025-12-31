@@ -7,7 +7,6 @@
 
 import pytest
 import json
-import asyncio
 from fastapi.testclient import TestClient
 from unittest.mock import Mock, patch, AsyncMock, MagicMock
 from datetime import datetime

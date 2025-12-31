@@ -12,6 +12,8 @@ import json
 import statistics
 from datetime import datetime
 from src.core.utils.timezone_utils import utc_now
+
+from src.core.utils.async_utils import create_task_with_logging
 from collections import defaultdict
 from .batch_processor import BatchTask, BatchJob, BatchStatus
 
@@ -105,7 +107,7 @@ class BatchAggregator:
         # 根据模式启动相应的聚合过程
         if config.mode == AggregationMode.STREAMING:
             self.streaming_buffers[job.id] = []
-            self.streaming_tasks[job.id] = asyncio.create_task(
+            self.streaming_tasks[job.id] = create_task_with_logging(
                 self._streaming_aggregation(job.id, config)
             )
         

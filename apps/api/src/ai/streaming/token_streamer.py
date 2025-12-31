@@ -11,6 +11,7 @@ from enum import Enum
 import time
 from datetime import datetime
 from src.core.utils.timezone_utils import utc_now
+from src.core.utils.async_utils import create_task_with_logging
 
 from src.core.logging import get_logger
 logger = get_logger(__name__)
@@ -85,7 +86,7 @@ class TokenStreamer:
             yield start_event
             
             # 启动心跳任务
-            heartbeat_task = asyncio.create_task(
+            heartbeat_task = create_task_with_logging(
                 self._heartbeat_sender(session_id)
             ) if session_id else None
             

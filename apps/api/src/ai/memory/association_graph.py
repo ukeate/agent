@@ -1,6 +1,5 @@
 """记忆关联图网络"""
 
-import asyncio
 from typing import List, Dict, Optional, Tuple, Set, Any
 import networkx as nx
 import numpy as np

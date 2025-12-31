@@ -18,6 +18,8 @@ from .topology import AgentInfo, ResourceUsage, AgentStatus
 from .state_manager import ClusterStateManager
 
 from src.core.logging import get_logger
+
+from src.core.utils.async_utils import create_task_with_logging
 class MetricType(Enum):
     """指标类型"""
     COUNTER = "counter"              # 计数器指标
@@ -241,10 +243,10 @@ class MetricsCollector:
         """启动指标收集器"""
         try:
             # 启动指标收集任务
-            self.collection_task = asyncio.create_task(self._collection_loop())
+            self.collection_task = create_task_with_logging(self._collection_loop())
             
             # 启动告警检查任务
-            self.alert_check_task = asyncio.create_task(self._alert_check_loop())
+            self.alert_check_task = create_task_with_logging(self._alert_check_loop())
             
             self.logger.info("MetricsCollector started successfully")
             

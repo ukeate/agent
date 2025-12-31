@@ -12,6 +12,8 @@ from typing import List, Dict, Any, Optional
 from datetime import datetime
 from datetime import timedelta
 from src.core.utils.timezone_utils import utc_now
+
+from src.core.utils.async_utils import create_task_with_logging
 from collections import defaultdict, deque
 from ..models import BehaviorEvent, BulkEventRequest
 from ..storage.event_store import EventStore
@@ -70,7 +72,7 @@ class EventCollector:
             return
         
         self._running = True
-        self._flush_task = asyncio.create_task(self._periodic_flush())
+        self._flush_task = create_task_with_logging(self._periodic_flush())
         logger.info(f"事件采集器已启动, 批量大小: {self.batch_size}, 刷新间隔: {self.flush_interval}s")
     
     async def stop(self):

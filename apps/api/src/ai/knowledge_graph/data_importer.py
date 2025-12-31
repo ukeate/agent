@@ -12,7 +12,6 @@
 - 进度跟踪和错误处理
 """
 
-import asyncio
 import csv
 import json
 import re

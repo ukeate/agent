@@ -4,7 +4,6 @@
 """
 
 import re
-import asyncio
 from typing import Pattern, Dict, List, Any, Optional, Callable, Union, Tuple
 from dataclasses import dataclass, field
 from datetime import datetime

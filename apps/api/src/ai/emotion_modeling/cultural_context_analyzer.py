@@ -3,7 +3,6 @@
 处理跨文化交流中的情感理解和适配
 """
 
-import asyncio
 from dataclasses import dataclass
 from enum import Enum
 from typing import Dict, List, Optional, Set, Tuple, Any

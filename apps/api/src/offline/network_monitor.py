@@ -14,6 +14,8 @@ import httpx
 from datetime import datetime
 from datetime import timedelta
 from src.core.utils.timezone_utils import utc_now
+
+from src.core.utils.async_utils import create_task_with_logging
 from typing import Dict, Any, List, Optional, Callable
 from dataclasses import dataclass, field
 from enum import Enum
@@ -94,7 +96,7 @@ class NetworkMonitor:
             return
         
         self._is_monitoring = True
-        self._monitoring_task = asyncio.create_task(self._monitoring_loop())
+        self._monitoring_task = create_task_with_logging(self._monitoring_loop())
     
     async def stop_monitoring(self):
         """停止网络监控"""

@@ -11,7 +11,6 @@ from fastapi.testclient import TestClient
 from unittest.mock import Mock, patch, AsyncMock
 from unittest.mock import MagicMock
 from fastapi import WebSocket
-import asyncio
 
 # Mock the workflow service and dependencies
 @pytest.fixture

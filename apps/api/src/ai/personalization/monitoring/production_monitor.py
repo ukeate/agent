@@ -10,6 +10,8 @@ import gc
 from datetime import datetime
 from datetime import timedelta
 from src.core.utils.timezone_utils import utc_now
+
+from src.core.utils.async_utils import create_task_with_logging
 from typing import Dict, List, Any, Optional
 from dataclasses import dataclass
 import json
@@ -87,11 +89,11 @@ class ProductionMonitor:
         
         # 启动监控任务
         self._tasks = [
-            asyncio.create_task(self._collect_metrics_loop()),
-            asyncio.create_task(self._health_check_loop()),
-            asyncio.create_task(self._cleanup_loop()),
-            asyncio.create_task(self._system_monitoring_loop()),
-            asyncio.create_task(self._performance_analysis_loop())
+            create_task_with_logging(self._collect_metrics_loop()),
+            create_task_with_logging(self._health_check_loop()),
+            create_task_with_logging(self._cleanup_loop()),
+            create_task_with_logging(self._system_monitoring_loop()),
+            create_task_with_logging(self._performance_analysis_loop())
         ]
         
         logger.info("生产监控已启动")

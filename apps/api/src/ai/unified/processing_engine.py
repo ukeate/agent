@@ -12,6 +12,8 @@ import time
 import uuid
 from datetime import datetime
 from src.core.utils.timezone_utils import utc_now
+
+from src.core.utils.async_utils import create_task_with_logging
 from ..streaming import TokenStreamer, StreamEvent, StreamType
 from ..batch import BatchProcessor, BatchJob, BatchTask, BatchStatus, TaskPriority
 
@@ -329,7 +331,7 @@ class UnifiedProcessingEngine:
         # 并发处理所有项目，但保持流式输出
         tasks = []
         for item in request.items:
-            task = asyncio.create_task(self._process_item_streaming(item, request.session_id))
+            task = create_task_with_logging(self._process_item_streaming(item, request.session_id))
             tasks.append(task)
         
         # 收集结果

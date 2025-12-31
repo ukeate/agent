@@ -9,6 +9,8 @@ from typing import Dict, Any, List, Optional, Tuple
 from datetime import datetime
 from datetime import timedelta
 from src.core.utils.timezone_utils import utc_now
+
+from src.core.utils.async_utils import create_task_with_logging
 from collections import defaultdict
 import json
 from ..models import BehaviorEvent, UserSession, EventQueryFilter
@@ -56,7 +58,7 @@ class SessionManager:
             return
         
         self._running = True
-        self._cleanup_task = asyncio.create_task(self._periodic_cleanup())
+        self._cleanup_task = create_task_with_logging(self._periodic_cleanup())
         logger.info("会话管理器已启动")
     
     async def stop(self):

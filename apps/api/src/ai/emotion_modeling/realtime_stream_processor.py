@@ -4,6 +4,8 @@
 """
 
 from src.core.utils.timezone_utils import utc_now
+
+from src.core.utils.async_utils import create_task_with_logging
 import asyncio
 import json
 import time
@@ -169,12 +171,12 @@ class RealtimeStreamProcessor:
         
         # 启动各模态的处理任务
         for modality in ModalityType:
-            self._processing_tasks[modality] = asyncio.create_task(
+            self._processing_tasks[modality] = create_task_with_logging(
                 self._process_modality_stream(user_id, modality)
             )
         
         # 启动指标收集任务
-        self._metrics_task = asyncio.create_task(
+        self._metrics_task = create_task_with_logging(
             self._collect_metrics_loop()
         )
         
@@ -593,7 +595,7 @@ class MultiUserStreamManager:
         """启动管理器"""
         logger.info("Starting multi-user stream manager")
         self._shutdown_event.clear()
-        self._cleanup_task = asyncio.create_task(self._cleanup_inactive_users())
+        self._cleanup_task = create_task_with_logging(self._cleanup_inactive_users())
     
     async def stop_manager(self):
         """停止管理器"""

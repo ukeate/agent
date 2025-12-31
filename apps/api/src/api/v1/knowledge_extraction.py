@@ -4,7 +4,6 @@
 提供知识图谱实体识别、关系抽取、批量处理等RESTful API接口
 """
 
-import asyncio
 import time
 from typing import List, Dict, Any, Optional, Union
 from datetime import datetime

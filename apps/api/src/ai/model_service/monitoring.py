@@ -582,7 +582,7 @@ class MonitoringSystem:
             return
         
         self._running = True
-        self._background_task = asyncio.create_task(
+        self._background_task = create_task_with_logging(
             self._monitoring_loop(collection_interval)
         )
         
@@ -846,3 +846,5 @@ class MonitoringSystem:
             "monitored_models": len(self.model_monitor.performance_data)
         }
 from src.core.logging import get_logger
+
+from src.core.utils.async_utils import create_task_with_logging

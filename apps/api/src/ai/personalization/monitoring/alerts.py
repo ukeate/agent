@@ -8,6 +8,8 @@ from datetime import datetime, timedelta
 from typing import Any, Callable, Dict, List, Optional
 
 from src.core.utils.timezone_utils import utc_now
+
+from src.core.utils.async_utils import create_task_with_logging
 from dataclasses import dataclass, field
 from enum import Enum
 import json
@@ -555,8 +557,8 @@ class AlertManager:
         
         # 启动周期性任务
         self._tasks = [
-            asyncio.create_task(self._cleanup_old_metrics()),
-            asyncio.create_task(self._health_check())
+            create_task_with_logging(self._cleanup_old_metrics()),
+            create_task_with_logging(self._health_check())
         ]
     
     async def stop(self):

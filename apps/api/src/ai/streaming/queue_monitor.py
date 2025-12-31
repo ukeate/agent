@@ -11,6 +11,8 @@ import time
 from datetime import datetime
 from datetime import timedelta
 from src.core.utils.timezone_utils import utc_now
+
+from src.core.utils.async_utils import create_task_with_logging
 from collections import deque
 import weakref
 
@@ -89,7 +91,7 @@ class QueueMonitor:
             return
         
         self.is_monitoring = True
-        self._monitor_task = asyncio.create_task(self._monitor_loop(check_interval))
+        self._monitor_task = create_task_with_logging(self._monitor_loop(check_interval))
         logger.info(f"队列监控已启动: {self.name}")
     
     async def stop_monitoring(self):

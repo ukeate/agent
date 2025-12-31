@@ -15,7 +15,6 @@
 - 路径缓存和优化
 """
 
-import asyncio
 import heapq
 from collections import defaultdict, deque
 from datetime import datetime

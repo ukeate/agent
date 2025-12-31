@@ -12,7 +12,6 @@ from enum import Enum
 import numpy as np
 from scipy import stats
 from dataclasses import dataclass, field
-import asyncio
 from collections import deque
 import json
 from ..core.database import get_db_session

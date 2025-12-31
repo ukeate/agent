@@ -8,6 +8,8 @@ import time
 from typing import Dict, Any, Optional
 from datetime import datetime
 from src.core.utils.timezone_utils import utc_now
+
+from src.core.utils.async_utils import create_task_with_logging
 from .flow_control import FlowController, TaskInfo
 from typing import TYPE_CHECKING
 
@@ -40,7 +42,7 @@ class BackpressureTaskProcessor:
         
         # 启动多个工作协程
         for i in range(self.max_workers):
-            worker = asyncio.create_task(self._worker_loop(f"worker-{i}"))
+            worker = create_task_with_logging(self._worker_loop(f"worker-{i}"))
             self.worker_tasks.append(worker)
         
         logger.info(f"Backpressure task processor started with {self.max_workers} workers")

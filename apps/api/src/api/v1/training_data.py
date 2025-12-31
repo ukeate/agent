@@ -8,7 +8,6 @@ from src.core.utils.timezone_utils import utc_now
 from typing import Dict, List, Any, Optional
 from fastapi import APIRouter, HTTPException, Depends, BackgroundTasks, Query, UploadFile, File
 from pydantic import Field, ConfigDict
-import asyncio
 from src.ai.training_data_management.models import DataSource, AnnotationTask, Annotation, AnnotationTaskType, AnnotationStatus
 from src.ai.training_data_management.manager import DataCollectionManager
 from src.ai.training_data_management.annotation import AnnotationManager

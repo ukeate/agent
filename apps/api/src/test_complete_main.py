@@ -1,4 +1,3 @@
-import asyncio
 import json
 from fastapi.testclient import TestClient
 import sys

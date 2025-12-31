@@ -3,7 +3,6 @@ pgvector 0.8.0 优化的向量存储实现
 支持HNSW和IVFFlat索引、向量量化、性能监控
 """
 
-import asyncio
 from typing import List, Dict, Any, Optional, Tuple, Union
 import asyncpg
 import numpy as np

@@ -1,6 +1,5 @@
 """模型注册和版本管理系统"""
 
-import asyncio
 import aiofiles
 import hashlib
 import json

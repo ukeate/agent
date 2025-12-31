@@ -11,6 +11,8 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from datetime import timedelta
 from src.core.utils.timezone_utils import utc_now
+
+from src.core.utils.async_utils import create_task_with_logging
 from enum import Enum
 from typing import Dict, List, Any, Callable, Optional, Union
 from .events import Event, EventType, EventPriority, EventBus
@@ -167,14 +169,14 @@ class AsyncEventProcessingEngine:
             # 根据优先级分配不同数量的工作者
             worker_count = self._get_worker_count_for_priority(priority)
             for i in range(worker_count):
-                worker = asyncio.create_task(
+                worker = create_task_with_logging(
                     self._process_events_worker(priority, f"worker-{priority.value}-{i}")
                 )
                 self.workers.append(worker)
         
         # 启动批处理刷新任务
         self.workers.append(
-            asyncio.create_task(self._batch_flush_worker())
+            create_task_with_logging(self._batch_flush_worker())
         )
         
         logger.info("事件处理引擎启动完成", worker_count=len(self.workers))

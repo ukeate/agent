@@ -3,7 +3,6 @@ Supervisor智能体核心实现
 基于AutoGen框架实现任务调度、智能体路由和质量评估功能
 """
 
-import asyncio
 from typing import Dict, List, Optional, Any, Union, Tuple
 from datetime import datetime
 from datetime import timedelta

@@ -4,7 +4,6 @@
 """
 
 from src.core.utils.timezone_utils import utc_now
-import asyncio
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Dict, List, Optional, Set, Tuple, Any, Union

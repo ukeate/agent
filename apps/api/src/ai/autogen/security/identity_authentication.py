@@ -4,7 +4,6 @@
 """
 
 from src.core.utils.timezone_utils import utc_now
-import asyncio
 import hmac
 import jwt
 import secrets

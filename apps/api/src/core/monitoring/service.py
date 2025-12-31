@@ -4,6 +4,8 @@ from typing import Dict, Any, List, Optional
 from datetime import datetime
 from datetime import timedelta
 from src.core.utils.timezone_utils import utc_now
+
+from src.core.utils.async_utils import create_task_with_logging
 import asyncio
 import time
 from collections import deque
@@ -327,7 +329,7 @@ class MonitoringService:
     async def start(self):
         """启动监控服务"""
         if not self._export_task:
-            self._export_task = asyncio.create_task(self._export_metrics_loop())
+            self._export_task = create_task_with_logging(self._export_metrics_loop())
             logger.info("监控服务已启动")
     
     async def stop(self):

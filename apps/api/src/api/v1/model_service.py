@@ -1,6 +1,5 @@
 """模型服务平台API接口"""
 
-import asyncio
 from datetime import datetime, timezone
 from typing import Dict, List, Optional, Any
 import uuid

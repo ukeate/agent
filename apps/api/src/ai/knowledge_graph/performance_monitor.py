@@ -20,6 +20,8 @@ from enum import Enum
 import statistics
 
 from src.core.logging import get_logger
+
+from src.core.utils.async_utils import create_task_with_logging
 logger = get_logger(__name__)
 
 class MetricType(str, Enum):
@@ -302,7 +304,7 @@ class SystemResourceMonitor:
             return
         
         self._monitoring = True
-        self._monitor_task = asyncio.create_task(
+        self._monitor_task = create_task_with_logging(
             self._monitor_loop(interval)
         )
     
@@ -492,7 +494,7 @@ class SPARQLPerformanceMonitor:
         self.resource_monitor.start_monitoring(self.monitoring_interval)
         
         # 启动告警检查任务
-        self._monitoring_task = asyncio.create_task(
+        self._monitoring_task = create_task_with_logging(
             self._monitoring_loop()
         )
         

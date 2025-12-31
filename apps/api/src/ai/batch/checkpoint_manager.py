@@ -15,6 +15,8 @@ from dataclasses import dataclass, field, asdict
 from datetime import datetime
 from datetime import timedelta
 from src.core.utils.timezone_utils import utc_now
+
+from src.core.utils.async_utils import create_task_with_logging
 from pathlib import Path
 import sqlite3
 from contextlib import asynccontextmanager
@@ -275,7 +277,7 @@ class CheckpointManager:
             return
         
         self._auto_save_enabled = True
-        self._auto_save_task = asyncio.create_task(self._auto_save_loop())
+        self._auto_save_task = create_task_with_logging(self._auto_save_loop())
         logger.info(f"启动自动检查点保存 (间隔: {self.config.auto_save_interval}s)")
     
     async def stop_auto_save(self):

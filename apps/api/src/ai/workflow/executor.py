@@ -9,6 +9,8 @@ from abc import ABC, abstractmethod
 from typing import Dict, List, Optional, Any, Set
 from datetime import datetime
 from src.core.utils.timezone_utils import utc_now
+
+from src.core.utils.async_utils import create_task_with_logging
 from uuid import uuid4
 import networkx as nx
 from src.models.schemas.workflow import (
@@ -599,7 +601,7 @@ class ParallelExecutor(WorkflowExecutor):
                     step_execution = step_execution_map.get(step_id)
                     
                     if step and step_execution:
-                        task = asyncio.create_task(
+                        task = create_task_with_logging(
                             self._execute_step_with_callback(
                                 step, step_execution, execution, results, stream_callback
                             )

@@ -8,6 +8,8 @@ import uuid
 from datetime import datetime
 from datetime import timedelta
 from src.core.utils.timezone_utils import utc_now
+
+from src.core.utils.async_utils import create_task_with_logging
 from typing import Dict, List, Optional, Any, Union, Callable
 from dataclasses import dataclass
 from enum import Enum
@@ -162,10 +164,10 @@ class AsyncAgentManager:
         self.running = True
         
         # 启动任务处理器
-        self._task_processor_task = asyncio.create_task(self._task_processor())
+        self._task_processor_task = create_task_with_logging(self._task_processor())
         
         # 启动健康监控
-        self._health_monitor_task = asyncio.create_task(self._health_monitor())
+        self._health_monitor_task = create_task_with_logging(self._health_monitor())
         
         # 发布系统启动事件
         await self.event_bus.publish(Event(
@@ -499,7 +501,7 @@ class AsyncAgentManager:
                 
                 # 执行任务
                 task_coroutine = self._execute_task(task_id)
-                self.running_tasks[task_id] = asyncio.create_task(task_coroutine)
+                self.running_tasks[task_id] = create_task_with_logging(task_coroutine)
                 
             except Exception as e:
                 logger.error("任务处理器异常", error=str(e))

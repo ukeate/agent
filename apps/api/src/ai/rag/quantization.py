@@ -3,7 +3,6 @@
 实现Product Quantization (PQ)、Binary Quantization和Half-precision向量
 """
 
-import asyncio
 import json
 from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Optional, Tuple, Union

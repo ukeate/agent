@@ -3,7 +3,6 @@
 """
 
 from src.core.utils.timezone_utils import utc_now
-import asyncio
 from typing import Dict, List, Optional, Any, Tuple
 from datetime import datetime, timedelta
 import numpy as np

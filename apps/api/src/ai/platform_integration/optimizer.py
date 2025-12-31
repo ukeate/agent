@@ -1,6 +1,5 @@
 """性能优化器实现"""
 
-import asyncio
 import gc
 import json
 from datetime import datetime

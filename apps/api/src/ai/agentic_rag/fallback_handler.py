@@ -9,7 +9,6 @@
 5. 失败原因分析和改进建议
 """
 
-import asyncio
 import time
 from typing import List, Dict, Any, Optional, Tuple, Union
 from dataclasses import dataclass, field

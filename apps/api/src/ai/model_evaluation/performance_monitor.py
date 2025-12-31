@@ -13,7 +13,6 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import seaborn as sns
 from collections import defaultdict, deque
-import asyncio
 from concurrent.futures import ThreadPoolExecutor
 
 from src.core.logging import get_logger

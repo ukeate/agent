@@ -15,7 +15,6 @@ import numpy as np
 from typing import Dict, List, Any, Optional, Tuple
 from datetime import timedelta
 from collections import defaultdict, Counter
-import asyncio
 import statistics
 from .relationship_models import (
     RelationshipDynamics,

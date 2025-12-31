@@ -10,7 +10,6 @@ from typing import Dict, Any, List, Optional, Tuple, Callable
 from datetime import datetime
 from datetime import timedelta
 from src.core.utils.timezone_utils import utc_now
-import asyncio
 from dataclasses import dataclass
 from collections import deque
 import statistics

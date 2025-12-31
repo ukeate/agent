@@ -13,6 +13,8 @@ import statistics
 from datetime import datetime
 from datetime import timedelta
 from src.core.utils.timezone_utils import utc_now, utc_factory
+
+from src.core.utils.async_utils import create_task_with_logging
 from collections import deque, defaultdict
 from .enterprise_config import get_config_manager
 
@@ -211,7 +213,7 @@ class FlowController:
         self.running = True
         
         # 启动指标收集任务
-        metrics_task = asyncio.create_task(self._collect_metrics())
+        metrics_task = create_task_with_logging(self._collect_metrics())
         self.worker_tasks.append(metrics_task)
         
         logger.info("Flow controller started")

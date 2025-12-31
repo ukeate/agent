@@ -7,6 +7,8 @@
 from datetime import datetime
 from datetime import timedelta
 from src.core.utils.timezone_utils import utc_now
+
+from src.core.utils.async_utils import create_task_with_logging
 from typing import Dict, List, Any, Optional, Tuple
 from enum import Enum
 import asyncio
@@ -259,7 +261,7 @@ class AutoScalingService:
             return False  # 已经在运行
             
         # 启动监控任务
-        task = asyncio.create_task(self._monitor_and_scale(rule))
+        task = create_task_with_logging(self._monitor_and_scale(rule))
         self.active_monitors[rule_id] = task
         
         return True

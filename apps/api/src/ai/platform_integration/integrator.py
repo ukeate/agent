@@ -13,6 +13,8 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 import redis
 import aiohttp
 from src.core.utils.timezone_utils import utc_now
+
+from src.core.utils.async_utils import create_task_with_logging
 from .models import (
     ComponentType,
     ComponentStatus,
@@ -276,7 +278,7 @@ class PlatformIntegrator:
     async def start_health_monitor(self):
         """启动健康监控"""
         if self._health_monitor_task is None:
-            self._health_monitor_task = asyncio.create_task(self._health_monitor_loop())
+            self._health_monitor_task = create_task_with_logging(self._health_monitor_loop())
             self.logger.info("Health monitor started")
     
     async def stop_health_monitor(self):

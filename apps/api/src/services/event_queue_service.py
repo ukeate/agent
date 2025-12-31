@@ -8,6 +8,8 @@ from src.core.utils import secure_pickle as pickle
 from datetime import datetime
 from datetime import timedelta
 from src.core.utils.timezone_utils import utc_now
+
+from src.core.utils.async_utils import create_task_with_logging
 from typing import Dict, List, Optional, Any, Callable, Union
 from dataclasses import dataclass, asdict
 from enum import Enum
@@ -408,10 +410,10 @@ class EventQueueService:
     async def _start_background_tasks(self):
         """启动后台任务"""
         # 延迟队列监控任务
-        self.monitoring_task = asyncio.create_task(self._delayed_queue_monitor())
+        self.monitoring_task = create_task_with_logging(self._delayed_queue_monitor())
         
         # 清理任务
-        self.cleanup_task = asyncio.create_task(self._cleanup_worker())
+        self.cleanup_task = create_task_with_logging(self._cleanup_worker())
         
         # 为每个队列启动处理器
         for queue_name in self.queues:
@@ -423,7 +425,7 @@ class EventQueueService:
             self.processors[queue_name] = []
         
         for i in range(worker_count):
-            processor_task = asyncio.create_task(
+            processor_task = create_task_with_logging(
                 self._queue_processor_worker(queue_name, f"worker-{i}")
             )
             self.processors[queue_name].append(processor_task)

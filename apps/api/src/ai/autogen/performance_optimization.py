@@ -14,6 +14,8 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from datetime import timedelta
 from src.core.utils.timezone_utils import utc_now
+
+from src.core.utils.async_utils import create_task_with_logging
 from enum import Enum
 import weakref
 import gc
@@ -166,7 +168,7 @@ class AsyncTaskPool:
         
         # 启动工作者
         for i in range(min(self.max_concurrent, 10)):  # 最多10个worker
-            worker = asyncio.create_task(self._worker(f"worker-{i}"))
+            worker = create_task_with_logging(self._worker(f"worker-{i}"))
             self.worker_tasks.append(worker)
         
         logger.info("异步任务池启动", workers=len(self.worker_tasks))
@@ -272,9 +274,9 @@ class AsyncTaskPool:
         try:
             # 创建任务
             if asyncio.iscoroutinefunction(coro):
-                task = asyncio.create_task(coro(**kwargs))
+                task = create_task_with_logging(coro(**kwargs))
             else:
-                task = asyncio.create_task(asyncio.to_thread(coro, **kwargs))
+                task = create_task_with_logging(asyncio.to_thread(coro, **kwargs))
             
             self.active_tasks[task_id] = task
             
@@ -570,7 +572,7 @@ class ResourceMonitor:
             return
         
         self.running = True
-        self.monitor_task = asyncio.create_task(self._monitor_loop())
+        self.monitor_task = create_task_with_logging(self._monitor_loop())
         logger.info("资源监控启动")
     
     async def stop(self):
@@ -902,9 +904,9 @@ class PerformanceOptimizer:
         
         # 启动后台任务
         if self.profile.gc_interval > 0:
-            self.gc_task = asyncio.create_task(self._gc_loop())
+            self.gc_task = create_task_with_logging(self._gc_loop())
         
-        self.optimization_task = asyncio.create_task(self._optimization_loop())
+        self.optimization_task = create_task_with_logging(self._optimization_loop())
     
     async def stop(self):
         """停止优化器"""

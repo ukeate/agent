@@ -9,6 +9,8 @@ from typing import Dict, List, Optional, Any, Callable, Set
 from datetime import datetime
 from datetime import timedelta
 from src.core.utils.timezone_utils import utc_now
+
+from src.core.utils.async_utils import create_task_with_logging
 from enum import Enum
 from dataclasses import dataclass, asdict
 from collections import defaultdict, deque
@@ -372,13 +374,13 @@ class ExecutionMonitor:
         
         # 启动监控任务
         self.monitoring_tasks.add(
-            asyncio.create_task(self._execution_monitoring_loop())
+            create_task_with_logging(self._execution_monitoring_loop())
         )
         self.monitoring_tasks.add(
-            asyncio.create_task(self._system_monitoring_loop())
+            create_task_with_logging(self._system_monitoring_loop())
         )
         self.monitoring_tasks.add(
-            asyncio.create_task(self._alert_processing_loop())
+            create_task_with_logging(self._alert_processing_loop())
         )
     
     async def stop_monitoring(self):

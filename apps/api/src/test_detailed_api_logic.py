@@ -1,4 +1,3 @@
-import asyncio
 import json
 import uuid
 from fastapi.testclient import TestClient

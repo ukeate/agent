@@ -2,7 +2,6 @@
 连接池管理
 """
 
-import asyncio
 from contextlib import asynccontextmanager
 from typing import Any, Dict, Optional
 from asyncpg import Pool, create_pool

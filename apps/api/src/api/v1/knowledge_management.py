@@ -14,7 +14,6 @@ from fastapi.openapi.utils import get_openapi
 from typing import Dict, List, Any, Optional, Union
 from pydantic import Field, field_validator
 from enum import Enum
-import asyncio
 from datetime import datetime
 from src.core.utils.timezone_utils import utc_now
 import uuid

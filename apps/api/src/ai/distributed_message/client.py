@@ -3,7 +3,6 @@ NATS客户端连接管理
 处理与NATS服务器的连接、重连和基础操作
 """
 
-import asyncio
 from typing import List, Optional, Dict, Any, Callable
 import nats
 from nats.errors import TimeoutError as NatsTimeoutError, ConnectionClosedError, NoServersError

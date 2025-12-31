@@ -3,7 +3,6 @@
 本模块提供记忆召回解释、记忆使用情况解释和学习过程跟踪功能。
 """
 
-import asyncio
 from datetime import datetime
 from src.core.utils.timezone_utils import utc_now, timezone
 from typing import Any, Dict, List, Optional, Tuple, Union

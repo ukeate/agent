@@ -1,6 +1,5 @@
 """在线学习引擎"""
 
-import asyncio
 import json
 import math
 from src.core.utils import secure_pickle as pickle

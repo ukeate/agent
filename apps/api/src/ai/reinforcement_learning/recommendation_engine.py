@@ -6,7 +6,6 @@
 
 from typing import Dict, List, Any, Optional, Tuple, Union
 import numpy as np
-import asyncio
 from datetime import datetime
 from datetime import timedelta
 from src.core.utils.timezone_utils import utc_now

@@ -8,7 +8,6 @@ from datetime import datetime
 from src.core.utils.timezone_utils import utc_now, utc_factory
 from dataclasses import dataclass, field
 from enum import Enum
-import asyncio
 import json
 from .graph_database import Neo4jGraphDatabase
 from .schema import SchemaManager

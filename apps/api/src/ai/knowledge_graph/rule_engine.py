@@ -15,7 +15,6 @@
 - 置信度计算
 """
 
-import asyncio
 import re
 import uuid
 from datetime import datetime

@@ -11,7 +11,6 @@ from fastapi import APIRouter, HTTPException, BackgroundTasks, Depends, File, Up
 from fastapi.responses import FileResponse, JSONResponse
 from typing import List, Dict, Any, Optional
 from pydantic import Field
-import asyncio
 import os
 from datetime import datetime
 from src.core.utils.timezone_utils import utc_now

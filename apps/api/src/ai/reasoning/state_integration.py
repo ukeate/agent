@@ -1,6 +1,5 @@
 """推理引擎与LangGraph状态管理集成"""
 
-import asyncio
 from typing import Any, Dict, List, Optional, TypedDict
 from uuid import uuid4
 from langgraph.graph import StateGraph, END

@@ -7,6 +7,8 @@
 from datetime import datetime
 from datetime import timedelta
 from src.core.utils.timezone_utils import utc_now
+
+from src.core.utils.async_utils import create_task_with_logging
 from typing import Dict, List, Any, Optional, Tuple
 from enum import Enum
 import asyncio
@@ -274,7 +276,7 @@ class TrafficRampService:
         self.executions[exec_id] = execution
         
         # 启动异步任务
-        task = asyncio.create_task(self._execute_ramp(exec_id, plan, execution))
+        task = create_task_with_logging(self._execute_ramp(exec_id, plan, execution))
         self.active_ramps[exec_id] = task
         
         return execution
@@ -501,7 +503,7 @@ class TrafficRampService:
             plan.steps = remaining_steps
             
             # 重新启动任务
-            task = asyncio.create_task(
+            task = create_task_with_logging(
                 self._execute_ramp(exec_id, plan, execution)
             )
             self.active_ramps[exec_id] = task

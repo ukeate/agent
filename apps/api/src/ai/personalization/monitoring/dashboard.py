@@ -6,6 +6,8 @@ from typing import Dict, List, Any, Optional
 from datetime import datetime
 from datetime import timedelta
 from src.core.utils.timezone_utils import utc_now
+
+from src.core.utils.async_utils import create_task_with_logging
 from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
 from prometheus_client.core import CollectorRegistry
 import redis.asyncio as redis_async
@@ -100,7 +102,7 @@ class MonitoringDashboard:
         if self.monitoring_task and not self.monitoring_task.done():
             return
             
-        self.monitoring_task = asyncio.create_task(self._monitoring_loop())
+        self.monitoring_task = create_task_with_logging(self._monitoring_loop())
         
     async def stop_monitoring(self):
         """停止监控"""

@@ -9,7 +9,6 @@
 5. 检索失败原因分析和改进建议
 """
 
-import asyncio
 import json
 import time
 from typing import List, Dict, Any, Optional, Tuple, Union

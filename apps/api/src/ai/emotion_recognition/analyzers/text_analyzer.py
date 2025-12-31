@@ -1,6 +1,5 @@
 """文本情感分析器"""
 
-import asyncio
 from typing import Any, Dict, Optional, List, Tuple
 from datetime import datetime
 import re

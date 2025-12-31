@@ -3,7 +3,6 @@
 实现企业级安全合规检查、认证和自动化测试
 """
 
-import asyncio
 import json
 import hashlib
 import ssl

@@ -18,6 +18,8 @@ from .topology import (
 )
 
 from src.core.logging import get_logger
+
+from src.core.utils.async_utils import create_task_with_logging
 class StateChangeEvent:
     """状态变更事件"""
     
@@ -78,11 +80,11 @@ class ClusterStateManager:
             await self._restore_state()
             
             # 启动健康检查任务
-            self._health_check_task = asyncio.create_task(self._health_check_loop())
+            self._health_check_task = create_task_with_logging(self._health_check_loop())
             
             # 启动持久化任务
             if self.storage_backend:
-                self._persistence_task = asyncio.create_task(self._persistence_loop())
+                self._persistence_task = create_task_with_logging(self._persistence_loop())
             
             self.logger.info("ClusterStateManager started successfully")
             

@@ -1,6 +1,5 @@
 """数据库MCP工具实现"""
 
-import asyncio
 import re
 from typing import Any, Dict, List, Optional, Union
 from sqlalchemy import text, inspect

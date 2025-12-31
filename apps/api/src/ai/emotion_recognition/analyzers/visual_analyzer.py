@@ -1,6 +1,5 @@
 """视觉情感分析器"""
 
-import asyncio
 from typing import Any, Dict, Optional, List, Tuple, Union
 from datetime import datetime
 import numpy as np

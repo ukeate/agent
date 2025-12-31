@@ -1,6 +1,5 @@
 """文件系统MCP工具实现"""
 
-import asyncio
 import aiofiles
 import os
 import stat

@@ -9,6 +9,8 @@ from typing import Dict, Any, List, Optional
 from datetime import datetime
 from datetime import timedelta
 from src.core.utils.timezone_utils import utc_now
+
+from src.core.utils.async_utils import create_task_with_logging
 from dataclasses import dataclass, field
 from contextlib import asynccontextmanager
 from .caching import NodeCache, RedisNodeCache, MemoryNodeCache
@@ -175,7 +177,7 @@ class CacheMonitor:
             return
         
         self._running = True
-        self._monitoring_task = asyncio.create_task(self._monitoring_loop())
+        self._monitoring_task = create_task_with_logging(self._monitoring_loop())
         logger.info("缓存监控已启动")
     
     async def stop_monitoring(self):

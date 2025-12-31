@@ -9,6 +9,8 @@ import uuid
 from typing import Dict, List, Optional, Any, Tuple
 from datetime import datetime
 from src.core.utils.timezone_utils import utc_now
+
+from src.core.utils.async_utils import create_task_with_logging
 import numpy as np
 from concurrent.futures import ThreadPoolExecutor
 from src.ai.reinforcement_learning.qlearning.base import QLearningAgent, QLearningConfig, AlgorithmType
@@ -317,7 +319,7 @@ class QLearningService:
             session.is_training = True
             
             # 在后台线程中启动训练
-            session.training_task = asyncio.create_task(self._run_training(session))
+            session.training_task = create_task_with_logging(self._run_training(session))
             
             logger.info(f"开始训练会话: {session_id}")
             return True

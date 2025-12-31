@@ -17,6 +17,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 from datetime import datetime
 from datetime import timedelta
 from src.core.utils.timezone_utils import utc_now, utc_factory
+from src.core.utils.async_utils import create_task_with_logging
 
 from src.core.logging import get_logger
 logger = get_logger(__name__)
@@ -204,8 +205,8 @@ class EnterpriseConfigManager:
         """启动配置管理器"""
         if self.redis_client:
             # 启动Redis配置同步
-            sync_task = asyncio.create_task(self._sync_from_redis())
-            watch_task = asyncio.create_task(self._watch_redis_changes())
+            sync_task = create_task_with_logging(self._sync_from_redis())
+            watch_task = create_task_with_logging(self._watch_redis_changes())
             self._watch_tasks.extend([sync_task, watch_task])
         
         logger.info("Enterprise config manager started")

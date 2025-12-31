@@ -3,7 +3,6 @@
 集成AutoGen v0.7.x异步事件驱动架构
 """
 
-import asyncio
 import json
 import uuid
 from datetime import datetime

@@ -7,6 +7,8 @@ import asyncio
 from datetime import datetime
 from datetime import timedelta
 from src.core.utils.timezone_utils import utc_now
+
+from src.core.utils.async_utils import create_task_with_logging
 from typing import Optional
 from src.services.task_executor import task_executor
 
@@ -31,7 +33,7 @@ class TaskScheduler:
             return
         
         self._running = True
-        self._task = asyncio.create_task(self._scheduler_loop())
+        self._task = create_task_with_logging(self._scheduler_loop())
         logger.info("任务调度器已启动", poll_interval=self.poll_interval)
     
     async def stop(self):

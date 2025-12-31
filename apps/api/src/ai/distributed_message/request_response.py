@@ -4,6 +4,8 @@
 """
 
 from src.core.utils.timezone_utils import utc_now
+
+from src.core.utils.async_utils import create_task_with_logging
 import asyncio
 import uuid
 import time
@@ -75,7 +77,7 @@ class RequestResponseManager:
     def start_background_tasks(self):
         """启动后台任务"""
         if self.cleanup_task is None or self.cleanup_task.done():
-            self.cleanup_task = asyncio.create_task(self._cleanup_expired_requests())
+            self.cleanup_task = create_task_with_logging(self._cleanup_expired_requests())
     
     async def stop_background_tasks(self):
         """停止后台任务"""

@@ -11,6 +11,7 @@ from .intelligent_assigner import IntelligentAssigner
 from .state_manager import DistributedStateManager
 from .conflict_resolver import ConflictResolver
 from src.core.utils.timezone_utils import utc_now
+from src.core.utils.async_utils import create_task_with_logging
 
 class DistributedTaskCoordinationEngine:
     """分布式任务协调引擎"""
@@ -86,7 +87,7 @@ class DistributedTaskCoordinationEngine:
         
         # 启动任务处理循环
         self.is_running = True
-        self.processing_loop_task = asyncio.create_task(self._task_processing_loop())
+        self.processing_loop_task = create_task_with_logging(self._task_processing_loop())
         
         self.logger.info("Task coordination engine started")
     

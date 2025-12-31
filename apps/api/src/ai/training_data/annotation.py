@@ -8,7 +8,6 @@
 - 标注者协作工具
 """
 
-import asyncio
 import uuid
 from datetime import datetime
 from src.core.utils.timezone_utils import utc_now, timezone

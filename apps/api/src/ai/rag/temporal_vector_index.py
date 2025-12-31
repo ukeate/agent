@@ -8,7 +8,6 @@ import numpy as np
 from typing import Dict, Any, List, Optional, Tuple, Union
 from enum import Enum
 from dataclasses import dataclass
-import asyncio
 from datetime import datetime
 from datetime import timedelta
 from src.core.utils.timezone_utils import utc_now, timezone

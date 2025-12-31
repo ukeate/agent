@@ -4,7 +4,6 @@
 
 import json
 import hashlib
-import asyncio
 from datetime import datetime
 from datetime import timedelta
 from src.core.utils.timezone_utils import utc_now

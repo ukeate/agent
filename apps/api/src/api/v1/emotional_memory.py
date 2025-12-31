@@ -9,7 +9,6 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Body, BackgroundTa
 from pydantic import Field
 from sqlalchemy.ext.asyncio import AsyncSession
 import uuid
-import asyncio
 import numpy as np
 from enum import Enum
 from src.core.database import get_db

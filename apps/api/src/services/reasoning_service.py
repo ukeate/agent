@@ -1,6 +1,5 @@
 """推理服务层"""
 
-import asyncio
 from typing import List, Optional, Dict, Any, AsyncGenerator
 from uuid import UUID, uuid4
 from datetime import datetime

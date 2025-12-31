@@ -3,7 +3,6 @@
 """
 
 import json
-import asyncio
 from pathlib import Path
 from datetime import datetime
 from src.core.utils.timezone_utils import utc_now, timezone

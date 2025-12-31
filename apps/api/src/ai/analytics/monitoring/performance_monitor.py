@@ -11,6 +11,8 @@ from typing import Dict, Any, List, Optional, Callable
 from datetime import datetime
 from datetime import timedelta
 from src.core.utils.timezone_utils import utc_now
+
+from src.core.utils.async_utils import create_task_with_logging
 from dataclasses import dataclass, asdict
 from collections import defaultdict, deque
 import statistics
@@ -63,7 +65,7 @@ class PerformanceCollector:
             return
         
         self.running = True
-        self.collection_task = asyncio.create_task(self._collection_loop())
+        self.collection_task = create_task_with_logging(self._collection_loop())
         logger.info("性能监控已启动")
     
     async def stop(self):
@@ -345,7 +347,7 @@ class PerformanceMonitor:
     async def start(self):
         """启动性能监控"""
         await self.collector.start()
-        self.monitoring_task = asyncio.create_task(self._monitoring_loop())
+        self.monitoring_task = create_task_with_logging(self._monitoring_loop())
         logger.info("性能监控系统已启动")
     
     async def stop(self):

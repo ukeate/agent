@@ -3,7 +3,6 @@
 提供高层次的智能体间通信接口和便捷方法
 """
 
-import asyncio
 import uuid
 import time
 from typing import Dict, List, Optional, Any, Callable

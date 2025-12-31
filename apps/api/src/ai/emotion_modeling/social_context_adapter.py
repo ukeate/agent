@@ -3,7 +3,6 @@
 负责根据不同的社交环境动态调整情感理解和响应策略
 """
 
-import asyncio
 from dataclasses import dataclass
 from enum import Enum
 from typing import Dict, List, Optional, Set, Tuple, Any

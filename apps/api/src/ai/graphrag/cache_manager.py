@@ -8,7 +8,6 @@ GraphRAG缓存管理器
 - 智能预加载和缓存失效
 """
 
-import asyncio
 import json
 import hashlib
 from typing import Dict, Any, Optional, List, Tuple

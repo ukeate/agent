@@ -8,7 +8,6 @@ GraphRAG推理引擎
 - 推理缓存和优化策略
 """
 
-import asyncio
 import uuid
 from typing import List, Dict, Any, Optional, Tuple, Set
 from datetime import datetime

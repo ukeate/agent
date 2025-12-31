@@ -8,7 +8,6 @@ GraphRAG知识融合处理器
 - 融合结果的可解释性支持
 """
 
-import asyncio
 from typing import Dict, Any, List, Optional, Tuple
 from datetime import datetime
 from src.core.utils.timezone_utils import utc_now

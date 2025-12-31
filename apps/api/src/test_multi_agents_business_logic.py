@@ -8,7 +8,6 @@ import pytest
 import json
 from fastapi.testclient import TestClient
 from unittest.mock import Mock, patch, AsyncMock, MagicMock
-import asyncio
 from datetime import datetime
 
 class TestMultiAgentAPIBusinessLogic:

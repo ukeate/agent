@@ -1,5 +1,4 @@
 from src.core.utils.timezone_utils import utc_now
-import asyncio
 import json
 import time
 import uuid

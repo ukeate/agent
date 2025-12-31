@@ -1,6 +1,5 @@
 """搜索质量监控和评估模块"""
 
-import asyncio
 import time
 from dataclasses import dataclass
 from typing import Dict, List, Optional, Any

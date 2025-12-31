@@ -4,6 +4,8 @@
 """
 
 from src.core.utils.timezone_utils import utc_now
+
+from src.core.utils.async_utils import create_task_with_logging
 import asyncio
 import time
 import statistics
@@ -355,8 +357,8 @@ class QualityMonitor:
         logger.info("Starting quality monitoring")
         self._shutdown_event.clear()
         
-        self._monitoring_task = asyncio.create_task(self._monitoring_loop())
-        self._cleanup_task = asyncio.create_task(self._cleanup_loop())
+        self._monitoring_task = create_task_with_logging(self._monitoring_loop())
+        self._cleanup_task = create_task_with_logging(self._cleanup_loop())
         
         logger.info("Quality monitoring started")
     

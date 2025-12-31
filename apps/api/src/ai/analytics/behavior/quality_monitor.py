@@ -4,7 +4,6 @@
 负责监控数据采集过程中的质量指标，包括完整性、准确性、及时性等。
 """
 
-import asyncio
 from typing import Dict, Any, List, Optional, Tuple, Set
 from datetime import datetime
 from datetime import timedelta

@@ -3,7 +3,6 @@
 实现威胁自动检测、分类和响应机制
 """
 
-import asyncio
 import json
 import uuid
 from abc import ABC, abstractmethod

@@ -3,7 +3,6 @@ AutoGen 0.7.x 智能体实现
 使用新版本的autogen-agentchat API
 """
 
-import asyncio
 from typing import Dict, List, Optional, Any, Union
 from autogen_agentchat.agents import AssistantAgent, BaseChatAgent
 from autogen_agentchat.messages import TextMessage

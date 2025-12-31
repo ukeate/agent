@@ -5,6 +5,8 @@
 import asyncio
 from datetime import datetime
 from src.core.utils.timezone_utils import utc_now, timezone
+
+from src.core.utils.async_utils import create_task_with_logging
 from typing import Dict, Any, Optional, List
 from dataclasses import dataclass
 from .processor import MultimodalProcessor
@@ -54,7 +56,7 @@ class ProcessingPipeline:
         
         # 创建工作任务
         for i in range(self.max_concurrent_tasks):
-            worker = asyncio.create_task(self._process_worker(i))
+            worker = create_task_with_logging(self._process_worker(i))
             self._workers.append(worker)
     
     async def stop(self):

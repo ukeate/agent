@@ -3,7 +3,6 @@ OpenAI API客户端封装
 支持GPT-4o-mini模型的调用和工具使用
 """
 
-import asyncio
 import json
 import time
 from typing import Any, Dict, List, Optional, Union

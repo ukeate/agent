@@ -4,6 +4,8 @@
 """
 
 from src.core.utils.timezone_utils import utc_now
+
+from src.core.utils.async_utils import create_task_with_logging
 import asyncio
 import time
 import statistics
@@ -645,10 +647,10 @@ class MonitoringManager:
         
         # 启动监控任务
         self.monitoring_tasks.append(
-            asyncio.create_task(self._monitoring_loop())
+            create_task_with_logging(self._monitoring_loop())
         )
         self.monitoring_tasks.append(
-            asyncio.create_task(self._cleanup_loop())
+            create_task_with_logging(self._cleanup_loop())
         )
         
         logger.info("监控管理器已启动")
