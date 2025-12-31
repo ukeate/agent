@@ -11,7 +11,9 @@ import uuid
 import threading
 from datetime import datetime
 from datetime import timedelta
-from src.core.utils.timezone_utils import utc_now, utc_factory
+from src.core.utils.timezone_utils import utc_now
+
+from src.core.utils.async_utils import create_task_with_logging
 from typing import Dict, List, Optional, Any, Callable, Union, Set
 from dataclasses import dataclass, field
 from enum import Enum
@@ -209,13 +211,13 @@ class EnterpriseAgentManager(AsyncAgentManager):
         await self.task_processor.start()
         
         # 启动指标收集任务
-        self._metrics_collection_task = asyncio.create_task(self._collect_enterprise_metrics())
+        self._metrics_collection_task = create_task_with_logging(self._collect_enterprise_metrics())
         
         # 启动健康检查
-        self._health_check_task = asyncio.create_task(self._enterprise_health_monitor())
+        self._health_check_task = create_task_with_logging(self._enterprise_health_monitor())
         
         # 启动池扩缩容管理
-        self._pool_scaling_task = asyncio.create_task(self._pool_scaling_monitor())
+        self._pool_scaling_task = create_task_with_logging(self._pool_scaling_monitor())
         
         # 注册分布式事件处理器
         await self._register_distributed_handlers()
@@ -1419,7 +1421,7 @@ class MonitoringSystem:
             self.metrics[name] = self.metrics[name][-1000:]
         
         # 检查阈值
-        asyncio.create_task(self._check_thresholds(name, value, tags))
+        create_task_with_logging(self._check_thresholds(name, value, tags))
     
     async def _check_thresholds(
         self,

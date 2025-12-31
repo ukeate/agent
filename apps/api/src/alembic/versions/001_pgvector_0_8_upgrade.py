@@ -12,7 +12,7 @@ from sqlalchemy import text
 from sqlalchemy.dialects import postgresql
 import uuid
 from datetime import datetime
-from src.core.utils.timezone_utils import utc_now, utc_factory
+from src.core.utils.timezone_utils import utc_now
 
 from src.core.logging import get_logger
 logger = get_logger(__name__)

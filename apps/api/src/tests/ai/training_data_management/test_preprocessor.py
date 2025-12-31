@@ -5,7 +5,7 @@
 import pytest
 import json
 from datetime import datetime
-from src.core.utils.timezone_utils import utc_now, utc_factory, timezone
+from src.core.utils.timezone_utils import utc_now, timezone
 from src.ai.training_data_management.models import DataRecord
 from src.ai.training_data_management.preprocessor import DataPreprocessor
 

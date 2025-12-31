@@ -6,7 +6,7 @@ from typing import Dict, List, Optional, Any, Tuple
 from dataclasses import dataclass, field
 from datetime import datetime
 from datetime import timedelta
-from src.core.utils.timezone_utils import utc_now, utc_factory
+from src.core.utils.timezone_utils import utc_now
 import threading
 import json
 from pathlib import Path

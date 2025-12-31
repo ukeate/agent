@@ -11,7 +11,7 @@ from pydantic import Field
 from sqlalchemy.ext.asyncio import AsyncSession
 import uuid
 from datetime import datetime, timedelta
-from src.core.utils.timezone_utils import utc_now, utc_factory
+from src.core.utils.timezone_utils import utc_now
 from src.ai.rag.vector_store import get_vector_store, PgVectorStore
 from src.ai.rag.hybrid_search import get_hybrid_search_engine, SearchStrategy
 from src.ai.rag.data_integrity import VectorDataIntegrityValidator

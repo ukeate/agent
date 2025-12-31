@@ -7,7 +7,7 @@ import jwt
 import bcrypt
 from datetime import datetime
 from datetime import timedelta
-from src.core.utils.timezone_utils import utc_now, utc_factory
+from src.core.utils.timezone_utils import utc_now
 from typing import Optional, Dict, Any
 from functools import wraps
 from fastapi import HTTPException, Request

@@ -6,7 +6,9 @@ AutoGen 0.7.x 多智能体对话实现
 import asyncio
 import uuid
 from datetime import datetime
-from src.core.utils.timezone_utils import utc_now, utc_factory, timezone
+from src.core.utils.timezone_utils import utc_now, timezone
+
+from src.core.utils.async_utils import create_task_with_logging
 from typing import Dict, List, Optional, Any, Union
 from enum import Enum
 from autogen_agentchat.teams import BaseGroupChat, RoundRobinGroupChat
@@ -116,7 +118,7 @@ class ConversationSession:
                         })
             
             # 创建任务并保存引用以便后续取消
-            task = asyncio.create_task(run_with_error_handling())
+            task = create_task_with_logging(run_with_error_handling())
             self._active_tasks.append(task)
             
             return {
@@ -629,7 +631,7 @@ class ConversationSession:
         
         # 通过WebSocket实时推送消息
         if websocket_callback:
-            asyncio.create_task(websocket_callback({
+            create_task_with_logging(websocket_callback({
                 "type": "new_message",
                 "session_id": self.session_id,
                 "message": message
@@ -734,7 +736,7 @@ class ConversationSession:
                         })
             
             # 创建任务并保存引用以便后续取消
-            task = asyncio.create_task(resume_with_error_handling())
+            task = create_task_with_logging(resume_with_error_handling())
             self._active_tasks.append(task)
         
         logger.info("对话已恢复并重新启动", session_id=self.session_id)

@@ -9,7 +9,7 @@ import json
 import re
 import hashlib
 from datetime import datetime
-from src.core.utils.timezone_utils import utc_now, utc_factory, timezone
+from src.core.utils.timezone_utils import utc_now, timezone
 from typing import Dict, List, Any, Optional, Callable
 from dataclasses import dataclass
 from .models import DataRecord

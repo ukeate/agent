@@ -8,7 +8,7 @@ import asyncio
 from typing import Dict, Any, List, Optional, Tuple, Set
 from datetime import datetime
 from datetime import timedelta
-from src.core.utils.timezone_utils import utc_now, utc_factory
+from src.core.utils.timezone_utils import utc_now
 from collections import defaultdict, deque
 from dataclasses import dataclass, asdict
 from enum import Enum

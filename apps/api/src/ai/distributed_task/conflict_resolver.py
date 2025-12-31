@@ -6,6 +6,7 @@ from datetime import datetime
 from typing import Dict, List, Optional, Any, Set
 from .models import Task, TaskStatus, Conflict, ConflictType
 from src.core.utils.timezone_utils import utc_now
+from src.core.utils.async_utils import create_task_with_logging
 
 class ConflictResolver:
     """冲突解决器"""
@@ -35,7 +36,7 @@ class ConflictResolver:
         self.conflict_history: List[Conflict] = []
         
         # 启动冲突检测循环
-        asyncio.create_task(self._start_conflict_detection_loop())
+        create_task_with_logging(self._start_conflict_detection_loop())
     
     async def detect_conflicts(self) -> List[Conflict]:
         """检测所有类型的冲突"""

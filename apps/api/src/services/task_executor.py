@@ -7,7 +7,7 @@ import asyncio
 import uuid
 from typing import Dict, List, Optional, Any
 from datetime import datetime
-from src.core.utils.timezone_utils import utc_now, utc_factory, timezone
+from src.core.utils.timezone_utils import utc_now, timezone
 from sqlalchemy.ext.asyncio import AsyncSession
 from src.core.database import get_db_session
 from src.repositories.supervisor_repository import (

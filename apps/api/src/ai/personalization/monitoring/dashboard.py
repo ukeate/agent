@@ -5,7 +5,7 @@ import json
 from typing import Dict, List, Any, Optional
 from datetime import datetime
 from datetime import timedelta
-from src.core.utils.timezone_utils import utc_now, utc_factory
+from src.core.utils.timezone_utils import utc_now
 from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
 from prometheus_client.core import CollectorRegistry
 import redis.asyncio as redis_async

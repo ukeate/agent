@@ -2,7 +2,7 @@
 
 from typing import Any, Dict, Optional
 from datetime import datetime
-from src.core.utils.timezone_utils import utc_now, utc_factory
+from src.core.utils.timezone_utils import utc_now
 
 logger = get_logger(__name__)
 

@@ -6,7 +6,7 @@
 import json
 import html
 from datetime import datetime
-from src.core.utils.timezone_utils import utc_now, utc_factory
+from src.core.utils.timezone_utils import utc_now
 from typing import Any, Dict, List, Optional, Union
 from jinja2 import Template
 from src.models.schemas.explanation import (

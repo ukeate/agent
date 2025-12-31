@@ -14,7 +14,7 @@ from typing import List, Dict, Any, Optional, Tuple
 from enum import Enum
 from dataclasses import dataclass
 from datetime import datetime
-from src.core.utils.timezone_utils import utc_now, utc_factory
+from src.core.utils.timezone_utils import utc_now
 from src.ai.openai_client import get_openai_client
 
 class QueryIntent(str, Enum):

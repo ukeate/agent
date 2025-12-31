@@ -6,7 +6,7 @@ import pytest
 import json
 from datetime import datetime
 from datetime import timedelta
-from src.core.utils.timezone_utils import utc_now, utc_factory
+from src.core.utils.timezone_utils import utc_now
 from unittest.mock import AsyncMock, patch
 from fastapi.testclient import TestClient
 from src.main import app

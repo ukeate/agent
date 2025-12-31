@@ -6,7 +6,7 @@ from fastapi import APIRouter, HTTPException, Query, BackgroundTasks
 from typing import Dict, Any, List, Optional
 from pydantic import Field
 from datetime import datetime
-from src.core.utils.timezone_utils import utc_now, utc_factory
+from src.core.utils.timezone_utils import utc_now
 from src.services.alert_rules_service import (
     AlertRulesEngine,
     AlertRule,

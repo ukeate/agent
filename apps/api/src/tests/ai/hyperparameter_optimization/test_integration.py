@@ -8,7 +8,7 @@ import asyncio
 from unittest.mock import Mock, patch, AsyncMock
 import numpy as np
 from datetime import datetime
-from src.core.utils.timezone_utils import utc_now, utc_factory
+from src.core.utils.timezone_utils import utc_now
 import json
 from ai.hyperparameter_optimization.optimizer import HyperparameterOptimizer, OptimizationConfig, PruningAlgorithm
 from ai.hyperparameter_optimization.experiment_manager import ExperimentManager

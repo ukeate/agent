@@ -7,7 +7,7 @@ import json
 from src.core.utils import secure_pickle as pickle
 from datetime import datetime
 from datetime import timedelta
-from src.core.utils.timezone_utils import utc_now, utc_factory
+from src.core.utils.timezone_utils import utc_now
 from typing import Dict, List, Optional, Any, Callable, Union
 from dataclasses import dataclass, asdict
 from enum import Enum

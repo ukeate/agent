@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import List, Dict, Any, Optional, Union
 import asyncio
 from datetime import datetime
-from src.core.utils.timezone_utils import utc_now, utc_factory
+from src.core.utils.timezone_utils import utc_now
 import hashlib
 import json
 from src.ai.openai_client import get_openai_client

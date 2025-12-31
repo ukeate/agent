@@ -10,7 +10,9 @@ import socket
 from typing import Dict, List, Optional, Any, Set, Tuple, Callable
 from datetime import datetime
 from datetime import timedelta
-from src.core.utils.timezone_utils import utc_now, utc_factory
+from src.core.utils.timezone_utils import utc_now
+
+from src.core.utils.async_utils import create_task_with_logging
 from dataclasses import dataclass, field
 from enum import Enum
 import redis.asyncio as redis_async
@@ -260,16 +262,16 @@ class DistributedEventCoordinator:
         await self.register_node()
         
         # 启动心跳
-        self._heartbeat_task = asyncio.create_task(self._heartbeat_loop())
+        self._heartbeat_task = create_task_with_logging(self._heartbeat_loop())
         
         # 启动领导选举
-        self._election_task = asyncio.create_task(self._election_loop())
+        self._election_task = create_task_with_logging(self._election_loop())
         
         # 启动节点同步
-        self._sync_task = asyncio.create_task(self._sync_nodes_loop())
+        self._sync_task = create_task_with_logging(self._sync_nodes_loop())
         
         # 启动事件处理
-        asyncio.create_task(self._process_events_loop())
+        create_task_with_logging(self._process_events_loop())
     
     async def stop(self) -> None:
         """停止协调器"""
@@ -707,7 +709,7 @@ class DistributedEventBus:
     async def start(self):
         """启动分布式事件总线"""
         self.running = True
-        self._listen_task = asyncio.create_task(self._listen_for_events())
+        self._listen_task = create_task_with_logging(self._listen_for_events())
         logger.info("分布式事件总线启动", node_id=self.node_id)
     
     async def stop(self):

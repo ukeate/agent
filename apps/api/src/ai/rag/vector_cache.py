@@ -8,7 +8,7 @@ import json
 import numpy as np
 from typing import Dict, Any, Optional, Tuple, List
 from datetime import datetime
-from src.core.utils.timezone_utils import utc_now, utc_factory
+from src.core.utils.timezone_utils import utc_now
 import asyncio
 
 from src.core.logging import get_logger

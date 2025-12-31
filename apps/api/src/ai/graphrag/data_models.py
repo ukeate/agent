@@ -10,7 +10,7 @@ GraphRAG核心数据模型
 
 from typing import TypedDict, Optional, List, Dict, Any, Union
 from datetime import datetime
-from src.core.utils.timezone_utils import utc_now, utc_factory
+from src.core.utils.timezone_utils import utc_now
 from enum import Enum
 from dataclasses import dataclass
 import uuid

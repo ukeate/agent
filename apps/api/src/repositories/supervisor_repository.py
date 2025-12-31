@@ -6,7 +6,7 @@ Supervisor数据访问层实现
 from typing import List, Optional, Dict, Any
 from datetime import datetime
 from datetime import timedelta
-from src.core.utils.timezone_utils import utc_now, utc_factory
+from src.core.utils.timezone_utils import utc_now
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import desc, and_, or_, func
 from src.repositories.base import BaseRepository

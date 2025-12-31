@@ -9,7 +9,7 @@ from fastapi.testclient import TestClient
 from unittest.mock import Mock, patch, AsyncMock
 import json
 from datetime import datetime
-from src.core.utils.timezone_utils import utc_now, utc_factory
+from src.core.utils.timezone_utils import utc_now
 from api.v1.knowledge_graph_reasoning import router, get_hybrid_reasoner
 from ai.knowledge_graph.hybrid_reasoner import (
     HybridReasoner, HybridReasoningResult, ReasoningStrategy, ReasoningEvidence

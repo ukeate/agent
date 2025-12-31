@@ -6,7 +6,7 @@ import time
 from collections import defaultdict
 from datetime import datetime
 from datetime import timedelta
-from src.core.utils.timezone_utils import utc_now, utc_factory
+from src.core.utils.timezone_utils import utc_now
 from typing import Any, Dict, List, Optional
 from fastapi import Request, Response
 from pydantic import BaseModel

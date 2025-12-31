@@ -7,7 +7,7 @@ from fastapi.testclient import TestClient
 from unittest.mock import Mock, patch, AsyncMock
 import json
 from datetime import datetime
-from src.core.utils.timezone_utils import utc_now, utc_factory
+from src.core.utils.timezone_utils import utc_now
 from main import app
 from ai.hyperparameter_optimization.models import (
     ExperimentState, TrialState, OptimizationAlgorithm

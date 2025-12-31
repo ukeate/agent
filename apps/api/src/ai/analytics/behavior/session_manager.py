@@ -8,7 +8,7 @@ import asyncio
 from typing import Dict, Any, List, Optional, Tuple
 from datetime import datetime
 from datetime import timedelta
-from src.core.utils.timezone_utils import utc_now, utc_factory
+from src.core.utils.timezone_utils import utc_now
 from collections import defaultdict
 import json
 from ..models import BehaviorEvent, UserSession, EventQueryFilter

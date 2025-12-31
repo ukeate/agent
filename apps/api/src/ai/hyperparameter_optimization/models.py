@@ -10,7 +10,7 @@ from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import relationship
 import uuid as uuid_lib
 from datetime import datetime
-from src.core.utils.timezone_utils import utc_now, utc_factory
+from src.core.utils.timezone_utils import utc_now
 from typing import Dict, Any, List, Optional
 from pydantic import BaseModel, ConfigDict
 from enum import Enum

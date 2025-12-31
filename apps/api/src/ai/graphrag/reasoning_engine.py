@@ -12,7 +12,7 @@ import asyncio
 import uuid
 from typing import List, Dict, Any, Optional, Tuple, Set
 from datetime import datetime
-from src.core.utils.timezone_utils import utc_now, utc_factory
+from src.core.utils.timezone_utils import utc_now
 import heapq
 from collections import defaultdict, deque
 from .data_models import (

@@ -1,4 +1,6 @@
 from src.core.utils.timezone_utils import utc_now
+
+from src.core.utils.async_utils import create_task_with_logging
 import asyncio
 import json
 import hashlib
@@ -85,9 +87,9 @@ class FaultDetector:
         self.running = True
         
         # 启动各种检测任务
-        asyncio.create_task(self._health_check_loop())
-        asyncio.create_task(self._performance_monitor_loop())
-        asyncio.create_task(self._network_monitor_loop())
+        create_task_with_logging(self._health_check_loop())
+        create_task_with_logging(self._performance_monitor_loop())
+        create_task_with_logging(self._network_monitor_loop())
         
         self.logger.info("Fault detector started")
     

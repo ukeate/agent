@@ -7,7 +7,7 @@ import hashlib
 import mimetypes
 from pathlib import Path
 from datetime import datetime
-from src.core.utils.timezone_utils import utc_now, utc_factory, timezone
+from src.core.utils.timezone_utils import utc_now, timezone
 from typing import Optional, BinaryIO, Dict, Any
 import aiofiles
 from src.ai.multimodal.types import MultimodalContent, ContentType

@@ -4,7 +4,7 @@
 
 import uuid
 from datetime import datetime
-from src.core.utils.timezone_utils import utc_now, utc_factory
+from src.core.utils.timezone_utils import utc_now
 from typing import Dict, List, Any, Optional
 from fastapi import APIRouter, HTTPException, Depends, BackgroundTasks, Query, UploadFile, File
 from pydantic import Field, ConfigDict

@@ -9,6 +9,8 @@ import time
 from datetime import datetime
 from datetime import timedelta
 from src.core.utils.timezone_utils import utc_now
+
+from src.core.utils.async_utils import create_task_with_logging
 from typing import Dict, List, Optional, Any, Union
 from enum import Enum
 from dataclasses import dataclass, asdict
@@ -129,8 +131,8 @@ class AgentMonitor:
         logger.info("开始智能体行为监控")
         
         # 启动定时任务
-        asyncio.create_task(self._periodic_flush())
-        asyncio.create_task(self._update_real_time_stats())
+        create_task_with_logging(self._periodic_flush())
+        create_task_with_logging(self._update_real_time_stats())
     
     async def stop_monitoring(self):
         """停止监控"""

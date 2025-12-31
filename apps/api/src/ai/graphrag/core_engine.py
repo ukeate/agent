@@ -13,7 +13,7 @@ import uuid
 import asyncio
 from typing import Dict, Any, List, Optional, Union
 from datetime import datetime
-from src.core.utils.timezone_utils import utc_now, utc_factory
+from src.core.utils.timezone_utils import utc_now
 from .data_models import (
     GraphRAGRequest,
     GraphRAGResponse,

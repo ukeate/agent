@@ -14,7 +14,7 @@ from typing import List, Dict, Any, Optional, Union
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from datetime import datetime
-from src.core.utils.timezone_utils import utc_now, utc_factory
+from src.core.utils.timezone_utils import utc_now
 from uuid import uuid4
 from fastapi import APIRouter, HTTPException, BackgroundTasks, Depends, Query, Path
 from fastapi.responses import JSONResponse, StreamingResponse

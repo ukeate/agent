@@ -9,7 +9,7 @@ import asyncio
 from typing import List, Dict, Any, Optional, Tuple
 from datetime import datetime
 from datetime import timedelta
-from src.core.utils.timezone_utils import utc_now, utc_factory
+from src.core.utils.timezone_utils import utc_now
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 from src.core.database import get_db_session

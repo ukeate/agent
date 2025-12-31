@@ -14,7 +14,7 @@ from typing import Dict, List, Any, Optional, Union
 from dataclasses import dataclass, field, asdict
 from datetime import datetime
 from datetime import timedelta
-from src.core.utils.timezone_utils import utc_now, utc_factory
+from src.core.utils.timezone_utils import utc_now
 from pathlib import Path
 import sqlite3
 from contextlib import asynccontextmanager

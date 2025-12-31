@@ -8,7 +8,7 @@ import asyncio
 import uuid
 from typing import Dict, List, Optional, Any, Tuple
 from datetime import datetime
-from src.core.utils.timezone_utils import utc_now, utc_factory
+from src.core.utils.timezone_utils import utc_now
 import numpy as np
 from concurrent.futures import ThreadPoolExecutor
 from src.ai.reinforcement_learning.qlearning.base import QLearningAgent, QLearningConfig, AlgorithmType

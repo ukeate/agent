@@ -7,7 +7,7 @@ import asyncio
 import time
 from typing import Dict, Any, Optional
 from datetime import datetime
-from src.core.utils.timezone_utils import utc_now, utc_factory
+from src.core.utils.timezone_utils import utc_now
 from .flow_control import FlowController, TaskInfo
 from typing import TYPE_CHECKING
 

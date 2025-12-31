@@ -5,7 +5,7 @@ Supervisor业务逻辑层实现
 
 from typing import Dict, List, Optional, Any
 from datetime import datetime
-from src.core.utils.timezone_utils import utc_now, utc_factory, timezone
+from src.core.utils.timezone_utils import utc_now, timezone
 import uuid
 import inspect
 from sqlalchemy.ext.asyncio import AsyncSession

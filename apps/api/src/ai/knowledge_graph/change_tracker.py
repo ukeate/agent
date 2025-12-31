@@ -16,6 +16,8 @@ from typing import Any, AsyncIterator, Callable, Dict, List, Optional, Set
 
 from src.core.logging import get_logger, setup_logging
 from src.core.utils.timezone_utils import utc_now
+
+from src.core.utils.async_utils import create_task_with_logging
 logger = get_logger(__name__)
 
 class EventType(Enum):
@@ -220,11 +222,11 @@ class ChangeTracker:
             return
         
         self.is_running = True
-        self.processing_task = asyncio.create_task(self._process_events())
+        self.processing_task = create_task_with_logging(self._process_events())
         
         # 启动自动刷新任务
         if self.auto_flush_interval > 0:
-            asyncio.create_task(self._auto_flush_task())
+            create_task_with_logging(self._auto_flush_task())
         
         self.logger.info("变更追踪器已启动")
     

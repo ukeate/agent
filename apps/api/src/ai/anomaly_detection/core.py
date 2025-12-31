@@ -7,7 +7,7 @@ import numpy as np
 import pandas as pd
 from datetime import datetime
 from datetime import timedelta
-from src.core.utils.timezone_utils import utc_now, utc_factory
+from src.core.utils.timezone_utils import utc_now
 from typing import List, Dict, Any, Tuple, Optional
 from dataclasses import dataclass
 from sklearn.ensemble import IsolationForest

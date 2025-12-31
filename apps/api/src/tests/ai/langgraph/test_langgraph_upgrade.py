@@ -6,7 +6,7 @@ LangGraph 0.6.5升级功能测试
 import pytest
 import asyncio
 from datetime import datetime
-from src.core.utils.timezone_utils import utc_now, utc_factory
+from src.core.utils.timezone_utils import utc_now
 from unittest.mock import Mock, AsyncMock, patch
 from src.ai.langgraph.state_graph import (
     LangGraphWorkflowBuilder, 

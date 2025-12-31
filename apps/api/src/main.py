@@ -18,6 +18,8 @@ from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from src.core.config import get_settings
 from src.core.utils.timezone_utils import utc_now
+
+from src.core.utils.async_utils import create_task_with_logging
 from src.api.exceptions import (
     api_exception_handler,
     general_exception_handler,
@@ -340,7 +342,7 @@ def create_app() -> FastAPI:
                     except Exception:
                         logger.exception("审计日志记录失败", exc_info=True)
 
-                asyncio.create_task(_safe_audit())
+                create_task_with_logging(_safe_audit())
 
     if settings.FORCE_HTTPS:
         app.add_middleware(HTTPSRedirectMiddleware)

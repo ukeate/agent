@@ -9,7 +9,7 @@
 
 import uuid
 from datetime import datetime
-from src.core.utils.timezone_utils import utc_now, utc_factory, timezone
+from src.core.utils.timezone_utils import utc_now, timezone
 from typing import Any, Dict, List, Optional, Set, Union
 from uuid import UUID
 from src.models.schemas.explanation import (

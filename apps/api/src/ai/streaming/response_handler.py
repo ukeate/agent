@@ -10,7 +10,9 @@ import json
 from fastapi import WebSocket, WebSocketDisconnect
 from fastapi.responses import StreamingResponse
 from datetime import datetime
-from src.core.utils.timezone_utils import utc_now, utc_factory
+from src.core.utils.timezone_utils import utc_now
+
+from src.core.utils.async_utils import create_task_with_logging
 from .token_streamer import TokenStreamer, StreamEvent, StreamType
 from .stream_buffer import StreamBuffer
 from src.ai.openai_client import get_openai_client
@@ -59,7 +61,7 @@ class StreamingResponseHandler:
             
             try:
                 # 启动智能体处理任务
-                processing_task = asyncio.create_task(
+                processing_task = create_task_with_logging(
                     self._process_agent_message(agent_id, message, session_id)
                 )
                 
@@ -177,10 +179,10 @@ class StreamingResponseHandler:
             })
             
             # 启动接收和发送任务
-            receive_task = asyncio.create_task(
+            receive_task = create_task_with_logging(
                 self._handle_websocket_receive(websocket, session_id)
             )
-            send_task = asyncio.create_task(
+            send_task = create_task_with_logging(
                 self._handle_websocket_send(websocket, queue)
             )
             
@@ -235,7 +237,7 @@ class StreamingResponseHandler:
                     
                     if agent_id and message:
                         # 启动智能体处理
-                        asyncio.create_task(
+                        create_task_with_logging(
                             self._process_agent_message(agent_id, message, session_id)
                         )
                 elif message_type == "ping":

@@ -4,6 +4,8 @@
 """
 
 from src.core.utils.timezone_utils import utc_now
+
+from src.core.utils.async_utils import create_task_with_logging
 import asyncio
 import json
 from dataclasses import dataclass, asdict
@@ -552,7 +554,7 @@ class SocialEmotionSystem:
                     await asyncio.sleep(60)  # 错误时等待1分钟
         
         # 在后台启动监控任务
-        asyncio.create_task(monitor())
+        create_task_with_logging(monitor())
     
     async def _cleanup_expired_sessions(self) -> None:
         """清理过期会话"""

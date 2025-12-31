@@ -7,7 +7,9 @@ import hashlib
 from typing import Dict, List, Optional, Any, Tuple
 from datetime import datetime
 from datetime import timedelta
-from src.core.utils.timezone_utils import utc_now, utc_factory
+from src.core.utils.timezone_utils import utc_now
+
+from src.core.utils.async_utils import create_task_with_logging
 from dataclasses import dataclass, asdict
 from enum import Enum
 import asyncio
@@ -127,7 +129,7 @@ class UserAssignmentCache:
             
             # 启动后台写入任务（用于write_behind策略）
             if self.cache_strategy == CacheStrategy.WRITE_BEHIND:
-                asyncio.create_task(self._background_writer())
+                create_task_with_logging(self._background_writer())
                 
         except Exception as e:
             logger.error(f"Failed to initialize Redis connection: {str(e)}")

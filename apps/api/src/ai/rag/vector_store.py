@@ -8,7 +8,7 @@ from typing import List, Dict, Any, Optional, Tuple, Union
 import asyncpg
 import numpy as np
 from datetime import datetime
-from src.core.utils.timezone_utils import utc_now, utc_factory
+from src.core.utils.timezone_utils import utc_now
 import json
 from contextlib import asynccontextmanager
 from ...core.config import get_settings

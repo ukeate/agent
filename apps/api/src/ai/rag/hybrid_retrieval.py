@@ -8,7 +8,7 @@ import numpy as np
 from typing import Dict, Any, List, Optional, Tuple, Union
 import asyncio
 from datetime import datetime
-from src.core.utils.timezone_utils import utc_now, utc_factory
+from src.core.utils.timezone_utils import utc_now
 from .pgvector_optimizer import PgVectorOptimizer
 from .vector_cache import VectorCacheManager
 

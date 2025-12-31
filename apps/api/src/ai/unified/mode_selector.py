@@ -12,7 +12,7 @@ import time
 import statistics
 from datetime import datetime
 from datetime import timedelta
-from src.core.utils.timezone_utils import utc_now, utc_factory
+from src.core.utils.timezone_utils import utc_now
 
 from src.core.logging import get_logger
 logger = get_logger(__name__)

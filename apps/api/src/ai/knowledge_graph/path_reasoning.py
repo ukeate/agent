@@ -19,7 +19,7 @@ import asyncio
 import heapq
 from collections import defaultdict, deque
 from datetime import datetime
-from src.core.utils.timezone_utils import utc_now, utc_factory
+from src.core.utils.timezone_utils import utc_now
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Dict, List, Set, Tuple, Optional, Any, Union, Callable

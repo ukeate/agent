@@ -9,7 +9,7 @@ from typing import Dict, List, Optional, Any, Callable, Union
 from dataclasses import dataclass, field
 from datetime import datetime
 from datetime import timedelta
-from src.core.utils.timezone_utils import utc_now, utc_factory
+from src.core.utils.timezone_utils import utc_now
 from enum import Enum
 from .events import Event, EventType, EventPriority
 from .event_processors import EventProcessor, EventContext, ProcessingResult

@@ -8,7 +8,7 @@ from typing import Dict, List, Any, Optional, Set, Union, Callable
 from enum import Enum
 from datetime import datetime
 from datetime import timedelta
-from src.core.utils.timezone_utils import utc_now, utc_factory
+from src.core.utils.timezone_utils import utc_now
 from dataclasses import dataclass, field
 import operator
 from functools import reduce

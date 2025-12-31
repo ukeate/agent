@@ -6,7 +6,7 @@ import pytest
 import numpy as np
 from datetime import datetime
 from datetime import timedelta
-from src.core.utils.timezone_utils import utc_now, utc_factory
+from src.core.utils.timezone_utils import utc_now
 from unittest.mock import MagicMock, patch
 from src.ai.analytics.models import BehaviorEvent, BehaviorPattern
 from src.ai.analytics.behavior.pattern_recognition import (

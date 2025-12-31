@@ -5,7 +5,7 @@
 import pytest
 import asyncio
 from datetime import datetime
-from src.core.utils.timezone_utils import utc_now, utc_factory
+from src.core.utils.timezone_utils import utc_now
 from unittest.mock import AsyncMock, MagicMock, patch
 from src.ai.analytics.models import BehaviorEvent
 from src.ai.analytics.behavior.event_collector import EventCollector

@@ -7,7 +7,7 @@
 from typing import Dict, List, Any, Optional
 import asyncio
 from datetime import datetime
-from src.core.utils.timezone_utils import utc_now, utc_factory
+from src.core.utils.timezone_utils import utc_now
 from src.ai.reinforcement_learning.recommendation_engine import (
 
     BanditRecommendationEngine,

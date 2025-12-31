@@ -9,7 +9,7 @@ from pydantic import BaseModel, Field, field_validator, model_validator, ConfigD
 from dataclasses import dataclass
 from enum import Enum
 from datetime import datetime
-from src.core.utils.timezone_utils import utc_now, utc_factory, timezone
+from src.core.utils.timezone_utils import utc_now, timezone
 import uuid
 
 T = TypeVar('T')

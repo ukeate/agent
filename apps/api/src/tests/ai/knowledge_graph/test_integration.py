@@ -8,7 +8,7 @@ import json
 import tempfile
 import shutil
 from datetime import datetime
-from src.core.utils.timezone_utils import utc_now, utc_factory, timezone
+from src.core.utils.timezone_utils import utc_now, timezone
 from pathlib import Path
 from ai.knowledge_graph.sparql_engine import SPARQLEngine, SPARQLQuery, QueryType, execute_sparql_query
 from ai.knowledge_graph.query_optimizer import QueryOptimizer, OptimizationLevel

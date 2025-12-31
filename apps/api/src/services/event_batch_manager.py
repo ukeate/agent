@@ -6,7 +6,9 @@ import asyncio
 import json
 from datetime import datetime
 from datetime import timedelta
-from src.core.utils.timezone_utils import utc_now, utc_factory
+from src.core.utils.timezone_utils import utc_now
+
+from src.core.utils.async_utils import create_task_with_logging
 from typing import Dict, List, Optional, Any, Union, Callable
 from dataclasses import dataclass
 from enum import Enum
@@ -187,7 +189,7 @@ class EventBatchManager:
         self.stats['total_jobs'] += 1
         
         # 异步处理批次
-        asyncio.create_task(self._process_batch_job(batch, config or BatchJobConfig(job_id=job_id)))
+        create_task_with_logging(self._process_batch_job(batch, config or BatchJobConfig(job_id=job_id)))
         
         return job_id
     
@@ -277,7 +279,7 @@ class EventBatchManager:
             
             finally:
                 # 清理活跃任务（延迟清理以便查询状态）
-                asyncio.create_task(self._cleanup_job(config.job_id, delay=300))
+                create_task_with_logging(self._cleanup_job(config.job_id, delay=300))
     
     async def _process_batch_immediate(self, batch: BatchEventsRequest, job_status: BatchJobStatus):
         """立即批量处理"""

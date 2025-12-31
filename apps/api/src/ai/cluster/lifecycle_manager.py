@@ -16,6 +16,8 @@ from .topology import AgentInfo, AgentStatus, AgentHealthCheck
 from .state_manager import ClusterStateManager
 
 from src.core.logging import get_logger
+
+from src.core.utils.async_utils import create_task_with_logging
 class AgentOperation(Enum):
     """智能体操作类型"""
     START = "start"
@@ -1000,7 +1002,7 @@ class LifecycleManager:
         for listener in self.operation_listeners:
             try:
                 if asyncio.iscoroutinefunction(listener):
-                    asyncio.create_task(listener(result))
+                    create_task_with_logging(listener(result))
                 else:
                     listener(result)
             except Exception as e:

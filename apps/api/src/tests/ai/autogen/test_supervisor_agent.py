@@ -6,7 +6,7 @@ Supervisor智能体决策引擎测试
 import pytest
 import asyncio
 from datetime import datetime
-from src.core.utils.timezone_utils import utc_now, utc_factory, timezone
+from src.core.utils.timezone_utils import utc_now, timezone
 from unittest.mock import Mock, AsyncMock, patch, MagicMock
 import structlog
 from src.ai.autogen.supervisor_agent import (

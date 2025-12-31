@@ -7,6 +7,8 @@ from typing import Any, Dict, List, Optional, Tuple
 from datetime import datetime
 from datetime import timedelta
 from src.core.utils.timezone_utils import utc_now, utc_factory
+
+from src.core.utils.async_utils import create_task_with_logging
 from dataclasses import dataclass, field
 import asyncio
 import hashlib
@@ -93,7 +95,7 @@ class PerformanceOptimizer:
                 logger.info("Redis缓存连接成功")
             
             # 启动性能监控任务
-            asyncio.create_task(self._performance_monitor())
+            create_task_with_logging(self._performance_monitor())
             
         except Exception as e:
             logger.warning(f"性能优化器初始化失败: {str(e)}")

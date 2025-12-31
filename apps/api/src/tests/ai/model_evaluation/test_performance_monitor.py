@@ -3,7 +3,7 @@ import time
 import threading
 from datetime import datetime
 from datetime import timedelta
-from src.core.utils.timezone_utils import utc_now, utc_factory
+from src.core.utils.timezone_utils import utc_now
 from unittest.mock import Mock, patch, MagicMock
 import tempfile
 import json

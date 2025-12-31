@@ -5,7 +5,7 @@ A/B测试实验管理服务 - 实验状态机和生命周期管理
 from typing import Optional, Dict, Any, List
 from datetime import datetime
 from datetime import timedelta
-from src.core.utils.timezone_utils import utc_now, utc_factory
+from src.core.utils.timezone_utils import utc_now
 from enum import Enum
 from dataclasses import dataclass
 from src.models.schemas.experiment import ExperimentStatus, CreateExperimentRequest, ExperimentConfig

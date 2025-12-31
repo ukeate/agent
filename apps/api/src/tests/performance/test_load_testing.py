@@ -9,7 +9,7 @@ import random
 import statistics
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
-from src.core.utils.timezone_utils import utc_now, utc_factory
+from src.core.utils.timezone_utils import utc_now
 import aiohttp
 import numpy as np
 from typing import List, Dict, Any

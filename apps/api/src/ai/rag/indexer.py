@@ -7,7 +7,7 @@ import asyncio
 from typing import Any, Dict, List, Optional
 import re
 from datetime import datetime
-from src.core.utils.timezone_utils import utc_now, utc_factory
+from src.core.utils.timezone_utils import utc_now
 from .models import Document, DocumentChunk, DocumentMetadata, IndexStats
 
 from src.core.logging import get_logger

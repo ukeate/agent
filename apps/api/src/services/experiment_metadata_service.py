@@ -5,7 +5,7 @@ A/B测试实验元数据管理服务 - 管理实验的元数据、标签、分�
 from typing import Dict, Any, List, Optional, Set
 from datetime import datetime
 from datetime import timedelta
-from src.core.utils.timezone_utils import utc_now, utc_factory
+from src.core.utils.timezone_utils import utc_now
 from dataclasses import dataclass
 import json
 import re

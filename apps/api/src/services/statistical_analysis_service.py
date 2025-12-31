@@ -6,7 +6,7 @@ from typing import List, Dict, Optional, Union, Any, Tuple
 import math
 import statistics
 from datetime import datetime
-from src.core.utils.timezone_utils import utc_now, utc_factory, timezone
+from src.core.utils.timezone_utils import utc_now, timezone
 from dataclasses import dataclass
 from enum import Enum
 

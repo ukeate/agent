@@ -8,7 +8,7 @@ import asyncio
 from typing import Dict, Any, List, Optional
 from datetime import datetime
 from datetime import timedelta
-from src.core.utils.timezone_utils import utc_now, utc_factory
+from src.core.utils.timezone_utils import utc_now
 from dataclasses import dataclass, field
 from contextlib import asynccontextmanager
 from .caching import NodeCache, RedisNodeCache, MemoryNodeCache

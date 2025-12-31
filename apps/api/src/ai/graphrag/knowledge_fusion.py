@@ -11,7 +11,7 @@ GraphRAG知识融合处理器
 import asyncio
 from typing import Dict, Any, List, Optional, Tuple
 from datetime import datetime
-from src.core.utils.timezone_utils import utc_now, utc_factory
+from src.core.utils.timezone_utils import utc_now
 import numpy as np
 from .data_models import (
     KnowledgeSource, 

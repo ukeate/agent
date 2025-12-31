@@ -14,7 +14,7 @@ import tempfile
 import zipfile
 from typing import Dict, Any, List, Optional
 from datetime import datetime
-from src.core.utils.timezone_utils import utc_now, utc_factory
+from src.core.utils.timezone_utils import utc_now
 from fastapi import APIRouter, HTTPException, BackgroundTasks, UploadFile, File, Form, Depends
 from fastapi.responses import FileResponse
 from pydantic import Field

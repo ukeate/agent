@@ -6,7 +6,7 @@ Context API单元测试
 
 import pytest
 from datetime import datetime
-from src.core.utils.timezone_utils import utc_now, utc_factory
+from src.core.utils.timezone_utils import utc_now
 from typing import Dict, Any
 from langgraph.graph import StateGraph, START, END
 from langgraph.types import RunnableConfig

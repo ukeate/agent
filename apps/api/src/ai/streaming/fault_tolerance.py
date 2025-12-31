@@ -11,7 +11,9 @@ from dataclasses import dataclass, field
 from enum import Enum
 from datetime import datetime
 from datetime import timedelta
-from src.core.utils.timezone_utils import utc_now, utc_factory
+from src.core.utils.timezone_utils import utc_now
+
+from src.core.utils.async_utils import create_task_with_logging
 import json
 import websockets
 from contextlib import asynccontextmanager
@@ -88,7 +90,7 @@ class HeartbeatManager:
             return
         
         self.is_running = True
-        self.heartbeat_task = asyncio.create_task(
+        self.heartbeat_task = create_task_with_logging(
             self._heartbeat_loop(send_heartbeat)
         )
         logger.debug("心跳管理器启动")
@@ -192,7 +194,7 @@ class FaultTolerantConnection:
             await self.heartbeat_manager.start(self._send_heartbeat)
             
             # 启动发送任务
-            self._send_task = asyncio.create_task(self._message_sender())
+            self._send_task = create_task_with_logging(self._message_sender())
             
             # 恢复会话状态
             if self.config.preserve_session_state:
@@ -214,7 +216,7 @@ class FaultTolerantConnection:
             
             # 尝试重连
             if self.config.reconnect_on_error:
-                asyncio.create_task(self._attempt_reconnect())
+                create_task_with_logging(self._attempt_reconnect())
             
             return False
     
@@ -252,7 +254,7 @@ class FaultTolerantConnection:
             await self.heartbeat_manager.start(self._send_heartbeat)
             
             # 启动发送任务
-            self._send_task = asyncio.create_task(self._message_sender())
+            self._send_task = create_task_with_logging(self._message_sender())
             
             # 恢复会话状态
             if self.config.preserve_session_state:
@@ -381,7 +383,7 @@ class FaultTolerantConnection:
         
         # 如果重连失败且未达到最大重试次数，安排下次重连
         if self.retry_count < self.config.max_retries:
-            asyncio.create_task(self._attempt_reconnect())
+            create_task_with_logging(self._attempt_reconnect())
         else:
             self.state = ConnectionState.PERMANENTLY_FAILED
             logger.error(f"重连彻底失败: {self.session_id}")
@@ -417,7 +419,7 @@ class FaultTolerantConnection:
         
         # 尝试重连
         if self.config.reconnect_on_error and self.retry_count < self.config.max_retries:
-            asyncio.create_task(self._attempt_reconnect())
+            create_task_with_logging(self._attempt_reconnect())
         else:
             self.state = ConnectionState.FAILED
     

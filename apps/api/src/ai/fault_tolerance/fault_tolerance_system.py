@@ -1,4 +1,6 @@
 from src.core.utils.timezone_utils import utc_now
+
+from src.core.utils.async_utils import create_task_with_logging
 import asyncio
 import time
 from typing import Dict, List, Optional, Any
@@ -205,7 +207,7 @@ class FaultToleranceSystem:
             fault_event.resolved_at = utc_now()
             self.logger.info(f"Injected fault {fault_event.fault_id} auto-resolved")
         
-        asyncio.create_task(auto_resolve())
+        create_task_with_logging(auto_resolve())
         
         return fault_event.fault_id
     

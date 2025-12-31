@@ -16,6 +16,7 @@ from .models import (
     AppendEntriesResponse,
 )
 from src.core.utils.timezone_utils import utc_now
+from src.core.utils.async_utils import create_task_with_logging
 
 class RaftConsensusEngine:
     """Raft共识引擎"""
@@ -84,7 +85,7 @@ class RaftConsensusEngine:
         
         # 启动消息处理循环
         if self.message_bus:
-            asyncio.create_task(self._message_handler())
+            create_task_with_logging(self._message_handler())
     
     async def stop(self):
         """停止共识引擎"""
@@ -521,7 +522,7 @@ class RaftConsensusEngine:
         
         # 随机选举超时
         timeout = random.uniform(self.election_timeout_min, self.election_timeout_max)
-        self.election_timer = asyncio.create_task(self._election_timeout(timeout))
+        self.election_timer = create_task_with_logging(self._election_timeout(timeout))
     
     async def _election_timeout(self, timeout: float):
         """选举超时处理"""
@@ -538,7 +539,7 @@ class RaftConsensusEngine:
         if self.heartbeat_timer:
             self.heartbeat_timer.cancel()
         
-        self.heartbeat_timer = asyncio.create_task(self._heartbeat_loop())
+        self.heartbeat_timer = create_task_with_logging(self._heartbeat_loop())
     
     async def _heartbeat_loop(self):
         """心跳循环"""

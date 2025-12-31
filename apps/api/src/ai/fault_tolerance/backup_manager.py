@@ -4,6 +4,8 @@ import hashlib
 import time
 import os
 from src.core.utils import secure_pickle as pickle
+
+from src.core.utils.async_utils import create_task_with_logging
 from typing import Dict, List, Optional, Any
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
@@ -56,8 +58,8 @@ class BackupManager:
         self.running = True
         
         # 启动自动备份循环
-        asyncio.create_task(self._auto_backup_loop())
-        asyncio.create_task(self._cleanup_old_backups_loop())
+        create_task_with_logging(self._auto_backup_loop())
+        create_task_with_logging(self._cleanup_old_backups_loop())
         
         self.logger.info("Backup manager started")
     

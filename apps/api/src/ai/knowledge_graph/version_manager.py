@@ -6,7 +6,7 @@ import asyncio
 import json
 import hashlib
 from datetime import datetime
-from src.core.utils.timezone_utils import utc_now, utc_factory
+from src.core.utils.timezone_utils import utc_now
 from typing import Dict, List, Any, Optional, Set, Tuple
 from dataclasses import dataclass, asdict
 from enum import Enum

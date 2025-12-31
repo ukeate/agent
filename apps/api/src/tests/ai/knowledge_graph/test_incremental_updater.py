@@ -5,7 +5,7 @@
 import pytest
 from unittest.mock import Mock, AsyncMock
 from datetime import datetime
-from src.core.utils.timezone_utils import utc_now, utc_factory
+from src.core.utils.timezone_utils import utc_now
 from src.ai.knowledge_graph.incremental_updater import (
     IncrementalUpdater,
     ConflictResolutionStrategy,

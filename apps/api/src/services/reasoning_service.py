@@ -4,7 +4,7 @@ import asyncio
 from typing import List, Optional, Dict, Any, AsyncGenerator
 from uuid import UUID, uuid4
 from datetime import datetime
-from src.core.utils.timezone_utils import utc_now, utc_factory
+from src.core.utils.timezone_utils import utc_now
 from sqlalchemy import select, and_
 from src.models.schemas.reasoning import (
     ReasoningRequest,

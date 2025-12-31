@@ -3,7 +3,7 @@
 import hashlib
 import os
 from datetime import datetime
-from src.core.utils.timezone_utils import utc_now, utc_factory
+from src.core.utils.timezone_utils import utc_now
 from pathlib import Path
 from typing import Dict, List, Optional
 from qdrant_client.models import PointStruct, Filter, FieldCondition, MatchValue

@@ -13,7 +13,7 @@ from fastapi.testclient import TestClient
 from fastapi import BackgroundTasks
 from datetime import datetime
 from datetime import timedelta
-from src.core.utils.timezone_utils import utc_now, utc_factory
+from src.core.utils.timezone_utils import utc_now
 from api.v1.model_evaluation import router, get_evaluation_engine, get_benchmark_manager
 from ai.model_evaluation.evaluation_engine import ModelEvaluationEngine, EvaluationConfig
 from ai.model_evaluation.benchmark_manager import BenchmarkManager

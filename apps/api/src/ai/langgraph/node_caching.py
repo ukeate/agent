@@ -8,7 +8,7 @@ from typing import Any, Dict, Optional, Callable, Literal, Union
 from dataclasses import dataclass
 from datetime import datetime
 from datetime import timedelta
-from src.core.utils.timezone_utils import utc_now, utc_factory
+from src.core.utils.timezone_utils import utc_now
 import hashlib
 import json
 import asyncio

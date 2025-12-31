@@ -9,7 +9,7 @@ import json
 from typing import Dict, Set, List, Optional, Any, Callable
 from datetime import datetime
 from datetime import timedelta
-from src.core.utils.timezone_utils import utc_now, utc_factory
+from src.core.utils.timezone_utils import utc_now
 from fastapi import WebSocket, WebSocketDisconnect
 from dataclasses import dataclass, asdict
 from contextlib import asynccontextmanager

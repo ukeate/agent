@@ -7,7 +7,7 @@ import asyncio
 import json
 import uuid
 from datetime import datetime
-from src.core.utils.timezone_utils import utc_now, utc_factory, timezone
+from src.core.utils.timezone_utils import utc_now, timezone
 from typing import Dict, List, Optional, Any, Union
 from fastapi import APIRouter, HTTPException, Depends, BackgroundTasks, status, WebSocket, WebSocketDisconnect
 from pydantic import Field, ValidationError

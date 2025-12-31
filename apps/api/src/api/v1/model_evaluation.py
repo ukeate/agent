@@ -4,7 +4,7 @@ from typing import Dict, List, Optional, Any, Union
 from pydantic import Field
 from datetime import datetime
 from datetime import timedelta
-from src.core.utils.timezone_utils import utc_now, utc_factory
+from src.core.utils.timezone_utils import utc_now
 import asyncio
 import json
 import uuid

@@ -9,7 +9,7 @@ from typing import Dict, List, Optional, Any, Set, Callable
 from uuid import uuid4
 from datetime import datetime
 from datetime import timedelta
-from src.core.utils.timezone_utils import utc_now, utc_factory
+from src.core.utils.timezone_utils import utc_now
 from enum import Enum
 from dataclasses import dataclass, asdict
 import redis.asyncio as redis

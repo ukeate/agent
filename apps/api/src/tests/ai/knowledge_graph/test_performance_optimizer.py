@@ -7,7 +7,7 @@ import asyncio
 from unittest.mock import Mock, AsyncMock, patch
 from datetime import datetime
 from datetime import timedelta
-from src.core.utils.timezone_utils import utc_now, utc_factory
+from src.core.utils.timezone_utils import utc_now
 from src.ai.knowledge_graph.performance_optimizer import (
     PerformanceOptimizer,
     QueryPerformance,

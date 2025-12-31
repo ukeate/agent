@@ -7,7 +7,7 @@ from typing import Type, TypeVar, Any, Dict, List, Optional, get_origin, get_arg
 from pydantic import BaseModel, ValidationError
 import json
 from datetime import datetime
-from src.core.utils.timezone_utils import utc_now, utc_factory, timezone
+from src.core.utils.timezone_utils import utc_now, timezone
 import uuid
 import importlib
 from .context import AgentContext, ContextVersion

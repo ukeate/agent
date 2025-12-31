@@ -9,7 +9,7 @@ import numpy as np
 from typing import List, Dict, Any, Optional, Tuple, Union
 from datetime import datetime
 from datetime import timedelta
-from src.core.utils.timezone_utils import utc_now, utc_factory
+from src.core.utils.timezone_utils import utc_now
 from collections import defaultdict, deque
 from dataclasses import dataclass
 from enum import Enum

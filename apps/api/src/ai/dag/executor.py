@@ -7,7 +7,7 @@ import asyncio
 from typing import Any, Callable, Dict, List, Optional, Set
 from concurrent.futures import ThreadPoolExecutor, Future
 from datetime import datetime
-from src.core.utils.timezone_utils import utc_now, utc_factory
+from src.core.utils.timezone_utils import utc_now
 from .models import DAGWorkflow, DAGTask, TaskStatus, DAGNode
 
 from src.core.logging import get_logger

@@ -9,7 +9,7 @@ from typing import List, Dict, Any, Optional, Tuple
 from datetime import datetime
 from sqlalchemy import select, and_
 from sqlalchemy.ext.asyncio import AsyncSession
-from src.core.utils.timezone_utils import utc_now, utc_factory
+from src.core.utils.timezone_utils import utc_now
 from fastapi import APIRouter, Depends, HTTPException, status, Query, BackgroundTasks
 from src.services.user_assignment_cache import (
     UserAssignmentCache, 

@@ -5,7 +5,7 @@
 
 from typing import Any, Dict, List, Optional, Union, Tuple
 from datetime import datetime
-from src.core.utils.timezone_utils import utc_now, utc_factory
+from src.core.utils.timezone_utils import utc_now
 from dataclasses import dataclass
 from enum import Enum
 import uuid

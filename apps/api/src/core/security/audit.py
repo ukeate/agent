@@ -5,7 +5,7 @@
 import json
 import uuid
 from datetime import datetime
-from src.core.utils.timezone_utils import utc_now, utc_factory
+from src.core.utils.timezone_utils import utc_now
 from typing import Any, Dict, List, Optional
 from fastapi import Request, Response
 from pydantic import BaseModel

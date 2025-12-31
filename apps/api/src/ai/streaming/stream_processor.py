@@ -8,7 +8,9 @@ from typing import AsyncIterator, Dict, Any, Optional, List, Callable
 import asyncio
 import time
 from datetime import datetime
-from src.core.utils.timezone_utils import utc_now, utc_factory
+from src.core.utils.timezone_utils import utc_now
+
+from src.core.utils.async_utils import create_task_with_logging
 from dataclasses import dataclass
 from enum import Enum
 from .token_streamer import TokenStreamer, TokenStreamManager, StreamEvent, StreamType
@@ -410,13 +412,13 @@ class StreamProcessor:
                 except Exception as e:
                     logger.error(f"清理任务出错: {e}")
         
-        self._cleanup_task = asyncio.create_task(cleanup_loop())
+        self._cleanup_task = create_task_with_logging(cleanup_loop())
         
         # 启动背压监控
         if self.enable_backpressure and self.backpressure_manager:
-            asyncio.create_task(self.backpressure_manager.start_monitoring())
+            create_task_with_logging(self.backpressure_manager.start_monitoring())
             if self.queue_monitor:
-                asyncio.create_task(self.queue_monitor.start_monitoring())
+                create_task_with_logging(self.queue_monitor.start_monitoring())
     
     async def shutdown(self):
         """关闭流式处理引擎"""

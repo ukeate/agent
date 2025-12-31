@@ -5,7 +5,9 @@
 
 from typing import Any, Dict, List, Optional
 from datetime import datetime
-from src.core.utils.timezone_utils import utc_now, utc_factory
+from src.core.utils.timezone_utils import utc_now
+
+from src.core.utils.async_utils import create_task_with_logging
 import uuid
 import asyncio
 from src.ai.langgraph.state import MessagesState, create_initial_state
@@ -225,7 +227,7 @@ class WorkflowService:
             initial_state["metadata"]["started_at"] = utc_now().isoformat()
             
             # 异步执行工作流
-            asyncio.create_task(self._execute_workflow(workflow_id, builder, initial_state))
+            create_task_with_logging(self._execute_workflow(workflow_id, builder, initial_state))
             
             # 更新数据库状态
             await self.repository.update_workflow(workflow_id, {

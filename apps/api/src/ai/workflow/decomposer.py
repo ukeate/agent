@@ -8,7 +8,7 @@ import json
 from typing import Dict, List, Optional, Any, Tuple, Set
 from uuid import uuid4
 from datetime import datetime
-from src.core.utils.timezone_utils import utc_now, utc_factory
+from src.core.utils.timezone_utils import utc_now
 import networkx as nx
 from src.models.schemas.workflow import (
     TaskDecompositionRequest, TaskNode, TaskDAG, WorkflowStepType,

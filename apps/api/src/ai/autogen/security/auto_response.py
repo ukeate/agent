@@ -12,7 +12,7 @@ from datetime import datetime, timedelta
 from enum import Enum
 from typing import Any, Callable, Dict, List, Optional, Set
 
-from src.core.utils.timezone_utils import utc_now, utc_factory
+from src.core.utils.timezone_utils import utc_now
 from .trism import ThreatLevel, SecurityEvent
 from .attack_detection import AttackType, DetectionResult
 

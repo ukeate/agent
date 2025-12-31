@@ -3,7 +3,7 @@ import hashlib
 from typing import Dict, Optional, Any, List
 from datetime import datetime
 from datetime import timedelta
-from src.core.utils.timezone_utils import utc_now, utc_factory
+from src.core.utils.timezone_utils import utc_now
 from redis.asyncio import Redis
 import asyncio
 from src.models.schemas.personalization import RecommendationResponse, RecommendationRequest

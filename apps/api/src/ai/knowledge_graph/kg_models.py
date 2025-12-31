@@ -7,7 +7,7 @@ import uuid
 from src.core.utils import secure_pickle as pickle
 import gzip
 from datetime import datetime
-from src.core.utils.timezone_utils import utc_now, utc_factory
+from src.core.utils.timezone_utils import utc_now
 from typing import Dict, List, Any, Optional, Union, Set, Type, Generic, TypeVar
 from dataclasses import dataclass, field, asdict
 from enum import Enum

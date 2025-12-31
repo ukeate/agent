@@ -4,7 +4,7 @@ A/B测试统计分析引擎 - 基于SciPy和statsmodels实现统计检验和功�
 
 from typing import Dict, Any, Optional
 from datetime import datetime
-from src.core.utils.timezone_utils import utc_now, utc_factory
+from src.core.utils.timezone_utils import utc_now
 
 from src.core.logging import get_logger
 logger = get_logger(__name__)

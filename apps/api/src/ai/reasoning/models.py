@@ -1,7 +1,7 @@
 """推理链持久化模型"""
 
 from datetime import datetime
-from src.core.utils.timezone_utils import utc_now, utc_factory
+from src.core.utils.timezone_utils import utc_now
 from typing import Optional
 from uuid import UUID
 from sqlalchemy import Column, DateTime, Float, Integer, JSON, String, Text, Boolean

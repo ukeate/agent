@@ -6,7 +6,7 @@ import hashlib
 from typing import List, Dict, Any, Optional, Tuple, Union
 from enum import Enum
 from datetime import datetime
-from src.core.utils.timezone_utils import utc_now, utc_factory, timezone
+from src.core.utils.timezone_utils import utc_now, timezone
 from dataclasses import dataclass
 from src.models.schemas.experiment import TrafficAllocation
 from src.services.traffic_splitter import TrafficSplitter

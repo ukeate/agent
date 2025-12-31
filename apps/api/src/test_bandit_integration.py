@@ -2,7 +2,7 @@ import asyncio
 import sys
 import os
 from datetime import datetime
-from src.core.utils.timezone_utils import utc_now, utc_factory
+from src.core.utils.timezone_utils import utc_now
 import json
 from src.services.bandit_recommendation_service import BanditRecommendationService
 from src.ai.reinforcement_learning.recommendation_engine import AlgorithmType

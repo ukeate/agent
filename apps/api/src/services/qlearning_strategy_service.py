@@ -10,7 +10,7 @@ from typing import Dict, List, Any, Optional, Tuple
 from dataclasses import dataclass
 from datetime import datetime
 from datetime import timedelta
-from src.core.utils.timezone_utils import utc_now, utc_factory
+from src.core.utils.timezone_utils import utc_now
 import json
 from pathlib import Path
 from .qlearning_service import QLearningService, QLearningAgentSession

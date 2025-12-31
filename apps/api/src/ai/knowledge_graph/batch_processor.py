@@ -19,6 +19,8 @@ from pathlib import Path
 from datetime import datetime
 from datetime import timedelta
 from src.core.utils.timezone_utils import utc_now, utc_factory
+
+from src.core.utils.async_utils import create_task_with_logging
 import json
 import hashlib
 from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
@@ -306,7 +308,7 @@ class TaskScheduler:
         # 判断是否需要重试
         if task.retry_count < task.max_retries:
             # 重新加入队列进行重试
-            asyncio.create_task(self.add_task(task))
+            create_task_with_logging(self.add_task(task))
             self.logger.info(f"任务将重试: {task.task_id}, 重试次数: {task.retry_count}")
         else:
             self.failed_tasks[task.task_id] = task
@@ -389,7 +391,7 @@ class BatchProcessor:
         
         # 启动工作协程
         for i in range(worker_count):
-            worker_task = asyncio.create_task(
+            worker_task = create_task_with_logging(
                 self._worker_loop(f"worker-{i}")
             )
             self.worker_tasks.append(worker_task)

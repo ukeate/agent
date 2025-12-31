@@ -6,7 +6,7 @@
 
 import pytest
 from datetime import datetime
-from src.core.utils.timezone_utils import utc_now, utc_factory
+from src.core.utils.timezone_utils import utc_now
 from uuid import uuid4
 from ai.knowledge_graph.data_models import (
     Entity, Relation, KnowledgeGraph, TripleStore,

@@ -4,7 +4,7 @@ import time
 from typing import Dict, Optional, Any, List
 from datetime import datetime
 from datetime import timedelta
-from src.core.utils.timezone_utils import utc_now, utc_factory
+from src.core.utils.timezone_utils import utc_now
 from dataclasses import dataclass
 from redis.asyncio import Redis
 import numpy as np

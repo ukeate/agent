@@ -7,7 +7,7 @@ import pytest
 import asyncio
 from datetime import datetime
 from datetime import timedelta
-from src.core.utils.timezone_utils import utc_now, utc_factory
+from src.core.utils.timezone_utils import utc_now
 from unittest.mock import Mock, AsyncMock, patch, MagicMock
 from uuid import uuid4
 import structlog

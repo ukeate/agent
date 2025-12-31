@@ -9,7 +9,7 @@ import secrets
 import uuid
 from datetime import datetime
 from datetime import timedelta
-from src.core.utils.timezone_utils import utc_now, utc_factory
+from src.core.utils.timezone_utils import utc_now
 from typing import List, Optional
 from pydantic import Field
 from fastapi import APIRouter, Depends, HTTPException, Query, status

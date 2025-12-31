@@ -6,7 +6,7 @@ import pytest
 import asyncio
 from unittest.mock import Mock, AsyncMock, patch
 from datetime import datetime
-from src.core.utils.timezone_utils import utc_now, utc_factory
+from src.core.utils.timezone_utils import utc_now
 from uuid import uuid4
 import networkx as nx
 from src.ai.workflow.engine import WorkflowEngine, WorkflowValidationError, WorkflowExecutionError

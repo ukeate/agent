@@ -12,7 +12,7 @@ import time
 import heapq
 from datetime import datetime
 from datetime import timedelta
-from src.core.utils.timezone_utils import utc_now, utc_factory
+from src.core.utils.timezone_utils import utc_now
 import statistics
 import psutil
 import gc

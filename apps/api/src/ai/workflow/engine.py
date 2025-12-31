@@ -7,7 +7,7 @@ import asyncio
 from typing import Dict, List, Optional, Any, Set, Tuple
 from uuid import uuid4
 from datetime import datetime
-from src.core.utils.timezone_utils import utc_now, utc_factory
+from src.core.utils.timezone_utils import utc_now
 from enum import Enum
 import networkx as nx
 from pydantic import BaseModel

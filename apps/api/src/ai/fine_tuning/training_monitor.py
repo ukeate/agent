@@ -8,7 +8,7 @@ import json
 import os
 from typing import Dict, Any, List, Optional
 from datetime import datetime
-from src.core.utils.timezone_utils import utc_now, utc_factory
+from src.core.utils.timezone_utils import utc_now
 from collections import defaultdict, deque
 import threading
 

@@ -5,6 +5,7 @@ from datetime import datetime
 from typing import Dict, List, Optional, Any, Callable
 from .models import TaskStatus
 from src.core.utils.timezone_utils import utc_now
+from src.core.utils.async_utils import create_task_with_logging
 
 class DistributedStateManager:
     """分布式状态管理器"""
@@ -30,8 +31,8 @@ class DistributedStateManager:
         self.checkpoints: Dict[str, Dict[str, Any]] = {}
         
         # 启动状态管理循环
-        asyncio.create_task(self._start_state_sync_loop())
-        asyncio.create_task(self._start_consistency_check_loop())
+        create_task_with_logging(self._start_state_sync_loop())
+        create_task_with_logging(self._start_consistency_check_loop())
     
     async def set_global_state(
         self, 

@@ -13,7 +13,9 @@ import platform
 import os
 from datetime import datetime
 from datetime import timedelta
-from src.core.utils.timezone_utils import utc_now, utc_factory
+from src.core.utils.timezone_utils import utc_now
+
+from src.core.utils.async_utils import create_task_with_logging
 from typing import Dict, List, Optional, Any, Callable, Union, Tuple
 from dataclasses import dataclass, field
 from collections import defaultdict, deque
@@ -249,7 +251,7 @@ class PerformanceMonitor:
         """检查性能阈值"""
         threshold = self.performance_thresholds.get(metric.name)
         if threshold and metric.value > threshold:
-            asyncio.create_task(self._emit_performance_alert(metric, threshold))
+            create_task_with_logging(self._emit_performance_alert(metric, threshold))
     
     async def _emit_performance_alert(
         self,
@@ -1792,9 +1794,9 @@ class EnterpriseMonitoringManager:
         )
         
         # 启动后台任务
-        asyncio.create_task(self._health_check_loop())
-        asyncio.create_task(self._metrics_collection_loop())
-        asyncio.create_task(self._audit_flush_loop())
+        create_task_with_logging(self._health_check_loop())
+        create_task_with_logging(self._metrics_collection_loop())
+        create_task_with_logging(self._audit_flush_loop())
     
     async def stop_monitoring(self):
         """停止监控"""

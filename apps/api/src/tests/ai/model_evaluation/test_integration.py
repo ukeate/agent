@@ -12,7 +12,7 @@ import json
 from pathlib import Path
 from datetime import datetime
 from datetime import timedelta
-from src.core.utils.timezone_utils import utc_now, utc_factory
+from src.core.utils.timezone_utils import utc_now
 from unittest.mock import Mock, patch, AsyncMock, MagicMock
 from ai.model_evaluation.evaluation_engine import ModelEvaluationEngine, EvaluationConfig
 from ai.model_evaluation.benchmark_manager import BenchmarkManager, BenchmarkConfig

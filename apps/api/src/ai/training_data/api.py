@@ -10,7 +10,7 @@
 """
 
 from datetime import datetime
-from src.core.utils.timezone_utils import utc_now, utc_factory
+from src.core.utils.timezone_utils import utc_now
 from typing import Dict, Any, List, Optional
 from fastapi import APIRouter, HTTPException, Depends, BackgroundTasks, Query, UploadFile, File
 from fastapi.responses import FileResponse

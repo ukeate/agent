@@ -4,6 +4,8 @@
 """
 
 from src.core.utils.timezone_utils import utc_now
+
+from src.core.utils.async_utils import create_task_with_logging
 import asyncio
 import json
 import time
@@ -110,11 +112,11 @@ class EmotionalDataFlowManagerImpl(EmotionalDataFlowManager):
         self._logger.info("Starting emotional data flow manager")
         
         # 启动协议服务
-        asyncio.create_task(self._protocol.start())
+        create_task_with_logging(self._protocol.start())
         
         # 启动监控任务
-        asyncio.create_task(self._monitor_flows())
-        asyncio.create_task(self._calculate_throughput())
+        create_task_with_logging(self._monitor_flows())
+        create_task_with_logging(self._calculate_throughput())
     
     async def stop(self):
         """停止数据流管理器"""

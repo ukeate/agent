@@ -6,7 +6,9 @@ from contextlib import contextmanager
 from typing import Dict, Any, Optional, List
 from datetime import datetime
 from datetime import timedelta
-from src.core.utils.timezone_utils import utc_now, utc_factory
+from src.core.utils.timezone_utils import utc_now
+
+from src.core.utils.async_utils import create_task_with_logging
 import time
 import asyncio
 from enum import Enum
@@ -55,7 +57,7 @@ class MetricsCollector:
     
     async def start(self):
         """启动收集器"""
-        self._cleanup_task = asyncio.create_task(self._cleanup_old_metrics())
+        self._cleanup_task = create_task_with_logging(self._cleanup_old_metrics())
     
     async def stop(self):
         """停止收集器"""
@@ -90,7 +92,7 @@ class MetricsCollector:
     def increment(self, name: str, value: float = 1, tags: Optional[Dict[str, Any]] = None):
         labels = {k: str(v) for k, v in (tags or {}).items()}
         try:
-            asyncio.get_running_loop().create_task(self.record_counter(name, value, labels))
+            create_task_with_logging(self.record_counter(name, value, labels))
         except RuntimeError:
             return
 
@@ -103,7 +105,7 @@ class MetricsCollector:
             duration = time.perf_counter() - start
             labels = {k: str(v) for k, v in (tags or {}).items()}
             try:
-                asyncio.get_running_loop().create_task(self.record_timing(name, duration, labels))
+                create_task_with_logging(self.record_timing(name, duration, labels))
             except RuntimeError:
                 logger.debug("事件循环不可用，跳过计时记录", exc_info=True)
     
@@ -359,7 +361,7 @@ async def init_metrics():
     """初始化指标收集"""
     await metrics_collector.start()
     # 启动系统监控
-    asyncio.create_task(system_metrics.start_monitoring())
+    create_task_with_logging(system_metrics.start_monitoring())
 
 async def cleanup_metrics():
     """清理指标收集"""

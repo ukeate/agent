@@ -11,7 +11,7 @@ from dataclasses import dataclass
 import asyncio
 from datetime import datetime
 from datetime import timedelta
-from src.core.utils.timezone_utils import utc_now, utc_factory, timezone
+from src.core.utils.timezone_utils import utc_now, timezone
 import json
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession

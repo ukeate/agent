@@ -6,7 +6,7 @@
 import asyncio
 from datetime import datetime
 from datetime import timedelta
-from src.core.utils.timezone_utils import utc_now, utc_factory
+from src.core.utils.timezone_utils import utc_now
 from typing import Optional
 from src.services.task_executor import task_executor
 

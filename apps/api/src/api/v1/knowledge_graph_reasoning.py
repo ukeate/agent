@@ -9,7 +9,7 @@ from fastapi import APIRouter, HTTPException, Depends, BackgroundTasks, Query
 from pydantic import Field
 import asyncio
 from datetime import datetime
-from src.core.utils.timezone_utils import utc_now, utc_factory
+from src.core.utils.timezone_utils import utc_now
 from src.ai.knowledge_graph.hybrid_reasoner import (
     HybridReasoner, ReasoningRequest, HybridReasoningResult,
     ReasoningStrategy, ConfidenceWeights

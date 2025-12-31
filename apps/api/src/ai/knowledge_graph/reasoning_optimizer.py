@@ -24,7 +24,9 @@ from collections import defaultdict, OrderedDict
 from dataclasses import dataclass, field
 from datetime import datetime
 from datetime import timedelta
-from src.core.utils.timezone_utils import utc_now, utc_factory
+from src.core.utils.timezone_utils import utc_now
+
+from src.core.utils.async_utils import create_task_with_logging
 from enum import Enum
 from typing import Dict, List, Optional, Any, Tuple, Callable, Union
 import json
@@ -388,7 +390,7 @@ class TaskScheduler:
         """启动调度器"""
         self.running = True
         # 启动调度循环
-        asyncio.create_task(self._scheduling_loop())
+        create_task_with_logging(self._scheduling_loop())
         logger.info("Task scheduler started")
     
     async def stop(self):

@@ -6,7 +6,7 @@ import asyncio
 import json
 from datetime import datetime
 from datetime import timedelta
-from src.core.utils.timezone_utils import utc_now, utc_factory
+from src.core.utils.timezone_utils import utc_now
 from enum import Enum
 from typing import Any, Dict, List, Optional, Set
 from pydantic import BaseModel, Field

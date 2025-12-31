@@ -9,7 +9,7 @@ import numpy as np
 import json
 from datetime import datetime
 from datetime import timedelta
-from src.core.utils.timezone_utils import utc_now, utc_factory
+from src.core.utils.timezone_utils import utc_now
 from dataclasses import dataclass, asdict
 from abc import ABC, abstractmethod
 import uuid

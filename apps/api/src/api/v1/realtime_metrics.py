@@ -6,7 +6,7 @@ from typing import List, Dict, Any, Optional
 from fastapi import APIRouter, HTTPException, Query, BackgroundTasks, Request, Depends
 from pydantic import Field, field_validator, ConfigDict
 from datetime import datetime
-from src.core.utils.timezone_utils import utc_now, utc_factory
+from src.core.utils.timezone_utils import utc_now
 from src.ai.cluster import MetricsCollector
 from src.services.realtime_metrics_service import (
     get_realtime_metrics_service,

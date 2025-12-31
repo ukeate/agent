@@ -5,7 +5,7 @@ from typing import List, Dict, Optional, Tuple, Set, Any
 import networkx as nx
 import numpy as np
 from datetime import datetime
-from src.core.utils.timezone_utils import utc_now, utc_factory
+from src.core.utils.timezone_utils import utc_now
 from .models import Memory, MemoryType
 from .storage import MemoryStorage
 

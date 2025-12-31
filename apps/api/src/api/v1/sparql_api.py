@@ -20,7 +20,7 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Upload
 from fastapi.responses import Response, StreamingResponse
 from pydantic import Field, field_validator
 from src.core.redis import get_redis
-from src.core.utils.timezone_utils import utc_now, utc_factory
+from src.core.utils.timezone_utils import utc_now
 from src.api.base_model import ApiBaseModel
 from src.ai.knowledge_graph.sparql_engine import (
     ResultFormat,

@@ -3,7 +3,7 @@ import torch
 import numpy as np
 from unittest.mock import Mock, patch, MagicMock
 from datetime import datetime
-from src.core.utils.timezone_utils import utc_now, utc_factory
+from src.core.utils.timezone_utils import utc_now
 from pathlib import Path
 import asyncio
 import tempfile

@@ -4,7 +4,7 @@ import asyncio
 from typing import List, Optional, Dict, Any, Tuple
 from datetime import datetime
 from datetime import timedelta
-from src.core.utils.timezone_utils import utc_now, utc_factory
+from src.core.utils.timezone_utils import utc_now
 import numpy as np
 from qdrant_client.models import Filter, FieldCondition, MatchValue, Range
 from .models import Memory, MemoryType, MemoryStatus

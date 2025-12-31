@@ -13,7 +13,7 @@ import json
 import gzip
 import hashlib
 from datetime import datetime, timedelta
-from src.core.utils.timezone_utils import utc_now, utc_factory
+from src.core.utils.timezone_utils import utc_now
 from typing import Dict, Any, List, Optional, Tuple
 from pathlib import Path
 from contextlib import contextmanager

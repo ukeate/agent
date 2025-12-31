@@ -14,7 +14,7 @@ from pydantic import Field
 import asyncio
 import os
 from datetime import datetime
-from src.core.utils.timezone_utils import utc_now, utc_factory
+from src.core.utils.timezone_utils import utc_now
 from src.ai.model_compression import (
     CompressionPipeline,
     CompressionJob,

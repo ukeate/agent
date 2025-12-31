@@ -8,7 +8,7 @@ from fastapi import APIRouter, HTTPException, BackgroundTasks, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Dict, List, Optional, Any
 from datetime import datetime
-from src.core.utils.timezone_utils import utc_now, utc_factory
+from src.core.utils.timezone_utils import utc_now
 import json
 from uuid import UUID
 from src.ai.hyperparameter_optimization.experiment_manager import ExperimentManager

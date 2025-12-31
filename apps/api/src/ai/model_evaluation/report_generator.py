@@ -7,7 +7,7 @@ from typing import Dict, List, Optional, Any, Union
 from dataclasses import dataclass, asdict
 from datetime import datetime
 from datetime import timedelta
-from src.core.utils.timezone_utils import utc_now, utc_factory
+from src.core.utils.timezone_utils import utc_now
 from pathlib import Path
 from jinja2 import Template, Environment, FileSystemLoader
 import plotly.graph_objects as go

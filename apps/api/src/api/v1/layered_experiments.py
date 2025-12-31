@@ -4,7 +4,7 @@
 
 from typing import List, Dict, Any, Optional
 from datetime import datetime
-from src.core.utils.timezone_utils import utc_now, utc_factory
+from src.core.utils.timezone_utils import utc_now
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from collections import defaultdict
 from src.services.layered_experiment_manager import (

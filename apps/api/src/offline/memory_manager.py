@@ -14,7 +14,7 @@ import gzip
 from src.core.utils import secure_pickle as pickle
 from datetime import datetime
 from datetime import timedelta
-from src.core.utils.timezone_utils import utc_now, utc_factory
+from src.core.utils.timezone_utils import utc_now
 from typing import Dict, Any, List, Optional, Tuple, Set
 from pathlib import Path
 from dataclasses import dataclass, asdict

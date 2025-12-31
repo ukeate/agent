@@ -7,7 +7,7 @@ from typing import Any, Dict, List, Optional, TypedDict, Annotated
 from typing_extensions import TypedDict as TypedDictExt
 from dataclasses import dataclass, field
 from datetime import datetime
-from src.core.utils.timezone_utils import utc_now, utc_factory, timezone
+from src.core.utils.timezone_utils import utc_now, timezone
 import uuid
 import json
 

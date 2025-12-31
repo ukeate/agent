@@ -11,7 +11,7 @@ from enum import Enum
 import json
 import statistics
 from datetime import datetime
-from src.core.utils.timezone_utils import utc_now, utc_factory
+from src.core.utils.timezone_utils import utc_now
 from collections import defaultdict
 from .batch_processor import BatchTask, BatchJob, BatchStatus
 

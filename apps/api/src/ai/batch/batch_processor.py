@@ -11,7 +11,9 @@ from enum import Enum
 import uuid
 import time
 from datetime import datetime
-from src.core.utils.timezone_utils import utc_now, utc_factory
+from src.core.utils.timezone_utils import utc_now
+
+from src.core.utils.async_utils import create_task_with_logging
 from concurrent.futures import ThreadPoolExecutor
 import json
 import hashlib
@@ -138,11 +140,11 @@ class BatchProcessor:
         
         # 启动工作者
         for i in range(self.max_workers):
-            worker = asyncio.create_task(self._worker(f"worker-{i}"))
+            worker = create_task_with_logging(self._worker(f"worker-{i}"))
             self.workers.append(worker)
         
         # 启动结果处理器
-        self._result_processor = asyncio.create_task(self._process_results())
+        self._result_processor = create_task_with_logging(self._process_results())
         
     async def stop(self):
         """停止批处理引擎"""
@@ -433,7 +435,7 @@ class BatchProcessor:
             logger.info(f"任务重试: {task.id} (第{task.retry_count}次, 延迟: {retry_delay:.1f}s)")
             
             # 延迟后重新加入队列
-            asyncio.create_task(self._delayed_retry(job.id, task, retry_delay))
+            create_task_with_logging(self._delayed_retry(job.id, task, retry_delay))
         else:
             # 达到最大重试次数
             await self.result_queue.put((failure_type, job.id, task))

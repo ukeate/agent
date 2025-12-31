@@ -5,7 +5,7 @@ import asyncio
 import json
 import uuid
 from datetime import datetime
-from src.core.utils.timezone_utils import utc_now, utc_factory
+from src.core.utils.timezone_utils import utc_now
 from src.models.schemas.personalization import (
     RecommendationRequest,
     RecommendationResponse,

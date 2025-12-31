@@ -7,7 +7,9 @@ import json
 import time
 from datetime import datetime
 from datetime import timedelta
-from src.core.utils.timezone_utils import utc_now, utc_factory
+from src.core.utils.timezone_utils import utc_now
+
+from src.core.utils.async_utils import create_task_with_logging
 from typing import Dict, List, Optional, Any, Callable, Set
 from dataclasses import dataclass, field
 from collections import defaultdict, deque
@@ -305,7 +307,7 @@ class EventBufferService:
         
         # 如果是关键事件，触发立即刷新
         if priority == BufferPriority.CRITICAL:
-            asyncio.create_task(self._flush_buffer(buffer))
+            create_task_with_logging(self._flush_buffer(buffer))
         
         return success
     

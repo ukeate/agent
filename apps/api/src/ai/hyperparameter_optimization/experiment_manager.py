@@ -9,6 +9,8 @@ from fastapi import HTTPException
 from typing import Dict, List, Optional, Any, Callable, AsyncContextManager
 import uuid as uuid_lib
 from src.core.utils.timezone_utils import utc_now
+
+from src.core.utils.async_utils import create_task_with_logging
 import json
 import asyncio
 from sqlalchemy import select, func
@@ -201,7 +203,7 @@ class ExperimentManager:
                     "start_time": utc_now()
                 }
                 
-                asyncio.create_task(self._run_optimization(experiment_id, objective_function))
+                create_task_with_logging(self._run_optimization(experiment_id, objective_function))
                 
                 self.logger.info(f"Started experiment: {experiment_id}")
                 

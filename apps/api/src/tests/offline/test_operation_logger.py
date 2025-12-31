@@ -7,7 +7,7 @@ import tempfile
 import json
 from datetime import datetime
 from datetime import timedelta
-from src.core.utils.timezone_utils import utc_now, utc_factory
+from src.core.utils.timezone_utils import utc_now
 from uuid import uuid4
 from ...offline.operation_logger import OperationLogger, OperationType, Operation
 from ...offline.state_manager import StateManager, SnapshotType, CompressionType

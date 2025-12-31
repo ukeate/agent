@@ -8,7 +8,7 @@ from typing import List, Dict, Any, Optional
 from fastapi import APIRouter, HTTPException, BackgroundTasks, Depends, Query
 from datetime import datetime
 from datetime import timedelta
-from src.core.utils.timezone_utils import utc_now, utc_factory
+from src.core.utils.timezone_utils import utc_now
 import asyncio
 import uuid
 from pydantic import Field

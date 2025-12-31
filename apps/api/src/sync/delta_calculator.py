@@ -11,7 +11,7 @@ from typing import Dict, Any, List, Optional, Tuple, Set, Union
 from dataclasses import dataclass, field
 from enum import Enum
 from datetime import datetime
-from src.core.utils.timezone_utils import utc_now, utc_factory
+from src.core.utils.timezone_utils import utc_now
 from ..models.schemas.offline import SyncOperation, SyncOperationType, VectorClock
 
 from src.core.logging import get_logger

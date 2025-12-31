@@ -1,4 +1,6 @@
 from src.core.utils.timezone_utils import utc_now
+
+from src.core.utils.async_utils import create_task_with_logging
 import asyncio
 import json
 import hashlib
@@ -46,7 +48,7 @@ class ConsistencyManager:
         self.running = True
         
         # 启动一致性检查循环
-        asyncio.create_task(self._consistency_check_loop())
+        create_task_with_logging(self._consistency_check_loop())
         
         self.logger.info("Consistency manager started")
     

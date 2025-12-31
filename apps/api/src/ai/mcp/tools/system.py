@@ -6,7 +6,7 @@ import signal
 import psutil
 from typing import Any, Dict, List, Optional
 from datetime import datetime
-from src.core.utils.timezone_utils import utc_now, utc_factory
+from src.core.utils.timezone_utils import utc_now
 from ..client import get_mcp_client_manager
 from ..exceptions import MCPConnectionError
 

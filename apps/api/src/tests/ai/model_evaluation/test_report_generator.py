@@ -11,7 +11,7 @@ import json
 from pathlib import Path
 from datetime import datetime
 from datetime import timedelta
-from src.core.utils.timezone_utils import utc_now, utc_factory
+from src.core.utils.timezone_utils import utc_now
 from unittest.mock import Mock, patch, MagicMock
 from typing import List, Dict, Any
 from ai.model_evaluation.report_generator import (

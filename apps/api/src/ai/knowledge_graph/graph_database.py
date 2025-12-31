@@ -7,7 +7,7 @@ import asyncio
 from contextlib import asynccontextmanager
 from typing import Any, Dict, List, Optional, Union
 from datetime import datetime
-from src.core.utils.timezone_utils import utc_now, utc_factory
+from src.core.utils.timezone_utils import utc_now
 import neo4j
 from neo4j import AsyncGraphDatabase, AsyncDriver, AsyncSession, AsyncManagedTransaction
 from neo4j.exceptions import (

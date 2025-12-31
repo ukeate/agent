@@ -4,7 +4,7 @@ import asyncio
 from typing import List, Optional, Dict, Any
 from datetime import datetime
 from datetime import timedelta
-from src.core.utils.timezone_utils import utc_now, utc_factory
+from src.core.utils.timezone_utils import utc_now
 from collections import deque
 from .models import Memory, MemoryType, MemoryStatus
 from .storage import MemoryStorage

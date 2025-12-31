@@ -6,7 +6,9 @@ from typing import Any, Dict, Optional, Callable
 import asyncio
 from datetime import datetime
 from datetime import timedelta
-from src.core.utils.timezone_utils import utc_now, utc_factory
+from src.core.utils.timezone_utils import utc_now
+
+from src.core.utils.async_utils import create_task_with_logging
 from dataclasses import dataclass, field
 from enum import Enum
 from .state import MessagesState
@@ -136,8 +138,8 @@ class TimeoutManager:
                 return result
             
             # 并发执行，哪个先完成就返回哪个结果
-            timeout_task = asyncio.create_task(timeout_handler())
-            execute_task_obj = asyncio.create_task(execute_task())
+            timeout_task = create_task_with_logging(timeout_handler())
+            execute_task_obj = create_task_with_logging(execute_task())
             
             try:
                 done, pending = await asyncio.wait(
@@ -243,7 +245,7 @@ class TimeoutManager:
             except asyncio.CancelledError:
                 raise  # 正常取消监控
         
-        self.active_timeouts[workflow_id] = asyncio.create_task(workflow_timeout_monitor())
+        self.active_timeouts[workflow_id] = create_task_with_logging(workflow_timeout_monitor())
     
     async def stop_workflow_timeout(self, workflow_id: str):
         """停止工作流级超时监控"""
@@ -277,7 +279,7 @@ class TimeoutManager:
             except asyncio.CancelledError:
                 raise
         
-        self.active_timeouts[idle_key] = asyncio.create_task(idle_timeout_monitor())
+        self.active_timeouts[idle_key] = create_task_with_logging(idle_timeout_monitor())
     
     def reset_idle_timeout(self, workflow_id: str):
         """重置空闲超时"""
@@ -285,7 +287,7 @@ class TimeoutManager:
         if idle_key in self.active_timeouts:
             self.active_timeouts[idle_key].cancel()
             # 重新启动空闲监控
-            asyncio.create_task(self.start_idle_timeout(workflow_id))
+            create_task_with_logging(self.start_idle_timeout(workflow_id))
     
     def cleanup(self, workflow_id: str):
         """清理超时监控"""

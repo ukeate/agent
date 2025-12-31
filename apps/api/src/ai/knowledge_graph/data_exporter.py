@@ -8,7 +8,7 @@ import csv
 import io
 import zipfile
 from datetime import datetime
-from src.core.utils.timezone_utils import utc_now, utc_factory
+from src.core.utils.timezone_utils import utc_now
 from typing import Dict, List, Any, Optional, Union, AsyncGenerator, TextIO
 from enum import Enum
 from dataclasses import dataclass, asdict

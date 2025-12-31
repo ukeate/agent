@@ -7,7 +7,7 @@ import asyncio
 import json
 from typing import Dict, List, Optional, Any, Callable
 from datetime import datetime
-from src.core.utils.timezone_utils import utc_now, utc_factory, timezone
+from src.core.utils.timezone_utils import utc_now, timezone
 from dataclasses import dataclass
 import redis.asyncio as redis_async
 

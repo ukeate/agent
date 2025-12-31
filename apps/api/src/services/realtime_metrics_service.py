@@ -7,7 +7,7 @@ import math
 from typing import Dict, List, Optional, Any, Tuple, Union
 from datetime import datetime
 from datetime import timedelta
-from src.core.utils.timezone_utils import utc_now, utc_factory, timezone
+from src.core.utils.timezone_utils import utc_now, timezone
 from dataclasses import dataclass, field
 from enum import Enum
 from collections import defaultdict, deque

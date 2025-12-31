@@ -8,7 +8,7 @@ import json
 import uuid
 from datetime import datetime
 from datetime import timedelta
-from src.core.utils.timezone_utils import utc_now, utc_factory
+from src.core.utils.timezone_utils import utc_now
 from typing import Dict, List, Optional, Any, Tuple
 from dataclasses import asdict
 import redis.asyncio as redis_async

@@ -1,4 +1,6 @@
 from src.core.utils.timezone_utils import utc_now
+
+from src.core.utils.async_utils import create_task_with_logging
 import asyncio
 import time
 from typing import Dict, List, Optional, Any
@@ -75,7 +77,7 @@ class RecoveryManager:
         self.running = True
         
         # 启动恢复处理循环
-        asyncio.create_task(self._recovery_processing_loop())
+        create_task_with_logging(self._recovery_processing_loop())
         
         self.logger.info("Recovery manager started")
     

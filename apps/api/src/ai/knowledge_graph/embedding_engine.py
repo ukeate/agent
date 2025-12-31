@@ -25,7 +25,7 @@ from typing import Dict, List, Tuple, Optional, Any, Union
 from dataclasses import dataclass, field
 from enum import Enum
 from datetime import datetime
-from src.core.utils.timezone_utils import utc_now, utc_factory
+from src.core.utils.timezone_utils import utc_now
 from src.core.utils import secure_pickle as pickle
 import json
 from pathlib import Path

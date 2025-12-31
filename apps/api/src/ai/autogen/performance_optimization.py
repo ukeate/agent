@@ -13,7 +13,7 @@ from typing import Dict, List, Optional, Any, Callable, Union, Tuple
 from dataclasses import dataclass, field
 from datetime import datetime
 from datetime import timedelta
-from src.core.utils.timezone_utils import utc_now, utc_factory
+from src.core.utils.timezone_utils import utc_now
 from enum import Enum
 import weakref
 import gc

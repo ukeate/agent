@@ -4,7 +4,9 @@ import uuid
 import hashlib
 from typing import Dict, List, Optional, Any
 from datetime import datetime
-from src.core.utils.timezone_utils import utc_now, utc_factory
+from src.core.utils.timezone_utils import utc_now
+
+from src.core.utils.async_utils import create_task_with_logging
 from redis.asyncio import Redis
 import numpy as np
 from sqlalchemy import text
@@ -86,7 +88,7 @@ class PersonalizationEngine:
         await self.model_service.initialize()
         
         # 预热缓存
-        asyncio.create_task(self._warm_up_cache())
+        create_task_with_logging(self._warm_up_cache())
         
     async def stop(self):
         """停止个性化引擎"""
@@ -788,7 +790,7 @@ class PersonalizationEngine:
             logger.warning(f"熔断器开启: 错误率 {error_rate:.2%}")
             
             # 设置恢复任务
-            asyncio.create_task(self._recover_circuit_breaker())
+            create_task_with_logging(self._recover_circuit_breaker())
     
     async def _recover_circuit_breaker(self):
         """恢复熔断器"""

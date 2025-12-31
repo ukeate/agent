@@ -7,7 +7,7 @@ import json
 import tempfile
 from pathlib import Path
 from datetime import datetime
-from src.core.utils.timezone_utils import utc_now, utc_factory, timezone
+from src.core.utils.timezone_utils import utc_now, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
 from src.ai.training_data_management.models import DataRecord, DataVersion
 from src.ai.training_data_management.version_manager import DataVersionManager

@@ -14,7 +14,7 @@ import time
 from typing import Dict, List, Any, Optional, Tuple
 from datetime import datetime
 from datetime import timedelta
-from src.core.utils.timezone_utils import utc_now, utc_factory
+from src.core.utils.timezone_utils import utc_now
 from dataclasses import dataclass
 from src.core.logging import get_logger, setup_logging
 

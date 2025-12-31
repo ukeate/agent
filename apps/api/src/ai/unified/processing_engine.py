@@ -11,7 +11,7 @@ from enum import Enum
 import time
 import uuid
 from datetime import datetime
-from src.core.utils.timezone_utils import utc_now, utc_factory
+from src.core.utils.timezone_utils import utc_now
 from ..streaming import TokenStreamer, StreamEvent, StreamType
 from ..batch import BatchProcessor, BatchJob, BatchTask, BatchStatus, TaskPriority
 

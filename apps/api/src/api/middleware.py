@@ -17,6 +17,7 @@ from fastapi.responses import JSONResponse
 from starlette.datastructures import MutableHeaders
 from starlette.types import ASGIApp, Receive, Scope, Send
 from src.core.utils.timezone_utils import utc_now
+from src.core.utils.async_utils import create_task_with_logging
 
 from src.core.logging import get_logger
 logger = get_logger(__name__)
@@ -160,7 +161,7 @@ class RateLimitingMiddleware:
             return
 
         if not self._cleanup_task_started:
-            asyncio.create_task(self._cleanup_task())
+            create_task_with_logging(self._cleanup_task())
             self._cleanup_task_started = True
 
         request = Request(scope, receive=receive)

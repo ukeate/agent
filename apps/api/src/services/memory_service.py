@@ -2,7 +2,7 @@
 
 from typing import List, Optional, Dict, Any, Tuple
 from datetime import datetime, timedelta
-from src.core.utils.timezone_utils import utc_now, utc_factory
+from src.core.utils.timezone_utils import utc_now
 import json
 from src.ai.memory.models import (
     Memory, MemoryType, MemoryStatus,
