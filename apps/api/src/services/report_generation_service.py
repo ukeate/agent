@@ -5,6 +5,7 @@
 from datetime import datetime
 from datetime import timedelta
 from src.core.utils.timezone_utils import utc_now
+from src.core.utils.async_utils import create_task_with_logging
 from typing import Dict, List, Any, Optional, Tuple
 from enum import Enum
 import json
@@ -938,7 +939,7 @@ class ReportScheduler:
         recipients: List[str] = None
     ):
         """调度每日报告"""
-        task = asyncio.create_task(
+        task = create_task_with_logging(
             self._run_daily_report(experiment_id, send_time, recipients)
         )
         self.scheduled_reports[f"daily_{experiment_id}"] = task
@@ -971,7 +972,7 @@ class ReportScheduler:
         """等待到指定时间"""
         try:
             hour, minute = [int(v) for v in target_time.split(":")]
-            now = datetime.now()
+            now = utc_now()
             target = now.replace(hour=hour, minute=minute, second=0, microsecond=0)
             if target <= now:
                 target += timedelta(days=1)
