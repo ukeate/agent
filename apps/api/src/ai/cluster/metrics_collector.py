@@ -263,7 +263,8 @@ class MetricsCollector:
                 try:
                     await self.collection_task
                 except asyncio.CancelledError:
-                    raise
+                    pass
+                self.collection_task = None
             
             # 停止告警检查任务
             if self.alert_check_task:
@@ -271,7 +272,8 @@ class MetricsCollector:
                 try:
                     await self.alert_check_task
                 except asyncio.CancelledError:
-                    raise
+                    pass
+                self.alert_check_task = None
             
             # 关闭HTTP客户端
             await self.http_client.aclose()
