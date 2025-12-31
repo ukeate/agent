@@ -15,7 +15,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, HTTPException, Query, WebSocket, WebSocketDisconnect, Depends
-from starlette.requests import HTTPConnection
+from fastapi.requests import HTTPConnection
 from fastapi.responses import Response, StreamingResponse
 from pydantic import Field
 from src.ai.autogen.events import Event, EventPriority, EventType

@@ -4,7 +4,7 @@
 """
 
 from fastapi import APIRouter, HTTPException, Query, WebSocket, WebSocketDisconnect, Depends
-from starlette.requests import HTTPConnection
+from fastapi.requests import HTTPConnection
 from typing import List, Optional, Dict, Any
 from datetime import datetime
 from datetime import timedelta
