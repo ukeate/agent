@@ -670,7 +670,7 @@ class EventStreamPipeline:
         
         # 关闭服务组件
         if self.buffer_service:
-            self.buffer_service.stop()
+            await self.buffer_service.stop()
         
         if self.queue_service:
             await self.queue_service.shutdown()

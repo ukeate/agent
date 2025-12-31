@@ -139,7 +139,7 @@ class EventBatchManager:
         
         # 停止缓冲服务
         if self.buffer_service:
-            self.buffer_service.stop()
+            await self.buffer_service.stop()
         
         self.is_initialized = False
     

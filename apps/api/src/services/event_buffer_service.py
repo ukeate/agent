@@ -9,7 +9,7 @@ from datetime import datetime
 from datetime import timedelta
 from src.core.utils.timezone_utils import utc_now
 
-from src.core.utils.async_utils import create_task_with_logging
+from src.core.utils.async_utils import create_task_with_logging, run_sync_io
 from typing import Dict, List, Optional, Any, Callable, Set
 from dataclasses import dataclass, field
 from collections import defaultdict, deque
@@ -253,13 +253,13 @@ class EventBufferService:
         # 启动后台任务
         loop = asyncio.get_running_loop()
         
-        self.flush_task = loop.create_task(self._flush_worker())
-        self.memory_monitor_task = loop.create_task(self._memory_monitor())
+        self.flush_task = create_task_with_logging(self._flush_worker(), logger=logger)
+        self.memory_monitor_task = create_task_with_logging(self._memory_monitor(), logger=logger)
         
         if self.config.enable_persistence:
-            self.persistence_task = loop.create_task(self._persistence_worker())
+            self.persistence_task = create_task_with_logging(self._persistence_worker(), logger=logger)
     
-    def stop(self):
+    async def stop(self):
         """停止缓冲服务"""
         if not self.is_running:
             return
@@ -268,18 +268,17 @@ class EventBufferService:
         self.is_running = False
         
         # 取消后台任务
-        if self.flush_task:
-            self.flush_task.cancel()
-        if self.memory_monitor_task:
-            self.memory_monitor_task.cancel()
-        if self.persistence_task:
-            self.persistence_task.cancel()
+        tasks = [task for task in [self.flush_task, self.memory_monitor_task, self.persistence_task] if task]
+        for task in tasks:
+            task.cancel()
+        if tasks:
+            await asyncio.gather(*tasks, return_exceptions=True)
         
         # 强制刷新所有缓冲区
         self._force_flush_all_buffers()
         
         # 关闭线程池
-        self.executor.shutdown(wait=True)
+        await run_sync_io(lambda: self.executor.shutdown(wait=True))
     
     def buffer_event(self, event: CreateEventRequest, partition_key: str = None, 
                     priority: BufferPriority = BufferPriority.NORMAL) -> bool:
@@ -307,7 +306,7 @@ class EventBufferService:
         
         # 如果是关键事件，触发立即刷新
         if priority == BufferPriority.CRITICAL:
-            create_task_with_logging(self._flush_buffer(buffer))
+            create_task_with_logging(self._flush_buffer(buffer), logger=logger)
         
         return success
     
