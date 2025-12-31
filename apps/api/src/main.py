@@ -92,10 +92,9 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
                 from src.ai.autogen.distributed_events import DistributedEventCoordinator
                 from src.ai.autogen.event_processors import AsyncEventProcessingEngine
-                from src.ai.autogen.event_store import EventStore
+                from src.ai.autogen.event_store import EventStore, EventReplayService
                 from src.ai.autogen.monitoring import EventProcessingMonitor
                 from src.api.v1 import analytics as analytics_api
-                from src.api.v1 import events as events_api
                 from src.core.redis import get_redis
 
                 dsn = settings.DATABASE_URL
@@ -123,12 +122,14 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
                     distributed_coordinator=coordinator,
                 )
 
-                events_api.init_services(store, coordinator, processing_engine, monitor)
                 analytics_api.init_services(store)
 
                 app.state.autogen_postgres_pool = postgres_pool
+                app.state.autogen_event_store = store
                 app.state.autogen_processing_engine = processing_engine
                 app.state.autogen_event_coordinator = coordinator
+                app.state.autogen_event_monitor = monitor
+                app.state.autogen_event_replay_service = EventReplayService(store, processing_engine)
                 logger.info("AutoGen事件系统已初始化")
             except Exception as e:
                 logger.error("AutoGen事件系统初始化失败", error=str(e))

@@ -4,6 +4,7 @@
 """
 
 from fastapi import APIRouter, HTTPException, Query, WebSocket, WebSocketDisconnect, Depends
+from starlette.requests import HTTPConnection
 from typing import List, Optional, Dict, Any
 from datetime import datetime
 from datetime import timedelta
@@ -25,12 +26,38 @@ logger = get_logger(__name__)
 
 router = APIRouter(prefix="/events", tags=["Events"])
 
-# 全局实例（实际应该通过依赖注入）
-event_store: Optional[EventStore] = None
-event_coordinator: Optional[DistributedEventCoordinator] = None
-processing_engine: Optional[AsyncEventProcessingEngine] = None
-event_monitor: Optional[EventProcessingMonitor] = None
-replay_service: Optional[EventReplayService] = None
+def _get_state_service(connection: HTTPConnection, key: str, error_message: str):
+    service = getattr(connection.app.state, key, None)
+    if not service:
+        raise HTTPException(status_code=503, detail=error_message)
+    return service
+
+def get_event_store(connection: HTTPConnection) -> EventStore:
+    return _get_state_service(connection, "autogen_event_store", "Event store not initialized")
+
+def get_event_coordinator(connection: HTTPConnection) -> DistributedEventCoordinator:
+    return _get_state_service(connection, "autogen_event_coordinator", "Event coordinator not initialized")
+
+def get_optional_event_coordinator(connection: HTTPConnection) -> Optional[DistributedEventCoordinator]:
+    return getattr(connection.app.state, "autogen_event_coordinator", None)
+
+def get_processing_engine(connection: HTTPConnection) -> AsyncEventProcessingEngine:
+    return _get_state_service(connection, "autogen_processing_engine", "Processing engine not initialized")
+
+def get_event_monitor(connection: HTTPConnection) -> EventProcessingMonitor:
+    return _get_state_service(connection, "autogen_event_monitor", "Event monitor not initialized")
+
+def get_replay_service(
+    connection: HTTPConnection,
+    store: EventStore = Depends(get_event_store),
+    engine: AsyncEventProcessingEngine = Depends(get_processing_engine),
+) -> EventReplayService:
+    replay_service = getattr(connection.app.state, "autogen_event_replay_service", None)
+    if replay_service:
+        return replay_service
+    replay_service = EventReplayService(store, engine)
+    connection.app.state.autogen_event_replay_service = replay_service
+    return replay_service
 
 class EventQuery(ApiBaseModel):
     """事件查询参数"""
@@ -84,21 +111,6 @@ class ClusterStatus(ApiBaseModel):
     nodes: Dict[str, Dict[str, Any]]
     stats: Dict[str, Any]
 
-def init_services(
-    store: EventStore,
-    coordinator: DistributedEventCoordinator,
-    engine: AsyncEventProcessingEngine,
-    monitor: EventProcessingMonitor
-):
-    """初始化服务实例"""
-    global event_store, event_coordinator, processing_engine, event_monitor, replay_service
-    event_store = store
-    event_coordinator = coordinator
-    processing_engine = engine
-    event_monitor = monitor
-    if store and engine:
-        replay_service = EventReplayService(store, engine)
-
 def convert_event_to_response(event: Event) -> EventResponse:
     """转换事件为响应格式"""
     # 根据事件类型映射标题
@@ -148,11 +160,11 @@ def convert_event_to_response(event: Event) -> EventResponse:
     )
 
 @router.get("/list", response_model=List[EventResponse])
-async def get_events(query: EventQuery = Depends()) -> List[EventResponse]:
+async def get_events(
+    query: EventQuery = Depends(),
+    store: EventStore = Depends(get_event_store),
+) -> List[EventResponse]:
     """获取事件列表"""
-    if not event_store:
-        raise HTTPException(status_code=503, detail="Event store not initialized")
-    
     try:
         # 设置默认时间范围
         start_time = query.start_time or utc_now() - timedelta(hours=24)
@@ -166,7 +178,7 @@ async def get_events(query: EventQuery = Depends()) -> List[EventResponse]:
             filters['target'] = query.target
         
         # 查询事件
-        events = await event_store.replay_events(
+        events = await store.replay_events(
             start_time=start_time,
             end_time=end_time,
             event_types=[EventType(t) for t in query.event_types] if query.event_types else None,
@@ -187,18 +199,16 @@ async def get_events(query: EventQuery = Depends()) -> List[EventResponse]:
 
 @router.get("/stats", response_model=EventStats)
 async def get_event_stats(
-    hours: int = Query(24, description="统计时间范围（小时）")
+    hours: int = Query(24, description="统计时间范围（小时）"),
+    store: EventStore = Depends(get_event_store),
 ) -> EventStats:
     """获取事件统计信息"""
-    if not event_store:
-        raise HTTPException(status_code=503, detail="Event store not initialized")
-    
     try:
         # 查询时间范围内的事件
         start_time = utc_now() - timedelta(hours=hours)
         end_time = utc_now()
         
-        events = await event_store.replay_events(
+        events = await store.replay_events(
             start_time=start_time,
             end_time=end_time
         )
@@ -240,20 +250,20 @@ async def get_event_stats(
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/replay")
-async def replay_events(request: ReplayRequest) -> Dict[str, Any]:
+async def replay_events(
+    request: ReplayRequest,
+    service: EventReplayService = Depends(get_replay_service),
+) -> Dict[str, Any]:
     """重播历史事件"""
-    if not replay_service:
-        raise HTTPException(status_code=503, detail="重播服务未初始化")
-    
     try:
         if request.agent_id:
-            result = await replay_service.replay_for_agent(
+            result = await service.replay_for_agent(
                 agent_id=request.agent_id,
                 from_time=request.start_time,
                 to_time=request.end_time
             )
         elif request.conversation_id:
-            result = await replay_service.replay_conversation(
+            result = await service.replay_conversation(
                 conversation_id=request.conversation_id,
                 from_time=request.start_time
             )
@@ -267,40 +277,43 @@ async def replay_events(request: ReplayRequest) -> Dict[str, Any]:
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/cluster/status", response_model=ClusterStatus)
-async def get_cluster_status() -> ClusterStatus:
+async def get_cluster_status(
+    coordinator: DistributedEventCoordinator = Depends(get_event_coordinator),
+) -> ClusterStatus:
     """获取集群状态"""
-    if not event_coordinator:
-        raise HTTPException(status_code=503, detail="事件协调器未初始化")
     try:
-        status = await event_coordinator.get_cluster_status()
+        status = await coordinator.get_cluster_status()
         return ClusterStatus(**status)
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/monitoring/metrics")
-async def get_monitoring_metrics() -> Dict[str, Any]:
+async def get_monitoring_metrics(
+    monitor: EventProcessingMonitor = Depends(get_event_monitor),
+) -> Dict[str, Any]:
     """获取监控指标"""
-    if not event_monitor:
-        raise HTTPException(status_code=503, detail="监控系统未初始化")
     try:
-        return await event_monitor.get_processing_stats()
+        return await monitor.get_processing_stats()
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.websocket("/stream")
-async def event_stream(websocket: WebSocket):
+async def event_stream(
+    websocket: WebSocket,
+    store: EventStore = Depends(get_event_store),
+):
     """WebSocket事件流"""
     await websocket.accept()
 
-    if not event_store or not getattr(event_store, "redis", None):
+    if not getattr(store, "redis", None):
         await websocket.send_json({"type": "error", "message": "事件系统未初始化"})
         await websocket.close()
         return
 
-    channel = f"{event_store.stream_prefix}pubsub"
-    pubsub = event_store.redis.pubsub()
+    channel = f"{store.stream_prefix}pubsub"
+    pubsub = store.redis.pubsub()
     await pubsub.subscribe(channel)
 
     async def forward_events() -> None:
@@ -348,13 +361,13 @@ async def event_stream(websocket: WebSocket):
             logger.exception("事件流关闭pubsub失败", exc_info=True)
 
 @router.get("/dead-letter")
-async def get_dead_letter_events(limit: int = 100) -> List[Dict[str, Any]]:
+async def get_dead_letter_events(
+    limit: int = 100,
+    store: EventStore = Depends(get_event_store),
+) -> List[Dict[str, Any]]:
     """获取死信队列事件"""
-    if not event_store:
-        return []
-    
     try:
-        return await event_store.get_dead_letter_events(limit)
+        return await store.get_dead_letter_events(limit)
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -364,12 +377,12 @@ async def submit_event(
     event_type: str = Query(..., description="事件类型"),
     source: str = Query(..., description="事件源"),
     message: str = Query("", description="事件消息"),
-    priority: str = Query("normal", description="优先级")
+    priority: str = Query("normal", description="优先级"),
+    engine: AsyncEventProcessingEngine = Depends(get_processing_engine),
+    store: EventStore = Depends(get_event_store),
+    coordinator: Optional[DistributedEventCoordinator] = Depends(get_optional_event_coordinator),
 ) -> Dict[str, str]:
     """手动提交事件（用于测试）"""
-    if not processing_engine or not event_store:
-        raise HTTPException(status_code=503, detail="事件系统未初始化")
-    
     try:
         # 创建事件
         event = Event(
@@ -381,11 +394,11 @@ async def submit_event(
             priority=EventPriority[priority.upper()] if priority.upper() in EventPriority.__members__ else EventPriority.NORMAL
         )
         
-        if event_coordinator:
-            await event_coordinator.distribute_event(event)
+        if coordinator:
+            await coordinator.distribute_event(event)
         else:
-            await processing_engine.submit_event(event, event.priority)
-            await event_store.append_event(event)
+            await engine.submit_event(event, event.priority)
+            await store.append_event(event)
         
         return {"status": "success", "event_id": event.id}
         
