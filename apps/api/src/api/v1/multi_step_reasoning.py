@@ -3,10 +3,11 @@
 对应技术架构的API端点
 """
 
-from fastapi import APIRouter, HTTPException, BackgroundTasks
+from fastapi import APIRouter, HTTPException
 from typing import Dict, List, Optional, Any
 from datetime import datetime, timedelta
-from src.core.utils.timezone_utils import utc_now, utc_factory
+from src.core.utils.timezone_utils import utc_now
+from src.core.utils.async_utils import create_task_with_logging
 import asyncio
 from uuid import uuid4
 import psutil
@@ -14,10 +15,6 @@ import networkx as nx
 from src.ai.workflow.engine import get_workflow_engine
 from src.models.schemas.workflow import (
     WorkflowDefinition,
-    WorkflowStep,
-    WorkflowExecutionMode,
-    WorkflowStepType,
-    WorkflowStepStatus,
     WorkflowStep,
     WorkflowExecutionMode,
     WorkflowStepType,
@@ -227,7 +224,7 @@ async def decompose_problem(request: DecompositionRequest):
         raise HTTPException(status_code=500, detail=f"问题分解失败: {str(e)}")
 
 @router.post("/execute", response_model=ExecutionResponse) 
-async def start_execution(request: ExecutionRequest, background_tasks: BackgroundTasks):
+async def start_execution(request: ExecutionRequest):
     """启动工作流执行"""
     try:
         definition = _engine.workflow_definitions.get(request.workflow_definition_id)
@@ -248,7 +245,7 @@ async def start_execution(request: ExecutionRequest, background_tasks: Backgroun
             input_data=request.input_data or {},
         )
 
-        asyncio.create_task(_engine.execute_workflow(execution.id))
+        create_task_with_logging(_engine.execute_workflow(execution.id), logger=logger)
         execution.status = "running"
         execution.started_at = utc_now()
 

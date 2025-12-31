@@ -260,26 +260,21 @@ async def _execute_hybrid_search(
     qdrant_limit = top_k * 2 if mode == "hybrid" else top_k
 
     if mode == "hybrid":
-        pg_task = asyncio.create_task(
+        (pg_results, pg_time_ms), (qdrant_results, qdrant_time_ms, cache_hit) = await asyncio.gather(
             _run_pgvector_search(
                 vector_store=vector_store,
                 collection_name=collection_name,
                 query_vector=query_vector,
                 limit=pg_limit,
                 filters=filters,
-            )
-        )
-        qdrant_task = asyncio.create_task(
+            ),
             _run_qdrant_search(
                 query=query,
                 collection_name=collection_name,
                 limit=qdrant_limit,
                 filters=filters,
                 use_cache=use_cache,
-            )
-        )
-        (pg_results, pg_time_ms), (qdrant_results, qdrant_time_ms, cache_hit) = await asyncio.gather(
-            pg_task, qdrant_task
+            ),
         )
     elif mode == "pg_only":
         pg_results, pg_time_ms = await _run_pgvector_search(

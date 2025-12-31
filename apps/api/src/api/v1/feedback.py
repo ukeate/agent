@@ -10,9 +10,9 @@ from typing import Dict, List, Any, Optional, Union
 from datetime import datetime, timedelta
 from src.core.utils.timezone_utils import utc_now
 import json
-import asyncio
 import uuid
 from src.core.database import get_db, get_db_session
+from src.core.utils.async_utils import create_task_with_logging
 from src.models.schemas.feedback import FeedbackType, FeedbackEvent as FeedbackEventModel
 from src.services.reward_generator import FeedbackNormalizer
 from sqlalchemy import select, func, desc
@@ -164,17 +164,6 @@ class FeedbackWebSocketManager:
                 self.disconnect(connection)
 
 manager = FeedbackWebSocketManager()
-
-def _log_task_exception(task: asyncio.Task) -> None:
-    try:
-        task.result()
-    except Exception as e:
-        logger.error(f"后台任务异常: {e}", exc_info=True)
-
-def _schedule_task(coro: Any) -> asyncio.Task:
-    task = asyncio.create_task(coro)
-    task.add_done_callback(_log_task_exception)
-    return task
 
 def _serialize_feedback_event(event: FeedbackEventModel) -> Dict[str, Any]:
     batch_id = None
@@ -631,7 +620,7 @@ async def websocket_endpoint(websocket: WebSocket):
                 logger.info(f"WebSocket收到{len(events)}个反馈事件")
                 
                 # 异步处理事件
-                _schedule_task(process_websocket_feedback(events))
+                create_task_with_logging(process_websocket_feedback(events), logger=logger)
                 
                 # 确认收到
                 await manager.send_personal_message(

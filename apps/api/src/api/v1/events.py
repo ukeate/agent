@@ -7,7 +7,8 @@ from fastapi import APIRouter, HTTPException, Query, WebSocket, WebSocketDisconn
 from typing import List, Optional, Dict, Any
 from datetime import datetime
 from datetime import timedelta
-from src.core.utils.timezone_utils import utc_now, utc_factory, timezone
+from src.core.utils.timezone_utils import utc_now
+from src.core.utils.async_utils import create_task_with_logging
 from pydantic import Field
 import asyncio
 import json
@@ -321,7 +322,7 @@ async def event_stream(websocket: WebSocket):
             response = convert_event_to_response(event)
             await websocket.send_json({"type": "event", "data": response.model_dump(mode="json")})
 
-    forward_task = asyncio.create_task(forward_events())
+    forward_task = create_task_with_logging(forward_events(), logger=logger, keep_reference=False)
 
     try:
         await websocket.send_json({"type": "connection", "message": "已连接到事件流"})

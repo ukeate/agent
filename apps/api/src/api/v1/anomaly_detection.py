@@ -8,7 +8,8 @@ from pydantic import Field
 from datetime import datetime
 import asyncio
 from email.utils import parsedate_to_datetime
-from src.core.utils.timezone_utils import utc_now, utc_factory, parse_iso_string, to_utc
+from src.core.utils.timezone_utils import utc_now, parse_iso_string, to_utc
+from src.core.utils.async_utils import create_task_with_logging
 from src.services.anomaly_detection_service import (
     AnomalyDetectionService,
     AnomalyType,
@@ -18,11 +19,12 @@ from src.services.anomaly_detection_service import (
 )
 from src.api.base_model import ApiBaseModel
 from src.services.realtime_metrics_service import (
-    AnomalyType,
-    DetectionMethod,
-    DetectionConfig,
-    Anomaly
+    TimeWindow,
+    get_realtime_metrics_service,
 )
+from src.core.logging import get_logger
+
+logger = get_logger(__name__)
 
 router = APIRouter(prefix="/anomalies", tags=["Anomaly Detection"])
 
@@ -326,6 +328,7 @@ async def setup_real_time_monitoring(
                 except asyncio.CancelledError:
                     break
                 except Exception:
+                    logger.exception("实时监控任务异常", exc_info=True)
                     await asyncio.sleep(request.check_interval)
 
         existing = _active_monitors.get(monitor_key)
@@ -347,7 +350,7 @@ async def setup_real_time_monitoring(
                     "alert_threshold": request.alert_threshold
                 }
 
-        task = asyncio.create_task(monitor_task())
+        task = create_task_with_logging(monitor_task(), logger=logger)
         _active_monitors[monitor_key] = {
             "task": task,
             "metrics": request.metrics,
