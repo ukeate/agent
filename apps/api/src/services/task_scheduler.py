@@ -47,7 +47,8 @@ class TaskScheduler:
             try:
                 await self._task
             except asyncio.CancelledError:
-                raise
+                pass
+            self._task = None
         
         logger.info("任务调度器已停止")
     
