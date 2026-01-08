@@ -50,6 +50,7 @@ from .traffic_ramp import router as traffic_ramp_router
 from .auto_scaling import router as auto_scaling_router
 from .risk_assessment import router as risk_assessment_router
 from .release_strategy import router as release_strategy_router
+from .fastapi_features import router as fastapi_features_router
 # from .enterprise import router as enterprise_router  # 暂时禁用，有循环导入问题
 # from .analytics import router as analytics_router  # 暂时禁用，导入太慢
 
@@ -103,6 +104,7 @@ v1_router.include_router(traffic_ramp_router)
 v1_router.include_router(auto_scaling_router)
 v1_router.include_router(risk_assessment_router)
 v1_router.include_router(release_strategy_router)
+v1_router.include_router(fastapi_features_router)
 # v1_router.include_router(enterprise_router)  # 暂时禁用
 # v1_router.include_router(analytics_router)  # 暂时禁用
 
