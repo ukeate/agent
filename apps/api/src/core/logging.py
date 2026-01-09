@@ -10,7 +10,6 @@ from typing import Any
 import structlog
 from structlog.stdlib import LoggerFactory
 
-from src.core.logging import get_logger
 _LOGGING_CONFIGURED = False
 
 def setup_logging() -> None:

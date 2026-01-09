@@ -7,8 +7,11 @@ import uuid
 from typing import Callable
 from fastapi import Request, Response
 from fastapi.routing import APIRoute
+from fastapi.responses import JSONResponse
 from starlette.datastructures import MutableHeaders
 from starlette.types import ASGIApp, Receive, Scope, Send
+from src.core.config import get_settings
+from src.core.redis import get_redis
 from .logger import (
     app_logger,
     request_logger,
@@ -16,6 +19,7 @@ from .logger import (
     clear_request_context
 )
 from .metrics_collector import request_metrics
+from .service import monitoring_service
 
 class MonitoringMiddleware:
     """监控中间件"""
@@ -32,6 +36,7 @@ class MonitoringMiddleware:
         # 生成请求ID
         request_id = str(uuid.uuid4())
         request.state.request_id = request_id
+        scope.setdefault("state", {})["request_id"] = request_id
         
         # 设置日志上下文
         set_request_context(
@@ -42,7 +47,8 @@ class MonitoringMiddleware:
         )
         
         # 记录请求开始
-        start_time = time.time()
+        start_time = time.perf_counter()
+        await monitoring_service.performance_monitor.increment_active_requests()
         
         # 获取实验ID（如果有）
         experiment_id = None
@@ -53,7 +59,7 @@ class MonitoringMiddleware:
         
         async def send_wrapper(message):
             if message["type"] == "http.response.start":
-                duration = time.time() - start_time
+                duration = time.perf_counter() - start_time
                 status_code = message["status"]
 
                 request_logger.log_request(
@@ -72,6 +78,12 @@ class MonitoringMiddleware:
                     duration=duration,
                     experiment_id=experiment_id,
                 )
+                await monitoring_service.performance_monitor.record_request(
+                    endpoint=request.url.path,
+                    method=request.method,
+                    status_code=status_code,
+                    duration=duration,
+                )
 
                 request_logger.log_slow_request(
                     method=request.method,
@@ -86,9 +98,53 @@ class MonitoringMiddleware:
             await send(message)
 
         try:
+            settings = get_settings()
+            rate_limit_paths = {
+                "/api/v1/health": settings.HEALTH_RATE_LIMIT_PER_MINUTE,
+                "/api/v1/mcp/health": settings.MCP_HEALTH_RATE_LIMIT_PER_MINUTE,
+            }
+            limit = rate_limit_paths.get(request.url.path)
+            if limit:
+                redis_client = get_redis()
+                if redis_client:
+                    try:
+                        bucket = int(time.time() // 60)
+                        key = f"rate:{request.client.host if request.client else 'unknown'}:{request.url.path}:{bucket}"
+                        count = await redis_client.incr(key)
+                        if count == 1:
+                            await redis_client.expire(key, 65)
+                        if count > limit:
+                            duration = time.perf_counter() - start_time
+                            await request_metrics.record_request(
+                                method=request.method,
+                                path=request.url.path,
+                                status_code=429,
+                                duration=duration,
+                                experiment_id=experiment_id,
+                            )
+                            await monitoring_service.performance_monitor.record_request(
+                                endpoint=request.url.path,
+                                method=request.method,
+                                status_code=429,
+                                duration=duration,
+                            )
+                            response = JSONResponse(
+                                status_code=429,
+                                content={"detail": "Too Many Requests"},
+                                headers={"X-Request-ID": request_id},
+                            )
+                            await response(scope, receive, send)
+                            return
+                    except Exception as exc:
+                        app_logger.warning(
+                            "健康检查限流失败",
+                            request_id=request_id,
+                            error=str(exc),
+                        )
+
             await self.app(scope, receive, send_wrapper)
         except Exception as e:
-            duration = time.time() - start_time
+            duration = time.perf_counter() - start_time
             app_logger.error(
                 f"Request failed: {request.method} {request.url.path}",
                 exception=e,
@@ -102,8 +158,15 @@ class MonitoringMiddleware:
                 duration=duration,
                 experiment_id=experiment_id,
             )
+            await monitoring_service.performance_monitor.record_request(
+                endpoint=request.url.path,
+                method=request.method,
+                status_code=500,
+                duration=duration,
+            )
             raise
         finally:
+            await monitoring_service.performance_monitor.decrement_active_requests()
             clear_request_context()
 
 class LoggingRoute(APIRoute):
@@ -214,4 +277,3 @@ class MetricsMiddleware:
                     lines.append(f"{metric_name}{label_str} {values}")
         
         return "\n".join(lines) + "\n"
-

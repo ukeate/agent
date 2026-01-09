@@ -5,21 +5,17 @@ AI Agent System - FastAPI应用主入口
 
 import os
 import uuid
-import asyncio
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, Request, APIRouter
+from fastapi import FastAPI, APIRouter
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.middleware.gzip import GZipMiddleware
-from fastapi.middleware.httpsredirect import HTTPSRedirectMiddleware
-from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from src.core.config import get_settings
 from src.core.utils.timezone_utils import utc_now
 
-from src.core.utils.async_utils import create_task_with_logging
+from src.core.monitoring.middleware import MonitoringMiddleware
 from src.api.exceptions import (
     api_exception_handler,
     general_exception_handler,
@@ -28,7 +24,7 @@ from src.api.exceptions import (
     BaseAPIException,
 )
 from src.core.logging import get_logger, setup_logging
-from src.core.security.middleware import SecureHeadersMiddleware
+from src.core.security.middleware import setup_security_middleware
 
 logger = get_logger(__name__)
 
@@ -266,98 +262,10 @@ def create_app() -> FastAPI:
         expose_headers=settings.CORS_EXPOSE_HEADERS,
     )
 
-    @app.middleware("http")
-    async def ensure_client_id(request: Request, call_next):
-        client_id = request.cookies.get("client_id")
-        if not client_id:
-            client_id = str(uuid.uuid4())
-            request.state.client_id = client_id
-            response = await call_next(request)
-            response.set_cookie(
-                "client_id",
-                client_id,
-                samesite="lax",
-                httponly=True,
-                secure=settings.FORCE_HTTPS,
-            )
-            return response
+    app.add_middleware(MonitoringMiddleware)
+    setup_security_middleware(app)
 
-        request.state.client_id = client_id
-        return await call_next(request)
-
-    @app.middleware("http")
-    async def record_request_metrics(request: Request, call_next):
-        import time
-        from src.core.monitoring import monitoring_service
-        from src.core.redis import get_redis
-        from src.core.security.audit import audit_logger
-
-        request_id = str(uuid.uuid4())
-        request.state.request_id = request_id
-        start = time.perf_counter()
-        await monitoring_service.performance_monitor.increment_active_requests()
-        response = None
-        try:
-            if request.url.path in {"/api/v1/health", "/api/v1/mcp/health"}:
-                redis_client = get_redis()
-                if redis_client:
-                    try:
-                        bucket = int(time.time() // 60)
-                        key = f"rate:{request.client.host if request.client else 'unknown'}:{request.url.path}:{bucket}"
-                        count = await redis_client.incr(key)
-                        if count == 1:
-                            await redis_client.expire(key, 65)
-                        limit = 600 if request.url.path == "/api/v1/health" else 3
-                        if count > limit:
-                            response = JSONResponse(
-                                status_code=429,
-                                content={"detail": "Too Many Requests"},
-                            )
-                            return response
-                    except Exception:
-                        logger.exception("健康检查限流失败", exc_info=True)
-
-            response = await call_next(request)
-            return response
-        finally:
-            duration = time.perf_counter() - start
-            status_code = response.status_code if response else 500
-            await monitoring_service.performance_monitor.record_request(
-                endpoint=str(request.url.path),
-                method=request.method,
-                status_code=status_code,
-                duration=duration,
-            )
-            await monitoring_service.performance_monitor.decrement_active_requests()
-            if response:
-                response.headers.setdefault("X-Request-ID", request_id)
-                async def _safe_audit():
-                    try:
-                        await asyncio.wait_for(
-                            audit_logger.log_api_call(request, response, duration, request_id),
-                            timeout=2.0
-                        )
-                    except Exception:
-                        logger.exception("审计日志记录失败", exc_info=True)
-
-                create_task_with_logging(_safe_audit())
-
-    if settings.FORCE_HTTPS:
-        app.add_middleware(HTTPSRedirectMiddleware)
-
-    if settings.TRUSTED_HOSTS:
-        app.add_middleware(
-            TrustedHostMiddleware,
-            allowed_hosts=settings.TRUSTED_HOSTS,
-            www_redirect=settings.TRUSTED_HOSTS_WWW_REDIRECT,
-        )
-
-    app.add_middleware(
-        GZipMiddleware,
-        minimum_size=settings.GZIP_MINIMUM_SIZE,
-        compresslevel=settings.GZIP_COMPRESS_LEVEL,
-    )
-    app.add_middleware(SecureHeadersMiddleware)
+    # 客户端ID由统一中间件处理
 
     # 异常处理器
     app.add_exception_handler(BaseAPIException, api_exception_handler)

@@ -4,23 +4,20 @@
 
 import time
 import uuid
+from http.cookies import SimpleCookie
 from fastapi import Request, status
 from fastapi.responses import JSONResponse
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 from starlette.middleware.httpsredirect import HTTPSRedirectMiddleware
 from starlette.middleware.gzip import GZipMiddleware
 from starlette.datastructures import MutableHeaders
-from starlette.types import ASGIApp, Receive, Scope, Send
+from starlette.types import Receive, Scope, Send
 from src.core.config import get_settings
 from src.core.security.audit import AuditLogger
 from src.core.security.monitoring import SecurityMonitor
 
 from src.core.logging import get_logger
 logger = get_logger(__name__)
-
-# from slowapi import Limiter, _rate_limit_exceeded_handler
-# from slowapi.util import get_remote_address
-# from slowapi.errors import RateLimitExceeded
 
 class SecurityMiddleware:
     """统一的安全中间件"""
@@ -114,6 +111,44 @@ class SecurityMiddleware:
                 request_id=request_id,
             )
 
+class ClientIdMiddleware:
+    """客户端ID中间件"""
+
+    def __init__(self, app, cookie_name: str = "client_id"):
+        self.app = app
+        self.settings = get_settings()
+        self.cookie_name = cookie_name
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send):
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+
+        request = Request(scope, receive=receive)
+        client_id = request.cookies.get(self.cookie_name)
+        if client_id:
+            scope.setdefault("state", {})["client_id"] = client_id
+            await self.app(scope, receive, send)
+            return
+
+        client_id = str(uuid.uuid4())
+        scope.setdefault("state", {})["client_id"] = client_id
+
+        async def send_wrapper(message):
+            if message["type"] == "http.response.start":
+                headers = MutableHeaders(scope=message)
+                cookie = SimpleCookie()
+                cookie[self.cookie_name] = client_id
+                cookie[self.cookie_name]["path"] = "/"
+                cookie[self.cookie_name]["samesite"] = "lax"
+                cookie[self.cookie_name]["httponly"] = True
+                if self.settings.FORCE_HTTPS or scope.get("scheme") == "https":
+                    cookie[self.cookie_name]["secure"] = True
+                headers.append("set-cookie", cookie.output(header="").strip())
+            await send(message)
+
+        await self.app(scope, receive, send_wrapper)
+
 class CompressionMiddleware(GZipMiddleware):
     """响应压缩中间件"""
     
@@ -143,6 +178,9 @@ class SecureHeadersMiddleware:
         async def send_wrapper(message):
             if message["type"] == "http.response.start":
                 headers = MutableHeaders(scope=message)
+                request_id = scope.get("state", {}).get("request_id")
+                if request_id and "X-Request-ID" not in headers:
+                    headers["X-Request-ID"] = request_id
                 headers["X-Content-Type-Options"] = "nosniff"
                 headers["X-Frame-Options"] = "DENY"
                 headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
@@ -184,5 +222,8 @@ def setup_security_middleware(app):
     
     # 5. 统一安全中间件
     app.add_middleware(SecurityMiddleware)
+
+    # 6. 客户端ID
+    app.add_middleware(ClientIdMiddleware)
     
     logger.info("Security middleware initialized successfully")

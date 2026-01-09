@@ -527,18 +527,33 @@ async def get_performance_metrics(
     request_id = str(uuid.uuid4())
     
     try:
-        try:
-            from src.api.middleware import middleware_manager
-            metrics = middleware_manager.get_performance_metrics()
-        except Exception:
-            # 提供基本指标，避免因依赖缺失导致500
-            metrics = {
-                "total_requests": 0,
-                "error_rate": 0.0,
-                "latency_ms_p50": 0.0,
-                "latency_ms_p95": 0.0,
-                "requests": []
-            }
+        from src.core.monitoring import monitoring_service
+
+        stats = await monitoring_service.performance_monitor.get_stats()
+        durations = [
+            item["duration"] * 1000
+            for item in monitoring_service.performance_monitor.request_times
+            if "duration" in item
+        ]
+
+        def _percentile(values: list[float], percentile: float) -> float:
+            if not values:
+                return 0.0
+            ordered = sorted(values)
+            idx = int(round((len(ordered) - 1) * percentile))
+            return ordered[min(max(idx, 0), len(ordered) - 1)]
+
+        metrics = {
+            "total_requests": stats.get("total_requests", 0),
+            "error_rate": stats.get("error_rate", 0.0),
+            "average_response_time_ms": stats.get("average_response_time_ms", 0.0),
+            "requests_per_minute": stats.get("requests_per_minute", 0),
+            "active_requests": stats.get("active_requests", 0),
+            "error_counts": stats.get("error_counts", {}),
+            "latency_ms_p50": _percentile(durations, 0.5),
+            "latency_ms_p95": _percentile(durations, 0.95),
+            "requests": [],
+        }
         
         metrics["timestamp"] = utc_now().isoformat()
         metrics["api_version"] = "1.0"

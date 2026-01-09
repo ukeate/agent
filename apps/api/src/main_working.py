@@ -4,12 +4,10 @@ from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.middleware.gzip import GZipMiddleware
-from fastapi.middleware.httpsredirect import HTTPSRedirectMiddleware
-from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.responses import JSONResponse
 from src.core.config import get_settings
-from src.core.security.middleware import SecureHeadersMiddleware
+from src.core.monitoring.middleware import MonitoringMiddleware
+from src.core.security.middleware import setup_security_middleware
 from src.core.utils.timezone_utils import utc_now
 from src.core.logging import setup_logging
 
@@ -131,22 +129,8 @@ app.add_middleware(
     expose_headers=settings.CORS_EXPOSE_HEADERS,
 )
 
-if settings.FORCE_HTTPS:
-    app.add_middleware(HTTPSRedirectMiddleware)
-
-if settings.TRUSTED_HOSTS:
-    app.add_middleware(
-        TrustedHostMiddleware,
-        allowed_hosts=settings.TRUSTED_HOSTS,
-        www_redirect=settings.TRUSTED_HOSTS_WWW_REDIRECT,
-    )
-
-app.add_middleware(
-    GZipMiddleware,
-    minimum_size=settings.GZIP_MINIMUM_SIZE,
-    compresslevel=settings.GZIP_COMPRESS_LEVEL,
-)
-app.add_middleware(SecureHeadersMiddleware)
+app.add_middleware(MonitoringMiddleware)
+setup_security_middleware(app)
 
 # 请求日志中间件
 @app.middleware("http")

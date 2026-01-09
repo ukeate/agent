@@ -41,7 +41,10 @@ const extractErrorMessage = async (response: Response): Promise<string> => {
 };
 
 export const apiFetch = async (endpoint: string, init?: RequestInit): Promise<Response> => {
-  const response = await fetch(resolveApiUrl(endpoint), init);
+  const response = await fetch(resolveApiUrl(endpoint), {
+    ...init,
+    credentials: init?.credentials ?? 'include',
+  });
   if (!response.ok) {
     const message = await extractErrorMessage(response);
     throw new Error(message);

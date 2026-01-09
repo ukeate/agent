@@ -13,6 +13,7 @@ class ApiClient {
     this.client = axios.create({
       baseURL: `${baseUrl}/api/v1`,
       timeout: FRONTEND_TIMEOUT_CONSTANTS.API_CLIENT_TIMEOUT_MS,
+      withCredentials: true,
       headers: {
         'Content-Type': 'application/json',
       },

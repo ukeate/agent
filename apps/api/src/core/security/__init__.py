@@ -34,6 +34,7 @@ from src.core.security.mcp_security import (
 )
 from src.core.security.middleware import (
     CompressionMiddleware,
+    ClientIdMiddleware,
     SecureHeadersMiddleware,
     SecurityMiddleware,
     setup_security_middleware,
@@ -81,6 +82,7 @@ __all__ = [
     "mcp_security_manager",
     # Middleware
     "CompressionMiddleware",
+    "ClientIdMiddleware",
     "SecureHeadersMiddleware",
     "SecurityMiddleware",
     "setup_security_middleware",

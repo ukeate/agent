@@ -12,6 +12,7 @@ from collections import deque
 from dataclasses import dataclass, field
 import json
 from src.core.redis import get_redis
+from src.core.logging import get_logger
 
 logger = get_logger(__name__)
 

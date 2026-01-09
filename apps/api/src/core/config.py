@@ -59,6 +59,8 @@ class Settings(BaseSettings):
     MAX_REQUESTS_PER_MINUTE: int = Field(default=60, description="每分钟最大请求数")
     MAX_REQUEST_SIZE: int = Field(default=10485760, description="最大请求大小（字节）")
     DEFAULT_RATE_LIMIT: str = Field(default="100/minute", description="默认频率限制")
+    HEALTH_RATE_LIMIT_PER_MINUTE: int = Field(default=600, description="健康检查每分钟限制")
+    MCP_HEALTH_RATE_LIMIT_PER_MINUTE: int = Field(default=3, description="MCP健康检查每分钟限制")
     
     # 邮件配置
     SMTP_HOST: str = Field(default="", description="SMTP服务器地址")
