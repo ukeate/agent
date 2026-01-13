@@ -15,11 +15,7 @@ from src.ai.langgraph.state_graph import (
     create_simple_workflow,
     create_conditional_workflow
 )
-from src.ai.langgraph.context import (
-    LangGraphContextSchema,
-    create_default_context,
-    AgentContext
-)
+from src.ai.langgraph.context import create_default_context
 from src.ai.langgraph.state import create_initial_state, MessagesState
 from src.ai.langgraph.node_caching import (
     NodeCacheManager,
@@ -46,7 +42,6 @@ class ContextAPIRequest(BaseModel):
     session_id: str = "550e8400-e29b-41d4-a716-446655440000"
     conversation_id: Optional[str] = None
     message: str = "测试新Context API"
-    use_new_api: bool = True
 
 
 class DurabilityRequest(BaseModel):
@@ -76,23 +71,22 @@ class WorkflowResponse(BaseModel):
 # Context API演示端点
 @router.post("/context-api/demo", response_model=WorkflowResponse)
 async def demo_context_api(request: ContextAPIRequest):
-    """演示新Context API vs 旧config模式"""
+    """演示新Context API"""
     start_time = datetime.now()
     
     try:
         # 创建工作流构建器
-        builder = LangGraphWorkflowBuilder(use_context_api=request.use_new_api)
+        builder = LangGraphWorkflowBuilder()
         
         def context_demo_handler(state: MessagesState, context=None) -> MessagesState:
-            api_type = "新Context API" if context else "旧config模式"
             user_info = context.user_id if context else "unknown"
             
             state["messages"].append({
                 "role": "assistant",
-                "content": f"使用{api_type}处理消息。用户: {user_info}。消息: {request.message}",
+                "content": f"使用Context API处理消息。用户: {user_info}。消息: {request.message}",
                 "timestamp": datetime.now().isoformat(),
                 "metadata": {
-                    "api_type": api_type,
+                    "api_type": "Context API",
                     "context_available": context is not None
                 }
             })
@@ -115,26 +109,14 @@ async def demo_context_api(request: ContextAPIRequest):
             {"role": "user", "content": request.message, "timestamp": datetime.now().isoformat()}
         ]
         
-        if request.use_new_api:
-            # 使用新Context API
-            context = create_default_context(
-                user_id=request.user_id,
-                session_id=request.session_id
-            )
-            if request.conversation_id:
-                context.conversation_id = request.conversation_id
-            
-            result = await builder.execute(initial_state, context=context)
-        else:
-            # 使用旧config模式
-            config = {
-                "configurable": {
-                    "user_id": request.user_id,
-                    "session_id": request.session_id,
-                    "conversation_id": request.conversation_id
-                }
-            }
-            result = await builder.execute(initial_state, config=config)
+        context = create_default_context(
+            user_id=request.user_id,
+            session_id=request.session_id
+        )
+        if request.conversation_id:
+            context.conversation_id = request.conversation_id
+        
+        result = await builder.execute(initial_state, context=context)
         
         execution_time = (datetime.now() - start_time).total_seconds() * 1000
         
@@ -143,8 +125,8 @@ async def demo_context_api(request: ContextAPIRequest):
             execution_time_ms=execution_time,
             result=result,
             metadata={
-                "api_type": "新Context API" if request.use_new_api else "旧config模式",
-                "context_schema": "LangGraphContextSchema" if request.use_new_api else "dict"
+                "api_type": "新Context API",
+                "context_schema": "LangGraphContextSchema"
             }
         )
         
@@ -163,7 +145,7 @@ async def demo_durability_control(request: DurabilityRequest):
     start_time = datetime.now()
     
     try:
-        builder = LangGraphWorkflowBuilder(use_context_api=True)
+        builder = LangGraphWorkflowBuilder()
         
         def durability_handler(state: MessagesState) -> MessagesState:
             state["messages"].append({
@@ -230,7 +212,7 @@ async def demo_node_caching(request: CachingRequest):
     start_time = datetime.now()
     
     try:
-        builder = LangGraphWorkflowBuilder(use_context_api=True)
+        builder = LangGraphWorkflowBuilder()
         
         # 模拟计算密集型任务
         call_count = 0

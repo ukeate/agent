@@ -34,7 +34,7 @@ class LangGraphE2ETestSuite:
         # 测试用例列表
         test_cases = [
             ("测试Context API演示", self.test_context_api_demo),
-            ("测试新旧API兼容性", self.test_api_compatibility),
+            ("测试Context API可选参数", self.test_api_compatibility),
             ("测试Durability控制", self.test_durability_control),
             ("测试Node Caching功能", self.test_node_caching),
             ("测试Pre/Post Hooks", self.test_hooks_functionality),
@@ -70,7 +70,6 @@ class LangGraphE2ETestSuite:
         # 测试新Context API
         payload = {
             "message": "测试新Context API功能",
-            "use_new_api": True,
             "user_id": "test_user_e2e",
             "session_id": "550e8400-e29b-41d4-a716-446655440001"
         }
@@ -96,14 +95,14 @@ class LangGraphE2ETestSuite:
             ))
     
     async def test_api_compatibility(self, session: aiohttp.ClientSession):
-        """测试新旧API兼容性"""
+        """测试Context API可选参数"""
         start_time = time.time()
         
-        # 测试旧config模式
+        # 测试可选的conversation_id参数
         payload = {
-            "message": "测试向后兼容性",
-            "use_new_api": False,
-            "user_id": "legacy_user",
+            "message": "测试可选参数",
+            "user_id": "option_user",
+            "conversation_id": "550e8400-e29b-41d4-a716-446655440099",
             "session_id": "550e8400-e29b-41d4-a716-446655440002"
         }
         
@@ -115,11 +114,11 @@ class LangGraphE2ETestSuite:
             data = await response.json()
             
             assert response.status == 200, f"状态码错误: {response.status}"
-            assert data["success"] is True, "兼容性测试失败"
-            assert "旧config模式" in data["metadata"]["api_type"], "兼容性模式不正确"
+            assert data["success"] is True, "可选参数测试失败"
+            assert "新Context API" in data["metadata"]["api_type"], "API类型不正确"
             
             self.test_results.append(TestResult(
-                name="API兼容性测试",
+                name="Context API可选参数测试",
                 passed=True,
                 duration_ms=duration_ms,
                 response=data
@@ -327,8 +326,7 @@ class LangGraphE2ETestSuite:
         tasks = []
         for i in range(5):
             payload = {
-                "message": f"并发测试消息 {i+1}",
-                "use_new_api": True
+                "message": f"并发测试消息 {i+1}"
             }
             task = session.post(
                 f"{self.base_url}/api/v1/langgraph/context-api/demo",

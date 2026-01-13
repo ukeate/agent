@@ -5,9 +5,7 @@ LangGraph StateGraph核心实现
 """
 from typing import Any, Dict, List, Optional, Callable, Literal
 from langgraph.graph import StateGraph, START, END
-from langgraph.graph.message import MessagesState as LangGraphMessagesState
-from langgraph.types import RunnableConfig
-from langgraph.runtime import Runtime, get_runtime
+from langgraph.runtime import Runtime
 import asyncio
 from datetime import datetime, timezone
 
@@ -27,29 +25,19 @@ class WorkflowNode:
         self.handler = handler
         self.node_type = node_type  # 支持: standard, reasoning, validation, branching
     
-    async def execute(self, state: MessagesState, config: Optional[RunnableConfig] = None, runtime: Optional[Runtime[LangGraphContextSchema]] = None) -> MessagesState:
-        """执行节点逻辑 - 支持新旧两种Context API"""
+    async def execute(self, state: MessagesState, runtime: Optional[Runtime[LangGraphContextSchema]] = None) -> MessagesState:
+        """执行节点逻辑 - 支持新Context API"""
         try:
-            # 优先使用新的Runtime Context API (LangGraph 0.6.5+)
             context = None
-            if runtime and hasattr(runtime, 'context') and runtime.context is not None:
-                # 新Context API
+            if runtime and runtime.context is not None:
                 ctx_schema = runtime.context
-                context = ctx_schema.to_agent_context()
-                context.update_step(self.name)
-            elif config and 'configurable' in config:
-                # 向后兼容：旧的config['configurable']模式
-                context_data = config['configurable']
-                # 只提取我们的上下文相关字段
-                context_fields = {
-                    'user_id': context_data.get('user_id', 'unknown'),
-                    'session_id': context_data.get('session_id', 'default'),
-                    'conversation_id': context_data.get('conversation_id'),
-                    'agent_id': context_data.get('agent_id'),
-                    'workflow_id': context_data.get('workflow_id'),
-                    'thread_id': context_data.get('thread_id'),
-                }
-                context = AgentContext.from_dict(context_fields)
+                if isinstance(ctx_schema, LangGraphContextSchema):
+                    schema = ctx_schema
+                elif isinstance(ctx_schema, dict):
+                    schema = LangGraphContextSchema.from_dict(ctx_schema)
+                else:
+                    schema = LangGraphContextSchema.from_dict(vars(ctx_schema))
+                context = schema.to_agent_context()
                 context.update_step(self.name)
             
             # 更新元数据
@@ -107,8 +95,8 @@ class ConditionalRouter:
         self.name = name
         self.condition_func = condition_func
     
-    def route(self, state: MessagesState, config: Optional[RunnableConfig] = None, runtime: Optional[Runtime[LangGraphContextSchema]] = None) -> str:
-        """根据状态决定下一个节点 - 支持新旧两种Context API"""
+    def route(self, state: MessagesState, runtime: Optional[Runtime[LangGraphContextSchema]] = None) -> str:
+        """根据状态决定下一个节点 - 支持新Context API"""
         try:
             # 检查condition_func是否接受context参数
             import inspect
@@ -118,22 +106,15 @@ class ConditionalRouter:
             if len(params) > 1 and 'context' in params:
                 # 提取上下文并传递
                 context = None
-                if runtime and hasattr(runtime, 'context'):
-                    # 新Context API
+                if runtime and runtime.context is not None:
                     ctx_schema = runtime.context
-                    context = ctx_schema.to_agent_context()
-                elif config and 'configurable' in config:
-                    # 向后兼容：旧的config['configurable']模式
-                    context_data = config['configurable']
-                    context_fields = {
-                        'user_id': context_data.get('user_id', 'unknown'),
-                        'session_id': context_data.get('session_id', 'default'),
-                        'conversation_id': context_data.get('conversation_id'),
-                        'agent_id': context_data.get('agent_id'),
-                        'workflow_id': context_data.get('workflow_id'),
-                        'thread_id': context_data.get('thread_id'),
-                    }
-                    context = AgentContext.from_dict(context_fields)
+                    if isinstance(ctx_schema, LangGraphContextSchema):
+                        schema = ctx_schema
+                    elif isinstance(ctx_schema, dict):
+                        schema = LangGraphContextSchema.from_dict(ctx_schema)
+                    else:
+                        schema = LangGraphContextSchema.from_dict(vars(ctx_schema))
+                    context = schema.to_agent_context()
                 next_node = self.condition_func(state, context)
             else:
                 next_node = self.condition_func(state)
@@ -161,13 +142,12 @@ class ConditionalRouter:
 class LangGraphWorkflowBuilder:
     """LangGraph 0.6.5工作流构建器 - 支持新Context API"""
     
-    def __init__(self, checkpoint_manager: CheckpointManager = None, use_context_api: bool = True):
+    def __init__(self, checkpoint_manager: CheckpointManager = None):
         self.checkpoint_manager = checkpoint_manager
         self.nodes: Dict[str, WorkflowNode] = {}
         self.routers: Dict[str, ConditionalRouter] = {}
         self.graph: Optional[StateGraph] = None
         self.compiled_graph = None
-        self.use_context_api = use_context_api  # 控制是否使用新Context API
     
     def add_node(self, name: str, handler: Callable[[MessagesState], MessagesState], node_type: str = "standard") -> 'LangGraphWorkflowBuilder':
         """添加工作流节点
@@ -195,37 +175,16 @@ class LangGraphWorkflowBuilder:
             return self.graph
         
         # 创建StateGraph实例，支持context_schema
-        if self.use_context_api:
-            # 使用新的Context API (LangGraph 0.6.5+)
-            self.graph = StateGraph(MessagesState, context_schema=LangGraphContextSchema)
-        else:
-            # 向后兼容旧版本
-            self.graph = StateGraph(MessagesState)
+        self.graph = StateGraph(MessagesState, context_schema=LangGraphContextSchema)
         
-        # 添加所有节点，包装以支持新旧两种API
+        # 添加所有节点，包装以支持Context API
         for name, node in self.nodes.items():
-            if self.use_context_api:
-                # 新Context API包装函数
-                def create_node_wrapper_new(node_instance):
-                    async def node_wrapper(state: MessagesState, *, config: RunnableConfig = None) -> MessagesState:
-                        # 尝试获取runtime context
-                        runtime = None
-                        try:
-                            runtime = get_runtime()
-                        except Exception:
-                            pass  # runtime可能不可用，使用fallback
-                        return await node_instance.execute(state, config, runtime)
-                    return node_wrapper
-                
-                self.graph.add_node(name, create_node_wrapper_new(node))
-            else:
-                # 旧版本包装函数
-                def create_node_wrapper_old(node_instance):
-                    async def node_wrapper(state: MessagesState, config: RunnableConfig = None) -> MessagesState:
-                        return await node_instance.execute(state, config)
-                    return node_wrapper
-                
-                self.graph.add_node(name, create_node_wrapper_old(node))
+            def create_node_wrapper(node_instance):
+                async def node_wrapper(state: MessagesState, runtime: Optional[Runtime[LangGraphContextSchema]] = None) -> MessagesState:
+                    return await node_instance.execute(state, runtime)
+                return node_wrapper
+            
+            self.graph.add_node(name, create_node_wrapper(node))
         
         return self.graph
     
@@ -263,8 +222,8 @@ class LangGraphWorkflowBuilder:
         
         Args:
             initial_state: 初始状态
-            context: 智能体上下文（新Context API）
-            config: 额外配置（向后兼容）
+            context: 智能体上下文（Context API）
+            config: 额外配置
             durability: 持久化策略 ("exit", "async", "sync")
         """
         if self.compiled_graph is None:
@@ -277,61 +236,35 @@ class LangGraphWorkflowBuilder:
             
             # 创建或验证上下文
             if context is None:
-                # 向后兼容：从config中提取上下文数据
-                if config and "configurable" in config:
-                    context = AgentContext.from_dict(config["configurable"])
-                else:
-                    context = create_default_context()
+                context = create_default_context()
             
             if not validate_context(context):
                 raise ValueError("无效的上下文结构")
             
             # 准备执行参数
-            if self.use_context_api:
-                # 使用新Context API
-                ctx_schema = LangGraphContextSchema.from_agent_context(context)
-                thread_id = context.workflow_id or initial_state.get("workflow_id", f"workflow_{datetime.now(timezone.utc).timestamp()}")
-                ctx_schema.thread_id = thread_id
-                context.thread_id = thread_id
-                
-                # 使用真实的durability控制 (LangGraph 0.6.5+)
-                # 根据Context7文档，durability参数需要通过stream配置传递
-                config_dict = {
-                    "configurable": {
-                        "thread_id": thread_id,
-                        **ctx_schema.to_dict()
-                    }
-                }
-                
-                # 使用stream方法执行以支持durability控制
-                final_result = None
-                async for chunk in self.compiled_graph.astream(
-                    initial_state,
-                    config=config_dict,
-                    # durability参数控制持久化策略:
-                    # - "exit": 仅在图完成时持久化（最佳性能）
-                    # - "async": 异步持久化（良好性能和持久性）
-                    # - "sync": 同步持久化（最高持久性）
-                    durability=durability
-                ):
-                    final_result = chunk
-                result = final_result or initial_state
-            else:
-                # 向后兼容：使用旧的config模式
-                execution_config = config or {}
-                if "configurable" not in execution_config:
-                    execution_config["configurable"] = {}
-                
-                # 将上下文数据合并到configurable中
-                execution_config["configurable"].update(context.to_dict())
-                
-                # 添加工作流ID
-                thread_id = context.workflow_id or initial_state.get("workflow_id", f"workflow_{datetime.now(timezone.utc).timestamp()}")
-                execution_config["configurable"]["thread_id"] = thread_id
-                context.thread_id = thread_id
-                
-                # 执行工作流
-                result = await self.compiled_graph.ainvoke(initial_state, config=execution_config)
+            thread_id = context.workflow_id or initial_state.get("workflow_id", f"workflow_{datetime.now(timezone.utc).timestamp()}")
+            context.thread_id = thread_id
+            ctx_schema = LangGraphContextSchema.from_agent_context(context)
+            ctx_schema.thread_id = thread_id
+            execution_config = config or {}
+            if "configurable" not in execution_config:
+                execution_config["configurable"] = {}
+            execution_config["configurable"].setdefault("thread_id", thread_id)
+            
+            # 使用stream方法执行以支持durability控制
+            final_result = None
+            async for chunk in self.compiled_graph.astream(
+                initial_state,
+                config=execution_config,
+                context=ctx_schema.to_dict(),
+                # durability参数控制持久化策略:
+                # - "exit": 仅在图完成时持久化（最佳性能）
+                # - "async": 异步持久化（良好性能和持久性）
+                # - "sync": 同步持久化（最高持久性）
+                durability=durability
+            ):
+                final_result = chunk
+            result = final_result or initial_state
             
             # 更新最终状态
             result["metadata"]["status"] = "completed"

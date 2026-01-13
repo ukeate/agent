@@ -6,8 +6,8 @@ Context API单元测试
 import pytest
 from datetime import datetime
 from typing import Dict, Any
-from langgraph.graph import StateGraph, START, END
-from langgraph.types import RunnableConfig
+from unittest.mock import Mock
+from langgraph.graph import START, END
 
 from src.ai.langgraph.context import (
     AgentContext,
@@ -202,16 +202,15 @@ class TestWorkflowNodeWithContext:
         node = WorkflowNode("test_node", test_handler)
         state = create_initial_state()
         
-        # 创建配置包含上下文信息（使用有效的UUID格式）
+        # 创建Runtime context（使用有效的UUID格式）
         session_id = "550e8400-e29b-41d4-a716-446655440007"
-        config: RunnableConfig = {
-            "configurable": {
-                "user_id": "test_user_123",
-                "session_id": session_id
-            }
-        }
+        mock_runtime = Mock()
+        mock_runtime.context = LangGraphContextSchema(
+            user_id="test_user_123",
+            session_id=session_id
+        )
         
-        result = await node.execute(state, config)
+        result = await node.execute(state, runtime=mock_runtime)
         
         assert received_context is not None
         assert received_context.user_id == "test_user_123"
@@ -279,8 +278,8 @@ class TestLangGraphWorkflowBuilderWithContext:
         assert result["metadata"]["status"] == "completed"
     
     @pytest.mark.asyncio
-    async def test_backward_compatibility(self):
-        """测试向后兼容性 - 使用config传递上下文"""
+    async def test_default_context(self):
+        """测试默认上下文执行"""
         builder = LangGraphWorkflowBuilder()
         
         context_info = {}
@@ -296,60 +295,11 @@ class TestLangGraphWorkflowBuilderWithContext:
         graph.add_edge(START, "process")
         graph.add_edge("process", END)
         
-        # 使用旧方式传递上下文（通过config）- 使用有效的UUID格式
+        # 使用默认上下文执行
         initial_state = create_initial_state()
-        session_id = "550e8400-e29b-41d4-a716-446655440009"
-        config = {
-            "configurable": {
-                "user_id": "legacy_user",
-                "session_id": session_id
-            }
-        }
+        result = await builder.execute(initial_state)
         
-        result = await builder.execute(initial_state, config=config)
-        
-        assert context_info["user_id"] == "legacy_user"
-        assert result["metadata"]["status"] == "completed"
-    
-    @pytest.mark.asyncio
-    async def test_context_priority(self):
-        """测试上下文优先级 - 直接传递的context优先于config"""
-        builder = LangGraphWorkflowBuilder()
-        
-        context_info = {}
-        
-        def capture_context(state: MessagesState, context: AgentContext = None) -> MessagesState:
-            if context:
-                context_info["user_id"] = context.user_id
-            state["messages"].append({"role": "assistant", "content": "Done"})
-            return state
-        
-        builder.add_node("process", capture_context)
-        graph = builder.build()
-        graph.add_edge(START, "process")
-        graph.add_edge("process", END)
-        
-        # 同时提供context和config
-        initial_state = create_initial_state()
-        from src.ai.langgraph.context import SessionContext
-        session_id_direct = "550e8400-e29b-41d4-a716-446655440010"
-        session_id_config = "550e8400-e29b-41d4-a716-446655440011"
-        context = AgentContext(
-            user_id="direct_user",
-            session_id=session_id_direct,
-            session_context=SessionContext(session_id=session_id_direct)
-        )
-        config = {
-            "configurable": {
-                "user_id": "config_user",
-                "session_id": session_id_config
-            }
-        }
-        
-        result = await builder.execute(initial_state, context, config)
-        
-        # 直接传递的context应该优先
-        assert context_info["user_id"] == "direct_user"
+        assert context_info["user_id"] == "default_user"
         assert result["metadata"]["status"] == "completed"
 
 
@@ -451,7 +401,7 @@ class TestNewContextAPI:
     @pytest.mark.asyncio
     async def test_new_context_api_workflow(self):
         """测试新Context API工作流"""
-        builder = LangGraphWorkflowBuilder(use_context_api=True)
+        builder = LangGraphWorkflowBuilder()
         
         received_context = None
         
@@ -720,7 +670,7 @@ class TestIntegration:
         from src.ai.langgraph.context import SessionContext
         
         # 创建带缓存和Hooks的工作流
-        builder = LangGraphWorkflowBuilder(use_context_api=True)
+        builder = LangGraphWorkflowBuilder()
         
         async def processing_handler(state: MessagesState, context=None) -> MessagesState:
             state["messages"].append({

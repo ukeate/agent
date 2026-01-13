@@ -9,15 +9,13 @@ test.describe('LangGraph 0.6.5 Features E2E Tests', () => {
   });
 
   test.describe('Context API 新特性测试', () => {
-    test('新Context API vs 旧config模式对比', async ({ request }) => {
-      // 测试新Context API
+    test('新Context API演示', async ({ request }) => {
       const newApiResponse = await request.post(`${API_BASE_URL}/api/v1/langgraph/context-api/demo`, {
         data: {
           user_id: 'test_user_new',
           session_id: '550e8400-e29b-41d4-a716-446655440000',
           conversation_id: '123e4567-e89b-12d3-a456-426614174000',
-          message: '测试新Context API功能',
-          use_new_api: true
+          message: '测试新Context API功能'
         }
       });
 
@@ -33,36 +31,17 @@ test.describe('LangGraph 0.6.5 Features E2E Tests', () => {
       // 验证消息内容包含用户信息
       const assistantMessage = newApiResult.result.messages.find((msg: any) => msg.role === 'assistant');
       expect(assistantMessage.content).toContain('test_user_new');
-      expect(assistantMessage.content).toContain('新Context API');
-
-      // 测试旧config模式
-      const oldApiResponse = await request.post(`${API_BASE_URL}/api/v1/langgraph/context-api/demo`, {
-        data: {
-          user_id: 'test_user_old',
-          session_id: '550e8400-e29b-41d4-a716-446655440001',
-          message: '测试旧config模式',
-          use_new_api: false
-        }
-      });
-
-      expect(oldApiResponse.ok()).toBeTruthy();
-      const oldApiResult = await oldApiResponse.json();
-      
-      expect(oldApiResult.success).toBe(true);
-      expect(oldApiResult.metadata.api_type).toBe('旧config模式');
-      expect(oldApiResult.metadata.context_schema).toBe('dict');
+      expect(assistantMessage.content).toContain('Context API');
 
       // 验证执行时间在合理范围内
       expect(newApiResult.execution_time_ms).toBeLessThan(5000);
-      expect(oldApiResult.execution_time_ms).toBeLessThan(5000);
     });
 
     test('Context API错误处理', async ({ request }) => {
       const response = await request.post(`${API_BASE_URL}/api/v1/langgraph/context-api/demo`, {
         data: {
           user_id: '',  // 空用户ID测试错误处理
-          message: '测试错误处理',
-          use_new_api: true
+          message: '测试错误处理'
         }
       });
 

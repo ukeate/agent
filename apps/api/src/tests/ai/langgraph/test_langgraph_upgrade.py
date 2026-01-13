@@ -3,9 +3,8 @@ LangGraph 0.6.5升级功能测试
 测试新Context API、durability控制、Node Caching和Pre/Post Hooks
 """
 import pytest
-import asyncio
 from datetime import datetime
-from unittest.mock import Mock, AsyncMock, patch
+from unittest.mock import Mock, patch
 
 from src.ai.langgraph.state_graph import (
     LangGraphWorkflowBuilder, 
@@ -79,9 +78,9 @@ class TestLangGraphContextSchema:
 class TestWorkflowBuilderUpgrade:
     """测试工作流构建器的LangGraph 0.6.5升级"""
     
-    def test_builder_with_context_api_enabled(self):
-        """测试启用新Context API的构建器"""
-        builder = LangGraphWorkflowBuilder(use_context_api=True)
+    def test_builder_with_context_api(self):
+        """测试新Context API的构建器"""
+        builder = LangGraphWorkflowBuilder()
         
         def test_handler(state: MessagesState) -> MessagesState:
             state["messages"].append({
@@ -96,25 +95,6 @@ class TestWorkflowBuilderUpgrade:
         
         # 验证图使用了context_schema
         assert graph is not None
-        assert builder.use_context_api is True
-    
-    def test_builder_with_legacy_config(self):
-        """测试向后兼容的构建器"""
-        builder = LangGraphWorkflowBuilder(use_context_api=False)
-        
-        def test_handler(state: MessagesState) -> MessagesState:
-            state["messages"].append({
-                "role": "assistant", 
-                "content": "传统模式响应",
-                "timestamp": datetime.now().isoformat()
-            })
-            return state
-        
-        builder.add_node("legacy_node", test_handler)
-        graph = builder.build()
-        
-        assert graph is not None
-        assert builder.use_context_api is False
     
     def test_durability_parameter_in_compile(self):
         """测试编译时的durability参数"""
@@ -166,31 +146,6 @@ class TestWorkflowNodeUpgrade:
         
         assert result["context"]["received_context"] is True
         assert result["context"]["context_user_id"] == "runtime_test_user"
-    
-    @pytest.mark.asyncio
-    async def test_node_execute_with_legacy_config(self):
-        """测试节点使用传统config执行"""
-        def test_handler(state: MessagesState, context=None) -> MessagesState:
-            if context:
-                state["context"]["received_context"] = True
-                state["context"]["context_user_id"] = context.user_id
-            return state
-        
-        node = WorkflowNode("test_node", test_handler)
-        state = create_initial_state()
-        
-        # 传统config模式
-        config = {
-            "configurable": {
-                "user_id": "legacy_user",
-                "session_id": "legacy_session"
-            }
-        }
-        
-        result = await node.execute(state, config=config)
-        
-        assert result["context"]["received_context"] is True
-        assert result["context"]["context_user_id"] == "legacy_user"
 
 
 class TestNodeCaching:
@@ -403,7 +358,7 @@ class TestDurabilityControl:
     @pytest.mark.asyncio
     async def test_execute_with_different_durability_modes(self):
         """测试不同durability模式的执行"""
-        builder = LangGraphWorkflowBuilder(use_context_api=True)
+        builder = LangGraphWorkflowBuilder()
         
         def test_handler(state: MessagesState) -> MessagesState:
             state["messages"].append({
@@ -422,9 +377,10 @@ class TestDurabilityControl:
         
         # 测试不同durability模式
         for durability in ["exit", "async", "sync"]:
-            with patch.object(builder.compiled_graph, 'ainvoke', new_callable=AsyncMock) as mock_invoke:
-                mock_invoke.return_value = initial_state
-                
+            async def fake_stream(*args, **kwargs):
+                yield initial_state
+            
+            with patch.object(builder.compiled_graph, 'astream', side_effect=fake_stream) as mock_stream:
                 result = await builder.execute(
                     initial_state, 
                     context=context, 
@@ -432,11 +388,9 @@ class TestDurabilityControl:
                 )
                 
                 # 验证durability参数被传递
-                mock_invoke.assert_called_once()
-                call_args = mock_invoke.call_args
-                
-                if builder.use_context_api:
-                    assert call_args[1]["config"]["durability"] == durability
+                mock_stream.assert_called_once()
+                call_args = mock_stream.call_args
+                assert call_args.kwargs["durability"] == durability
 
 
 class TestIntegrationWorkflow:
@@ -446,7 +400,7 @@ class TestIntegrationWorkflow:
     async def test_complete_workflow_with_all_features(self):
         """测试包含所有新特性的完整工作流"""
         # 创建带有所有特性的工作流
-        builder = LangGraphWorkflowBuilder(use_context_api=True)
+        builder = LangGraphWorkflowBuilder()
         
         # 启用缓存的节点处理器
         call_count = 0
@@ -510,7 +464,7 @@ async def test_workflow_error_handling():
     """测试工作流错误处理"""
     from langgraph.graph import START, END
     
-    builder = LangGraphWorkflowBuilder(use_context_api=True)
+    builder = LangGraphWorkflowBuilder()
     
     def failing_handler(state: MessagesState) -> MessagesState:
         raise ValueError("测试错误")
