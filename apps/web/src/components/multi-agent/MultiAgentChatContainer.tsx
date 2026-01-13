@@ -60,6 +60,11 @@ export const MultiAgentChatContainer: React.FC<MultiAgentChatContainerProps> = (
         if (!response.ok) {
           throw new Error(`API请求失败: ${response.status}`)
         }
+
+        const contentType = response.headers.get('content-type') || ''
+        if (!contentType.includes('application/json')) {
+          throw new Error('API返回非JSON，请确认后端服务已启动')
+        }
         
         const result = await response.json()
         

@@ -191,17 +191,19 @@ export const useChat = () => {
 
   const clearChat = useCallback(() => {
     clearMessages()
+    setLoading(false)
     setError(null)
     setAgentError(null)
     setStatus(null)
-  }, [clearMessages, setError, setAgentError, setStatus])
+  }, [clearMessages, setLoading, setError, setAgentError, setStatus])
 
   const startNewConversation = useCallback(() => {
     createNewConversation()
+    setLoading(false)
     setError(null)
     setAgentError(null)
     setStatus(null)
-  }, [createNewConversation, setError, setAgentError, setStatus])
+  }, [createNewConversation, setLoading, setError, setAgentError, setStatus])
 
   return {
     messages,

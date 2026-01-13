@@ -31,6 +31,9 @@ const WorkflowPage: React.FC = () => {
       }
 
       const workflow = await apiClient.createWorkflow(workflowData)
+      if (!workflow || !workflow.id || !workflow.name) {
+        throw new Error('工作流数据无效')
+      }
       message.success('工作流创建成功')
       
       // 启动工作流
@@ -146,7 +149,7 @@ const WorkflowPage: React.FC = () => {
           {currentWorkflow ? (
             <WorkflowVisualization 
               workflowId={currentWorkflow.id}
-              demoMode={currentWorkflow.name.includes('离线模式') || currentWorkflow.id.includes('demo-workflow')}
+              demoMode={(currentWorkflow.name || '').includes('离线模式') || (currentWorkflow.id || '').includes('demo-workflow')}
               onNodeClick={(nodeId, nodeData) => {
                 console.log('节点点击:', nodeId, nodeData)
                 message.info(`点击节点: ${nodeData?.name || nodeId}`)
