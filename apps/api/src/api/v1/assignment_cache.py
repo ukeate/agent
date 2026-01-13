@@ -56,6 +56,7 @@ async def lifespan(_: APIRouter) -> AsyncGenerator[None, None]:
 
 router = APIRouter(prefix="/assignment-cache", tags=["assignment-cache"], lifespan=lifespan)
 
+
 @router.get("/assignments/{user_id}/{experiment_id}")
 async def get_user_assignment(
     user_id: str,
