@@ -139,10 +139,11 @@ export const useChat = () => {
       await closeCurrentConversation()
     } catch {}
     clearMessages()
+    setLoading(false)
     setError(null)
     setAgentError(null)
     setStatus(null)
-  }, [closeCurrentConversation, clearMessages, setError, setAgentError, setStatus])
+  }, [closeCurrentConversation, clearMessages, setLoading, setError, setAgentError, setStatus])
 
   const startNewConversation = useCallback(async () => {
     await createNewConversation()
