@@ -39,7 +39,7 @@ export interface Message {
   content: string;
   type: MessageType;
   timestamp: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
   agent_id?: string;
   session_id?: string;
 }
@@ -90,7 +90,7 @@ export interface Session {
   status: 'active' | 'completed' | 'error';
   created_at: string;
   updated_at: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 // 任务接口
@@ -104,6 +104,6 @@ export interface Task {
   priority: 'low' | 'medium' | 'high' | 'urgent';
   created_at: string;
   updated_at: string;
-  result?: any;
+  result?: unknown;
   error_message?: string;
 }

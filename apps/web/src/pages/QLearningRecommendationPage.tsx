@@ -31,7 +31,7 @@ const QLearningRecommendationPage: React.FC = () => {
     setLoading(true)
     try {
       const [recRes, perfRes] = await Promise.all([
-        apiFetch(buildApiUrl('/api/v1/qlearning/recommendations'),
+        apiFetch(buildApiUrl('/api/v1/qlearning/recommendations')),
         apiFetch(buildApiUrl('/api/v1/qlearning/strategy/performance'))
       ])
       const recData = await recRes.json()

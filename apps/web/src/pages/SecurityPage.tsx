@@ -1,102 +1,118 @@
 // 安全管理页面
 
-import React, { useState, useEffect } from 'react';
-import { Card, Button, Form, DatePicker, Select, Table, Tag, Space, notification, Modal, Input } from 'antd';
-import { 
+import React, { useState, useEffect } from 'react'
+import {
+  Card,
+  Button,
+  Form,
+  DatePicker,
+  Select,
+  Table,
+  Tag,
+  Space,
+  notification,
+  Modal,
+  Input,
+} from 'antd'
 import { logger } from '../utils/logger'
-  FileText, 
-  CheckCircle, 
-  XCircle, 
-  Clock, 
+import {
+  FileText,
+  CheckCircle,
+  XCircle,
+  Clock,
   Download,
   Shield,
   AlertTriangle,
-  Eye
-} from 'lucide-react';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
-import { SecurityDashboard } from '../components/security/SecurityDashboard';
-import { APIKeyManager } from '../components/security/APIKeyManager';
-import { ToolPermissions } from '../components/security/ToolPermissions';
-import { SecurityAlerts } from '../components/security/SecurityAlerts';
-import { securityApi } from '../services/securityApi';
-import dayjs from 'dayjs';
+  Eye,
+} from 'lucide-react'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs'
+import { SecurityDashboard } from '../components/security/SecurityDashboard'
+import { APIKeyManager } from '../components/security/APIKeyManager'
+import { ToolPermissions } from '../components/security/ToolPermissions'
+import { SecurityAlerts } from '../components/security/SecurityAlerts'
+import { securityApi } from '../services/securityApi'
+import dayjs from 'dayjs'
 
 const SecurityPage: React.FC = () => {
-  const [activeTab, setActiveTab] = useState('dashboard');
-  const [complianceData, setComplianceData] = useState<any>(null);
-  const [pendingApprovals, setPendingApprovals] = useState<any[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [approvalModalVisible, setApprovalModalVisible] = useState(false);
-  const [selectedApproval, setSelectedApproval] = useState<any>(null);
-  const [form] = Form.useForm();
+  const [activeTab, setActiveTab] = useState('dashboard')
+  const [complianceData, setComplianceData] = useState<any>(null)
+  const [pendingApprovals, setPendingApprovals] = useState<any[]>([])
+  const [loading, setLoading] = useState(false)
+  const [approvalModalVisible, setApprovalModalVisible] = useState(false)
+  const [selectedApproval, setSelectedApproval] = useState<any>(null)
+  const [form] = Form.useForm()
 
   // 加载待审批请求
   const loadPendingApprovals = async () => {
     try {
-      setLoading(true);
-      const approvals = await securityApi.getPendingApprovals();
-      setPendingApprovals(approvals);
+      setLoading(true)
+      const approvals = await securityApi.getPendingApprovals()
+      setPendingApprovals(approvals)
     } catch (error) {
-      logger.error('加载待审批请求失败:', error);
+      logger.error('加载待审批请求失败:', error)
       notification.error({
         message: '加载失败',
-        description: '无法加载待审批请求'
-      });
+        description: '无法加载待审批请求',
+      })
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
+  }
 
   // 生成合规报告
   const generateComplianceReport = async (values: any) => {
     try {
-      setLoading(true);
+      setLoading(true)
       const report = await securityApi.getComplianceReport(
         values.startDate.format('YYYY-MM-DD'),
         values.endDate.format('YYYY-MM-DD'),
         values.reportType
-      );
-      setComplianceData(report);
+      )
+      setComplianceData(report)
       notification.success({
         message: '报告生成成功',
-        description: '合规报告已生成'
-      });
+        description: '合规报告已生成',
+      })
     } catch (error) {
-      logger.error('生成合规报告失败:', error);
+      logger.error('生成合规报告失败:', error)
       notification.error({
         message: '生成失败',
-        description: '无法生成合规报告'
-      });
+        description: '无法生成合规报告',
+      })
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
+  }
 
   // 处理审批
-  const handleApproval = async (requestId: string, approved: boolean, reason?: string) => {
+  const handleApproval = async (
+    requestId: string,
+    approved: boolean,
+    reason?: string
+  ) => {
     try {
-      await securityApi.approveToolCall(requestId, approved, reason);
+      await securityApi.approveToolCall(requestId, approved, reason)
       notification.success({
         message: '处理成功',
-        description: `请求已${approved ? '批准' : '拒绝'}`
-      });
-      loadPendingApprovals(); // 重新加载列表
-      setApprovalModalVisible(false);
-      setSelectedApproval(null);
+        description: `请求已${approved ? '批准' : '拒绝'}`,
+      })
+      loadPendingApprovals() // 重新加载列表
+      setApprovalModalVisible(false)
+      setSelectedApproval(null)
     } catch (error) {
-      logger.error('处理审批失败:', error);
+      logger.error('处理审批失败:', error)
       notification.error({
         message: '处理失败',
-        description: '无法处理审批请求'
-      });
+        description: '无法处理审批请求',
+      })
     }
-  };
+  }
 
   useEffect(() => {
     if (activeTab === 'approvals') {
-      loadPendingApprovals();
+      loadPendingApprovals()
     }
-  }, [activeTab]);
+  }, [activeTab])
 
   return (
     <div className="container mx-auto p-6">
@@ -167,7 +183,9 @@ const SecurityPage: React.FC = () => {
                     <Select.Option value="security">安全报告</Select.Option>
                     <Select.Option value="privacy">隐私报告</Select.Option>
                     <Select.Option value="audit">审计报告</Select.Option>
-                    <Select.Option value="comprehensive">综合报告</Select.Option>
+                    <Select.Option value="comprehensive">
+                      综合报告
+                    </Select.Option>
                   </Select>
                 </Form.Item>
                 <Form.Item>
@@ -181,20 +199,22 @@ const SecurityPage: React.FC = () => {
                 <div className="mt-4">
                   <div className="flex items-center justify-between mb-4">
                     <h3 className="text-lg font-semibold">合规报告结果</h3>
-                    <Button 
+                    <Button
                       icon={<Download />}
                       onClick={() => {
                         // 下载报告逻辑
-                        const blob = new Blob([JSON.stringify(complianceData, null, 2)], 
-                          { type: 'application/json' });
-                        const url = URL.createObjectURL(blob);
-                        const link = document.createElement('a');
-                        link.href = url;
-                        link.download = `compliance-report-${dayjs().format('YYYY-MM-DD')}.json`;
-                        document.body.appendChild(link);
-                        link.click();
-                        document.body.removeChild(link);
-                        URL.revokeObjectURL(url);
+                        const blob = new Blob(
+                          [JSON.stringify(complianceData, null, 2)],
+                          { type: 'application/json' }
+                        )
+                        const url = URL.createObjectURL(blob)
+                        const link = document.createElement('a')
+                        link.href = url
+                        link.download = `compliance-report-${dayjs().format('YYYY-MM-DD')}.json`
+                        document.body.appendChild(link)
+                        link.click()
+                        document.body.removeChild(link)
+                        URL.revokeObjectURL(url)
                       }}
                     >
                       下载报告
@@ -217,7 +237,9 @@ const SecurityPage: React.FC = () => {
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-2">
                   <Clock className="h-5 w-5" />
-                  <span className="text-lg font-semibold">待审批的工具调用请求</span>
+                  <span className="text-lg font-semibold">
+                    待审批的工具调用请求
+                  </span>
                 </div>
                 <Button onClick={loadPendingApprovals} loading={loading}>
                   刷新
@@ -235,19 +257,19 @@ const SecurityPage: React.FC = () => {
                     dataIndex: 'request_id',
                     key: 'request_id',
                     width: 200,
-                    ellipsis: true
+                    ellipsis: true,
                   },
                   {
                     title: '工具名称',
                     dataIndex: 'tool_name',
                     key: 'tool_name',
-                    width: 150
+                    width: 150,
                   },
                   {
                     title: '用户',
                     dataIndex: 'user_id',
                     key: 'user_id',
-                    width: 120
+                    width: 120,
                   },
                   {
                     title: '风险级别',
@@ -255,23 +277,34 @@ const SecurityPage: React.FC = () => {
                     key: 'risk_level',
                     width: 100,
                     render: (risk: string) => (
-                      <Tag color={
-                        risk === 'critical' ? 'red' :
-                        risk === 'high' ? 'orange' :
-                        risk === 'medium' ? 'yellow' : 'green'
-                      }>
-                        {risk === 'critical' ? '严重' :
-                         risk === 'high' ? '高' :
-                         risk === 'medium' ? '中' : '低'}
+                      <Tag
+                        color={
+                          risk === 'critical'
+                            ? 'red'
+                            : risk === 'high'
+                              ? 'orange'
+                              : risk === 'medium'
+                                ? 'yellow'
+                                : 'green'
+                        }
+                      >
+                        {risk === 'critical'
+                          ? '严重'
+                          : risk === 'high'
+                            ? '高'
+                            : risk === 'medium'
+                              ? '中'
+                              : '低'}
                       </Tag>
-                    )
+                    ),
                   },
                   {
                     title: '请求时间',
                     dataIndex: 'requested_at',
                     key: 'requested_at',
                     width: 180,
-                    render: (time: string) => dayjs(time).format('YYYY-MM-DD HH:mm:ss')
+                    render: (time: string) =>
+                      dayjs(time).format('YYYY-MM-DD HH:mm:ss'),
                   },
                   {
                     title: '操作',
@@ -283,8 +316,8 @@ const SecurityPage: React.FC = () => {
                           size="small"
                           icon={<Eye />}
                           onClick={() => {
-                            setSelectedApproval(record);
-                            setApprovalModalVisible(true);
+                            setSelectedApproval(record)
+                            setApprovalModalVisible(true)
                           }}
                         >
                           查看详情
@@ -293,7 +326,9 @@ const SecurityPage: React.FC = () => {
                           size="small"
                           type="primary"
                           icon={<CheckCircle />}
-                          onClick={() => handleApproval(record.request_id, true)}
+                          onClick={() =>
+                            handleApproval(record.request_id, true)
+                          }
                         >
                           批准
                         </Button>
@@ -301,18 +336,20 @@ const SecurityPage: React.FC = () => {
                           size="small"
                           danger
                           icon={<XCircle />}
-                          onClick={() => handleApproval(record.request_id, false)}
+                          onClick={() =>
+                            handleApproval(record.request_id, false)
+                          }
                         >
                           拒绝
                         </Button>
                       </Space>
-                    )
-                  }
+                    ),
+                  },
                 ]}
                 pagination={{
                   pageSize: 10,
                   showSizeChanger: true,
-                  showTotal: (total) => `共 ${total} 条请求`
+                  showTotal: total => `共 ${total} 条请求`,
                 }}
               />
             </Card.Body>
@@ -325,8 +362,8 @@ const SecurityPage: React.FC = () => {
         title="审批请求详情"
         visible={approvalModalVisible}
         onCancel={() => {
-          setApprovalModalVisible(false);
-          setSelectedApproval(null);
+          setApprovalModalVisible(false)
+          setSelectedApproval(null)
         }}
         footer={[
           <Button key="cancel" onClick={() => setApprovalModalVisible(false)}>
@@ -335,17 +372,23 @@ const SecurityPage: React.FC = () => {
           <Button
             key="reject"
             danger
-            onClick={() => selectedApproval && handleApproval(selectedApproval.request_id, false)}
+            onClick={() =>
+              selectedApproval &&
+              handleApproval(selectedApproval.request_id, false)
+            }
           >
             拒绝
           </Button>,
           <Button
             key="approve"
             type="primary"
-            onClick={() => selectedApproval && handleApproval(selectedApproval.request_id, true)}
+            onClick={() =>
+              selectedApproval &&
+              handleApproval(selectedApproval.request_id, true)
+            }
           >
             批准
-          </Button>
+          </Button>,
         ]}
         width={800}
       >
@@ -366,14 +409,24 @@ const SecurityPage: React.FC = () => {
               </div>
               <div>
                 <span className="font-semibold">风险级别: </span>
-                <Tag color={
-                  selectedApproval.risk_level === 'critical' ? 'red' :
-                  selectedApproval.risk_level === 'high' ? 'orange' :
-                  selectedApproval.risk_level === 'medium' ? 'yellow' : 'green'
-                }>
-                  {selectedApproval.risk_level === 'critical' ? '严重' :
-                   selectedApproval.risk_level === 'high' ? '高' :
-                   selectedApproval.risk_level === 'medium' ? '中' : '低'}
+                <Tag
+                  color={
+                    selectedApproval.risk_level === 'critical'
+                      ? 'red'
+                      : selectedApproval.risk_level === 'high'
+                        ? 'orange'
+                        : selectedApproval.risk_level === 'medium'
+                          ? 'yellow'
+                          : 'green'
+                  }
+                >
+                  {selectedApproval.risk_level === 'critical'
+                    ? '严重'
+                    : selectedApproval.risk_level === 'high'
+                      ? '高'
+                      : selectedApproval.risk_level === 'medium'
+                        ? '中'
+                        : '低'}
                 </Tag>
               </div>
               <div>
@@ -384,14 +437,16 @@ const SecurityPage: React.FC = () => {
               </div>
               <div>
                 <span className="font-semibold">请求原因: </span>
-                <p className="mt-1">{selectedApproval.justification || '未提供'}</p>
+                <p className="mt-1">
+                  {selectedApproval.justification || '未提供'}
+                </p>
               </div>
             </div>
           </div>
         )}
       </Modal>
     </div>
-  );
-};
+  )
+}
 
-export default SecurityPage;
+export default SecurityPage

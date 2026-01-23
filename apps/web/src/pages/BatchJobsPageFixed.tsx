@@ -1,7 +1,12 @@
 import { buildApiUrl, apiFetch } from '../utils/apiBase'
 import React, { useEffect, useState } from 'react'
 import { Card, Table, Button, Space, Typography, Alert, Spin, Tag } from 'antd'
-import { ThunderboltOutlined, ReloadOutlined, PlayCircleOutlined, StopOutlined } from '@ant-design/icons'
+import {
+  ThunderboltOutlined,
+  ReloadOutlined,
+  PlayCircleOutlined,
+  StopOutlined,
+} from '@ant-design/icons'
 
 interface BatchJob {
   job_id: string
@@ -33,12 +38,16 @@ const BatchJobsPageFixed: React.FC = () => {
   }
 
   const startJob = async (jobId: string) => {
-    await apiFetch(buildApiUrl(`/api/v1/batch/jobs/${jobId}/start`), { method: 'POST' })
+    await apiFetch(buildApiUrl(`/api/v1/batch/jobs/${jobId}/start`), {
+      method: 'POST',
+    })
     load()
   }
 
   const stopJob = async (jobId: string) => {
-    await apiFetch(buildApiUrl(`/api/v1/batch/jobs/${jobId}/stop`), { method: 'POST' })
+    await apiFetch(buildApiUrl(`/api/v1/batch/jobs/${jobId}/stop`), {
+      method: 'POST',
+    })
     load()
   }
 
@@ -49,7 +58,10 @@ const BatchJobsPageFixed: React.FC = () => {
   return (
     <div style={{ padding: 24 }}>
       <Space direction="vertical" style={{ width: '100%' }} size="large">
-        <Space align="center" style={{ justifyContent: 'space-between', width: '100%' }}>
+        <Space
+          align="center"
+          style={{ justifyContent: 'space-between', width: '100%' }}
+        >
           <Space>
             <ThunderboltOutlined />
             <Typography.Title level={3} style={{ margin: 0 }}>
@@ -74,24 +86,39 @@ const BatchJobsPageFixed: React.FC = () => {
                 { title: 'ID', dataIndex: 'job_id' },
                 { title: '名称', dataIndex: 'name' },
                 { title: '类型', dataIndex: 'job_type' },
-                { title: '状态', dataIndex: 'status', render: (v) => <Tag>{v || '未知'}</Tag> },
+                {
+                  title: '状态',
+                  dataIndex: 'status',
+                  render: v => <Tag>{v || '未知'}</Tag>,
+                },
                 { title: '进度', dataIndex: 'progress' },
                 { title: '创建时间', dataIndex: 'created_at' },
                 {
                   title: '操作',
                   render: (_, r) => (
                     <Space>
-                      <Button icon={<PlayCircleOutlined />} size="small" onClick={() => startJob(r.job_id)}>
+                      <Button
+                        icon={<PlayCircleOutlined />}
+                        size="small"
+                        onClick={() => startJob(r.job_id)}
+                      >
                         启动
                       </Button>
-                      <Button icon={<StopOutlined />} size="small" danger onClick={() => stopJob(r.job_id)}>
+                      <Button
+                        icon={<StopOutlined />}
+                        size="small"
+                        danger
+                        onClick={() => stopJob(r.job_id)}
+                      >
                         停止
                       </Button>
                     </Space>
-                  )
-                }
+                  ),
+                },
               ]}
-              locale={{ emptyText: '暂无作业，先调用 /api/v1/batch/jobs/create 创建。' }}
+              locale={{
+                emptyText: '暂无作业，先调用 /api/v1/batch/jobs/create 创建。',
+              }}
             />
           )}
         </Card>

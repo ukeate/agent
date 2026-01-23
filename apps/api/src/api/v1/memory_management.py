@@ -19,6 +19,7 @@ from src.ai.memory.models import (
 )
 from src.services.memory_service import memory_service
 from src.core.dependencies import get_current_user
+from src.core.logging import get_logger
 
 logger = get_logger(__name__)
 
@@ -393,4 +394,3 @@ async def get_memory(
         raise HTTPException(status_code=403, detail="无权访问该记忆")
     
     return MemoryResponse.from_memory(memory)
-from src.core.logging import get_logger

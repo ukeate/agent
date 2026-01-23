@@ -17,7 +17,7 @@ const ModelInferencePage: React.FC = () => {
       const res = await apiFetch(buildApiUrl('/api/v1/model-service/infer'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ model_id: model), input: prompt })
+        body: JSON.stringify({ model_id: model, input: prompt })
       });
       const data = await res.json();
       setResult(data);

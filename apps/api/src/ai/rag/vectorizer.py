@@ -11,6 +11,7 @@ from src.ai.rag.embeddings import embedding_service, text_chunker
 from functools import partial
 from src.core.qdrant import get_qdrant_client
 from src.core.utils.async_utils import run_sync_io
+from src.core.logging import get_logger
 
 logger = get_logger(__name__)
 
@@ -360,4 +361,3 @@ class FileVectorizer:
 
 # 全局向量化器实例
 file_vectorizer = FileVectorizer()
-from src.core.logging import get_logger

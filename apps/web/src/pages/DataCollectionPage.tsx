@@ -1,7 +1,7 @@
 import { buildApiUrl, apiFetch } from '../utils/apiBase'
-import React, { useState, useEffect } from 'react';
-import {
+import React, { useState, useEffect } from 'react'
 import { logger } from '../utils/logger'
+import {
   Box,
   Card,
   CardContent,
@@ -34,8 +34,8 @@ import { logger } from '../utils/logger'
   List,
   ListItem,
   ListItemText,
-  ListItemIcon
-} from '@mui/material';
+  ListItemIcon,
+} from '@mui/material'
 import {
   PlayArrow as StartIcon,
   Pause as PauseIcon,
@@ -47,160 +47,185 @@ import {
   HourglassEmpty as PendingIcon,
   Speed as SpeedIcon,
   DataUsage as DataIcon,
-  Timeline as TimelineIcon
-} from '@mui/icons-material';
+  Timeline as TimelineIcon,
+} from '@mui/icons-material'
 
 interface CollectionJob {
-  job_id: string;
-  source_id: string;
-  source_name: string;
-  status: 'pending' | 'running' | 'completed' | 'failed' | 'paused';
-  progress: number;
-  total_records: number;
-  collected_records: number;
-  processed_records: number;
-  failed_records: number;
-  start_time: string;
-  estimated_completion?: string;
-  error_message?: string;
-  processing_rules: string[];
-  batch_size: number;
+  job_id: string
+  source_id: string
+  source_name: string
+  status: 'pending' | 'running' | 'completed' | 'failed' | 'paused'
+  progress: number
+  total_records: number
+  collected_records: number
+  processed_records: number
+  failed_records: number
+  start_time: string
+  estimated_completion?: string
+  error_message?: string
+  processing_rules: string[]
+  batch_size: number
 }
 
 interface CollectionStats {
-  today_collected: number;
-  week_collected: number;
-  total_collected: number;
-  failed_jobs: number;
-  avg_speed: number;
-  active_jobs: number;
+  today_collected: number
+  week_collected: number
+  total_collected: number
+  failed_jobs: number
+  avg_speed: number
+  active_jobs: number
 }
 
 export default function DataCollectionPage() {
-  const [jobs, setJobs] = useState<CollectionJob[]>([]);
-  const [stats, setStats] = useState<CollectionStats | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [startJobDialog, setStartJobDialog] = useState(false);
-  const [availableSources, setAvailableSources] = useState<any[]>([]);
+  const [jobs, setJobs] = useState<CollectionJob[]>([])
+  const [stats, setStats] = useState<CollectionStats | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [startJobDialog, setStartJobDialog] = useState(false)
+  const [availableSources, setAvailableSources] = useState<any[]>([])
   const [newJob, setNewJob] = useState({
     source_id: '',
     processing_rules: ['text_cleaning', 'format_standardization'],
     batch_size: 100,
-    auto_start: true
-  });
+    auto_start: true,
+  })
 
   const fetchJobs = async () => {
     try {
-      setLoading(true);
-      const response = await apiFetch(buildApiUrl('/api/v1/training-data/collection/jobs'));
-      const data = await response.json();
-      setJobs(data);
+      setLoading(true)
+      const response = await apiFetch(
+        buildApiUrl('/api/v1/training-data/collection/jobs')
+      )
+      const data = await response.json()
+      setJobs(data)
     } catch (err) {
-      setError('获取收集任务失败');
+      setError('获取收集任务失败')
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
+  }
 
   const fetchStats = async () => {
     try {
-      const response = await apiFetch(buildApiUrl('/api/v1/training-data/collection/stats'));
-      const data = await response.json();
-      setStats(data);
+      const response = await apiFetch(
+        buildApiUrl('/api/v1/training-data/collection/stats')
+      )
+      const data = await response.json()
+      setStats(data)
     } catch (err) {
-      logger.error('获取统计信息失败:', err);
+      logger.error('获取统计信息失败:', err)
     }
-  };
+  }
 
   const fetchSources = async () => {
     try {
-      const response = await apiFetch(buildApiUrl('/api/v1/training-data/sources?active_only=true'));
-      const data = await response.json();
-      setAvailableSources(data);
+      const response = await apiFetch(
+        buildApiUrl('/api/v1/training-data/sources?active_only=true')
+      )
+      const data = await response.json()
+      setAvailableSources(data)
     } catch (err) {
-      logger.error('获取数据源失败:', err);
+      logger.error('获取数据源失败:', err)
     }
-  };
+  }
 
   const handleStartJob = async () => {
     try {
-      setLoading(true);
-      const response = await apiFetch(buildApiUrl('/api/v1/training-data/collect'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newJob)
-      });
-      
-      await response.json().catch(() => null);
-      setStartJobDialog(false);
+      setLoading(true)
+      const response = await apiFetch(
+        buildApiUrl('/api/v1/training-data/collect'),
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(newJob),
+        }
+      )
+
+      await response.json().catch(() => null)
+      setStartJobDialog(false)
       setNewJob({
         source_id: '',
         processing_rules: ['text_cleaning', 'format_standardization'],
         batch_size: 100,
-        auto_start: true
-      });
-      await fetchJobs();
+        auto_start: true,
+      })
+      await fetchJobs()
     } catch (err) {
-      setError(err instanceof Error ? err.message : '启动收集任务失败');
+      setError(err instanceof Error ? err.message : '启动收集任务失败')
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
+  }
 
-  const handleJobAction = async (jobId: string, action: 'pause' | 'resume' | 'stop') => {
+  const handleJobAction = async (
+    jobId: string,
+    action: 'pause' | 'resume' | 'stop'
+  ) => {
     try {
-      const response = await apiFetch(buildApiUrl(`/api/v1/training-data/collection/jobs/${jobId}/${action}`), {
-        method: 'POST'
-      });
-      
-      await response.json().catch(() => null);
-      await fetchJobs();
+      const response = await apiFetch(
+        buildApiUrl(`/api/v1/training-data/collection/jobs/${jobId}/${action}`),
+        {
+          method: 'POST',
+        }
+      )
+
+      await response.json().catch(() => null)
+      await fetchJobs()
     } catch (err) {
-      setError(err instanceof Error ? err.message : '操作失败');
+      setError(err instanceof Error ? err.message : '操作失败')
     }
-  };
+  }
 
   const getStatusIcon = (status: string) => {
     switch (status) {
-      case 'completed': return <CheckCircleIcon color="success" />;
-      case 'failed': return <ErrorIcon color="error" />;
-      case 'running': return <SpeedIcon color="primary" />;
-      case 'paused': return <PauseIcon color="warning" />;
-      default: return <PendingIcon color="action" />;
+      case 'completed':
+        return <CheckCircleIcon color="success" />
+      case 'failed':
+        return <ErrorIcon color="error" />
+      case 'running':
+        return <SpeedIcon color="primary" />
+      case 'paused':
+        return <PauseIcon color="warning" />
+      default:
+        return <PendingIcon color="action" />
     }
-  };
+  }
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'completed': return 'success';
-      case 'failed': return 'error';
-      case 'running': return 'primary';
-      case 'paused': return 'warning';
-      default: return 'default';
+      case 'completed':
+        return 'success'
+      case 'failed':
+        return 'error'
+      case 'running':
+        return 'primary'
+      case 'paused':
+        return 'warning'
+      default:
+        return 'default'
     }
-  };
+  }
 
   const processingRuleOptions = [
     { value: 'text_cleaning', label: '文本清理' },
     { value: 'deduplication', label: '去重处理' },
     { value: 'format_standardization', label: '格式标准化' },
     { value: 'quality_filtering', label: '质量过滤' },
-    { value: 'data_enrichment', label: '数据丰富化' }
-  ];
+    { value: 'data_enrichment', label: '数据丰富化' },
+  ]
 
   useEffect(() => {
-    fetchJobs();
-    fetchStats();
-    fetchSources();
-    
-    const interval = setInterval(() => {
-      fetchJobs();
-      fetchStats();
-    }, 5000); // 每5秒刷新一次
+    fetchJobs()
+    fetchStats()
+    fetchSources()
 
-    return () => clearInterval(interval);
-  }, []);
+    const interval = setInterval(() => {
+      fetchJobs()
+      fetchStats()
+    }, 5000) // 每5秒刷新一次
+
+    return () => clearInterval(interval)
+  }, [])
 
   return (
     <Box sx={{ p: 3 }}>
@@ -332,8 +357,8 @@ export default function DataCollectionPage() {
             variant="outlined"
             startIcon={<RefreshIcon />}
             onClick={() => {
-              fetchJobs();
-              fetchStats();
+              fetchJobs()
+              fetchStats()
             }}
             sx={{ mr: 2 }}
           >
@@ -380,7 +405,7 @@ export default function DataCollectionPage() {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  jobs.map((job) => (
+                  jobs.map(job => (
                     <TableRow key={job.job_id} hover>
                       <TableCell>
                         <Box>
@@ -422,7 +447,9 @@ export default function DataCollectionPage() {
                         </Typography>
                       </TableCell>
                       <TableCell>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <Box
+                          sx={{ display: 'flex', alignItems: 'center', gap: 1 }}
+                        >
                           {getStatusIcon(job.status)}
                           <Chip
                             label={job.status}
@@ -432,7 +459,11 @@ export default function DataCollectionPage() {
                         </Box>
                         {job.error_message && (
                           <Tooltip title={job.error_message}>
-                            <Typography variant="caption" color="error.main" sx={{ display: 'block' }}>
+                            <Typography
+                              variant="caption"
+                              color="error.main"
+                              sx={{ display: 'block' }}
+                            >
                               {job.error_message.substring(0, 30)}...
                             </Typography>
                           </Tooltip>
@@ -443,7 +474,9 @@ export default function DataCollectionPage() {
                           <LinearProgress
                             variant="determinate"
                             value={job.progress}
-                            color={job.status === 'failed' ? 'error' : 'primary'}
+                            color={
+                              job.status === 'failed' ? 'error' : 'primary'
+                            }
                           />
                         </Box>
                         <Typography variant="caption">
@@ -470,10 +503,11 @@ export default function DataCollectionPage() {
                       </TableCell>
                       <TableCell>
                         <Typography variant="body2">
-                          {job.estimated_completion 
-                            ? new Date(job.estimated_completion).toLocaleString()
-                            : '-'
-                          }
+                          {job.estimated_completion
+                            ? new Date(
+                                job.estimated_completion
+                              ).toLocaleString()
+                            : '-'}
                         </Typography>
                       </TableCell>
                       <TableCell>
@@ -483,7 +517,9 @@ export default function DataCollectionPage() {
                               <IconButton
                                 size="small"
                                 color="warning"
-                                onClick={() => handleJobAction(job.job_id, 'pause')}
+                                onClick={() =>
+                                  handleJobAction(job.job_id, 'pause')
+                                }
                               >
                                 <PauseIcon />
                               </IconButton>
@@ -494,18 +530,23 @@ export default function DataCollectionPage() {
                               <IconButton
                                 size="small"
                                 color="primary"
-                                onClick={() => handleJobAction(job.job_id, 'resume')}
+                                onClick={() =>
+                                  handleJobAction(job.job_id, 'resume')
+                                }
                               >
                                 <StartIcon />
                               </IconButton>
                             </Tooltip>
                           )}
-                          {(job.status === 'running' || job.status === 'paused') && (
+                          {(job.status === 'running' ||
+                            job.status === 'paused') && (
                             <Tooltip title="停止">
                               <IconButton
                                 size="small"
                                 color="error"
-                                onClick={() => handleJobAction(job.job_id, 'stop')}
+                                onClick={() =>
+                                  handleJobAction(job.job_id, 'stop')
+                                }
                               >
                                 <StopIcon />
                               </IconButton>
@@ -523,7 +564,12 @@ export default function DataCollectionPage() {
       </Card>
 
       {/* 启动收集任务对话框 */}
-      <Dialog open={startJobDialog} onClose={() => setStartJobDialog(false)} maxWidth="sm" fullWidth>
+      <Dialog
+        open={startJobDialog}
+        onClose={() => setStartJobDialog(false)}
+        maxWidth="sm"
+        fullWidth
+      >
         <DialogTitle>启动数据收集任务</DialogTitle>
         <DialogContent>
           <FormControl fullWidth margin="normal">
@@ -531,9 +577,11 @@ export default function DataCollectionPage() {
             <Select
               value={newJob.source_id}
               label="选择数据源"
-              onChange={(e) => setNewJob(prev => ({ ...prev, source_id: e.target.value }))}
+              onChange={e =>
+                setNewJob(prev => ({ ...prev, source_id: e.target.value }))
+              }
             >
-              {availableSources.map((source) => (
+              {availableSources.map(source => (
                 <MenuItem key={source.source_id} value={source.source_id}>
                   {source.name} ({source.source_type})
                 </MenuItem>
@@ -545,23 +593,28 @@ export default function DataCollectionPage() {
             预处理规则
           </Typography>
           <Paper variant="outlined" sx={{ p: 2, mb: 2 }}>
-            {processingRuleOptions.map((rule) => (
+            {processingRuleOptions.map(rule => (
               <FormControlLabel
                 key={rule.value}
                 control={
                   <Checkbox
                     checked={newJob.processing_rules.includes(rule.value)}
-                    onChange={(e) => {
+                    onChange={e => {
                       if (e.target.checked) {
                         setNewJob(prev => ({
                           ...prev,
-                          processing_rules: [...prev.processing_rules, rule.value]
-                        }));
+                          processing_rules: [
+                            ...prev.processing_rules,
+                            rule.value,
+                          ],
+                        }))
                       } else {
                         setNewJob(prev => ({
                           ...prev,
-                          processing_rules: prev.processing_rules.filter(r => r !== rule.value)
-                        }));
+                          processing_rules: prev.processing_rules.filter(
+                            r => r !== rule.value
+                          ),
+                        }))
                       }
                     }}
                   />
@@ -577,7 +630,12 @@ export default function DataCollectionPage() {
             label="批次大小"
             type="number"
             value={newJob.batch_size}
-            onChange={(e) => setNewJob(prev => ({ ...prev, batch_size: parseInt(e.target.value) || 100 }))}
+            onChange={e =>
+              setNewJob(prev => ({
+                ...prev,
+                batch_size: parseInt(e.target.value) || 100,
+              }))
+            }
             helperText="每批次处理的记录数量，建议100-1000"
             inputProps={{ min: 10, max: 10000 }}
           />
@@ -586,7 +644,9 @@ export default function DataCollectionPage() {
             control={
               <Checkbox
                 checked={newJob.auto_start}
-                onChange={(e) => setNewJob(prev => ({ ...prev, auto_start: e.target.checked }))}
+                onChange={e =>
+                  setNewJob(prev => ({ ...prev, auto_start: e.target.checked }))
+                }
               />
             }
             label="自动开始处理"
@@ -594,8 +654,8 @@ export default function DataCollectionPage() {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setStartJobDialog(false)}>取消</Button>
-          <Button 
-            onClick={handleStartJob} 
+          <Button
+            onClick={handleStartJob}
             variant="contained"
             disabled={!newJob.source_id || loading}
           >
@@ -604,5 +664,5 @@ export default function DataCollectionPage() {
         </DialogActions>
       </Dialog>
     </Box>
-  );
+  )
 }

@@ -1,21 +1,26 @@
-import React from 'react';
-import { Card, Typography, Space, Button, Row, Col, Statistic } from 'antd';
+import React from 'react'
+import { Card, Typography, Space, Button, Row, Col, Statistic } from 'antd'
 import {
   NodeIndexOutlined,
   DatabaseOutlined,
   SearchOutlined,
   BarChartOutlined,
-  ExperimentOutlined
-} from '@ant-design/icons';
+  ExperimentOutlined,
+} from '@ant-design/icons'
 
-const { Title, Text } = Typography;
+const { Title, Text } = Typography
 
 const KnowledgeGraphPageSimple: React.FC = () => {
   return (
     <div style={{ padding: '24px' }}>
       <div style={{ marginBottom: '24px' }}>
-        <Title level={2} style={{ margin: 0, display: 'flex', alignItems: 'center' }}>
-          <NodeIndexOutlined style={{ marginRight: '12px', color: '#1890ff' }} />
+        <Title
+          level={2}
+          style={{ margin: 0, display: 'flex', alignItems: 'center' }}
+        >
+          <NodeIndexOutlined
+            style={{ marginRight: '12px', color: '#1890ff' }}
+          />
           知识图谱系统
         </Title>
         <Text type="secondary">智能知识图谱构建、查询与可视化平台</Text>
@@ -69,9 +74,13 @@ const KnowledgeGraphPageSimple: React.FC = () => {
       {/* 功能模块卡片 */}
       <Row gutter={[16, 16]}>
         <Col span={12}>
-          <Card 
+          <Card
             title="图谱可视化"
-            extra={<Button type="primary" size="small">进入</Button>}
+            extra={
+              <Button type="primary" size="small">
+                进入
+              </Button>
+            }
             style={{ height: '200px' }}
           >
             <Space direction="vertical" style={{ width: '100%' }}>
@@ -82,11 +91,15 @@ const KnowledgeGraphPageSimple: React.FC = () => {
             </Space>
           </Card>
         </Col>
-        
+
         <Col span={12}>
-          <Card 
+          <Card
             title="自然语言查询"
-            extra={<Button type="primary" size="small">进入</Button>}
+            extra={
+              <Button type="primary" size="small">
+                进入
+              </Button>
+            }
             style={{ height: '200px' }}
           >
             <Space direction="vertical" style={{ width: '100%' }}>
@@ -99,9 +112,13 @@ const KnowledgeGraphPageSimple: React.FC = () => {
         </Col>
 
         <Col span={12}>
-          <Card 
+          <Card
             title="图谱推理引擎"
-            extra={<Button type="primary" size="small">进入</Button>}
+            extra={
+              <Button type="primary" size="small">
+                进入
+              </Button>
+            }
             style={{ height: '200px' }}
           >
             <Space direction="vertical" style={{ width: '100%' }}>
@@ -114,9 +131,13 @@ const KnowledgeGraphPageSimple: React.FC = () => {
         </Col>
 
         <Col span={12}>
-          <Card 
+          <Card
             title="数据管理"
-            extra={<Button type="primary" size="small">进入</Button>}
+            extra={
+              <Button type="primary" size="small">
+                进入
+              </Button>
+            }
             style={{ height: '200px' }}
           >
             <Space direction="vertical" style={{ width: '100%' }}>
@@ -135,19 +156,13 @@ const KnowledgeGraphPageSimple: React.FC = () => {
           <Button type="primary" icon={<SearchOutlined />}>
             新建查询
           </Button>
-          <Button icon={<DatabaseOutlined />}>
-            导入数据
-          </Button>
-          <Button icon={<ExperimentOutlined />}>
-            创建实验
-          </Button>
-          <Button icon={<BarChartOutlined />}>
-            查看报告
-          </Button>
+          <Button icon={<DatabaseOutlined />}>导入数据</Button>
+          <Button icon={<ExperimentOutlined />}>创建实验</Button>
+          <Button icon={<BarChartOutlined />}>查看报告</Button>
         </Space>
       </Card>
     </div>
-  );
-};
+  )
+}
 
-export default KnowledgeGraphPageSimple;
+export default KnowledgeGraphPageSimple

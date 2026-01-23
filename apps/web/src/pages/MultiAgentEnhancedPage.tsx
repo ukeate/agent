@@ -1,6 +1,37 @@
 import React, { useState, useEffect } from 'react'
-import { Card, Button, Input, List, Tag, Alert, Tabs, Space, Progress, Timeline, Divider, Badge, Row, Col, Statistic, Select, Modal, Form, message } from 'antd'
-import { SendOutlined, TeamOutlined, RobotOutlined, MessageOutlined, HistoryOutlined, SettingOutlined, PlayCircleOutlined, PauseCircleOutlined, StopOutlined, ReloadOutlined } from '@ant-design/icons'
+import {
+  Card,
+  Button,
+  Input,
+  List,
+  Tag,
+  Alert,
+  Tabs,
+  Space,
+  Progress,
+  Timeline,
+  Divider,
+  Badge,
+  Row,
+  Col,
+  Statistic,
+  Select,
+  Modal,
+  Form,
+  message,
+} from 'antd'
+import {
+  SendOutlined,
+  TeamOutlined,
+  RobotOutlined,
+  MessageOutlined,
+  HistoryOutlined,
+  SettingOutlined,
+  PlayCircleOutlined,
+  PauseCircleOutlined,
+  StopOutlined,
+  ReloadOutlined,
+} from '@ant-design/icons'
 import apiClient from '../services/apiClient'
 
 import { logger } from '../utils/logger'
@@ -35,10 +66,14 @@ interface Conversation {
 
 const MultiAgentEnhancedPage: React.FC = () => {
   const [conversations, setConversations] = useState<Conversation[]>([])
-  const [activeConversation, setActiveConversation] = useState<Conversation | null>(null)
+  const [activeConversation, setActiveConversation] =
+    useState<Conversation | null>(null)
   const [inputMessage, setInputMessage] = useState('')
   const [loading, setLoading] = useState(false)
-  const [selectedAgents, setSelectedAgents] = useState<string[]>(['assistant', 'critic'])
+  const [selectedAgents, setSelectedAgents] = useState<string[]>([
+    'assistant',
+    'critic',
+  ])
   const [maxRounds, setMaxRounds] = useState(10)
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [form] = Form.useForm()
@@ -82,7 +117,9 @@ const MultiAgentEnhancedPage: React.FC = () => {
   const pollConversationStatus = async (conversationId: string) => {
     const interval = setInterval(async () => {
       try {
-        const response = await apiClient.get(`/multi-agent/conversation/${conversationId}/status`)
+        const response = await apiClient.get(
+          `/multi-agent/conversation/${conversationId}/status`
+        )
         const updatedConversation = response.data
 
         setConversations(prev =>
@@ -96,7 +133,9 @@ const MultiAgentEnhancedPage: React.FC = () => {
         }
 
         // 获取消息
-        const messagesResponse = await apiClient.get(`/multi-agent/conversation/${conversationId}/messages`)
+        const messagesResponse = await apiClient.get(
+          `/multi-agent/conversation/${conversationId}/messages`
+        )
         if (messagesResponse.data.messages) {
           setActiveConversation(prev =>
             prev ? { ...prev, messages: messagesResponse.data.messages } : null
@@ -104,7 +143,10 @@ const MultiAgentEnhancedPage: React.FC = () => {
         }
 
         // 如果对话已完成，停止轮询
-        if (updatedConversation.status === 'completed' || updatedConversation.status === 'error') {
+        if (
+          updatedConversation.status === 'completed' ||
+          updatedConversation.status === 'error'
+        ) {
           clearInterval(interval)
         }
       } catch (error) {
@@ -117,16 +159,27 @@ const MultiAgentEnhancedPage: React.FC = () => {
   }
 
   // 控制对话
-  const controlConversation = async (action: 'pause' | 'resume' | 'terminate') => {
+  const controlConversation = async (
+    action: 'pause' | 'resume' | 'terminate'
+  ) => {
     if (!activeConversation) return
 
     try {
-      await apiClient.post(`/multi-agent/conversation/${activeConversation.conversation_id}/${action}`)
-      message.success(`对话已${action === 'pause' ? '暂停' : action === 'resume' ? '恢复' : '终止'}`)
+      await apiClient.post(
+        `/multi-agent/conversation/${activeConversation.conversation_id}/${action}`
+      )
+      message.success(
+        `对话已${action === 'pause' ? '暂停' : action === 'resume' ? '恢复' : '终止'}`
+      )
 
       // 更新状态
       setActiveConversation(prev =>
-        prev ? { ...prev, status: action === 'terminate' ? 'terminated' : prev.status } : null
+        prev
+          ? {
+              ...prev,
+              status: action === 'terminate' ? 'terminated' : prev.status,
+            }
+          : null
       )
     } catch (error: any) {
       message.error('操作失败: ' + error.message)
@@ -139,20 +192,26 @@ const MultiAgentEnhancedPage: React.FC = () => {
     const isUserMessage = msg.role === 'user'
 
     return (
-      <div style={{
-        padding: '12px',
-        borderRadius: '8px',
-        marginBottom: '8px',
-        backgroundColor: isUserMessage ? '#e6f7ff' : '#f6ffed',
-        marginLeft: isUserMessage ? '20%' : '0',
-        marginRight: isUserMessage ? '0' : '20%'
-      }}>
-        <div style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          marginBottom: '8px'
-        }}>
-          <Tag color={agentInfo?.color || 'default'}>{msg.agent || msg.role}</Tag>
+      <div
+        style={{
+          padding: '12px',
+          borderRadius: '8px',
+          marginBottom: '8px',
+          backgroundColor: isUserMessage ? '#e6f7ff' : '#f6ffed',
+          marginLeft: isUserMessage ? '20%' : '0',
+          marginRight: isUserMessage ? '0' : '20%',
+        }}
+      >
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            marginBottom: '8px',
+          }}
+        >
+          <Tag color={agentInfo?.color || 'default'}>
+            {msg.agent || msg.role}
+          </Tag>
           <span style={{ color: '#999', fontSize: '12px' }}>
             {new Date(msg.timestamp).toLocaleTimeString()}
           </span>
@@ -180,7 +239,10 @@ const MultiAgentEnhancedPage: React.FC = () => {
             >
               创建新对话
             </Button>
-            <Button icon={<ReloadOutlined />} onClick={() => window.location.reload()}>
+            <Button
+              icon={<ReloadOutlined />}
+              onClick={() => window.location.reload()}
+            >
               刷新
             </Button>
           </Space>
@@ -191,21 +253,33 @@ const MultiAgentEnhancedPage: React.FC = () => {
             <Card title="对话列表" size="small">
               <List
                 dataSource={conversations}
-                renderItem={(conv) => (
+                renderItem={conv => (
                   <List.Item
                     key={conv.conversation_id}
                     onClick={() => setActiveConversation(conv)}
                     style={{
                       cursor: 'pointer',
-                      background: activeConversation?.conversation_id === conv.conversation_id ? '#f0f0f0' : 'transparent'
+                      background:
+                        activeConversation?.conversation_id ===
+                        conv.conversation_id
+                          ? '#f0f0f0'
+                          : 'transparent',
                     }}
                   >
                     <List.Item.Meta
-                      avatar={<Badge status={conv.status === 'active' ? 'processing' : 'default'} />}
+                      avatar={
+                        <Badge
+                          status={
+                            conv.status === 'active' ? 'processing' : 'default'
+                          }
+                        />
+                      }
                       title={`对话 ${conv.conversation_id.slice(0, 8)}`}
                       description={
                         <Space direction="vertical" size={0}>
-                          <span>轮数: {conv.round_count}/{maxRounds}</span>
+                          <span>
+                            轮数: {conv.round_count}/{maxRounds}
+                          </span>
                           <span>消息: {conv.message_count}</span>
                         </Space>
                       }
@@ -250,7 +324,7 @@ const MultiAgentEnhancedPage: React.FC = () => {
                 <Tabs defaultActiveKey="messages">
                   <TabPane tab="消息流" key="messages">
                     <div style={{ maxHeight: '400px', overflow: 'auto' }}>
-                      {activeConversation.messages?.map((msg) => (
+                      {activeConversation.messages?.map(msg => (
                         <div key={msg.id} style={{ marginBottom: '16px' }}>
                           {renderMessage(msg)}
                         </div>
@@ -261,14 +335,20 @@ const MultiAgentEnhancedPage: React.FC = () => {
                   <TabPane tab="参与者" key="participants">
                     <List
                       dataSource={activeConversation.participants}
-                      renderItem={(agent) => (
+                      renderItem={agent => (
                         <List.Item>
                           <List.Item.Meta
                             avatar={<RobotOutlined />}
                             title={agent.name}
                             description={
                               <Space>
-                                <Tag color={agent.status === 'active' ? 'green' : 'default'}>
+                                <Tag
+                                  color={
+                                    agent.status === 'active'
+                                      ? 'green'
+                                      : 'default'
+                                  }
+                                >
                                   {agent.status}
                                 </Tag>
                                 <span>角色: {agent.role}</span>
@@ -283,19 +363,34 @@ const MultiAgentEnhancedPage: React.FC = () => {
                   <TabPane tab="统计" key="stats">
                     <Row gutter={16}>
                       <Col span={8}>
-                        <Statistic title="总轮数" value={activeConversation.round_count} />
+                        <Statistic
+                          title="总轮数"
+                          value={activeConversation.round_count}
+                        />
                       </Col>
                       <Col span={8}>
-                        <Statistic title="消息数" value={activeConversation.message_count} />
+                        <Statistic
+                          title="消息数"
+                          value={activeConversation.message_count}
+                        />
                       </Col>
                       <Col span={8}>
-                        <Statistic title="参与者" value={activeConversation.participants.length} />
+                        <Statistic
+                          title="参与者"
+                          value={activeConversation.participants.length}
+                        />
                       </Col>
                     </Row>
                     <Divider />
                     <Progress
-                      percent={(activeConversation.round_count / maxRounds) * 100}
-                      status={activeConversation.status === 'active' ? 'active' : 'normal'}
+                      percent={
+                        (activeConversation.round_count / maxRounds) * 100
+                      }
+                      status={
+                        activeConversation.status === 'active'
+                          ? 'active'
+                          : 'normal'
+                      }
                     />
                   </TabPane>
                 </Tabs>
@@ -327,7 +422,7 @@ const MultiAgentEnhancedPage: React.FC = () => {
             <TextArea
               rows={4}
               value={inputMessage}
-              onChange={(e) => setInputMessage(e.target.value)}
+              onChange={e => setInputMessage(e.target.value)}
               placeholder="输入要讨论的问题或任务..."
             />
           </Form.Item>
@@ -346,14 +441,13 @@ const MultiAgentEnhancedPage: React.FC = () => {
             <Input
               type="number"
               value={maxRounds}
-              onChange={(e) => setMaxRounds(parseInt(e.target.value) || 10)}
+              onChange={e => setMaxRounds(parseInt(e.target.value) || 10)}
               min={1}
               max={50}
             />
           </Form.Item>
         </Form>
       </Modal>
-
     </div>
   )
 }

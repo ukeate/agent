@@ -1,19 +1,19 @@
-import React, { useState, useEffect } from 'react';
-import { 
+import React, { useState, useEffect } from 'react'
 import { logger } from '../../utils/logger'
-  Card, 
-  Row, 
-  Col, 
-  Statistic, 
-  Typography, 
-  Space, 
-  Button, 
-  Table, 
-  Tag, 
-  Progress, 
-  Tabs, 
-  Select, 
-  DatePicker, 
+import {
+  Card,
+  Row,
+  Col,
+  Statistic,
+  Typography,
+  Space,
+  Button,
+  Table,
+  Tag,
+  Progress,
+  Tabs,
+  Select,
+  DatePicker,
   Modal,
   Form,
   Input,
@@ -30,8 +30,8 @@ import { logger } from '../../utils/logger'
   Descriptions,
   Drawer,
   Upload,
-  Radio
-} from 'antd';
+  Radio,
+} from 'antd'
 import {
   ExperimentOutlined,
   BarChartOutlined,
@@ -56,108 +56,110 @@ import {
   UsergroupAddOutlined,
   AlertOutlined,
   FileTextOutlined,
-  CopyOutlined
-} from '@ant-design/icons';
-import { experimentServiceEnhanced, ExperimentMetadata, ExperimentAnalysis } from '../../services/experimentServiceEnhanced';
+  CopyOutlined,
+} from '@ant-design/icons'
+import {
+  experimentServiceEnhanced,
+  ExperimentMetadata,
+  ExperimentAnalysis,
+} from '../../services/experimentServiceEnhanced'
 
-const { Title, Text, Paragraph } = Typography;
-const { TabPane } = Tabs;
-const { RangePicker } = DatePicker;
+const { Title, Text, Paragraph } = Typography
+const { TabPane } = Tabs
+const { RangePicker } = DatePicker
 
 const EnhancedExperimentAnalysisPage: React.FC = () => {
-  const [experiments, setExperiments] = useState<ExperimentMetadata[]>([]);
-  const [selectedExperiment, setSelectedExperiment] = useState<string>('');
-  const [analysis, setAnalysis] = useState<ExperimentAnalysis | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState('analysis');
-  
+  const [experiments, setExperiments] = useState<ExperimentMetadata[]>([])
+  const [selectedExperiment, setSelectedExperiment] = useState<string>('')
+  const [analysis, setAnalysis] = useState<ExperimentAnalysis | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [activeTab, setActiveTab] = useState('analysis')
+
   // 模态框状态
-  const [templateModalVisible, setTemplateModalVisible] = useState(false);
-  const [optimizationModalVisible, setOptimizationModalVisible] = useState(false);
-  const [segmentModalVisible, setSegmentModalVisible] = useState(false);
-  const [recommendationModalVisible, setRecommendationModalVisible] = useState(false);
-  const [automationModalVisible, setAutomationModalVisible] = useState(false);
-  const [compareModalVisible, setCompareModalVisible] = useState(false);
-  
+  const [templateModalVisible, setTemplateModalVisible] = useState(false)
+  const [optimizationModalVisible, setOptimizationModalVisible] =
+    useState(false)
+  const [segmentModalVisible, setSegmentModalVisible] = useState(false)
+  const [recommendationModalVisible, setRecommendationModalVisible] =
+    useState(false)
+  const [automationModalVisible, setAutomationModalVisible] = useState(false)
+  const [compareModalVisible, setCompareModalVisible] = useState(false)
+
   // 数据状态
-  const [templates, setTemplates] = useState([]);
-  const [monitoring, setMonitoring] = useState<any>(null);
-  const [recommendations, setRecommendations] = useState<any>(null);
-  const [costAnalysis, setCostAnalysis] = useState<any>(null);
-  const [comments, setComments] = useState<any[]>([]);
-  const [auditLog, setAuditLog] = useState<any[]>([]);
+  const [templates, setTemplates] = useState([])
+  const [monitoring, setMonitoring] = useState<any>(null)
+  const [recommendations, setRecommendations] = useState<any>(null)
+  const [costAnalysis, setCostAnalysis] = useState<any>(null)
+  const [comments, setComments] = useState<any[]>([])
+  const [auditLog, setAuditLog] = useState<any[]>([])
 
   useEffect(() => {
-    loadExperiments();
-    loadTemplates();
-  }, []);
+    loadExperiments()
+    loadTemplates()
+  }, [])
 
   const loadExperiments = async () => {
     try {
-      setLoading(true);
+      setLoading(true)
       const response = await experimentServiceEnhanced.searchExperiments({
         filters: { status: ['running', 'completed'] },
-        pagination: { page: 1, limit: 20 }
-      });
-      setExperiments(response.experiments);
+        pagination: { page: 1, limit: 20 },
+      })
+      setExperiments(response.experiments)
       if (response.experiments.length > 0) {
-        setSelectedExperiment(response.experiments[0].id);
-        loadExperimentData(response.experiments[0].id);
+        setSelectedExperiment(response.experiments[0].id)
+        loadExperimentData(response.experiments[0].id)
       }
     } catch (error) {
-      message.error('加载实验列表失败');
+      message.error('加载实验列表失败')
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
+  }
 
   const loadTemplates = async () => {
     try {
-      const templates = await experimentServiceEnhanced.getExperimentTemplates();
-      setTemplates(templates);
+      const templates = await experimentServiceEnhanced.getExperimentTemplates()
+      setTemplates(templates)
     } catch (error) {
-      logger.error('加载模板失败:', error);
+      logger.error('加载模板失败:', error)
     }
-  };
+  }
 
   const loadExperimentData = async (experimentId: string) => {
     try {
-      setLoading(true);
-      const [
-        analysisData,
-        monitoringData,
-        costData,
-        commentsData,
-        auditData
-      ] = await Promise.all([
-        experimentServiceEnhanced.getExperimentAnalysis(experimentId),
-        experimentServiceEnhanced.getExperimentMonitoring(experimentId),
-        experimentServiceEnhanced.getExperimentCostAnalysis(experimentId),
-        experimentServiceEnhanced.getExperimentComments(experimentId),
-        experimentServiceEnhanced.getExperimentAuditLog(experimentId)
-      ]);
-      
-      setAnalysis(analysisData);
-      setMonitoring(monitoringData);
-      setCostAnalysis(costData);
-      setComments(commentsData);
-      setAuditLog(auditData);
+      setLoading(true)
+      const [analysisData, monitoringData, costData, commentsData, auditData] =
+        await Promise.all([
+          experimentServiceEnhanced.getExperimentAnalysis(experimentId),
+          experimentServiceEnhanced.getExperimentMonitoring(experimentId),
+          experimentServiceEnhanced.getExperimentCostAnalysis(experimentId),
+          experimentServiceEnhanced.getExperimentComments(experimentId),
+          experimentServiceEnhanced.getExperimentAuditLog(experimentId),
+        ])
+
+      setAnalysis(analysisData)
+      setMonitoring(monitoringData)
+      setCostAnalysis(costData)
+      setComments(commentsData)
+      setAuditLog(auditData)
     } catch (error) {
-      message.error('加载实验数据失败');
+      message.error('加载实验数据失败')
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
+  }
 
   const handleExperimentChange = (experimentId: string) => {
-    setSelectedExperiment(experimentId);
-    loadExperimentData(experimentId);
-  };
+    setSelectedExperiment(experimentId)
+    loadExperimentData(experimentId)
+  }
 
   const handleOptimizeConfig = async (values: any) => {
     try {
-      const result = await experimentServiceEnhanced.optimizeExperimentConfig(values);
-      message.success('配置优化完成');
+      const result =
+        await experimentServiceEnhanced.optimizeExperimentConfig(values)
+      message.success('配置优化完成')
       Modal.info({
         title: '优化建议',
         content: (
@@ -166,59 +168,67 @@ const EnhancedExperimentAnalysisPage: React.FC = () => {
             <p>推荐持续时间: {result.recommended_duration}天</p>
             <p>流量分配: {JSON.stringify(result.traffic_allocation)}</p>
           </div>
-        )
-      });
-      setOptimizationModalVisible(false);
+        ),
+      })
+      setOptimizationModalVisible(false)
     } catch (error) {
-      message.error('优化配置失败');
+      message.error('优化配置失败')
     }
-  };
+  }
 
   const handleGetRecommendations = async () => {
     try {
-      const result = await experimentServiceEnhanced.getExperimentRecommendations({
-        context: 'current_analysis',
-        current_experiments: [selectedExperiment]
-      });
-      setRecommendations(result);
-      setRecommendationModalVisible(true);
+      const result =
+        await experimentServiceEnhanced.getExperimentRecommendations({
+          context: 'current_analysis',
+          current_experiments: [selectedExperiment],
+        })
+      setRecommendations(result)
+      setRecommendationModalVisible(true)
     } catch (error) {
-      message.error('获取推荐失败');
+      message.error('获取推荐失败')
     }
-  };
+  }
 
   const handleExportData = async (format: 'csv' | 'json' | 'xlsx') => {
     try {
-      const result = await experimentServiceEnhanced.exportExperimentData(selectedExperiment, {
-        format,
-        include_raw_data: true
-      });
-      message.success(`数据导出成功，文件大小: ${(result.file_size / 1024 / 1024).toFixed(2)}MB`);
+      const result = await experimentServiceEnhanced.exportExperimentData(
+        selectedExperiment,
+        {
+          format,
+          include_raw_data: true,
+        }
+      )
+      message.success(
+        `数据导出成功，文件大小: ${(result.file_size / 1024 / 1024).toFixed(2)}MB`
+      )
       // 模拟下载
-      window.open(result.download_url);
+      window.open(result.download_url)
     } catch (error) {
-      message.error('数据导出失败');
+      message.error('数据导出失败')
     }
-  };
+  }
 
   const variantColumns = [
     {
       title: '变量',
       dataIndex: 'variant_id',
       key: 'variant_id',
-      render: (text: string) => <Tag color="blue">{text}</Tag>
+      render: (text: string) => <Tag color="blue">{text}</Tag>,
     },
     {
       title: '样本量',
       dataIndex: 'sample_size',
       key: 'sample_size',
-      render: (value: number) => value.toLocaleString()
+      render: (value: number) => value.toLocaleString(),
     },
     {
       title: '转化率',
       dataIndex: 'conversion_rate',
       key: 'conversion_rate',
-      render: (value: number) => <Text strong>{(value * 100).toFixed(2)}%</Text>
+      render: (value: number) => (
+        <Text strong>{(value * 100).toFixed(2)}%</Text>
+      ),
     },
     {
       title: '相对提升',
@@ -226,22 +236,23 @@ const EnhancedExperimentAnalysisPage: React.FC = () => {
       key: 'relative_improvement',
       render: (value: number) => (
         <Text type={value > 0 ? 'success' : value < 0 ? 'danger' : 'secondary'}>
-          {value > 0 ? '+' : ''}{(value * 100).toFixed(2)}%
+          {value > 0 ? '+' : ''}
+          {(value * 100).toFixed(2)}%
         </Text>
-      )
+      ),
     },
     {
       title: '统计显著性',
       dataIndex: 'statistical_significance',
       key: 'statistical_significance',
       render: (value: boolean) => (
-        <Badge 
-          status={value ? 'success' : 'default'} 
-          text={value ? '显著' : '不显著'} 
+        <Badge
+          status={value ? 'success' : 'default'}
+          text={value ? '显著' : '不显著'}
         />
-      )
-    }
-  ];
+      ),
+    },
+  ]
 
   return (
     <div style={{ padding: '24px' }}>
@@ -251,8 +262,12 @@ const EnhancedExperimentAnalysisPage: React.FC = () => {
             <Row align="middle" justify="space-between">
               <Col span={12}>
                 <Space>
-                  <ExperimentOutlined style={{ fontSize: '24px', color: '#1890ff' }} />
-                  <Title level={3} style={{ margin: 0 }}>增强版实验分析平台</Title>
+                  <ExperimentOutlined
+                    style={{ fontSize: '24px', color: '#1890ff' }}
+                  />
+                  <Title level={3} style={{ margin: 0 }}>
+                    增强版实验分析平台
+                  </Title>
                 </Space>
               </Col>
               <Col span={12} style={{ textAlign: 'right' }}>
@@ -269,7 +284,11 @@ const EnhancedExperimentAnalysisPage: React.FC = () => {
                       </Select.Option>
                     ))}
                   </Select>
-                  <Button type="primary" icon={<RobotOutlined />} onClick={handleGetRecommendations}>
+                  <Button
+                    type="primary"
+                    icon={<RobotOutlined />}
+                    onClick={handleGetRecommendations}
+                  >
                     智能推荐
                   </Button>
                 </Space>
@@ -284,7 +303,11 @@ const EnhancedExperimentAnalysisPage: React.FC = () => {
           <Card>
             <Statistic
               title="实时样本量"
-              value={monitoring?.real_time_metrics?.find((m: any) => m.metric === 'sample_size')?.current || 0}
+              value={
+                monitoring?.real_time_metrics?.find(
+                  (m: any) => m.metric === 'sample_size'
+                )?.current || 0
+              }
               prefix={<TeamOutlined />}
               suffix={`/ ${monitoring?.real_time_metrics?.find((m: any) => m.metric === 'sample_size')?.target || 0}`}
             />
@@ -294,7 +317,11 @@ const EnhancedExperimentAnalysisPage: React.FC = () => {
           <Card>
             <Statistic
               title="当前转化率"
-              value={monitoring?.real_time_metrics?.find((m: any) => m.metric === 'conversion_rate')?.current * 100 || 0}
+              value={
+                monitoring?.real_time_metrics?.find(
+                  (m: any) => m.metric === 'conversion_rate'
+                )?.current * 100 || 0
+              }
               precision={2}
               suffix="%"
               prefix={<TrophyOutlined />}
@@ -306,7 +333,11 @@ const EnhancedExperimentAnalysisPage: React.FC = () => {
           <Card>
             <Statistic
               title="统计功效"
-              value={monitoring?.real_time_metrics?.find((m: any) => m.metric === 'statistical_power')?.current * 100 || 0}
+              value={
+                monitoring?.real_time_metrics?.find(
+                  (m: any) => m.metric === 'statistical_power'
+                )?.current * 100 || 0
+              }
               precision={1}
               suffix="%"
               prefix={<BarChartOutlined />}
@@ -329,7 +360,15 @@ const EnhancedExperimentAnalysisPage: React.FC = () => {
         <Col span={24}>
           <Card>
             <Tabs activeKey={activeTab} onChange={setActiveTab}>
-              <TabPane tab={<span><BarChartOutlined />深度分析</span>} key="analysis">
+              <TabPane
+                tab={
+                  <span>
+                    <BarChartOutlined />
+                    深度分析
+                  </span>
+                }
+                key="analysis"
+              >
                 <Row gutter={[16, 16]}>
                   <Col span={16}>
                     <Card title="变量性能对比" size="small">
@@ -346,23 +385,37 @@ const EnhancedExperimentAnalysisPage: React.FC = () => {
                       <Space direction="vertical" style={{ width: '100%' }}>
                         <div>
                           <Text>当前功效</Text>
-                          <Progress 
-                            percent={Math.round((analysis?.power_analysis.current_power || 0) * 100)} 
+                          <Progress
+                            percent={Math.round(
+                              (analysis?.power_analysis.current_power || 0) *
+                                100
+                            )}
                             size="small"
-                            status={analysis?.power_analysis.current_power && analysis.power_analysis.current_power > 0.8 ? 'success' : 'active'}
+                            status={
+                              analysis?.power_analysis.current_power &&
+                              analysis.power_analysis.current_power > 0.8
+                                ? 'success'
+                                : 'active'
+                            }
                           />
                         </div>
                         <div>
-                          <Text>所需样本量: {analysis?.power_analysis.required_sample_size?.toLocaleString()}</Text>
+                          <Text>
+                            所需样本量:{' '}
+                            {analysis?.power_analysis.required_sample_size?.toLocaleString()}
+                          </Text>
                         </div>
                         <div>
-                          <Text>预计运行时间: {analysis?.power_analysis.projected_runtime}天</Text>
+                          <Text>
+                            预计运行时间:{' '}
+                            {analysis?.power_analysis.projected_runtime}天
+                          </Text>
                         </div>
                       </Space>
                     </Card>
                   </Col>
                 </Row>
-                
+
                 <Row gutter={[16, 16]} style={{ marginTop: 16 }}>
                   <Col span={12}>
                     <Card title="智能建议" size="small">
@@ -370,7 +423,9 @@ const EnhancedExperimentAnalysisPage: React.FC = () => {
                         dataSource={analysis?.recommendations || []}
                         renderItem={(item: string) => (
                           <List.Item>
-                            <BulbOutlined style={{ color: '#faad14', marginRight: 8 }} />
+                            <BulbOutlined
+                              style={{ color: '#faad14', marginRight: 8 }}
+                            />
                             {item}
                           </List.Item>
                         )}
@@ -382,17 +437,34 @@ const EnhancedExperimentAnalysisPage: React.FC = () => {
                       <Space direction="vertical" style={{ width: '100%' }}>
                         <div>
                           <Text>收入风险: </Text>
-                          <Tag color="orange">¥{analysis?.risk_assessment.revenue_risk?.toLocaleString()}</Tag>
+                          <Tag color="orange">
+                            ¥
+                            {analysis?.risk_assessment.revenue_risk?.toLocaleString()}
+                          </Tag>
                         </div>
                         <div>
                           <Text>用户体验风险: </Text>
-                          <Tag color={analysis?.risk_assessment.user_experience_risk === 'high' ? 'red' : 'green'}>
+                          <Tag
+                            color={
+                              analysis?.risk_assessment.user_experience_risk ===
+                              'high'
+                                ? 'red'
+                                : 'green'
+                            }
+                          >
                             {analysis?.risk_assessment.user_experience_risk}
                           </Tag>
                         </div>
                         <div>
                           <Text>技术风险: </Text>
-                          <Tag color={analysis?.risk_assessment.technical_risk === 'high' ? 'red' : 'green'}>
+                          <Tag
+                            color={
+                              analysis?.risk_assessment.technical_risk ===
+                              'high'
+                                ? 'red'
+                                : 'green'
+                            }
+                          >
                             {analysis?.risk_assessment.technical_risk}
                           </Tag>
                         </div>
@@ -402,15 +474,28 @@ const EnhancedExperimentAnalysisPage: React.FC = () => {
                 </Row>
               </TabPane>
 
-              <TabPane tab={<span><LineChartOutlined />实时监控</span>} key="monitoring">
+              <TabPane
+                tab={
+                  <span>
+                    <LineChartOutlined />
+                    实时监控
+                  </span>
+                }
+                key="monitoring"
+              >
                 <Row gutter={[16, 16]}>
                   <Col span={12}>
                     <Card title="流量分布" size="small">
                       <Space direction="vertical" style={{ width: '100%' }}>
-                        {Object.entries(monitoring?.traffic_distribution || {}).map(([variant, percentage]) => (
+                        {Object.entries(
+                          monitoring?.traffic_distribution || {}
+                        ).map(([variant, percentage]) => (
                           <div key={variant}>
                             <Text>{variant}: </Text>
-                            <Progress percent={percentage as number} size="small" />
+                            <Progress
+                              percent={percentage as number}
+                              size="small"
+                            />
                           </div>
                         ))}
                       </Space>
@@ -424,7 +509,11 @@ const EnhancedExperimentAnalysisPage: React.FC = () => {
                           <List.Item>
                             <Alert
                               message={alert.message}
-                              type={alert.severity === 'critical' ? 'error' : 'warning'}
+                              type={
+                                alert.severity === 'critical'
+                                  ? 'error'
+                                  : 'warning'
+                              }
                               size="small"
                               showIcon
                             />
@@ -436,31 +525,69 @@ const EnhancedExperimentAnalysisPage: React.FC = () => {
                 </Row>
               </TabPane>
 
-              <TabPane tab={<span><FunnelPlotOutlined />漏斗分析</span>} key="funnel">
+              <TabPane
+                tab={
+                  <span>
+                    <FunnelPlotOutlined />
+                    漏斗分析
+                  </span>
+                }
+                key="funnel"
+              >
                 <Card title="转化漏斗分析">
-                  <Button 
-                    type="primary" 
-                    onClick={() => experimentServiceEnhanced.getFunnelAnalysis(selectedExperiment)}
+                  <Button
+                    type="primary"
+                    onClick={() =>
+                      experimentServiceEnhanced.getFunnelAnalysis(
+                        selectedExperiment
+                      )
+                    }
                   >
                     生成漏斗分析
                   </Button>
                 </Card>
               </TabPane>
 
-              <TabPane tab={<span><UsergroupAddOutlined />分段分析</span>} key="segments">
+              <TabPane
+                tab={
+                  <span>
+                    <UsergroupAddOutlined />
+                    分段分析
+                  </span>
+                }
+                key="segments"
+              >
                 <Card title="用户分段分析">
                   <Space>
-                    <Button type="primary" onClick={() => setSegmentModalVisible(true)}>
+                    <Button
+                      type="primary"
+                      onClick={() => setSegmentModalVisible(true)}
+                    >
                       配置分段
                     </Button>
-                    <Button onClick={() => experimentServiceEnhanced.getSegmentAnalysis(selectedExperiment, ['新用户', '老用户'])}>
+                    <Button
+                      onClick={() =>
+                        experimentServiceEnhanced.getSegmentAnalysis(
+                          selectedExperiment,
+                          ['新用户', '老用户']
+                        )
+                      }
+                    >
                       分析用户群体
                     </Button>
                   </Space>
                 </Card>
               </TabPane>
 
-              <TabPane tab={<span><CommentOutlined />协作讨论</span>} key="collaboration">
+              <TabPane
+                tab={
+                  <span>
+                    <CommentOutlined />
+                    协作讨论
+                  </span>
+                }
+                key="collaboration"
+              >
                 <Row gutter={[16, 16]}>
                   <Col span={12}>
                     <Card title="团队评论" size="small">
@@ -476,7 +603,10 @@ const EnhancedExperimentAnalysisPage: React.FC = () => {
                           </List.Item>
                         )}
                       />
-                      <Button type="dashed" style={{ width: '100%', marginTop: 16 }}>
+                      <Button
+                        type="dashed"
+                        style={{ width: '100%', marginTop: 16 }}
+                      >
                         添加评论
                       </Button>
                     </Card>
@@ -486,10 +616,16 @@ const EnhancedExperimentAnalysisPage: React.FC = () => {
                       <Timeline size="small">
                         {auditLog.map((log: any, index: number) => (
                           <Timeline.Item key={index}>
-                            <Text type="secondary">{new Date(log.timestamp).toLocaleString()}</Text>
+                            <Text type="secondary">
+                              {new Date(log.timestamp).toLocaleString()}
+                            </Text>
                             <br />
-                            <Text>{log.user} {log.action}</Text>
-                            {log.reason && <Text type="secondary"> - {log.reason}</Text>}
+                            <Text>
+                              {log.user} {log.action}
+                            </Text>
+                            {log.reason && (
+                              <Text type="secondary"> - {log.reason}</Text>
+                            )}
                           </Timeline.Item>
                         ))}
                       </Timeline>
@@ -498,38 +634,63 @@ const EnhancedExperimentAnalysisPage: React.FC = () => {
                 </Row>
               </TabPane>
 
-              <TabPane tab={<span><DollarOutlined />成本分析</span>} key="cost">
+              <TabPane
+                tab={
+                  <span>
+                    <DollarOutlined />
+                    成本分析
+                  </span>
+                }
+                key="cost"
+              >
                 <Row gutter={[16, 16]}>
                   <Col span={8}>
                     <Card title="成本统计" size="small">
                       <Space direction="vertical" style={{ width: '100%' }}>
-                        <Statistic title="设置成本" value={costAnalysis?.setup_cost} suffix="元" />
-                        <Statistic title="每日运行成本" value={costAnalysis?.running_cost_per_day} suffix="元" />
-                        <Statistic title="总成本" value={costAnalysis?.total_cost_to_date} suffix="元" />
+                        <Statistic
+                          title="设置成本"
+                          value={costAnalysis?.setup_cost}
+                          suffix="元"
+                        />
+                        <Statistic
+                          title="每日运行成本"
+                          value={costAnalysis?.running_cost_per_day}
+                          suffix="元"
+                        />
+                        <Statistic
+                          title="总成本"
+                          value={costAnalysis?.total_cost_to_date}
+                          suffix="元"
+                        />
                       </Space>
                     </Card>
                   </Col>
                   <Col span={8}>
                     <Card title="ROI分析" size="small">
                       <Space direction="vertical" style={{ width: '100%' }}>
-                        <Statistic 
-                          title="预期ROI" 
-                          value={costAnalysis?.roi_analysis.projected_roi} 
+                        <Statistic
+                          title="预期ROI"
+                          value={costAnalysis?.roi_analysis.projected_roi}
                           precision={2}
                           suffix="x"
                           valueStyle={{ color: '#3f8600' }}
                         />
                         <Text type="secondary">
-                          盈亏平衡点: {costAnalysis?.roi_analysis.break_even_point ? new Date(costAnalysis.roi_analysis.break_even_point).toLocaleDateString() : '-'}
+                          盈亏平衡点:{' '}
+                          {costAnalysis?.roi_analysis.break_even_point
+                            ? new Date(
+                                costAnalysis.roi_analysis.break_even_point
+                              ).toLocaleDateString()
+                            : '-'}
                         </Text>
                       </Space>
                     </Card>
                   </Col>
                   <Col span={8}>
                     <Card title="效率指标" size="small">
-                      <Statistic 
-                        title="单次转化成本" 
-                        value={costAnalysis?.cost_per_conversion} 
+                      <Statistic
+                        title="单次转化成本"
+                        value={costAnalysis?.cost_per_conversion}
                         precision={2}
                         suffix="元"
                       />
@@ -546,28 +707,69 @@ const EnhancedExperimentAnalysisPage: React.FC = () => {
       <Card style={{ marginTop: 16 }}>
         <Title level={4}>高级功能</Title>
         <Space wrap>
-          <Button icon={<SettingOutlined />} onClick={() => setTemplateModalVisible(true)}>
+          <Button
+            icon={<SettingOutlined />}
+            onClick={() => setTemplateModalVisible(true)}
+          >
             实验模板
           </Button>
-          <Button icon={<ThunderboltOutlined />} onClick={() => setOptimizationModalVisible(true)}>
+          <Button
+            icon={<ThunderboltOutlined />}
+            onClick={() => setOptimizationModalVisible(true)}
+          >
             配置优化
           </Button>
-          <Button icon={<CompareOutlined />} onClick={() => setCompareModalVisible(true)}>
+          <Button
+            icon={<CompareOutlined />}
+            onClick={() => setCompareModalVisible(true)}
+          >
             实验对比
           </Button>
-          <Button icon={<RobotOutlined />} onClick={() => setAutomationModalVisible(true)}>
+          <Button
+            icon={<RobotOutlined />}
+            onClick={() => setAutomationModalVisible(true)}
+          >
             自动化规则
           </Button>
-          <Button icon={<CameraOutlined />} onClick={() => experimentServiceEnhanced.createExperimentSnapshot(selectedExperiment)}>
+          <Button
+            icon={<CameraOutlined />}
+            onClick={() =>
+              experimentServiceEnhanced.createExperimentSnapshot(
+                selectedExperiment
+              )
+            }
+          >
             创建快照
           </Button>
-          <Button icon={<LockOutlined />} onClick={() => experimentServiceEnhanced.getExperimentPermissions(selectedExperiment)}>
+          <Button
+            icon={<LockOutlined />}
+            onClick={() =>
+              experimentServiceEnhanced.getExperimentPermissions(
+                selectedExperiment
+              )
+            }
+          >
             权限管理
           </Button>
           <Button.Group>
-            <Button icon={<DownloadOutlined />} onClick={() => handleExportData('csv')}>CSV</Button>
-            <Button icon={<DownloadOutlined />} onClick={() => handleExportData('json')}>JSON</Button>
-            <Button icon={<DownloadOutlined />} onClick={() => handleExportData('xlsx')}>Excel</Button>
+            <Button
+              icon={<DownloadOutlined />}
+              onClick={() => handleExportData('csv')}
+            >
+              CSV
+            </Button>
+            <Button
+              icon={<DownloadOutlined />}
+              onClick={() => handleExportData('json')}
+            >
+              JSON
+            </Button>
+            <Button
+              icon={<DownloadOutlined />}
+              onClick={() => handleExportData('xlsx')}
+            >
+              Excel
+            </Button>
           </Button.Group>
         </Space>
       </Card>
@@ -580,7 +782,11 @@ const EnhancedExperimentAnalysisPage: React.FC = () => {
         footer={null}
       >
         <Form onFinish={handleOptimizeConfig}>
-          <Form.Item name="goal_metric" label="目标指标" initialValue="conversion_rate">
+          <Form.Item
+            name="goal_metric"
+            label="目标指标"
+            initialValue="conversion_rate"
+          >
             <Select>
               <Select.Option value="conversion_rate">转化率</Select.Option>
               <Select.Option value="revenue">收入</Select.Option>
@@ -590,16 +796,28 @@ const EnhancedExperimentAnalysisPage: React.FC = () => {
           <Form.Item name="baseline_value" label="基线值" initialValue={0.05}>
             <InputNumber min={0} max={1} step={0.01} />
           </Form.Item>
-          <Form.Item name="minimum_effect_size" label="最小效应量" initialValue={0.02}>
+          <Form.Item
+            name="minimum_effect_size"
+            label="最小效应量"
+            initialValue={0.02}
+          >
             <InputNumber min={0} max={1} step={0.01} />
           </Form.Item>
-          <Form.Item name="statistical_power" label="统计功效" initialValue={0.8}>
+          <Form.Item
+            name="statistical_power"
+            label="统计功效"
+            initialValue={0.8}
+          >
             <InputNumber min={0.5} max={0.99} step={0.01} />
           </Form.Item>
           <Form.Item>
             <Space>
-              <Button type="primary" htmlType="submit">优化配置</Button>
-              <Button onClick={() => setOptimizationModalVisible(false)}>取消</Button>
+              <Button type="primary" htmlType="submit">
+                优化配置
+              </Button>
+              <Button onClick={() => setOptimizationModalVisible(false)}>
+                取消
+              </Button>
             </Space>
           </Form.Item>
         </Form>
@@ -624,11 +842,23 @@ const EnhancedExperimentAnalysisPage: React.FC = () => {
                     <div>
                       <Paragraph>{item.description}</Paragraph>
                       <Space>
-                        <Tag>预期影响: {(item.expected_impact * 100).toFixed(1)}%</Tag>
-                        <Tag color={item.effort_level === 'high' ? 'red' : item.effort_level === 'medium' ? 'orange' : 'green'}>
+                        <Tag>
+                          预期影响: {(item.expected_impact * 100).toFixed(1)}%
+                        </Tag>
+                        <Tag
+                          color={
+                            item.effort_level === 'high'
+                              ? 'red'
+                              : item.effort_level === 'medium'
+                                ? 'orange'
+                                : 'green'
+                          }
+                        >
                           工作量: {item.effort_level}
                         </Tag>
-                        <Tag>优先级: {(item.priority_score * 100).toFixed(0)}</Tag>
+                        <Tag>
+                          优先级: {(item.priority_score * 100).toFixed(0)}
+                        </Tag>
                       </Space>
                       <Paragraph type="secondary" style={{ marginTop: 8 }}>
                         {item.rationale}
@@ -639,9 +869,9 @@ const EnhancedExperimentAnalysisPage: React.FC = () => {
               </List.Item>
             )}
           />
-          
+
           <Divider />
-          
+
           <Title level={5}>优化建议</Title>
           <List
             dataSource={recommendations?.optimization_suggestions || []}
@@ -655,7 +885,7 @@ const EnhancedExperimentAnalysisPage: React.FC = () => {
         </div>
       </Modal>
     </div>
-  );
-};
+  )
+}
 
-export default EnhancedExperimentAnalysisPage;
+export default EnhancedExperimentAnalysisPage

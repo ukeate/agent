@@ -11,7 +11,7 @@ interface AgentAvatarProps {
 // 角色颜色映射
 const ROLE_COLORS = {
   code_expert: 'bg-blue-500',
-  architect: 'bg-green-500', 
+  architect: 'bg-green-500',
   doc_expert: 'bg-orange-500',
   supervisor: 'bg-purple-500',
 } as const
@@ -71,7 +71,7 @@ export const AgentAvatar: React.FC<AgentAvatarProps> = ({
       >
         <span className="select-none">{icon}</span>
       </div>
-      
+
       {/* 状态指示器 */}
       {showStatus && (
         <div
@@ -101,11 +101,11 @@ export const RoleBadge: React.FC<RoleBadgeProps> = ({
 }) => {
   const color = ROLE_COLORS[role]
   const icon = ROLE_ICONS[role]
-  
+
   const roleNames = {
     code_expert: '代码专家',
     architect: '架构师',
-    doc_expert: '文档专家', 
+    doc_expert: '文档专家',
     supervisor: '任务调度器',
   }
 
@@ -142,10 +142,30 @@ export const StatusIndicator: React.FC<StatusIndicatorProps> = ({
   className = '',
 }) => {
   const statusInfo = {
-    active: { color: 'text-green-600', bg: 'bg-green-100', icon: '💬', text: '活跃' },
-    idle: { color: 'text-gray-600', bg: 'bg-gray-100', icon: '💤', text: '待机' },
-    busy: { color: 'text-yellow-600', bg: 'bg-yellow-100', icon: '💭', text: '忙碌' },
-    offline: { color: 'text-red-600', bg: 'bg-red-100', icon: '🔴', text: '离线' },
+    active: {
+      color: 'text-green-600',
+      bg: 'bg-green-100',
+      icon: '💬',
+      text: '活跃',
+    },
+    idle: {
+      color: 'text-gray-600',
+      bg: 'bg-gray-100',
+      icon: '💤',
+      text: '待机',
+    },
+    busy: {
+      color: 'text-yellow-600',
+      bg: 'bg-yellow-100',
+      icon: '💭',
+      text: '忙碌',
+    },
+    offline: {
+      color: 'text-red-600',
+      bg: 'bg-red-100',
+      icon: '🔴',
+      text: '离线',
+    },
   }
 
   const info = statusInfo[status]

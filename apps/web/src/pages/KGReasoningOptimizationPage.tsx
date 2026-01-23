@@ -35,8 +35,8 @@ const KGReasoningOptimizationPage: React.FC = () => {
     setLoading(true)
     try {
       const [healthRes, perfRes] = await Promise.all([
-        apiFetch(buildApiUrl('/api/v1/kg-reasoning/health'),
-        apiFetch(buildApiUrl('/api/v1/kg-reasoning/strategies/performance'),
+        apiFetch(buildApiUrl('/api/v1/kg-reasoning/health')),
+        apiFetch(buildApiUrl('/api/v1/kg-reasoning/strategies/performance')),
       ])
       const healthData = await healthRes.json().catch(() => null)
       const perfData = await perfRes.json().catch(() => null)

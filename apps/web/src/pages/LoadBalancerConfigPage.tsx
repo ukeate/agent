@@ -1,12 +1,33 @@
 import { buildApiUrl, apiFetch } from '../utils/apiBase'
 import React, { useState, useEffect } from 'react'
-import { Card, Row, Col, Form, Select, Switch, InputNumber, Button, Space, Typography, Divider, Alert, Table, Tag, Tooltip, Modal, Progress, Statistic, Timeline, Spin } from 'antd'
-import { 
+import {
+  Card,
+  Row,
+  Col,
+  Form,
+  Select,
+  Switch,
+  InputNumber,
+  Button,
+  Space,
+  Typography,
+  Divider,
+  Alert,
+  Table,
+  Tag,
+  Tooltip,
+  Modal,
+  Progress,
+  Statistic,
+  Timeline,
+  Spin,
+} from 'antd'
 import { logger } from '../utils/logger'
-  SettingOutlined, 
-  ThunderboltOutlined, 
-  SaveOutlined, 
-  ReloadOutlined, 
+import {
+  SettingOutlined,
+  ThunderboltOutlined,
+  SaveOutlined,
+  ReloadOutlined,
   ExperimentOutlined,
   BarChartOutlined,
   CheckCircleOutlined,
@@ -16,9 +37,20 @@ import { logger } from '../utils/logger'
   GlobalOutlined,
   ApiOutlined,
   MonitorOutlined,
-  ClockCircleOutlined
+  ClockCircleOutlined,
 } from '@ant-design/icons'
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as ChartTooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts'
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip as ChartTooltip,
+  ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell,
+} from 'recharts'
 
 const { Title, Paragraph, Text } = Typography
 const { Option } = Select
@@ -126,13 +158,17 @@ const LoadBalancerConfigPage: React.FC<LoadBalancerConfigPageProps> = () => {
             agentId: a.agent_id,
             agentName: a.name,
             currentLoad: a.current_load ?? a.resource_usage?.active_tasks ?? 0,
-            connectionCount: a.resource_usage?.active_tasks ?? a.current_load ?? 0,
+            connectionCount:
+              a.resource_usage?.active_tasks ?? a.current_load ?? 0,
             responseTime: a.resource_usage?.avg_response_time ?? 0,
             cpuUsage: a.resource_usage?.cpu_usage_percent ?? 0,
             memoryUsage: a.resource_usage?.memory_usage_percent ?? 0,
-            healthScore: Math.max(0, 100 - (a.resource_usage?.error_rate ?? 0) * 100),
+            healthScore: Math.max(
+              0,
+              100 - (a.resource_usage?.error_rate ?? 0) * 100
+            ),
             region: a.labels?.region || 'default',
-            capabilities: a.capabilities || []
+            capabilities: a.capabilities || [],
           }))
         )
       }
@@ -142,12 +178,36 @@ const LoadBalancerConfigPage: React.FC<LoadBalancerConfigPageProps> = () => {
   }
 
   const loadBalanceStrategies = [
-    { value: 'round_robin', label: '轮询 (Round Robin)', description: '按顺序轮流分配请求到每个智能体' },
-    { value: 'least_connections', label: '最少连接 (Least Connections)', description: '分配到当前连接数最少的智能体' },
-    { value: 'weighted_round_robin', label: '加权轮询 (Weighted Round Robin)', description: '根据智能体权重进行轮询分配' },
-    { value: 'capability_based', label: '能力优先 (Capability Based)', description: '根据智能体能力匹配度进行分配' },
-    { value: 'geographic', label: '地理位置优先 (Geographic)', description: '优先分配到地理位置最近的智能体' },
-    { value: 'response_time', label: '响应时间优先 (Response Time)', description: '优先分配到响应时间最短的智能体' }
+    {
+      value: 'round_robin',
+      label: '轮询 (Round Robin)',
+      description: '按顺序轮流分配请求到每个智能体',
+    },
+    {
+      value: 'least_connections',
+      label: '最少连接 (Least Connections)',
+      description: '分配到当前连接数最少的智能体',
+    },
+    {
+      value: 'weighted_round_robin',
+      label: '加权轮询 (Weighted Round Robin)',
+      description: '根据智能体权重进行轮询分配',
+    },
+    {
+      value: 'capability_based',
+      label: '能力优先 (Capability Based)',
+      description: '根据智能体能力匹配度进行分配',
+    },
+    {
+      value: 'geographic',
+      label: '地理位置优先 (Geographic)',
+      description: '优先分配到地理位置最近的智能体',
+    },
+    {
+      value: 'response_time',
+      label: '响应时间优先 (Response Time)',
+      description: '优先分配到响应时间最短的智能体',
+    },
   ]
 
   const handleSaveConfig = async (values: LoadBalancerConfig) => {
@@ -156,7 +216,7 @@ const LoadBalancerConfigPage: React.FC<LoadBalancerConfigPageProps> = () => {
       const res = await apiFetch(buildApiUrl('/api/v1/load-balancer/config'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(values)
+        body: JSON.stringify(values),
       })
       const data = await res.json()
       if (!data.success) {
@@ -167,12 +227,12 @@ const LoadBalancerConfigPage: React.FC<LoadBalancerConfigPageProps> = () => {
       }
       Modal.success({
         title: '配置保存成功',
-        content: '负载均衡器配置已更新，新配置将在下次请求时生效。'
+        content: '负载均衡器配置已更新，新配置将在下次请求时生效。',
       })
     } catch (error) {
       Modal.error({
         title: '配置保存失败',
-        content: '保存负载均衡器配置时出现错误，请重试。'
+        content: '保存负载均衡器配置时出现错误，请重试。',
       })
     } finally {
       setSaving(false)
@@ -182,12 +242,15 @@ const LoadBalancerConfigPage: React.FC<LoadBalancerConfigPageProps> = () => {
   const handleTestStrategy = async (strategy: string) => {
     try {
       setTestModalVisible(true)
-      
-      const res = await apiFetch(buildApiUrl('/api/v1/load-balancer/strategy/test'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ strategy })
-      })
+
+      const res = await apiFetch(
+        buildApiUrl('/api/v1/load-balancer/strategy/test'),
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ strategy }),
+        }
+      )
       const data = await res.json()
       setTestResults(prev => [data, ...prev.slice(0, 4)])
     } catch (error) {
@@ -213,7 +276,9 @@ const LoadBalancerConfigPage: React.FC<LoadBalancerConfigPageProps> = () => {
       dataIndex: 'strategy',
       key: 'strategy',
       render: (strategy: string) => {
-        const strategyInfo = loadBalanceStrategies.find(s => s.value === strategy)
+        const strategyInfo = loadBalanceStrategies.find(
+          s => s.value === strategy
+        )
         return (
           <div>
             <Text strong>{strategyInfo?.label || strategy}</Text>
@@ -223,25 +288,30 @@ const LoadBalancerConfigPage: React.FC<LoadBalancerConfigPageProps> = () => {
             </Text>
           </div>
         )
-      }
+      },
     },
     {
       title: '处理请求数',
       dataIndex: 'requestsHandled',
       key: 'requestsHandled',
-      render: (value: number) => <Statistic value={value} valueStyle={{ fontSize: '14px' }} />
+      render: (value: number) => (
+        <Statistic value={value} valueStyle={{ fontSize: '14px' }} />
+      ),
     },
     {
       title: '平均响应时间',
       dataIndex: 'averageResponseTime',
       key: 'averageResponseTime',
       render: (value: number) => (
-        <Statistic 
-          value={value} 
-          suffix="ms" 
-          valueStyle={{ fontSize: '14px', color: value < 50 ? '#52c41a' : value < 100 ? '#faad14' : '#ff4d4f' }} 
+        <Statistic
+          value={value}
+          suffix="ms"
+          valueStyle={{
+            fontSize: '14px',
+            color: value < 50 ? '#52c41a' : value < 100 ? '#faad14' : '#ff4d4f',
+          }}
         />
-      )
+      ),
     },
     {
       title: '成功率',
@@ -249,38 +319,44 @@ const LoadBalancerConfigPage: React.FC<LoadBalancerConfigPageProps> = () => {
       key: 'successRate',
       render: (value: number) => (
         <div>
-          <Progress 
-            percent={value} 
-            size="small" 
-            status={value > 98 ? 'success' : value > 95 ? 'active' : 'exception'} 
+          <Progress
+            percent={value}
+            size="small"
+            status={
+              value > 98 ? 'success' : value > 95 ? 'active' : 'exception'
+            }
           />
           <Text style={{ fontSize: '12px' }}>{value}%</Text>
         </div>
-      )
+      ),
     },
     {
       title: '吞吐量',
       dataIndex: 'throughputPerSecond',
       key: 'throughputPerSecond',
       render: (value: number) => (
-        <Statistic value={value} suffix="/s" valueStyle={{ fontSize: '14px' }} />
-      )
+        <Statistic
+          value={value}
+          suffix="/s"
+          valueStyle={{ fontSize: '14px' }}
+        />
+      ),
     },
     {
       title: '操作',
       key: 'actions',
       render: (_, record: StrategyMetrics) => (
         <Space>
-          <Button 
-            size="small" 
+          <Button
+            size="small"
             icon={<ExperimentOutlined />}
             onClick={() => handleTestStrategy(record.strategy)}
           >
             测试
           </Button>
-          <Button 
-            size="small" 
-            type="primary" 
+          <Button
+            size="small"
+            type="primary"
             onClick={() => {
               form.setFieldValue('globalStrategy', record.strategy)
               setConfig(prev => ({ ...prev, globalStrategy: record.strategy }))
@@ -289,8 +365,8 @@ const LoadBalancerConfigPage: React.FC<LoadBalancerConfigPageProps> = () => {
             设为默认
           </Button>
         </Space>
-      )
-    }
+      ),
+    },
   ]
 
   const agentLoadColumns = [
@@ -301,14 +377,18 @@ const LoadBalancerConfigPage: React.FC<LoadBalancerConfigPageProps> = () => {
         <div>
           <Text strong>{agent.agentName}</Text>
           <br />
-          <Tag color="blue" size="small">{agent.region}</Tag>
+          <Tag color="blue" size="small">
+            {agent.region}
+          </Tag>
           <div>
             {agent.capabilities.slice(0, 2).map(cap => (
-              <Tag key={cap} size="small">{cap}</Tag>
+              <Tag key={cap} size="small">
+                {cap}
+              </Tag>
             ))}
           </div>
         </div>
-      )
+      ),
     },
     {
       title: '当前负载',
@@ -316,28 +396,37 @@ const LoadBalancerConfigPage: React.FC<LoadBalancerConfigPageProps> = () => {
       key: 'currentLoad',
       render: (load: number) => (
         <div>
-          <Progress percent={load} size="small" strokeColor={getLoadColor(load)} />
+          <Progress
+            percent={load}
+            size="small"
+            strokeColor={getLoadColor(load)}
+          />
           <Text style={{ fontSize: '12px' }}>{load}%</Text>
         </div>
-      )
+      ),
     },
     {
       title: '连接数',
       dataIndex: 'connectionCount',
       key: 'connectionCount',
-      render: (value: number) => <Statistic value={value} valueStyle={{ fontSize: '14px' }} />
+      render: (value: number) => (
+        <Statistic value={value} valueStyle={{ fontSize: '14px' }} />
+      ),
     },
     {
       title: '响应时间',
       dataIndex: 'responseTime',
       key: 'responseTime',
       render: (value: number) => (
-        <Statistic 
-          value={value} 
-          suffix="ms" 
-          valueStyle={{ fontSize: '14px', color: value < 50 ? '#52c41a' : '#faad14' }} 
+        <Statistic
+          value={value}
+          suffix="ms"
+          valueStyle={{
+            fontSize: '14px',
+            color: value < 50 ? '#52c41a' : '#faad14',
+          }}
         />
-      )
+      ),
     },
     {
       title: '健康分数',
@@ -345,17 +434,26 @@ const LoadBalancerConfigPage: React.FC<LoadBalancerConfigPageProps> = () => {
       key: 'healthScore',
       render: (score: number) => (
         <div>
-          <Progress percent={score} size="small" strokeColor={getHealthColor(score)} />
+          <Progress
+            percent={score}
+            size="small"
+            strokeColor={getHealthColor(score)}
+          />
           <Text style={{ fontSize: '12px' }}>{score}</Text>
         </div>
-      )
-    }
+      ),
+    },
   ]
 
   const strategyDistribution = strategyMetrics.map(metric => ({
-    name: loadBalanceStrategies.find(s => s.value === metric.strategy)?.label || metric.strategy,
+    name:
+      loadBalanceStrategies.find(s => s.value === metric.strategy)?.label ||
+      metric.strategy,
     value: metric.requestsHandled,
-    color: config && metric.strategy === config.globalStrategy ? '#1890ff' : '#d9d9d9'
+    color:
+      config && metric.strategy === config.globalStrategy
+        ? '#1890ff'
+        : '#d9d9d9',
   }))
 
   if (!config) {
@@ -399,10 +497,34 @@ const LoadBalancerConfigPage: React.FC<LoadBalancerConfigPageProps> = () => {
                   <XAxis dataKey="time" />
                   <YAxis />
                   <ChartTooltip />
-                  <Line type="monotone" dataKey="capability_based" stroke="#1890ff" strokeWidth={2} name="能力优先" />
-                  <Line type="monotone" dataKey="round_robin" stroke="#52c41a" strokeWidth={2} name="轮询" />
-                  <Line type="monotone" dataKey="least_connections" stroke="#faad14" strokeWidth={2} name="最少连接" />
-                  <Line type="monotone" dataKey="response_time" stroke="#ff7300" strokeWidth={2} name="响应时间优先" />
+                  <Line
+                    type="monotone"
+                    dataKey="capability_based"
+                    stroke="#1890ff"
+                    strokeWidth={2}
+                    name="能力优先"
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="round_robin"
+                    stroke="#52c41a"
+                    strokeWidth={2}
+                    name="轮询"
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="least_connections"
+                    stroke="#faad14"
+                    strokeWidth={2}
+                    name="最少连接"
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="response_time"
+                    stroke="#ff7300"
+                    strokeWidth={2}
+                    name="响应时间优先"
+                  />
                 </LineChart>
               </ResponsiveContainer>
             </Card>
@@ -470,18 +592,40 @@ const LoadBalancerConfigPage: React.FC<LoadBalancerConfigPageProps> = () => {
                     <Form.Item
                       name="healthCheckInterval"
                       label="健康检查间隔 (秒)"
-                      rules={[{ required: true, min: 10, max: 300, message: '间隔时间应在10-300秒之间' }]}
+                      rules={[
+                        {
+                          required: true,
+                          min: 10,
+                          max: 300,
+                          message: '间隔时间应在10-300秒之间',
+                        },
+                      ]}
                     >
-                      <InputNumber min={10} max={300} style={{ width: '100%' }} />
+                      <InputNumber
+                        min={10}
+                        max={300}
+                        style={{ width: '100%' }}
+                      />
                     </Form.Item>
                   </Col>
                   <Col span={12}>
                     <Form.Item
                       name="connectionTimeout"
                       label="连接超时 (毫秒)"
-                      rules={[{ required: true, min: 1000, max: 30000, message: '超时时间应在1-30秒之间' }]}
+                      rules={[
+                        {
+                          required: true,
+                          min: 1000,
+                          max: 30000,
+                          message: '超时时间应在1-30秒之间',
+                        },
+                      ]}
                     >
-                      <InputNumber min={1000} max={30000} style={{ width: '100%' }} />
+                      <InputNumber
+                        min={1000}
+                        max={30000}
+                        style={{ width: '100%' }}
+                      />
                     </Form.Item>
                   </Col>
                 </Row>
@@ -491,13 +635,23 @@ const LoadBalancerConfigPage: React.FC<LoadBalancerConfigPageProps> = () => {
                     <Form.Item
                       name="retryAttempts"
                       label="重试次数"
-                      rules={[{ required: true, min: 0, max: 10, message: '重试次数应在0-10之间' }]}
+                      rules={[
+                        {
+                          required: true,
+                          min: 0,
+                          max: 10,
+                          message: '重试次数应在0-10之间',
+                        },
+                      ]}
                     >
                       <InputNumber min={0} max={10} style={{ width: '100%' }} />
                     </Form.Item>
                   </Col>
                   <Col span={12}>
-                    <Form.Item name="circuitBreakerEnabled" valuePropName="checked">
+                    <Form.Item
+                      name="circuitBreakerEnabled"
+                      valuePropName="checked"
+                    >
                       <div style={{ marginTop: '30px' }}>
                         <Switch /> 启用熔断器
                       </div>
@@ -509,7 +663,10 @@ const LoadBalancerConfigPage: React.FC<LoadBalancerConfigPageProps> = () => {
 
                 <Row gutter={16}>
                   <Col span={12}>
-                    <Form.Item name="adaptiveLoadBalancing" valuePropName="checked">
+                    <Form.Item
+                      name="adaptiveLoadBalancing"
+                      valuePropName="checked"
+                    >
                       <Switch /> 自适应负载均衡
                     </Form.Item>
                   </Col>
@@ -527,7 +684,10 @@ const LoadBalancerConfigPage: React.FC<LoadBalancerConfigPageProps> = () => {
                     </Form.Item>
                   </Col>
                   <Col span={12}>
-                    <Form.Item name="capabilityWeighting" valuePropName="checked">
+                    <Form.Item
+                      name="capabilityWeighting"
+                      valuePropName="checked"
+                    >
                       <Switch /> 能力权重评估
                     </Form.Item>
                   </Col>
@@ -542,7 +702,11 @@ const LoadBalancerConfigPage: React.FC<LoadBalancerConfigPageProps> = () => {
                       label="响应时间权重"
                       rules={[{ required: true, min: 0, max: 100 }]}
                     >
-                      <InputNumber min={0} max={100} style={{ width: '100%' }} />
+                      <InputNumber
+                        min={0}
+                        max={100}
+                        style={{ width: '100%' }}
+                      />
                     </Form.Item>
                   </Col>
                   <Col span={12}>
@@ -551,7 +715,11 @@ const LoadBalancerConfigPage: React.FC<LoadBalancerConfigPageProps> = () => {
                       label="连接数权重"
                       rules={[{ required: true, min: 0, max: 100 }]}
                     >
-                      <InputNumber min={0} max={100} style={{ width: '100%' }} />
+                      <InputNumber
+                        min={0}
+                        max={100}
+                        style={{ width: '100%' }}
+                      />
                     </Form.Item>
                   </Col>
                 </Row>
@@ -563,7 +731,11 @@ const LoadBalancerConfigPage: React.FC<LoadBalancerConfigPageProps> = () => {
                       label="CPU使用率权重"
                       rules={[{ required: true, min: 0, max: 100 }]}
                     >
-                      <InputNumber min={0} max={100} style={{ width: '100%' }} />
+                      <InputNumber
+                        min={0}
+                        max={100}
+                        style={{ width: '100%' }}
+                      />
                     </Form.Item>
                   </Col>
                   <Col span={12}>
@@ -572,19 +744,26 @@ const LoadBalancerConfigPage: React.FC<LoadBalancerConfigPageProps> = () => {
                       label="内存使用率权重"
                       rules={[{ required: true, min: 0, max: 100 }]}
                     >
-                      <InputNumber min={0} max={100} style={{ width: '100%' }} />
+                      <InputNumber
+                        min={0}
+                        max={100}
+                        style={{ width: '100%' }}
+                      />
                     </Form.Item>
                   </Col>
                 </Row>
 
                 <Form.Item>
                   <Space>
-                    <Button type="primary" htmlType="submit" icon={<SaveOutlined />} loading={saving}>
+                    <Button
+                      type="primary"
+                      htmlType="submit"
+                      icon={<SaveOutlined />}
+                      loading={saving}
+                    >
                       保存配置
                     </Button>
-                    <Button icon={<ReloadOutlined />}>
-                      重置为默认
-                    </Button>
+                    <Button icon={<ReloadOutlined />}>重置为默认</Button>
                   </Space>
                 </Form.Item>
               </Form>
@@ -593,7 +772,11 @@ const LoadBalancerConfigPage: React.FC<LoadBalancerConfigPageProps> = () => {
 
           {/* 实时监控 */}
           <Col xs={24} lg={12}>
-            <Card title="智能体负载监控" extra={<MonitorOutlined />} style={{ height: '100%' }}>
+            <Card
+              title="智能体负载监控"
+              extra={<MonitorOutlined />}
+              style={{ height: '100%' }}
+            >
               <Table
                 columns={agentLoadColumns}
                 dataSource={agentLoads}
@@ -633,7 +816,12 @@ const LoadBalancerConfigPage: React.FC<LoadBalancerConfigPageProps> = () => {
                 >
                   <div>
                     <Text strong>
-                      {loadBalanceStrategies.find(s => s.value === result.strategy)?.label} 测试
+                      {
+                        loadBalanceStrategies.find(
+                          s => s.value === result.strategy
+                        )?.label
+                      }{' '}
+                      测试
                     </Text>
                     <Tag color="blue" style={{ marginLeft: 8 }}>
                       {new Date(result.timestamp).toLocaleTimeString()}

@@ -1,6 +1,6 @@
 /**
  * 知识图谱可视化核心组件
- * 
+ *
  * 功能包括：
  * - 基于Cytoscape.js的动态图谱渲染
  * - 节点拖拽、缩放、平移等交互操作
@@ -10,165 +10,188 @@
  * - LOD和虚拟化渲染优化
  */
 
-import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
-import { Card, Space, Typography, Spin, Alert, Tooltip, Button, Select, Slider, Row, Col } from 'antd';
-import { 
-  ZoomInOutlined, 
-  ZoomOutOutlined, 
-  FullscreenOutlined, 
+import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react'
+import {
+  Card,
+  Space,
+  Typography,
+  Spin,
+  Alert,
+  Tooltip,
+  Button,
+  Select,
+  Slider,
+  Row,
+  Col,
+} from 'antd'
+import {
+  ZoomInOutlined,
+  ZoomOutOutlined,
+  FullscreenOutlined,
   ReloadOutlined,
   SettingOutlined,
-  DownloadOutlined 
-} from '@ant-design/icons';
-import cytoscape, { Core, NodeSingular, EdgeSingular, Stylesheet } from 'cytoscape';
+  DownloadOutlined,
+} from '@ant-design/icons'
+import cytoscape, {
+  Core,
+  NodeSingular,
+  EdgeSingular,
+  Stylesheet,
+} from 'cytoscape'
 
-const { Title, Text } = Typography;
-const { Option } = Select;
+const { Title, Text } = Typography
+const { Option } = Select
 
 // ==================== 类型定义 ====================
 
 export interface GraphNode {
-  id: string;
-  label: string;
-  type: string;
-  properties: Record<string, any>;
-  position?: { x: number; y: number };
-  size?: number;
-  color?: string;
-  isExpanded?: boolean;
+  id: string
+  label: string
+  type: string
+  properties: Record<string, any>
+  position?: { x: number; y: number }
+  size?: number
+  color?: string
+  isExpanded?: boolean
   metadata: {
-    confidence: number;
-    lastUpdated: string;
-    sourceCount: number;
-  };
+    confidence: number
+    lastUpdated: string
+    sourceCount: number
+  }
 }
 
 export interface GraphEdge {
-  id: string;
-  source: string;
-  target: string;
-  type: string;
-  label: string;
-  weight?: number;
-  properties: Record<string, any>;
+  id: string
+  source: string
+  target: string
+  type: string
+  label: string
+  weight?: number
+  properties: Record<string, any>
   style?: {
-    color: string;
-    width: number;
-    style: 'solid' | 'dashed' | 'dotted';
-  };
+    color: string
+    width: number
+    style: 'solid' | 'dashed' | 'dotted'
+  }
   metadata: {
-    confidence: number;
-    evidence: string[];
-  };
+    confidence: number
+    evidence: string[]
+  }
 }
 
 export interface GraphData {
-  nodes: GraphNode[];
-  edges: GraphEdge[];
+  nodes: GraphNode[]
+  edges: GraphEdge[]
   metadata: {
-    totalNodes: number;
-    totalEdges: number;
-    density: number;
-    lastUpdated: string;
-    version: string;
-  };
+    totalNodes: number
+    totalEdges: number
+    density: number
+    lastUpdated: string
+    version: string
+  }
 }
 
 export interface QueryHighlight {
-  nodeIds: string[];
-  edgeIds: string[];
+  nodeIds: string[]
+  edgeIds: string[]
   paths: Array<{
-    pathId: string;
-    nodes: string[];
-    edges: string[];
-    description: string;
-  }>;
+    pathId: string
+    nodes: string[]
+    edges: string[]
+    description: string
+  }>
 }
 
 export interface VisualizationConfig {
   layout: {
-    algorithm: string;
-    parameters: Record<string, number>;
-  };
+    algorithm: string
+    parameters: Record<string, number>
+  }
   styling: {
-    nodeSize: { min: number; max: number };
-    nodeColor: { scheme: string; attribute?: string };
-    edgeWidth: { min: number; max: number };
-    edgeColor: { scheme: string; attribute?: string };
-  };
+    nodeSize: { min: number; max: number }
+    nodeColor: { scheme: string; attribute?: string }
+    edgeWidth: { min: number; max: number }
+    edgeColor: { scheme: string; attribute?: string }
+  }
   interaction: {
-    enableDrag: boolean;
-    enableZoom: boolean;
-    enableSelection: boolean;
-    hoverEffects: boolean;
-  };
+    enableDrag: boolean
+    enableZoom: boolean
+    enableSelection: boolean
+    hoverEffects: boolean
+  }
   performance: {
-    enableVirtualization: boolean;
-    maxVisibleNodes: number;
-    lodThresholds: { low: number; medium: number; high: number };
-  };
+    enableVirtualization: boolean
+    maxVisibleNodes: number
+    lodThresholds: { low: number; medium: number; high: number }
+  }
 }
 
 interface GraphVisualizationProps {
-  data?: GraphData;
-  config?: Partial<VisualizationConfig>;
-  highlights?: QueryHighlight;
-  onNodeClick?: (node: GraphNode) => void;
-  onEdgeClick?: (edge: GraphEdge) => void;
-  onSelection?: (selectedElements: { nodes: GraphNode[]; edges: GraphEdge[] }) => void;
-  onLayoutChange?: (layoutName: string) => void;
-  className?: string;
-  height?: number;
-  loading?: boolean;
-  error?: string;
+  data?: GraphData
+  config?: Partial<VisualizationConfig>
+  highlights?: QueryHighlight
+  onNodeClick?: (node: GraphNode) => void
+  onEdgeClick?: (edge: GraphEdge) => void
+  onSelection?: (selectedElements: {
+    nodes: GraphNode[]
+    edges: GraphEdge[]
+  }) => void
+  onLayoutChange?: (layoutName: string) => void
+  className?: string
+  height?: number
+  loading?: boolean
+  error?: string
 }
 
 // ==================== 性能管理器 ====================
 
 class PerformanceManager {
-  private maxNodes: number;
-  private lodEnabled: boolean;
-  private virtualizationEnabled: boolean;
+  private maxNodes: number
+  private lodEnabled: boolean
+  private virtualizationEnabled: boolean
 
   constructor() {
-    this.maxNodes = this.calculateOptimalMaxNodes();
-    this.lodEnabled = true;
-    this.virtualizationEnabled = true;
+    this.maxNodes = this.calculateOptimalMaxNodes()
+    this.lodEnabled = true
+    this.virtualizationEnabled = true
   }
 
   private calculateOptimalMaxNodes(): number {
     // 基于设备性能计算最适合的节点数量
-    const memory = (navigator as any).deviceMemory || 4;
-    const cores = navigator.hardwareConcurrency || 4;
+    const memory = (navigator as any).deviceMemory || 4
+    const cores = navigator.hardwareConcurrency || 4
 
     if (memory >= 8 && cores >= 8) {
-      return 15000; // 高性能设备
+      return 15000 // 高性能设备
     } else if (memory >= 4 && cores >= 4) {
-      return 8000;  // 中等性能设备
+      return 8000 // 中等性能设备
     } else {
-      return 3000;  // 低性能设备
+      return 3000 // 低性能设备
     }
   }
 
   public getMaxNodes(): number {
-    return this.maxNodes;
+    return this.maxNodes
   }
 
   public shouldUseLOD(nodeCount: number): boolean {
-    return this.lodEnabled && nodeCount > 1000;
+    return this.lodEnabled && nodeCount > 1000
   }
 
   public shouldUseVirtualization(nodeCount: number): boolean {
-    return this.virtualizationEnabled && nodeCount > 500;
+    return this.virtualizationEnabled && nodeCount > 500
   }
 
-  public selectRenderingEngine(nodeCount: number, edgeCount: number): 'canvas' | 'webgl' | 'svg' {
+  public selectRenderingEngine(
+    nodeCount: number,
+    edgeCount: number
+  ): 'canvas' | 'webgl' | 'svg' {
     if (nodeCount > 5000 || edgeCount > 25000) {
-      return 'webgl'; // 大规模图谱使用WebGL
+      return 'webgl' // 大规模图谱使用WebGL
     } else if (nodeCount > 1000 || edgeCount > 5000) {
-      return 'canvas'; // 中等规模使用Canvas
+      return 'canvas' // 中等规模使用Canvas
     } else {
-      return 'svg'; // 小规模使用SVG
+      return 'svg' // 小规模使用SVG
     }
   }
 }
@@ -185,26 +208,26 @@ const defaultConfig: VisualizationConfig = {
       nodeOverlap: 10,
       idealEdgeLength: 100,
       edgeElasticity: 100,
-    }
+    },
   },
   styling: {
     nodeSize: { min: 20, max: 80 },
     nodeColor: { scheme: 'type' },
     edgeWidth: { min: 1, max: 5 },
-    edgeColor: { scheme: 'default' }
+    edgeColor: { scheme: 'default' },
   },
   interaction: {
     enableDrag: true,
     enableZoom: true,
     enableSelection: true,
-    hoverEffects: true
+    hoverEffects: true,
   },
   performance: {
     enableVirtualization: true,
     maxVisibleNodes: 5000,
-    lodThresholds: { low: 500, medium: 2000, high: 10000 }
-  }
-};
+    lodThresholds: { low: 500, medium: 2000, high: 10000 },
+  },
+}
 
 // ==================== 主组件 ====================
 
@@ -219,41 +242,47 @@ const GraphVisualization: React.FC<GraphVisualizationProps> = ({
   className = '',
   height = 600,
   loading = false,
-  error
+  error,
 }) => {
   // ==================== 状态管理 ====================
-  
-  const containerRef = useRef<HTMLDivElement>(null);
-  const cyRef = useRef<Core | null>(null);
-  const performanceManager = useRef(new PerformanceManager());
-  
-  const [isInitialized, setIsInitialized] = useState(false);
-  const [currentLayout, setCurrentLayout] = useState('cose');
-  const [selectedElements, setSelectedElements] = useState<{ nodes: GraphNode[]; edges: GraphEdge[] }>({ nodes: [], edges: [] });
-  const [zoomLevel, setZoomLevel] = useState(1);
-  const [showControls, setShowControls] = useState(true);
+
+  const containerRef = useRef<HTMLDivElement>(null)
+  const cyRef = useRef<Core | null>(null)
+  const performanceManager = useRef(new PerformanceManager())
+
+  const [isInitialized, setIsInitialized] = useState(false)
+  const [currentLayout, setCurrentLayout] = useState('cose')
+  const [selectedElements, setSelectedElements] = useState<{
+    nodes: GraphNode[]
+    edges: GraphEdge[]
+  }>({ nodes: [], edges: [] })
+  const [zoomLevel, setZoomLevel] = useState(1)
+  const [showControls, setShowControls] = useState(true)
 
   // ==================== 配置合并 ====================
-  
-  const config = useMemo(() => ({
-    ...defaultConfig,
-    ...userConfig,
-    layout: { ...defaultConfig.layout, ...userConfig.layout },
-    styling: { ...defaultConfig.styling, ...userConfig.styling },
-    interaction: { ...defaultConfig.interaction, ...userConfig.interaction },
-    performance: { ...defaultConfig.performance, ...userConfig.performance }
-  }), [userConfig]);
+
+  const config = useMemo(
+    () => ({
+      ...defaultConfig,
+      ...userConfig,
+      layout: { ...defaultConfig.layout, ...userConfig.layout },
+      styling: { ...defaultConfig.styling, ...userConfig.styling },
+      interaction: { ...defaultConfig.interaction, ...userConfig.interaction },
+      performance: { ...defaultConfig.performance, ...userConfig.performance },
+    }),
+    [userConfig]
+  )
 
   // ==================== 样式生成 ====================
-  
+
   const generateGraphStyle = useCallback((): Stylesheet[] => {
     return [
       {
         selector: 'node',
         style: {
-          'label': 'data(label)',
-          'width': `mapData(confidence, 0, 1, ${config.styling.nodeSize.min}, ${config.styling.nodeSize.max})`,
-          'height': `mapData(confidence, 0, 1, ${config.styling.nodeSize.min}, ${config.styling.nodeSize.max})`,
+          label: 'data(label)',
+          width: `mapData(confidence, 0, 1, ${config.styling.nodeSize.min}, ${config.styling.nodeSize.max})`,
+          height: `mapData(confidence, 0, 1, ${config.styling.nodeSize.min}, ${config.styling.nodeSize.max})`,
           'background-color': 'data(color)',
           'border-width': 2,
           'border-color': '#fff',
@@ -261,28 +290,28 @@ const GraphVisualization: React.FC<GraphVisualizationProps> = ({
           'text-halign': 'center',
           'font-size': '12px',
           'font-weight': 'bold',
-          'color': '#333',
+          color: '#333',
           'text-outline-width': 1,
           'text-outline-color': '#fff',
-          'overlay-padding': '4px'
-        }
+          'overlay-padding': '4px',
+        },
       },
       {
         selector: 'edge',
         style: {
-          'width': `mapData(confidence, 0, 1, ${config.styling.edgeWidth.min}, ${config.styling.edgeWidth.max})`,
+          width: `mapData(confidence, 0, 1, ${config.styling.edgeWidth.min}, ${config.styling.edgeWidth.max})`,
           'line-color': 'data(color)',
           'target-arrow-color': 'data(color)',
           'target-arrow-shape': 'triangle',
           'target-arrow-size': 10,
           'curve-style': 'bezier',
-          'label': 'data(label)',
+          label: 'data(label)',
           'font-size': '10px',
           'text-rotation': 'autorotate',
-          'color': '#666',
+          color: '#666',
           'text-outline-width': 1,
-          'text-outline-color': '#fff'
-        }
+          'text-outline-color': '#fff',
+        },
       },
       {
         selector: ':selected',
@@ -291,8 +320,8 @@ const GraphVisualization: React.FC<GraphVisualizationProps> = ({
           'border-width': 3,
           'line-color': '#ff6b6b',
           'target-arrow-color': '#ff6b6b',
-          'source-arrow-color': '#ff6b6b'
-        }
+          'source-arrow-color': '#ff6b6b',
+        },
       },
       {
         selector: '.highlighted',
@@ -303,8 +332,8 @@ const GraphVisualization: React.FC<GraphVisualizationProps> = ({
           'border-color': '#ff9800',
           'border-width': 3,
           'transition-property': 'background-color, line-color, border-color',
-          'transition-duration': '0.3s'
-        }
+          'transition-duration': '0.3s',
+        },
       },
       {
         selector: '.path-highlight',
@@ -315,30 +344,30 @@ const GraphVisualization: React.FC<GraphVisualizationProps> = ({
           'border-color': '#388e3c',
           'border-width': 4,
           'line-style': 'solid',
-          'width': 6
-        }
+          width: 6,
+        },
       },
       {
         selector: 'node:hover',
         style: {
           'overlay-opacity': config.interaction.hoverEffects ? 0.2 : 0,
           'overlay-color': '#666',
-          'overlay-padding': '6px'
-        }
-      }
-    ];
-  }, [config]);
+          'overlay-padding': '6px',
+        },
+      },
+    ]
+  }, [config])
 
   // ==================== Cytoscape初始化 ====================
-  
+
   const initializeCytoscape = useCallback(() => {
-    if (!containerRef.current || !data) return;
+    if (!containerRef.current || !data) return
 
     // 选择渲染引擎
     const renderingEngine = performanceManager.current.selectRenderingEngine(
-      data.nodes.length, 
+      data.nodes.length,
       data.edges.length
-    );
+    )
 
     // 转换数据格式
     const elements = [
@@ -350,10 +379,10 @@ const GraphVisualization: React.FC<GraphVisualizationProps> = ({
           type: node.type,
           confidence: node.metadata.confidence,
           color: node.color || getNodeColor(node.type),
-          ...node.properties
+          ...node.properties,
         },
         position: node.position,
-        classes: node.isExpanded ? 'expanded' : ''
+        classes: node.isExpanded ? 'expanded' : '',
       })),
       ...data.edges.map(edge => ({
         group: 'edges' as const,
@@ -365,11 +394,11 @@ const GraphVisualization: React.FC<GraphVisualizationProps> = ({
           type: edge.type,
           confidence: edge.metadata.confidence,
           color: edge.style?.color || getEdgeColor(edge.type),
-          ...edge.properties
+          ...edge.properties,
         },
-        classes: ''
-      }))
-    ];
+        classes: '',
+      })),
+    ]
 
     // 初始化Cytoscape
     const cy = cytoscape({
@@ -380,10 +409,10 @@ const GraphVisualization: React.FC<GraphVisualizationProps> = ({
         name: currentLayout,
         animate: config.layout.parameters.animate,
         animationDuration: config.layout.parameters.animationDuration,
-        ...config.layout.parameters
+        ...config.layout.parameters,
       },
       renderer: {
-        name: renderingEngine
+        name: renderingEngine,
       },
       wheelSensitivity: 0.1,
       maxZoom: 3,
@@ -393,211 +422,233 @@ const GraphVisualization: React.FC<GraphVisualizationProps> = ({
       zoomingEnabled: config.interaction.enableZoom,
       userZoomingEnabled: config.interaction.enableZoom,
       boxSelectionEnabled: config.interaction.enableSelection,
-      selectionType: 'additive'
-    });
+      selectionType: 'additive',
+    })
 
     // 事件监听
-    cy.on('tap', 'node', (evt) => {
-      const node = evt.target;
-      const nodeData = data.nodes.find(n => n.id === node.id());
+    cy.on('tap', 'node', evt => {
+      const node = evt.target
+      const nodeData = data.nodes.find(n => n.id === node.id())
       if (nodeData && onNodeClick) {
-        onNodeClick(nodeData);
+        onNodeClick(nodeData)
       }
-    });
+    })
 
-    cy.on('tap', 'edge', (evt) => {
-      const edge = evt.target;
-      const edgeData = data.edges.find(e => e.id === edge.id());
+    cy.on('tap', 'edge', evt => {
+      const edge = evt.target
+      const edgeData = data.edges.find(e => e.id === edge.id())
       if (edgeData && onEdgeClick) {
-        onEdgeClick(edgeData);
+        onEdgeClick(edgeData)
       }
-    });
+    })
 
     cy.on('select unselect', () => {
-      const selected = cy.$(':selected');
-      const selectedNodes = selected.nodes().map(node => 
-        data.nodes.find(n => n.id === node.id())
-      ).filter(Boolean) as GraphNode[];
-      const selectedEdges = selected.edges().map(edge => 
-        data.edges.find(e => e.id === edge.id())
-      ).filter(Boolean) as GraphEdge[];
-      
-      const selection = { nodes: selectedNodes, edges: selectedEdges };
-      setSelectedElements(selection);
+      const selected = cy.$(':selected')
+      const selectedNodes = selected
+        .nodes()
+        .map(node => data.nodes.find(n => n.id === node.id()))
+        .filter(Boolean) as GraphNode[]
+      const selectedEdges = selected
+        .edges()
+        .map(edge => data.edges.find(e => e.id === edge.id()))
+        .filter(Boolean) as GraphEdge[]
+
+      const selection = { nodes: selectedNodes, edges: selectedEdges }
+      setSelectedElements(selection)
       if (onSelection) {
-        onSelection(selection);
+        onSelection(selection)
       }
-    });
+    })
 
     cy.on('zoom', () => {
-      setZoomLevel(cy.zoom());
-    });
+      setZoomLevel(cy.zoom())
+    })
 
-    cyRef.current = cy;
-    setIsInitialized(true);
-  }, [data, config, currentLayout, generateGraphStyle, onNodeClick, onEdgeClick, onSelection]);
+    cyRef.current = cy
+    setIsInitialized(true)
+  }, [
+    data,
+    config,
+    currentLayout,
+    generateGraphStyle,
+    onNodeClick,
+    onEdgeClick,
+    onSelection,
+  ])
 
   // ==================== 高亮功能 ====================
-  
+
   const applyHighlights = useCallback(() => {
-    if (!cyRef.current || !highlights) return;
+    if (!cyRef.current || !highlights) return
 
     // 清除之前的高亮
-    cyRef.current.elements().removeClass('highlighted path-highlight');
+    cyRef.current.elements().removeClass('highlighted path-highlight')
 
     // 高亮节点
     highlights.nodeIds.forEach(id => {
-      cyRef.current?.getElementById(id).addClass('highlighted');
-    });
+      cyRef.current?.getElementById(id).addClass('highlighted')
+    })
 
     // 高亮边
     highlights.edgeIds.forEach(id => {
-      cyRef.current?.getElementById(id).addClass('highlighted');
-    });
+      cyRef.current?.getElementById(id).addClass('highlighted')
+    })
 
     // 高亮路径
     highlights.paths.forEach(path => {
       path.nodes.forEach(id => {
-        cyRef.current?.getElementById(id).addClass('path-highlight');
-      });
+        cyRef.current?.getElementById(id).addClass('path-highlight')
+      })
       path.edges.forEach(id => {
-        cyRef.current?.getElementById(id).addClass('path-highlight');
-      });
-    });
+        cyRef.current?.getElementById(id).addClass('path-highlight')
+      })
+    })
 
     // 聚焦到高亮元素
     if (highlights.nodeIds.length > 0 || highlights.edgeIds.length > 0) {
-      const highlightedElements = cyRef.current.elements('.highlighted, .path-highlight');
+      const highlightedElements = cyRef.current.elements(
+        '.highlighted, .path-highlight'
+      )
       if (highlightedElements.length > 0) {
-        cyRef.current.fit(highlightedElements, 50);
+        cyRef.current.fit(highlightedElements, 50)
       }
     }
-  }, [highlights]);
+  }, [highlights])
 
   // ==================== 控制函数 ====================
-  
+
   const handleZoomIn = useCallback(() => {
     if (cyRef.current) {
-      cyRef.current.zoom(cyRef.current.zoom() * 1.25);
+      cyRef.current.zoom(cyRef.current.zoom() * 1.25)
     }
-  }, []);
+  }, [])
 
   const handleZoomOut = useCallback(() => {
     if (cyRef.current) {
-      cyRef.current.zoom(cyRef.current.zoom() * 0.8);
+      cyRef.current.zoom(cyRef.current.zoom() * 0.8)
     }
-  }, []);
+  }, [])
 
   const handleFit = useCallback(() => {
     if (cyRef.current) {
-      cyRef.current.fit(undefined, 50);
+      cyRef.current.fit(undefined, 50)
     }
-  }, []);
+  }, [])
 
   const handleReset = useCallback(() => {
     if (cyRef.current) {
-      cyRef.current.elements().removeClass('highlighted path-highlight');
-      cyRef.current.fit(undefined, 50);
+      cyRef.current.elements().removeClass('highlighted path-highlight')
+      cyRef.current.fit(undefined, 50)
     }
-  }, []);
+  }, [])
 
-  const handleLayoutChange = useCallback((layoutName: string) => {
-    if (!cyRef.current) return;
+  const handleLayoutChange = useCallback(
+    (layoutName: string) => {
+      if (!cyRef.current) return
 
-    setCurrentLayout(layoutName);
-    const layout = cyRef.current.layout({
-      name: layoutName,
-      animate: true,
-      animationDuration: 500,
-      ...config.layout.parameters
-    });
-    layout.run();
+      setCurrentLayout(layoutName)
+      const layout = cyRef.current.layout({
+        name: layoutName,
+        animate: true,
+        animationDuration: 500,
+        ...config.layout.parameters,
+      })
+      layout.run()
 
-    if (onLayoutChange) {
-      onLayoutChange(layoutName);
-    }
-  }, [config.layout.parameters, onLayoutChange]);
+      if (onLayoutChange) {
+        onLayoutChange(layoutName)
+      }
+    },
+    [config.layout.parameters, onLayoutChange]
+  )
 
   const handleExport = useCallback((format: 'png' | 'jpg' | 'svg') => {
-    if (!cyRef.current) return;
+    if (!cyRef.current) return
 
     if (format === 'svg') {
-      const svgString = cyRef.current.svg({ full: true });
-      const blob = new Blob([svgString], { type: 'image/svg+xml' });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.download = 'knowledge-graph.svg';
-      link.href = url;
-      link.click();
-      URL.revokeObjectURL(url);
+      const svgString = cyRef.current.svg({ full: true })
+      const blob = new Blob([svgString], { type: 'image/svg+xml' })
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.download = 'knowledge-graph.svg'
+      link.href = url
+      link.click()
+      URL.revokeObjectURL(url)
     } else {
-      const dataUrl = cyRef.current.png({ full: true, bg: 'white' });
-      const link = document.createElement('a');
-      link.download = `knowledge-graph.${format}`;
-      link.href = dataUrl;
-      link.click();
+      const dataUrl = cyRef.current.png({ full: true, bg: 'white' })
+      const link = document.createElement('a')
+      link.download = `knowledge-graph.${format}`
+      link.href = dataUrl
+      link.click()
     }
-  }, []);
+  }, [])
 
   // ==================== 工具函数 ====================
-  
+
   const getNodeColor = (type: string): string => {
     const colorMap: Record<string, string> = {
-      'person': '#e91e63',
-      'organization': '#2196f3',
-      'location': '#4caf50',
-      'concept': '#ff9800',
-      'event': '#9c27b0',
-      'document': '#607d8b',
-      'default': '#666666'
-    };
-    return colorMap[type] || colorMap.default;
-  };
+      person: '#e91e63',
+      organization: '#2196f3',
+      location: '#4caf50',
+      concept: '#ff9800',
+      event: '#9c27b0',
+      document: '#607d8b',
+      default: '#666666',
+    }
+    return colorMap[type] || colorMap.default
+  }
 
   const getEdgeColor = (type: string): string => {
     const colorMap: Record<string, string> = {
-      'works_at': '#2196f3',
-      'located_in': '#4caf50',
-      'related_to': '#ff9800',
-      'participated_in': '#9c27b0',
-      'mentions': '#607d8b',
-      'default': '#999999'
-    };
-    return colorMap[type] || colorMap.default;
-  };
+      works_at: '#2196f3',
+      located_in: '#4caf50',
+      related_to: '#ff9800',
+      participated_in: '#9c27b0',
+      mentions: '#607d8b',
+      default: '#999999',
+    }
+    return colorMap[type] || colorMap.default
+  }
 
   // ==================== 生命周期 ====================
-  
+
   useEffect(() => {
     if (data && !loading && !error) {
-      initializeCytoscape();
+      initializeCytoscape()
     }
-    
+
     return () => {
       if (cyRef.current) {
-        cyRef.current.destroy();
-        cyRef.current = null;
-        setIsInitialized(false);
+        cyRef.current.destroy()
+        cyRef.current = null
+        setIsInitialized(false)
       }
-    };
-  }, [data, loading, error, initializeCytoscape]);
+    }
+  }, [data, loading, error, initializeCytoscape])
 
   useEffect(() => {
     if (isInitialized && highlights) {
-      applyHighlights();
+      applyHighlights()
     }
-  }, [isInitialized, highlights, applyHighlights]);
+  }, [isInitialized, highlights, applyHighlights])
 
   // ==================== 渲染组件 ====================
 
   if (loading) {
     return (
       <Card className={className} style={{ height }}>
-        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            height: '100%',
+          }}
+        >
           <Spin size="large" tip="加载图谱数据..." />
         </div>
       </Card>
-    );
+    )
   }
 
   if (error) {
@@ -615,21 +666,28 @@ const GraphVisualization: React.FC<GraphVisualizationProps> = ({
           }
         />
       </Card>
-    );
+    )
   }
 
   if (!data) {
     return (
       <Card className={className} style={{ height }}>
-        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            height: '100%',
+          }}
+        >
           <Text type="secondary">暂无图谱数据</Text>
         </div>
       </Card>
-    );
+    )
   }
 
   return (
-    <Card 
+    <Card
       className={`knowledge-graph-visualization ${className}`}
       title={
         <Space>
@@ -644,8 +702,8 @@ const GraphVisualization: React.FC<GraphVisualizationProps> = ({
       extra={
         <Space>
           <Tooltip title="显示/隐藏控制栏">
-            <Button 
-              size="small" 
+            <Button
+              size="small"
               icon={<SettingOutlined />}
               onClick={() => setShowControls(!showControls)}
             />
@@ -656,11 +714,13 @@ const GraphVisualization: React.FC<GraphVisualizationProps> = ({
     >
       {/* 控制面板 */}
       {showControls && (
-        <div style={{ 
-          padding: '12px 16px', 
-          borderBottom: '1px solid #f0f0f0',
-          backgroundColor: '#fafafa' 
-        }}>
+        <div
+          style={{
+            padding: '12px 16px',
+            borderBottom: '1px solid #f0f0f0',
+            backgroundColor: '#fafafa',
+          }}
+        >
           <Row gutter={16} align="middle">
             <Col flex="auto">
               <Space>
@@ -679,28 +739,46 @@ const GraphVisualization: React.FC<GraphVisualizationProps> = ({
                   <Option value="random">随机</Option>
                 </Select>
 
-                <Text strong style={{ marginLeft: 16 }}>缩放:</Text>
+                <Text strong style={{ marginLeft: 16 }}>
+                  缩放:
+                </Text>
                 <Text code>{zoomLevel.toFixed(2)}x</Text>
               </Space>
             </Col>
-            
+
             <Col>
               <Space>
                 <Tooltip title="放大">
-                  <Button size="small" icon={<ZoomInOutlined />} onClick={handleZoomIn} />
+                  <Button
+                    size="small"
+                    icon={<ZoomInOutlined />}
+                    onClick={handleZoomIn}
+                  />
                 </Tooltip>
                 <Tooltip title="缩小">
-                  <Button size="small" icon={<ZoomOutOutlined />} onClick={handleZoomOut} />
+                  <Button
+                    size="small"
+                    icon={<ZoomOutOutlined />}
+                    onClick={handleZoomOut}
+                  />
                 </Tooltip>
                 <Tooltip title="适应画布">
-                  <Button size="small" icon={<FullscreenOutlined />} onClick={handleFit} />
+                  <Button
+                    size="small"
+                    icon={<FullscreenOutlined />}
+                    onClick={handleFit}
+                  />
                 </Tooltip>
                 <Tooltip title="重置视图">
-                  <Button size="small" icon={<ReloadOutlined />} onClick={handleReset} />
+                  <Button
+                    size="small"
+                    icon={<ReloadOutlined />}
+                    onClick={handleReset}
+                  />
                 </Tooltip>
                 <Tooltip title="导出">
-                  <Button 
-                    size="small" 
+                  <Button
+                    size="small"
                     icon={<DownloadOutlined />}
                     onClick={() => handleExport('png')}
                   />
@@ -708,11 +786,18 @@ const GraphVisualization: React.FC<GraphVisualizationProps> = ({
               </Space>
             </Col>
           </Row>
-          
+
           {selectedElements.nodes.length > 0 && (
-            <div style={{ marginTop: 8, paddingTop: 8, borderTop: '1px solid #e8e8e8' }}>
+            <div
+              style={{
+                marginTop: 8,
+                paddingTop: 8,
+                borderTop: '1px solid #e8e8e8',
+              }}
+            >
               <Text type="secondary" style={{ fontSize: 12 }}>
-                已选择: {selectedElements.nodes.length} 个节点, {selectedElements.edges.length} 条边
+                已选择: {selectedElements.nodes.length} 个节点,{' '}
+                {selectedElements.edges.length} 条边
               </Text>
             </div>
           )}
@@ -720,16 +805,16 @@ const GraphVisualization: React.FC<GraphVisualizationProps> = ({
       )}
 
       {/* 图谱容器 */}
-      <div 
-        ref={containerRef} 
-        style={{ 
-          width: '100%', 
+      <div
+        ref={containerRef}
+        style={{
+          width: '100%',
           height: showControls ? height - 80 : height,
-          position: 'relative'
+          position: 'relative',
         }}
       />
     </Card>
-  );
-};
+  )
+}
 
-export default GraphVisualization;
+export default GraphVisualization

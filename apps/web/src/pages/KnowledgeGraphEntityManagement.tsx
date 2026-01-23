@@ -1,33 +1,36 @@
 import { buildApiUrl, apiFetch } from '../utils/apiBase'
-import React, { useState } from 'react';
-import { Card, Input, Button, Table, Alert, Space } from 'antd';
+import React, { useState } from 'react'
+import { Card, Input, Button, Table, Alert, Space } from 'antd'
 
-type Entity = { id: string; label?: string; type?: string; score?: number };
+type Entity = { id: string; label?: string; type?: string; score?: number }
 
 const KnowledgeGraphEntityManagement: React.FC = () => {
-  const [keyword, setKeyword] = useState('');
-  const [entities, setEntities] = useState<Entity[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [keyword, setKeyword] = useState('')
+  const [entities, setEntities] = useState<Entity[]>([])
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   const search = async () => {
-    setLoading(true);
-    setError(null);
+    setLoading(true)
+    setError(null)
     try {
-      const res = await apiFetch(buildApiUrl('/api/v1/knowledge-graph/entities/search'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query: keyword })
-      });
-      const data = await res.json();
-      setEntities(data?.entities || []);
+      const res = await apiFetch(
+        buildApiUrl('/api/v1/knowledge-graph/entities/search'),
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ query: keyword }),
+        }
+      )
+      const data = await res.json()
+      setEntities(data?.entities || [])
     } catch (e: any) {
-      setError(e?.message || '查询失败');
-      setEntities([]);
+      setError(e?.message || '查询失败')
+      setEntities([])
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
+  }
 
   return (
     <div style={{ padding: 24 }}>
@@ -37,10 +40,15 @@ const KnowledgeGraphEntityManagement: React.FC = () => {
             <Input
               placeholder="输入关键词"
               value={keyword}
-              onChange={(e) => setKeyword(e.target.value)}
+              onChange={e => setKeyword(e.target.value)}
               style={{ width: 320 }}
             />
-            <Button type="primary" onClick={search} loading={loading} disabled={!keyword.trim()}>
+            <Button
+              type="primary"
+              onClick={search}
+              loading={loading}
+              disabled={!keyword.trim()}
+            >
               搜索
             </Button>
           </Space>
@@ -58,13 +66,13 @@ const KnowledgeGraphEntityManagement: React.FC = () => {
               { title: 'ID', dataIndex: 'id' },
               { title: '标签', dataIndex: 'label' },
               { title: '类型', dataIndex: 'type' },
-              { title: '得分', dataIndex: 'score' }
+              { title: '得分', dataIndex: 'score' },
             ]}
           />
         </Card>
       </Space>
     </div>
-  );
-};
+  )
+}
 
-export default KnowledgeGraphEntityManagement;
+export default KnowledgeGraphEntityManagement

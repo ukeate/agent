@@ -1,7 +1,7 @@
 import { buildApiUrl, apiFetch } from '../utils/apiBase'
 import React, { useState, useEffect } from 'react'
-import {
 import { logger } from '../utils/logger'
+import {
   Card,
   Table,
   Button,
@@ -21,7 +21,7 @@ import { logger } from '../utils/logger'
   Col,
   Statistic,
   Typography,
-  Alert
+  Alert,
 } from 'antd'
 import {
   PlusOutlined,
@@ -30,7 +30,7 @@ import {
   ReloadOutlined,
   ApiOutlined,
   CheckCircleOutlined,
-  ExclamationCircleOutlined
+  ExclamationCircleOutlined,
 } from '@ant-design/icons'
 import type { ColumnsType } from 'antd/es/table'
 
@@ -41,7 +41,14 @@ const { TextArea } = Input
 interface Component {
   component_id: string
   name: string
-  component_type: 'fine_tuning' | 'compression' | 'hyperparameter' | 'evaluation' | 'data_management' | 'model_service' | 'custom'
+  component_type:
+    | 'fine_tuning'
+    | 'compression'
+    | 'hyperparameter'
+    | 'evaluation'
+    | 'data_management'
+    | 'model_service'
+    | 'custom'
   version: string
   status: 'healthy' | 'unhealthy' | 'starting' | 'stopping' | 'error'
   health_endpoint: string
@@ -62,8 +69,11 @@ const ComponentManagementPage: React.FC = () => {
   const [loading, setLoading] = useState(false)
   const [modalVisible, setModalVisible] = useState(false)
   const [detailDrawerVisible, setDetailDrawerVisible] = useState(false)
-  const [selectedComponent, setSelectedComponent] = useState<Component | null>(null)
-  const [componentHealth, setComponentHealth] = useState<ComponentHealth | null>(null)
+  const [selectedComponent, setSelectedComponent] = useState<Component | null>(
+    null
+  )
+  const [componentHealth, setComponentHealth] =
+    useState<ComponentHealth | null>(null)
   const [form] = Form.useForm()
 
   useEffect(() => {
@@ -73,7 +83,9 @@ const ComponentManagementPage: React.FC = () => {
   const fetchComponents = async () => {
     setLoading(true)
     try {
-      const response = await apiFetch(buildApiUrl('/api/v1/platform/components'))
+      const response = await apiFetch(
+        buildApiUrl('/api/v1/platform/components')
+      )
       const data = await response.json()
       const list = Object.values(data.components || {}).map((c: any) => {
         const registeredAt = String(c.registered_at || '')
@@ -88,9 +100,14 @@ const ComponentManagementPage: React.FC = () => {
           api_endpoint: String(c.api_endpoint || ''),
           metadata: c.metadata || {},
           last_check: lastHeartbeat,
-          uptime: registeredAt ? Math.max(0, (Date.now() - new Date(registeredAt).getTime()) / 1000) : 0,
+          uptime: registeredAt
+            ? Math.max(
+                0,
+                (Date.now() - new Date(registeredAt).getTime()) / 1000
+              )
+            : 0,
           registered_at: registeredAt,
-          last_heartbeat: lastHeartbeat
+          last_heartbeat: lastHeartbeat,
         }
       })
       setComponents(list)
@@ -103,23 +120,34 @@ const ComponentManagementPage: React.FC = () => {
 
   const fetchComponentHealth = async (componentId: string) => {
     try {
-      const response = await apiFetch(buildApiUrl(`/api/v1/platform/components/${componentId}`))
+      const response = await apiFetch(
+        buildApiUrl(`/api/v1/platform/components/${componentId}`)
+      )
       const data = await response.json()
       const c = data.component
       if (!c) return
-      setComponentHealth({ status: c.current_health === 'healthy' ? 'healthy' : 'unhealthy' })
-      setSelectedComponent((prev) => {
+      setComponentHealth({
+        status: c.current_health === 'healthy' ? 'healthy' : 'unhealthy',
+      })
+      setSelectedComponent(prev => {
         if (!prev || prev.component_id !== componentId) return prev
         const registeredAt = String(c.registered_at || prev.registered_at || '')
-        const lastHeartbeat = String(c.last_heartbeat || prev.last_heartbeat || '')
+        const lastHeartbeat = String(
+          c.last_heartbeat || prev.last_heartbeat || ''
+        )
         return {
           ...prev,
           ...c,
           metadata: c.metadata || {},
           last_check: lastHeartbeat,
-          uptime: registeredAt ? Math.max(0, (Date.now() - new Date(registeredAt).getTime()) / 1000) : 0,
+          uptime: registeredAt
+            ? Math.max(
+                0,
+                (Date.now() - new Date(registeredAt).getTime()) / 1000
+              )
+            : 0,
           registered_at: registeredAt,
-          last_heartbeat: lastHeartbeat
+          last_heartbeat: lastHeartbeat,
         }
       })
     } catch (error) {
@@ -138,14 +166,17 @@ const ComponentManagementPage: React.FC = () => {
           return
         }
       }
-      const response = await apiFetch(buildApiUrl('/api/v1/platform/components/register'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...values,
-          metadata
-        })
-      })
+      const response = await apiFetch(
+        buildApiUrl('/api/v1/platform/components/register'),
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            ...values,
+            metadata,
+          }),
+        }
+      )
       await response.json().catch(() => null)
       message.success('组件注册成功')
       setModalVisible(false)
@@ -158,9 +189,12 @@ const ComponentManagementPage: React.FC = () => {
 
   const handleUnregisterComponent = async (componentId: string) => {
     try {
-      const response = await apiFetch(buildApiUrl(`/api/v1/platform/components/${componentId}`), {
-        method: 'DELETE'
-      })
+      const response = await apiFetch(
+        buildApiUrl(`/api/v1/platform/components/${componentId}`),
+        {
+          method: 'DELETE',
+        }
+      )
 
       await response.json().catch(() => null)
       message.success('组件注销成功')
@@ -172,7 +206,9 @@ const ComponentManagementPage: React.FC = () => {
 
   const handleHealthCheck = async (componentId: string) => {
     try {
-      const response = await apiFetch(buildApiUrl(`/api/v1/platform/components/${componentId}`))
+      const response = await apiFetch(
+        buildApiUrl(`/api/v1/platform/components/${componentId}`)
+      )
       await response.json().catch(() => null)
       message.success('健康检查完成')
       await fetchComponentHealth(componentId)
@@ -195,7 +231,7 @@ const ComponentManagementPage: React.FC = () => {
       hyperparameter: 'orange',
       evaluation: 'green',
       data_management: 'cyan',
-      model_service: 'gold'
+      model_service: 'gold',
     }
     return colors[type] || 'default'
   }
@@ -208,7 +244,7 @@ const ComponentManagementPage: React.FC = () => {
       evaluation: '评估',
       data_management: '数据管理',
       model_service: '模型服务',
-      custom: '自定义'
+      custom: '自定义',
     }
     return texts[type] || type
   }
@@ -228,45 +264,45 @@ const ComponentManagementPage: React.FC = () => {
             </Text>
           </div>
         </Space>
-      )
+      ),
     },
     {
       title: '类型',
       dataIndex: 'component_type',
       key: 'component_type',
-      render: (type) => <Tag color={getTypeColor(type)}>{getTypeText(type)}</Tag>
+      render: type => <Tag color={getTypeColor(type)}>{getTypeText(type)}</Tag>,
     },
     {
       title: '版本',
       dataIndex: 'version',
-      key: 'version'
+      key: 'version',
     },
     {
       title: '状态',
       dataIndex: 'status',
       key: 'status',
-      render: (status) => (
+      render: status => (
         <Badge
           status={status === 'healthy' ? 'success' : 'error'}
           text={status === 'healthy' ? '健康' : '异常'}
         />
-      )
+      ),
     },
     {
       title: '运行时间',
       dataIndex: 'uptime',
       key: 'uptime',
-      render: (uptime) => {
+      render: uptime => {
         const hours = Math.floor(uptime / 3600)
         const minutes = Math.floor((uptime % 3600) / 60)
         return `${hours}h ${minutes}m`
-      }
+      },
     },
     {
       title: '最后检查',
       dataIndex: 'last_check',
       key: 'last_check',
-      render: (time) => new Date(time).toLocaleString()
+      render: time => new Date(time).toLocaleString(),
     },
     {
       title: '操作',
@@ -296,26 +332,40 @@ const ComponentManagementPage: React.FC = () => {
             </Tooltip>
           </Popconfirm>
         </Space>
-      )
-    }
+      ),
+    },
   ]
 
-  const summary = components.reduce((acc, comp) => {
-    acc.total++
-    if (comp.status === 'healthy') acc.healthy++
-    else acc.unhealthy++
-    return acc
-  }, { total: 0, healthy: 0, unhealthy: 0 })
+  const summary = components.reduce(
+    (acc, comp) => {
+      acc.total++
+      if (comp.status === 'healthy') acc.healthy++
+      else acc.unhealthy++
+      return acc
+    },
+    { total: 0, healthy: 0, unhealthy: 0 }
+  )
 
   return (
     <div style={{ padding: '24px' }}>
-      <div style={{ marginBottom: 24, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <div
+        style={{
+          marginBottom: 24,
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+        }}
+      >
         <Title level={2}>组件管理</Title>
         <Space>
           <Button icon={<ReloadOutlined />} onClick={fetchComponents}>
             刷新
           </Button>
-          <Button type="primary" icon={<PlusOutlined />} onClick={() => setModalVisible(true)}>
+          <Button
+            type="primary"
+            icon={<PlusOutlined />}
+            onClick={() => setModalVisible(true)}
+          >
             注册组件
           </Button>
         </Space>
@@ -364,7 +414,7 @@ const ComponentManagementPage: React.FC = () => {
             pageSize: 10,
             showSizeChanger: true,
             showQuickJumper: true,
-            showTotal: (total) => `共 ${total} 个组件`
+            showTotal: total => `共 ${total} 个组件`,
           }}
         />
       </Card>
@@ -379,11 +429,7 @@ const ComponentManagementPage: React.FC = () => {
         footer={null}
         width={600}
       >
-        <Form
-          form={form}
-          layout="vertical"
-          onFinish={handleRegisterComponent}
-        >
+        <Form form={form} layout="vertical" onFinish={handleRegisterComponent}>
           <Form.Item
             name="component_id"
             label="组件ID"
@@ -440,10 +486,7 @@ const ComponentManagementPage: React.FC = () => {
             <Input placeholder="如: http://service:8080/api/v1" />
           </Form.Item>
 
-          <Form.Item
-            name="metadata"
-            label="元数据 (JSON格式)"
-          >
+          <Form.Item name="metadata" label="元数据 (JSON格式)">
             <TextArea
               rows={4}
               placeholder='{"description": "组件描述", "tags": ["tag1", "tag2"]}'
@@ -452,10 +495,12 @@ const ComponentManagementPage: React.FC = () => {
 
           <Form.Item style={{ marginBottom: 0 }}>
             <Space style={{ width: '100%', justifyContent: 'flex-end' }}>
-              <Button onClick={() => {
-                setModalVisible(false)
-                form.resetFields()
-              }}>
+              <Button
+                onClick={() => {
+                  setModalVisible(false)
+                  form.resetFields()
+                }}
+              >
                 取消
               </Button>
               <Button type="primary" htmlType="submit">
@@ -492,8 +537,12 @@ const ComponentManagementPage: React.FC = () => {
               </Descriptions.Item>
               <Descriptions.Item label="状态">
                 <Badge
-                  status={selectedComponent.status === 'healthy' ? 'success' : 'error'}
-                  text={selectedComponent.status === 'healthy' ? '健康' : '异常'}
+                  status={
+                    selectedComponent.status === 'healthy' ? 'success' : 'error'
+                  }
+                  text={
+                    selectedComponent.status === 'healthy' ? '健康' : '异常'
+                  }
                 />
               </Descriptions.Item>
               <Descriptions.Item label="健康检查端点">
@@ -514,21 +563,30 @@ const ComponentManagementPage: React.FC = () => {
               <div style={{ marginTop: 24 }}>
                 <Title level={4}>健康状态</Title>
                 <Alert
-                  type={componentHealth.status === 'healthy' ? 'success' : 'error'}
+                  type={
+                    componentHealth.status === 'healthy' ? 'success' : 'error'
+                  }
                   message={`状态: ${componentHealth.status === 'healthy' ? '健康' : '异常'}`}
                   style={{ marginBottom: 16 }}
                 />
               </div>
             )}
 
-            {selectedComponent.metadata && Object.keys(selectedComponent.metadata).length > 0 && (
-              <div style={{ marginTop: 24 }}>
-                <Title level={4}>元数据</Title>
-                <pre style={{ background: '#f5f5f5', padding: 12, borderRadius: 4 }}>
-                  {JSON.stringify(selectedComponent.metadata, null, 2)}
-                </pre>
-              </div>
-            )}
+            {selectedComponent.metadata &&
+              Object.keys(selectedComponent.metadata).length > 0 && (
+                <div style={{ marginTop: 24 }}>
+                  <Title level={4}>元数据</Title>
+                  <pre
+                    style={{
+                      background: '#f5f5f5',
+                      padding: 12,
+                      borderRadius: 4,
+                    }}
+                  >
+                    {JSON.stringify(selectedComponent.metadata, null, 2)}
+                  </pre>
+                </div>
+              )}
           </div>
         )}
       </Drawer>

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react'
 import {
   Alert,
   Button,
@@ -15,8 +15,8 @@ import {
   Typography,
   Upload,
   message,
-} from 'antd';
-import type { UploadFile } from 'antd/es/upload/interface';
+} from 'antd'
+import type { UploadFile } from 'antd/es/upload/interface'
 import {
   CloudDownloadOutlined,
   CommentOutlined,
@@ -29,151 +29,163 @@ import {
   SettingOutlined,
   ShareAltOutlined,
   StopOutlined,
-} from '@ant-design/icons';
-import apiClient from '../services/apiClient';
+} from '@ant-design/icons'
+import apiClient from '../services/apiClient'
 
-const { Title, Text } = Typography;
+const { Title, Text } = Typography
 
-type ExperimentStatus = 'draft' | 'running' | 'paused' | 'completed' | 'terminated';
+type ExperimentStatus =
+  | 'draft'
+  | 'running'
+  | 'paused'
+  | 'completed'
+  | 'terminated'
 
 interface ExperimentVariant {
-  id: string;
-  name: string;
-  traffic: number;
-  isControl: boolean;
-  sampleSize?: number;
-  conversions?: number;
-  conversionRate?: number;
+  id: string
+  name: string
+  traffic: number
+  isControl: boolean
+  sampleSize?: number
+  conversions?: number
+  conversionRate?: number
 }
 
 interface Experiment {
-  id: string;
-  name: string;
-  description: string;
-  type: string;
-  status: ExperimentStatus | string;
-  startDate?: string;
-  endDate?: string;
-  variants: ExperimentVariant[];
-  metrics: any[];
-  targetingRules: any[];
-  sampleSize?: { current: number; required: number };
-  confidenceLevel?: number;
-  tags?: string[];
-  participants?: number;
-  total_conversions?: number;
-  conversion_rate?: number;
-  lift?: number;
-  created_at?: string;
-  updated_at?: string;
+  id: string
+  name: string
+  description: string
+  type: string
+  status: ExperimentStatus | string
+  startDate?: string
+  endDate?: string
+  variants: ExperimentVariant[]
+  metrics: any[]
+  targetingRules: any[]
+  sampleSize?: { current: number; required: number }
+  confidenceLevel?: number
+  tags?: string[]
+  participants?: number
+  total_conversions?: number
+  conversion_rate?: number
+  lift?: number
+  created_at?: string
+  updated_at?: string
 }
 
 interface ListExperimentsResponse {
-  experiments: Experiment[];
-  total: number;
-  page: number;
-  pageSize: number;
+  experiments: Experiment[]
+  total: number
+  page: number
+  pageSize: number
 }
 
 function toPercent(value?: number) {
-  if (typeof value !== 'number') return '-';
-  return `${(value * 100).toFixed(2)}%`;
+  if (typeof value !== 'number') return '-'
+  return `${(value * 100).toFixed(2)}%`
 }
 
 function toNumberText(value?: number) {
-  if (typeof value !== 'number') return '-';
-  return value.toLocaleString();
+  if (typeof value !== 'number') return '-'
+  return value.toLocaleString()
 }
 
 export default function ExperimentsPlatformPage() {
-  const [loading, setLoading] = useState(false);
-  const [experiments, setExperiments] = useState<Experiment[]>([]);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false)
+  const [experiments, setExperiments] = useState<Experiment[]>([])
+  const [selectedId, setSelectedId] = useState<string | null>(null)
 
-  const [createOpen, setCreateOpen] = useState(false);
-  const [createForm] = Form.useForm();
+  const [createOpen, setCreateOpen] = useState(false)
+  const [createForm] = Form.useForm()
 
-  const [updateOpen, setUpdateOpen] = useState(false);
-  const [updateJson, setUpdateJson] = useState('{\n  \n}');
+  const [updateOpen, setUpdateOpen] = useState(false)
+  const [updateJson, setUpdateJson] = useState('{\n  \n}')
 
-  const [settingsOpen, setSettingsOpen] = useState(false);
-  const [settingsJson, setSettingsJson] = useState('{\n  \n}');
+  const [settingsOpen, setSettingsOpen] = useState(false)
+  const [settingsJson, setSettingsJson] = useState('{\n  \n}')
 
-  const [apiTitle, setApiTitle] = useState<string>('输出');
-  const [apiOutput, setApiOutput] = useState<any>(null);
-  const [apiBusy, setApiBusy] = useState(false);
+  const [apiTitle, setApiTitle] = useState<string>('输出')
+  const [apiOutput, setApiOutput] = useState<any>(null)
+  const [apiBusy, setApiBusy] = useState(false)
 
-  const [monitoringMetric, setMonitoringMetric] = useState('conversion_rate');
-  const [monitoringGranularity, setMonitoringGranularity] = useState<'hourly' | 'daily'>('hourly');
+  const [monitoringMetric, setMonitoringMetric] = useState('conversion_rate')
+  const [monitoringGranularity, setMonitoringGranularity] = useState<
+    'hourly' | 'daily'
+  >('hourly')
 
   const [sampleSizeBody, setSampleSizeBody] = useState({
     baselineRate: 0.1,
     minimumDetectableEffect: 0.02,
     confidenceLevel: 0.95,
     power: 0.8,
-  });
+  })
 
   const [searchBody, setSearchBody] = useState({
     status: '' as string,
     owner: '' as string,
-  });
+  })
 
-  const [importFile, setImportFile] = useState<UploadFile | null>(null);
+  const [importFile, setImportFile] = useState<UploadFile | null>(null)
 
   const selectedExperiment = useMemo(
-    () => experiments.find((e) => e.id === selectedId) || null,
+    () => experiments.find(e => e.id === selectedId) || null,
     [experiments, selectedId]
-  );
+  )
 
   const fetchExperiments = async () => {
-    setLoading(true);
+    setLoading(true)
     try {
       const res = await apiClient.get<ListExperimentsResponse>('/experiments', {
-        params: { page: 1, pageSize: 50, sortBy: 'created_at', sortOrder: 'desc' },
-      });
-      const data: any = res.data || {};
-      setExperiments(Array.isArray(data) ? data : data.experiments || []);
+        params: {
+          page: 1,
+          pageSize: 50,
+          sortBy: 'created_at',
+          sortOrder: 'desc',
+        },
+      })
+      const data: any = res.data || {}
+      setExperiments(Array.isArray(data) ? data : data.experiments || [])
     } catch (e) {
-      message.error((e as Error).message || '获取实验列表失败');
-      setExperiments([]);
-      setSelectedId(null);
+      message.error((e as Error).message || '获取实验列表失败')
+      setExperiments([])
+      setSelectedId(null)
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
+  }
 
   useEffect(() => {
-    fetchExperiments();
-  }, []);
+    fetchExperiments()
+  }, [])
 
   const callApi = async (title: string, fn: () => Promise<any>) => {
-    setApiBusy(true);
-    setApiTitle(title);
-    setApiOutput(null);
+    setApiBusy(true)
+    setApiTitle(title)
+    setApiOutput(null)
     try {
-      const data = await fn();
-      setApiOutput(data);
+      const data = await fn()
+      setApiOutput(data)
     } catch (e) {
-      setApiOutput({ error: (e as Error).message || String(e) });
+      setApiOutput({ error: (e as Error).message || String(e) })
     } finally {
-      setApiBusy(false);
+      setApiBusy(false)
     }
-  };
+  }
 
   const controlExperiment = async (id: string, action: string) => {
-    await apiClient.post(`/experiments/${id}/${action}`);
-    await fetchExperiments();
-  };
+    await apiClient.post(`/experiments/${id}/${action}`)
+    await fetchExperiments()
+  }
 
   const onCreate = async (values: any) => {
     const tags = String(values.tags || '')
       .split(',')
       .map((s: string) => s.trim())
-      .filter(Boolean);
+      .filter(Boolean)
     const metrics = String(values.metrics || '')
       .split(',')
       .map((s: string) => s.trim())
-      .filter(Boolean);
+      .filter(Boolean)
 
     const res = await apiClient.post('/experiments/from-template', {
       templateId: 'ab_basic',
@@ -187,105 +199,120 @@ export default function ExperimentsPlatformPage() {
         sampleSize: values.sampleSize,
         status: 'draft',
       },
-    });
-    const created: any = res.data;
-    setCreateOpen(false);
-    createForm.resetFields();
-    await fetchExperiments();
-    if (created?.id) setSelectedId(created.id);
-  };
+    })
+    const created: any = res.data
+    setCreateOpen(false)
+    createForm.resetFields()
+    await fetchExperiments()
+    if (created?.id) setSelectedId(created.id)
+  }
 
   const onDelete = async (id: string) => {
-    await apiClient.delete(`/experiments/${id}`);
-    if (selectedId === id) setSelectedId(null);
-    await fetchExperiments();
-  };
+    await apiClient.delete(`/experiments/${id}`)
+    if (selectedId === id) setSelectedId(null)
+    await fetchExperiments()
+  }
 
   const onClone = async (id: string) => {
-    const name = window.prompt('克隆名称（可选）') || '';
-    const res = await apiClient.post(`/experiments/${id}/clone`, name ? { name } : {});
-    const created: any = res.data;
-    await fetchExperiments();
-    if (created?.id) setSelectedId(created.id);
-  };
+    const name = window.prompt('克隆名称（可选）') || ''
+    const res = await apiClient.post(
+      `/experiments/${id}/clone`,
+      name ? { name } : {}
+    )
+    const created: any = res.data
+    await fetchExperiments()
+    if (created?.id) setSelectedId(created.id)
+  }
 
   const onShare = async (id: string) => {
-    const raw = window.prompt('分享给用户ID（逗号分隔）');
-    if (!raw) return;
+    const raw = window.prompt('分享给用户ID（逗号分隔）')
+    if (!raw) return
     const users = raw
       .split(',')
-      .map((s) => s.trim())
-      .filter(Boolean);
-    if (!users.length) return;
-    await apiClient.post(`/experiments/${id}/share`, { users });
-    message.success('已提交分享');
-  };
+      .map(s => s.trim())
+      .filter(Boolean)
+    if (!users.length) return
+    await apiClient.post(`/experiments/${id}/share`, { users })
+    message.success('已提交分享')
+  }
 
   const onComment = async (id: string) => {
-    const text = window.prompt('评论内容');
-    if (!text) return;
-    await apiClient.post(`/experiments/${id}/comments`, { text, type: 'comment' });
-    message.success('已提交评论');
-  };
+    const text = window.prompt('评论内容')
+    if (!text) return
+    await apiClient.post(`/experiments/${id}/comments`, {
+      text,
+      type: 'comment',
+    })
+    message.success('已提交评论')
+  }
 
   const openUpdate = (id: string) => {
-    setSelectedId(id);
-    setUpdateJson('{\n  \n}');
-    setUpdateOpen(true);
-  };
+    setSelectedId(id)
+    setUpdateJson('{\n  \n}')
+    setUpdateOpen(true)
+  }
 
   const openSettings = (id: string) => {
-    setSelectedId(id);
-    setSettingsJson('{\n  \n}');
-    setSettingsOpen(true);
-  };
+    setSelectedId(id)
+    setSettingsJson('{\n  \n}')
+    setSettingsOpen(true)
+  }
 
   const submitUpdate = async () => {
-    if (!selectedExperiment) return;
-    const payload = JSON.parse(updateJson || '{}');
-    await apiClient.put(`/experiments/${selectedExperiment.id}`, payload);
-    setUpdateOpen(false);
-    await fetchExperiments();
-    message.success('已更新实验');
-  };
+    if (!selectedExperiment) return
+    const payload = JSON.parse(updateJson || '{}')
+    await apiClient.put(`/experiments/${selectedExperiment.id}`, payload)
+    setUpdateOpen(false)
+    await fetchExperiments()
+    message.success('已更新实验')
+  }
 
   const submitSettings = async () => {
-    if (!selectedExperiment) return;
-    const payload = JSON.parse(settingsJson || '{}');
-    await apiClient.put(`/experiments/${selectedExperiment.id}/settings`, payload);
-    setSettingsOpen(false);
-    await fetchExperiments();
-    message.success('已更新设置');
-  };
+    if (!selectedExperiment) return
+    const payload = JSON.parse(settingsJson || '{}')
+    await apiClient.put(
+      `/experiments/${selectedExperiment.id}/settings`,
+      payload
+    )
+    setSettingsOpen(false)
+    await fetchExperiments()
+    message.success('已更新设置')
+  }
 
   const exportOneGet = (id: string, format: 'json' | 'csv' | 'xlsx') => {
-    window.open(`/api/v1/experiments/${id}/export?format=${format}`, '_blank');
-  };
+    window.open(`/api/v1/experiments/${id}/export?format=${format}`, '_blank')
+  }
 
   const exportManyPost = async (ids: string[]) => {
-    const res = await apiClient.post<Blob>('/experiments/export', { ids }, { responseType: 'blob' });
-    const url = window.URL.createObjectURL(res.data);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'experiments.json';
-    a.click();
-    window.URL.revokeObjectURL(url);
-  };
+    const res = await apiClient.post<Blob>(
+      '/experiments/export',
+      { ids },
+      { responseType: 'blob' }
+    )
+    const url = window.URL.createObjectURL(res.data)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = 'experiments.json'
+    a.click()
+    window.URL.revokeObjectURL(url)
+  }
 
   const importExperiments = async () => {
     if (!importFile?.originFileObj) {
-      message.error('请选择要导入的文件');
-      return;
+      message.error('请选择要导入的文件')
+      return
     }
-    const formData = new FormData();
-    formData.append('file', importFile.originFileObj);
+    const formData = new FormData()
+    formData.append('file', importFile.originFileObj)
     const res = await apiClient.post('/experiments/import', formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
-    });
-    setImportFile(null);
-    message.success(`导入完成：${res.data?.imported || 0} 成功，${res.data?.failed || 0} 失败`);
-    await fetchExperiments();
-  };
+    })
+    setImportFile(null)
+    message.success(
+      `导入完成：${res.data?.imported || 0} 成功，${res.data?.failed || 0} 失败`
+    )
+    await fetchExperiments()
+  }
 
   const columns = [
     {
@@ -309,8 +336,12 @@ export default function ExperimentsPlatformPage() {
           paused: 'warning',
           completed: 'success',
           terminated: 'default',
-        };
-        return <Tag color={colorMap[status] || 'default'}>{String(status).toUpperCase()}</Tag>;
+        }
+        return (
+          <Tag color={colorMap[status] || 'default'}>
+            {String(status).toUpperCase()}
+          </Tag>
+        )
       },
     },
     {
@@ -386,16 +417,32 @@ export default function ExperimentsPlatformPage() {
               </Button>
             </>
           )}
-          <Button size="small" icon={<CopyOutlined />} onClick={() => onClone(record.id)}>
+          <Button
+            size="small"
+            icon={<CopyOutlined />}
+            onClick={() => onClone(record.id)}
+          >
             克隆
           </Button>
-          <Button size="small" icon={<ShareAltOutlined />} onClick={() => onShare(record.id)}>
+          <Button
+            size="small"
+            icon={<ShareAltOutlined />}
+            onClick={() => onShare(record.id)}
+          >
             分享
           </Button>
-          <Button size="small" icon={<CommentOutlined />} onClick={() => onComment(record.id)}>
+          <Button
+            size="small"
+            icon={<CommentOutlined />}
+            onClick={() => onComment(record.id)}
+          >
             评论
           </Button>
-          <Button size="small" icon={<SettingOutlined />} onClick={() => openSettings(record.id)}>
+          <Button
+            size="small"
+            icon={<SettingOutlined />}
+            onClick={() => openSettings(record.id)}
+          >
             设置
           </Button>
           <Button size="small" onClick={() => openUpdate(record.id)}>
@@ -412,7 +459,7 @@ export default function ExperimentsPlatformPage() {
         </Space>
       ),
     },
-  ];
+  ]
 
   return (
     <div style={{ padding: 24 }}>
@@ -421,10 +468,18 @@ export default function ExperimentsPlatformPage() {
           A/B测试实验平台
         </Title>
         <Space>
-          <Button icon={<PlusOutlined />} type="primary" onClick={() => setCreateOpen(true)}>
+          <Button
+            icon={<PlusOutlined />}
+            type="primary"
+            onClick={() => setCreateOpen(true)}
+          >
             创建实验
           </Button>
-          <Button icon={<ReloadOutlined />} onClick={fetchExperiments} loading={loading}>
+          <Button
+            icon={<ReloadOutlined />}
+            onClick={fetchExperiments}
+            loading={loading}
+          >
             刷新
           </Button>
         </Space>
@@ -444,25 +499,41 @@ export default function ExperimentsPlatformPage() {
 
       <Divider />
 
-      <Card title="实验详情" extra={selectedExperiment ? <Text code>{selectedExperiment.id}</Text> : null}>
+      <Card
+        title="实验详情"
+        extra={
+          selectedExperiment ? <Text code>{selectedExperiment.id}</Text> : null
+        }
+      >
         {selectedExperiment ? (
           <>
             <Descriptions bordered size="small" column={2}>
-              <Descriptions.Item label="名称">{selectedExperiment.name}</Descriptions.Item>
-              <Descriptions.Item label="状态">{String(selectedExperiment.status)}</Descriptions.Item>
-              <Descriptions.Item label="类型">{selectedExperiment.type}</Descriptions.Item>
+              <Descriptions.Item label="名称">
+                {selectedExperiment.name}
+              </Descriptions.Item>
+              <Descriptions.Item label="状态">
+                {String(selectedExperiment.status)}
+              </Descriptions.Item>
+              <Descriptions.Item label="类型">
+                {selectedExperiment.type}
+              </Descriptions.Item>
               <Descriptions.Item label="置信水平">
                 {typeof selectedExperiment.confidenceLevel === 'number'
                   ? selectedExperiment.confidenceLevel
                   : '-'}
               </Descriptions.Item>
               <Descriptions.Item label="参与人数">
-                {toNumberText(selectedExperiment.participants ?? selectedExperiment.sampleSize?.current)}
+                {toNumberText(
+                  selectedExperiment.participants ??
+                    selectedExperiment.sampleSize?.current
+                )}
               </Descriptions.Item>
               <Descriptions.Item label="总转化">
                 {toNumberText(selectedExperiment.total_conversions)}
               </Descriptions.Item>
-              <Descriptions.Item label="转化率">{toPercent(selectedExperiment.conversion_rate)}</Descriptions.Item>
+              <Descriptions.Item label="转化率">
+                {toPercent(selectedExperiment.conversion_rate)}
+              </Descriptions.Item>
               <Descriptions.Item label="Lift">
                 {typeof selectedExperiment.lift === 'number'
                   ? `${selectedExperiment.lift.toFixed(2)}%`
@@ -489,7 +560,8 @@ export default function ExperimentsPlatformPage() {
                   title: '流量(%)',
                   dataIndex: 'traffic',
                   key: 'traffic',
-                  render: (v: number) => (typeof v === 'number' ? v.toFixed(2) : '-'),
+                  render: (v: number) =>
+                    typeof v === 'number' ? v.toFixed(2) : '-',
                 },
                 {
                   title: '样本量',
@@ -515,28 +587,78 @@ export default function ExperimentsPlatformPage() {
             <Divider />
 
             <Space wrap>
-              <Button onClick={() => callApi('实验详情', async () => (await apiClient.get(`/experiments/${selectedExperiment.id}`)).data)}>
+              <Button
+                onClick={() =>
+                  callApi(
+                    '实验详情',
+                    async () =>
+                      (
+                        await apiClient.get(
+                          `/experiments/${selectedExperiment.id}`
+                        )
+                      ).data
+                  )
+                }
+              >
                 GET 详情
               </Button>
-              <Button onClick={() => callApi('审计日志', async () => (await apiClient.get(`/experiments/${selectedExperiment.id}/audit`)).data)}>
+              <Button
+                onClick={() =>
+                  callApi(
+                    '审计日志',
+                    async () =>
+                      (
+                        await apiClient.get(
+                          `/experiments/${selectedExperiment.id}/audit`
+                        )
+                      ).data
+                  )
+                }
+              >
                 GET 审计
               </Button>
-              <Button onClick={() => callApi('事件流', async () => (await apiClient.get(`/experiments/${selectedExperiment.id}/events`)).data)}>
+              <Button
+                onClick={() =>
+                  callApi(
+                    '事件流',
+                    async () =>
+                      (
+                        await apiClient.get(
+                          `/experiments/${selectedExperiment.id}/events`
+                        )
+                      ).data
+                  )
+                }
+              >
                 GET 事件
               </Button>
-              <Button onClick={() => callApi('实时指标', async () => (await apiClient.get(`/experiments/${selectedExperiment.id}/metrics`)).data)}>
+              <Button
+                onClick={() =>
+                  callApi(
+                    '实时指标',
+                    async () =>
+                      (
+                        await apiClient.get(
+                          `/experiments/${selectedExperiment.id}/metrics`
+                        )
+                      ).data
+                  )
+                }
+              >
                 GET 指标
               </Button>
               <Button
                 onClick={() =>
-                  callApi('监控趋势', async () =>
-                    (
-                      await apiClient.get(
-                        `/experiments/${selectedExperiment.id}/monitoring?metric=${encodeURIComponent(
-                          monitoringMetric
-                        )}&granularity=${monitoringGranularity}`
-                      )
-                    ).data
+                  callApi(
+                    '监控趋势',
+                    async () =>
+                      (
+                        await apiClient.get(
+                          `/experiments/${selectedExperiment.id}/monitoring?metric=${encodeURIComponent(
+                            monitoringMetric
+                          )}&granularity=${monitoringGranularity}`
+                        )
+                      ).data
                   )
                 }
               >
@@ -545,41 +667,95 @@ export default function ExperimentsPlatformPage() {
               <Select
                 value={monitoringMetric}
                 style={{ width: 180 }}
-                onChange={(v) => setMonitoringMetric(v)}
+                onChange={v => setMonitoringMetric(v)}
                 options={[
                   { value: 'conversion_rate', label: 'conversion_rate' },
-                  { value: 'conversion_rate_control', label: 'conversion_rate_control' },
-                  { value: 'conversion_rate_treatment', label: 'conversion_rate_treatment' },
+                  {
+                    value: 'conversion_rate_control',
+                    label: 'conversion_rate_control',
+                  },
+                  {
+                    value: 'conversion_rate_treatment',
+                    label: 'conversion_rate_treatment',
+                  },
                 ]}
               />
               <Select
                 value={monitoringGranularity}
                 style={{ width: 120 }}
-                onChange={(v) => setMonitoringGranularity(v)}
+                onChange={v => setMonitoringGranularity(v)}
                 options={[
                   { value: 'hourly', label: 'hourly' },
                   { value: 'daily', label: 'daily' },
                 ]}
               />
-              <Button onClick={() => callApi('统计分析', async () => (await apiClient.get(`/experiments/${selectedExperiment.id}/analysis`)).data)}>
+              <Button
+                onClick={() =>
+                  callApi(
+                    '统计分析',
+                    async () =>
+                      (
+                        await apiClient.get(
+                          `/experiments/${selectedExperiment.id}/analysis`
+                        )
+                      ).data
+                  )
+                }
+              >
                 GET 分析
               </Button>
-              <Button onClick={() => callApi('成本分析', async () => (await apiClient.get(`/experiments/${selectedExperiment.id}/cost-analysis`)).data)}>
+              <Button
+                onClick={() =>
+                  callApi(
+                    '成本分析',
+                    async () =>
+                      (
+                        await apiClient.get(
+                          `/experiments/${selectedExperiment.id}/cost-analysis`
+                        )
+                      ).data
+                  )
+                }
+              >
                 GET 成本
               </Button>
-              <Button onClick={() => callApi('报告(json)', async () => (await apiClient.get(`/experiments/${selectedExperiment.id}/report?format=json`)).data)}>
+              <Button
+                onClick={() =>
+                  callApi(
+                    '报告(json)',
+                    async () =>
+                      (
+                        await apiClient.get(
+                          `/experiments/${selectedExperiment.id}/report?format=json`
+                        )
+                      ).data
+                  )
+                }
+              >
                 GET 报告
               </Button>
-              <Button icon={<CloudDownloadOutlined />} onClick={() => exportOneGet(selectedExperiment.id, 'json')}>
+              <Button
+                icon={<CloudDownloadOutlined />}
+                onClick={() => exportOneGet(selectedExperiment.id, 'json')}
+              >
                 导出 JSON
               </Button>
-              <Button icon={<CloudDownloadOutlined />} onClick={() => exportOneGet(selectedExperiment.id, 'csv')}>
+              <Button
+                icon={<CloudDownloadOutlined />}
+                onClick={() => exportOneGet(selectedExperiment.id, 'csv')}
+              >
                 导出 CSV
               </Button>
-              <Button icon={<CloudDownloadOutlined />} onClick={() => exportOneGet(selectedExperiment.id, 'xlsx')}>
+              <Button
+                icon={<CloudDownloadOutlined />}
+                onClick={() => exportOneGet(selectedExperiment.id, 'xlsx')}
+              >
                 导出 XLSX
               </Button>
-              <Button icon={<CloudDownloadOutlined />} onClick={() => exportManyPost([selectedExperiment.id])}>
+              <Button
+                icon={<CloudDownloadOutlined />}
+                onClick={() => exportManyPost([selectedExperiment.id])}
+              >
                 批量导出(POST)
               </Button>
             </Space>
@@ -593,16 +769,29 @@ export default function ExperimentsPlatformPage() {
 
       <Card title="通用接口">
         <Space wrap>
-          <Button onClick={() => callApi('模板列表', async () => (await apiClient.get('/experiments/templates')).data)}>
+          <Button
+            onClick={() =>
+              callApi(
+                '模板列表',
+                async () => (await apiClient.get('/experiments/templates')).data
+              )
+            }
+          >
             GET /templates
           </Button>
           <Button
             onClick={() =>
               callApi('校验默认模板', async () => {
-                const templates: any[] = (await apiClient.get('/experiments/templates')).data || [];
-                const t = templates[0];
-                const payload = { ...(t?.default || {}), name: 'validate', description: 'validate' };
-                return (await apiClient.post('/experiments/validate', payload)).data;
+                const templates: any[] =
+                  (await apiClient.get('/experiments/templates')).data || []
+                const t = templates[0]
+                const payload = {
+                  ...(t?.default || {}),
+                  name: 'validate',
+                  description: 'validate',
+                }
+                return (await apiClient.post('/experiments/validate', payload))
+                  .data
               })
             }
           >
@@ -610,7 +799,16 @@ export default function ExperimentsPlatformPage() {
           </Button>
           <Button
             onClick={() =>
-              callApi('样本量计算', async () => (await apiClient.post('/experiments/calculate-sample-size', sampleSizeBody)).data)
+              callApi(
+                '样本量计算',
+                async () =>
+                  (
+                    await apiClient.post(
+                      '/experiments/calculate-sample-size',
+                      sampleSizeBody
+                    )
+                  ).data
+              )
             }
           >
             POST /calculate-sample-size
@@ -619,15 +817,23 @@ export default function ExperimentsPlatformPage() {
             style={{ width: 120 }}
             name="baselineRate"
             value={sampleSizeBody.baselineRate}
-            onChange={(e) => setSampleSizeBody({ ...sampleSizeBody, baselineRate: Number(e.target.value) })}
+            onChange={e =>
+              setSampleSizeBody({
+                ...sampleSizeBody,
+                baselineRate: Number(e.target.value),
+              })
+            }
             placeholder="baselineRate"
           />
           <Input
             style={{ width: 160 }}
             name="minimumDetectableEffect"
             value={sampleSizeBody.minimumDetectableEffect}
-            onChange={(e) =>
-              setSampleSizeBody({ ...sampleSizeBody, minimumDetectableEffect: Number(e.target.value) })
+            onChange={e =>
+              setSampleSizeBody({
+                ...sampleSizeBody,
+                minimumDetectableEffect: Number(e.target.value),
+              })
             }
             placeholder="minimumDetectableEffect"
           />
@@ -635,14 +841,24 @@ export default function ExperimentsPlatformPage() {
             style={{ width: 120 }}
             name="confidenceLevel"
             value={sampleSizeBody.confidenceLevel}
-            onChange={(e) => setSampleSizeBody({ ...sampleSizeBody, confidenceLevel: Number(e.target.value) })}
+            onChange={e =>
+              setSampleSizeBody({
+                ...sampleSizeBody,
+                confidenceLevel: Number(e.target.value),
+              })
+            }
             placeholder="confidenceLevel"
           />
           <Input
             style={{ width: 80 }}
             name="power"
             value={sampleSizeBody.power}
-            onChange={(e) => setSampleSizeBody({ ...sampleSizeBody, power: Number(e.target.value) })}
+            onChange={e =>
+              setSampleSizeBody({
+                ...sampleSizeBody,
+                power: Number(e.target.value),
+              })
+            }
             placeholder="power"
           />
         </Space>
@@ -651,10 +867,15 @@ export default function ExperimentsPlatformPage() {
           <Button
             onClick={() =>
               callApi('搜索实验', async () => {
-                const filters: any = {};
-                if (searchBody.status) filters.status = [searchBody.status];
-                if (searchBody.owner) filters.owner = [searchBody.owner];
-                return (await apiClient.post('/experiments/search', { filters, pagination: { page: 1, limit: 20 } })).data;
+                const filters: any = {}
+                if (searchBody.status) filters.status = [searchBody.status]
+                if (searchBody.owner) filters.owner = [searchBody.owner]
+                return (
+                  await apiClient.post('/experiments/search', {
+                    filters,
+                    pagination: { page: 1, limit: 20 },
+                  })
+                ).data
               })
             }
           >
@@ -664,28 +885,32 @@ export default function ExperimentsPlatformPage() {
             style={{ width: 140 }}
             name="status"
             value={searchBody.status}
-            onChange={(e) => setSearchBody({ ...searchBody, status: e.target.value })}
+            onChange={e =>
+              setSearchBody({ ...searchBody, status: e.target.value })
+            }
             placeholder="status(draft/running/...)"
           />
           <Input
             style={{ width: 160 }}
             name="owner"
             value={searchBody.owner}
-            onChange={(e) => setSearchBody({ ...searchBody, owner: e.target.value })}
+            onChange={e =>
+              setSearchBody({ ...searchBody, owner: e.target.value })
+            }
             placeholder="owner"
           />
         </Space>
         <Divider />
         <Space wrap>
           <Upload
-            beforeUpload={(file) => {
-              setImportFile(file as UploadFile);
-              return false;
+            beforeUpload={file => {
+              setImportFile(file as UploadFile)
+              return false
             }}
             maxCount={1}
             fileList={importFile ? [importFile] : []}
             onRemove={() => {
-              setImportFile(null);
+              setImportFile(null)
             }}
           >
             <Button>选择导入文件</Button>
@@ -711,11 +936,24 @@ export default function ExperimentsPlatformPage() {
         onOk={() => createForm.submit()}
         destroyOnClose
       >
-        <Form form={createForm} layout="vertical" onFinish={onCreate} initialValues={{ confidenceLevel: 0.95, power: 0.8, sampleSize: 100 }}>
-          <Form.Item name="name" label="实验名称" rules={[{ required: true, message: '请输入实验名称' }]}>
+        <Form
+          form={createForm}
+          layout="vertical"
+          onFinish={onCreate}
+          initialValues={{ confidenceLevel: 0.95, power: 0.8, sampleSize: 100 }}
+        >
+          <Form.Item
+            name="name"
+            label="实验名称"
+            rules={[{ required: true, message: '请输入实验名称' }]}
+          >
             <Input />
           </Form.Item>
-          <Form.Item name="description" label="实验描述" rules={[{ required: true, message: '请输入实验描述' }]}>
+          <Form.Item
+            name="description"
+            label="实验描述"
+            rules={[{ required: true, message: '请输入实验描述' }]}
+          >
             <Input.TextArea rows={3} />
           </Form.Item>
           <Form.Item name="metrics" label="指标（逗号分隔，可选）">
@@ -755,7 +993,11 @@ export default function ExperimentsPlatformPage() {
           message="支持更新 name/description/endDate/metrics/targetingRules/tags 等字段"
         />
         <Divider />
-        <Input.TextArea rows={12} value={updateJson} onChange={(e) => setUpdateJson(e.target.value)} />
+        <Input.TextArea
+          rows={12}
+          value={updateJson}
+          onChange={e => setUpdateJson(e.target.value)}
+        />
       </Modal>
 
       <Modal
@@ -765,10 +1007,18 @@ export default function ExperimentsPlatformPage() {
         onOk={submitSettings}
         destroyOnClose
       >
-        <Alert type="info" showIcon message="settings 会合并进 experiment.metadata_" />
+        <Alert
+          type="info"
+          showIcon
+          message="settings 会合并进 experiment.metadata_"
+        />
         <Divider />
-        <Input.TextArea rows={12} value={settingsJson} onChange={(e) => setSettingsJson(e.target.value)} />
+        <Input.TextArea
+          rows={12}
+          value={settingsJson}
+          onChange={e => setSettingsJson(e.target.value)}
+        />
       </Modal>
     </div>
-  );
+  )
 }

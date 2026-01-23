@@ -1,6 +1,6 @@
-import React from 'react';
-import CompressionPipelinePage from './CompressionPipelinePage';
+import React from 'react'
+import CompressionPipelinePage from './CompressionPipelinePage'
 
-const ModelCompressionOverviewPage: React.FC = () => <CompressionPipelinePage />;
+const ModelCompressionOverviewPage: React.FC = () => <CompressionPipelinePage />
 
-export default ModelCompressionOverviewPage;
+export default ModelCompressionOverviewPage

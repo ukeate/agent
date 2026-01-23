@@ -1,45 +1,49 @@
-import React, { useState } from 'react';
-import { Card } from '../ui/card';
-import { Badge } from '../ui/badge';
-import { Progress } from '../ui/progress';
+import React, { useState } from 'react'
+import { Card } from '../ui/card'
+import { Badge } from '../ui/badge'
+import { Progress } from '../ui/progress'
 
 interface Pattern {
-  pattern_id: string;
-  sequence: string[];
-  support: number;
-  confidence: number;
-  frequency: number;
-  user_count: number;
-  description?: string;
+  pattern_id: string
+  sequence: string[]
+  support: number
+  confidence: number
+  frequency: number
+  user_count: number
+  description?: string
 }
 
 interface PatternAnalysisProps {
-  patterns: Pattern[];
+  patterns: Pattern[]
 }
 
-export const PatternAnalysis: React.FC<PatternAnalysisProps> = ({ patterns }) => {
-  const [selectedPattern, setSelectedPattern] = useState<Pattern | null>(null);
-  const [sortBy, setSortBy] = useState<'support' | 'confidence' | 'frequency'>('support');
-  const [filterMinSupport, setFilterMinSupport] = useState<number>(0.1);
+export const PatternAnalysis: React.FC<PatternAnalysisProps> = ({
+  patterns,
+}) => {
+  const [selectedPattern, setSelectedPattern] = useState<Pattern | null>(null)
+  const [sortBy, setSortBy] = useState<'support' | 'confidence' | 'frequency'>(
+    'support'
+  )
+  const [filterMinSupport, setFilterMinSupport] = useState<number>(0.1)
 
   // 排序和过滤模式
   const processedPatterns = patterns
     .filter(pattern => pattern.support >= filterMinSupport)
-    .sort((a, b) => b[sortBy] - a[sortBy]);
+    .sort((a, b) => b[sortBy] - a[sortBy])
 
   // 获取支持度颜色
   const getSupportColor = (support: number) => {
-    if (support >= 0.7) return 'bg-green-500';
-    if (support >= 0.4) return 'bg-yellow-500';
-    return 'bg-red-500';
-  };
+    if (support >= 0.7) return 'bg-green-500'
+    if (support >= 0.4) return 'bg-yellow-500'
+    return 'bg-red-500'
+  }
 
   // 获取置信度颜色
   const getConfidenceColor = (confidence: number) => {
-    if (confidence >= 0.8) return 'text-green-600';
-    if (confidence >= 0.6) return 'text-yellow-600';
-    return 'text-red-600';
-  };
+    if (confidence >= 0.8) return 'text-green-600'
+    if (confidence >= 0.6) return 'text-yellow-600'
+    return 'text-red-600'
+  }
 
   // 格式化序列显示
   const formatSequence = (sequence: string[]) => {
@@ -52,13 +56,18 @@ export const PatternAnalysis: React.FC<PatternAnalysisProps> = ({ patterns }) =>
           <span className="mx-2 text-gray-400">→</span>
         )}
       </span>
-    ));
-  };
+    ))
+  }
 
   // 计算模式强度
   const getPatternStrength = (pattern: Pattern) => {
-    return (pattern.support * 0.4 + pattern.confidence * 0.4 + (pattern.frequency / 1000) * 0.2) * 100;
-  };
+    return (
+      (pattern.support * 0.4 +
+        pattern.confidence * 0.4 +
+        (pattern.frequency / 1000) * 0.2) *
+      100
+    )
+  }
 
   return (
     <div className="space-y-6">
@@ -73,14 +82,14 @@ export const PatternAnalysis: React.FC<PatternAnalysisProps> = ({ patterns }) =>
               发现用户行为序列中的频繁模式和规律
             </p>
           </div>
-          
+
           <div className="flex items-center space-x-4">
             {/* 排序选择 */}
             <div className="flex items-center space-x-2">
               <span className="text-sm text-gray-600">排序：</span>
               <select
                 value={sortBy}
-                onChange={(e) => setSortBy(e.target.value as any)}
+                onChange={e => setSortBy(e.target.value as any)}
                 className="text-sm border border-gray-300 rounded px-2 py-1"
               >
                 <option value="support">支持度</option>
@@ -98,7 +107,7 @@ export const PatternAnalysis: React.FC<PatternAnalysisProps> = ({ patterns }) =>
                 max="1"
                 step="0.1"
                 value={filterMinSupport}
-                onChange={(e) => setFilterMinSupport(parseFloat(e.target.value))}
+                onChange={e => setFilterMinSupport(parseFloat(e.target.value))}
                 className="w-20"
               />
               <span className="text-sm text-gray-600 w-8">
@@ -119,7 +128,7 @@ export const PatternAnalysis: React.FC<PatternAnalysisProps> = ({ patterns }) =>
             <p className="text-sm text-gray-600">发现的模式</p>
           </div>
         </Card>
-        
+
         <Card className="p-4">
           <div className="text-center">
             <p className="text-2xl font-bold text-green-600">
@@ -128,7 +137,7 @@ export const PatternAnalysis: React.FC<PatternAnalysisProps> = ({ patterns }) =>
             <p className="text-sm text-gray-600">高支持度模式</p>
           </div>
         </Card>
-        
+
         <Card className="p-4">
           <div className="text-center">
             <p className="text-2xl font-bold text-purple-600">
@@ -137,7 +146,7 @@ export const PatternAnalysis: React.FC<PatternAnalysisProps> = ({ patterns }) =>
             <p className="text-sm text-gray-600">高置信度模式</p>
           </div>
         </Card>
-        
+
         <Card className="p-4">
           <div className="text-center">
             <p className="text-2xl font-bold text-orange-600">
@@ -154,9 +163,9 @@ export const PatternAnalysis: React.FC<PatternAnalysisProps> = ({ patterns }) =>
           <h4 className="font-semibold text-gray-900 mb-4">
             频繁行为模式 ({processedPatterns.length})
           </h4>
-          
+
           <div className="space-y-4 max-h-96 overflow-y-auto">
-            {processedPatterns.map((pattern) => (
+            {processedPatterns.map(pattern => (
               <div
                 key={pattern.pattern_id}
                 className={`p-4 border rounded-md cursor-pointer transition-colors ${
@@ -184,7 +193,7 @@ export const PatternAnalysis: React.FC<PatternAnalysisProps> = ({ patterns }) =>
                     />
                   </div>
                 </div>
-                
+
                 <div className="grid grid-cols-3 gap-4 text-xs">
                   <div>
                     <span className="text-gray-500">支持度</span>
@@ -194,33 +203,33 @@ export const PatternAnalysis: React.FC<PatternAnalysisProps> = ({ patterns }) =>
                   </div>
                   <div>
                     <span className="text-gray-500">置信度</span>
-                    <p className={`font-medium ${getConfidenceColor(pattern.confidence)}`}>
+                    <p
+                      className={`font-medium ${getConfidenceColor(pattern.confidence)}`}
+                    >
                       {(pattern.confidence * 100).toFixed(1)}%
                     </p>
                   </div>
                   <div>
                     <span className="text-gray-500">频率</span>
-                    <p className="font-medium">
-                      {pattern.frequency}
-                    </p>
+                    <p className="font-medium">{pattern.frequency}</p>
                   </div>
                 </div>
-                
+
                 {/* 模式强度 */}
                 <div className="mt-3">
                   <div className="flex items-center justify-between text-xs mb-1">
                     <span className="text-gray-500">模式强度</span>
                     <span>{getPatternStrength(pattern).toFixed(1)}%</span>
                   </div>
-                  <Progress 
-                    value={getPatternStrength(pattern)} 
+                  <Progress
+                    value={getPatternStrength(pattern)}
                     max={100}
                     className="h-2"
                   />
                 </div>
               </div>
             ))}
-            
+
             {processedPatterns.length === 0 && (
               <div className="text-center py-8 text-gray-500">
                 <p>没有找到符合条件的行为模式</p>
@@ -232,15 +241,15 @@ export const PatternAnalysis: React.FC<PatternAnalysisProps> = ({ patterns }) =>
 
         {/* 模式详情 */}
         <Card className="p-6">
-          <h4 className="font-semibold text-gray-900 mb-4">
-            模式详情分析
-          </h4>
-          
+          <h4 className="font-semibold text-gray-900 mb-4">模式详情分析</h4>
+
           {selectedPattern ? (
             <div className="space-y-6">
               {/* 序列可视化 */}
               <div>
-                <h5 className="text-sm font-medium text-gray-700 mb-3">行为序列</h5>
+                <h5 className="text-sm font-medium text-gray-700 mb-3">
+                  行为序列
+                </h5>
                 <div className="bg-gray-50 p-4 rounded-md">
                   <div className="flex items-center justify-center space-x-2 flex-wrap">
                     {selectedPattern.sequence.map((step, index) => (
@@ -249,9 +258,7 @@ export const PatternAnalysis: React.FC<PatternAnalysisProps> = ({ patterns }) =>
                           <div className="w-8 h-8 bg-blue-500 text-white rounded-full flex items-center justify-center text-xs font-bold">
                             {index + 1}
                           </div>
-                          <Badge className="mt-2 text-xs">
-                            {step}
-                          </Badge>
+                          <Badge className="mt-2 text-xs">{step}</Badge>
                         </div>
                         {index < selectedPattern.sequence.length - 1 && (
                           <div className="flex items-center">
@@ -267,32 +274,34 @@ export const PatternAnalysis: React.FC<PatternAnalysisProps> = ({ patterns }) =>
 
               {/* 统计指标 */}
               <div>
-                <h5 className="text-sm font-medium text-gray-700 mb-3">关键指标</h5>
+                <h5 className="text-sm font-medium text-gray-700 mb-3">
+                  关键指标
+                </h5>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="bg-blue-50 p-3 rounded-md">
                     <p className="text-xs text-blue-600 mb-1">支持度</p>
                     <p className="text-lg font-bold text-blue-900">
                       {(selectedPattern.support * 100).toFixed(1)}%
                     </p>
-                    <Progress 
+                    <Progress
                       value={selectedPattern.support * 100}
                       max={100}
                       className="h-2 mt-2"
                     />
                   </div>
-                  
+
                   <div className="bg-green-50 p-3 rounded-md">
                     <p className="text-xs text-green-600 mb-1">置信度</p>
                     <p className="text-lg font-bold text-green-900">
                       {(selectedPattern.confidence * 100).toFixed(1)}%
                     </p>
-                    <Progress 
+                    <Progress
                       value={selectedPattern.confidence * 100}
                       max={100}
                       className="h-2 mt-2"
                     />
                   </div>
-                  
+
                   <div className="bg-purple-50 p-3 rounded-md">
                     <p className="text-xs text-purple-600 mb-1">出现频率</p>
                     <p className="text-lg font-bold text-purple-900">
@@ -300,7 +309,7 @@ export const PatternAnalysis: React.FC<PatternAnalysisProps> = ({ patterns }) =>
                     </p>
                     <p className="text-xs text-purple-600 mt-1">次</p>
                   </div>
-                  
+
                   <div className="bg-orange-50 p-3 rounded-md">
                     <p className="text-xs text-orange-600 mb-1">涉及用户</p>
                     <p className="text-lg font-bold text-orange-900">
@@ -313,30 +322,36 @@ export const PatternAnalysis: React.FC<PatternAnalysisProps> = ({ patterns }) =>
 
               {/* 业务洞察 */}
               <div>
-                <h5 className="text-sm font-medium text-gray-700 mb-3">业务洞察</h5>
+                <h5 className="text-sm font-medium text-gray-700 mb-3">
+                  业务洞察
+                </h5>
                 <div className="space-y-2">
                   <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-md">
                     <p className="text-sm text-yellow-800">
                       <span className="font-medium">关键发现：</span>
-                      该行为模式在 {selectedPattern.user_count} 个用户中出现了 {selectedPattern.frequency} 次，
-                      显示出 {(selectedPattern.support * 100).toFixed(1)}% 的支持度。
+                      该行为模式在 {
+                        selectedPattern.user_count
+                      } 个用户中出现了 {selectedPattern.frequency} 次， 显示出{' '}
+                      {(selectedPattern.support * 100).toFixed(1)}% 的支持度。
                     </p>
                   </div>
-                  
+
                   {selectedPattern.confidence >= 0.8 && (
                     <div className="p-3 bg-green-50 border border-green-200 rounded-md">
                       <p className="text-sm text-green-800">
                         <span className="font-medium">高置信度模式：</span>
-                        {(selectedPattern.confidence * 100).toFixed(1)}% 的置信度表明这是一个可靠的行为序列。
+                        {(selectedPattern.confidence * 100).toFixed(1)}%
+                        的置信度表明这是一个可靠的行为序列。
                       </p>
                     </div>
                   )}
-                  
+
                   {selectedPattern.sequence.length >= 4 && (
                     <div className="p-3 bg-blue-50 border border-blue-200 rounded-md">
                       <p className="text-sm text-blue-800">
                         <span className="font-medium">复杂行为链：</span>
-                        包含 {selectedPattern.sequence.length} 个步骤的复杂行为序列，建议深入分析用户意图。
+                        包含 {selectedPattern.sequence.length}{' '}
+                        个步骤的复杂行为序列，建议深入分析用户意图。
                       </p>
                     </div>
                   )}
@@ -352,5 +367,5 @@ export const PatternAnalysis: React.FC<PatternAnalysisProps> = ({ patterns }) =>
         </Card>
       </div>
     </div>
-  );
-};
+  )
+}

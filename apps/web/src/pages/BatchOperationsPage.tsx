@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
-import {
 import { logger } from '../utils/logger'
+import {
   Card,
   Row,
   Col,
@@ -17,7 +17,7 @@ import { logger } from '../utils/logger'
   Typography,
   Alert,
   Tabs,
-  message
+  message,
 } from 'antd'
 import {
   PlayCircleOutlined,
@@ -28,9 +28,14 @@ import {
   DeleteOutlined,
   CloudServerOutlined,
   ThunderboltOutlined,
-  CheckCircleOutlined
+  CheckCircleOutlined,
 } from '@ant-design/icons'
-import { batchService, BatchJob, BatchStatsSummary, BatchJobCreate } from '../services/batchService'
+import {
+  batchService,
+  BatchJob,
+  BatchStatsSummary,
+  BatchJobCreate,
+} from '../services/batchService'
 
 const { Title } = Typography
 const { Option } = Select
@@ -45,9 +50,15 @@ const BatchOperationsPage: React.FC = () => {
     total_jobs: 0,
     active_jobs: 0,
     completed_jobs: 0,
-    failed_jobs: 0
+    failed_jobs: 0,
   }
-  const pendingJobs = Math.max(0, safeStats.total_jobs - safeStats.active_jobs - safeStats.completed_jobs - safeStats.failed_jobs)
+  const pendingJobs = Math.max(
+    0,
+    safeStats.total_jobs -
+      safeStats.active_jobs -
+      safeStats.completed_jobs -
+      safeStats.failed_jobs
+  )
 
   // 加载数据
   const loadData = async () => {
@@ -55,7 +66,7 @@ const BatchOperationsPage: React.FC = () => {
       setLoading(true)
       const [statsData, jobsData] = await Promise.all([
         batchService.getStatsSummary(),
-        batchService.getJobs()
+        batchService.getJobs(),
       ])
       setStats(statsData)
       setJobs(jobsData)
@@ -102,7 +113,7 @@ const BatchOperationsPage: React.FC = () => {
         name: values.name,
         task_type: values.task_type,
         parameters: values.parameters || {},
-        priority: values.priority || 1
+        priority: values.priority || 1,
       }
       await batchService.createJob(jobData)
       message.success('任务创建成功')
@@ -118,19 +129,19 @@ const BatchOperationsPage: React.FC = () => {
     pending: 'blue',
     running: 'orange',
     completed: 'green',
-    failed: 'red'
+    failed: 'red',
   }
 
   const columns = [
     {
       title: '任务名称',
       dataIndex: 'name',
-      key: 'name'
+      key: 'name',
     },
     {
       title: 'ID',
       dataIndex: 'job_id',
-      key: 'job_id'
+      key: 'job_id',
     },
     {
       title: '状态',
@@ -140,26 +151,27 @@ const BatchOperationsPage: React.FC = () => {
         <Tag color={statusColors[status as keyof typeof statusColors]}>
           {status.toUpperCase()}
         </Tag>
-      )
+      ),
     },
     {
       title: '进度',
       dataIndex: 'progress',
       key: 'progress',
-      render: (progress: number) => <Progress percent={progress} size="small" />
+      render: (progress: number) => (
+        <Progress percent={progress} size="small" />
+      ),
     },
     {
       title: '处理进度',
       key: 'items',
-      render: (record: any) => (
-        `${record.processed_items || 0}/${record.total_items || 0}`
-      )
+      render: (record: any) =>
+        `${record.processed_items || 0}/${record.total_items || 0}`,
     },
     {
       title: '创建时间',
       dataIndex: 'created_at',
       key: 'created_at',
-      render: (time: string) => new Date(time).toLocaleString()
+      render: (time: string) => new Date(time).toLocaleString(),
     },
     {
       title: '操作',
@@ -167,16 +179,28 @@ const BatchOperationsPage: React.FC = () => {
       render: (record: any) => (
         <Space>
           {record.status === 'running' && (
-            <Button size="small" icon={<PauseCircleOutlined />} onClick={() => handleCancelJob(record.job_id)}>取消</Button>
+            <Button
+              size="small"
+              icon={<PauseCircleOutlined />}
+              onClick={() => handleCancelJob(record.job_id)}
+            >
+              取消
+            </Button>
           )}
           {record.status === 'paused' && (
-            <Button size="small" icon={<PlayCircleOutlined />}>恢复</Button>
+            <Button size="small" icon={<PlayCircleOutlined />}>
+              恢复
+            </Button>
           )}
-          <Button size="small" icon={<StopOutlined />} danger>停止</Button>
-          <Button size="small" icon={<DeleteOutlined />}>删除</Button>
+          <Button size="small" icon={<StopOutlined />} danger>
+            停止
+          </Button>
+          <Button size="small" icon={<DeleteOutlined />}>
+            删除
+          </Button>
         </Space>
-      )
-    }
+      ),
+    },
   ]
 
   const handleCreateOperation = () => {
@@ -256,8 +280,8 @@ const BatchOperationsPage: React.FC = () => {
             children: (
               <Card>
                 <Space style={{ marginBottom: '16px' }}>
-                  <Button 
-                    type="primary" 
+                  <Button
+                    type="primary"
                     icon={<PlusOutlined />}
                     onClick={handleCreateOperation}
                   >
@@ -272,7 +296,7 @@ const BatchOperationsPage: React.FC = () => {
                   loading={loading}
                 />
               </Card>
-            )
+            ),
           },
           {
             key: '2',
@@ -292,8 +316,8 @@ const BatchOperationsPage: React.FC = () => {
                   </Col>
                 </Row>
               </Card>
-            )
-          }
+            ),
+          },
         ]}
       />
 

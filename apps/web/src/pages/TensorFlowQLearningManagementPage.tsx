@@ -1,34 +1,34 @@
 import { buildApiUrl, apiFetch } from '../utils/apiBase'
 import React, { useState, useEffect } from 'react'
-import { 
-  Card, 
-  Row, 
-  Col, 
-  Button, 
-  Space, 
-  Table, 
+import {
+  Card,
+  Row,
+  Col,
+  Button,
+  Space,
+  Table,
   Select,
   Tag,
   Statistic,
   Alert,
   Typography,
   Divider,
-  Tabs
+  Tabs,
 } from 'antd'
-import { 
-  LineChart, 
-  Line, 
-  XAxis, 
-  YAxis, 
-  CartesianGrid, 
-  Legend, 
-  ResponsiveContainer
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Legend,
+  ResponsiveContainer,
 } from 'recharts'
 import {
   ThunderboltOutlined,
   RocketOutlined,
   MonitorOutlined,
-  BarChartOutlined
+  BarChartOutlined,
 } from '@ant-design/icons'
 
 const { Title, Text } = Typography
@@ -60,11 +60,13 @@ const TensorFlowQLearningManagementPage: React.FC = () => {
   >([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
-  const [summary, setSummary] = useState<TensorFlowQLearningOverview['summary']>({
+  const [summary, setSummary] = useState<
+    TensorFlowQLearningOverview['summary']
+  >({
     running: 0,
     training: 0,
     average_performance: 0,
-    total_episodes: 0
+    total_episodes: 0,
   })
 
   useEffect(() => {
@@ -72,7 +74,9 @@ const TensorFlowQLearningManagementPage: React.FC = () => {
       setLoading(true)
       setError('')
       try {
-        const response = await apiFetch(buildApiUrl('/api/v1/tensorflow-qlearning/overview'))
+        const response = await apiFetch(
+          buildApiUrl('/api/v1/tensorflow-qlearning/overview')
+        )
         const data: TensorFlowQLearningOverview = await response.json()
         setConfigs(data.models || [])
         setPerformanceData(data.trend || [])
@@ -81,7 +85,7 @@ const TensorFlowQLearningManagementPage: React.FC = () => {
             running: 0,
             training: 0,
             average_performance: 0,
-            total_episodes: 0
+            total_episodes: 0,
           }
         )
       } catch (e) {
@@ -97,12 +101,12 @@ const TensorFlowQLearningManagementPage: React.FC = () => {
     {
       title: '模型名称',
       dataIndex: 'name',
-      key: 'name'
+      key: 'name',
     },
     {
       title: '框架',
-      dataIndex: 'framework', 
-      key: 'framework'
+      dataIndex: 'framework',
+      key: 'framework',
     },
     {
       title: '状态',
@@ -111,22 +115,22 @@ const TensorFlowQLearningManagementPage: React.FC = () => {
       render: (status: string) => {
         const colors = {
           running: 'green',
-          stopped: 'red', 
-          training: 'blue'
+          stopped: 'red',
+          training: 'blue',
         }
         return <Tag color={colors[status as keyof typeof colors]}>{status}</Tag>
-      }
+      },
     },
     {
       title: '性能 (%)',
       dataIndex: 'performance',
       key: 'performance',
-      render: (value: number) => <Text strong>{value}%</Text>
+      render: (value: number) => <Text strong>{value}%</Text>,
     },
     {
       title: 'Episodes',
       dataIndex: 'episodes',
-      key: 'episodes'
+      key: 'episodes',
     },
     {
       title: '操作',
@@ -137,8 +141,8 @@ const TensorFlowQLearningManagementPage: React.FC = () => {
           <Button size="small">停止</Button>
           <Button size="small">配置</Button>
         </Space>
-      )
-    }
+      ),
+    },
   ]
 
   return (
@@ -179,10 +183,7 @@ const TensorFlowQLearningManagementPage: React.FC = () => {
         </Col>
         <Col span={6}>
           <Card>
-            <Statistic
-              title="总Episodes"
-              value={summary.total_episodes}
-            />
+            <Statistic title="总Episodes" value={summary.total_episodes} />
           </Card>
         </Col>
       </Row>
@@ -224,7 +225,7 @@ const TensorFlowQLearningManagementPage: React.FC = () => {
                   loading={loading}
                 />
               </Card>
-            )
+            ),
           },
           {
             key: '2',
@@ -247,8 +248,8 @@ const TensorFlowQLearningManagementPage: React.FC = () => {
                   </LineChart>
                 </ResponsiveContainer>
               </Card>
-            )
-          }
+            ),
+          },
         ]}
       />
     </div>

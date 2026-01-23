@@ -8,6 +8,8 @@ from typing import List
 from fastapi.responses import StreamingResponse
 from fastapi import APIRouter, HTTPException, status, BackgroundTasks
 from src.models.schemas.rag import (
+    AddDocumentRequest,
+    AddDocumentResponse,
     IndexDirectoryRequest,
     IndexFileRequest,
     IndexResponse,
@@ -36,16 +38,16 @@ logger = get_logger(__name__)
 
 router = APIRouter(prefix="/rag", tags=["RAG"])
 
-@router.post("/documents")
-async def add_document(request: dict):
+@router.post("/documents", response_model=AddDocumentResponse)
+async def add_document(request: AddDocumentRequest) -> AddDocumentResponse:
     """
     添加文档到RAG索引
     """
     try:
-        text = request.get("text", "")
-        metadata = request.get("metadata", {})
+        text = request.text or ""
+        metadata = request.metadata or {}
         
-        if not text:
+        if not text.strip():
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="文档内容不能为空"
@@ -55,25 +57,59 @@ async def add_document(request: dict):
         import uuid
         doc_id = str(uuid.uuid4())
         
-        # 添加到向量存储
         result = await rag_service.add_document(
             doc_id=doc_id,
             text=text,
-            metadata=metadata
+            metadata=metadata,
         )
-        
-        return {
-            "success": True,
-            "document_id": doc_id,
-            "message": "文档已成功添加到索引",
-            "text_length": len(text),
-            "metadata": metadata
-        }
+
+        if not result["success"]:
+            error = result.get("error") or "文档添加失败"
+            if error in {"document_text_empty", "document_chunk_empty"}:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="文档内容为空",
+                )
+            if (
+                "Error code: 401" in error
+                or "invalid_api_key" in error
+                or "Incorrect API key" in error
+            ):
+                raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=error)
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=error,
+            )
+
+        return result
         
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Add document failed: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e)
+        )
+
+@router.delete("/documents/{document_id}")
+async def delete_document(document_id: str):
+    """删除文档"""
+    try:
+        result = await rag_service.delete_document(document_id)
+        if not result["success"]:
+            error = result.get("error") or "文档删除失败"
+            if "Error code: 401" in error or "invalid_api_key" in error:
+                raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=error)
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=error
+            )
+        return result
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Delete document failed: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=str(e)

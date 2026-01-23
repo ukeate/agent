@@ -1,7 +1,7 @@
 import { buildApiUrl, apiFetch } from '../utils/apiBase'
-import React, { useState, useEffect } from 'react';
-import {
+import React, { useState, useEffect } from 'react'
 import { logger } from '../utils/logger'
+import {
   Card,
   Row,
   Col,
@@ -17,8 +17,8 @@ import { logger } from '../utils/logger'
   Spin,
   Alert,
   Progress,
-  Statistic
-} from 'antd';
+  Statistic,
+} from 'antd'
 import {
   NodeIndexOutlined,
   SearchOutlined,
@@ -26,11 +26,11 @@ import {
   DatabaseOutlined,
   ThunderboltOutlined,
   CheckCircleOutlined,
-  ApiOutlined
-} from '@ant-design/icons';
+  ApiOutlined,
+} from '@ant-design/icons'
 
-const { Title, Text } = Typography;
-const { Search } = Input;
+const { Title, Text } = Typography
+const { Search } = Input
 
 interface GraphRAGStats {
   total_entities: number
@@ -51,17 +51,17 @@ interface QueryResult {
 }
 
 const SimpleGraphRAGPage: React.FC = () => {
-  const [loading, setLoading] = useState(false);
-  const [queryLoading, setQueryLoading] = useState(false);
+  const [loading, setLoading] = useState(false)
+  const [queryLoading, setQueryLoading] = useState(false)
   const [stats, setStats] = useState<GraphRAGStats>({
     total_entities: 0,
     total_relationships: 0,
     total_documents: 0,
     index_health: 'unknown',
-    query_performance: 0
-  });
-  const [queryResults, setQueryResults] = useState<QueryResult[]>([]);
-  const [searchQuery, setSearchQuery] = useState('');
+    query_performance: 0,
+  })
+  const [queryResults, setQueryResults] = useState<QueryResult[]>([])
+  const [searchQuery, setSearchQuery] = useState('')
 
   useEffect(() => {
     loadStats()
@@ -99,7 +99,7 @@ const SimpleGraphRAGPage: React.FC = () => {
       const res = await apiFetch(buildApiUrl('/api/v1/graphrag/query'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query })
+        body: JSON.stringify({ query }),
       })
       const data = await res.json()
       if (data.success) {
@@ -110,10 +110,12 @@ const SimpleGraphRAGPage: React.FC = () => {
           entities: data.entities || [],
           confidence: data.confidence || 0,
           response_time: (data.response_time || 0) * 1000,
-          results: data.results || []
+          results: data.results || [],
         }
         setQueryResults(prev => [newResult, ...prev.slice(0, 4)])
-        message.success(`查询完成，耗时 ${newResult.response_time.toFixed(0)}ms`)
+        message.success(
+          `查询完成，耗时 ${newResult.response_time.toFixed(0)}ms`
+        )
       } else {
         message.error('GraphRAG查询失败')
       }
@@ -134,12 +136,12 @@ const SimpleGraphRAGPage: React.FC = () => {
 
   const getHealthColor = (health: string) => {
     const colors: { [key: string]: string } = {
-      'healthy': 'green',
-      'degraded': 'orange',
-      'error': 'red'
-    };
-    return colors[health] || 'default';
-  };
+      healthy: 'green',
+      degraded: 'orange',
+      error: 'red',
+    }
+    return colors[health] || 'default'
+  }
 
   return (
     <div style={{ padding: '24px' }}>
@@ -180,12 +182,17 @@ const SimpleGraphRAGPage: React.FC = () => {
           <Col span={6}>
             <Card size="small">
               <div style={{ textAlign: 'center' }}>
-                <Tag color={getHealthColor(stats.index_health)} icon={<CheckCircleOutlined />}>
+                <Tag
+                  color={getHealthColor(stats.index_health)}
+                  icon={<CheckCircleOutlined />}
+                >
                   {stats.index_health}
                 </Tag>
                 <div>
                   <Text strong>{stats.query_performance.toFixed(0)}ms</Text>
-                  <div><Text type="secondary">平均查询时间</Text></div>
+                  <div>
+                    <Text type="secondary">平均查询时间</Text>
+                  </div>
                 </div>
               </div>
             </Card>
@@ -199,28 +206,30 @@ const SimpleGraphRAGPage: React.FC = () => {
           <Search
             placeholder="输入问题进行GraphRAG查询..."
             allowClear
-            enterButton={queryLoading ? <Spin size="small" /> : <SearchOutlined />}
+            enterButton={
+              queryLoading ? <Spin size="small" /> : <SearchOutlined />
+            }
             size="large"
             onSearch={handleSearch}
             loading={queryLoading}
             style={{ marginBottom: '16px' }}
           />
-          
+
           <Space>
-            <Button 
+            <Button
               onClick={() => handleSearch('什么是机器学习？')}
               disabled={queryLoading}
             >
               示例查询1
             </Button>
-            <Button 
+            <Button
               onClick={() => handleSearch('深度学习的应用场景有哪些？')}
               disabled={queryLoading}
             >
               示例查询2
             </Button>
-            <Button 
-              icon={<ThunderboltOutlined />} 
+            <Button
+              icon={<ThunderboltOutlined />}
               onClick={loadStats}
               loading={loading}
             >
@@ -248,8 +257,8 @@ const SimpleGraphRAGPage: React.FC = () => {
                 key={index}
                 extra={
                   <Space direction="vertical" align="end">
-                    <Progress 
-                      type="circle" 
+                    <Progress
+                      type="circle"
                       size={60}
                       percent={Math.round(result.confidence * 100)}
                       format={percent => `${percent}%`}
@@ -261,7 +270,12 @@ const SimpleGraphRAGPage: React.FC = () => {
                 }
               >
                 <List.Item.Meta
-                  avatar={<Avatar icon={<SearchOutlined />} style={{ backgroundColor: '#722ed1' }} />}
+                  avatar={
+                    <Avatar
+                      icon={<SearchOutlined />}
+                      style={{ backgroundColor: '#722ed1' }}
+                    />
+                  }
                   title={
                     <Space direction="vertical" size="small">
                       <Text strong style={{ color: '#722ed1' }}>
@@ -270,28 +284,40 @@ const SimpleGraphRAGPage: React.FC = () => {
                     </Space>
                   }
                   description={
-                    <Space direction="vertical" size="small" style={{ width: '100%' }}>
+                    <Space
+                      direction="vertical"
+                      size="small"
+                      style={{ width: '100%' }}
+                    >
                       <div>
                         <Text strong>答案: </Text>
                         <Text>{result.answer}</Text>
                       </div>
-                      
+
                       {result.entities.length > 0 && (
                         <div>
                           <Text strong>相关实体: </Text>
                           {result.entities.map((entity, idx) => (
-                            <Tag key={idx} color="blue" style={{ margin: '2px' }}>
+                            <Tag
+                              key={idx}
+                              color="blue"
+                              style={{ margin: '2px' }}
+                            >
                               {entity}
                             </Tag>
                           ))}
                         </div>
                       )}
-                      
+
                       {result.sources.length > 0 && (
                         <div>
                           <Text strong>数据源: </Text>
                           {result.sources.map((source, idx) => (
-                            <Tag key={idx} color="green" style={{ margin: '2px' }}>
+                            <Tag
+                              key={idx}
+                              color="green"
+                              style={{ margin: '2px' }}
+                            >
                               {source}
                             </Tag>
                           ))}
@@ -311,35 +337,59 @@ const SimpleGraphRAGPage: React.FC = () => {
         <Row gutter={[16, 16]}>
           <Col span={8}>
             <Card size="small" style={{ textAlign: 'center' }}>
-              <NodeIndexOutlined style={{ fontSize: '24px', color: '#1890ff', marginBottom: '8px' }} />
+              <NodeIndexOutlined
+                style={{
+                  fontSize: '24px',
+                  color: '#1890ff',
+                  marginBottom: '8px',
+                }}
+              />
               <div>
                 <Text strong>知识图谱构建</Text>
-                <div><Text type="secondary">自动实体关系提取</Text></div>
+                <div>
+                  <Text type="secondary">自动实体关系提取</Text>
+                </div>
               </div>
             </Card>
           </Col>
           <Col span={8}>
             <Card size="small" style={{ textAlign: 'center' }}>
-              <BranchesOutlined style={{ fontSize: '24px', color: '#52c41a', marginBottom: '8px' }} />
+              <BranchesOutlined
+                style={{
+                  fontSize: '24px',
+                  color: '#52c41a',
+                  marginBottom: '8px',
+                }}
+              />
               <div>
                 <Text strong>关系推理</Text>
-                <div><Text type="secondary">多跳路径查询</Text></div>
+                <div>
+                  <Text type="secondary">多跳路径查询</Text>
+                </div>
               </div>
             </Card>
           </Col>
           <Col span={8}>
             <Card size="small" style={{ textAlign: 'center' }}>
-              <ThunderboltOutlined style={{ fontSize: '24px', color: '#f5222d', marginBottom: '8px' }} />
+              <ThunderboltOutlined
+                style={{
+                  fontSize: '24px',
+                  color: '#f5222d',
+                  marginBottom: '8px',
+                }}
+              />
               <div>
                 <Text strong>快速检索</Text>
-                <div><Text type="secondary">向量+图双重索引</Text></div>
+                <div>
+                  <Text type="secondary">向量+图双重索引</Text>
+                </div>
               </div>
             </Card>
           </Col>
         </Row>
       </Card>
     </div>
-  );
-};
+  )
+}
 
-export default SimpleGraphRAGPage;
+export default SimpleGraphRAGPage

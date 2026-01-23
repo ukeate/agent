@@ -1,6 +1,6 @@
-import React from 'react';
-import ExperimentsPlatformPage from '../ExperimentsPlatformPage';
+import React from 'react'
+import ExperimentsPlatformPage from '../ExperimentsPlatformPage'
 
-const TrafficAllocationPage: React.FC = () => <ExperimentsPlatformPage />;
+const TrafficAllocationPage: React.FC = () => <ExperimentsPlatformPage />
 
-export default TrafficAllocationPage;
+export default TrafficAllocationPage

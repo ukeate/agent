@@ -156,22 +156,37 @@ export const fineTuningServiceEnhanced = {
 
   // 增强的训练监控功能
   async getDetailedTrainingMetrics(jobId: string): Promise<TrainingMetrics> {
-    const response = await apiClient.get(`/fine-tuning/jobs/${jobId}/metrics/detailed`)
+    const response = await apiClient.get(
+      `/fine-tuning/jobs/${jobId}/metrics/detailed`
+    )
     return response.data
   },
 
-  async getEnhancedTrainingLogs(jobId: string, lines = 100, level = 'all'): Promise<TrainingLogs> {
-    const response = await apiClient.get(`/fine-tuning/jobs/${jobId}/logs/enhanced?lines=${lines}&level=${level}`)
+  async getEnhancedTrainingLogs(
+    jobId: string,
+    lines = 100,
+    level = 'all'
+  ): Promise<TrainingLogs> {
+    const response = await apiClient.get(
+      `/fine-tuning/jobs/${jobId}/logs/enhanced?lines=${lines}&level=${level}`
+    )
     return response.data
   },
 
   async streamTrainingProgress(jobId: string): Promise<EventSource> {
-    return new EventSource(buildApiUrl(`/fine-tuning/jobs/${jobId}/progress/stream`))
+    return new EventSource(
+      buildApiUrl(`/fine-tuning/jobs/${jobId}/progress/stream`)
+    )
   },
 
   // 高级模型验证
-  async performAdvancedModelValidation(config: any): Promise<ModelValidationResult> {
-    const response = await apiClient.post('/fine-tuning/models/validate/advanced', config)
+  async performAdvancedModelValidation(
+    config: any
+  ): Promise<ModelValidationResult> {
+    const response = await apiClient.post(
+      '/fine-tuning/models/validate/advanced',
+      config
+    )
     return response.data
   },
 
@@ -180,56 +195,94 @@ export const fineTuningServiceEnhanced = {
     return response.data
   },
 
-  async optimizeTrainingConfiguration(config: any): Promise<{ optimized_config: any; improvements: string[] }> {
-    const response = await apiClient.post('/fine-tuning/configs/optimize', config)
+  async optimizeTrainingConfiguration(
+    config: any
+  ): Promise<{ optimized_config: any; improvements: string[] }> {
+    const response = await apiClient.post(
+      '/fine-tuning/configs/optimize',
+      config
+    )
     return response.data
   },
 
   // 任务统计和分析
   async getJobStatistics(timeRange = '30d'): Promise<JobStatistics> {
-    const response = await apiClient.get(`/fine-tuning/jobs/statistics?range=${timeRange}`)
+    const response = await apiClient.get(
+      `/fine-tuning/jobs/statistics?range=${timeRange}`
+    )
     return response.data
   },
 
   async compareExperiments(jobIds: string[]): Promise<ExperimentComparison> {
-    const response = await apiClient.post('/fine-tuning/experiments/compare', { job_ids: jobIds })
+    const response = await apiClient.post('/fine-tuning/experiments/compare', {
+      job_ids: jobIds,
+    })
     return response.data
   },
 
   async getPerformanceAnalysis(jobId: string): Promise<any> {
-    const response = await apiClient.get(`/fine-tuning/jobs/${jobId}/analysis/performance`)
+    const response = await apiClient.get(
+      `/fine-tuning/jobs/${jobId}/analysis/performance`
+    )
     return response.data
   },
 
   // 高级数据集功能
-  async validateDatasetAdvanced(datasetId: string): Promise<DatasetValidationResult> {
-    const response = await apiClient.post(`/fine-tuning/datasets/${datasetId}/validate/advanced`)
+  async validateDatasetAdvanced(
+    datasetId: string
+  ): Promise<DatasetValidationResult> {
+    const response = await apiClient.post(
+      `/fine-tuning/datasets/${datasetId}/validate/advanced`
+    )
     return response.data
   },
 
-  async preprocessDataset(datasetId: string, options: any): Promise<{ processed_dataset_id: string; stats: any }> {
-    const response = await apiClient.post(`/fine-tuning/datasets/${datasetId}/preprocess`, options)
+  async preprocessDataset(
+    datasetId: string,
+    options: any
+  ): Promise<{ processed_dataset_id: string; stats: any }> {
+    const response = await apiClient.post(
+      `/fine-tuning/datasets/${datasetId}/preprocess`,
+      options
+    )
     return response.data
   },
 
   async analyzeDatasetQuality(datasetId: string): Promise<any> {
-    const response = await apiClient.post(`/fine-tuning/datasets/${datasetId}/analyze/quality`)
+    const response = await apiClient.post(
+      `/fine-tuning/datasets/${datasetId}/analyze/quality`
+    )
     return response.data
   },
 
   // 配置模板管理
-  async getAdvancedConfigTemplates(): Promise<{ templates: ConfigurationTemplate[] }> {
-    const response = await apiClient.get('/fine-tuning/configs/templates/advanced')
+  async getAdvancedConfigTemplates(): Promise<{
+    templates: ConfigurationTemplate[]
+  }> {
+    const response = await apiClient.get(
+      '/fine-tuning/configs/templates/advanced'
+    )
     return response.data
   },
 
-  async createCustomTemplate(template: Omit<ConfigurationTemplate, 'name'>): Promise<ConfigurationTemplate> {
-    const response = await apiClient.post('/fine-tuning/configs/templates/custom', template)
+  async createCustomTemplate(
+    template: Omit<ConfigurationTemplate, 'name'>
+  ): Promise<ConfigurationTemplate> {
+    const response = await apiClient.post(
+      '/fine-tuning/configs/templates/custom',
+      template
+    )
     return response.data
   },
 
-  async applyConfigTemplate(templateName: string, overrides?: any): Promise<any> {
-    const response = await apiClient.post(`/fine-tuning/configs/templates/${templateName}/apply`, overrides)
+  async applyConfigTemplate(
+    templateName: string,
+    overrides?: any
+  ): Promise<any> {
+    const response = await apiClient.post(
+      `/fine-tuning/configs/templates/${templateName}/apply`,
+      overrides
+    )
     return response.data
   },
 
@@ -240,18 +293,27 @@ export const fineTuningServiceEnhanced = {
   },
 
   async setResourceAlerts(config: any): Promise<{ message: string }> {
-    const response = await apiClient.post('/fine-tuning/resources/alerts', config)
+    const response = await apiClient.post(
+      '/fine-tuning/resources/alerts',
+      config
+    )
     return response.data
   },
 
   async getResourceRecommendations(jobConfig: any): Promise<any> {
-    const response = await apiClient.post('/fine-tuning/resources/recommendations', jobConfig)
+    const response = await apiClient.post(
+      '/fine-tuning/resources/recommendations',
+      jobConfig
+    )
     return response.data
   },
 
   // 批量任务管理
   async createBatchJob(batchConfig: any): Promise<BatchJobManagement> {
-    const response = await apiClient.post('/fine-tuning/batch/create', batchConfig)
+    const response = await apiClient.post(
+      '/fine-tuning/batch/create',
+      batchConfig
+    )
     return response.data
   },
 
@@ -266,52 +328,90 @@ export const fineTuningServiceEnhanced = {
   },
 
   async cancelBatchJob(batchId: string): Promise<{ message: string }> {
-    const response = await apiClient.post(`/fine-tuning/batch/${batchId}/cancel`)
+    const response = await apiClient.post(
+      `/fine-tuning/batch/${batchId}/cancel`
+    )
     return response.data
   },
 
   // 模型导出和部署
-  async exportTrainedModel(jobId: string, format = 'huggingface'): Promise<{ download_url: string; expires_at: string }> {
-    const response = await apiClient.post(`/fine-tuning/jobs/${jobId}/export`, { format })
+  async exportTrainedModel(
+    jobId: string,
+    format = 'huggingface'
+  ): Promise<{ download_url: string; expires_at: string }> {
+    const response = await apiClient.post(`/fine-tuning/jobs/${jobId}/export`, {
+      format,
+    })
     return response.data
   },
 
-  async prepareModelDeployment(jobId: string, deploymentConfig: any): Promise<any> {
-    const response = await apiClient.post(`/fine-tuning/jobs/${jobId}/deploy/prepare`, deploymentConfig)
+  async prepareModelDeployment(
+    jobId: string,
+    deploymentConfig: any
+  ): Promise<any> {
+    const response = await apiClient.post(
+      `/fine-tuning/jobs/${jobId}/deploy/prepare`,
+      deploymentConfig
+    )
     return response.data
   },
 
   // 实验记录和版本管理
-  async createExperiment(experimentConfig: any): Promise<{ experiment_id: string }> {
-    const response = await apiClient.post('/fine-tuning/experiments/create', experimentConfig)
+  async createExperiment(
+    experimentConfig: any
+  ): Promise<{ experiment_id: string }> {
+    const response = await apiClient.post(
+      '/fine-tuning/experiments/create',
+      experimentConfig
+    )
     return response.data
   },
 
   async getExperimentHistory(experimentId: string): Promise<any> {
-    const response = await apiClient.get(`/fine-tuning/experiments/${experimentId}/history`)
+    const response = await apiClient.get(
+      `/fine-tuning/experiments/${experimentId}/history`
+    )
     return response.data
   },
 
-  async tagExperimentVersion(experimentId: string, version: string, tag: string): Promise<{ message: string }> {
-    const response = await apiClient.post(`/fine-tuning/experiments/${experimentId}/versions/${version}/tag`, { tag })
+  async tagExperimentVersion(
+    experimentId: string,
+    version: string,
+    tag: string
+  ): Promise<{ message: string }> {
+    const response = await apiClient.post(
+      `/fine-tuning/experiments/${experimentId}/versions/${version}/tag`,
+      { tag }
+    )
     return response.data
   },
 
   // 性能基准测试
-  async runPerformanceBenchmark(modelId: string, testSuite: string): Promise<any> {
-    const response = await apiClient.post(`/fine-tuning/models/${modelId}/benchmark`, { test_suite: testSuite })
+  async runPerformanceBenchmark(
+    modelId: string,
+    testSuite: string
+  ): Promise<any> {
+    const response = await apiClient.post(
+      `/fine-tuning/models/${modelId}/benchmark`,
+      { test_suite: testSuite }
+    )
     return response.data
   },
 
   async getBenchmarkResults(benchmarkId: string): Promise<any> {
-    const response = await apiClient.get(`/fine-tuning/benchmarks/${benchmarkId}/results`)
+    const response = await apiClient.get(
+      `/fine-tuning/benchmarks/${benchmarkId}/results`
+    )
     return response.data
   },
 
   async compareModelPerformance(modelIds: string[]): Promise<any> {
-    const response = await apiClient.post('/fine-tuning/models/compare/performance', { model_ids: modelIds })
+    const response = await apiClient.post(
+      '/fine-tuning/models/compare/performance',
+      { model_ids: modelIds }
+    )
     return response.data
-  }
+  },
 }
 
 export default fineTuningServiceEnhanced

@@ -31,6 +31,20 @@ export interface EventStats {
   by_type: Record<string, number>
 }
 
+export type EventStreamState =
+  | 'disconnected'
+  | 'connecting'
+  | 'connected'
+  | 'reconnecting'
+  | 'offline'
+
+export interface EventStreamStatus {
+  state: EventStreamState
+  attempts: number
+  lastError?: string
+  updatedAt: string
+}
+
 export interface EventQuery {
   start_time?: string
   end_time?: string
@@ -55,10 +69,27 @@ export interface ClusterStatus {
 class EventService {
   private wsConnection: WebSocket | null = null
   private eventHandlers: Set<(event: Event) => void> = new Set()
+  private statusHandlers: Set<(status: EventStreamStatus) => void> = new Set()
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null
   private heartbeatInterval: ReturnType<typeof setInterval> | null = null
   private reconnectAttempts = 0
   private readonly maxReconnectAttempts = 10
+  private connectionStatus: EventStreamStatus = {
+    state: 'disconnected',
+    attempts: 0,
+    updatedAt: new Date().toISOString(),
+  }
+  private lastError: string | null = null
+  private onlineListenersBound = false
+  private handleOnline = () => {
+    if (this.eventHandlers.size > 0) {
+      this.connectIfNeeded()
+    }
+  }
+  private handleOffline = () => {
+    if (this.eventHandlers.size === 0) return
+    this.closeConnection('offline')
+  }
 
   /**
    * 获取事件列表
@@ -66,7 +97,7 @@ class EventService {
   async getEvents(query: EventQuery = {}): Promise<Event[]> {
     try {
       const params = new URLSearchParams()
-      
+
       if (query.start_time) params.append('start_time', query.start_time)
       if (query.end_time) params.append('end_time', query.end_time)
       if (query.source) params.append('source', query.source)
@@ -74,7 +105,7 @@ class EventService {
       if (query.severity) params.append('severity', query.severity)
       if (query.limit) params.append('limit', query.limit.toString())
       if (query.offset) params.append('offset', query.offset.toString())
-      
+
       if (query.event_types?.length) {
         query.event_types.forEach(type => params.append('event_types', type))
       }
@@ -168,6 +199,7 @@ class EventService {
   connectEventStream(onEvent: (event: Event) => void): void {
     // 添加事件处理器
     this.eventHandlers.add(onEvent)
+    this.ensureOnlineListeners()
     this.connectIfNeeded()
   }
 
@@ -175,8 +207,9 @@ class EventService {
    * 断开WebSocket连接
    */
   disconnectEventStream(): void {
-    this.closeConnection()
     this.eventHandlers.clear()
+    this.closeConnection('manual')
+    this.removeOnlineListeners()
   }
 
   /**
@@ -184,15 +217,70 @@ class EventService {
    */
   removeEventHandler(handler: (event: Event) => void): void {
     this.eventHandlers.delete(handler)
-    
+
     // 如果没有处理器了，断开连接
     if (this.eventHandlers.size === 0) {
       this.disconnectEventStream()
     }
   }
 
+  subscribeConnectionStatus(
+    handler: (status: EventStreamStatus) => void
+  ): () => void {
+    this.statusHandlers.add(handler)
+    handler(this.connectionStatus)
+    return () => {
+      this.statusHandlers.delete(handler)
+    }
+  }
+
+  private updateConnectionStatus(
+    state: EventStreamState,
+    lastError?: string | null
+  ): void {
+    if (lastError !== undefined) {
+      this.lastError = lastError
+    }
+    const nextStatus: EventStreamStatus = {
+      state,
+      attempts: this.reconnectAttempts,
+      lastError: this.lastError ?? undefined,
+      updatedAt: new Date().toISOString(),
+    }
+    this.connectionStatus = nextStatus
+    this.statusHandlers.forEach(handler => handler(nextStatus))
+  }
+
+  private isOnline(): boolean {
+    if (typeof navigator === 'undefined') return true
+    return navigator.onLine
+  }
+
+  private ensureOnlineListeners(): void {
+    if (this.onlineListenersBound) return
+    if (typeof window === 'undefined') return
+    window.addEventListener('online', this.handleOnline)
+    window.addEventListener('offline', this.handleOffline)
+    this.onlineListenersBound = true
+  }
+
+  private removeOnlineListeners(): void {
+    if (!this.onlineListenersBound) return
+    if (typeof window === 'undefined') return
+    window.removeEventListener('online', this.handleOnline)
+    window.removeEventListener('offline', this.handleOffline)
+    this.onlineListenersBound = false
+  }
+
   private connectIfNeeded(): void {
-    if (this.wsConnection && this.wsConnection.readyState !== WebSocket.CLOSED) {
+    if (!this.isOnline()) {
+      this.updateConnectionStatus('offline')
+      return
+    }
+    if (
+      this.wsConnection &&
+      this.wsConnection.readyState !== WebSocket.CLOSED
+    ) {
       return
     }
     this.clearReconnectTimer()
@@ -200,6 +288,7 @@ class EventService {
   }
 
   private openConnection(): void {
+    this.updateConnectionStatus('connecting')
     const wsUrl = buildWsUrl('/events/stream')
 
     try {
@@ -208,10 +297,11 @@ class EventService {
       this.wsConnection.onopen = () => {
         logger.log('事件流WebSocket连接已建立')
         this.reconnectAttempts = 0
+        this.updateConnectionStatus('connected', null)
         this.startHeartbeat()
       }
 
-      this.wsConnection.onmessage = (event) => {
+      this.wsConnection.onmessage = event => {
         try {
           const data = JSON.parse(event.data)
 
@@ -225,8 +315,12 @@ class EventService {
         }
       }
 
-      this.wsConnection.onerror = (error) => {
+      this.wsConnection.onerror = error => {
         logger.error('WebSocket错误:', error)
+        this.updateConnectionStatus(
+          this.connectionStatus.state,
+          '事件流连接异常'
+        )
         if (
           this.wsConnection &&
           this.wsConnection.readyState !== WebSocket.CLOSING &&
@@ -240,10 +334,15 @@ class EventService {
         logger.log('事件流WebSocket连接已关闭')
         this.wsConnection = null
         this.stopHeartbeat()
+        if (this.eventHandlers.size === 0) {
+          this.updateConnectionStatus('disconnected')
+          return
+        }
         this.scheduleReconnect()
       }
     } catch (error) {
       logger.error('建立WebSocket连接失败:', error)
+      this.updateConnectionStatus('reconnecting', '建立WebSocket连接失败')
       this.scheduleReconnect()
     }
   }
@@ -251,12 +350,21 @@ class EventService {
   private scheduleReconnect(): void {
     if (this.eventHandlers.size === 0) return
     this.clearReconnectTimer()
+    if (!this.isOnline()) {
+      this.updateConnectionStatus('offline')
+      return
+    }
     if (this.reconnectAttempts >= this.maxReconnectAttempts) {
       logger.error('事件流重连次数已达上限')
+      this.updateConnectionStatus('disconnected', '事件流重连次数已达上限')
       return
     }
     this.reconnectAttempts += 1
-    const delay = Math.min(5000 * Math.pow(2, this.reconnectAttempts - 1), 30000)
+    this.updateConnectionStatus('reconnecting')
+    const delay = Math.min(
+      5000 * Math.pow(2, this.reconnectAttempts - 1),
+      30000
+    )
     this.reconnectTimer = setTimeout(() => {
       if (this.eventHandlers.size > 0) {
         logger.log('尝试重新连接事件流...')
@@ -290,7 +398,7 @@ class EventService {
     }
   }
 
-  private closeConnection(): void {
+  private closeConnection(reason: 'manual' | 'offline'): void {
     this.clearReconnectTimer()
     this.stopHeartbeat()
     this.reconnectAttempts = 0
@@ -298,6 +406,10 @@ class EventService {
       this.wsConnection.close()
       this.wsConnection = null
     }
+    this.updateConnectionStatus(
+      reason === 'offline' ? 'offline' : 'disconnected',
+      reason === 'manual' ? null : this.lastError
+    )
   }
 }
 

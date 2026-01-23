@@ -1,6 +1,16 @@
 import { buildApiUrl, apiFetch } from '../utils/apiBase'
 import React, { useState } from 'react'
-import { Card, Upload, Button, Space, Typography, Alert, Spin, Descriptions, message } from 'antd'
+import {
+  Card,
+  Upload,
+  Button,
+  Space,
+  Typography,
+  Alert,
+  Spin,
+  Descriptions,
+  message,
+} from 'antd'
 import { UploadOutlined, PlayCircleOutlined } from '@ant-design/icons'
 
 const { Title } = Typography
@@ -17,7 +27,7 @@ const AudioEmotionRecognitionPage: React.FC = () => {
       setFile(f)
       return false
     },
-    maxCount: 1
+    maxCount: 1,
   }
 
   const analyze = async () => {
@@ -29,10 +39,13 @@ const AudioEmotionRecognitionPage: React.FC = () => {
     formData.append('audio_file', file)
     setLoading(true)
     try {
-      const res = await apiFetch(buildApiUrl('/api/v1/emotion-recognition/analyze/audio'), {
-        method: 'POST',
-        body: formData
-      })
+      const res = await apiFetch(
+        buildApiUrl('/api/v1/emotion-recognition/analyze/audio'),
+        {
+          method: 'POST',
+          body: formData,
+        }
+      )
       const data = await res.json()
       setResult(data)
       message.success('分析完成')
@@ -77,11 +90,23 @@ const AudioEmotionRecognitionPage: React.FC = () => {
             <Alert type="info" showIcon message="尚无结果" />
           ) : (
             <Descriptions column={1} bordered>
-              <Descriptions.Item label="主情感">{result?.primaryEmotion || result?.primary_emotion || '未知'}</Descriptions.Item>
-              <Descriptions.Item label="置信度">{result?.confidence}</Descriptions.Item>
-              <Descriptions.Item label="处理耗时(ms)">{result?.processingTime || result?.processing_time_ms}</Descriptions.Item>
+              <Descriptions.Item label="主情感">
+                {result?.primaryEmotion || result?.primary_emotion || '未知'}
+              </Descriptions.Item>
+              <Descriptions.Item label="置信度">
+                {result?.confidence}
+              </Descriptions.Item>
+              <Descriptions.Item label="处理耗时(ms)">
+                {result?.processingTime || result?.processing_time_ms}
+              </Descriptions.Item>
               <Descriptions.Item label="原始响应">
-                <pre style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-all', margin: 0 }}>
+                <pre
+                  style={{
+                    whiteSpace: 'pre-wrap',
+                    wordBreak: 'break-all',
+                    margin: 0,
+                  }}
+                >
                   {JSON.stringify(result, null, 2)}
                 </pre>
               </Descriptions.Item>

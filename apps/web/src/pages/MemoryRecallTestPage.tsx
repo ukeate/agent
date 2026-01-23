@@ -3,16 +3,16 @@
  * 测试多维度召回机制：向量相似度、时间相关性、实体匹配
  */
 import React, { useState } from 'react'
-import { 
 import { logger } from '../utils/logger'
-  Card, 
-  Input, 
-  Button, 
-  List, 
-  Tag, 
-  Progress, 
-  Space, 
-  Row, 
+import {
+  Card,
+  Input,
+  Button,
+  List,
+  Tag,
+  Progress,
+  Space,
+  Row,
   Col,
   Divider,
   Alert,
@@ -21,15 +21,15 @@ import { logger } from '../utils/logger'
   Timeline,
   Empty,
   Spin,
-  message
+  message,
 } from 'antd'
-import { 
-  SearchOutlined, 
+import {
+  SearchOutlined,
   ExperimentOutlined,
   ClockCircleOutlined,
   TagsOutlined,
   RadarChartOutlined,
-  LinkOutlined
+  LinkOutlined,
 } from '@ant-design/icons'
 import { Memory, MemoryType, MemoryFilters } from '@/types/memory'
 import { memoryService } from '@/services/memoryService'
@@ -44,7 +44,9 @@ const MemoryRecallTestPage: React.FC = () => {
   const [relatedMemories, setRelatedMemories] = useState<Memory[]>([])
   const [selectedMemory, setSelectedMemory] = useState<Memory | null>(null)
   const [loading, setLoading] = useState(false)
-  const [searchMode, setSearchMode] = useState<'vector' | 'temporal' | 'entity' | 'hybrid'>('hybrid')
+  const [searchMode, setSearchMode] = useState<
+    'vector' | 'temporal' | 'entity' | 'hybrid'
+  >('hybrid')
   const [filters, setFilters] = useState<MemoryFilters>({})
 
   // 执行记忆搜索
@@ -55,7 +57,7 @@ const MemoryRecallTestPage: React.FC = () => {
     try {
       // 根据搜索模式设置过滤器
       let searchFilters = { ...filters }
-      
+
       if (searchMode === 'temporal') {
         // 时间相关搜索：获取最近的记忆
         const now = new Date()
@@ -63,9 +65,13 @@ const MemoryRecallTestPage: React.FC = () => {
         searchFilters.created_after = dayAgo.toISOString()
       }
 
-      const results = await memoryService.searchMemories(query, searchFilters, 20)
+      const results = await memoryService.searchMemories(
+        query,
+        searchFilters,
+        20
+      )
       setSearchResults(results)
-      
+
       // 如果有结果，自动选择第一个并获取相关记忆
       if (results.length > 0) {
         handleMemorySelect(results[0])
@@ -80,7 +86,7 @@ const MemoryRecallTestPage: React.FC = () => {
   // 选择记忆并获取相关记忆
   const handleMemorySelect = async (memory: Memory) => {
     setSelectedMemory(memory)
-    
+
     try {
       const related = await memoryService.getRelatedMemories(memory.id, 2, 10)
       setRelatedMemories(related)
@@ -96,20 +102,20 @@ const MemoryRecallTestPage: React.FC = () => {
         type: MemoryType.WORKING,
         content: '用户询问了关于React Hooks的使用方法',
         importance: 0.6,
-        tags: ['react', 'hooks', 'frontend']
+        tags: ['react', 'hooks', 'frontend'],
       },
       {
         type: MemoryType.EPISODIC,
         content: '上午10点，用户成功部署了应用到生产环境',
         importance: 0.8,
-        tags: ['deployment', 'production', 'success']
+        tags: ['deployment', 'production', 'success'],
       },
       {
         type: MemoryType.SEMANTIC,
         content: 'React是一个用于构建用户界面的JavaScript库',
         importance: 0.9,
-        tags: ['react', 'javascript', 'knowledge']
-      }
+        tags: ['react', 'javascript', 'knowledge'],
+      },
     ]
 
     try {
@@ -129,10 +135,10 @@ const MemoryRecallTestPage: React.FC = () => {
       size="small"
       hoverable
       onClick={() => handleMemorySelect(memory)}
-      style={{ 
+      style={{
         marginBottom: 12,
         borderLeft: `4px solid ${getMemoryTypeColor(memory.type)}`,
-        backgroundColor: selectedMemory?.id === memory.id ? '#f0f8ff' : 'white'
+        backgroundColor: selectedMemory?.id === memory.id ? '#f0f8ff' : 'white',
       }}
     >
       <Row gutter={12}>
@@ -154,9 +160,9 @@ const MemoryRecallTestPage: React.FC = () => {
           {showScore && memory.relevance_score && (
             <div style={{ marginBottom: 8 }}>
               <span style={{ fontSize: 12, color: '#666' }}>相关性:</span>
-              <Progress 
-                percent={memory.relevance_score * 100} 
-                size="small" 
+              <Progress
+                percent={memory.relevance_score * 100}
+                size="small"
                 style={{ width: 80 }}
               />
             </div>
@@ -165,9 +171,7 @@ const MemoryRecallTestPage: React.FC = () => {
             <span>
               <ClockCircleOutlined /> {memory.access_count}次
             </span>
-            <span>
-              重要性: {(memory.importance * 100).toFixed(0)}%
-            </span>
+            <span>重要性: {(memory.importance * 100).toFixed(0)}%</span>
           </Space>
         </Col>
       </Row>
@@ -176,19 +180,27 @@ const MemoryRecallTestPage: React.FC = () => {
 
   const getMemoryTypeColor = (type: MemoryType) => {
     switch (type) {
-      case MemoryType.WORKING: return 'green'
-      case MemoryType.EPISODIC: return 'blue'
-      case MemoryType.SEMANTIC: return 'purple'
-      default: return 'default'
+      case MemoryType.WORKING:
+        return 'green'
+      case MemoryType.EPISODIC:
+        return 'blue'
+      case MemoryType.SEMANTIC:
+        return 'purple'
+      default:
+        return 'default'
     }
   }
 
   const getMemoryTypeLabel = (type: MemoryType) => {
     switch (type) {
-      case MemoryType.WORKING: return '工作记忆'
-      case MemoryType.EPISODIC: return '情景记忆'
-      case MemoryType.SEMANTIC: return '语义记忆'
-      default: return '未知'
+      case MemoryType.WORKING:
+        return '工作记忆'
+      case MemoryType.EPISODIC:
+        return '情景记忆'
+      case MemoryType.SEMANTIC:
+        return '语义记忆'
+      default:
+        return '未知'
     }
   }
 
@@ -208,40 +220,48 @@ const MemoryRecallTestPage: React.FC = () => {
             message="召回策略说明"
             description={
               <ul style={{ margin: '8px 0', paddingLeft: 20 }}>
-                <li><strong>语义匹配</strong>: 基于语义嵌入的相似度匹配</li>
-                <li><strong>时间相关</strong>: 考虑时间衰减和最近访问</li>
-                <li><strong>实体匹配</strong>: 基于关键实体和标签匹配</li>
-                <li><strong>混合搜索</strong>: 融合多维度的智能召回</li>
+                <li>
+                  <strong>语义匹配</strong>: 基于语义嵌入的相似度匹配
+                </li>
+                <li>
+                  <strong>时间相关</strong>: 考虑时间衰减和最近访问
+                </li>
+                <li>
+                  <strong>实体匹配</strong>: 基于关键实体和标签匹配
+                </li>
+                <li>
+                  <strong>混合搜索</strong>: 融合多维度的智能召回
+                </li>
               </ul>
             }
-            variant="default"
+            type="info"
           />
 
           <div>
             <span>召回模式:</span>
             <Space style={{ marginLeft: 16 }}>
-              <Button 
+              <Button
                 type={searchMode === 'hybrid' ? 'primary' : 'default'}
                 onClick={() => setSearchMode('hybrid')}
                 icon={<RadarChartOutlined />}
               >
                 混合召回
               </Button>
-              <Button 
+              <Button
                 type={searchMode === 'vector' ? 'primary' : 'default'}
                 onClick={() => setSearchMode('vector')}
                 icon={<SearchOutlined />}
               >
                 向量搜索
               </Button>
-              <Button 
+              <Button
                 type={searchMode === 'temporal' ? 'primary' : 'default'}
                 onClick={() => setSearchMode('temporal')}
                 icon={<ClockCircleOutlined />}
               >
                 时间搜索
               </Button>
-              <Button 
+              <Button
                 type={searchMode === 'entity' ? 'primary' : 'default'}
                 onClick={() => setSearchMode('entity')}
                 icon={<TagsOutlined />}
@@ -257,7 +277,7 @@ const MemoryRecallTestPage: React.FC = () => {
             value={query}
             onChange={e => setQuery(e.target.value)}
             rows={3}
-            onPressEnter={(e) => {
+            onPressEnter={e => {
               if (e.shiftKey) return
               e.preventDefault()
               handleSearch()
@@ -265,17 +285,15 @@ const MemoryRecallTestPage: React.FC = () => {
           />
 
           <Space>
-            <Button 
-              type="primary" 
+            <Button
+              type="primary"
               icon={<SearchOutlined />}
               onClick={handleSearch}
               loading={loading}
             >
               执行召回
             </Button>
-            <Button onClick={handleCreateTestMemory}>
-              创建测试记忆
-            </Button>
+            <Button onClick={handleCreateTestMemory}>创建测试记忆</Button>
           </Space>
         </Space>
       </Card>
@@ -283,10 +301,10 @@ const MemoryRecallTestPage: React.FC = () => {
       {/* 结果展示 */}
       <Row gutter={16}>
         <Col span={12}>
-          <Card 
+          <Card
             title={
               <span>
-                召回结果 
+                召回结果
                 <Badge count={searchResults.length} style={{ marginLeft: 8 }} />
               </span>
             }
@@ -309,11 +327,16 @@ const MemoryRecallTestPage: React.FC = () => {
         </Col>
 
         <Col span={12}>
-          <Card 
+          <Card
             title={
               <span>
                 <LinkOutlined /> 关联记忆链
-                {selectedMemory && <Badge count={relatedMemories.length} style={{ marginLeft: 8 }} />}
+                {selectedMemory && (
+                  <Badge
+                    count={relatedMemories.length}
+                    style={{ marginLeft: 8 }}
+                  />
+                )}
               </span>
             }
             style={{ height: '60vh', overflow: 'auto' }}
@@ -326,22 +349,28 @@ const MemoryRecallTestPage: React.FC = () => {
                   type="success"
                   style={{ marginBottom: 16 }}
                 />
-                
+
                 <Timeline>
                   {relatedMemories.map((memory, index) => (
-                    <Timeline.Item 
+                    <Timeline.Item
                       key={memory.id}
                       color={getMemoryTypeColor(memory.type)}
                     >
-                      <div onClick={() => handleMemorySelect(memory)} style={{ cursor: 'pointer' }}>
+                      <div
+                        onClick={() => handleMemorySelect(memory)}
+                        style={{ cursor: 'pointer' }}
+                      >
                         <Tag color={getMemoryTypeColor(memory.type)}>
                           深度 {Math.floor(index / 3) + 1}
                         </Tag>
                         <div style={{ marginTop: 4 }}>
                           {memory.content.substring(0, 100)}...
                         </div>
-                        <div style={{ fontSize: 12, color: '#999', marginTop: 4 }}>
-                          相关度: {((memory.relevance_score || 0) * 100).toFixed(1)}%
+                        <div
+                          style={{ fontSize: 12, color: '#999', marginTop: 4 }}
+                        >
+                          相关度:{' '}
+                          {((memory.relevance_score || 0) * 100).toFixed(1)}%
                         </div>
                       </div>
                     </Timeline.Item>
@@ -358,7 +387,7 @@ const MemoryRecallTestPage: React.FC = () => {
       {/* 记忆网络可视化 */}
       {searchResults.length > 0 && (
         <div style={{ marginTop: 24 }}>
-          <MemoryGraphVisualization 
+          <MemoryGraphVisualization
             memories={searchResults}
             onNodeClick={handleMemorySelect}
           />

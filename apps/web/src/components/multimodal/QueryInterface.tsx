@@ -3,7 +3,7 @@
  * 展示查询输入、文件上传、参数配置等
  */
 
-import React, { useState } from 'react';
+import React, { useState } from 'react'
 import {
   Card,
   Input,
@@ -16,45 +16,48 @@ import {
   InputNumber,
   Tag,
   Tooltip,
-  message
-} from 'antd';
+  message,
+} from 'antd'
 import {
   SendOutlined,
   UploadOutlined,
   SettingOutlined,
   FileImageOutlined,
   FileTextOutlined,
-  FileExcelOutlined
-} from '@ant-design/icons';
-import type { UploadFile } from 'antd/es/upload/interface';
+  FileExcelOutlined,
+} from '@ant-design/icons'
+import type { UploadFile } from 'antd/es/upload/interface'
 
-const { TextArea } = Input;
+const { TextArea } = Input
 
 interface QueryInterfaceProps {
-  onQuery: (query: string, files?: File[]) => void;
-  loading?: boolean;
+  onQuery: (query: string, files?: File[]) => void
+  loading?: boolean
 }
 
-const QueryInterface: React.FC<QueryInterfaceProps> = ({ onQuery, loading }) => {
-  const [form] = Form.useForm();
-  const [fileList, setFileList] = useState<UploadFile[]>([]);
-  const [showAdvanced, setShowAdvanced] = useState(false);
+const QueryInterface: React.FC<QueryInterfaceProps> = ({
+  onQuery,
+  loading,
+}) => {
+  const [form] = Form.useForm()
+  const [fileList, setFileList] = useState<UploadFile[]>([])
+  const [showAdvanced, setShowAdvanced] = useState(false)
 
   const handleSubmit = (values: any) => {
-    const files = fileList.map(f => f.originFileObj as File).filter(Boolean);
-    onQuery(values.query, files.length > 0 ? files : undefined);
-  };
+    const files = fileList.map(f => f.originFileObj as File).filter(Boolean)
+    onQuery(values.query, files.length > 0 ? files : undefined)
+  }
 
   const getFileIcon = (fileName: string) => {
-    const ext = fileName.split('.').pop()?.toLowerCase();
+    const ext = fileName.split('.').pop()?.toLowerCase()
     if (['jpg', 'jpeg', 'png', 'gif'].includes(ext || '')) {
-      return <FileImageOutlined />;
+      return <FileImageOutlined />
     }
     if (['xlsx', 'xls', 'csv'].includes(ext || '')) {
-      return <FileExcelOutlined />;
+      return <FileExcelOutlined />
     }
-    return <FileTextOutlined />;
-  };
+    return <FileTextOutlined />
+  }
 
   const beforeUpload = (file: File) => {
     // 验证文件类型
@@ -70,19 +73,19 @@ const QueryInterface: React.FC<QueryInterfaceProps> = ({ onQuery, loading }) => 
       'text/csv',
       'image/png',
       'image/jpeg',
-      'image/jpg'
-    ];
-    
+      'image/jpg',
+    ]
+
     if (!supportedTypes.includes(file.type)) {
-      message.error('不支持的文件类型');
-      return false;
+      message.error('不支持的文件类型')
+      return false
     }
-    
-    return false; // 阻止自动上传
-  };
+
+    return false // 阻止自动上传
+  }
 
   return (
-    <Card 
+    <Card
       title="多模态查询输入"
       extra={
         <Button
@@ -105,7 +108,7 @@ const QueryInterface: React.FC<QueryInterfaceProps> = ({ onQuery, loading }) => 
           topK: 10,
           includeImages: true,
           includeTables: true,
-          stream: false
+          stream: false,
         }}
       >
         <Form.Item
@@ -139,7 +142,7 @@ const QueryInterface: React.FC<QueryInterfaceProps> = ({ onQuery, loading }) => 
                 icon={getFileIcon(file.name)}
                 closable
                 onClose={() => {
-                  setFileList(fileList.filter(f => f.uid !== file.uid));
+                  setFileList(fileList.filter(f => f.uid !== file.uid))
                 }}
               >
                 {file.name}
@@ -165,7 +168,7 @@ const QueryInterface: React.FC<QueryInterfaceProps> = ({ onQuery, loading }) => 
                 marks={{
                   0: '0.0',
                   0.5: '0.5',
-                  1: '1.0'
+                  1: '1.0',
                 }}
               />
             </Form.Item>
@@ -173,9 +176,7 @@ const QueryInterface: React.FC<QueryInterfaceProps> = ({ onQuery, loading }) => 
             <Form.Item
               name="maxTokens"
               label={
-                <Tooltip title="生成回答的最大token数">
-                  最大Tokens
-                </Tooltip>
+                <Tooltip title="生成回答的最大token数">最大Tokens</Tooltip>
               }
             >
               <InputNumber
@@ -188,17 +189,9 @@ const QueryInterface: React.FC<QueryInterfaceProps> = ({ onQuery, loading }) => 
 
             <Form.Item
               name="topK"
-              label={
-                <Tooltip title="检索的文档数量">
-                  检索数量 (Top-K)
-                </Tooltip>
-              }
+              label={<Tooltip title="检索的文档数量">检索数量 (Top-K)</Tooltip>}
             >
-              <InputNumber
-                min={1}
-                max={50}
-                style={{ width: '100%' }}
-              />
+              <InputNumber min={1} max={50} style={{ width: '100%' }} />
             </Form.Item>
 
             <Form.Item name="includeImages" valuePropName="checked">
@@ -228,7 +221,7 @@ const QueryInterface: React.FC<QueryInterfaceProps> = ({ onQuery, loading }) => 
         </Form.Item>
       </Form>
     </Card>
-  );
-};
+  )
+}
 
-export default QueryInterface;
+export default QueryInterface

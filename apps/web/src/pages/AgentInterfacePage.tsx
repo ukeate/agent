@@ -1,7 +1,7 @@
 import { buildApiUrl, apiFetch } from '../utils/apiBase'
 import React, { useState, useEffect } from 'react'
-import {
 import { logger } from '../utils/logger'
+import {
   Card,
   Row,
   Col,
@@ -22,7 +22,7 @@ import { logger } from '../utils/logger'
   Switch,
   Alert,
   Tooltip,
-  Badge
+  Badge,
 } from 'antd'
 import {
   RobotOutlined,
@@ -39,7 +39,7 @@ import {
   TeamOutlined,
   MessageOutlined,
   ControlOutlined,
-  MonitorOutlined
+  MonitorOutlined,
 } from '@ant-design/icons'
 
 const { Title, Text } = Typography
@@ -87,14 +87,15 @@ const AgentInterfacePage: React.FC = () => {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [showConfigModal, setShowConfigModal] = useState(false)
-  const [selectedInterface, setSelectedInterface] = useState<AgentInterface | null>(null)
+  const [selectedInterface, setSelectedInterface] =
+    useState<AgentInterface | null>(null)
 
   const getStatusColor = (status: string) => {
     const colors = {
       active: 'success',
       idle: 'default',
       busy: 'processing',
-      offline: 'error'
+      offline: 'error',
     }
     return colors[status as keyof typeof colors] || 'default'
   }
@@ -104,7 +105,7 @@ const AgentInterfacePage: React.FC = () => {
       active: <CheckCircleOutlined />,
       idle: <ClockCircleOutlined />,
       busy: <PlayCircleOutlined />,
-      offline: <CloseCircleOutlined />
+      offline: <CloseCircleOutlined />,
     }
     return icons[status as keyof typeof icons]
   }
@@ -114,7 +115,7 @@ const AgentInterfacePage: React.FC = () => {
       chat: <MessageOutlined />,
       task: <ThunderboltOutlined />,
       'multi-agent': <TeamOutlined />,
-      supervisor: <ControlOutlined />
+      supervisor: <ControlOutlined />,
     }
     return icons[type as keyof typeof icons]
   }
@@ -124,7 +125,7 @@ const AgentInterfacePage: React.FC = () => {
       chat: '聊天接口',
       task: '任务接口',
       'multi-agent': '多代理接口',
-      supervisor: '监督者接口'
+      supervisor: '监督者接口',
     }
     return names[type as keyof typeof names] || type
   }
@@ -133,7 +134,7 @@ const AgentInterfacePage: React.FC = () => {
     const colors = {
       good: '#52c41a',
       warning: '#faad14',
-      critical: '#ff4d4f'
+      critical: '#ff4d4f',
     }
     return colors[status as keyof typeof colors]
   }
@@ -142,7 +143,7 @@ const AgentInterfacePage: React.FC = () => {
     const icons = {
       up: '↗',
       down: '↘',
-      stable: '→'
+      stable: '→',
     }
     return icons[trend as keyof typeof icons]
   }
@@ -151,7 +152,7 @@ const AgentInterfacePage: React.FC = () => {
     const colors = {
       success: 'green',
       error: 'red',
-      timeout: 'orange'
+      timeout: 'orange',
     }
     return colors[status as keyof typeof colors]
   }
@@ -172,17 +173,15 @@ const AgentInterfacePage: React.FC = () => {
             {record.id} - {record.version}
           </Text>
         </div>
-      )
+      ),
     },
     {
       title: '类型',
       dataIndex: 'type',
       key: 'type',
       render: (type: string) => (
-        <Tag icon={getTypeIcon(type)}>
-          {getTypeName(type)}
-        </Tag>
-      )
+        <Tag icon={getTypeIcon(type)}>{getTypeName(type)}</Tag>
+      ),
     },
     {
       title: '状态',
@@ -195,7 +194,7 @@ const AgentInterfacePage: React.FC = () => {
           {status === 'busy' && '忙碌'}
           {status === 'offline' && '离线'}
         </Tag>
-      )
+      ),
     },
     {
       title: '请求统计',
@@ -207,7 +206,7 @@ const AgentInterfacePage: React.FC = () => {
           <br />
           <Text type="secondary">{record.currentTasks} 当前任务</Text>
         </div>
-      )
+      ),
     },
     {
       title: '性能指标',
@@ -217,16 +216,18 @@ const AgentInterfacePage: React.FC = () => {
           <Text>响应: {record.avgResponseTime}ms</Text>
           <br />
           <Text>成功率: </Text>
-          <Text style={{ color: record.successRate > 95 ? '#52c41a' : '#faad14' }}>
+          <Text
+            style={{ color: record.successRate > 95 ? '#52c41a' : '#faad14' }}
+          >
             {record.successRate}%
           </Text>
         </div>
-      )
+      ),
     },
     {
       title: '最后活跃',
       dataIndex: 'lastActive',
-      key: 'lastActive'
+      key: 'lastActive',
     },
     {
       title: '操作',
@@ -247,8 +248,8 @@ const AgentInterfacePage: React.FC = () => {
             <Button size="small" icon={<ReloadOutlined />} />
           </Tooltip>
           <Tooltip title="配置">
-            <Button 
-              size="small" 
+            <Button
+              size="small"
               icon={<SettingOutlined />}
               onClick={() => {
                 setSelectedInterface(record)
@@ -257,58 +258,66 @@ const AgentInterfacePage: React.FC = () => {
             />
           </Tooltip>
         </Space>
-      )
-    }
+      ),
+    },
   ]
 
   const requestColumns = [
     {
       title: '时间',
       dataIndex: 'timestamp',
-      key: 'timestamp'
+      key: 'timestamp',
     },
     {
       title: '接口',
       dataIndex: 'interface',
-      key: 'interface'
+      key: 'interface',
     },
     {
       title: '方法',
       dataIndex: 'method',
       key: 'method',
       render: (method: string) => (
-        <Tag color={method === 'POST' ? 'blue' : method === 'GET' ? 'green' : 'orange'}>
+        <Tag
+          color={
+            method === 'POST' ? 'blue' : method === 'GET' ? 'green' : 'orange'
+          }
+        >
           {method}
         </Tag>
-      )
+      ),
     },
     {
       title: '端点',
       dataIndex: 'endpoint',
       key: 'endpoint',
       render: (endpoint: string) => (
-        <Text code className="text-xs">{endpoint}</Text>
-      )
+        <Text code className="text-xs">
+          {endpoint}
+        </Text>
+      ),
     },
     {
       title: '状态',
       dataIndex: 'status',
       key: 'status',
       render: (status: string) => (
-        <Tag color={getRequestStatusColor(status)}>
-          {status.toUpperCase()}
-        </Tag>
-      )
+        <Tag color={getRequestStatusColor(status)}>{status.toUpperCase()}</Tag>
+      ),
     },
     {
       title: '响应时间',
       dataIndex: 'responseTime',
       key: 'responseTime',
       render: (time: number) => (
-        <Text style={{ color: time > 500 ? '#ff4d4f' : time > 200 ? '#faad14' : '#52c41a' }}>
+        <Text
+          style={{
+            color: time > 500 ? '#ff4d4f' : time > 200 ? '#faad14' : '#52c41a',
+          }}
+        >
           {time}ms
         </Text>
-      )
+      ),
     },
     {
       title: '数据大小',
@@ -319,13 +328,22 @@ const AgentInterfacePage: React.FC = () => {
           <br />
           <Text className="text-xs">响应: {record.responseSize}KB</Text>
         </div>
-      )
-    }
+      ),
+    },
   ]
 
-  const totalRequests = interfaces.reduce((sum, iface) => sum + iface.totalRequests, 0)
-  const avgSuccessRate = interfaces.length > 0 ? interfaces.reduce((sum, iface) => sum + iface.successRate, 0) / interfaces.length : 0
-  const activeInterfaces = interfaces.filter(iface => iface.status === 'active').length
+  const totalRequests = interfaces.reduce(
+    (sum, iface) => sum + iface.totalRequests,
+    0
+  )
+  const avgSuccessRate =
+    interfaces.length > 0
+      ? interfaces.reduce((sum, iface) => sum + iface.successRate, 0) /
+        interfaces.length
+      : 0
+  const activeInterfaces = interfaces.filter(
+    iface => iface.status === 'active'
+  ).length
 
   const loadData = async () => {
     setLoading(true)
@@ -339,58 +357,75 @@ const AgentInterfacePage: React.FC = () => {
           id: statusData.agent_info?.agent_id || 'agent-interface',
           name: '主接口',
           type: 'chat',
-          status: statusData.health === 'degraded' ? 'busy' : statusData.health === 'unhealthy' ? 'offline' : 'active',
+          status:
+            statusData.health === 'degraded'
+              ? 'busy'
+              : statusData.health === 'unhealthy'
+                ? 'offline'
+                : 'active',
           version: statusData.agent_info?.version || 'v1.0.0',
-          lastActive: statusData.last_activity ? new Date(statusData.last_activity).toLocaleString('zh-CN') : '',
-          totalRequests: Math.round(statusData.performance_metrics?.requests_per_minute || 0),
-          avgResponseTime: Math.round(statusData.performance_metrics?.average_response_time || 0),
-          successRate: Number(statusData.performance_metrics?.success_rate || 0),
-          currentTasks: statusData.agent_info?.active_conversations || 0
+          lastActive: statusData.last_activity
+            ? new Date(statusData.last_activity).toLocaleString('zh-CN')
+            : '',
+          totalRequests: Math.round(
+            statusData.performance_metrics?.requests_per_minute || 0
+          ),
+          avgResponseTime: Math.round(
+            statusData.performance_metrics?.average_response_time || 0
+          ),
+          successRate: Number(
+            statusData.performance_metrics?.success_rate || 0
+          ),
+          currentTasks: statusData.agent_info?.active_conversations || 0,
         }
         setInterfaces([iface])
         const metricList: InterfaceMetric[] = [
           {
             name: '平均响应时间',
-            value: Math.round(statusData.performance_metrics?.average_response_time || 0),
+            value: Math.round(
+              statusData.performance_metrics?.average_response_time || 0
+            ),
             unit: 'ms',
             trend: 'stable',
-            status: 'good'
+            status: 'good',
           },
           {
             name: '请求速率',
-            value: Number(statusData.performance_metrics?.requests_per_minute || 0),
+            value: Number(
+              statusData.performance_metrics?.requests_per_minute || 0
+            ),
             unit: 'rpm',
             trend: 'up',
-            status: 'good'
+            status: 'good',
           },
           {
             name: '成功率',
             value: Number(statusData.performance_metrics?.success_rate || 0),
             unit: '%',
             trend: 'stable',
-            status: 'good'
+            status: 'good',
           },
           {
             name: 'CPU使用率',
             value: Number(statusData.system_resources?.cpu_usage || 0),
             unit: '%',
             trend: 'stable',
-            status: 'warning'
+            status: 'warning',
           },
           {
             name: '内存使用率',
             value: Number(statusData.system_resources?.memory_usage || 0),
             unit: '%',
             trend: 'stable',
-            status: 'warning'
+            status: 'warning',
           },
           {
             name: '活跃会话',
             value: Number(statusData.agent_info?.active_conversations || 0),
             unit: '个',
             trend: 'stable',
-            status: 'good'
-          }
+            status: 'good',
+          },
         ]
         setMetrics(metricList)
       }
@@ -399,17 +434,22 @@ const AgentInterfacePage: React.FC = () => {
         const metricBody = await metricRes.json()
         const metricData = metricBody.data || metricBody
         if (metricData && metricData.requests) {
-          const mapped = (metricData.requests || []).slice(-50).map((req: any, idx: number) => ({
-            id: req.id || String(idx),
-            interface: req.interface || 'agent',
-            method: (req.method || 'GET').toUpperCase(),
-            endpoint: req.path || req.endpoint || '',
-            status: (req.status || 'success') as APIRequest['status'],
-            responseTime: Math.round(req.latency_ms || req.response_time || 0),
-            timestamp: req.timestamp || new Date().toLocaleTimeString('zh-CN'),
-            requestSize: Number(req.request_size_kb || 0),
-            responseSize: Number(req.response_size_kb || 0)
-          }))
+          const mapped = (metricData.requests || [])
+            .slice(-50)
+            .map((req: any, idx: number) => ({
+              id: req.id || String(idx),
+              interface: req.interface || 'agent',
+              method: (req.method || 'GET').toUpperCase(),
+              endpoint: req.path || req.endpoint || '',
+              status: (req.status || 'success') as APIRequest['status'],
+              responseTime: Math.round(
+                req.latency_ms || req.response_time || 0
+              ),
+              timestamp:
+                req.timestamp || new Date().toLocaleTimeString('zh-CN'),
+              requestSize: Number(req.request_size_kb || 0),
+              responseSize: Number(req.response_size_kb || 0),
+            }))
           setRecentRequests(mapped)
         } else {
           setRecentRequests([])
@@ -437,20 +477,20 @@ const AgentInterfacePage: React.FC = () => {
         <div className="flex justify-between items-center mb-4">
           <Title level={2}>Agent接口管理</Title>
           <Space>
-            <Button 
+            <Button
               icon={<ReloadOutlined />}
               loading={loading}
               onClick={loadData}
             >
               刷新状态
             </Button>
-            <Button 
+            <Button
               icon={<MonitorOutlined />}
               onClick={() => logger.log('查看详细监控')}
             >
               详细监控
             </Button>
-            <Button 
+            <Button
               type="primary"
               icon={<SettingOutlined />}
               onClick={() => setShowConfigModal(true)}
@@ -488,7 +528,9 @@ const AgentInterfacePage: React.FC = () => {
                 value={avgSuccessRate}
                 precision={1}
                 suffix="%"
-                valueStyle={{ color: avgSuccessRate > 95 ? '#3f8600' : '#faad14' }}
+                valueStyle={{
+                  color: avgSuccessRate > 95 ? '#3f8600' : '#faad14',
+                }}
                 prefix={<CheckCircleOutlined />}
               />
             </Card>
@@ -497,7 +539,10 @@ const AgentInterfacePage: React.FC = () => {
             <Card>
               <Statistic
                 title="活跃任务"
-                value={interfaces.reduce((sum, iface) => sum + iface.currentTasks, 0)}
+                value={interfaces.reduce(
+                  (sum, iface) => sum + iface.currentTasks,
+                  0
+                )}
                 prefix={<RobotOutlined />}
               />
             </Card>
@@ -532,19 +577,28 @@ const AgentInterfacePage: React.FC = () => {
                     <div className="flex justify-between items-start mb-2">
                       <Text strong>{metric.name}</Text>
                       <div className="flex items-center">
-                        <span className="text-xs mr-1">{getTrendIcon(metric.trend)}</span>
-                        <Badge 
-                          status={metric.status === 'good' ? 'success' : metric.status === 'warning' ? 'warning' : 'error'}
+                        <span className="text-xs mr-1">
+                          {getTrendIcon(metric.trend)}
+                        </span>
+                        <Badge
+                          status={
+                            metric.status === 'good'
+                              ? 'success'
+                              : metric.status === 'warning'
+                                ? 'warning'
+                                : 'error'
+                          }
                         />
                       </div>
                     </div>
-                    <div 
+                    <div
                       className="text-2xl font-bold mb-2"
                       style={{ color: getMetricStatusColor(metric.status) }}
                     >
-                      {metric.value}{metric.unit}
+                      {metric.value}
+                      {metric.unit}
                     </div>
-                    <Progress 
+                    <Progress
                       percent={metric.value > 100 ? 100 : metric.value}
                       strokeColor={getMetricStatusColor(metric.status)}
                       size="small"
@@ -575,7 +629,8 @@ const AgentInterfacePage: React.FC = () => {
               <Card title="聊天接口 API">
                 <Space direction="vertical" style={{ width: '100%' }}>
                   <div>
-                    <Text strong>POST</Text> <Text code>/api/v1/agent-interface/chat</Text>
+                    <Text strong>POST</Text>{' '}
+                    <Text code>/api/v1/agent-interface/chat</Text>
                   </div>
                   <div>
                     <Text type="secondary">发送聊天消息并获取AI响应</Text>
@@ -594,7 +649,8 @@ const AgentInterfacePage: React.FC = () => {
               <Card title="任务执行接口 API">
                 <Space direction="vertical" style={{ width: '100%' }}>
                   <div>
-                    <Text strong>POST</Text> <Text code>/api/v1/agent-interface/task</Text>
+                    <Text strong>POST</Text>{' '}
+                    <Text code>/api/v1/agent-interface/task</Text>
                   </div>
                   <div>
                     <Text type="secondary">执行复杂任务并返回结果</Text>
@@ -621,7 +677,11 @@ const AgentInterfacePage: React.FC = () => {
 
       {/* 配置Modal */}
       <Modal
-        title={selectedInterface ? `配置 - ${selectedInterface.name}` : "全局接口配置"}
+        title={
+          selectedInterface
+            ? `配置 - ${selectedInterface.name}`
+            : '全局接口配置'
+        }
         open={showConfigModal}
         onCancel={() => {
           setShowConfigModal(false)
@@ -632,13 +692,13 @@ const AgentInterfacePage: React.FC = () => {
       >
         <Form layout="vertical">
           <Form.Item label="接口名称">
-            <Input 
+            <Input
               defaultValue={selectedInterface?.name || ''}
               placeholder="输入接口名称"
             />
           </Form.Item>
           <Form.Item label="版本">
-            <Input 
+            <Input
               defaultValue={selectedInterface?.version || 'v1.0.0'}
               placeholder="接口版本"
             />
@@ -666,14 +726,18 @@ const AgentInterfacePage: React.FC = () => {
             <Switch defaultChecked />
           </Form.Item>
           <Form.Item label="配置参数">
-            <TextArea 
-              rows={4} 
+            <TextArea
+              rows={4}
               placeholder="JSON格式的配置参数"
-              defaultValue={JSON.stringify({
-                cache_ttl: 3600,
-                retry_count: 3,
-                rate_limit: "100/minute"
-              }, null, 2)}
+              defaultValue={JSON.stringify(
+                {
+                  cache_ttl: 3600,
+                  retry_count: 3,
+                  rate_limit: '100/minute',
+                },
+                null,
+                2
+              )}
             />
           </Form.Item>
           <Form.Item>

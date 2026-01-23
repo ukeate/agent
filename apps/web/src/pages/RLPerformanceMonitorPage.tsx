@@ -1,54 +1,68 @@
-import React, { useState, useEffect } from 'react';
-import { Card, Row, Col, Select, DatePicker, Space, Button, Table, Progress, Statistic, Alert } from 'antd';
-import { Line, Area, Bar, Gauge } from '@ant-design/plots';
-import { 
-  LineChartOutlined, 
-  BarChartOutlined, 
+import React, { useState, useEffect } from 'react'
+import {
+  Card,
+  Row,
+  Col,
+  Select,
+  DatePicker,
+  Space,
+  Button,
+  Table,
+  Progress,
+  Statistic,
+  Alert,
+} from 'antd'
+import { Line, Area, Bar, Gauge } from '@ant-design/plots'
+import {
+  LineChartOutlined,
+  BarChartOutlined,
   DashboardOutlined,
   ThunderboltOutlined,
   ClockCircleOutlined,
   ApiOutlined,
-  FireOutlined
-} from '@ant-design/icons';
-import type { ColumnsType } from 'antd/es/table';
-import { monitoringService } from '../services/monitoringService';
+  FireOutlined,
+} from '@ant-design/icons'
+import type { ColumnsType } from 'antd/es/table'
+import { monitoringService } from '../services/monitoringService'
 
-const { RangePicker } = DatePicker;
-const { Option } = Select;
+const { RangePicker } = DatePicker
+const { Option } = Select
 
 interface PerformanceData {
-  timestamp: string;
-  qps: number;
-  latency: number;
-  errorRate: number;
-  cacheHit: number;
-  cpuUsage: number;
-  memoryUsage: number;
+  timestamp: string
+  qps: number
+  latency: number
+  errorRate: number
+  cacheHit: number
+  cpuUsage: number
+  memoryUsage: number
 }
 
 interface AlgorithmMetrics {
-  algorithm: string;
-  avgLatency: number;
-  p95Latency: number;
-  p99Latency: number;
-  qps: number;
-  errorRate: number;
-  cacheHitRate: number;
+  algorithm: string
+  avgLatency: number
+  p95Latency: number
+  p99Latency: number
+  qps: number
+  errorRate: number
+  cacheHitRate: number
 }
 
 const RLPerformanceMonitorPage: React.FC = () => {
-  const [timeRange, setTimeRange] = useState('1h');
-  const [performanceData, setPerformanceData] = useState<PerformanceData[]>([]);
-  const [algorithmMetrics, setAlgorithmMetrics] = useState<AlgorithmMetrics[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [timeRange, setTimeRange] = useState('1h')
+  const [performanceData, setPerformanceData] = useState<PerformanceData[]>([])
+  const [algorithmMetrics, setAlgorithmMetrics] = useState<AlgorithmMetrics[]>(
+    []
+  )
+  const [loading, setLoading] = useState(false)
 
   useEffect(() => {
     const load = async () => {
-      setLoading(true);
+      setLoading(true)
       try {
-        const dashboard = await monitoringService.getDashboardData();
-        const metrics = dashboard.metrics || {};
-        const timeseries = metrics.qps?.points || [];
+        const dashboard = await monitoringService.getDashboardData()
+        const metrics = dashboard.metrics || {}
+        const timeseries = metrics.qps?.points || []
         const mapped: PerformanceData[] = timeseries.map((p: any) => ({
           timestamp: p.timestamp || '',
           qps: p.value || 0,
@@ -56,19 +70,19 @@ const RLPerformanceMonitorPage: React.FC = () => {
           errorRate: metrics.error_rate?.current_value || 0,
           cacheHit: metrics.cache_hit_rate?.current_value || 0,
           cpuUsage: metrics.cpu_usage?.current_value || 0,
-          memoryUsage: metrics.memory_usage?.current_value || 0
-        }));
-        setPerformanceData(mapped);
-        setAlgorithmMetrics([]);
+          memoryUsage: metrics.memory_usage?.current_value || 0,
+        }))
+        setPerformanceData(mapped)
+        setAlgorithmMetrics([])
       } catch (e) {
-        setPerformanceData([]);
-        setAlgorithmMetrics([]);
+        setPerformanceData([])
+        setAlgorithmMetrics([])
       } finally {
-        setLoading(false);
+        setLoading(false)
       }
-    };
-    load();
-  }, [timeRange]);
+    }
+    load()
+  }, [timeRange])
 
   // QPS趋势图配置
   const qpsConfig = {
@@ -84,7 +98,7 @@ const RLPerformanceMonitorPage: React.FC = () => {
     tooltip: {
       formatter: (data: PerformanceData) => ({
         name: 'QPS',
-        value: `${data.qps} req/s`
+        value: `${data.qps} req/s`,
       }),
     },
     annotations: [
@@ -98,7 +112,7 @@ const RLPerformanceMonitorPage: React.FC = () => {
         },
       },
     ],
-  };
+  }
 
   // 延迟分布图配置
   const latencyConfig = {
@@ -115,17 +129,19 @@ const RLPerformanceMonitorPage: React.FC = () => {
     tooltip: {
       formatter: (data: PerformanceData) => ({
         name: '延迟',
-        value: `${data.latency} ms`
+        value: `${data.latency} ms`,
       }),
     },
-  };
+  }
 
   // 系统资源使用图配置
   const resourceConfig = {
-    data: performanceData.map(d => [
-      { timestamp: d.timestamp, type: 'CPU使用率', value: d.cpuUsage },
-      { timestamp: d.timestamp, type: '内存使用率', value: d.memoryUsage }
-    ]).flat(),
+    data: performanceData
+      .map(d => [
+        { timestamp: d.timestamp, type: 'CPU使用率', value: d.cpuUsage },
+        { timestamp: d.timestamp, type: '内存使用率', value: d.memoryUsage },
+      ])
+      .flat(),
     xField: 'timestamp',
     yField: 'value',
     seriesField: 'type',
@@ -134,15 +150,17 @@ const RLPerformanceMonitorPage: React.FC = () => {
     legend: {
       position: 'top',
     },
-  };
+  }
 
   // 算法性能对比图配置
   const algorithmCompareConfig = {
-    data: algorithmMetrics.map(m => [
-      { algorithm: m.algorithm, metric: '平均延迟', value: m.avgLatency },
-      { algorithm: m.algorithm, metric: 'P95延迟', value: m.p95Latency },
-      { algorithm: m.algorithm, metric: 'P99延迟', value: m.p99Latency }
-    ]).flat(),
+    data: algorithmMetrics
+      .map(m => [
+        { algorithm: m.algorithm, metric: '平均延迟', value: m.avgLatency },
+        { algorithm: m.algorithm, metric: 'P95延迟', value: m.p95Latency },
+        { algorithm: m.algorithm, metric: 'P99延迟', value: m.p99Latency },
+      ])
+      .flat(),
     xField: 'algorithm',
     yField: 'value',
     seriesField: 'metric',
@@ -154,97 +172,115 @@ const RLPerformanceMonitorPage: React.FC = () => {
       position: 'top',
       formatter: (data: any) => `${data.value}ms`,
     },
-  };
+  }
 
   const algorithmColumns: ColumnsType<AlgorithmMetrics> = [
     {
       title: '算法',
       dataIndex: 'algorithm',
       key: 'algorithm',
-      render: (text) => <strong>{text}</strong>
+      render: text => <strong>{text}</strong>,
     },
     {
       title: '平均延迟',
       dataIndex: 'avgLatency',
       key: 'avgLatency',
-      render: (value) => `${value.toFixed(1)}ms`,
-      sorter: (a, b) => a.avgLatency - b.avgLatency
+      render: value => `${value.toFixed(1)}ms`,
+      sorter: (a, b) => a.avgLatency - b.avgLatency,
     },
     {
       title: 'P95延迟',
       dataIndex: 'p95Latency',
       key: 'p95Latency',
-      render: (value) => `${value.toFixed(1)}ms`,
-      sorter: (a, b) => a.p95Latency - b.p95Latency
+      render: value => `${value.toFixed(1)}ms`,
+      sorter: (a, b) => a.p95Latency - b.p95Latency,
     },
     {
       title: 'P99延迟',
       dataIndex: 'p99Latency',
       key: 'p99Latency',
-      render: (value) => `${value.toFixed(1)}ms`,
-      sorter: (a, b) => a.p99Latency - b.p99Latency
+      render: value => `${value.toFixed(1)}ms`,
+      sorter: (a, b) => a.p99Latency - b.p99Latency,
     },
     {
       title: 'QPS',
       dataIndex: 'qps',
       key: 'qps',
-      render: (value) => `${value.toFixed(1)} req/s`,
-      sorter: (a, b) => a.qps - b.qps
+      render: value => `${value.toFixed(1)} req/s`,
+      sorter: (a, b) => a.qps - b.qps,
     },
     {
       title: '错误率',
       dataIndex: 'errorRate',
       key: 'errorRate',
-      render: (value) => (
+      render: value => (
         <Progress
           percent={value * 100}
           size="small"
-          status={value < 0.01 ? 'success' : value < 0.05 ? 'normal' : 'exception'}
+          status={
+            value < 0.01 ? 'success' : value < 0.05 ? 'normal' : 'exception'
+          }
           format={() => `${(value * 100).toFixed(2)}%`}
         />
       ),
-      sorter: (a, b) => a.errorRate - b.errorRate
+      sorter: (a, b) => a.errorRate - b.errorRate,
     },
     {
       title: '缓存命中率',
       dataIndex: 'cacheHitRate',
       key: 'cacheHitRate',
-      render: (value) => (
+      render: value => (
         <Progress
           percent={value}
           size="small"
           status={value > 90 ? 'success' : 'normal'}
         />
       ),
-      sorter: (a, b) => a.cacheHitRate - b.cacheHitRate
-    }
-  ];
+      sorter: (a, b) => a.cacheHitRate - b.cacheHitRate,
+    },
+  ]
 
   const currentPerf = performanceData[performanceData.length - 1] || {
-    qps: 0, latency: 0, errorRate: 0, cacheHit: 0, cpuUsage: 0, memoryUsage: 0
-  };
+    qps: 0,
+    latency: 0,
+    errorRate: 0,
+    cacheHit: 0,
+    cpuUsage: 0,
+    memoryUsage: 0,
+  }
 
   return (
     <div style={{ padding: '24px' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          marginBottom: '24px',
+        }}
+      >
         <h1 style={{ margin: 0, display: 'flex', alignItems: 'center' }}>
           <LineChartOutlined style={{ marginRight: '8px' }} />
           强化学习性能监控
         </h1>
         <Space>
-          <Select value={timeRange} onChange={setTimeRange} style={{ width: 120 }}>
+          <Select
+            value={timeRange}
+            onChange={setTimeRange}
+            style={{ width: 120 }}
+          >
             <Option value="1h">最近1小时</Option>
             <Option value="6h">最近6小时</Option>
             <Option value="24h">最近24小时</Option>
           </Select>
           <RangePicker showTime />
-          <Button 
-            type="primary" 
+          <Button
+            type="primary"
             icon={<ThunderboltOutlined />}
             loading={loading}
             onClick={() => {
-              setPerformanceData(generatePerformanceData());
-              setAlgorithmMetrics(generateAlgorithmMetrics());
+              setPerformanceData(generatePerformanceData())
+              setAlgorithmMetrics(generateAlgorithmMetrics())
             }}
           >
             刷新
@@ -257,7 +293,7 @@ const RLPerformanceMonitorPage: React.FC = () => {
         <Alert
           message="性能警告"
           description={`当前平均延迟为 ${currentPerf.latency.toFixed(1)}ms，超过阈值50ms`}
-          variant="warning"
+          type="warning"
           showIcon
           closable
           style={{ marginBottom: '24px' }}
@@ -273,7 +309,9 @@ const RLPerformanceMonitorPage: React.FC = () => {
               value={currentPerf.qps}
               prefix={<ApiOutlined />}
               suffix="req/s"
-              valueStyle={{ color: currentPerf.qps > 1000 ? '#3f8600' : '#cf1322' }}
+              valueStyle={{
+                color: currentPerf.qps > 1000 ? '#3f8600' : '#cf1322',
+              }}
             />
           </Card>
         </Col>
@@ -285,7 +323,9 @@ const RLPerformanceMonitorPage: React.FC = () => {
               prefix={<ClockCircleOutlined />}
               suffix="ms"
               precision={1}
-              valueStyle={{ color: currentPerf.latency < 50 ? '#3f8600' : '#cf1322' }}
+              valueStyle={{
+                color: currentPerf.latency < 50 ? '#3f8600' : '#cf1322',
+              }}
             />
           </Card>
         </Col>
@@ -296,7 +336,9 @@ const RLPerformanceMonitorPage: React.FC = () => {
               value={currentPerf.errorRate}
               suffix="%"
               precision={2}
-              valueStyle={{ color: currentPerf.errorRate < 1 ? '#3f8600' : '#cf1322' }}
+              valueStyle={{
+                color: currentPerf.errorRate < 1 ? '#3f8600' : '#cf1322',
+              }}
             />
           </Card>
         </Col>
@@ -308,7 +350,9 @@ const RLPerformanceMonitorPage: React.FC = () => {
               prefix={<FireOutlined />}
               suffix="%"
               precision={1}
-              valueStyle={{ color: currentPerf.cacheHit > 90 ? '#3f8600' : '#cf1322' }}
+              valueStyle={{
+                color: currentPerf.cacheHit > 90 ? '#3f8600' : '#cf1322',
+              }}
             />
           </Card>
         </Col>
@@ -319,7 +363,9 @@ const RLPerformanceMonitorPage: React.FC = () => {
               value={currentPerf.cpuUsage}
               suffix="%"
               precision={1}
-              valueStyle={{ color: currentPerf.cpuUsage < 70 ? '#3f8600' : '#cf1322' }}
+              valueStyle={{
+                color: currentPerf.cpuUsage < 70 ? '#3f8600' : '#cf1322',
+              }}
             />
           </Card>
         </Col>
@@ -330,7 +376,9 @@ const RLPerformanceMonitorPage: React.FC = () => {
               value={currentPerf.memoryUsage}
               suffix="%"
               precision={1}
-              valueStyle={{ color: currentPerf.memoryUsage < 80 ? '#3f8600' : '#cf1322' }}
+              valueStyle={{
+                color: currentPerf.memoryUsage < 80 ? '#3f8600' : '#cf1322',
+              }}
             />
           </Card>
         </Col>
@@ -375,7 +423,7 @@ const RLPerformanceMonitorPage: React.FC = () => {
         />
       </Card>
     </div>
-  );
-};
+  )
+}
 
-export default RLPerformanceMonitorPage;
+export default RLPerformanceMonitorPage

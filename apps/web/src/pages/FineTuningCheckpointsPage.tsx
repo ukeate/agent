@@ -1,17 +1,17 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { Card, Table, Tag, Button, Space, message } from 'antd';
-import { DownloadOutlined, ReloadOutlined } from '@ant-design/icons';
-import { fineTuningService, TrainingJob } from '../services/fineTuningService';
+import React, { useEffect, useMemo, useState } from 'react'
+import { Card, Table, Tag, Button, Space, message } from 'antd'
+import { DownloadOutlined, ReloadOutlined } from '@ant-design/icons'
+import { fineTuningService, TrainingJob } from '../services/fineTuningService'
 
 import { logger } from '../utils/logger'
 type CheckpointRow = {
-  key: string;
-  job_id: string;
-  job_name: string;
-  status: string;
-  completed_at?: string;
-  output_dir?: string;
-};
+  key: string
+  job_id: string
+  job_name: string
+  status: string
+  completed_at?: string
+  output_dir?: string
+}
 
 const statusColor: Record<string, string> = {
   running: 'processing',
@@ -20,28 +20,28 @@ const statusColor: Record<string, string> = {
   pending: 'default',
   paused: 'warning',
   cancelled: 'default',
-};
+}
 
 const FineTuningCheckpointsPage: React.FC = () => {
-  const [jobs, setJobs] = useState<TrainingJob[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [jobs, setJobs] = useState<TrainingJob[]>([])
+  const [loading, setLoading] = useState(false)
 
   const load = async () => {
     try {
-      setLoading(true);
-      const list = await fineTuningService.getTrainingJobs();
-      setJobs(list);
+      setLoading(true)
+      const list = await fineTuningService.getTrainingJobs()
+      setJobs(list)
     } catch (e) {
-      logger.error('加载检查点列表失败:', e);
-      message.error('加载检查点列表失败');
+      logger.error('加载检查点列表失败:', e)
+      message.error('加载检查点列表失败')
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
+  }
 
   useEffect(() => {
-    load();
-  }, []);
+    load()
+  }, [])
 
   const rows = useMemo<CheckpointRow[]>(
     () =>
@@ -54,7 +54,7 @@ const FineTuningCheckpointsPage: React.FC = () => {
         output_dir: job.config?.output_dir,
       })),
     [jobs]
-  );
+  )
 
   const columns = [
     { title: '任务名称', dataIndex: 'job_name', key: 'job_name' },
@@ -63,10 +63,22 @@ const FineTuningCheckpointsPage: React.FC = () => {
       title: '状态',
       dataIndex: 'status',
       key: 'status',
-      render: (value: string) => <Tag color={statusColor[value] || 'default'}>{value}</Tag>,
+      render: (value: string) => (
+        <Tag color={statusColor[value] || 'default'}>{value}</Tag>
+      ),
     },
-    { title: '输出目录', dataIndex: 'output_dir', key: 'output_dir', render: (v: string) => v || '-' },
-    { title: '完成时间', dataIndex: 'completed_at', key: 'completed_at', render: (v: string) => v || '-' },
+    {
+      title: '输出目录',
+      dataIndex: 'output_dir',
+      key: 'output_dir',
+      render: (v: string) => v || '-',
+    },
+    {
+      title: '完成时间',
+      dataIndex: 'completed_at',
+      key: 'completed_at',
+      render: (v: string) => v || '-',
+    },
     {
       title: '操作',
       key: 'actions',
@@ -76,19 +88,19 @@ const FineTuningCheckpointsPage: React.FC = () => {
           size="small"
           disabled={record.status !== 'completed'}
           onClick={() => {
-            const a = document.createElement('a');
-            a.href = `/api/v1/fine-tuning/jobs/${record.job_id}/download`;
-            a.rel = 'noopener';
-            document.body.appendChild(a);
-            a.click();
-            a.remove();
+            const a = document.createElement('a')
+            a.href = `/api/v1/fine-tuning/jobs/${record.job_id}/download`
+            a.rel = 'noopener'
+            document.body.appendChild(a)
+            a.click()
+            a.remove()
           }}
         >
           下载产物
         </Button>
       ),
     },
-  ];
+  ]
 
   return (
     <div style={{ padding: '24px' }}>
@@ -105,7 +117,7 @@ const FineTuningCheckpointsPage: React.FC = () => {
         <Table columns={columns} dataSource={rows} loading={loading} />
       </Card>
     </div>
-  );
-};
+  )
+}
 
-export default FineTuningCheckpointsPage;
+export default FineTuningCheckpointsPage

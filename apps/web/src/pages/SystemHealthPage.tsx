@@ -3,7 +3,7 @@ import FeatureComingSoon from '../components/FeatureComingSoon'
 
 const SystemHealthPage: React.FC = () => {
   return (
-    <FeatureComingSoon 
+    <FeatureComingSoon
       title="系统健康检查"
       description="全面的系统健康监控，包括服务状态、依赖检查和自动故障检测。"
     />

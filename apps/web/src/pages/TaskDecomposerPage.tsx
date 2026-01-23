@@ -1,6 +1,6 @@
-import React from 'react';
-import MultiStepReasoningPage from './MultiStepReasoningPage';
+import React from 'react'
+import MultiStepReasoningPage from './MultiStepReasoningPage'
 
-const TaskDecomposerPage: React.FC = () => <MultiStepReasoningPage />;
+const TaskDecomposerPage: React.FC = () => <MultiStepReasoningPage />
 
-export default TaskDecomposerPage;
+export default TaskDecomposerPage

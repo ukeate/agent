@@ -3,6 +3,7 @@ AI Agent System - FastAPI应用主入口
 完整功能版本，绕过mutex lock问题
 """
 
+import importlib
 import os
 import uuid
 from collections.abc import AsyncGenerator
@@ -333,8 +334,7 @@ def create_app() -> FastAPI:
     v1_router = APIRouter(prefix="/api/v1")
     
     # 集成所有API模块 - 直接导入并注册所有路由
-    api_modules_loaded = []
-    api_modules_failed = []
+    module_status: dict[str, dict[str, str | None]] = {}
     
     # 按功能分组加载API模块
     api_module_groups = [
@@ -461,38 +461,69 @@ def create_app() -> FastAPI:
     
     # 加载API模块
     for module_name, import_path, description in api_module_groups:
+        base_info = {
+            "name": description,
+            "import_path": import_path,
+        }
         try:
-            module = __import__(import_path, fromlist=['router'])
+            module = importlib.import_module(import_path)
             router = getattr(module, 'router', None)
             if router is None:
                 raise AttributeError("router is None")
             v1_router.include_router(router)
-            api_modules_loaded.append(f"{module_name} ({description})")
+            module_status[module_name] = {
+                **base_info,
+                "status": "active",
+                "health": "healthy",
+                "error": None,
+            }
             logger.info("API模块加载成功", module=module_name, description=description)
         except (ImportError, AttributeError) as e:
-            api_modules_failed.append(f"{module_name}: {e.__class__.__name__} - {str(e)}")
+            module_status[module_name] = {
+                **base_info,
+                "status": "inactive",
+                "health": "unhealthy",
+                "error": f"{e.__class__.__name__}: {str(e)}",
+            }
             logger.warning("API模块导入失败", module=module_name, description=description, error=str(e))
-            # 对可选模块进行静默跳过（如 TensorFlow 依赖缺失）
-            continue
-        except AttributeError as e:
-            api_modules_failed.append(f"{module_name}: AttributeError - {str(e)}")
-            logger.warning("API模块缺少router属性", module=module_name, description=description, error=str(e))
             continue
         except Exception as e:
-            api_modules_failed.append(f"{module_name}: {type(e).__name__} - {str(e)}")
+            module_status[module_name] = {
+                **base_info,
+                "status": "inactive",
+                "health": "unhealthy",
+                "error": f"{type(e).__name__}: {str(e)}",
+            }
             logger.error("API模块加载未知错误", module=module_name, description=description, error=str(e))
             continue
     
     # 添加API模块状态端点
     @v1_router.get("/modules/status")
     async def get_modules_status():
+        timestamp = utc_now().isoformat()
+        modules = {
+            module_key: {
+                **info,
+                "version": app.version,
+                "last_check": timestamp,
+            }
+            for module_key, info in module_status.items()
+        }
+        total = len(modules)
+        active = sum(1 for item in modules.values() if item["status"] == "active")
+        failed = total - active
+        success_rate = f"{active}/{total} ({(active / total * 100) if total else 0:.1f}%)"
         return {
             "success": True,
             "data": {
-                "loaded_modules": api_modules_loaded,
-                "failed_modules": api_modules_failed,
-                "total_attempted": len(api_module_groups),
-                "success_rate": f"{len(api_modules_loaded)}/{len(api_module_groups)} ({len(api_modules_loaded)/len(api_module_groups)*100:.1f}%)"
+                "modules": modules,
+                "summary": {
+                    "total_attempted": total,
+                    "loaded": active,
+                    "failed": failed,
+                    "success_rate": success_rate,
+                },
+                "timestamp": timestamp,
             }
         }
     

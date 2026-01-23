@@ -2,23 +2,23 @@ import { Page } from '@playwright/test'
 
 export async function setupApiMocks(page: Page) {
   // Mock health check API
-  await page.route('/api/v1/health', async (route) => {
+  await page.route('/api/v1/health', async route => {
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
-      body: JSON.stringify({ status: 'ok' })
+      body: JSON.stringify({ status: 'ok' }),
     })
   })
-  
+
   // Mock聊天API (支持流式响应)
-  await page.route('/api/v1/agent/chat', async (route) => {
+  await page.route('/api/v1/agent/chat', async route => {
     const request = route.request()
     const postData = request.postData()
     const headers = request.headers()
-    
+
     if (postData) {
       const data = JSON.parse(postData)
-      
+
       // 检查是否是流式请求
       if (headers['accept'] === 'text/event-stream' || data.stream) {
         // 模拟OpenAI标准格式的流式响应
@@ -29,17 +29,17 @@ export async function setupApiMocks(page: Page) {
           `data: {"id":"${messageId}","object":"chat.completion.chunk","created":${created},"model":"gpt-4o-mini","choices":[{"index":0,"delta":{"content":"${data.message}"},"finish_reason":null}]}`,
           `data: {"id":"${messageId}","object":"chat.completion.chunk","created":${created},"model":"gpt-4o-mini","choices":[{"index":0,"delta":{},"finish_reason":"stop"}]}`,
           'data: [DONE]',
-          ''
+          '',
         ].join('\n\n')
-        
+
         await route.fulfill({
           status: 200,
           contentType: 'text/event-stream',
           headers: {
             'Cache-Control': 'no-cache',
-            'Connection': 'keep-alive',
+            Connection: 'keep-alive',
           },
-          body: responseText
+          body: responseText,
         })
       } else {
         // 普通响应
@@ -53,10 +53,10 @@ export async function setupApiMocks(page: Page) {
                 id: `msg-${Date.now()}`,
                 content: '我收到了你的消息：' + data.message,
                 role: 'agent',
-                timestamp: new Date().toISOString()
-              }
-            }
-          })
+                timestamp: new Date().toISOString(),
+              },
+            },
+          }),
         })
       }
     } else {
@@ -65,14 +65,14 @@ export async function setupApiMocks(page: Page) {
         contentType: 'application/json',
         body: JSON.stringify({
           success: false,
-          error: '缺少消息内容'
-        })
+          error: '缺少消息内容',
+        }),
       })
     }
   })
 
   // Mock智能体状态API
-  await page.route('/api/v1/agent/status', async (route) => {
+  await page.route('/api/v1/agent/status', async route => {
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
@@ -81,16 +81,16 @@ export async function setupApiMocks(page: Page) {
         data: {
           status: 'active',
           uptime: '1h 30m',
-          version: '1.0.0'
-        }
-      })
+          version: '1.0.0',
+        },
+      }),
     })
   })
 }
 
 export async function setupNetworkError(page: Page) {
   // Mock网络错误
-  await page.route('/api/v1/agent/chat', (route) => {
+  await page.route('/api/v1/agent/chat', route => {
     route.abort('failed')
   })
 }

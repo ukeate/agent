@@ -6,18 +6,23 @@ import { SendOutlined } from '@ant-design/icons'
 const { TextArea } = Input
 
 const PersonalizationApiPage: React.FC = () => {
-  const [requestBody, setRequestBody] = useState<string>('{\n  "user_id": "demo-user",\n  "context": {},\n  "candidate_items": []\n}')
+  const [requestBody, setRequestBody] = useState<string>(
+    '{\n  "user_id": "demo-user",\n  "context": {},\n  "candidate_items": []\n}'
+  )
   const [responseBody, setResponseBody] = useState<string>('')
   const [loading, setLoading] = useState(false)
 
   const send = async () => {
     setLoading(true)
     try {
-      const res = await apiFetch(buildApiUrl('/api/v1/personalization/recommend'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: requestBody
-      })
+      const res = await apiFetch(
+        buildApiUrl('/api/v1/personalization/recommend'),
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: requestBody,
+        }
+      )
       const data = await res.json()
       setResponseBody(JSON.stringify(data, null, 2))
     } catch (e) {
@@ -34,8 +39,18 @@ const PersonalizationApiPage: React.FC = () => {
         <Typography.Title level={3}>个性化 API</Typography.Title>
 
         <Card title="请求体">
-          <TextArea rows={8} value={requestBody} onChange={(e) => setRequestBody(e.target.value)} />
-          <Button type="primary" icon={<SendOutlined />} style={{ marginTop: 12 }} onClick={send} loading={loading}>
+          <TextArea
+            rows={8}
+            value={requestBody}
+            onChange={e => setRequestBody(e.target.value)}
+          />
+          <Button
+            type="primary"
+            icon={<SendOutlined />}
+            style={{ marginTop: 12 }}
+            onClick={send}
+            loading={loading}
+          >
             调用 /api/v1/personalization/recommend
           </Button>
         </Card>

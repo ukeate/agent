@@ -1,12 +1,34 @@
 import React, { useState, useEffect } from 'react'
-import { Card, Table, Button, Space, Tag, Modal, Form, Input, Select, Row, Col, Typography, Divider, Switch, InputNumber, Drawer, Alert, Badge, Tooltip, Timeline, Progress } from 'antd'
-import { 
+import {
+  Card,
+  Table,
+  Button,
+  Space,
+  Tag,
+  Modal,
+  Form,
+  Input,
+  Select,
+  Row,
+  Col,
+  Typography,
+  Divider,
+  Switch,
+  InputNumber,
+  Drawer,
+  Alert,
+  Badge,
+  Tooltip,
+  Timeline,
+  Progress,
+} from 'antd'
 import { logger } from '../utils/logger'
-  PlusOutlined, 
-  EditOutlined, 
-  DeleteOutlined, 
-  EyeOutlined, 
-  ReloadOutlined, 
+import {
+  PlusOutlined,
+  EditOutlined,
+  DeleteOutlined,
+  EyeOutlined,
+  ReloadOutlined,
   BranchesOutlined,
   ApiOutlined,
   ThunderboltOutlined,
@@ -19,7 +41,7 @@ import { logger } from '../utils/logger'
   NodeIndexOutlined,
   MonitorOutlined,
   PlayCircleOutlined,
-  PauseCircleOutlined
+  PauseCircleOutlined,
 } from '@ant-design/icons'
 import { serviceDiscoveryService } from '../services/serviceDiscoveryService'
 import apiClient from '../services/apiClient'
@@ -71,7 +93,9 @@ interface RouteTestResult {
   timestamp: string
 }
 
-const ServiceRoutingManagementPage: React.FC<ServiceRoutingManagementPageProps> = () => {
+const ServiceRoutingManagementPage: React.FC<
+  ServiceRoutingManagementPageProps
+> = () => {
   const [routingRules, setRoutingRules] = useState<RoutingRule[]>([])
 
   const [loading, setLoading] = useState(false)
@@ -87,19 +111,27 @@ const ServiceRoutingManagementPage: React.FC<ServiceRoutingManagementPageProps> 
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'active': return 'success'
-      case 'inactive': return 'default'
-      case 'error': return 'error'
-      default: return 'default'
+      case 'active':
+        return 'success'
+      case 'inactive':
+        return 'default'
+      case 'error':
+        return 'error'
+      default:
+        return 'default'
     }
   }
 
   const getStatusIcon = (status: string) => {
     switch (status) {
-      case 'active': return <CheckCircleOutlined />
-      case 'inactive': return <PauseCircleOutlined />
-      case 'error': return <ExclamationCircleOutlined />
-      default: return <CloseCircleOutlined />
+      case 'active':
+        return <CheckCircleOutlined />
+      case 'inactive':
+        return <PauseCircleOutlined />
+      case 'error':
+        return <ExclamationCircleOutlined />
+      default:
+        return <CloseCircleOutlined />
     }
   }
 
@@ -109,7 +141,7 @@ const ServiceRoutingManagementPage: React.FC<ServiceRoutingManagementPageProps> 
     { value: 'weighted_round_robin', label: '加权轮询' },
     { value: 'capability_based', label: '能力优先' },
     { value: 'geographic', label: '地理位置优先' },
-    { value: 'response_time', label: '响应时间优先' }
+    { value: 'response_time', label: '响应时间优先' },
   ]
 
   const agentTypes = [
@@ -117,11 +149,17 @@ const ServiceRoutingManagementPage: React.FC<ServiceRoutingManagementPageProps> 
     { value: 'DATA_ANALYZER', label: '数据分析器' },
     { value: 'RECOMMENDER', label: '推荐引擎' },
     { value: 'CONVERSATIONAL', label: '对话助手' },
-    { value: 'WORKFLOW_ENGINE', label: '工作流引擎' }
+    { value: 'WORKFLOW_ENGINE', label: '工作流引擎' },
   ]
 
   const environments = ['development', 'testing', 'staging', 'production']
-  const regions = ['us-east-1', 'us-west-2', 'eu-central-1', 'ap-southeast-1', 'ap-northeast-1']
+  const regions = [
+    'us-east-1',
+    'us-west-2',
+    'eu-central-1',
+    'ap-southeast-1',
+    'ap-northeast-1',
+  ]
 
   const loadRoutingRules = async () => {
     try {
@@ -152,16 +190,16 @@ const ServiceRoutingManagementPage: React.FC<ServiceRoutingManagementPageProps> 
           version: values.version || '',
           region: values.regions || [],
           environment: values.environments || [],
-          customRules: values.customRules || ''
+          customRules: values.customRules || '',
         },
         targets: {
           agentTypes: values.agentTypes || [],
           endpoints: values.endpoints || [],
           loadBalanceStrategy: values.loadBalanceStrategy || 'round_robin',
           failoverEnabled: values.failoverEnabled || false,
-          circuitBreakerEnabled: values.circuitBreakerEnabled || false
+          circuitBreakerEnabled: values.circuitBreakerEnabled || false,
         },
-        owner: 'system'
+        owner: 'system',
       }
       if (editingRule) {
         await apiClient.put(`/service-routing/rules/${editingRule.id}`, payload)
@@ -194,7 +232,7 @@ const ServiceRoutingManagementPage: React.FC<ServiceRoutingManagementPageProps> 
       agentTypes: rule.targets.agentTypes,
       loadBalanceStrategy: rule.targets.loadBalanceStrategy,
       failoverEnabled: rule.targets.failoverEnabled,
-      circuitBreakerEnabled: rule.targets.circuitBreakerEnabled
+      circuitBreakerEnabled: rule.targets.circuitBreakerEnabled,
     })
     setModalVisible(true)
   }
@@ -213,7 +251,7 @@ const ServiceRoutingManagementPage: React.FC<ServiceRoutingManagementPageProps> 
         } finally {
           setLoading(false)
         }
-      }
+      },
     })
   }
 
@@ -237,19 +275,22 @@ const ServiceRoutingManagementPage: React.FC<ServiceRoutingManagementPageProps> 
       const res = await serviceDiscoveryService.selectAgent({
         capability: values.testCapability,
         strategy: values.testStrategy || 'round_robin',
-        tags: values.testTags
+        tags: values.testTags,
       })
       const testResult: RouteTestResult = {
         success: Boolean(res.selected_agent),
         selectedAgent: res.selected_agent ? res.selected_agent.agent_id : '',
         responseTime: res.selection_time || 0,
         route: values.testCapability,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       }
       setTestResults(prev => [testResult, ...prev.slice(0, 9)])
     } catch (error) {
       logger.error('路由测试失败:', error)
-      Modal.error({ title: '路由测试失败', content: (error as Error).message || '' })
+      Modal.error({
+        title: '路由测试失败',
+        content: (error as Error).message || '',
+      })
     } finally {
       setLoading(false)
     }
@@ -275,7 +316,7 @@ const ServiceRoutingManagementPage: React.FC<ServiceRoutingManagementPageProps> 
             优先级: {rule.priority}
           </Text>
         </div>
-      )
+      ),
     },
     {
       title: '路由条件',
@@ -283,7 +324,9 @@ const ServiceRoutingManagementPage: React.FC<ServiceRoutingManagementPageProps> 
       render: (_, rule: RoutingRule) => (
         <div style={{ maxWidth: '200px' }}>
           {rule.conditions.capability.slice(0, 2).map(cap => (
-            <Tag key={cap} size="small" color="blue">{cap}</Tag>
+            <Tag key={cap} size="small" color="blue">
+              {cap}
+            </Tag>
           ))}
           {rule.conditions.capability.length > 2 && (
             <Tag size="small">+{rule.conditions.capability.length - 2}</Tag>
@@ -293,7 +336,7 @@ const ServiceRoutingManagementPage: React.FC<ServiceRoutingManagementPageProps> 
             环境: {rule.conditions.environment.join(', ')}
           </Text>
         </div>
-      )
+      ),
     },
     {
       title: '目标服务',
@@ -302,7 +345,9 @@ const ServiceRoutingManagementPage: React.FC<ServiceRoutingManagementPageProps> 
         <div>
           <div>
             {rule.targets.agentTypes.map(type => (
-              <Tag key={type} size="small" color="green">{type}</Tag>
+              <Tag key={type} size="small" color="green">
+                {type}
+              </Tag>
             ))}
           </div>
           <Text type="secondary" style={{ fontSize: '12px' }}>
@@ -310,11 +355,15 @@ const ServiceRoutingManagementPage: React.FC<ServiceRoutingManagementPageProps> 
           </Text>
           <br />
           <div>
-            {rule.targets.failoverEnabled && <Badge status="success" text="故障转移" />}
-            {rule.targets.circuitBreakerEnabled && <Badge status="warning" text="熔断器" />}
+            {rule.targets.failoverEnabled && (
+              <Badge status="success" text="故障转移" />
+            )}
+            {rule.targets.circuitBreakerEnabled && (
+              <Badge status="warning" text="熔断器" />
+            )}
           </div>
         </div>
-      )
+      ),
     },
     {
       title: '性能指标',
@@ -322,21 +371,37 @@ const ServiceRoutingManagementPage: React.FC<ServiceRoutingManagementPageProps> 
       render: (_, rule: RoutingRule) => (
         <div style={{ minWidth: '120px' }}>
           <div>
-            <Text type="secondary" style={{ fontSize: '12px' }}>请求数:</Text>
-            <Text style={{ marginLeft: 4, fontSize: '12px' }}>{rule.metrics.requestCount}</Text>
+            <Text type="secondary" style={{ fontSize: '12px' }}>
+              请求数:
+            </Text>
+            <Text style={{ marginLeft: 4, fontSize: '12px' }}>
+              {rule.metrics.requestCount}
+            </Text>
           </div>
           <div>
-            <Text type="secondary" style={{ fontSize: '12px' }}>成功率:</Text>
-            <Text style={{ marginLeft: 4, fontSize: '12px', color: rule.metrics.successRate > 95 ? '#52c41a' : '#faad14' }}>
+            <Text type="secondary" style={{ fontSize: '12px' }}>
+              成功率:
+            </Text>
+            <Text
+              style={{
+                marginLeft: 4,
+                fontSize: '12px',
+                color: rule.metrics.successRate > 95 ? '#52c41a' : '#faad14',
+              }}
+            >
               {rule.metrics.successRate}%
             </Text>
           </div>
           <div>
-            <Text type="secondary" style={{ fontSize: '12px' }}>响应:</Text>
-            <Text style={{ marginLeft: 4, fontSize: '12px' }}>{rule.metrics.avgResponseTime}ms</Text>
+            <Text type="secondary" style={{ fontSize: '12px' }}>
+              响应:
+            </Text>
+            <Text style={{ marginLeft: 4, fontSize: '12px' }}>
+              {rule.metrics.avgResponseTime}ms
+            </Text>
           </div>
         </div>
-      )
+      ),
     },
     {
       title: '最后更新',
@@ -345,7 +410,7 @@ const ServiceRoutingManagementPage: React.FC<ServiceRoutingManagementPageProps> 
         <Text type="secondary" style={{ fontSize: '12px' }}>
           {new Date(rule.updated).toLocaleString()}
         </Text>
-      )
+      ),
     },
     {
       title: '操作',
@@ -353,27 +418,46 @@ const ServiceRoutingManagementPage: React.FC<ServiceRoutingManagementPageProps> 
       render: (_, rule: RoutingRule) => (
         <Space size="small">
           <Tooltip title="查看详情">
-            <Button size="small" icon={<EyeOutlined />} onClick={() => {
-              setSelectedRule(rule)
-              setDrawerVisible(true)
-            }} />
+            <Button
+              size="small"
+              icon={<EyeOutlined />}
+              onClick={() => {
+                setSelectedRule(rule)
+                setDrawerVisible(true)
+              }}
+            />
           </Tooltip>
           <Tooltip title="编辑">
-            <Button size="small" icon={<EditOutlined />} onClick={() => handleEditRule(rule)} />
+            <Button
+              size="small"
+              icon={<EditOutlined />}
+              onClick={() => handleEditRule(rule)}
+            />
           </Tooltip>
           <Tooltip title={rule.status === 'active' ? '暂停' : '激活'}>
-            <Button 
-              size="small" 
-              icon={rule.status === 'active' ? <PauseCircleOutlined /> : <PlayCircleOutlined />}
+            <Button
+              size="small"
+              icon={
+                rule.status === 'active' ? (
+                  <PauseCircleOutlined />
+                ) : (
+                  <PlayCircleOutlined />
+                )
+              }
               onClick={() => handleToggleStatus(rule.id)}
             />
           </Tooltip>
           <Tooltip title="删除">
-            <Button size="small" danger icon={<DeleteOutlined />} onClick={() => handleDeleteRule(rule.id)} />
+            <Button
+              size="small"
+              danger
+              icon={<DeleteOutlined />}
+              onClick={() => handleDeleteRule(rule.id)}
+            />
           </Tooltip>
         </Space>
-      )
-    }
+      ),
+    },
   ]
 
   return (
@@ -393,51 +477,109 @@ const ServiceRoutingManagementPage: React.FC<ServiceRoutingManagementPageProps> 
         <Row gutter={[16, 16]} style={{ marginBottom: '24px' }}>
           <Col xs={24} sm={6}>
             <Card>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                }}
+              >
                 <div>
                   <Text type="secondary">总路由规则</Text>
-                  <div style={{ fontSize: '24px', fontWeight: 'bold' }}>{routingRules.length}</div>
+                  <div style={{ fontSize: '24px', fontWeight: 'bold' }}>
+                    {routingRules.length}
+                  </div>
                 </div>
-                <ShareAltOutlined style={{ fontSize: '32px', color: '#1890ff' }} />
+                <ShareAltOutlined
+                  style={{ fontSize: '32px', color: '#1890ff' }}
+                />
               </div>
             </Card>
           </Col>
           <Col xs={24} sm={6}>
             <Card>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                }}
+              >
                 <div>
                   <Text type="secondary">活跃规则</Text>
-                  <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#52c41a' }}>
+                  <div
+                    style={{
+                      fontSize: '24px',
+                      fontWeight: 'bold',
+                      color: '#52c41a',
+                    }}
+                  >
                     {routingRules.filter(r => r.status === 'active').length}
                   </div>
                 </div>
-                <CheckCircleOutlined style={{ fontSize: '32px', color: '#52c41a' }} />
+                <CheckCircleOutlined
+                  style={{ fontSize: '32px', color: '#52c41a' }}
+                />
               </div>
             </Card>
           </Col>
           <Col xs={24} sm={6}>
             <Card>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                }}
+              >
                 <div>
                   <Text type="secondary">异常规则</Text>
-                  <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#ff4d4f' }}>
+                  <div
+                    style={{
+                      fontSize: '24px',
+                      fontWeight: 'bold',
+                      color: '#ff4d4f',
+                    }}
+                  >
                     {routingRules.filter(r => r.status === 'error').length}
                   </div>
                 </div>
-                <ExclamationCircleOutlined style={{ fontSize: '32px', color: '#ff4d4f' }} />
+                <ExclamationCircleOutlined
+                  style={{ fontSize: '32px', color: '#ff4d4f' }}
+                />
               </div>
             </Card>
           </Col>
           <Col xs={24} sm={6}>
             <Card>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                }}
+              >
                 <div>
                   <Text type="secondary">平均成功率</Text>
-                  <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#faad14' }}>
-                    {(routingRules.reduce((sum, r) => sum + r.metrics.successRate, 0) / routingRules.length || 0).toFixed(1)}%
+                  <div
+                    style={{
+                      fontSize: '24px',
+                      fontWeight: 'bold',
+                      color: '#faad14',
+                    }}
+                  >
+                    {(
+                      routingRules.reduce(
+                        (sum, r) => sum + r.metrics.successRate,
+                        0
+                      ) / routingRules.length || 0
+                    ).toFixed(1)}
+                    %
                   </div>
                 </div>
-                <ThunderboltOutlined style={{ fontSize: '32px', color: '#faad14' }} />
+                <ThunderboltOutlined
+                  style={{ fontSize: '32px', color: '#faad14' }}
+                />
               </div>
             </Card>
           </Col>
@@ -448,29 +590,36 @@ const ServiceRoutingManagementPage: React.FC<ServiceRoutingManagementPageProps> 
           <Row justify="space-between" align="middle">
             <Col>
               <Space>
-                <Button type="primary" icon={<PlusOutlined />} onClick={() => {
-                  setEditingRule(null)
-                  form.resetFields()
-                  setModalVisible(true)
-                }}>
+                <Button
+                  type="primary"
+                  icon={<PlusOutlined />}
+                  onClick={() => {
+                    setEditingRule(null)
+                    form.resetFields()
+                    setModalVisible(true)
+                  }}
+                >
                   创建路由规则
                 </Button>
-                <Button icon={<ReloadOutlined />} loading={loading} onClick={loadRoutingRules}>
+                <Button
+                  icon={<ReloadOutlined />}
+                  loading={loading}
+                  onClick={loadRoutingRules}
+                >
                   刷新
                 </Button>
-                <Button icon={<ApiOutlined />} onClick={() => setTestDrawerVisible(true)}>
+                <Button
+                  icon={<ApiOutlined />}
+                  onClick={() => setTestDrawerVisible(true)}
+                >
                   路由测试
                 </Button>
               </Space>
             </Col>
             <Col>
               <Space>
-                <Button icon={<SettingOutlined />}>
-                  全局配置
-                </Button>
-                <Button icon={<MonitorOutlined />}>
-                  性能监控
-                </Button>
+                <Button icon={<SettingOutlined />}>全局配置</Button>
+                <Button icon={<MonitorOutlined />}>性能监控</Button>
               </Space>
             </Col>
           </Row>
@@ -486,14 +635,15 @@ const ServiceRoutingManagementPage: React.FC<ServiceRoutingManagementPageProps> 
             pagination={{
               pageSize: 10,
               showSizeChanger: true,
-              showTotal: (total, range) => `第 ${range[0]}-${range[1]} 条，共 ${total} 条记录`
+              showTotal: (total, range) =>
+                `第 ${range[0]}-${range[1]} 条，共 ${total} 条记录`,
             }}
           />
         </Card>
 
         {/* 创建/编辑路由规则Modal */}
         <Modal
-          title={editingRule ? "编辑路由规则" : "创建路由规则"}
+          title={editingRule ? '编辑路由规则' : '创建路由规则'}
           visible={modalVisible}
           onOk={form.submit}
           onCancel={() => {
@@ -504,11 +654,7 @@ const ServiceRoutingManagementPage: React.FC<ServiceRoutingManagementPageProps> 
           width={800}
           confirmLoading={loading}
         >
-          <Form
-            form={form}
-            layout="vertical"
-            onFinish={handleCreateRule}
-          >
+          <Form form={form} layout="vertical" onFinish={handleCreateRule}>
             <Row gutter={16}>
               <Col span={12}>
                 <Form.Item
@@ -525,7 +671,12 @@ const ServiceRoutingManagementPage: React.FC<ServiceRoutingManagementPageProps> 
                   label="优先级"
                   rules={[{ required: true, message: '请输入优先级' }]}
                 >
-                  <InputNumber min={1} max={100} placeholder="数值越大优先级越高" style={{ width: '100%' }} />
+                  <InputNumber
+                    min={1}
+                    max={100}
+                    placeholder="数值越大优先级越高"
+                    style={{ width: '100%' }}
+                  />
                 </Form.Item>
               </Col>
             </Row>
@@ -567,7 +718,9 @@ const ServiceRoutingManagementPage: React.FC<ServiceRoutingManagementPageProps> 
                 <Form.Item name="environments" label="环境">
                   <Select mode="multiple" placeholder="选择环境">
                     {environments.map(env => (
-                      <Option key={env} value={env}>{env}</Option>
+                      <Option key={env} value={env}>
+                        {env}
+                      </Option>
                     ))}
                   </Select>
                 </Form.Item>
@@ -576,7 +729,9 @@ const ServiceRoutingManagementPage: React.FC<ServiceRoutingManagementPageProps> 
                 <Form.Item name="regions" label="区域">
                   <Select mode="multiple" placeholder="选择区域">
                     {regions.map(region => (
-                      <Option key={region} value={region}>{region}</Option>
+                      <Option key={region} value={region}>
+                        {region}
+                      </Option>
                     ))}
                   </Select>
                 </Form.Item>
@@ -584,8 +739,8 @@ const ServiceRoutingManagementPage: React.FC<ServiceRoutingManagementPageProps> 
             </Row>
 
             <Form.Item name="customRules" label="自定义规则">
-              <TextArea 
-                rows={2} 
+              <TextArea
+                rows={2}
                 placeholder="例如: cpu_usage < 80 AND memory_usage < 70"
               />
             </Form.Item>
@@ -597,7 +752,9 @@ const ServiceRoutingManagementPage: React.FC<ServiceRoutingManagementPageProps> 
                 <Form.Item name="agentTypes" label="目标智能体类型">
                   <Select mode="multiple" placeholder="选择目标智能体类型">
                     {agentTypes.map(type => (
-                      <Option key={type.value} value={type.value}>{type.label}</Option>
+                      <Option key={type.value} value={type.value}>
+                        {type.label}
+                      </Option>
                     ))}
                   </Select>
                 </Form.Item>
@@ -606,7 +763,9 @@ const ServiceRoutingManagementPage: React.FC<ServiceRoutingManagementPageProps> 
                 <Form.Item name="loadBalanceStrategy" label="负载均衡策略">
                   <Select placeholder="选择负载均衡策略">
                     {loadBalanceStrategies.map(strategy => (
-                      <Option key={strategy.value} value={strategy.value}>{strategy.label}</Option>
+                      <Option key={strategy.value} value={strategy.value}>
+                        {strategy.label}
+                      </Option>
                     ))}
                   </Select>
                 </Form.Item>
@@ -639,7 +798,13 @@ const ServiceRoutingManagementPage: React.FC<ServiceRoutingManagementPageProps> 
             <div>
               <Alert
                 message={`规则状态: ${selectedRule.status.toUpperCase()}`}
-                type={selectedRule.status === 'active' ? 'success' : selectedRule.status === 'error' ? 'error' : 'info'}
+                type={
+                  selectedRule.status === 'active'
+                    ? 'success'
+                    : selectedRule.status === 'error'
+                      ? 'error'
+                      : 'info'
+                }
                 showIcon
                 style={{ marginBottom: '16px' }}
               />
@@ -665,7 +830,9 @@ const ServiceRoutingManagementPage: React.FC<ServiceRoutingManagementPageProps> 
                 <div style={{ marginBottom: '8px' }}>
                   <Text type="secondary">所需能力: </Text>
                   {selectedRule.conditions.capability.map(cap => (
-                    <Tag key={cap} color="blue">{cap}</Tag>
+                    <Tag key={cap} color="blue">
+                      {cap}
+                    </Tag>
                   ))}
                 </div>
                 <div style={{ marginBottom: '8px' }}>
@@ -697,17 +864,35 @@ const ServiceRoutingManagementPage: React.FC<ServiceRoutingManagementPageProps> 
                 <div style={{ marginBottom: '8px' }}>
                   <Text type="secondary">目标类型: </Text>
                   {selectedRule.targets.agentTypes.map(type => (
-                    <Tag key={type} color="green">{type}</Tag>
+                    <Tag key={type} color="green">
+                      {type}
+                    </Tag>
                   ))}
                 </div>
                 <div style={{ marginBottom: '8px' }}>
                   <Text type="secondary">负载均衡: </Text>
-                  <Tag color="orange">{selectedRule.targets.loadBalanceStrategy}</Tag>
+                  <Tag color="orange">
+                    {selectedRule.targets.loadBalanceStrategy}
+                  </Tag>
                 </div>
                 <div>
-                  <Badge status={selectedRule.targets.failoverEnabled ? 'success' : 'default'} text="故障转移" />
+                  <Badge
+                    status={
+                      selectedRule.targets.failoverEnabled
+                        ? 'success'
+                        : 'default'
+                    }
+                    text="故障转移"
+                  />
                   <br />
-                  <Badge status={selectedRule.targets.circuitBreakerEnabled ? 'warning' : 'default'} text="熔断器" />
+                  <Badge
+                    status={
+                      selectedRule.targets.circuitBreakerEnabled
+                        ? 'warning'
+                        : 'default'
+                    }
+                    text="熔断器"
+                  />
                 </div>
               </div>
 
@@ -716,7 +901,9 @@ const ServiceRoutingManagementPage: React.FC<ServiceRoutingManagementPageProps> 
                 <Col span={12}>
                   <Card size="small">
                     <div style={{ textAlign: 'center' }}>
-                      <div style={{ fontSize: '24px', fontWeight: 'bold' }}>{selectedRule.metrics.requestCount}</div>
+                      <div style={{ fontSize: '24px', fontWeight: 'bold' }}>
+                        {selectedRule.metrics.requestCount}
+                      </div>
                       <Text type="secondary">总请求数</Text>
                     </div>
                   </Card>
@@ -724,7 +911,13 @@ const ServiceRoutingManagementPage: React.FC<ServiceRoutingManagementPageProps> 
                 <Col span={12}>
                   <Card size="small">
                     <div style={{ textAlign: 'center' }}>
-                      <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#52c41a' }}>
+                      <div
+                        style={{
+                          fontSize: '24px',
+                          fontWeight: 'bold',
+                          color: '#52c41a',
+                        }}
+                      >
                         {selectedRule.metrics.successRate}%
                       </div>
                       <Text type="secondary">成功率</Text>
@@ -734,7 +927,9 @@ const ServiceRoutingManagementPage: React.FC<ServiceRoutingManagementPageProps> 
                 <Col span={12}>
                   <Card size="small">
                     <div style={{ textAlign: 'center' }}>
-                      <div style={{ fontSize: '24px', fontWeight: 'bold' }}>{selectedRule.metrics.avgResponseTime}ms</div>
+                      <div style={{ fontSize: '24px', fontWeight: 'bold' }}>
+                        {selectedRule.metrics.avgResponseTime}ms
+                      </div>
                       <Text type="secondary">平均响应时间</Text>
                     </div>
                   </Card>
@@ -742,7 +937,13 @@ const ServiceRoutingManagementPage: React.FC<ServiceRoutingManagementPageProps> 
                 <Col span={12}>
                   <Card size="small">
                     <div style={{ textAlign: 'center' }}>
-                      <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#ff4d4f' }}>
+                      <div
+                        style={{
+                          fontSize: '24px',
+                          fontWeight: 'bold',
+                          color: '#ff4d4f',
+                        }}
+                      >
                         {selectedRule.metrics.errorCount}
                       </div>
                       <Text type="secondary">错误次数</Text>
@@ -761,11 +962,7 @@ const ServiceRoutingManagementPage: React.FC<ServiceRoutingManagementPageProps> 
           onClose={() => setTestDrawerVisible(false)}
           width={600}
         >
-          <Form
-            form={testForm}
-            layout="vertical"
-            onFinish={handleTestRoute}
-          >
+          <Form form={testForm} layout="vertical" onFinish={handleTestRoute}>
             <Form.Item
               name="testCapability"
               label="测试能力"
@@ -792,16 +989,26 @@ const ServiceRoutingManagementPage: React.FC<ServiceRoutingManagementPageProps> 
                   <Timeline.Item
                     key={index}
                     color={result.success ? 'green' : 'red'}
-                    dot={result.success ? <CheckCircleOutlined /> : <ExclamationCircleOutlined />}
+                    dot={
+                      result.success ? (
+                        <CheckCircleOutlined />
+                      ) : (
+                        <ExclamationCircleOutlined />
+                      )
+                    }
                   >
                     <div>
                       <Text strong>{result.route}</Text>
-                      <Tag color={result.success ? 'success' : 'error'} style={{ marginLeft: 8 }}>
+                      <Tag
+                        color={result.success ? 'success' : 'error'}
+                        style={{ marginLeft: 8 }}
+                      >
                         {result.success ? '成功' : '失败'}
                       </Tag>
                       <br />
                       <Text type="secondary" style={{ fontSize: '12px' }}>
-                        智能体: {result.selectedAgent} | 响应时间: {result.responseTime}ms
+                        智能体: {result.selectedAgent} | 响应时间:{' '}
+                        {result.responseTime}ms
                       </Text>
                       <br />
                       <Text type="secondary" style={{ fontSize: '12px' }}>

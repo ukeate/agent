@@ -4,7 +4,9 @@
 
 // 格式化文件大小
 export const formatFileSize = (bytes: number): string => {
-  if (bytes === 0) return '0 Bytes';
+  if (bytes === 0) {
+    return '0 Bytes';
+  }
   
   const k = 1024;
   const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
@@ -60,11 +62,21 @@ export const formatRelativeTime = (date: Date | string | number): string => {
   const target = new Date(date);
   const diffInSeconds = Math.floor((now.getTime() - target.getTime()) / 1000);
 
-  if (diffInSeconds < 60) return '刚刚';
-  if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)}分钟前`;
-  if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)}小时前`;
-  if (diffInSeconds < 2592000) return `${Math.floor(diffInSeconds / 86400)}天前`;
-  if (diffInSeconds < 31536000) return `${Math.floor(diffInSeconds / 2592000)}个月前`;
+  if (diffInSeconds < 60) {
+    return '刚刚';
+  }
+  if (diffInSeconds < 3600) {
+    return `${Math.floor(diffInSeconds / 60)}分钟前`;
+  }
+  if (diffInSeconds < 86400) {
+    return `${Math.floor(diffInSeconds / 3600)}小时前`;
+  }
+  if (diffInSeconds < 2592000) {
+    return `${Math.floor(diffInSeconds / 86400)}天前`;
+  }
+  if (diffInSeconds < 31536000) {
+    return `${Math.floor(diffInSeconds / 2592000)}个月前`;
+  }
   return `${Math.floor(diffInSeconds / 31536000)}年前`;
 };
 
@@ -82,7 +94,9 @@ export const formatDuration = (seconds: number): string => {
 
 // 截断字符串
 export const truncateString = (str: string, maxLength: number, suffix: string = '...'): string => {
-  if (str.length <= maxLength) return str;
+  if (str.length <= maxLength) {
+    return str;
+  }
   return str.substring(0, maxLength - suffix.length) + suffix;
 };
 
@@ -110,7 +124,9 @@ export const toKebabCase = (str: string): string => {
 
 // 掩码处理（如手机号、邮箱）
 export const maskString = (str: string, start: number, end: number, mask: string = '*'): string => {
-  if (str.length <= start + end) return str;
+  if (str.length <= start + end) {
+    return str;
+  }
   const startStr = str.substring(0, start);
   const endStr = str.substring(str.length - end);
   const maskLength = str.length - start - end;
@@ -125,7 +141,9 @@ export const maskPhone = (phone: string): string => {
 // 邮箱掩码
 export const maskEmail = (email: string): string => {
   const [username, domain] = email.split('@');
-  if (username.length <= 2) return email;
+  if (username.length <= 2) {
+    return email;
+  }
   const maskedUsername = username.charAt(0) + '*'.repeat(username.length - 2) + username.charAt(username.length - 1);
   return `${maskedUsername}@${domain}`;
 };

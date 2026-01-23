@@ -1,6 +1,10 @@
 import React from 'react'
 import { Card, Row, Col, Statistic, Typography, Button, Space } from 'antd'
-import { DatabaseOutlined, ReloadOutlined, DeleteOutlined } from '@ant-design/icons'
+import {
+  DatabaseOutlined,
+  ReloadOutlined,
+  DeleteOutlined,
+} from '@ant-design/icons'
 
 const { Title, Paragraph } = Typography
 
@@ -12,9 +16,7 @@ const KnowledgeCacheManagementPage: React.FC = () => {
           <DatabaseOutlined style={{ marginRight: 8 }} />
           缓存管理
         </Title>
-        <Paragraph type="secondary">
-          知识图谱系统的缓存管理和优化
-        </Paragraph>
+        <Paragraph type="secondary">知识图谱系统的缓存管理和优化</Paragraph>
       </div>
 
       <Row gutter={[16, 16]}>
@@ -37,7 +39,9 @@ const KnowledgeCacheManagementPage: React.FC = () => {
           <Card>
             <Space>
               <Button icon={<ReloadOutlined />}>刷新</Button>
-              <Button icon={<DeleteOutlined />} danger>清空</Button>
+              <Button icon={<DeleteOutlined />} danger>
+                清空
+              </Button>
             </Space>
           </Card>
         </Col>

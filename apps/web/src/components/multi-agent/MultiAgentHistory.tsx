@@ -1,18 +1,23 @@
-import React from 'react'
+import React, { useEffect } from 'react'
 import { List, Card, Typography, Space, Button, Empty, Tag, Avatar } from 'antd'
-import { 
 import { logger } from '../../utils/logger'
-  MessageOutlined, 
-  DeleteOutlined, 
+import {
+  MessageOutlined,
+  DeleteOutlined,
   CalendarOutlined,
   TeamOutlined,
   PlayCircleOutlined,
   PauseCircleOutlined,
   CheckCircleOutlined,
-  StopOutlined
+  StopOutlined,
+  ReloadOutlined,
 } from '@ant-design/icons'
 import dayjs from 'dayjs'
-import { useMultiAgentStore, ConversationSession } from '../../stores/multiAgentStore'
+import {
+  useMultiAgentStore,
+  ConversationSession,
+} from '../../stores/multiAgentStore'
+import NetworkErrorAlert from '../ui/NetworkErrorAlert'
 
 const { Text, Title } = Typography
 
@@ -25,17 +30,34 @@ const MultiAgentHistory: React.FC<MultiAgentHistoryProps> = ({
   visible,
   onSelectSession,
 }) => {
-  const { 
-    sessions, 
-    currentSession, 
-    deleteSession, 
+  const {
+    sessions,
+    currentSession,
+    historyLoading,
+    historyError,
+    deleteSession,
     getSessionSummary,
-    loadSessionHistory 
+    loadSessionHistory,
+    refreshSessions,
+    setHistoryError,
   } = useMultiAgentStore()
+
+  useEffect(() => {
+    if (!visible) return
+    refreshSessions().catch(error => {
+      logger.error('加载会话列表失败:', error)
+    })
+  }, [refreshSessions, visible])
 
   const handleDeleteSession = (sessionId: string, e: React.MouseEvent) => {
     e.stopPropagation()
     deleteSession(sessionId)
+  }
+
+  const handleRefresh = () => {
+    refreshSessions().catch(error => {
+      logger.error('刷新会话列表失败:', error)
+    })
   }
 
   const handleSelectSession = async (session: ConversationSession) => {
@@ -99,40 +121,61 @@ const MultiAgentHistory: React.FC<MultiAgentHistoryProps> = ({
   if (!visible) return null
 
   // 按更新时间倒序排序
-  const sortedSessions = [...sessions].sort((a, b) => 
-    new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
+  const sortedSessions = [...sessions].sort(
+    (a, b) =>
+      new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
   )
 
   return (
     <div className="p-4">
-      <div className="mb-4">
-        <Title level={4} className="!mb-2">
-          协作历史
-        </Title>
-        <Text type="secondary">共 {sessions.length} 个会话</Text>
+      <div className="mb-4 flex items-start justify-between gap-3">
+        <div>
+          <Title level={4} className="!mb-2">
+            协作历史
+          </Title>
+          <Text type="secondary">共 {sessions.length} 个会话</Text>
+        </div>
+        <Button
+          size="small"
+          icon={<ReloadOutlined />}
+          onClick={handleRefresh}
+          loading={historyLoading}
+        >
+          刷新
+        </Button>
       </div>
 
-      {sessions.length === 0 ? (
+      {historyError && (
+        <div className="mb-3">
+          <NetworkErrorAlert
+            error={historyError}
+            onRetry={handleRefresh}
+            onDismiss={() => setHistoryError(null)}
+          />
+        </div>
+      )}
+
+      {sessions.length === 0 && !historyLoading ? (
         <Empty
           description="暂无对话历史"
           image={Empty.PRESENTED_IMAGE_SIMPLE}
         />
       ) : (
         <List
+          loading={historyLoading}
           dataSource={sortedSessions}
-          renderItem={(session) => {
+          renderItem={session => {
             const summary = getSessionSummary(session)
-            const isCurrentSession = currentSession?.session_id === session.session_id
-            
+            const isCurrentSession =
+              currentSession?.session_id === session.session_id
+
             return (
               <List.Item className="!px-0">
                 <Card
                   hoverable
                   size="small"
                   className={`w-full cursor-pointer ${
-                    isCurrentSession
-                      ? 'border-blue-400 bg-blue-50'
-                      : ''
+                    isCurrentSession ? 'border-blue-400 bg-blue-50' : ''
                   }`}
                   onClick={() => handleSelectSession(session)}
                   actions={[
@@ -142,7 +185,7 @@ const MultiAgentHistory: React.FC<MultiAgentHistoryProps> = ({
                       size="small"
                       danger
                       icon={<DeleteOutlined />}
-                      onClick={(e) => handleDeleteSession(session.session_id, e)}
+                      onClick={e => handleDeleteSession(session.session_id, e)}
                     />,
                   ]}
                 >
@@ -152,8 +195,8 @@ const MultiAgentHistory: React.FC<MultiAgentHistoryProps> = ({
                       <Text strong className="text-sm truncate flex-1 mr-2">
                         {summary.title}
                       </Text>
-                      <Tag 
-                        color={getStatusColor(session.status)} 
+                      <Tag
+                        color={getStatusColor(session.status)}
                         icon={getStatusIcon(session.status)}
                       >
                         {getStatusText(session.status)}
@@ -175,8 +218,8 @@ const MultiAgentHistory: React.FC<MultiAgentHistoryProps> = ({
                                   '#ed8936',
                                   '#38b2ac',
                                   '#4299e1',
-                                  '#9f7aea'
-                                ][index % 5]
+                                  '#9f7aea',
+                                ][index % 5],
                               }}
                             >
                               {participant.name.substring(0, 2)}
@@ -191,13 +234,10 @@ const MultiAgentHistory: React.FC<MultiAgentHistoryProps> = ({
 
                     {/* 对话统计和预览 */}
                     <div className="space-y-2">
-                      <Text
-                        type="secondary"
-                        className="text-xs line-clamp-2"
-                      >
+                      <Text type="secondary" className="text-xs line-clamp-2">
                         {summary.preview}
                       </Text>
-                      
+
                       <div className="flex items-center justify-between">
                         <Space size="small">
                           <MessageOutlined className="text-gray-400" />

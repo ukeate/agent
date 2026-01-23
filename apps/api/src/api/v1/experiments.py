@@ -249,6 +249,8 @@ async def _to_experiment_dict(db: AsyncSession, exp: Experiment) -> Dict[str, An
         "name": exp.name,
         "description": exp.description,
         "type": meta.get("type", "A/B Testing"),
+        "owner": exp.owner,
+        "owners": [exp.owner],
         "status": exp.status,
         "startDate": exp.start_date,
         "endDate": exp.end_date,
@@ -279,12 +281,16 @@ async def list_experiments(
     search: Optional[str] = None,
     status: Optional[str] = None,
     owner: Optional[str] = None,
+    startDateFrom: Optional[datetime] = None,
+    startDateTo: Optional[datetime] = None,
     page: int = Query(1, ge=1),
     pageSize: int = Query(10, ge=1, le=200),
     sortBy: str = Query("created_at"),
     sortOrder: str = Query("desc"),
     db: AsyncSession = Depends(get_db),
 ) -> ListExperimentsResponse:
+    if startDateFrom and startDateTo and startDateFrom > startDateTo:
+        raise HTTPException(status_code=400, detail="开始日期不能晚于结束日期")
     stmt = select(Experiment).where(True)
     if search:
         like = f"%{search.strip()}%"
@@ -293,6 +299,10 @@ async def list_experiments(
         stmt = stmt.where(Experiment.status == _status_to_db(status))
     if owner:
         stmt = stmt.where(Experiment.owner == owner)
+    if startDateFrom:
+        stmt = stmt.where(Experiment.start_date >= startDateFrom)
+    if startDateTo:
+        stmt = stmt.where(Experiment.start_date <= startDateTo)
 
     sort_col = getattr(Experiment, sortBy, None) or Experiment.created_at
     stmt = stmt.order_by(desc(sort_col) if sortOrder.lower() == "desc" else asc(sort_col))

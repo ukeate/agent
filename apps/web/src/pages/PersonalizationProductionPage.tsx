@@ -1,6 +1,22 @@
 import React, { useState, useEffect } from 'react'
-import { Card, Row, Col, Progress, Button, Space, Typography, Table, Tag, Statistic, Alert, Descriptions, Badge, Tooltip, Switch } from 'antd'
-import { 
+import {
+  Card,
+  Row,
+  Col,
+  Progress,
+  Button,
+  Space,
+  Typography,
+  Table,
+  Tag,
+  Statistic,
+  Alert,
+  Descriptions,
+  Badge,
+  Tooltip,
+  Switch,
+} from 'antd'
+import {
   DashboardOutlined,
   ThunderboltOutlined,
   SafetyOutlined,
@@ -19,7 +35,7 @@ import {
   ReloadOutlined,
   SettingOutlined,
   AlertOutlined,
-  LineChartOutlined
+  LineChartOutlined,
 } from '@ant-design/icons'
 import { Line, Column, Gauge, Area } from '@ant-design/plots'
 import { monitoringService } from '../services/monitoringService'
@@ -60,7 +76,7 @@ const PersonalizationProductionPage: React.FC = () => {
   const [systemStatus, setSystemStatus] = useState<SystemStatus>({
     overall_status: 'healthy',
     uptime_seconds: 0,
-    timestamp: ''
+    timestamp: '',
   })
 
   const [healthChecks, setHealthChecks] = useState<HealthCheck[]>([])
@@ -68,7 +84,7 @@ const PersonalizationProductionPage: React.FC = () => {
     cpu_percent: 0,
     memory_percent: 0,
     disk_percent: 0,
-    process_memory_mb: 0
+    process_memory_mb: 0,
   })
 
   const [keyMetrics, setKeyMetrics] = useState<KeyMetrics>({
@@ -76,7 +92,7 @@ const PersonalizationProductionPage: React.FC = () => {
     feature_computation_latency_avg: 0,
     cache_hit_rate: 0,
     error_rate: 0,
-    requests_per_second: 0
+    requests_per_second: 0,
   })
 
   const [metricHistory, setMetricHistory] = useState<any[]>([])
@@ -88,22 +104,24 @@ const PersonalizationProductionPage: React.FC = () => {
       const dashboard = await monitoringService.getDashboardData()
       const m = dashboard.metrics || {}
       setKeyMetrics({
-        recommendation_latency_p99: m.recommendation_latency_p99?.current_value || 0,
-        feature_computation_latency_avg: m.feature_computation_latency_avg?.current_value || 0,
+        recommendation_latency_p99:
+          m.recommendation_latency_p99?.current_value || 0,
+        feature_computation_latency_avg:
+          m.feature_computation_latency_avg?.current_value || 0,
         cache_hit_rate: m.cache_hit_rate?.current_value || 0,
         error_rate: m.error_rate?.current_value || 0,
-        requests_per_second: m.requests_per_second?.current_value || 0
+        requests_per_second: m.requests_per_second?.current_value || 0,
       })
       setSystemMetrics({
         cpu_percent: m.cpu_percent?.current_value || 0,
         memory_percent: m.memory_percent?.current_value || 0,
         disk_percent: m.disk_percent?.current_value || 0,
-        process_memory_mb: m.process_memory_mb?.current_value || 0
+        process_memory_mb: m.process_memory_mb?.current_value || 0,
       })
       setSystemStatus({
         overall_status: dashboard.summary?.system_status || 'healthy',
         uptime_seconds: 0,
-        timestamp: dashboard.timestamp
+        timestamp: dashboard.timestamp,
       })
       setMetricHistory(
         (m.qps?.points || []).map((p: any) => ({
@@ -111,7 +129,7 @@ const PersonalizationProductionPage: React.FC = () => {
           latency: m.recommendation_latency_p99?.current_value || 0,
           qps: p.value,
           error_rate: m.error_rate?.current_value || 0,
-          cache_hit_rate: m.cache_hit_rate?.current_value || 0
+          cache_hit_rate: m.cache_hit_rate?.current_value || 0,
         }))
       )
     } catch (err) {
@@ -142,9 +160,9 @@ const PersonalizationProductionPage: React.FC = () => {
   const getStatusColor = (status: string) => {
     const colors = {
       healthy: '#52c41a',
-      degraded: '#faad14', 
+      degraded: '#faad14',
       unhealthy: '#ff4d4f',
-      critical: '#a8071a'
+      critical: '#a8071a',
     }
     return colors[status] || '#d9d9d9'
   }
@@ -154,7 +172,7 @@ const PersonalizationProductionPage: React.FC = () => {
       healthy: <CheckCircleOutlined style={{ color: '#52c41a' }} />,
       degraded: <WarningOutlined style={{ color: '#faad14' }} />,
       unhealthy: <ExclamationCircleOutlined style={{ color: '#ff4d4f' }} />,
-      critical: <AlertOutlined style={{ color: '#a8071a' }} />
+      critical: <AlertOutlined style={{ color: '#a8071a' }} />,
     }
     return icons[status] || <ClockCircleOutlined />
   }
@@ -175,9 +193,9 @@ const PersonalizationProductionPage: React.FC = () => {
     color: '#1890ff',
     point: { size: 3 },
     yAxis: {
-      title: { text: '延迟 (ms)' }
+      title: { text: '延迟 (ms)' },
     },
-    height: 200
+    height: 200,
   }
 
   // QPS趋势图配置
@@ -189,9 +207,9 @@ const PersonalizationProductionPage: React.FC = () => {
     color: '#52c41a',
     point: { size: 3 },
     yAxis: {
-      title: { text: 'QPS' }
+      title: { text: 'QPS' },
     },
-    height: 200
+    height: 200,
   }
 
   // 缓存命中率仪表盘
@@ -205,7 +223,7 @@ const PersonalizationProductionPage: React.FC = () => {
         formatter: ({ percent }: any) => `${(percent * 100).toFixed(1)}%`,
       },
     },
-    height: 200
+    height: 200,
   }
 
   const healthCheckColumns = [
@@ -222,7 +240,7 @@ const PersonalizationProductionPage: React.FC = () => {
           {service === 'cache' && <CloudOutlined />}
           <Text strong>{service}</Text>
         </Space>
-      )
+      ),
     },
     {
       title: '状态',
@@ -231,54 +249,56 @@ const PersonalizationProductionPage: React.FC = () => {
       render: (status: string) => (
         <Space>
           {getStatusIcon(status)}
-          <Tag color={getStatusColor(status)}>
-            {status.toUpperCase()}
-          </Tag>
+          <Tag color={getStatusColor(status)}>{status.toUpperCase()}</Tag>
         </Space>
-      )
+      ),
     },
     {
       title: '延迟',
       dataIndex: 'latency_ms',
       key: 'latency_ms',
       render: (latency: number) => (
-        <Text type={latency > 100 ? 'danger' : latency > 50 ? 'warning' : 'success'}>
+        <Text
+          type={latency > 100 ? 'danger' : latency > 50 ? 'warning' : 'success'}
+        >
           {latency.toFixed(1)}ms
         </Text>
-      )
+      ),
     },
     {
       title: '最后检查',
       dataIndex: 'last_check',
       key: 'last_check',
       render: (time: string) => (
-        <Text type="secondary">
-          {new Date(time).toLocaleTimeString()}
-        </Text>
-      )
+        <Text type="secondary">{new Date(time).toLocaleTimeString()}</Text>
+      ),
     },
     {
       title: '操作',
       key: 'actions',
       render: (_: any, record: HealthCheck) => (
         <Space>
-          <Button 
-            type="link" 
-            icon={<EyeOutlined />} 
-            onClick={() => {/* 查看详情 */}}
+          <Button
+            type="link"
+            icon={<EyeOutlined />}
+            onClick={() => {
+              /* 查看详情 */
+            }}
           >
             详情
           </Button>
-          <Button 
-            type="link" 
+          <Button
+            type="link"
             icon={<ReloadOutlined />}
-            onClick={() => {/* 重新检查 */}}
+            onClick={() => {
+              /* 重新检查 */
+            }}
           >
             重检
           </Button>
         </Space>
-      )
-    }
+      ),
+    },
   ]
 
   return (
@@ -298,13 +318,18 @@ const PersonalizationProductionPage: React.FC = () => {
               <Space>
                 {getStatusIcon(systemStatus.overall_status)}
                 <Text strong>系统状态: </Text>
-                <Tag color={getStatusColor(systemStatus.overall_status)} style={{ fontSize: '14px', padding: '4px 8px' }}>
+                <Tag
+                  color={getStatusColor(systemStatus.overall_status)}
+                  style={{ fontSize: '14px', padding: '4px 8px' }}
+                >
                   {systemStatus.overall_status.toUpperCase()}
                 </Tag>
               </Space>
               <Space>
                 <ClockCircleOutlined />
-                <Text>运行时间: {formatUptime(systemStatus.uptime_seconds)}</Text>
+                <Text>
+                  运行时间: {formatUptime(systemStatus.uptime_seconds)}
+                </Text>
               </Space>
               <Space>
                 <AlertOutlined />
@@ -315,18 +340,19 @@ const PersonalizationProductionPage: React.FC = () => {
           </Col>
           <Col>
             <Space>
-              <Switch 
+              <Switch
                 checked={autoRefresh}
                 onChange={setAutoRefresh}
                 checkedChildren="自动刷新"
                 unCheckedChildren="手动刷新"
               />
-              <Button icon={<ReloadOutlined />} onClick={() => window.location.reload()}>
+              <Button
+                icon={<ReloadOutlined />}
+                onClick={() => window.location.reload()}
+              >
                 刷新
               </Button>
-              <Button icon={<SettingOutlined />}>
-                配置
-              </Button>
+              <Button icon={<SettingOutlined />}>配置</Button>
             </Space>
           </Col>
         </Row>
@@ -342,14 +368,21 @@ const PersonalizationProductionPage: React.FC = () => {
               precision={1}
               suffix="ms"
               prefix={<ThunderboltOutlined />}
-              valueStyle={{ 
-                color: keyMetrics.recommendation_latency_p99 > 100 ? '#ff4d4f' : '#52c41a' 
+              valueStyle={{
+                color:
+                  keyMetrics.recommendation_latency_p99 > 100
+                    ? '#ff4d4f'
+                    : '#52c41a',
               }}
             />
-            <Progress 
-              percent={Math.min(100, keyMetrics.recommendation_latency_p99)} 
+            <Progress
+              percent={Math.min(100, keyMetrics.recommendation_latency_p99)}
               size="small"
-              strokeColor={keyMetrics.recommendation_latency_p99 > 100 ? '#ff4d4f' : '#52c41a'}
+              strokeColor={
+                keyMetrics.recommendation_latency_p99 > 100
+                  ? '#ff4d4f'
+                  : '#52c41a'
+              }
               showInfo={false}
             />
           </Card>
@@ -362,14 +395,24 @@ const PersonalizationProductionPage: React.FC = () => {
               precision={1}
               suffix="ms"
               prefix={<ApiOutlined />}
-              valueStyle={{ 
-                color: keyMetrics.feature_computation_latency_avg > 10 ? '#ff4d4f' : '#52c41a' 
+              valueStyle={{
+                color:
+                  keyMetrics.feature_computation_latency_avg > 10
+                    ? '#ff4d4f'
+                    : '#52c41a',
               }}
             />
-            <Progress 
-              percent={Math.min(100, keyMetrics.feature_computation_latency_avg * 10)} 
+            <Progress
+              percent={Math.min(
+                100,
+                keyMetrics.feature_computation_latency_avg * 10
+              )}
               size="small"
-              strokeColor={keyMetrics.feature_computation_latency_avg > 10 ? '#ff4d4f' : '#52c41a'}
+              strokeColor={
+                keyMetrics.feature_computation_latency_avg > 10
+                  ? '#ff4d4f'
+                  : '#52c41a'
+              }
               showInfo={false}
             />
           </Card>
@@ -383,8 +426,8 @@ const PersonalizationProductionPage: React.FC = () => {
               prefix={<LineChartOutlined />}
               valueStyle={{ color: '#1890ff' }}
             />
-            <Progress 
-              percent={Math.min(100, keyMetrics.requests_per_second / 20)} 
+            <Progress
+              percent={Math.min(100, keyMetrics.requests_per_second / 20)}
               size="small"
               strokeColor="#1890ff"
               showInfo={false}
@@ -399,12 +442,12 @@ const PersonalizationProductionPage: React.FC = () => {
               precision={3}
               suffix="%"
               prefix={<ExclamationCircleOutlined />}
-              valueStyle={{ 
-                color: keyMetrics.error_rate > 0.01 ? '#ff4d4f' : '#52c41a' 
+              valueStyle={{
+                color: keyMetrics.error_rate > 0.01 ? '#ff4d4f' : '#52c41a',
               }}
             />
-            <Progress 
-              percent={Math.min(100, keyMetrics.error_rate * 10000)} 
+            <Progress
+              percent={Math.min(100, keyMetrics.error_rate * 10000)}
               size="small"
               strokeColor={keyMetrics.error_rate > 0.01 ? '#ff4d4f' : '#52c41a'}
               showInfo={false}
@@ -421,7 +464,9 @@ const PersonalizationProductionPage: React.FC = () => {
               type="circle"
               percent={systemMetrics.cpu_percent}
               format={percent => `${percent?.toFixed(1)}%`}
-              strokeColor={systemMetrics.cpu_percent > 80 ? '#ff4d4f' : '#52c41a'}
+              strokeColor={
+                systemMetrics.cpu_percent > 80 ? '#ff4d4f' : '#52c41a'
+              }
               size={120}
             />
           </Card>
@@ -432,7 +477,9 @@ const PersonalizationProductionPage: React.FC = () => {
               type="circle"
               percent={systemMetrics.memory_percent}
               format={percent => `${percent?.toFixed(1)}%`}
-              strokeColor={systemMetrics.memory_percent > 85 ? '#ff4d4f' : '#52c41a'}
+              strokeColor={
+                systemMetrics.memory_percent > 85 ? '#ff4d4f' : '#52c41a'
+              }
               size={120}
             />
           </Card>
@@ -443,7 +490,9 @@ const PersonalizationProductionPage: React.FC = () => {
               type="circle"
               percent={systemMetrics.disk_percent}
               format={percent => `${percent?.toFixed(1)}%`}
-              strokeColor={systemMetrics.disk_percent > 90 ? '#ff4d4f' : '#52c41a'}
+              strokeColor={
+                systemMetrics.disk_percent > 90 ? '#ff4d4f' : '#52c41a'
+              }
               size={120}
             />
           </Card>
@@ -458,24 +507,32 @@ const PersonalizationProductionPage: React.FC = () => {
       {/* 性能趋势 */}
       <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
         <Col span={12}>
-          <Card title="延迟趋势" extra={<Badge status="processing" text="实时" />}>
+          <Card
+            title="延迟趋势"
+            extra={<Badge status="processing" text="实时" />}
+          >
             <Line {...latencyTrendConfig} />
           </Card>
         </Col>
         <Col span={12}>
-          <Card title="QPS趋势" extra={<Badge status="processing" text="实时" />}>
+          <Card
+            title="QPS趋势"
+            extra={<Badge status="processing" text="实时" />}
+          >
             <Line {...qpsTrendConfig} />
           </Card>
         </Col>
       </Row>
 
       {/* 健康检查 */}
-      <Card 
-        title="服务健康检查" 
+      <Card
+        title="服务健康检查"
         extra={
           <Space>
             <Badge status="processing" text="自动检查中" />
-            <Button icon={<ReloadOutlined />} size="small">刷新</Button>
+            <Button icon={<ReloadOutlined />} size="small">
+              刷新
+            </Button>
           </Space>
         }
       >
@@ -506,9 +563,7 @@ const PersonalizationProductionPage: React.FC = () => {
           </Col>
           <Col span={12}>
             <Descriptions column={1} size="small">
-              <Descriptions.Item label="部署环境">
-                Production
-              </Descriptions.Item>
+              <Descriptions.Item label="部署环境">Production</Descriptions.Item>
               <Descriptions.Item label="负载均衡">
                 Nginx + Upstream
               </Descriptions.Item>

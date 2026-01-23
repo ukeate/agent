@@ -30,7 +30,7 @@ import {
   InputNumber,
   Upload,
   Descriptions,
-  Empty
+  Empty,
 } from 'antd'
 import {
   ShareAltOutlined,
@@ -67,7 +67,7 @@ import {
   SortAscendingOutlined,
   ApartmentOutlined,
   RadarChartOutlined,
-  SearchOutlined
+  SearchOutlined,
 } from '@ant-design/icons'
 
 const { Title, Text, Paragraph } = Typography
@@ -80,7 +80,15 @@ const { TreeNode } = Tree
 interface CommunicationPattern {
   id: string
   name: string
-  type: 'multicast' | 'broadcast' | 'anycast' | 'workflow' | 'pipeline' | 'pubsub' | 'scatter-gather' | 'routing'
+  type:
+    | 'multicast'
+    | 'broadcast'
+    | 'anycast'
+    | 'workflow'
+    | 'pipeline'
+    | 'pubsub'
+    | 'scatter-gather'
+    | 'routing'
   description: string
   subjects: string[]
   participants: string[]
@@ -213,9 +221,12 @@ const AdvancedCommunicationPatternsPage: React.FC = () => {
   const [workflowModalVisible, setWorkflowModalVisible] = useState(false)
   const [routingModalVisible, setRoutingModalVisible] = useState(false)
   const [pipelineModalVisible, setPipelineModalVisible] = useState(false)
-  const [selectedPattern, setSelectedPattern] = useState<CommunicationPattern | null>(null)
-  
-  const [communicationPatterns, setCommunicationPatterns] = useState<CommunicationPattern[]>([
+  const [selectedPattern, setSelectedPattern] =
+    useState<CommunicationPattern | null>(null)
+
+  const [communicationPatterns, setCommunicationPatterns] = useState<
+    CommunicationPattern[]
+  >([
     {
       id: 'pattern-001',
       name: '任务分发多播',
@@ -227,19 +238,19 @@ const AdvancedCommunicationPatternsPage: React.FC = () => {
         loadBalancing: true,
         failover: true,
         timeout: 10000,
-        batchSize: 10
+        batchSize: 10,
       },
       metrics: {
         messagesProcessed: 5234,
         averageLatency: 156,
         throughput: 78.5,
         successRate: 98.2,
-        participantCount: 3
+        participantCount: 3,
       },
       status: 'active',
       enabled: true,
       createdAt: '2025-08-20 10:30:00',
-      lastUsed: '2025-08-26 12:45:00'
+      lastUsed: '2025-08-26 12:45:00',
     },
     {
       id: 'pattern-002',
@@ -250,19 +261,19 @@ const AdvancedCommunicationPatternsPage: React.FC = () => {
       participants: ['*'],
       config: {
         timeout: 5000,
-        batchSize: 100
+        batchSize: 100,
       },
       metrics: {
         messagesProcessed: 1247,
         averageLatency: 89,
         throughput: 145.2,
         successRate: 99.8,
-        participantCount: 12
+        participantCount: 12,
       },
       status: 'active',
       enabled: true,
       createdAt: '2025-08-18 14:20:00',
-      lastUsed: '2025-08-26 11:30:00'
+      lastUsed: '2025-08-26 11:30:00',
     },
     {
       id: 'pattern-003',
@@ -270,24 +281,28 @@ const AdvancedCommunicationPatternsPage: React.FC = () => {
       type: 'anycast',
       description: '智能负载均衡，选择最优智能体处理请求',
       subjects: ['agents.services.>'],
-      participants: ['service-agent-01', 'service-agent-02', 'service-agent-03'],
+      participants: [
+        'service-agent-01',
+        'service-agent-02',
+        'service-agent-03',
+      ],
       config: {
         partitionStrategy: 'round-robin',
         loadBalancing: true,
         failover: true,
-        timeout: 8000
+        timeout: 8000,
       },
       metrics: {
         messagesProcessed: 8945,
         averageLatency: 234,
         throughput: 56.8,
         successRate: 97.5,
-        participantCount: 3
+        participantCount: 3,
       },
       status: 'active',
       enabled: true,
       createdAt: '2025-08-19 09:15:00',
-      lastUsed: '2025-08-26 12:30:00'
+      lastUsed: '2025-08-26 12:30:00',
     },
     {
       id: 'pattern-004',
@@ -295,27 +310,33 @@ const AdvancedCommunicationPatternsPage: React.FC = () => {
       type: 'scatter-gather',
       description: '分散任务到多个智能体，收集汇总结果',
       subjects: ['agents.analytics.scatter'],
-      participants: ['analytics-agent-01', 'analytics-agent-02', 'analytics-agent-03'],
+      participants: [
+        'analytics-agent-01',
+        'analytics-agent-02',
+        'analytics-agent-03',
+      ],
       config: {
         timeout: 15000,
         parallelism: 3,
-        batchSize: 5
+        batchSize: 5,
       },
       metrics: {
         messagesProcessed: 2156,
         averageLatency: 2850,
         throughput: 23.4,
         successRate: 94.8,
-        participantCount: 3
+        participantCount: 3,
       },
       status: 'active',
       enabled: true,
       createdAt: '2025-08-21 16:45:00',
-      lastUsed: '2025-08-26 10:15:00'
-    }
+      lastUsed: '2025-08-26 10:15:00',
+    },
   ])
 
-  const [workflowDefinitions, setWorkflowDefinitions] = useState<WorkflowDefinition[]>([
+  const [workflowDefinitions, setWorkflowDefinitions] = useState<
+    WorkflowDefinition[]
+  >([
     {
       id: 'workflow-001',
       name: '订单处理工作流',
@@ -327,7 +348,7 @@ const AdvancedCommunicationPatternsPage: React.FC = () => {
           type: 'message',
           config: { agent: 'validation-agent', subject: 'orders.validate' },
           position: { x: 100, y: 100 },
-          connections: ['step-002']
+          connections: ['step-002'],
         },
         {
           id: 'step-002',
@@ -335,7 +356,7 @@ const AdvancedCommunicationPatternsPage: React.FC = () => {
           type: 'message',
           config: { agent: 'payment-agent', subject: 'payments.process' },
           position: { x: 300, y: 100 },
-          connections: ['step-003']
+          connections: ['step-003'],
         },
         {
           id: 'step-003',
@@ -343,8 +364,8 @@ const AdvancedCommunicationPatternsPage: React.FC = () => {
           type: 'message',
           config: { agent: 'inventory-agent', subject: 'inventory.check' },
           position: { x: 500, y: 100 },
-          connections: ['step-004']
-        }
+          connections: ['step-004'],
+        },
       ],
       triggers: ['orders.new', 'orders.updated'],
       variables: { timeout: 30000, maxRetries: 3 },
@@ -352,17 +373,17 @@ const AdvancedCommunicationPatternsPage: React.FC = () => {
         timeout: 300000,
         retryPolicy: 'exponential',
         maxRetries: 3,
-        errorHandling: 'compensate'
+        errorHandling: 'compensate',
       },
       metrics: {
         executions: 1456,
         successRate: 96.8,
         averageExecutionTime: 45000,
-        failurePoints: { 'step-002': 32, 'step-003': 18 }
+        failurePoints: { 'step-002': 32, 'step-003': 18 },
       },
       status: 'active',
-      version: '1.2.0'
-    }
+      version: '1.2.0',
+    },
   ])
 
   const [routingRules, setRoutingRules] = useState<RoutingRule[]>([
@@ -375,19 +396,26 @@ const AdvancedCommunicationPatternsPage: React.FC = () => {
       sourcePattern: 'agents.tasks.>',
       targetRoutes: [
         { agent: 'high-priority-worker', weight: 100 },
-        { agent: 'fallback-worker', weight: 0, condition: 'high-priority-worker.offline' }
+        {
+          agent: 'fallback-worker',
+          weight: 0,
+          condition: 'high-priority-worker.offline',
+        },
       ],
       transformations: {
         headerMappings: { 'X-Priority': 'high' },
-        filterExpression: 'payload.urgent == true'
+        filterExpression: 'payload.urgent == true',
       },
       metrics: {
         matchCount: 2456,
-        routeDistribution: { 'high-priority-worker': 2398, 'fallback-worker': 58 },
-        averageLatency: 123
+        routeDistribution: {
+          'high-priority-worker': 2398,
+          'fallback-worker': 58,
+        },
+        averageLatency: 123,
       },
       enabled: true,
-      createdAt: '2025-08-20 11:30:00'
+      createdAt: '2025-08-20 11:30:00',
     },
     {
       id: 'routing-002',
@@ -397,29 +425,43 @@ const AdvancedCommunicationPatternsPage: React.FC = () => {
       condition: 'message.headers.region != null',
       sourcePattern: 'users.requests.>',
       targetRoutes: [
-        { agent: 'us-west-processor', weight: 50, condition: 'message.headers.region == "us-west"' },
-        { agent: 'us-east-processor', weight: 30, condition: 'message.headers.region == "us-east"' },
-        { agent: 'eu-processor', weight: 20, condition: 'message.headers.region == "eu"' }
+        {
+          agent: 'us-west-processor',
+          weight: 50,
+          condition: 'message.headers.region == "us-west"',
+        },
+        {
+          agent: 'us-east-processor',
+          weight: 30,
+          condition: 'message.headers.region == "us-east"',
+        },
+        {
+          agent: 'eu-processor',
+          weight: 20,
+          condition: 'message.headers.region == "eu"',
+        },
       ],
       transformations: {
         headerMappings: { 'X-Region': 'message.headers.region' },
-        payloadTransform: 'payload.region = message.headers.region'
+        payloadTransform: 'payload.region = message.headers.region',
       },
       metrics: {
         matchCount: 8945,
-        routeDistribution: { 
-          'us-west-processor': 4472, 
-          'us-east-processor': 2684, 
-          'eu-processor': 1789 
+        routeDistribution: {
+          'us-west-processor': 4472,
+          'us-east-processor': 2684,
+          'eu-processor': 1789,
         },
-        averageLatency: 89
+        averageLatency: 89,
       },
       enabled: true,
-      createdAt: '2025-08-19 15:20:00'
-    }
+      createdAt: '2025-08-19 15:20:00',
+    },
   ])
 
-  const [streamingPipelines, setStreamingPipelines] = useState<StreamingPipeline[]>([
+  const [streamingPipelines, setStreamingPipelines] = useState<
+    StreamingPipeline[]
+  >([
     {
       id: 'pipeline-001',
       name: '实时事件处理管道',
@@ -430,39 +472,54 @@ const AdvancedCommunicationPatternsPage: React.FC = () => {
           name: '事件过滤',
           type: 'filter',
           config: { condition: 'event.level >= "WARN"' },
-          metrics: { inputCount: 15642, outputCount: 3456, processingTime: 2, errorCount: 0 }
+          metrics: {
+            inputCount: 15642,
+            outputCount: 3456,
+            processingTime: 2,
+            errorCount: 0,
+          },
         },
         {
           id: 'stage-002',
           name: '数据转换',
           type: 'transform',
           config: { mapping: { timestamp: 'ISO8601', level: 'uppercase' } },
-          metrics: { inputCount: 3456, outputCount: 3456, processingTime: 5, errorCount: 12 }
+          metrics: {
+            inputCount: 3456,
+            outputCount: 3456,
+            processingTime: 5,
+            errorCount: 12,
+          },
         },
         {
           id: 'stage-003',
           name: '上下文富化',
           type: 'enrich',
           config: { lookup: 'user-context', keys: ['userId'] },
-          metrics: { inputCount: 3456, outputCount: 3444, processingTime: 15, errorCount: 12 }
-        }
+          metrics: {
+            inputCount: 3456,
+            outputCount: 3444,
+            processingTime: 15,
+            errorCount: 12,
+          },
+        },
       ],
       config: {
         bufferSize: 1000,
         batchTimeout: 100,
         backpressureStrategy: 'buffer',
-        parallelism: 4
+        parallelism: 4,
       },
       metrics: {
         throughput: 1250.5,
         backpressureEvents: 23,
         processedMessages: 156420,
         droppedMessages: 45,
-        averageLatency: 22
+        averageLatency: 22,
       },
       status: 'running',
-      createdAt: '2025-08-20 09:00:00'
-    }
+      createdAt: '2025-08-20 09:00:00',
+    },
   ])
 
   const patternColumns = [
@@ -472,30 +529,60 @@ const AdvancedCommunicationPatternsPage: React.FC = () => {
       width: 300,
       render: (record: CommunicationPattern) => (
         <div>
-          <div style={{ display: 'flex', alignItems: 'center', marginBottom: '4px' }}>
-            <Badge status={record.status === 'active' ? 'success' : record.status === 'error' ? 'error' : 'default'} />
-            <Text strong style={{ marginLeft: '8px', fontSize: '13px' }}>{record.name}</Text>
-            <Tag 
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              marginBottom: '4px',
+            }}
+          >
+            <Badge
+              status={
+                record.status === 'active'
+                  ? 'success'
+                  : record.status === 'error'
+                    ? 'error'
+                    : 'default'
+              }
+            />
+            <Text strong style={{ marginLeft: '8px', fontSize: '13px' }}>
+              {record.name}
+            </Text>
+            <Tag
               color={
-                record.type === 'multicast' ? 'blue' :
-                record.type === 'broadcast' ? 'green' :
-                record.type === 'anycast' ? 'orange' :
-                record.type === 'workflow' ? 'purple' :
-                record.type === 'pipeline' ? 'red' :
-                record.type === 'pubsub' ? 'cyan' :
-                record.type === 'scatter-gather' ? 'magenta' : 'gold'
+                record.type === 'multicast'
+                  ? 'blue'
+                  : record.type === 'broadcast'
+                    ? 'green'
+                    : record.type === 'anycast'
+                      ? 'orange'
+                      : record.type === 'workflow'
+                        ? 'purple'
+                        : record.type === 'pipeline'
+                          ? 'red'
+                          : record.type === 'pubsub'
+                            ? 'cyan'
+                            : record.type === 'scatter-gather'
+                              ? 'magenta'
+                              : 'gold'
               }
               style={{ marginLeft: '8px', fontSize: '10px' }}
             >
-              {
-                record.type === 'multicast' ? '多播' :
-                record.type === 'broadcast' ? '广播' :
-                record.type === 'anycast' ? '任播' :
-                record.type === 'workflow' ? '工作流' :
-                record.type === 'pipeline' ? '管道' :
-                record.type === 'pubsub' ? '发布订阅' :
-                record.type === 'scatter-gather' ? '分散收集' : '智能路由'
-              }
+              {record.type === 'multicast'
+                ? '多播'
+                : record.type === 'broadcast'
+                  ? '广播'
+                  : record.type === 'anycast'
+                    ? '任播'
+                    : record.type === 'workflow'
+                      ? '工作流'
+                      : record.type === 'pipeline'
+                        ? '管道'
+                        : record.type === 'pubsub'
+                          ? '发布订阅'
+                          : record.type === 'scatter-gather'
+                            ? '分散收集'
+                            : '智能路由'}
             </Tag>
           </div>
           <Text type="secondary" style={{ fontSize: '11px' }}>
@@ -503,7 +590,10 @@ const AdvancedCommunicationPatternsPage: React.FC = () => {
           </Text>
           <div style={{ marginTop: '4px' }}>
             {record.subjects.slice(0, 2).map((subject, index) => (
-              <Tag key={index} style={{ fontSize: '10px', marginBottom: '2px' }}>
+              <Tag
+                key={index}
+                style={{ fontSize: '10px', marginBottom: '2px' }}
+              >
                 {subject}
               </Tag>
             ))}
@@ -514,7 +604,7 @@ const AdvancedCommunicationPatternsPage: React.FC = () => {
             )}
           </div>
         </div>
-      )
+      ),
     },
     {
       title: '参与者',
@@ -523,11 +613,16 @@ const AdvancedCommunicationPatternsPage: React.FC = () => {
       render: (record: CommunicationPattern) => (
         <div>
           <div style={{ marginBottom: '2px' }}>
-            <Text style={{ fontSize: '11px' }}>数量: {record.metrics.participantCount}</Text>
+            <Text style={{ fontSize: '11px' }}>
+              数量: {record.metrics.participantCount}
+            </Text>
           </div>
           <div>
             {record.participants.slice(0, 2).map((participant, index) => (
-              <Tag key={index} style={{ fontSize: '10px', marginBottom: '2px' }}>
+              <Tag
+                key={index}
+                style={{ fontSize: '10px', marginBottom: '2px' }}
+              >
                 {participant === '*' ? '全部' : participant}
               </Tag>
             ))}
@@ -538,7 +633,7 @@ const AdvancedCommunicationPatternsPage: React.FC = () => {
             )}
           </div>
         </div>
-      )
+      ),
     },
     {
       title: '性能指标',
@@ -552,18 +647,22 @@ const AdvancedCommunicationPatternsPage: React.FC = () => {
             </Text>
           </div>
           <div style={{ marginBottom: '2px' }}>
-            <Text style={{ fontSize: '11px' }}>延迟: {record.metrics.averageLatency}ms</Text>
+            <Text style={{ fontSize: '11px' }}>
+              延迟: {record.metrics.averageLatency}ms
+            </Text>
           </div>
           <div>
-            <Text style={{ 
-              fontSize: '11px',
-              color: record.metrics.successRate > 95 ? '#52c41a' : '#ff4d4f'
-            }}>
+            <Text
+              style={{
+                fontSize: '11px',
+                color: record.metrics.successRate > 95 ? '#52c41a' : '#ff4d4f',
+              }}
+            >
               成功率: {record.metrics.successRate}%
             </Text>
           </div>
         </div>
-      )
+      ),
     },
     {
       title: '配置',
@@ -572,25 +671,37 @@ const AdvancedCommunicationPatternsPage: React.FC = () => {
       render: (record: CommunicationPattern) => (
         <div>
           {record.config.loadBalancing && (
-            <Tag color="blue" style={{ fontSize: '10px', marginBottom: '2px' }}>负载均衡</Tag>
+            <Tag color="blue" style={{ fontSize: '10px', marginBottom: '2px' }}>
+              负载均衡
+            </Tag>
           )}
           {record.config.failover && (
-            <Tag color="green" style={{ fontSize: '10px', marginBottom: '2px' }}>故障转移</Tag>
+            <Tag
+              color="green"
+              style={{ fontSize: '10px', marginBottom: '2px' }}
+            >
+              故障转移
+            </Tag>
           )}
           {record.config.partitionStrategy && (
-            <Tag color="orange" style={{ fontSize: '10px', marginBottom: '2px' }}>
+            <Tag
+              color="orange"
+              style={{ fontSize: '10px', marginBottom: '2px' }}
+            >
               {record.config.partitionStrategy}
             </Tag>
           )}
         </div>
-      )
+      ),
     },
     {
       title: '最后使用',
       dataIndex: 'lastUsed',
       key: 'lastUsed',
       width: 120,
-      render: (text: string) => <Text style={{ fontSize: '11px' }}>{text}</Text>
+      render: (text: string) => (
+        <Text style={{ fontSize: '11px' }}>{text}</Text>
+      ),
     },
     {
       title: '操作',
@@ -599,29 +710,29 @@ const AdvancedCommunicationPatternsPage: React.FC = () => {
       render: (record: CommunicationPattern) => (
         <Space>
           <Tooltip title="查看详情">
-            <Button 
-              type="text" 
-              size="small" 
+            <Button
+              type="text"
+              size="small"
               icon={<EyeOutlined />}
               onClick={() => handleViewPattern(record)}
             />
           </Tooltip>
           <Tooltip title="编辑模式">
-            <Button 
-              type="text" 
-              size="small" 
+            <Button
+              type="text"
+              size="small"
               icon={<EditOutlined />}
               onClick={() => handleEditPattern(record)}
             />
           </Tooltip>
-          <Switch 
-            size="small" 
+          <Switch
+            size="small"
             checked={record.enabled}
-            onChange={(checked) => handleTogglePattern(record.id, checked)}
+            onChange={checked => handleTogglePattern(record.id, checked)}
           />
         </Space>
-      )
-    }
+      ),
+    },
   ]
 
   const workflowColumns = [
@@ -630,15 +741,27 @@ const AdvancedCommunicationPatternsPage: React.FC = () => {
       key: 'workflow',
       render: (record: WorkflowDefinition) => (
         <div>
-          <div style={{ display: 'flex', alignItems: 'center', marginBottom: '4px' }}>
-            <Badge 
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              marginBottom: '4px',
+            }}
+          >
+            <Badge
               status={
-                record.status === 'active' ? 'success' :
-                record.status === 'paused' ? 'warning' :
-                record.status === 'draft' ? 'processing' : 'default'
+                record.status === 'active'
+                  ? 'success'
+                  : record.status === 'paused'
+                    ? 'warning'
+                    : record.status === 'draft'
+                      ? 'processing'
+                      : 'default'
               }
             />
-            <Text strong style={{ marginLeft: '8px' }}>{record.name}</Text>
+            <Text strong style={{ marginLeft: '8px' }}>
+              {record.name}
+            </Text>
             <Tag color="blue" style={{ marginLeft: '8px', fontSize: '10px' }}>
               v{record.version}
             </Tag>
@@ -647,7 +770,7 @@ const AdvancedCommunicationPatternsPage: React.FC = () => {
             {record.description}
           </Text>
         </div>
-      )
+      ),
     },
     {
       title: '步骤',
@@ -660,7 +783,7 @@ const AdvancedCommunicationPatternsPage: React.FC = () => {
             触发器: {record.triggers.length}
           </Text>
         </div>
-      )
+      ),
     },
     {
       title: '执行指标',
@@ -668,23 +791,28 @@ const AdvancedCommunicationPatternsPage: React.FC = () => {
       render: (record: WorkflowDefinition) => (
         <div>
           <div style={{ marginBottom: '2px' }}>
-            <Text style={{ fontSize: '11px' }}>执行: {record.metrics.executions}</Text>
+            <Text style={{ fontSize: '11px' }}>
+              执行: {record.metrics.executions}
+            </Text>
           </div>
           <div style={{ marginBottom: '2px' }}>
-            <Text style={{ 
-              fontSize: '11px',
-              color: record.metrics.successRate > 95 ? '#52c41a' : '#ff4d4f'
-            }}>
+            <Text
+              style={{
+                fontSize: '11px',
+                color: record.metrics.successRate > 95 ? '#52c41a' : '#ff4d4f',
+              }}
+            >
               成功率: {record.metrics.successRate}%
             </Text>
           </div>
           <div>
             <Text style={{ fontSize: '11px' }}>
-              平均时长: {(record.metrics.averageExecutionTime / 1000).toFixed(1)}s
+              平均时长:{' '}
+              {(record.metrics.averageExecutionTime / 1000).toFixed(1)}s
             </Text>
           </div>
         </div>
-      )
+      ),
     },
     {
       title: '配置',
@@ -702,7 +830,7 @@ const AdvancedCommunicationPatternsPage: React.FC = () => {
             </Tag>
           </div>
         </div>
-      )
+      ),
     },
     {
       title: '操作',
@@ -717,8 +845,8 @@ const AdvancedCommunicationPatternsPage: React.FC = () => {
             <Button type="text" size="small" icon={<PlayCircleOutlined />} />
           )}
         </Space>
-      )
-    }
+      ),
+    },
   ]
 
   const routingColumns = [
@@ -727,9 +855,17 @@ const AdvancedCommunicationPatternsPage: React.FC = () => {
       key: 'rule',
       render: (record: RoutingRule) => (
         <div>
-          <div style={{ display: 'flex', alignItems: 'center', marginBottom: '4px' }}>
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              marginBottom: '4px',
+            }}
+          >
             <Badge status={record.enabled ? 'success' : 'default'} />
-            <Text strong style={{ marginLeft: '8px' }}>{record.name}</Text>
+            <Text strong style={{ marginLeft: '8px' }}>
+              {record.name}
+            </Text>
             <Tag color="red" style={{ marginLeft: '8px', fontSize: '10px' }}>
               优先级: {record.priority}
             </Tag>
@@ -738,7 +874,7 @@ const AdvancedCommunicationPatternsPage: React.FC = () => {
             {record.description}
           </Text>
         </div>
-      )
+      ),
     },
     {
       title: '匹配条件',
@@ -749,10 +885,12 @@ const AdvancedCommunicationPatternsPage: React.FC = () => {
             <Text style={{ fontSize: '11px' }}>源: {record.sourcePattern}</Text>
           </div>
           <div>
-            <Text code style={{ fontSize: '10px' }}>{record.condition}</Text>
+            <Text code style={{ fontSize: '10px' }}>
+              {record.condition}
+            </Text>
           </div>
         </div>
-      )
+      ),
     },
     {
       title: '目标路由',
@@ -767,7 +905,7 @@ const AdvancedCommunicationPatternsPage: React.FC = () => {
             </div>
           ))}
         </div>
-      )
+      ),
     },
     {
       title: '匹配统计',
@@ -775,13 +913,17 @@ const AdvancedCommunicationPatternsPage: React.FC = () => {
       render: (record: RoutingRule) => (
         <div>
           <div style={{ marginBottom: '2px' }}>
-            <Text style={{ fontSize: '11px' }}>匹配: {record.metrics.matchCount}</Text>
+            <Text style={{ fontSize: '11px' }}>
+              匹配: {record.metrics.matchCount}
+            </Text>
           </div>
           <div>
-            <Text style={{ fontSize: '11px' }}>延迟: {record.metrics.averageLatency}ms</Text>
+            <Text style={{ fontSize: '11px' }}>
+              延迟: {record.metrics.averageLatency}ms
+            </Text>
           </div>
         </div>
-      )
+      ),
     },
     {
       title: '操作',
@@ -792,8 +934,8 @@ const AdvancedCommunicationPatternsPage: React.FC = () => {
           <Button type="text" size="small" icon={<EditOutlined />} />
           <Switch size="small" checked={record.enabled} />
         </Space>
-      )
-    }
+      ),
+    },
   ]
 
   const pipelineColumns = [
@@ -802,36 +944,52 @@ const AdvancedCommunicationPatternsPage: React.FC = () => {
       key: 'pipeline',
       render: (record: StreamingPipeline) => (
         <div>
-          <div style={{ display: 'flex', alignItems: 'center', marginBottom: '4px' }}>
-            <Badge 
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              marginBottom: '4px',
+            }}
+          >
+            <Badge
               status={
-                record.status === 'running' ? 'success' :
-                record.status === 'error' ? 'error' : 'default'
+                record.status === 'running'
+                  ? 'success'
+                  : record.status === 'error'
+                    ? 'error'
+                    : 'default'
               }
             />
-            <Text strong style={{ marginLeft: '8px' }}>{record.name}</Text>
+            <Text strong style={{ marginLeft: '8px' }}>
+              {record.name}
+            </Text>
           </div>
           <Text type="secondary" style={{ fontSize: '11px' }}>
             {record.description}
           </Text>
         </div>
-      )
+      ),
     },
     {
       title: '处理阶段',
       key: 'stages',
       render: (record: StreamingPipeline) => (
         <div>
-          <Text style={{ fontSize: '11px' }}>{record.stages.length} 个阶段</Text>
+          <Text style={{ fontSize: '11px' }}>
+            {record.stages.length} 个阶段
+          </Text>
           <div style={{ marginTop: '4px' }}>
             {record.stages.slice(0, 3).map((stage, index) => (
-              <Tag key={index} style={{ fontSize: '10px', marginBottom: '2px' }}>
+              <Tag
+                key={index}
+                style={{ fontSize: '10px', marginBottom: '2px' }}
+              >
                 {stage.name}
               </Tag>
             ))}
           </div>
         </div>
-      )
+      ),
     },
     {
       title: '吞吐量',
@@ -849,7 +1007,7 @@ const AdvancedCommunicationPatternsPage: React.FC = () => {
             </Text>
           </div>
         </div>
-      )
+      ),
     },
     {
       title: '背压状态',
@@ -862,15 +1020,18 @@ const AdvancedCommunicationPatternsPage: React.FC = () => {
             </Text>
           </div>
           <div>
-            <Text style={{ 
-              fontSize: '11px',
-              color: record.metrics.droppedMessages > 0 ? '#ff4d4f' : '#52c41a'
-            }}>
+            <Text
+              style={{
+                fontSize: '11px',
+                color:
+                  record.metrics.droppedMessages > 0 ? '#ff4d4f' : '#52c41a',
+              }}
+            >
               丢弃: {record.metrics.droppedMessages}
             </Text>
           </div>
         </div>
-      )
+      ),
     },
     {
       title: '操作',
@@ -885,8 +1046,8 @@ const AdvancedCommunicationPatternsPage: React.FC = () => {
             <Button type="text" size="small" icon={<PlayCircleOutlined />} />
           )}
         </Space>
-      )
-    }
+      ),
+    },
   ]
 
   const handleViewPattern = (pattern: CommunicationPattern) => {
@@ -897,22 +1058,35 @@ const AdvancedCommunicationPatternsPage: React.FC = () => {
         <div>
           <Descriptions column={2} size="small">
             <Descriptions.Item label="模式ID">{pattern.id}</Descriptions.Item>
-            <Descriptions.Item label="模式名称">{pattern.name}</Descriptions.Item>
+            <Descriptions.Item label="模式名称">
+              {pattern.name}
+            </Descriptions.Item>
             <Descriptions.Item label="模式类型">
               <Tag color="blue">{pattern.type}</Tag>
             </Descriptions.Item>
             <Descriptions.Item label="状态">
-              <Badge status={pattern.status === 'active' ? 'success' : 'error'} text={pattern.status} />
+              <Badge
+                status={pattern.status === 'active' ? 'success' : 'error'}
+                text={pattern.status}
+              />
             </Descriptions.Item>
-            <Descriptions.Item label="创建时间">{pattern.createdAt}</Descriptions.Item>
-            <Descriptions.Item label="最后使用">{pattern.lastUsed}</Descriptions.Item>
-            <Descriptions.Item label="描述" span={2}>{pattern.description}</Descriptions.Item>
+            <Descriptions.Item label="创建时间">
+              {pattern.createdAt}
+            </Descriptions.Item>
+            <Descriptions.Item label="最后使用">
+              {pattern.lastUsed}
+            </Descriptions.Item>
+            <Descriptions.Item label="描述" span={2}>
+              {pattern.description}
+            </Descriptions.Item>
           </Descriptions>
 
           <Divider>应用主题</Divider>
           <div>
             {pattern.subjects.map((subject, index) => (
-              <Tag key={index} style={{ marginBottom: '4px' }}>{subject}</Tag>
+              <Tag key={index} style={{ marginBottom: '4px' }}>
+                {subject}
+              </Tag>
             ))}
           </div>
 
@@ -947,33 +1121,54 @@ const AdvancedCommunicationPatternsPage: React.FC = () => {
             )}
             <Col span={12}>
               <Text strong>负载均衡: </Text>
-              <Badge status={pattern.config.loadBalancing ? 'success' : 'default'} 
-                     text={pattern.config.loadBalancing ? '启用' : '禁用'} />
+              <Badge
+                status={pattern.config.loadBalancing ? 'success' : 'default'}
+                text={pattern.config.loadBalancing ? '启用' : '禁用'}
+              />
             </Col>
             <Col span={12}>
               <Text strong>故障转移: </Text>
-              <Badge status={pattern.config.failover ? 'success' : 'default'} 
-                     text={pattern.config.failover ? '启用' : '禁用'} />
+              <Badge
+                status={pattern.config.failover ? 'success' : 'default'}
+                text={pattern.config.failover ? '启用' : '禁用'}
+              />
             </Col>
           </Row>
 
           <Divider>性能指标</Divider>
           <Row gutter={[16, 16]}>
             <Col span={6}>
-              <Statistic title="处理消息" value={pattern.metrics.messagesProcessed} />
+              <Statistic
+                title="处理消息"
+                value={pattern.metrics.messagesProcessed}
+              />
             </Col>
             <Col span={6}>
-              <Statistic title="平均延迟" value={pattern.metrics.averageLatency} suffix="ms" />
+              <Statistic
+                title="平均延迟"
+                value={pattern.metrics.averageLatency}
+                suffix="ms"
+              />
             </Col>
             <Col span={6}>
-              <Statistic title="吞吐量" value={pattern.metrics.throughput} suffix="msg/s" precision={1} />
+              <Statistic
+                title="吞吐量"
+                value={pattern.metrics.throughput}
+                suffix="msg/s"
+                precision={1}
+              />
             </Col>
             <Col span={6}>
-              <Statistic title="成功率" value={pattern.metrics.successRate} suffix="%" precision={1} />
+              <Statistic
+                title="成功率"
+                value={pattern.metrics.successRate}
+                suffix="%"
+                precision={1}
+              />
             </Col>
           </Row>
         </div>
-      )
+      ),
     })
   }
 
@@ -984,12 +1179,12 @@ const AdvancedCommunicationPatternsPage: React.FC = () => {
   }
 
   const handleTogglePattern = (patternId: string, enabled: boolean) => {
-    setCommunicationPatterns(prev => prev.map(p =>
-      p.id === patternId ? { ...p, enabled } : p
-    ))
+    setCommunicationPatterns(prev =>
+      prev.map(p => (p.id === patternId ? { ...p, enabled } : p))
+    )
     notification.success({
       message: enabled ? '模式已启用' : '模式已禁用',
-      description: '通信模式状态已更新'
+      description: '通信模式状态已更新',
     })
   }
 
@@ -998,7 +1193,7 @@ const AdvancedCommunicationPatternsPage: React.FC = () => {
     setTimeout(() => {
       notification.success({
         message: '刷新成功',
-        description: '通信模式数据已更新'
+        description: '通信模式数据已更新',
       })
       setLoading(false)
     }, 1000)
@@ -1022,19 +1217,26 @@ const AdvancedCommunicationPatternsPage: React.FC = () => {
           <Card>
             <Statistic
               title="活跃模式"
-              value={communicationPatterns.filter(p => p.enabled && p.status === 'active').length}
+              value={
+                communicationPatterns.filter(
+                  p => p.enabled && p.status === 'active'
+                ).length
+              }
               suffix={`/ ${communicationPatterns.length}`}
               valueStyle={{ color: '#52c41a' }}
               prefix={<ShareAltOutlined />}
             />
           </Card>
         </Col>
-        
+
         <Col xs={12} sm={6}>
           <Card>
             <Statistic
               title="总吞吐量"
-              value={communicationPatterns.reduce((sum, p) => sum + p.metrics.throughput, 0)}
+              value={communicationPatterns.reduce(
+                (sum, p) => sum + p.metrics.throughput,
+                0
+              )}
               precision={1}
               suffix="msg/s"
               valueStyle={{ color: '#1890ff' }}
@@ -1042,12 +1244,17 @@ const AdvancedCommunicationPatternsPage: React.FC = () => {
             />
           </Card>
         </Col>
-        
+
         <Col xs={12} sm={6}>
           <Card>
             <Statistic
               title="平均成功率"
-              value={communicationPatterns.reduce((sum, p) => sum + p.metrics.successRate, 0) / communicationPatterns.length}
+              value={
+                communicationPatterns.reduce(
+                  (sum, p) => sum + p.metrics.successRate,
+                  0
+                ) / communicationPatterns.length
+              }
               precision={1}
               suffix="%"
               valueStyle={{ color: '#722ed1' }}
@@ -1055,12 +1262,14 @@ const AdvancedCommunicationPatternsPage: React.FC = () => {
             />
           </Card>
         </Col>
-        
+
         <Col xs={12} sm={6}>
           <Card>
             <Statistic
               title="参与智能体"
-              value={new Set(communicationPatterns.flatMap(p => p.participants)).size}
+              value={
+                new Set(communicationPatterns.flatMap(p => p.participants)).size
+              }
               valueStyle={{ color: '#fa8c16' }}
               prefix={<TeamOutlined />}
             />
@@ -1070,10 +1279,17 @@ const AdvancedCommunicationPatternsPage: React.FC = () => {
 
       {/* 主管理界面 */}
       <Card>
-        <div style={{ marginBottom: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div
+          style={{
+            marginBottom: '16px',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+          }}
+        >
           <Space>
-            <Button 
-              type="primary" 
+            <Button
+              type="primary"
               icon={<PlusOutlined />}
               onClick={() => {
                 setSelectedPattern(null)
@@ -1083,7 +1299,7 @@ const AdvancedCommunicationPatternsPage: React.FC = () => {
             >
               创建通信模式
             </Button>
-            <Button 
+            <Button
               icon={<ReloadOutlined />}
               loading={loading}
               onClick={refreshData}
@@ -1091,15 +1307,24 @@ const AdvancedCommunicationPatternsPage: React.FC = () => {
               刷新数据
             </Button>
           </Space>
-          
+
           <Space>
-            <Button icon={<BranchesOutlined />} onClick={() => setWorkflowModalVisible(true)}>
+            <Button
+              icon={<BranchesOutlined />}
+              onClick={() => setWorkflowModalVisible(true)}
+            >
               工作流设计
             </Button>
-            <Button icon={<RouterOutlined />} onClick={() => setRoutingModalVisible(true)}>
+            <Button
+              icon={<RouterOutlined />}
+              onClick={() => setRoutingModalVisible(true)}
+            >
               智能路由
             </Button>
-            <Button icon={<PartitionOutlined />} onClick={() => setPipelineModalVisible(true)}>
+            <Button
+              icon={<PartitionOutlined />}
+              onClick={() => setPipelineModalVisible(true)}
+            >
               流处理管道
             </Button>
           </Space>
@@ -1116,7 +1341,7 @@ const AdvancedCommunicationPatternsPage: React.FC = () => {
               scroll={{ x: 1200 }}
             />
           </TabPane>
-          
+
           <TabPane tab="工作流定义" key="workflows" icon={<BranchesOutlined />}>
             <div style={{ marginBottom: '16px' }}>
               <Button type="primary" icon={<PlusOutlined />}>
@@ -1131,7 +1356,7 @@ const AdvancedCommunicationPatternsPage: React.FC = () => {
               pagination={false}
             />
           </TabPane>
-          
+
           <TabPane tab="路由规则" key="routing" icon={<RouterOutlined />}>
             <div style={{ marginBottom: '16px' }}>
               <Button type="primary" icon={<PlusOutlined />}>
@@ -1146,8 +1371,12 @@ const AdvancedCommunicationPatternsPage: React.FC = () => {
               pagination={false}
             />
           </TabPane>
-          
-          <TabPane tab="流处理管道" key="pipelines" icon={<PartitionOutlined />}>
+
+          <TabPane
+            tab="流处理管道"
+            key="pipelines"
+            icon={<PartitionOutlined />}
+          >
             <div style={{ marginBottom: '16px' }}>
               <Button type="primary" icon={<PlusOutlined />}>
                 创建处理管道
@@ -1161,7 +1390,7 @@ const AdvancedCommunicationPatternsPage: React.FC = () => {
               pagination={false}
             />
           </TabPane>
-          
+
           <TabPane tab="模式分析" key="analysis" icon={<RadarChartOutlined />}>
             <Row gutter={[16, 16]}>
               <Col span={12}>
@@ -1170,18 +1399,27 @@ const AdvancedCommunicationPatternsPage: React.FC = () => {
                     <div style={{ marginBottom: '8px' }}>
                       <Text strong>按类型分布：</Text>
                     </div>
-                    {['multicast', 'broadcast', 'anycast', 'scatter-gather'].map(type => {
-                      const count = communicationPatterns.filter(p => p.type === type).length
+                    {[
+                      'multicast',
+                      'broadcast',
+                      'anycast',
+                      'scatter-gather',
+                    ].map(type => {
+                      const count = communicationPatterns.filter(
+                        p => p.type === type
+                      ).length
                       return count > 0 ? (
                         <div key={type} style={{ marginBottom: '4px' }}>
-                          <Tag color="blue">{type}: {count}</Tag>
+                          <Tag color="blue">
+                            {type}: {count}
+                          </Tag>
                         </div>
                       ) : null
                     })}
                   </div>
                 </Card>
               </Col>
-              
+
               <Col span={12}>
                 <Card title="性能分析" size="small">
                   <div>
@@ -1189,23 +1427,36 @@ const AdvancedCommunicationPatternsPage: React.FC = () => {
                       <Text strong>性能排名：</Text>
                     </div>
                     {communicationPatterns
-                      .sort((a, b) => b.metrics.throughput - a.metrics.throughput)
+                      .sort(
+                        (a, b) => b.metrics.throughput - a.metrics.throughput
+                      )
                       .slice(0, 3)
                       .map((pattern, index) => (
                         <div key={pattern.id} style={{ marginBottom: '4px' }}>
-                          <Tag color={index === 0 ? 'gold' : index === 1 ? 'orange' : 'blue'}>
-                            {index + 1}. {pattern.name}: {pattern.metrics.throughput.toFixed(1)} msg/s
+                          <Tag
+                            color={
+                              index === 0
+                                ? 'gold'
+                                : index === 1
+                                  ? 'orange'
+                                  : 'blue'
+                            }
+                          >
+                            {index + 1}. {pattern.name}:{' '}
+                            {pattern.metrics.throughput.toFixed(1)} msg/s
                           </Tag>
                         </div>
                       ))}
                   </div>
                 </Card>
               </Col>
-              
+
               <Col span={24}>
                 <Card title="通信拓扑图" size="small">
                   <div style={{ textAlign: 'center', padding: '60px 0' }}>
-                    <Text type="secondary">通信模式拓扑图可视化组件开发中...</Text>
+                    <Text type="secondary">
+                      通信模式拓扑图可视化组件开发中...
+                    </Text>
                   </div>
                 </Card>
               </Col>

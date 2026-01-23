@@ -8,6 +8,7 @@ from src.ai.mcp.exceptions import MCPError, create_mcp_error_response
 from src.ai.mcp.monitoring import get_monitor_dependency, MCPMonitor
 from src.core.security.auth import User, require_permission
 from src.api.base_model import ApiBaseModel
+from src.core.logging import get_logger
 
 logger = get_logger(__name__)
 
@@ -43,6 +44,27 @@ class MetricsResponse(ApiBaseModel):
     """指标响应"""
     monitoring_stats: Dict[str, Any] = Field(..., description="监控统计")
     retry_stats: Dict[str, Any] = Field(..., description="重试统计")
+
+class FileSystemReadRequest(ApiBaseModel):
+    """文件读取请求"""
+    path: str = Field(..., description="文件路径")
+    encoding: str = Field(default="utf-8", description="文件编码")
+
+class FileSystemWriteRequest(ApiBaseModel):
+    """文件写入请求"""
+    path: str = Field(..., description="文件路径")
+    content: str = Field(..., description="文件内容")
+    encoding: str = Field(default="utf-8", description="文件编码")
+
+class DatabaseQueryRequest(ApiBaseModel):
+    """数据库查询请求"""
+    query: str = Field(..., description="SQL查询语句")
+    parameters: Optional[Dict[str, Any]] = Field(default=None, description="查询参数")
+
+class SystemCommandRequest(ApiBaseModel):
+    """系统命令请求"""
+    command: str = Field(..., description="系统命令")
+    timeout: Optional[int] = Field(default=None, description="超时时间(秒)")
 
 async def _call_tool_internal(
     request: ToolCallRequest,
@@ -181,8 +203,7 @@ async def get_metrics(
 
 @router.post("/tools/filesystem/read")
 async def read_file(
-    path: str,
-    encoding: str = "utf-8",
+    payload: FileSystemReadRequest,
     mcp_manager: MCPClientManager = Depends(get_mcp_client_manager),
     _: User = Depends(require_permission("tools:read")),
 ) -> Dict[str, Any]:
@@ -190,7 +211,7 @@ async def read_file(
     request = ToolCallRequest(
         server_type="filesystem",
         tool_name="read_file",
-        arguments={"path": path, "encoding": encoding}
+        arguments={"path": payload.path, "encoding": payload.encoding}
     )
     response = await _call_tool_internal(request, mcp_manager)
     
@@ -204,9 +225,7 @@ async def read_file(
 
 @router.post("/tools/filesystem/write")
 async def write_file(
-    path: str,
-    content: str,
-    encoding: str = "utf-8",
+    payload: FileSystemWriteRequest,
     mcp_manager: MCPClientManager = Depends(get_mcp_client_manager),
     _: User = Depends(require_permission("tools:write")),
 ) -> Dict[str, Any]:
@@ -214,7 +233,11 @@ async def write_file(
     request = ToolCallRequest(
         server_type="filesystem",
         tool_name="write_file",
-        arguments={"path": path, "content": content, "encoding": encoding}
+        arguments={
+            "path": payload.path,
+            "content": payload.content,
+            "encoding": payload.encoding,
+        }
     )
     response = await _call_tool_internal(request, mcp_manager)
     
@@ -251,15 +274,14 @@ async def list_directory(
 
 @router.post("/tools/database/query")
 async def execute_query(
-    query: str,
-    parameters: Optional[Dict[str, Any]] = None,
+    payload: DatabaseQueryRequest,
     mcp_manager: MCPClientManager = Depends(get_mcp_client_manager),
     _: User = Depends(require_permission("tools:execute")),
 ) -> Dict[str, Any]:
     """执行数据库查询 - 数据库工具的便捷接口"""
-    arguments = {"query": query}
-    if parameters:
-        arguments["parameters"] = parameters
+    arguments = {"query": payload.query}
+    if payload.parameters:
+        arguments["parameters"] = payload.parameters
     
     request = ToolCallRequest(
         server_type="database",
@@ -283,15 +305,14 @@ async def execute_query(
 
 @router.post("/tools/system/command")
 async def run_command(
-    command: str,
-    timeout: Optional[int] = None,
+    payload: SystemCommandRequest,
     mcp_manager: MCPClientManager = Depends(get_mcp_client_manager),
     _: User = Depends(require_permission("system:admin")),
 ) -> Dict[str, Any]:
     """执行系统命令 - 系统工具的便捷接口"""
-    arguments = {"command": command}
-    if timeout:
-        arguments["timeout"] = timeout
+    arguments = {"command": payload.command}
+    if payload.timeout is not None:
+        arguments["timeout"] = payload.timeout
     
     request = ToolCallRequest(
         server_type="system",
@@ -312,4 +333,3 @@ async def run_command(
         result["output"] = result["stdout"]
     
     return result
-from src.core.logging import get_logger

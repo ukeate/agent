@@ -9,7 +9,7 @@ import { SupervisorDashboard } from '../components/supervisor'
 const SupervisorPage: React.FC = () => {
   return (
     <div className="supervisor-page bg-gray-50 h-full">
-      <SupervisorDashboard 
+      <SupervisorDashboard
         supervisorId="main_supervisor"
         className="max-w-7xl mx-auto"
       />

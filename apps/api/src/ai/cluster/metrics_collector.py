@@ -105,6 +105,8 @@ class MetricSeries:
         
         if not recent_points:
             return None
+        if len(recent_points) == 1:
+            return recent_points[0].value
         
         values = [p.value for p in recent_points]
         return statistics.quantiles(values, n=100)[int(percentile) - 1]
@@ -263,7 +265,7 @@ class MetricsCollector:
                 try:
                     await self.collection_task
                 except asyncio.CancelledError:
-                    pass
+                    self.logger.debug("指标收集任务已取消")
                 self.collection_task = None
             
             # 停止告警检查任务
@@ -272,7 +274,7 @@ class MetricsCollector:
                 try:
                     await self.alert_check_task
                 except asyncio.CancelledError:
-                    pass
+                    self.logger.debug("告警检查任务已取消")
                 self.alert_check_task = None
             
             # 关闭HTTP客户端

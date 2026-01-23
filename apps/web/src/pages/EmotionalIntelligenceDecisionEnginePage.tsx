@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
-import {
+import React, { useState, useEffect } from 'react'
 import { logger } from '../utils/logger'
+import {
   Card,
   Row,
   Col,
@@ -19,8 +19,8 @@ import { logger } from '../utils/logger'
   Divider,
   Typography,
   Spin,
-  message
-} from 'antd';
+  message,
+} from 'antd'
 import {
   BrainCircuitIcon,
   HeartHandshakeIcon,
@@ -29,171 +29,190 @@ import {
   MessageSquareIcon,
   UserCheckIcon,
   AlertTriangleIcon,
-  ActivityIcon
-} from 'lucide-react';
-import { 
+  ActivityIcon,
+} from 'lucide-react'
+import {
   emotionalIntelligenceService,
   type EmotionalDecision,
   type RiskAssessment,
-  type SystemStats
-} from '../services/emotionalIntelligenceService';
+  type SystemStats,
+} from '../services/emotionalIntelligenceService'
 
-const { Title, Text } = Typography;
-const { Option } = Select;
+const { Title, Text } = Typography
+const { Option } = Select
 
 const EmotionalIntelligenceDecisionEnginePage: React.FC = () => {
-  const [loading, setLoading] = useState(false);
-  const [decisions, setDecisions] = useState<EmotionalDecision[]>([]);
-  const [riskAssessments, setRiskAssessments] = useState<RiskAssessment[]>([]);
-  const [decisionModalVisible, setDecisionModalVisible] = useState(false);
-  const [riskModalVisible, setRiskModalVisible] = useState(false);
-  const [currentDecision, setCurrentDecision] = useState<EmotionalDecision | null>(null);
+  const [loading, setLoading] = useState(false)
+  const [decisions, setDecisions] = useState<EmotionalDecision[]>([])
+  const [riskAssessments, setRiskAssessments] = useState<RiskAssessment[]>([])
+  const [decisionModalVisible, setDecisionModalVisible] = useState(false)
+  const [riskModalVisible, setRiskModalVisible] = useState(false)
+  const [currentDecision, setCurrentDecision] =
+    useState<EmotionalDecision | null>(null)
   const [stats, setStats] = useState({
     totalDecisions: 0,
     averageConfidence: 0,
     highRiskUsers: 0,
-    activeInterventions: 0
-  });
-  
-  // 新增状态 - 高级功能
-  const [emotionPatterns, setEmotionPatterns] = useState<any>([]);
-  const [systemStatus, setSystemStatus] = useState<any>(null);
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'advanced' | 'analytics'>('dashboard');
-  const [crisisPredictions, setCrisisPredictions] = useState<any>([]);
-  const [emotionStatistics, setEmotionStatistics] = useState<any>(null);
-  const [selectedUserId, setSelectedUserId] = useState('');
+    activeInterventions: 0,
+  })
 
-  const [form] = Form.useForm();
-  const [riskForm] = Form.useForm();
+  // 新增状态 - 高级功能
+  const [emotionPatterns, setEmotionPatterns] = useState<any>([])
+  const [systemStatus, setSystemStatus] = useState<any>(null)
+  const [activeTab, setActiveTab] = useState<
+    'dashboard' | 'advanced' | 'analytics'
+  >('dashboard')
+  const [crisisPredictions, setCrisisPredictions] = useState<any>([])
+  const [emotionStatistics, setEmotionStatistics] = useState<any>(null)
+  const [selectedUserId, setSelectedUserId] = useState('')
+
+  const [form] = Form.useForm()
+  const [riskForm] = Form.useForm()
 
   // 加载数据
   useEffect(() => {
-    loadData();
-  }, []);
+    loadData()
+  }, [])
 
   const loadData = async () => {
-    setLoading(true);
+    setLoading(true)
     try {
       // 加载系统统计
-      const systemStats = await emotionalIntelligenceService.getSystemStats();
+      const systemStats = await emotionalIntelligenceService.getSystemStats()
       setStats({
         totalDecisions: systemStats.total_decisions,
         averageConfidence: systemStats.average_confidence,
         highRiskUsers: systemStats.high_risk_users,
-        activeInterventions: systemStats.active_interventions
-      });
+        activeInterventions: systemStats.active_interventions,
+      })
 
       // 加载最近决策
-      const recentDecisions = await emotionalIntelligenceService.getDecisionHistory('all', 10);
-      setDecisions(recentDecisions);
+      const recentDecisions =
+        await emotionalIntelligenceService.getDecisionHistory('all', 10)
+      setDecisions(recentDecisions)
 
       // 加载高风险用户
-      const highRiskUsers = await emotionalIntelligenceService.getHighRiskUsers(0.6);
-      
+      const highRiskUsers =
+        await emotionalIntelligenceService.getHighRiskUsers(0.6)
+
       // 加载风险评估
       const riskAssessments = await Promise.all(
-        highRiskUsers.slice(0, 5).map(user => 
+        highRiskUsers.slice(0, 5).map(user =>
           emotionalIntelligenceService.assessRisk({
             user_id: user.user_id,
-            emotion_history: []
+            emotion_history: [],
           })
         )
-      );
-      setRiskAssessments(riskAssessments);
-      
+      )
+      setRiskAssessments(riskAssessments)
+
       // 加载高级功能数据
-      await loadAdvancedData(selectedUserId || undefined);
+      await loadAdvancedData(selectedUserId || undefined)
     } catch (error: any) {
-      logger.error('加载数据失败:', error);
-      message.error(error?.message || '加载数据失败');
+      logger.error('加载数据失败:', error)
+      message.error(error?.message || '加载数据失败')
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
+  }
 
   // 加载高级功能数据
   const loadAdvancedData = async (userId?: string) => {
     try {
       // 获取系统状态
-      const systemStatus = await emotionalIntelligenceService.getEmotionalIntelligenceSystemStatus();
-      setSystemStatus(systemStatus);
+      const systemStatus =
+        await emotionalIntelligenceService.getEmotionalIntelligenceSystemStatus()
+      setSystemStatus(systemStatus)
 
       // 获取情感统计
-      const emotionStats = await emotionalIntelligenceService.getEmotionStatistics();
-      setEmotionStatistics(emotionStats);
+      const emotionStats =
+        await emotionalIntelligenceService.getEmotionStatistics()
+      setEmotionStatistics(emotionStats)
 
       if (userId) {
-        const patterns = await emotionalIntelligenceService.getEmotionalPatterns(userId);
-        setEmotionPatterns([patterns]);
+        const patterns =
+          await emotionalIntelligenceService.getEmotionalPatterns(userId)
+        setEmotionPatterns([patterns])
 
-        const crisisPred = await emotionalIntelligenceService.getCrisisPrediction(userId);
-        setCrisisPredictions([crisisPred]);
+        const crisisPred =
+          await emotionalIntelligenceService.getCrisisPrediction(userId)
+        setCrisisPredictions([crisisPred])
       } else {
-        setEmotionPatterns([]);
-        setCrisisPredictions([]);
+        setEmotionPatterns([])
+        setCrisisPredictions([])
       }
-
     } catch (error: any) {
-      logger.error('加载高级数据失败:', error);
-      message.error(error?.message || '加载高级数据失败');
+      logger.error('加载高级数据失败:', error)
+      message.error(error?.message || '加载高级数据失败')
     }
-  };
+  }
 
   // 新增高级功能处理函数
   const handleAdvancedAction = async (action: string, params?: any) => {
-    setLoading(true);
+    setLoading(true)
     try {
-      let result;
+      let result
       switch (action) {
         case 'suicide_risk_assessment':
-          result = await emotionalIntelligenceService.assessSuicideRisk(params);
-          message.success('自杀风险评估完成');
-          break;
+          result = await emotionalIntelligenceService.assessSuicideRisk(params)
+          message.success('自杀风险评估完成')
+          break
         case 'comprehensive_analysis':
-          result = await emotionalIntelligenceService.performComprehensiveAnalysis(params);
-          message.success('综合分析完成');
-          break;
+          result =
+            await emotionalIntelligenceService.performComprehensiveAnalysis(
+              params
+            )
+          message.success('综合分析完成')
+          break
         case 'emotion_prediction':
-          result = await emotionalIntelligenceService.predictEmotion(params);
-          message.success('情感预测完成');
-          break;
+          result = await emotionalIntelligenceService.predictEmotion(params)
+          message.success('情感预测完成')
+          break
         case 'export_emotion_data':
-          result = await emotionalIntelligenceService.exportEmotionData('json');
-          message.success('情感数据导出完成');
-          break;
+          result = await emotionalIntelligenceService.exportEmotionData('json')
+          message.success('情感数据导出完成')
+          break
         case 'initialize_social_emotion':
-          result = await emotionalIntelligenceService.initializeSocialEmotionSystem(params);
-          message.success('社交情感系统初始化完成');
-          break;
+          result =
+            await emotionalIntelligenceService.initializeSocialEmotionSystem(
+              params
+            )
+          message.success('社交情感系统初始化完成')
+          break
         default:
-          message.info('功能演示完成');
+          message.info('功能演示完成')
       }
-      logger.log('高级功能执行结果:', result);
-      
+      logger.log('高级功能执行结果:', result)
+
       // 重新加载数据
-      await loadAdvancedData();
+      await loadAdvancedData()
     } catch (error: any) {
-      logger.error(`执行${action}失败:`, error);
-      message.error(`执行失败: ${error.message}`);
+      logger.error(`执行${action}失败:`, error)
+      message.error(`执行失败: ${error.message}`)
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
+  }
 
   const handleMakeDecision = async (values: any) => {
-    setLoading(true);
+    setLoading(true)
     try {
       // 构建情感状态
       const emotionState = {
         dominant_emotion: values.emotion_context || 'neutral',
         emotion_scores: {
           [values.emotion_context || 'neutral']: 0.8,
-          'neutral': 0.2
+          neutral: 0.2,
         },
-        valence: values.emotion_context === 'happy' ? 0.8 : values.emotion_context === 'sad' ? -0.6 : 0,
+        valence:
+          values.emotion_context === 'happy'
+            ? 0.8
+            : values.emotion_context === 'sad'
+              ? -0.6
+              : 0,
         arousal: values.emotion_context === 'anxious' ? 0.8 : 0.4,
-        confidence: 0.85
-      };
+        confidence: 0.85,
+      }
 
       // 调用真实API
       const newDecision = await emotionalIntelligenceService.makeDecision({
@@ -201,56 +220,58 @@ const EmotionalIntelligenceDecisionEnginePage: React.FC = () => {
         user_input: values.user_input,
         current_emotion_state: emotionState,
         emotion_history: [],
-        environmental_factors: {}
-      });
-      
-      setDecisions(prev => [newDecision, ...prev]);
-      setDecisionModalVisible(false);
-      form.resetFields();
-      message.success('决策制定成功');
-      
+        environmental_factors: {},
+      })
+
+      setDecisions(prev => [newDecision, ...prev])
+      setDecisionModalVisible(false)
+      form.resetFields()
+      message.success('决策制定成功')
+
       // 重新加载统计数据
-      loadData();
+      loadData()
     } catch (error: any) {
-      logger.error('决策制定失败:', error);
-      message.error(error.message || '决策制定失败');
+      logger.error('决策制定失败:', error)
+      message.error(error.message || '决策制定失败')
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
+  }
 
   const handleRiskAssessment = async (values: any) => {
-    setLoading(true);
+    setLoading(true)
     try {
       const assessment = await emotionalIntelligenceService.assessRisk({
         user_id: values.user_id,
         emotion_history: [],
-        context: values.assessment_type ? { assessment_type: values.assessment_type } : undefined
-      });
-      setRiskAssessments((prev) => [assessment, ...prev]);
-      message.success('风险评估完成');
-      riskForm.resetFields();
-      setRiskModalVisible(false);
+        context: values.assessment_type
+          ? { assessment_type: values.assessment_type }
+          : undefined,
+      })
+      setRiskAssessments(prev => [assessment, ...prev])
+      message.success('风险评估完成')
+      riskForm.resetFields()
+      setRiskModalVisible(false)
     } catch (error: any) {
-      logger.error('风险评估失败:', error);
-      message.error(error?.message || '风险评估失败');
+      logger.error('风险评估失败:', error)
+      message.error(error?.message || '风险评估失败')
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
+  }
 
   const decisionColumns = [
     {
       title: '决策ID',
       dataIndex: 'decision_id',
       key: 'decision_id',
-      width: 120
+      width: 120,
     },
     {
       title: '用户ID',
       dataIndex: 'user_id',
       key: 'user_id',
-      width: 120
+      width: 120,
     },
     {
       title: '选择策略',
@@ -260,19 +281,21 @@ const EmotionalIntelligenceDecisionEnginePage: React.FC = () => {
         <Tag color={strategy === 'supportive_strategy' ? 'green' : 'orange'}>
           {strategy}
         </Tag>
-      )
+      ),
     },
     {
       title: '置信度',
       dataIndex: 'confidence_score',
       key: 'confidence_score',
       render: (score: number) => (
-        <Progress 
-          percent={score * 100} 
+        <Progress
+          percent={score * 100}
           size="small"
-          status={score > 0.8 ? 'success' : score > 0.6 ? 'normal' : 'exception'}
+          status={
+            score > 0.8 ? 'success' : score > 0.6 ? 'normal' : 'exception'
+          }
         />
-      )
+      ),
     },
     {
       title: '决策类型',
@@ -280,44 +303,44 @@ const EmotionalIntelligenceDecisionEnginePage: React.FC = () => {
       key: 'decision_type',
       render: (type: string) => {
         const colorMap: Record<string, string> = {
-          'supportive': 'green',
-          'corrective': 'orange',
-          'crisis': 'red'
-        };
-        return <Tag color={colorMap[type] || 'default'}>{type}</Tag>;
-      }
+          supportive: 'green',
+          corrective: 'orange',
+          crisis: 'red',
+        }
+        return <Tag color={colorMap[type] || 'default'}>{type}</Tag>
+      },
     },
     {
       title: '操作',
       key: 'actions',
       render: (record: EmotionalDecision) => (
         <Space>
-          <Button 
-            size="small" 
+          <Button
+            size="small"
             onClick={() => {
-              setCurrentDecision(record);
-              setDecisionModalVisible(true);
+              setCurrentDecision(record)
+              setDecisionModalVisible(true)
             }}
           >
             详情
           </Button>
         </Space>
-      )
-    }
-  ];
+      ),
+    },
+  ]
 
   const riskColumns = [
     {
       title: '评估ID',
       dataIndex: 'assessment_id',
       key: 'assessment_id',
-      width: 120
+      width: 120,
     },
     {
-      title: '用户ID', 
+      title: '用户ID',
       dataIndex: 'user_id',
       key: 'user_id',
-      width: 120
+      width: 120,
     },
     {
       title: '风险等级',
@@ -325,31 +348,33 @@ const EmotionalIntelligenceDecisionEnginePage: React.FC = () => {
       key: 'risk_level',
       render: (level: string) => {
         const colorMap: Record<string, string> = {
-          'low': 'green',
-          'medium': 'orange', 
-          'high': 'red',
-          'critical': 'purple'
-        };
-        return <Tag color={colorMap[level]}>{level.toUpperCase()}</Tag>;
-      }
+          low: 'green',
+          medium: 'orange',
+          high: 'red',
+          critical: 'purple',
+        }
+        return <Tag color={colorMap[level]}>{level.toUpperCase()}</Tag>
+      },
     },
     {
       title: '风险分数',
       dataIndex: 'risk_score',
       key: 'risk_score',
       render: (score: number) => (
-        <Progress 
+        <Progress
           percent={score * 100}
           size="small"
-          status={score > 0.7 ? 'exception' : score > 0.4 ? 'active' : 'success'}
+          status={
+            score > 0.7 ? 'exception' : score > 0.4 ? 'active' : 'success'
+          }
         />
-      )
+      ),
     },
     {
       title: '预测置信度',
-      dataIndex: 'prediction_confidence', 
+      dataIndex: 'prediction_confidence',
       key: 'prediction_confidence',
-      render: (confidence: number) => `${(confidence * 100).toFixed(1)}%`
+      render: (confidence: number) => `${(confidence * 100).toFixed(1)}%`,
     },
     {
       title: '推荐行动',
@@ -362,11 +387,13 @@ const EmotionalIntelligenceDecisionEnginePage: React.FC = () => {
               {action}
             </Tag>
           ))}
-          {actions.length > 2 && <Text type="secondary">+{actions.length - 2}更多</Text>}
+          {actions.length > 2 && (
+            <Text type="secondary">+{actions.length - 2}更多</Text>
+          )}
         </div>
-      )
-    }
-  ];
+      ),
+    },
+  ]
 
   return (
     <div style={{ padding: '24px' }}>
@@ -377,8 +404,12 @@ const EmotionalIntelligenceDecisionEnginePage: React.FC = () => {
             <Space align="center">
               <BrainCircuitIcon size={32} />
               <div>
-                <Title level={2} style={{ margin: 0 }}>情感智能决策引擎</Title>
-                <Text type="secondary">基于情感状态的智能决策系统，提供个性化情感支持和风险预警</Text>
+                <Title level={2} style={{ margin: 0 }}>
+                  情感智能决策引擎
+                </Title>
+                <Text type="secondary">
+                  基于情感状态的智能决策系统，提供个性化情感支持和风险预警
+                </Text>
               </div>
             </Space>
           </Card>
@@ -434,7 +465,9 @@ const EmotionalIntelligenceDecisionEnginePage: React.FC = () => {
       <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
         <Col span={24}>
           <Alert
-            message={systemStatus?.system_status ? '系统状态已更新' : '系统状态未加载'}
+            message={
+              systemStatus?.system_status ? '系统状态已更新' : '系统状态未加载'
+            }
             description={
               systemStatus?.system_status
                 ? `决策记录 ${systemStatus.system_status.decision_history_count}，活跃干预 ${systemStatus.system_status.active_interventions}，过去24小时危机事件 ${systemStatus.system_status.crisis_events_24h}`
@@ -451,28 +484,24 @@ const EmotionalIntelligenceDecisionEnginePage: React.FC = () => {
       <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
         <Col span={24}>
           <Space>
-            <Button 
-              type="primary" 
+            <Button
+              type="primary"
               icon={<BrainCircuitIcon size={16} />}
               onClick={() => setDecisionModalVisible(true)}
             >
               新建决策
             </Button>
-            <Button 
+            <Button
               icon={<ShieldAlertIcon size={16} />}
               onClick={() => setRiskModalVisible(true)}
             >
               风险评估
             </Button>
-            <Button icon={<UserCheckIcon size={16} />}>
-              健康监测
-            </Button>
-            <Button icon={<MessageSquareIcon size={16} />}>
-              干预管理
-            </Button>
+            <Button icon={<UserCheckIcon size={16} />}>健康监测</Button>
+            <Button icon={<MessageSquareIcon size={16} />}>干预管理</Button>
             <Input
               value={selectedUserId}
-              onChange={(e) => setSelectedUserId(e.target.value)}
+              onChange={e => setSelectedUserId(e.target.value)}
               placeholder="输入用户ID加载高级数据"
               style={{ width: 220 }}
             />
@@ -490,7 +519,7 @@ const EmotionalIntelligenceDecisionEnginePage: React.FC = () => {
       <Row gutter={[16, 16]}>
         {/* 决策历史 */}
         <Col span={24}>
-          <Card 
+          <Card
             title={
               <Space>
                 <ActivityIcon size={20} />
@@ -511,7 +540,7 @@ const EmotionalIntelligenceDecisionEnginePage: React.FC = () => {
 
         {/* 风险评估 */}
         <Col span={24}>
-          <Card 
+          <Card
             title={
               <Space>
                 <ShieldAlertIcon size={20} />
@@ -536,9 +565,9 @@ const EmotionalIntelligenceDecisionEnginePage: React.FC = () => {
         title="新建情感决策"
         open={decisionModalVisible}
         onCancel={() => {
-          setDecisionModalVisible(false);
-          setCurrentDecision(null);
-          form.resetFields();
+          setDecisionModalVisible(false)
+          setCurrentDecision(null)
+          form.resetFields()
         }}
         footer={null}
         width={600}
@@ -563,9 +592,9 @@ const EmotionalIntelligenceDecisionEnginePage: React.FC = () => {
               </Col>
               <Col span={12}>
                 <Text strong>置信度: </Text>
-                <Progress 
-                  percent={currentDecision.confidence_score * 100} 
-                  size="small" 
+                <Progress
+                  percent={currentDecision.confidence_score * 100}
+                  size="small"
                   style={{ width: 100 }}
                 />
               </Col>
@@ -573,9 +602,7 @@ const EmotionalIntelligenceDecisionEnginePage: React.FC = () => {
                 <Text strong>决策推理过程: </Text>
                 <Timeline style={{ marginTop: 8 }}>
                   {currentDecision.reasoning.map((reason, index) => (
-                    <Timeline.Item key={index}>
-                      {reason}
-                    </Timeline.Item>
+                    <Timeline.Item key={index}>{reason}</Timeline.Item>
                   ))}
                 </Timeline>
               </Col>
@@ -583,11 +610,7 @@ const EmotionalIntelligenceDecisionEnginePage: React.FC = () => {
           </div>
         ) : (
           // 新建决策表单
-          <Form
-            form={form}
-            layout="vertical"
-            onFinish={handleMakeDecision}
-          >
+          <Form form={form} layout="vertical" onFinish={handleMakeDecision}>
             <Form.Item
               name="user_id"
               label="用户ID"
@@ -601,16 +624,10 @@ const EmotionalIntelligenceDecisionEnginePage: React.FC = () => {
               label="用户输入"
               rules={[{ required: true, message: '请输入用户消息' }]}
             >
-              <Input.TextArea 
-                placeholder="输入用户的消息内容..."
-                rows={3}
-              />
+              <Input.TextArea placeholder="输入用户的消息内容..." rows={3} />
             </Form.Item>
 
-            <Form.Item
-              name="emotion_context"
-              label="情感上下文"
-            >
+            <Form.Item name="emotion_context" label="情感上下文">
               <Select placeholder="选择情感状态">
                 <Option value="happy">开心</Option>
                 <Option value="sad">难过</Option>
@@ -642,7 +659,11 @@ const EmotionalIntelligenceDecisionEnginePage: React.FC = () => {
         footer={null}
       >
         <Spin spinning={loading}>
-          <Form form={riskForm} layout="vertical" onFinish={handleRiskAssessment}>
+          <Form
+            form={riskForm}
+            layout="vertical"
+            onFinish={handleRiskAssessment}
+          >
             <Form.Item
               name="user_id"
               label="目标用户"
@@ -662,16 +683,14 @@ const EmotionalIntelligenceDecisionEnginePage: React.FC = () => {
                 <Button type="primary" htmlType="submit" loading={loading}>
                   开始评估
                 </Button>
-                <Button onClick={() => setRiskModalVisible(false)}>
-                  取消
-                </Button>
+                <Button onClick={() => setRiskModalVisible(false)}>取消</Button>
               </Space>
             </Form.Item>
           </Form>
         </Spin>
       </Modal>
     </div>
-  );
-};
+  )
+}
 
-export default EmotionalIntelligenceDecisionEnginePage;
+export default EmotionalIntelligenceDecisionEnginePage

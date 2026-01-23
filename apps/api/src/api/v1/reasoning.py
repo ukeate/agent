@@ -14,6 +14,7 @@ from src.models.schemas.reasoning import (
 )
 from src.services.reasoning_service import ReasoningService
 from src.core.dependencies import get_current_user
+from src.core.logging import get_logger
 
 logger = get_logger(__name__)
 
@@ -337,4 +338,3 @@ async def delete_reasoning_chain(
     except Exception as e:
         logger.error(f"删除推理链失败: {e}")
         raise HTTPException(status_code=500, detail=str(e))
-from src.core.logging import get_logger

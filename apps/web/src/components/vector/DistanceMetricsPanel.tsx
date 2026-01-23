@@ -3,20 +3,62 @@
  * 展示多种距离度量方法和自定义距离函数
  */
 
-import React, { useState } from 'react';
-import { Card, Table, Button, Select, Input, Space, Alert, Tag, Progress, Row, Col } from 'antd';
-import { CalculatorOutlined, ThunderboltOutlined } from '@ant-design/icons';
+import React, { useState } from 'react'
+import {
+  Card,
+  Table,
+  Button,
+  Select,
+  Input,
+  Space,
+  Alert,
+  Tag,
+  Progress,
+  Row,
+  Col,
+} from 'antd'
+import { CalculatorOutlined, ThunderboltOutlined } from '@ant-design/icons'
 
 const DistanceMetricsPanel: React.FC = () => {
-  const [selectedMetric, setSelectedMetric] = useState('cosine');
+  const [selectedMetric, setSelectedMetric] = useState('cosine')
 
   const metrics = [
-    { name: 'cosine', display: '余弦距离', type: 'pgvector', performance: 95, accuracy: 98 },
-    { name: 'euclidean', display: '欧氏距离', type: 'pgvector', performance: 92, accuracy: 96 },
-    { name: 'manhattan', display: '曼哈顿距离', type: 'custom', performance: 88, accuracy: 94 },
-    { name: 'minkowski', display: '闵可夫斯基距离', type: 'custom', performance: 85, accuracy: 95 },
-    { name: 'chebyshev', display: '切比雪夫距离', type: 'custom', performance: 90, accuracy: 93 }
-  ];
+    {
+      name: 'cosine',
+      display: '余弦距离',
+      type: 'pgvector',
+      performance: 95,
+      accuracy: 98,
+    },
+    {
+      name: 'euclidean',
+      display: '欧氏距离',
+      type: 'pgvector',
+      performance: 92,
+      accuracy: 96,
+    },
+    {
+      name: 'manhattan',
+      display: '曼哈顿距离',
+      type: 'custom',
+      performance: 88,
+      accuracy: 94,
+    },
+    {
+      name: 'minkowski',
+      display: '闵可夫斯基距离',
+      type: 'custom',
+      performance: 85,
+      accuracy: 95,
+    },
+    {
+      name: 'chebyshev',
+      display: '切比雪夫距离',
+      type: 'custom',
+      performance: 90,
+      accuracy: 93,
+    },
+  ]
 
   const columns = [
     {
@@ -30,7 +72,7 @@ const DistanceMetricsPanel: React.FC = () => {
             {record.type === 'pgvector' ? '内置' : '扩展'}
           </Tag>
         </Space>
-      )
+      ),
     },
     {
       title: '性能',
@@ -38,7 +80,7 @@ const DistanceMetricsPanel: React.FC = () => {
       key: 'performance',
       render: (value: number) => (
         <Progress percent={value} size="small" strokeColor="#52c41a" />
-      )
+      ),
     },
     {
       title: '精度',
@@ -46,7 +88,7 @@ const DistanceMetricsPanel: React.FC = () => {
       key: 'accuracy',
       render: (value: number) => (
         <Progress percent={value} size="small" strokeColor="#1890ff" />
-      )
+      ),
     },
     {
       title: '操作',
@@ -55,16 +97,16 @@ const DistanceMetricsPanel: React.FC = () => {
         <Button size="small" onClick={() => setSelectedMetric(record.name)}>
           测试
         </Button>
-      )
-    }
-  ];
+      ),
+    },
+  ]
 
   return (
     <div>
       <Alert
         message="距离度量方法"
         description="支持pgvector内置的余弦、欧氏距离等，以及自定义的闵可夫斯基、切比雪夫等距离度量，可进行性能基准测试。"
-        variant="default"
+        type="info"
         showIcon
         style={{ marginBottom: 24 }}
       />
@@ -86,10 +128,7 @@ const DistanceMetricsPanel: React.FC = () => {
           <Card title="自定义距离函数" size="small">
             <Space direction="vertical" style={{ width: '100%' }}>
               <Input placeholder="函数名称" />
-              <Input.TextArea 
-                placeholder="输入自定义距离函数代码"
-                rows={6}
-              />
+              <Input.TextArea placeholder="输入自定义距离函数代码" rows={6} />
               <Button type="primary" block>
                 创建自定义函数
               </Button>
@@ -98,8 +137,8 @@ const DistanceMetricsPanel: React.FC = () => {
 
           <Card title="性能基准测试" size="small" style={{ marginTop: 16 }}>
             <Space direction="vertical" style={{ width: '100%' }}>
-              <Select 
-                value={selectedMetric} 
+              <Select
+                value={selectedMetric}
                 onChange={setSelectedMetric}
                 style={{ width: '100%' }}
                 placeholder="选择距离度量"
@@ -118,7 +157,7 @@ const DistanceMetricsPanel: React.FC = () => {
         </Col>
       </Row>
     </div>
-  );
-};
+  )
+}
 
-export default DistanceMetricsPanel;
+export default DistanceMetricsPanel

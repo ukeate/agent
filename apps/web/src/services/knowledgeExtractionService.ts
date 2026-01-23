@@ -16,7 +16,9 @@ class KnowledgeExtractionService {
   private baseUrl = '/knowledge'
 
   async listBatchJobs(limit: number = 100): Promise<BatchJobSummary[]> {
-    const response = await apiClient.get(`${this.baseUrl}/batch`, { params: { limit } })
+    const response = await apiClient.get(`${this.baseUrl}/batch`, {
+      params: { limit },
+    })
     return response.data.batches || []
   }
 }

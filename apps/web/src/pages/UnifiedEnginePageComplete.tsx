@@ -1,14 +1,14 @@
 import { buildApiUrl, apiFetch } from '../utils/apiBase'
-import React, { useState, useEffect } from 'react';
-import { 
+import React, { useState, useEffect } from 'react'
 import { logger } from '../utils/logger'
-  Card, 
-  Tabs, 
-  Typography, 
-  Row, 
-  Col, 
-  Button, 
-  Table, 
+import {
+  Card,
+  Tabs,
+  Typography,
+  Row,
+  Col,
+  Button,
+  Table,
   Tag,
   Statistic,
   Space,
@@ -23,12 +23,12 @@ import { logger } from '../utils/logger'
   Modal,
   Descriptions,
   List,
-  message
-} from 'antd';
-import { 
-  SettingOutlined, 
-  ThunderboltOutlined, 
-  DatabaseOutlined, 
+  message,
+} from 'antd'
+import {
+  SettingOutlined,
+  ThunderboltOutlined,
+  DatabaseOutlined,
   ShareAltOutlined as PipelineOutlined,
   PlayCircleOutlined,
   ReloadOutlined,
@@ -37,148 +37,162 @@ import {
   CheckCircleOutlined,
   ExclamationCircleOutlined,
   RiseOutlined,
-  NodeIndexOutlined
-} from '@ant-design/icons';
+  NodeIndexOutlined,
+} from '@ant-design/icons'
 
-const { Title, Text } = Typography;
+const { Title, Text } = Typography
 // const { TabPane } = Tabs; // 已废弃，直接使用Tabs.TabPane或items配置
-const { Option } = Select;
+const { Option } = Select
 
 // 处理模式枚举
 const ProcessingModes = {
   STREAM: 'stream',
-  BATCH: 'batch', 
+  BATCH: 'batch',
   HYBRID: 'hybrid',
   AUTO: 'auto',
-  PIPELINE: 'pipeline'
-};
+  PIPELINE: 'pipeline',
+}
 
 // 选择策略枚举
 const SelectionStrategies = {
   HEURISTIC: 'heuristic',
   PERFORMANCE_BASED: 'performance',
   LOAD_AWARE: 'load_aware',
-  HYBRID: 'hybrid'
-};
+  HYBRID: 'hybrid',
+}
 
 interface ProcessingItem {
-  id: string;
-  data: any;
-  priority: number;
-  metadata: Record<string, any>;
+  id: string
+  data: any
+  priority: number
+  metadata: Record<string, any>
 }
 
 interface ProcessingRequest {
-  session_id: string;
-  items: ProcessingItem[];
-  mode?: string;
-  requires_real_time: boolean;
-  streaming_enabled: boolean;
-  batch_size?: number;
-  max_parallel_tasks: number;
-  requires_aggregation: boolean;
-  aggregation_strategy: string;
-  timeout?: number;
+  session_id: string
+  items: ProcessingItem[]
+  mode?: string
+  requires_real_time: boolean
+  streaming_enabled: boolean
+  batch_size?: number
+  max_parallel_tasks: number
+  requires_aggregation: boolean
+  aggregation_strategy: string
+  timeout?: number
 }
 
 interface ProcessingResponse {
-  request_id: string;
-  session_id: string;
-  mode_used: string;
-  status: string;
-  progress: number;
-  results: any[];
-  aggregated_result?: any;
-  processing_time?: number;
-  errors: any[];
-  success_rate: number;
+  request_id: string
+  session_id: string
+  mode_used: string
+  status: string
+  progress: number
+  results: any[]
+  aggregated_result?: any
+  processing_time?: number
+  errors: any[]
+  success_rate: number
 }
 
 interface SystemMetrics {
-  total_requests: number;
-  total_items_processed: number;
-  active_sessions: number;
-  processing_history_size: number;
-  average_processing_time: number;
-  success_rate: number;
-  mode_usage_stats: Record<string, number>;
-  default_mode: string;
+  total_requests: number
+  total_items_processed: number
+  active_sessions: number
+  processing_history_size: number
+  average_processing_time: number
+  success_rate: number
+  mode_usage_stats: Record<string, number>
+  default_mode: string
 }
 
 interface ModeRecommendation {
-  mode: string;
-  score: number;
-  heuristic_score: number;
-  performance_score: number;
-  request_count: number;
-  success_rate: number;
-  avg_processing_time: number;
+  mode: string
+  score: number
+  heuristic_score: number
+  performance_score: number
+  request_count: number
+  success_rate: number
+  avg_processing_time: number
 }
 
 const UnifiedEnginePageComplete: React.FC = () => {
-  const [loading, setLoading] = useState(false);
-  const [systemMetrics, setSystemMetrics] = useState<SystemMetrics | null>(null);
-  const [processingHistory, setProcessingHistory] = useState<ProcessingResponse[]>([]);
-  const [modeRecommendations, setModeRecommendations] = useState<ModeRecommendation[]>([]);
-  const [activeRequests, setActiveRequests] = useState<Record<string, ProcessingResponse>>({});
-  
+  const [loading, setLoading] = useState(false)
+  const [systemMetrics, setSystemMetrics] = useState<SystemMetrics | null>(null)
+  const [processingHistory, setProcessingHistory] = useState<
+    ProcessingResponse[]
+  >([])
+  const [modeRecommendations, setModeRecommendations] = useState<
+    ModeRecommendation[]
+  >([])
+  const [activeRequests, setActiveRequests] = useState<
+    Record<string, ProcessingResponse>
+  >({})
+
   // 表单状态
-  const [form] = Form.useForm();
-  const [currentSessionId, setCurrentSessionId] = useState(`session_${Date.now()}`);
-  
+  const [form] = Form.useForm()
+  const [currentSessionId, setCurrentSessionId] = useState(
+    `session_${Date.now()}`
+  )
+
   // 模态框状态
-  const [recommendModalVisible, setRecommendModalVisible] = useState(false);
-  const [requestModalVisible, setRequestModalVisible] = useState(false);
-  const [selectedRequest, setSelectedRequest] = useState<ProcessingResponse | null>(null);
+  const [recommendModalVisible, setRecommendModalVisible] = useState(false)
+  const [requestModalVisible, setRequestModalVisible] = useState(false)
+  const [selectedRequest, setSelectedRequest] =
+    useState<ProcessingResponse | null>(null)
 
   // 获取系统指标
   const fetchSystemMetrics = async () => {
     try {
-      const response = await apiFetch(buildApiUrl('/api/v1/unified/metrics'));
-      const data = await response.json();
-      setSystemMetrics(data);
+      const response = await apiFetch(buildApiUrl('/api/v1/unified/metrics'))
+      const data = await response.json()
+      setSystemMetrics(data)
     } catch (error) {
-      logger.error('获取系统指标失败:', error);
+      logger.error('获取系统指标失败:', error)
     }
-  };
+  }
 
   // 获取处理历史
   const fetchProcessingHistory = async () => {
     try {
-      const response = await apiFetch(buildApiUrl('/api/v1/unified/history?limit=20'));
-      const data = await response.json();
-      setProcessingHistory(data);
+      const response = await apiFetch(
+        buildApiUrl('/api/v1/unified/history?limit=20')
+      )
+      const data = await response.json()
+      setProcessingHistory(data)
     } catch (error) {
-      logger.error('获取处理历史失败:', error);
+      logger.error('获取处理历史失败:', error)
     }
-  };
+  }
 
   // 获取模式推荐
   const fetchModeRecommendations = async (request: ProcessingRequest) => {
     try {
-      const response = await apiFetch(buildApiUrl('/api/v1/unified/mode/recommendations'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(request)
-      });
-      const data = await response.json();
-      setModeRecommendations(data);
-      setRecommendModalVisible(true);
+      const response = await apiFetch(
+        buildApiUrl('/api/v1/unified/mode/recommendations'),
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(request),
+        }
+      )
+      const data = await response.json()
+      setModeRecommendations(data)
+      setRecommendModalVisible(true)
     } catch (error) {
-      logger.error('获取模式推荐失败:', error);
-      message.error('获取模式推荐失败');
+      logger.error('获取模式推荐失败:', error)
+      message.error('获取模式推荐失败')
     }
-  };
+  }
 
   // 提交处理请求
   const submitProcessingRequest = async (values: any) => {
-    setLoading(true);
-    
+    setLoading(true)
+
     try {
       // 构建处理项目
-      const items: ProcessingItem[] = [];
-      const itemCount = values.item_count || 5;
-      
+      const items: ProcessingItem[] = []
+      const itemCount = values.item_count || 5
+
       for (let i = 0; i < itemCount; i++) {
         items.push({
           id: `item_${i + 1}`,
@@ -186,11 +200,11 @@ const UnifiedEnginePageComplete: React.FC = () => {
           priority: values.priority || 5,
           metadata: {
             created_at: new Date().toISOString(),
-            index: i
-          }
-        });
+            index: i,
+          },
+        })
       }
-      
+
       const request: ProcessingRequest = {
         session_id: currentSessionId,
         items,
@@ -201,55 +215,52 @@ const UnifiedEnginePageComplete: React.FC = () => {
         max_parallel_tasks: values.max_parallel_tasks || 10,
         requires_aggregation: values.requires_aggregation || false,
         aggregation_strategy: values.aggregation_strategy || 'collect',
-        timeout: values.timeout
-      };
-      
+        timeout: values.timeout,
+      }
+
       const response = await apiFetch(buildApiUrl('/api/v1/unified/process'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(request)
-      });
-      const result = await response.json();
+        body: JSON.stringify(request),
+      })
+      const result = await response.json()
       setActiveRequests(prev => ({
         ...prev,
-        [currentSessionId]: result
-      }));
-      
-      message.success('处理请求已提交');
-      
+        [currentSessionId]: result,
+      }))
+
+      message.success('处理请求已提交')
+
       // 生成新的会话ID用于下次请求
-      setCurrentSessionId(`session_${Date.now()}`);
-      
+      setCurrentSessionId(`session_${Date.now()}`)
+
       // 刷新数据
-      await Promise.all([
-        fetchSystemMetrics(),
-        fetchProcessingHistory()
-      ]);
+      await Promise.all([fetchSystemMetrics(), fetchProcessingHistory()])
     } catch (error) {
-      logger.error('提交处理请求失败:', error);
-      message.error('提交处理请求失败');
+      logger.error('提交处理请求失败:', error)
+      message.error('提交处理请求失败')
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
+  }
 
   // 获取推荐（不提交请求）
   const getRecommendationsOnly = async () => {
-    const values = form.getFieldsValue();
-    
+    const values = form.getFieldsValue()
+
     // 构建处理项目
-    const items: ProcessingItem[] = [];
-    const itemCount = values.item_count || 5;
-    
+    const items: ProcessingItem[] = []
+    const itemCount = values.item_count || 5
+
     for (let i = 0; i < itemCount; i++) {
       items.push({
         id: `item_${i + 1}`,
         data: values.sample_data || `示例数据项目 ${i + 1}`,
         priority: values.priority || 5,
-        metadata: { index: i }
-      });
+        metadata: { index: i },
+      })
     }
-    
+
     const request: ProcessingRequest = {
       session_id: currentSessionId,
       items,
@@ -259,53 +270,67 @@ const UnifiedEnginePageComplete: React.FC = () => {
       max_parallel_tasks: values.max_parallel_tasks || 10,
       requires_aggregation: values.requires_aggregation || false,
       aggregation_strategy: values.aggregation_strategy || 'collect',
-      timeout: values.timeout
-    };
-    
-    await fetchModeRecommendations(request);
-  };
+      timeout: values.timeout,
+    }
+
+    await fetchModeRecommendations(request)
+  }
 
   useEffect(() => {
-    fetchSystemMetrics();
-    fetchProcessingHistory();
-    
+    fetchSystemMetrics()
+    fetchProcessingHistory()
+
     // 定期刷新数据
     const interval = setInterval(() => {
-      fetchSystemMetrics();
-      fetchProcessingHistory();
-    }, 5000);
-    
-    return () => clearInterval(interval);
-  }, []);
+      fetchSystemMetrics()
+      fetchProcessingHistory()
+    }, 5000)
+
+    return () => clearInterval(interval)
+  }, [])
 
   const getModeIcon = (mode: string) => {
     switch (mode) {
-      case 'stream': return <ThunderboltOutlined />;
-      case 'batch': return <DatabaseOutlined />;
-      case 'hybrid': return <ShareAltOutlined />;
-      case 'pipeline': return <PipelineOutlined />;
-      default: return <SettingOutlined />;
+      case 'stream':
+        return <ThunderboltOutlined />
+      case 'batch':
+        return <DatabaseOutlined />
+      case 'hybrid':
+        return <ShareAltOutlined />
+      case 'pipeline':
+        return <PipelineOutlined />
+      default:
+        return <SettingOutlined />
     }
-  };
+  }
 
   const getModeColor = (mode: string) => {
     switch (mode) {
-      case 'stream': return 'blue';
-      case 'batch': return 'green';
-      case 'hybrid': return 'orange';
-      case 'pipeline': return 'purple';
-      default: return 'default';
+      case 'stream':
+        return 'blue'
+      case 'batch':
+        return 'green'
+      case 'hybrid':
+        return 'orange'
+      case 'pipeline':
+        return 'purple'
+      default:
+        return 'default'
     }
-  };
+  }
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'completed': return 'success';
-      case 'processing': return 'processing';
-      case 'failed': return 'error';
-      default: return 'default';
+      case 'completed':
+        return 'success'
+      case 'processing':
+        return 'processing'
+      case 'failed':
+        return 'error'
+      default:
+        return 'default'
     }
-  };
+  }
 
   // 历史记录表格列定义
   const historyColumns = [
@@ -318,7 +343,7 @@ const UnifiedEnginePageComplete: React.FC = () => {
         <Text code style={{ fontSize: '12px' }}>
           {text.slice(-8)}
         </Text>
-      )
+      ),
     },
     {
       title: '模式',
@@ -329,7 +354,7 @@ const UnifiedEnginePageComplete: React.FC = () => {
         <Tag color={getModeColor(mode)} icon={getModeIcon(mode)}>
           {mode.toUpperCase()}
         </Tag>
-      )
+      ),
     },
     {
       title: '状态',
@@ -337,10 +362,8 @@ const UnifiedEnginePageComplete: React.FC = () => {
       key: 'status',
       width: 80,
       render: (status: string) => (
-        <Tag color={getStatusColor(status)}>
-          {status}
-        </Tag>
-      )
+        <Tag color={getStatusColor(status)}>{status}</Tag>
+      ),
     },
     {
       title: '进度',
@@ -348,56 +371,63 @@ const UnifiedEnginePageComplete: React.FC = () => {
       key: 'progress',
       width: 120,
       render: (progress: number) => (
-        <Progress 
-          percent={Math.round(progress * 100)} 
-          size="small" 
+        <Progress
+          percent={Math.round(progress * 100)}
+          size="small"
           status={progress === 1 ? 'success' : 'active'}
         />
-      )
+      ),
     },
     {
       title: '项目数',
       dataIndex: 'results',
       key: 'item_count',
       width: 80,
-      render: (results: any[]) => results.length
+      render: (results: any[]) => results.length,
     },
     {
       title: '成功率',
       dataIndex: 'success_rate',
       key: 'success_rate',
       width: 80,
-      render: (rate: number) => `${(rate * 100).toFixed(1)}%`
+      render: (rate: number) => `${(rate * 100).toFixed(1)}%`,
     },
     {
       title: '处理时间',
       dataIndex: 'processing_time',
       key: 'processing_time',
       width: 100,
-      render: (time: number) => time ? `${time.toFixed(2)}s` : '-'
+      render: (time: number) => (time ? `${time.toFixed(2)}s` : '-'),
     },
     {
       title: '操作',
       key: 'actions',
       width: 80,
       render: (_, record: ProcessingResponse) => (
-        <Button 
-          size="small" 
+        <Button
+          size="small"
           onClick={() => {
-            setSelectedRequest(record);
-            setRequestModalVisible(true);
+            setSelectedRequest(record)
+            setRequestModalVisible(true)
           }}
         >
           详情
         </Button>
-      )
-    }
-  ];
+      ),
+    },
+  ]
 
   return (
     <div style={{ padding: '24px' }}>
       {/* 页面标题 */}
-      <div style={{ marginBottom: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <div
+        style={{
+          marginBottom: '24px',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+        }}
+      >
         <Title level={2}>
           <SettingOutlined style={{ marginRight: '12px' }} />
           统一处理引擎 (流批一体)
@@ -461,7 +491,6 @@ const UnifiedEnginePageComplete: React.FC = () => {
       {/* 主要功能区域 */}
       <Card>
         <Tabs defaultActiveKey="processing" size="large">
-          
           {/* 处理请求标签页 */}
           <Tabs.TabPane
             tab={
@@ -485,7 +514,7 @@ const UnifiedEnginePageComplete: React.FC = () => {
                       priority: 5,
                       max_parallel_tasks: 10,
                       streaming_enabled: true,
-                      aggregation_strategy: 'collect'
+                      aggregation_strategy: 'collect',
                     }}
                   >
                     <Row gutter={16}>
@@ -512,7 +541,11 @@ const UnifiedEnginePageComplete: React.FC = () => {
                       </Col>
                       <Col span={12}>
                         <Form.Item label="数据项目数量" name="item_count">
-                          <InputNumber min={1} max={100} style={{ width: '100%' }} />
+                          <InputNumber
+                            min={1}
+                            max={100}
+                            style={{ width: '100%' }}
+                          />
                         </Form.Item>
                       </Col>
                     </Row>
@@ -520,50 +553,83 @@ const UnifiedEnginePageComplete: React.FC = () => {
                     <Row gutter={16}>
                       <Col span={12}>
                         <Form.Item label="优先级" name="priority">
-                          <InputNumber min={1} max={10} style={{ width: '100%' }} />
+                          <InputNumber
+                            min={1}
+                            max={10}
+                            style={{ width: '100%' }}
+                          />
                         </Form.Item>
                       </Col>
                       <Col span={12}>
-                        <Form.Item label="最大并行任务" name="max_parallel_tasks">
-                          <InputNumber min={1} max={50} style={{ width: '100%' }} />
+                        <Form.Item
+                          label="最大并行任务"
+                          name="max_parallel_tasks"
+                        >
+                          <InputNumber
+                            min={1}
+                            max={50}
+                            style={{ width: '100%' }}
+                          />
                         </Form.Item>
                       </Col>
                     </Row>
 
                     <Row gutter={16}>
                       <Col span={8}>
-                        <Form.Item label="实时处理" name="requires_real_time" valuePropName="checked">
+                        <Form.Item
+                          label="实时处理"
+                          name="requires_real_time"
+                          valuePropName="checked"
+                        >
                           <Switch />
                         </Form.Item>
                       </Col>
                       <Col span={8}>
-                        <Form.Item label="启用流式" name="streaming_enabled" valuePropName="checked">
+                        <Form.Item
+                          label="启用流式"
+                          name="streaming_enabled"
+                          valuePropName="checked"
+                        >
                           <Switch defaultChecked />
                         </Form.Item>
                       </Col>
                       <Col span={8}>
-                        <Form.Item label="需要聚合" name="requires_aggregation" valuePropName="checked">
+                        <Form.Item
+                          label="需要聚合"
+                          name="requires_aggregation"
+                          valuePropName="checked"
+                        >
                           <Switch />
                         </Form.Item>
                       </Col>
                     </Row>
 
                     <Form.Item label="示例数据" name="sample_data">
-                      <Input.TextArea 
-                        rows={3} 
-                        placeholder="输入要处理的示例数据..." 
+                      <Input.TextArea
+                        rows={3}
+                        placeholder="输入要处理的示例数据..."
                       />
                     </Form.Item>
 
                     <Row gutter={16}>
                       <Col span={12}>
                         <Form.Item label="批处理大小" name="batch_size">
-                          <InputNumber min={1} max={1000} style={{ width: '100%' }} placeholder="可选" />
+                          <InputNumber
+                            min={1}
+                            max={1000}
+                            style={{ width: '100%' }}
+                            placeholder="可选"
+                          />
                         </Form.Item>
                       </Col>
                       <Col span={12}>
                         <Form.Item label="超时时间(秒)" name="timeout">
-                          <InputNumber min={1} max={3600} style={{ width: '100%' }} placeholder="可选" />
+                          <InputNumber
+                            min={1}
+                            max={3600}
+                            style={{ width: '100%' }}
+                            placeholder="可选"
+                          />
                         </Form.Item>
                       </Col>
                     </Row>
@@ -580,15 +646,15 @@ const UnifiedEnginePageComplete: React.FC = () => {
                     <Divider />
 
                     <Space>
-                      <Button 
-                        type="primary" 
-                        htmlType="submit" 
+                      <Button
+                        type="primary"
+                        htmlType="submit"
                         loading={loading}
                         icon={<PlayCircleOutlined />}
                       >
                         提交处理请求
                       </Button>
-                      <Button 
+                      <Button
                         onClick={getRecommendationsOnly}
                         icon={<BarChartOutlined />}
                       >
@@ -603,19 +669,35 @@ const UnifiedEnginePageComplete: React.FC = () => {
                 <Card title="模式使用统计" size="small">
                   {systemMetrics?.mode_usage_stats && (
                     <div>
-                      {Object.entries(systemMetrics.mode_usage_stats).map(([mode, count]) => (
-                        <div key={mode} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-                          <Tag color={getModeColor(mode)} icon={getModeIcon(mode)}>
-                            {mode.toUpperCase()}
-                          </Tag>
-                          <Text strong>{count}</Text>
-                        </div>
-                      ))}
+                      {Object.entries(systemMetrics.mode_usage_stats).map(
+                        ([mode, count]) => (
+                          <div
+                            key={mode}
+                            style={{
+                              display: 'flex',
+                              justifyContent: 'space-between',
+                              marginBottom: '8px',
+                            }}
+                          >
+                            <Tag
+                              color={getModeColor(mode)}
+                              icon={getModeIcon(mode)}
+                            >
+                              {mode.toUpperCase()}
+                            </Tag>
+                            <Text strong>{count}</Text>
+                          </div>
+                        )
+                      )}
                     </div>
                   )}
                 </Card>
 
-                <Card title="当前会话" size="small" style={{ marginTop: '16px' }}>
+                <Card
+                  title="当前会话"
+                  size="small"
+                  style={{ marginTop: '16px' }}
+                >
                   <Text code style={{ fontSize: '12px' }}>
                     {currentSessionId}
                   </Text>
@@ -645,7 +727,7 @@ const UnifiedEnginePageComplete: React.FC = () => {
                   pageSize: 10,
                   showSizeChanger: true,
                   showQuickJumper: true,
-                  showTotal: (total) => `共 ${total} 条记录`
+                  showTotal: total => `共 ${total} 条记录`,
                 }}
               />
             </Card>
@@ -669,39 +751,58 @@ const UnifiedEnginePageComplete: React.FC = () => {
                       <Alert
                         message="性能指标"
                         description={`总处理项目: ${systemMetrics.total_items_processed} | 平均处理时间: ${systemMetrics.average_processing_time.toFixed(2)}s`}
-                        variant="default"
+                        type="info"
                         style={{ marginBottom: '16px' }}
                       />
-                      
+
                       <div>
-                        {Object.entries(systemMetrics.mode_usage_stats).map(([mode, count]) => {
-                          const percentage = systemMetrics.total_requests > 0 
-                            ? (count / systemMetrics.total_requests) * 100 
-                            : 0;
-                          
-                          return (
-                            <div key={mode} style={{ marginBottom: '12px' }}>
-                              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-                                <span>
-                                  <Tag color={getModeColor(mode)} icon={getModeIcon(mode)}>
-                                    {mode.toUpperCase()}
-                                  </Tag>
-                                </span>
-                                <span>{count} 次 ({percentage.toFixed(1)}%)</span>
+                        {Object.entries(systemMetrics.mode_usage_stats).map(
+                          ([mode, count]) => {
+                            const percentage =
+                              systemMetrics.total_requests > 0
+                                ? (count / systemMetrics.total_requests) * 100
+                                : 0
+
+                            return (
+                              <div key={mode} style={{ marginBottom: '12px' }}>
+                                <div
+                                  style={{
+                                    display: 'flex',
+                                    justifyContent: 'space-between',
+                                    marginBottom: '4px',
+                                  }}
+                                >
+                                  <span>
+                                    <Tag
+                                      color={getModeColor(mode)}
+                                      icon={getModeIcon(mode)}
+                                    >
+                                      {mode.toUpperCase()}
+                                    </Tag>
+                                  </span>
+                                  <span>
+                                    {count} 次 ({percentage.toFixed(1)}%)
+                                  </span>
+                                </div>
+                                <Progress
+                                  percent={percentage}
+                                  strokeColor={
+                                    mode === 'stream'
+                                      ? '#1890ff'
+                                      : mode === 'batch'
+                                        ? '#52c41a'
+                                        : mode === 'hybrid'
+                                          ? '#fa8c16'
+                                          : mode === 'pipeline'
+                                            ? '#722ed1'
+                                            : '#d9d9d9'
+                                  }
+                                  size="small"
+                                />
                               </div>
-                              <Progress 
-                                percent={percentage} 
-                                strokeColor={
-                                  mode === 'stream' ? '#1890ff' :
-                                  mode === 'batch' ? '#52c41a' :
-                                  mode === 'hybrid' ? '#fa8c16' :
-                                  mode === 'pipeline' ? '#722ed1' : '#d9d9d9'
-                                }
-                                size="small"
-                              />
-                            </div>
-                          );
-                        })}
+                            )
+                          }
+                        )}
                       </div>
                     </div>
                   )}
@@ -712,7 +813,11 @@ const UnifiedEnginePageComplete: React.FC = () => {
                 <Card title="系统状态" style={{ marginBottom: '16px' }}>
                   <Descriptions column={1} size="small">
                     <Descriptions.Item label="默认模式">
-                      <Tag color={getModeColor(systemMetrics?.default_mode || 'auto')}>
+                      <Tag
+                        color={getModeColor(
+                          systemMetrics?.default_mode || 'auto'
+                        )}
+                      >
                         {(systemMetrics?.default_mode || 'auto').toUpperCase()}
                       </Tag>
                     </Descriptions.Item>
@@ -730,7 +835,6 @@ const UnifiedEnginePageComplete: React.FC = () => {
               </Col>
             </Row>
           </Tabs.TabPane>
-
         </Tabs>
       </Card>
 
@@ -742,7 +846,7 @@ const UnifiedEnginePageComplete: React.FC = () => {
         footer={[
           <Button key="close" onClick={() => setRecommendModalVisible(false)}>
             关闭
-          </Button>
+          </Button>,
         ]}
         width={800}
       >
@@ -751,9 +855,18 @@ const UnifiedEnginePageComplete: React.FC = () => {
           renderItem={(item: ModeRecommendation) => (
             <List.Item>
               <Card size="small" style={{ width: '100%' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                  }}
+                >
                   <div>
-                    <Tag color={getModeColor(item.mode)} icon={getModeIcon(item.mode)}>
+                    <Tag
+                      color={getModeColor(item.mode)}
+                      icon={getModeIcon(item.mode)}
+                    >
                       {item.mode.toUpperCase()}
                     </Tag>
                     <Text strong style={{ marginLeft: '8px' }}>
@@ -762,24 +875,37 @@ const UnifiedEnginePageComplete: React.FC = () => {
                   </div>
                   <div>
                     <Text type="secondary">
-                      历史请求: {item.request_count} | 成功率: {(item.success_rate * 100).toFixed(1)}%
+                      历史请求: {item.request_count} | 成功率:{' '}
+                      {(item.success_rate * 100).toFixed(1)}%
                     </Text>
                   </div>
                 </div>
                 <div style={{ marginTop: '8px' }}>
-                  <Progress 
-                    percent={item.score * 100} 
-                    size="small" 
-                    strokeColor={getModeColor(item.mode) === 'blue' ? '#1890ff' : 
-                               getModeColor(item.mode) === 'green' ? '#52c41a' :
-                               getModeColor(item.mode) === 'orange' ? '#fa8c16' : '#722ed1'}
+                  <Progress
+                    percent={item.score * 100}
+                    size="small"
+                    strokeColor={
+                      getModeColor(item.mode) === 'blue'
+                        ? '#1890ff'
+                        : getModeColor(item.mode) === 'green'
+                          ? '#52c41a'
+                          : getModeColor(item.mode) === 'orange'
+                            ? '#fa8c16'
+                            : '#722ed1'
+                    }
                   />
                 </div>
                 <div style={{ marginTop: '8px', fontSize: '12px' }}>
                   <Space>
-                    <Text type="secondary">启发式: {(item.heuristic_score * 100).toFixed(0)}%</Text>
-                    <Text type="secondary">性能: {(item.performance_score * 100).toFixed(0)}%</Text>
-                    <Text type="secondary">平均耗时: {item.avg_processing_time.toFixed(2)}s</Text>
+                    <Text type="secondary">
+                      启发式: {(item.heuristic_score * 100).toFixed(0)}%
+                    </Text>
+                    <Text type="secondary">
+                      性能: {(item.performance_score * 100).toFixed(0)}%
+                    </Text>
+                    <Text type="secondary">
+                      平均耗时: {item.avg_processing_time.toFixed(2)}s
+                    </Text>
                   </Space>
                 </div>
               </Card>
@@ -796,7 +922,7 @@ const UnifiedEnginePageComplete: React.FC = () => {
         footer={[
           <Button key="close" onClick={() => setRequestModalVisible(false)}>
             关闭
-          </Button>
+          </Button>,
         ]}
         width={800}
       >
@@ -810,7 +936,10 @@ const UnifiedEnginePageComplete: React.FC = () => {
                 <Text code>{selectedRequest.session_id}</Text>
               </Descriptions.Item>
               <Descriptions.Item label="处理模式">
-                <Tag color={getModeColor(selectedRequest.mode_used)} icon={getModeIcon(selectedRequest.mode_used)}>
+                <Tag
+                  color={getModeColor(selectedRequest.mode_used)}
+                  icon={getModeIcon(selectedRequest.mode_used)}
+                >
                   {selectedRequest.mode_used.toUpperCase()}
                 </Tag>
               </Descriptions.Item>
@@ -820,13 +949,18 @@ const UnifiedEnginePageComplete: React.FC = () => {
                 </Tag>
               </Descriptions.Item>
               <Descriptions.Item label="进度">
-                <Progress percent={Math.round(selectedRequest.progress * 100)} size="small" />
+                <Progress
+                  percent={Math.round(selectedRequest.progress * 100)}
+                  size="small"
+                />
               </Descriptions.Item>
               <Descriptions.Item label="成功率">
                 {(selectedRequest.success_rate * 100).toFixed(1)}%
               </Descriptions.Item>
               <Descriptions.Item label="处理时间">
-                {selectedRequest.processing_time ? `${selectedRequest.processing_time.toFixed(2)}s` : '-'}
+                {selectedRequest.processing_time
+                  ? `${selectedRequest.processing_time.toFixed(2)}s`
+                  : '-'}
               </Descriptions.Item>
               <Descriptions.Item label="结果数量">
                 {selectedRequest.results.length}
@@ -844,7 +978,7 @@ const UnifiedEnginePageComplete: React.FC = () => {
                       ))}
                     </ul>
                   }
-                  variant="destructive"
+                  type="error"
                   showIcon
                 />
               </div>
@@ -853,7 +987,13 @@ const UnifiedEnginePageComplete: React.FC = () => {
             {selectedRequest.aggregated_result && (
               <div style={{ marginTop: '16px' }}>
                 <Card title="聚合结果" size="small">
-                  <pre style={{ fontSize: '12px', margin: 0, whiteSpace: 'pre-wrap' }}>
+                  <pre
+                    style={{
+                      fontSize: '12px',
+                      margin: 0,
+                      whiteSpace: 'pre-wrap',
+                    }}
+                  >
                     {JSON.stringify(selectedRequest.aggregated_result, null, 2)}
                   </pre>
                 </Card>
@@ -863,7 +1003,7 @@ const UnifiedEnginePageComplete: React.FC = () => {
         )}
       </Modal>
     </div>
-  );
-};
+  )
+}
 
-export default UnifiedEnginePageComplete;
+export default UnifiedEnginePageComplete

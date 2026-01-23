@@ -49,11 +49,13 @@ async def init_database() -> None:
 
 async def close_database() -> None:
     """关闭数据库连接"""
-    global engine
+    global engine, async_session_factory
 
     if engine:
         logger.info("关闭数据库连接")
         await engine.dispose()
+        engine = None
+        async_session_factory = None
         logger.info("数据库连接已关闭")
 
 @asynccontextmanager

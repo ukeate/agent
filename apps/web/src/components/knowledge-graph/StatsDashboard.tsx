@@ -1,6 +1,6 @@
 /**
  * 知识图谱统计仪表板
- * 
+ *
  * 功能包括：
  * - 显示图谱规模统计(实体数量、关系数量、密度等)
  * - 提供实体类型分布和关系类型分布的可视化
@@ -9,7 +9,7 @@
  * - 实时数据更新和刷新功能
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react'
 import {
   Card,
   Row,
@@ -24,8 +24,8 @@ import {
   DatePicker,
   Tag,
   Spin,
-  Alert
-} from 'antd';
+  Alert,
+} from 'antd'
 import {
   BarChartOutlined,
   PieChartOutlined,
@@ -35,8 +35,8 @@ import {
   TrophyOutlined,
   RiseOutlined,
   FallOutlined,
-  ClockCircleOutlined
-} from '@ant-design/icons';
+  ClockCircleOutlined,
+} from '@ant-design/icons'
 import {
   BarChart,
   Bar,
@@ -52,79 +52,100 @@ import {
   LineChart,
   Line,
   Area,
-  AreaChart
-} from 'recharts';
-import dayjs from 'dayjs';
+  AreaChart,
+} from 'recharts'
+import dayjs from 'dayjs'
 
-const { Title, Text } = Typography;
-const { RangePicker } = DatePicker;
-const { Option } = Select;
+const { Title, Text } = Typography
+const { RangePicker } = DatePicker
+const { Option } = Select
 
 // ==================== 类型定义 ====================
 
 export interface GraphStats {
   summary: {
-    nodeCount: number;
-    edgeCount: number;
-    density: number;
-    averageDegree: number;
-    components: number;
-    diameter?: number;
-    clustering?: number;
-  };
+    nodeCount: number
+    edgeCount: number
+    density: number
+    averageDegree: number
+    components: number
+    diameter?: number
+    clustering?: number
+  }
   distributions: {
-    nodeTypeDistribution: Array<{ type: string; count: number; percentage: number }>;
-    edgeTypeDistribution: Array<{ type: string; count: number; percentage: number }>;
-    degreeDistribution: Array<{ degree: number; count: number }>;
-  };
+    nodeTypeDistribution: Array<{
+      type: string
+      count: number
+      percentage: number
+    }>
+    edgeTypeDistribution: Array<{
+      type: string
+      count: number
+      percentage: number
+    }>
+    degreeDistribution: Array<{ degree: number; count: number }>
+  }
   quality: {
-    completenessScore: number;
-    consistencyScore: number;
-    freshnessScore: number;
-    dataIntegrity: number;
-  };
+    completenessScore: number
+    consistencyScore: number
+    freshnessScore: number
+    dataIntegrity: number
+  }
   growth: {
-    dailyGrowth: Array<{ date: string; nodes: number; edges: number; activity: number }>;
-    weeklyActive: number;
-    monthlyActive: number;
+    dailyGrowth: Array<{
+      date: string
+      nodes: number
+      edges: number
+      activity: number
+    }>
+    weeklyActive: number
+    monthlyActive: number
     trends: {
-      nodeGrowthRate: number;
-      edgeGrowthRate: number;
-      activityTrend: 'rising' | 'falling' | 'stable';
-    };
-  };
+      nodeGrowthRate: number
+      edgeGrowthRate: number
+      activityTrend: 'rising' | 'falling' | 'stable'
+    }
+  }
   performance: {
-    lastUpdateTime: string;
-    indexingStatus: 'healthy' | 'warning' | 'error';
-    queryResponseTime: number;
-    throughput: number;
-  };
+    lastUpdateTime: string
+    indexingStatus: 'healthy' | 'warning' | 'error'
+    queryResponseTime: number
+    throughput: number
+  }
 }
 
 interface StatsDashboardProps {
-  stats?: GraphStats;
-  loading?: boolean;
-  error?: string;
-  onRefresh?: () => void;
-  onDateRangeChange?: (dateRange: [string, string]) => void;
-  className?: string;
-  autoRefresh?: boolean;
-  refreshInterval?: number;
+  stats?: GraphStats
+  loading?: boolean
+  error?: string
+  onRefresh?: () => void
+  onDateRangeChange?: (dateRange: [string, string]) => void
+  className?: string
+  autoRefresh?: boolean
+  refreshInterval?: number
 }
 
 // ==================== 颜色配置 ====================
 
 const COLORS = [
-  '#1890ff', '#52c41a', '#faad14', '#f5222d', '#722ed1', 
-  '#fa8c16', '#a0d911', '#13c2c2', '#eb2f96', '#1890ff'
-];
+  '#1890ff',
+  '#52c41a',
+  '#faad14',
+  '#f5222d',
+  '#722ed1',
+  '#fa8c16',
+  '#a0d911',
+  '#13c2c2',
+  '#eb2f96',
+  '#1890ff',
+]
 
 const QUALITY_COLORS = {
   excellent: '#52c41a',
-  good: '#a0d911', 
+  good: '#a0d911',
   warning: '#faad14',
-  poor: '#f5222d'
-};
+  poor: '#f5222d',
+}
 
 // ==================== 主组件 ====================
 
@@ -136,101 +157,109 @@ const StatsDashboard: React.FC<StatsDashboardProps> = ({
   onDateRangeChange,
   className = '',
   autoRefresh = false,
-  refreshInterval = 30000
+  refreshInterval = 30000,
 }) => {
   // ==================== 状态管理 ====================
-  
-  const [selectedTimeRange, setSelectedTimeRange] = useState<string>('7d');
-  const [refreshTimer, setRefreshTimer] = useState<ReturnType<typeof setTimeout> | null>(null);
-  const [lastRefreshTime, setLastRefreshTime] = useState<Date>(new Date());
+
+  const [selectedTimeRange, setSelectedTimeRange] = useState<string>('7d')
+  const [refreshTimer, setRefreshTimer] = useState<ReturnType<
+    typeof setTimeout
+  > | null>(null)
+  const [lastRefreshTime, setLastRefreshTime] = useState<Date>(new Date())
 
   // ==================== 自动刷新 ====================
-  
+
   const handleRefresh = useCallback(() => {
-    onRefresh?.();
-    setLastRefreshTime(new Date());
-  }, [onRefresh]);
+    onRefresh?.()
+    setLastRefreshTime(new Date())
+  }, [onRefresh])
 
   useEffect(() => {
     if (autoRefresh && refreshInterval > 0) {
-      const timer = setInterval(handleRefresh, refreshInterval);
-      setRefreshTimer(timer);
-      
+      const timer = setInterval(handleRefresh, refreshInterval)
+      setRefreshTimer(timer)
+
       return () => {
         if (timer) {
-          clearInterval(timer);
+          clearInterval(timer)
         }
-      };
+      }
     }
-    
+
     return () => {
       if (refreshTimer) {
-        clearInterval(refreshTimer);
-        setRefreshTimer(null);
+        clearInterval(refreshTimer)
+        setRefreshTimer(null)
       }
-    };
-  }, [autoRefresh, refreshInterval, handleRefresh]);
+    }
+  }, [autoRefresh, refreshInterval, handleRefresh])
 
   // ==================== 时间范围处理 ====================
-  
-  const handleTimeRangeChange = useCallback((range: string) => {
-    setSelectedTimeRange(range);
-    
-    const endDate = dayjs();
-    let startDate: dayjs.Dayjs;
-    
-    switch (range) {
-      case '1d':
-        startDate = endDate.subtract(1, 'day');
-        break;
-      case '7d':
-        startDate = endDate.subtract(7, 'day');
-        break;
-      case '30d':
-        startDate = endDate.subtract(30, 'day');
-        break;
-      case '90d':
-        startDate = endDate.subtract(90, 'day');
-        break;
-      default:
-        startDate = endDate.subtract(7, 'day');
-    }
-    
-    onDateRangeChange?.([startDate.format('YYYY-MM-DD'), endDate.format('YYYY-MM-DD')]);
-  }, [onDateRangeChange]);
+
+  const handleTimeRangeChange = useCallback(
+    (range: string) => {
+      setSelectedTimeRange(range)
+
+      const endDate = dayjs()
+      let startDate: dayjs.Dayjs
+
+      switch (range) {
+        case '1d':
+          startDate = endDate.subtract(1, 'day')
+          break
+        case '7d':
+          startDate = endDate.subtract(7, 'day')
+          break
+        case '30d':
+          startDate = endDate.subtract(30, 'day')
+          break
+        case '90d':
+          startDate = endDate.subtract(90, 'day')
+          break
+        default:
+          startDate = endDate.subtract(7, 'day')
+      }
+
+      onDateRangeChange?.([
+        startDate.format('YYYY-MM-DD'),
+        endDate.format('YYYY-MM-DD'),
+      ])
+    },
+    [onDateRangeChange]
+  )
 
   // ==================== 工具函数 ====================
-  
+
   const getQualityColor = (score: number): string => {
-    if (score >= 0.9) return QUALITY_COLORS.excellent;
-    if (score >= 0.7) return QUALITY_COLORS.good;
-    if (score >= 0.5) return QUALITY_COLORS.warning;
-    return QUALITY_COLORS.poor;
-  };
+    if (score >= 0.9) return QUALITY_COLORS.excellent
+    if (score >= 0.7) return QUALITY_COLORS.good
+    if (score >= 0.5) return QUALITY_COLORS.warning
+    return QUALITY_COLORS.poor
+  }
 
   const getQualityLabel = (score: number): string => {
-    if (score >= 0.9) return '优秀';
-    if (score >= 0.7) return '良好';
-    if (score >= 0.5) return '一般';
-    return '较差';
-  };
+    if (score >= 0.9) return '优秀'
+    if (score >= 0.7) return '良好'
+    if (score >= 0.5) return '一般'
+    return '较差'
+  }
 
   const formatNumber = (num: number): string => {
-    if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`;
-    if (num >= 1000) return `${(num / 1000).toFixed(1)}K`;
-    return num.toString();
-  };
+    if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`
+    if (num >= 1000) return `${(num / 1000).toFixed(1)}K`
+    return num.toString()
+  }
 
   const renderTrendIcon = (trend: string) => {
     switch (trend) {
       case 'rising':
-        return <RiseOutlined style={{ color: '#52c41a' }} />;
+        return <RiseOutlined style={{ color: '#52c41a' }} />
       case 'falling':
-        return <FallOutlined style={{ color: '#f5222d' }} />;
+        return <FallOutlined style={{ color: '#f5222d' }} />
       default:
-        return <ClockCircleOutlined style={{ color: '#faad14' }} />;
+        return <ClockCircleOutlined style={{ color: '#faad14' }} />
     }
-  };
+  }
 
   // ==================== 渲染组件 ====================
 
@@ -241,7 +270,7 @@ const StatsDashboard: React.FC<StatsDashboardProps> = ({
           <Spin size="large" tip="加载统计数据..." />
         </div>
       </Card>
-    );
+    )
   }
 
   if (error) {
@@ -259,7 +288,7 @@ const StatsDashboard: React.FC<StatsDashboardProps> = ({
           }
         />
       </Card>
-    );
+    )
   }
 
   if (!stats) {
@@ -269,12 +298,11 @@ const StatsDashboard: React.FC<StatsDashboardProps> = ({
           <Text type="secondary">暂无统计数据</Text>
         </div>
       </Card>
-    );
+    )
   }
 
   return (
     <div className={`stats-dashboard ${className}`}>
-      
       {/* 头部控制栏 */}
       <Card size="small" style={{ marginBottom: 16 }}>
         <Row justify="space-between" align="middle">
@@ -288,7 +316,7 @@ const StatsDashboard: React.FC<StatsDashboardProps> = ({
               </Text>
             </Space>
           </Col>
-          
+
           <Col>
             <Space>
               <Select
@@ -302,11 +330,11 @@ const StatsDashboard: React.FC<StatsDashboardProps> = ({
                 <Option value="30d">30天</Option>
                 <Option value="90d">90天</Option>
               </Select>
-              
+
               <Tooltip title="刷新数据">
-                <Button 
-                  icon={<ReloadOutlined />} 
-                  size="small" 
+                <Button
+                  icon={<ReloadOutlined />}
+                  size="small"
                   onClick={handleRefresh}
                 />
               </Tooltip>
@@ -316,10 +344,9 @@ const StatsDashboard: React.FC<StatsDashboardProps> = ({
       </Card>
 
       <Row gutter={[16, 16]}>
-        
         {/* 图谱概览统计 */}
         <Col span={24}>
-          <Card 
+          <Card
             title={
               <Space>
                 <InfoCircleOutlined />
@@ -334,56 +361,76 @@ const StatsDashboard: React.FC<StatsDashboardProps> = ({
                   title="实体数量"
                   value={stats.summary.nodeCount}
                   formatter={formatNumber}
-                  prefix={<div style={{ color: '#1890ff', fontSize: 16 }}>●</div>}
+                  prefix={
+                    <div style={{ color: '#1890ff', fontSize: 16 }}>●</div>
+                  }
                 />
               </Col>
-              
+
               <Col span={4}>
                 <Statistic
                   title="关系数量"
                   value={stats.summary.edgeCount}
                   formatter={formatNumber}
-                  prefix={<div style={{ color: '#52c41a', fontSize: 16 }}>●</div>}
+                  prefix={
+                    <div style={{ color: '#52c41a', fontSize: 16 }}>●</div>
+                  }
                 />
               </Col>
-              
+
               <Col span={4}>
                 <Statistic
                   title="图密度"
                   value={stats.summary.density}
                   precision={4}
                   suffix="%"
-                  prefix={<div style={{ color: '#faad14', fontSize: 16 }}>●</div>}
+                  prefix={
+                    <div style={{ color: '#faad14', fontSize: 16 }}>●</div>
+                  }
                 />
               </Col>
-              
+
               <Col span={4}>
                 <Statistic
                   title="平均度数"
                   value={stats.summary.averageDegree}
                   precision={2}
-                  prefix={<div style={{ color: '#722ed1', fontSize: 16 }}>●</div>}
+                  prefix={
+                    <div style={{ color: '#722ed1', fontSize: 16 }}>●</div>
+                  }
                 />
               </Col>
-              
+
               <Col span={4}>
                 <Statistic
                   title="连通分量"
                   value={stats.summary.components}
-                  prefix={<div style={{ color: '#fa8c16', fontSize: 16 }}>●</div>}
+                  prefix={
+                    <div style={{ color: '#fa8c16', fontSize: 16 }}>●</div>
+                  }
                 />
               </Col>
-              
+
               <Col span={4}>
                 <div style={{ textAlign: 'center' }}>
-                  <Text strong style={{ fontSize: 14 }}>系统状态</Text>
+                  <Text strong style={{ fontSize: 14 }}>
+                    系统状态
+                  </Text>
                   <div style={{ marginTop: 4 }}>
-                    <Tag 
-                      color={stats.performance.indexingStatus === 'healthy' ? 'green' : 
-                             stats.performance.indexingStatus === 'warning' ? 'orange' : 'red'}
+                    <Tag
+                      color={
+                        stats.performance.indexingStatus === 'healthy'
+                          ? 'green'
+                          : stats.performance.indexingStatus === 'warning'
+                            ? 'orange'
+                            : 'red'
+                      }
                     >
-                      {stats.performance.indexingStatus === 'healthy' ? '健康' :
-                       stats.performance.indexingStatus === 'warning' ? '警告' : '异常'}
+                      {stats.performance.indexingStatus === 'healthy'
+                        ? '健康'
+                        : stats.performance.indexingStatus === 'warning'
+                          ? '警告'
+                          : '异常'}
                     </Tag>
                   </div>
                   <Text type="secondary" style={{ fontSize: 11 }}>
@@ -397,7 +444,7 @@ const StatsDashboard: React.FC<StatsDashboardProps> = ({
 
         {/* 质量指标 */}
         <Col span={12}>
-          <Card 
+          <Card
             title={
               <Space>
                 <TrophyOutlined />
@@ -408,78 +455,88 @@ const StatsDashboard: React.FC<StatsDashboardProps> = ({
             style={{ height: 300 }}
           >
             <Space direction="vertical" style={{ width: '100%' }} size="middle">
-              
               <div>
                 <Row justify="space-between" align="middle">
-                  <Col><Text strong>完整性</Text></Col>
                   <Col>
-                    <Tag color={getQualityColor(stats.quality.completenessScore)}>
+                    <Text strong>完整性</Text>
+                  </Col>
+                  <Col>
+                    <Tag
+                      color={getQualityColor(stats.quality.completenessScore)}
+                    >
                       {getQualityLabel(stats.quality.completenessScore)}
                     </Tag>
                   </Col>
                 </Row>
-                <Progress 
-                  percent={Math.round(stats.quality.completenessScore * 100)} 
+                <Progress
+                  percent={Math.round(stats.quality.completenessScore * 100)}
                   strokeColor={getQualityColor(stats.quality.completenessScore)}
                   size="small"
                 />
               </div>
-              
+
               <div>
                 <Row justify="space-between" align="middle">
-                  <Col><Text strong>一致性</Text></Col>
                   <Col>
-                    <Tag color={getQualityColor(stats.quality.consistencyScore)}>
+                    <Text strong>一致性</Text>
+                  </Col>
+                  <Col>
+                    <Tag
+                      color={getQualityColor(stats.quality.consistencyScore)}
+                    >
                       {getQualityLabel(stats.quality.consistencyScore)}
                     </Tag>
                   </Col>
                 </Row>
-                <Progress 
-                  percent={Math.round(stats.quality.consistencyScore * 100)} 
+                <Progress
+                  percent={Math.round(stats.quality.consistencyScore * 100)}
                   strokeColor={getQualityColor(stats.quality.consistencyScore)}
                   size="small"
                 />
               </div>
-              
+
               <div>
                 <Row justify="space-between" align="middle">
-                  <Col><Text strong>新鲜度</Text></Col>
+                  <Col>
+                    <Text strong>新鲜度</Text>
+                  </Col>
                   <Col>
                     <Tag color={getQualityColor(stats.quality.freshnessScore)}>
                       {getQualityLabel(stats.quality.freshnessScore)}
                     </Tag>
                   </Col>
                 </Row>
-                <Progress 
-                  percent={Math.round(stats.quality.freshnessScore * 100)} 
+                <Progress
+                  percent={Math.round(stats.quality.freshnessScore * 100)}
                   strokeColor={getQualityColor(stats.quality.freshnessScore)}
                   size="small"
                 />
               </div>
-              
+
               <div>
                 <Row justify="space-between" align="middle">
-                  <Col><Text strong>数据完整性</Text></Col>
+                  <Col>
+                    <Text strong>数据完整性</Text>
+                  </Col>
                   <Col>
                     <Tag color={getQualityColor(stats.quality.dataIntegrity)}>
                       {getQualityLabel(stats.quality.dataIntegrity)}
                     </Tag>
                   </Col>
                 </Row>
-                <Progress 
-                  percent={Math.round(stats.quality.dataIntegrity * 100)} 
+                <Progress
+                  percent={Math.round(stats.quality.dataIntegrity * 100)}
                   strokeColor={getQualityColor(stats.quality.dataIntegrity)}
                   size="small"
                 />
               </div>
-
             </Space>
           </Card>
         </Col>
 
         {/* 增长趋势指标 */}
         <Col span={12}>
-          <Card 
+          <Card
             title={
               <Space>
                 <RiseOutlined />
@@ -491,39 +548,50 @@ const StatsDashboard: React.FC<StatsDashboardProps> = ({
             style={{ height: 300 }}
           >
             <Row gutter={[16, 16]}>
-              
               <Col span={12}>
                 <Statistic
                   title="节点增长率"
                   value={stats.growth.trends.nodeGrowthRate}
                   precision={2}
                   suffix="%"
-                  valueStyle={{ 
-                    color: stats.growth.trends.nodeGrowthRate >= 0 ? '#3f8600' : '#cf1322' 
+                  valueStyle={{
+                    color:
+                      stats.growth.trends.nodeGrowthRate >= 0
+                        ? '#3f8600'
+                        : '#cf1322',
                   }}
                   prefix={
-                    stats.growth.trends.nodeGrowthRate >= 0 ? 
-                    <RiseOutlined /> : <FallOutlined />
+                    stats.growth.trends.nodeGrowthRate >= 0 ? (
+                      <RiseOutlined />
+                    ) : (
+                      <FallOutlined />
+                    )
                   }
                 />
               </Col>
-              
+
               <Col span={12}>
                 <Statistic
                   title="关系增长率"
                   value={stats.growth.trends.edgeGrowthRate}
                   precision={2}
                   suffix="%"
-                  valueStyle={{ 
-                    color: stats.growth.trends.edgeGrowthRate >= 0 ? '#3f8600' : '#cf1322' 
+                  valueStyle={{
+                    color:
+                      stats.growth.trends.edgeGrowthRate >= 0
+                        ? '#3f8600'
+                        : '#cf1322',
                   }}
                   prefix={
-                    stats.growth.trends.edgeGrowthRate >= 0 ? 
-                    <RiseOutlined /> : <FallOutlined />
+                    stats.growth.trends.edgeGrowthRate >= 0 ? (
+                      <RiseOutlined />
+                    ) : (
+                      <FallOutlined />
+                    )
                   }
                 />
               </Col>
-              
+
               <Col span={12}>
                 <Statistic
                   title="周活跃度"
@@ -531,7 +599,7 @@ const StatsDashboard: React.FC<StatsDashboardProps> = ({
                   formatter={formatNumber}
                 />
               </Col>
-              
+
               <Col span={12}>
                 <Statistic
                   title="月活跃度"
@@ -539,29 +607,33 @@ const StatsDashboard: React.FC<StatsDashboardProps> = ({
                   formatter={formatNumber}
                 />
               </Col>
-              
+
               <Col span={24} style={{ textAlign: 'center', marginTop: 16 }}>
-                <Tag 
+                <Tag
                   color={
-                    stats.growth.trends.activityTrend === 'rising' ? 'green' :
-                    stats.growth.trends.activityTrend === 'falling' ? 'red' : 'orange'
+                    stats.growth.trends.activityTrend === 'rising'
+                      ? 'green'
+                      : stats.growth.trends.activityTrend === 'falling'
+                        ? 'red'
+                        : 'orange'
                   }
                   style={{ fontSize: 12 }}
                 >
-                  活跃度趋势: {
-                    stats.growth.trends.activityTrend === 'rising' ? '上升' :
-                    stats.growth.trends.activityTrend === 'falling' ? '下降' : '稳定'
-                  }
+                  活跃度趋势:{' '}
+                  {stats.growth.trends.activityTrend === 'rising'
+                    ? '上升'
+                    : stats.growth.trends.activityTrend === 'falling'
+                      ? '下降'
+                      : '稳定'}
                 </Tag>
               </Col>
-
             </Row>
           </Card>
         </Col>
 
         {/* 实体类型分布 */}
         <Col span={12}>
-          <Card 
+          <Card
             title={
               <Space>
                 <PieChartOutlined />
@@ -581,14 +653,19 @@ const StatsDashboard: React.FC<StatsDashboardProps> = ({
                   dataKey="count"
                   nameKey="type"
                 >
-                  {stats.distributions.nodeTypeDistribution.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                  ))}
+                  {stats.distributions.nodeTypeDistribution.map(
+                    (entry, index) => (
+                      <Cell
+                        key={`cell-${index}`}
+                        fill={COLORS[index % COLORS.length]}
+                      />
+                    )
+                  )}
                 </Pie>
-                <RechartsTooltip 
+                <RechartsTooltip
                   formatter={(value: number, name: string, props: any) => [
                     `${value} (${props.payload.percentage.toFixed(1)}%)`,
-                    name
+                    name,
                   ]}
                 />
                 <Legend />
@@ -599,7 +676,7 @@ const StatsDashboard: React.FC<StatsDashboardProps> = ({
 
         {/* 关系类型分布 */}
         <Col span={12}>
-          <Card 
+          <Card
             title={
               <Space>
                 <BarChartOutlined />
@@ -612,15 +689,15 @@ const StatsDashboard: React.FC<StatsDashboardProps> = ({
             <ResponsiveContainer width="100%" height={250}>
               <BarChart data={stats.distributions.edgeTypeDistribution}>
                 <CartesianGrid strokeDasharray="3 3" />
-                <XAxis 
-                  dataKey="type" 
+                <XAxis
+                  dataKey="type"
                   angle={-45}
                   textAnchor="end"
                   height={60}
                   fontSize={10}
                 />
                 <YAxis />
-                <RechartsTooltip 
+                <RechartsTooltip
                   formatter={(value: number) => [formatNumber(value), '数量']}
                 />
                 <Bar dataKey="count" fill="#1890ff" />
@@ -631,7 +708,7 @@ const StatsDashboard: React.FC<StatsDashboardProps> = ({
 
         {/* 活跃度趋势图 */}
         <Col span={24}>
-          <Card 
+          <Card
             title={
               <Space>
                 <LineChartOutlined />
@@ -644,30 +721,36 @@ const StatsDashboard: React.FC<StatsDashboardProps> = ({
               <AreaChart data={stats.growth.dailyGrowth}>
                 <defs>
                   <linearGradient id="colorNodes" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#1890ff" stopOpacity={0.8}/>
-                    <stop offset="95%" stopColor="#1890ff" stopOpacity={0.1}/>
+                    <stop offset="5%" stopColor="#1890ff" stopOpacity={0.8} />
+                    <stop offset="95%" stopColor="#1890ff" stopOpacity={0.1} />
                   </linearGradient>
                   <linearGradient id="colorEdges" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#52c41a" stopOpacity={0.8}/>
-                    <stop offset="95%" stopColor="#52c41a" stopOpacity={0.1}/>
+                    <stop offset="5%" stopColor="#52c41a" stopOpacity={0.8} />
+                    <stop offset="95%" stopColor="#52c41a" stopOpacity={0.1} />
                   </linearGradient>
-                  <linearGradient id="colorActivity" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#faad14" stopOpacity={0.8}/>
-                    <stop offset="95%" stopColor="#faad14" stopOpacity={0.1}/>
+                  <linearGradient
+                    id="colorActivity"
+                    x1="0"
+                    y1="0"
+                    x2="0"
+                    y2="1"
+                  >
+                    <stop offset="5%" stopColor="#faad14" stopOpacity={0.8} />
+                    <stop offset="95%" stopColor="#faad14" stopOpacity={0.1} />
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" />
-                <XAxis 
-                  dataKey="date"
-                  tick={{ fontSize: 10 }}
-                />
+                <XAxis dataKey="date" tick={{ fontSize: 10 }} />
                 <YAxis />
-                <RechartsTooltip 
-                  labelFormatter={(value) => `日期: ${value}`}
+                <RechartsTooltip
+                  labelFormatter={value => `日期: ${value}`}
                   formatter={(value: number, name: string) => [
                     formatNumber(value),
-                    name === 'nodes' ? '节点增量' : 
-                    name === 'edges' ? '关系增量' : '活跃度'
+                    name === 'nodes'
+                      ? '节点增量'
+                      : name === 'edges'
+                        ? '关系增量'
+                        : '活跃度',
                   ]}
                 />
                 <Legend />
@@ -699,10 +782,9 @@ const StatsDashboard: React.FC<StatsDashboardProps> = ({
             </ResponsiveContainer>
           </Card>
         </Col>
-
       </Row>
     </div>
-  );
-};
+  )
+}
 
-export default StatsDashboard;
+export default StatsDashboard

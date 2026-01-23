@@ -1,47 +1,46 @@
-import React, { useState, useEffect } from 'react';
-import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/Card';
-import { Button } from '../components/ui/Button';
-import { Badge } from '../components/ui/Badge';
-import { Alert, AlertDescription } from '../components/ui/alert';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/Select';
-import { Input } from '../components/ui/Input';
-import { 
+import React, { useState, useEffect } from 'react'
+import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/card'
+import { Button } from '../components/ui/button'
+import { Badge } from '../components/ui/badge'
+import { Alert, AlertDescription } from '../components/ui/alert'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs'
+import { Input } from '../components/ui/input'
 import { logger } from '../utils/logger'
+import {
   offlineService,
   type OfflineStatusResponse,
   type OfflineOperation,
-  type OfflineConflict
-} from '../services/offlineService';
+  type OfflineConflict,
+} from '../services/offlineService'
 
 const OfflineManagementPage: React.FC = () => {
-  const [status, setStatus] = useState<OfflineStatusResponse | null>(null);
-  const [operations, setOperations] = useState<OfflineOperation[]>([]);
-  const [conflicts, setConflicts] = useState<OfflineConflict[]>([]);
-  const [statistics, setStatistics] = useState<any>(null);
-  const [networkStatus, setNetworkStatus] = useState<any>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState('control');
+  const [status, setStatus] = useState<OfflineStatusResponse | null>(null)
+  const [operations, setOperations] = useState<OfflineOperation[]>([])
+  const [conflicts, setConflicts] = useState<OfflineConflict[]>([])
+  const [statistics, setStatistics] = useState<any>(null)
+  const [networkStatus, setNetworkStatus] = useState<any>(null)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [success, setSuccess] = useState<string | null>(null)
+  const [activeTab, setActiveTab] = useState('control')
 
   // 分页参数
-  const [currentPage, setCurrentPage] = useState(0);
-  const [itemsPerPage] = useState(20);
+  const [currentPage, setCurrentPage] = useState(0)
+  const [itemsPerPage] = useState(20)
 
   // 清理参数
-  const [cleanupDays, setCleanupDays] = useState(30);
+  const [cleanupDays, setCleanupDays] = useState(30)
 
   // 同步参数
-  const [batchSize, setBatchSize] = useState(100);
+  const [batchSize, setBatchSize] = useState(100)
 
   useEffect(() => {
-    loadData();
-    
+    loadData()
+
     // 定期更新状态
-    const interval = setInterval(loadStatus, 5000);
-    return () => clearInterval(interval);
-  }, []);
+    const interval = setInterval(loadStatus, 5000)
+    return () => clearInterval(interval)
+  }, [])
 
   const loadData = async () => {
     await Promise.all([
@@ -49,174 +48,190 @@ const OfflineManagementPage: React.FC = () => {
       loadOperations(),
       loadConflicts(),
       loadStatistics(),
-      loadNetworkStatus()
-    ]);
-  };
+      loadNetworkStatus(),
+    ])
+  }
 
   const loadStatus = async () => {
     try {
-      const statusData = await offlineService.getOfflineStatus();
-      setStatus(statusData);
+      const statusData = await offlineService.getOfflineStatus()
+      setStatus(statusData)
     } catch (err) {
-      logger.warn('加载状态失败:', err);
+      logger.warn('加载状态失败:', err)
     }
-  };
+  }
 
   const loadOperations = async () => {
     try {
-      const operationsData = await offlineService.getOperations(itemsPerPage, currentPage * itemsPerPage);
-      setOperations(operationsData);
+      const operationsData = await offlineService.getOperations(
+        itemsPerPage,
+        currentPage * itemsPerPage
+      )
+      setOperations(operationsData)
     } catch (err) {
-      logger.warn('加载操作记录失败:', err);
+      logger.warn('加载操作记录失败:', err)
     }
-  };
+  }
 
   const loadConflicts = async () => {
     try {
-      const conflictsData = await offlineService.getConflicts();
-      setConflicts(conflictsData);
+      const conflictsData = await offlineService.getConflicts()
+      setConflicts(conflictsData)
     } catch (err) {
-      logger.warn('加载冲突记录失败:', err);
+      logger.warn('加载冲突记录失败:', err)
     }
-  };
+  }
 
   const loadStatistics = async () => {
     try {
-      const statsData = await offlineService.getStatistics();
-      setStatistics(statsData);
+      const statsData = await offlineService.getStatistics()
+      setStatistics(statsData)
     } catch (err) {
-      logger.warn('加载统计信息失败:', err);
+      logger.warn('加载统计信息失败:', err)
     }
-  };
+  }
 
   const loadNetworkStatus = async () => {
     try {
-      const networkData = await offlineService.getNetworkStatus();
-      setNetworkStatus(networkData);
+      const networkData = await offlineService.getNetworkStatus()
+      setNetworkStatus(networkData)
     } catch (err) {
-      logger.warn('加载网络状态失败:', err);
+      logger.warn('加载网络状态失败:', err)
     }
-  };
+  }
 
   const handleSetMode = async (mode: string) => {
     try {
-      setLoading(true);
-      setError(null);
-      
-      await offlineService.setOfflineMode(mode);
-      setSuccess(`离线模式已设置为: ${mode}`);
-      
-      await loadStatus();
+      setLoading(true)
+      setError(null)
+
+      await offlineService.setOfflineMode(mode)
+      setSuccess(`离线模式已设置为: ${mode}`)
+
+      await loadStatus()
     } catch (err) {
-      setError('设置模式失败: ' + (err as Error).message);
+      setError('设置模式失败: ' + (err as Error).message)
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
+  }
 
   const handleSync = async (force: boolean = false) => {
     try {
-      setLoading(true);
-      setError(null);
-      
+      setLoading(true)
+      setError(null)
+
       const result = await offlineService.manualSync({
         force,
-        batch_size: batchSize
-      });
-      
-      setSuccess(force ? '强制同步已开始' : '后台同步已启动');
-      logger.log('同步结果:', result);
-      
+        batch_size: batchSize,
+      })
+
+      setSuccess(force ? '强制同步已开始' : '后台同步已启动')
+      logger.log('同步结果:', result)
+
       // 刷新数据
-      setTimeout(() => loadData(), 2000);
+      setTimeout(() => loadData(), 2000)
     } catch (err) {
-      setError('同步失败: ' + (err as Error).message);
+      setError('同步失败: ' + (err as Error).message)
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
+  }
 
-  const handleResolveConflict = async (conflict: OfflineConflict, strategy: string) => {
+  const handleResolveConflict = async (
+    conflict: OfflineConflict,
+    strategy: string
+  ) => {
     try {
-      setLoading(true);
-      setError(null);
+      setLoading(true)
+      setError(null)
 
-      let resolvedData;
+      let resolvedData
       switch (strategy) {
         case 'client_wins':
-          resolvedData = conflict.local_data;
-          break;
+          resolvedData = conflict.local_data
+          break
         case 'server_wins':
-          resolvedData = conflict.remote_data;
-          break;
+          resolvedData = conflict.remote_data
+          break
         case 'merge':
           // 简单合并策略
-          resolvedData = { ...conflict.remote_data, ...conflict.local_data };
-          break;
+          resolvedData = { ...conflict.remote_data, ...conflict.local_data }
+          break
       }
 
       await offlineService.resolveConflict({
         conflict_id: conflict.id,
         resolution_strategy: strategy,
-        resolved_data: resolvedData
-      });
+        resolved_data: resolvedData,
+      })
 
-      setSuccess('冲突已解决');
-      await loadConflicts();
+      setSuccess('冲突已解决')
+      await loadConflicts()
     } catch (err) {
-      setError('解决冲突失败: ' + (err as Error).message);
+      setError('解决冲突失败: ' + (err as Error).message)
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
+  }
 
   const handleCleanup = async () => {
-    if (!confirm(`确定要清理${cleanupDays}天前的数据吗？`)) return;
+    if (!confirm(`确定要清理${cleanupDays}天前的数据吗？`)) return
 
     try {
-      setLoading(true);
-      setError(null);
+      setLoading(true)
+      setError(null)
 
-      const result = await offlineService.cleanupOldData(cleanupDays);
-      setSuccess(`清理完成: 操作记录${result.cleaned_operations}条，冲突记录${result.cleaned_conflicts}条`);
-      
-      await loadData();
+      const result = await offlineService.cleanupOldData(cleanupDays)
+      setSuccess(
+        `清理完成: 操作记录${result.cleaned_operations}条，冲突记录${result.cleaned_conflicts}条`
+      )
+
+      await loadData()
     } catch (err) {
-      setError('清理数据失败: ' + (err as Error).message);
+      setError('清理数据失败: ' + (err as Error).message)
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
+  }
 
   const getModeColor = (mode: string) => {
     switch (mode) {
-      case 'online': return 'bg-green-100 text-green-800';
-      case 'offline': return 'bg-red-100 text-red-800';
-      case 'auto': return 'bg-blue-100 text-blue-800';
-      default: return 'bg-gray-100 text-gray-800';
+      case 'online':
+        return 'bg-green-100 text-green-800'
+      case 'offline':
+        return 'bg-red-100 text-red-800'
+      case 'auto':
+        return 'bg-blue-100 text-blue-800'
+      default:
+        return 'bg-gray-100 text-gray-800'
     }
-  };
+  }
 
   const getNetworkStatusColor = (status: string) => {
     switch (status?.toLowerCase()) {
-      case 'connected': return 'bg-green-100 text-green-800';
-      case 'disconnected': return 'bg-red-100 text-red-800';
-      case 'weak': return 'bg-yellow-100 text-yellow-800';
-      default: return 'bg-gray-100 text-gray-800';
+      case 'connected':
+        return 'bg-green-100 text-green-800'
+      case 'disconnected':
+        return 'bg-red-100 text-red-800'
+      case 'weak':
+        return 'bg-yellow-100 text-yellow-800'
+      default:
+        return 'bg-gray-100 text-gray-800'
     }
-  };
+  }
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleString('zh-CN');
-  };
+    return new Date(dateString).toLocaleString('zh-CN')
+  }
 
   const getConnectionQualityText = (quality: number) => {
-    if (quality >= 0.8) return '优秀';
-    if (quality >= 0.6) return '良好';
-    if (quality >= 0.4) return '一般';
-    if (quality >= 0.2) return '较差';
-    return '很差';
-  };
+    if (quality >= 0.8) return '优秀'
+    if (quality >= 0.6) return '良好'
+    if (quality >= 0.4) return '一般'
+    if (quality >= 0.2) return '较差'
+    return '很差'
+  }
 
   return (
     <div className="container mx-auto px-4 py-6 space-y-6">
@@ -235,7 +250,9 @@ const OfflineManagementPage: React.FC = () => {
 
       {success && (
         <Alert className="border-green-200 bg-green-50">
-          <AlertDescription className="text-green-800">{success}</AlertDescription>
+          <AlertDescription className="text-green-800">
+            {success}
+          </AlertDescription>
         </Alert>
       )}
 
@@ -256,17 +273,27 @@ const OfflineManagementPage: React.FC = () => {
                 </div>
                 <div className="flex justify-between">
                   <span>网络:</span>
-                  <Badge className={getNetworkStatusColor(status.network_status)}>
+                  <Badge
+                    className={getNetworkStatusColor(status.network_status)}
+                  >
                     {status.network_status}
                   </Badge>
                 </div>
                 <div className="flex justify-between">
                   <span>连接质量:</span>
-                  <span>{getConnectionQualityText(status.connection_quality)}</span>
+                  <span>
+                    {getConnectionQualityText(status.connection_quality)}
+                  </span>
                 </div>
                 <div className="flex justify-between">
                   <span>待同步:</span>
-                  <span className={status.pending_operations > 0 ? 'text-orange-600 font-semibold' : ''}>
+                  <span
+                    className={
+                      status.pending_operations > 0
+                        ? 'text-orange-600 font-semibold'
+                        : ''
+                    }
+                  >
                     {status.pending_operations}
                   </span>
                 </div>
@@ -288,13 +315,25 @@ const OfflineManagementPage: React.FC = () => {
             <div className="space-y-2">
               <div className="flex justify-between">
                 <span>未解决冲突:</span>
-                <span className={conflicts.length > 0 ? 'text-red-600 font-semibold' : 'text-green-600'}>
+                <span
+                  className={
+                    conflicts.length > 0
+                      ? 'text-red-600 font-semibold'
+                      : 'text-green-600'
+                  }
+                >
                   {conflicts.length}
                 </span>
               </div>
               <div className="flex justify-between">
                 <span>状态:</span>
-                <Badge className={conflicts.length > 0 ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'}>
+                <Badge
+                  className={
+                    conflicts.length > 0
+                      ? 'bg-red-100 text-red-800'
+                      : 'bg-green-100 text-green-800'
+                  }
+                >
                   {conflicts.length > 0 ? '需要处理' : '正常'}
                 </Badge>
               </div>
@@ -376,21 +415,21 @@ const OfflineManagementPage: React.FC = () => {
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="flex space-x-4">
-                  <Button 
+                  <Button
                     onClick={() => handleSetMode('online')}
                     disabled={loading}
                     className={status?.mode === 'online' ? 'bg-green-600' : ''}
                   >
                     在线模式
                   </Button>
-                  <Button 
+                  <Button
                     onClick={() => handleSetMode('offline')}
                     disabled={loading}
                     className={status?.mode === 'offline' ? 'bg-red-600' : ''}
                   >
                     离线模式
                   </Button>
-                  <Button 
+                  <Button
                     onClick={() => handleSetMode('auto')}
                     disabled={loading}
                     className={status?.mode === 'auto' ? 'bg-blue-600' : ''}
@@ -399,7 +438,10 @@ const OfflineManagementPage: React.FC = () => {
                   </Button>
                 </div>
                 <div className="text-sm text-gray-600">
-                  当前模式: <Badge className={getModeColor(status?.mode || '')}>{status?.mode || 'unknown'}</Badge>
+                  当前模式:{' '}
+                  <Badge className={getModeColor(status?.mode || '')}>
+                    {status?.mode || 'unknown'}
+                  </Badge>
                 </div>
               </CardContent>
             </Card>
@@ -411,24 +453,21 @@ const OfflineManagementPage: React.FC = () => {
               <CardContent className="space-y-4">
                 <div className="flex items-center space-x-4">
                   <span>批处理大小:</span>
-                  <Input 
-                    type="number" 
+                  <Input
+                    type="number"
                     name="batchSize"
-                    value={batchSize} 
-                    onChange={(e) => setBatchSize(parseInt(e.target.value))}
+                    value={batchSize}
+                    onChange={e => setBatchSize(parseInt(e.target.value))}
                     className="w-32"
                     min="1"
                     max="1000"
                   />
                 </div>
                 <div className="flex space-x-4">
-                  <Button 
-                    onClick={() => handleSync(false)}
-                    disabled={loading}
-                  >
+                  <Button onClick={() => handleSync(false)} disabled={loading}>
                     后台同步
                   </Button>
-                  <Button 
+                  <Button
                     onClick={() => handleSync(true)}
                     disabled={loading}
                     variant="outline"
@@ -453,8 +492,11 @@ const OfflineManagementPage: React.FC = () => {
             <CardContent>
               {conflicts.length > 0 ? (
                 <div className="space-y-4">
-                  {conflicts.map((conflict) => (
-                    <Card key={conflict.id} className="border-l-4 border-l-red-500">
+                  {conflicts.map(conflict => (
+                    <Card
+                      key={conflict.id}
+                      className="border-l-4 border-l-red-500"
+                    >
                       <CardContent className="p-4">
                         <div className="space-y-3">
                           <div className="flex justify-between items-start">
@@ -469,9 +511,7 @@ const OfflineManagementPage: React.FC = () => {
                                 创建时间: {formatDate(conflict.created_at)}
                               </p>
                             </div>
-                            <Badge variant="destructive">
-                              冲突
-                            </Badge>
+                            <Badge variant="destructive">冲突</Badge>
                           </div>
 
                           <div className="grid grid-cols-2 gap-4">
@@ -492,7 +532,9 @@ const OfflineManagementPage: React.FC = () => {
                           <div className="flex space-x-2">
                             <Button
                               size="sm"
-                              onClick={() => handleResolveConflict(conflict, 'client_wins')}
+                              onClick={() =>
+                                handleResolveConflict(conflict, 'client_wins')
+                              }
                               disabled={loading}
                             >
                               使用本地数据
@@ -500,7 +542,9 @@ const OfflineManagementPage: React.FC = () => {
                             <Button
                               size="sm"
                               variant="outline"
-                              onClick={() => handleResolveConflict(conflict, 'server_wins')}
+                              onClick={() =>
+                                handleResolveConflict(conflict, 'server_wins')
+                              }
                               disabled={loading}
                             >
                               使用远程数据
@@ -508,7 +552,9 @@ const OfflineManagementPage: React.FC = () => {
                             <Button
                               size="sm"
                               variant="secondary"
-                              onClick={() => handleResolveConflict(conflict, 'merge')}
+                              onClick={() =>
+                                handleResolveConflict(conflict, 'merge')
+                              }
                               disabled={loading}
                             >
                               合并数据
@@ -540,19 +586,37 @@ const OfflineManagementPage: React.FC = () => {
                   <table className="w-full border-collapse border border-gray-300">
                     <thead>
                       <tr className="bg-gray-50">
-                        <th className="border border-gray-300 px-4 py-2 text-left">操作类型</th>
-                        <th className="border border-gray-300 px-4 py-2 text-left">表名</th>
-                        <th className="border border-gray-300 px-4 py-2 text-left">对象ID</th>
-                        <th className="border border-gray-300 px-4 py-2 text-left">时间</th>
-                        <th className="border border-gray-300 px-4 py-2 text-left">同步状态</th>
-                        <th className="border border-gray-300 px-4 py-2 text-left">重试次数</th>
+                        <th className="border border-gray-300 px-4 py-2 text-left">
+                          操作类型
+                        </th>
+                        <th className="border border-gray-300 px-4 py-2 text-left">
+                          表名
+                        </th>
+                        <th className="border border-gray-300 px-4 py-2 text-left">
+                          对象ID
+                        </th>
+                        <th className="border border-gray-300 px-4 py-2 text-left">
+                          时间
+                        </th>
+                        <th className="border border-gray-300 px-4 py-2 text-left">
+                          同步状态
+                        </th>
+                        <th className="border border-gray-300 px-4 py-2 text-left">
+                          重试次数
+                        </th>
                       </tr>
                     </thead>
                     <tbody>
-                      {operations.map((operation) => (
+                      {operations.map(operation => (
                         <tr key={operation.id}>
                           <td className="border border-gray-300 px-4 py-2">
-                            <Badge variant={operation.operation_type === 'DELETE' ? 'destructive' : 'default'}>
+                            <Badge
+                              variant={
+                                operation.operation_type === 'DELETE'
+                                  ? 'destructive'
+                                  : 'default'
+                              }
+                            >
                               {operation.operation_type}
                             </Badge>
                           </td>
@@ -566,13 +630,21 @@ const OfflineManagementPage: React.FC = () => {
                             {formatDate(operation.timestamp)}
                           </td>
                           <td className="border border-gray-300 px-4 py-2">
-                            <Badge className={operation.is_synced ? 'bg-green-100 text-green-800' : 'bg-orange-100 text-orange-800'}>
+                            <Badge
+                              className={
+                                operation.is_synced
+                                  ? 'bg-green-100 text-green-800'
+                                  : 'bg-orange-100 text-orange-800'
+                              }
+                            >
                               {operation.is_synced ? '已同步' : '未同步'}
                             </Badge>
                           </td>
                           <td className="border border-gray-300 px-4 py-2">
                             {operation.retry_count > 0 ? (
-                              <span className="text-orange-600">{operation.retry_count}</span>
+                              <span className="text-orange-600">
+                                {operation.retry_count}
+                              </span>
                             ) : (
                               operation.retry_count
                             )}
@@ -601,18 +673,18 @@ const OfflineManagementPage: React.FC = () => {
               <CardContent className="space-y-4">
                 <div className="flex items-center space-x-4">
                   <span>清理天数:</span>
-                  <Input 
-                    type="number" 
+                  <Input
+                    type="number"
                     name="cleanupDays"
                     value={cleanupDays}
-                    onChange={(e) => setCleanupDays(parseInt(e.target.value))}
+                    onChange={e => setCleanupDays(parseInt(e.target.value))}
                     className="w-32"
                     min="1"
                     max="365"
                   />
                   <span>天前的数据</span>
                 </div>
-                <Button 
+                <Button
                   onClick={handleCleanup}
                   disabled={loading}
                   variant="outline"
@@ -664,7 +736,7 @@ const OfflineManagementPage: React.FC = () => {
         </TabsContent>
       </Tabs>
     </div>
-  );
-};
+  )
+}
 
-export default OfflineManagementPage;
+export default OfflineManagementPage

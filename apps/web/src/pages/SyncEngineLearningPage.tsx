@@ -4,7 +4,13 @@ import { Badge } from '../components/ui/badge'
 import { Button } from '../components/ui/button'
 import { Progress } from '../components/ui/progress'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs'
-import { AlertTriangle, CheckCircle, RefreshCw, Activity, Clock } from 'lucide-react'
+import {
+  AlertTriangle,
+  CheckCircle,
+  RefreshCw,
+  Activity,
+  Clock,
+} from 'lucide-react'
 import { buildApiUrl, apiFetch } from '../utils/apiBase'
 
 interface OfflineStatus {
@@ -42,7 +48,7 @@ const SyncEngineLearningPage: React.FC = () => {
       const [s, ops, st] = await Promise.all([
         fetchJson('/api/v1/offline/status'),
         fetchJson('/api/v1/offline/operations'),
-        fetchJson('/api/v1/offline/statistics')
+        fetchJson('/api/v1/offline/statistics'),
       ])
       setStatus(s)
       setOperations(ops || [])
@@ -68,7 +74,9 @@ const SyncEngineLearningPage: React.FC = () => {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">增量同步引擎监控</h1>
-          <p className="text-gray-600">所有数据来自 /api/v1/offline 真实接口，无本地模拟</p>
+          <p className="text-gray-600">
+            所有数据来自 /api/v1/offline 真实接口，无本地模拟
+          </p>
         </div>
         <Button onClick={loadData} variant="default" className="gap-2">
           <RefreshCw size={16} />
@@ -84,11 +92,24 @@ const SyncEngineLearningPage: React.FC = () => {
           <CardContent className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
             <Stat label="模式" value={status.mode} />
             <Stat label="网络" value={status.network_status} />
-            <Stat label="连接质量" value={`${Math.round((status.connection_quality || 0) * 100)}%`} />
+            <Stat
+              label="连接质量"
+              value={`${Math.round((status.connection_quality || 0) * 100)}%`}
+            />
             <Stat label="待同步" value={status.pending_operations} />
             <Stat label="冲突" value={status.has_conflicts ? '是' : '否'} />
-            <Stat label="同步中" value={status.sync_in_progress ? '进行中' : '空闲'} />
-            <Stat label="上次同步" value={status.last_sync_at ? new Date(status.last_sync_at).toLocaleString() : '—'} />
+            <Stat
+              label="同步中"
+              value={status.sync_in_progress ? '进行中' : '空闲'}
+            />
+            <Stat
+              label="上次同步"
+              value={
+                status.last_sync_at
+                  ? new Date(status.last_sync_at).toLocaleString()
+                  : '—'
+              }
+            />
           </CardContent>
         </Card>
       )}
@@ -101,10 +122,22 @@ const SyncEngineLearningPage: React.FC = () => {
           <CardContent className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
             <Stat label="同步总量" value={stats.total_synced_operations || 0} />
             <Stat label="失败次数" value={stats.total_failed_operations || 0} />
-            <Stat label="冲突解决" value={stats.total_conflicts_resolved || 0} />
-            <Stat label="平均吞吐" value={`${stats.average_throughput || 0}/s`} />
-            <Stat label="网络使用" value={`${stats.network_usage_mb || 0} MB`} />
-            <Stat label="同步效率" value={`${Math.round((stats.sync_efficiency || 0) * 100)}%`} />
+            <Stat
+              label="冲突解决"
+              value={stats.total_conflicts_resolved || 0}
+            />
+            <Stat
+              label="平均吞吐"
+              value={`${stats.average_throughput || 0}/s`}
+            />
+            <Stat
+              label="网络使用"
+              value={`${stats.network_usage_mb || 0} MB`}
+            />
+            <Stat
+              label="同步效率"
+              value={`${Math.round((stats.sync_efficiency || 0) * 100)}%`}
+            />
           </CardContent>
         </Card>
       )}
@@ -121,10 +154,17 @@ const SyncEngineLearningPage: React.FC = () => {
             <TabsContent value="ops">
               <div className="space-y-2">
                 {operations.slice(0, 20).map(op => (
-                  <div key={op.id} className="border rounded p-3 flex justify-between items-center text-sm">
+                  <div
+                    key={op.id}
+                    className="border rounded p-3 flex justify-between items-center text-sm"
+                  >
                     <div className="space-y-1">
-                      <div className="font-semibold">{op.table_name} / {op.object_id}</div>
-                      <div className="text-gray-500">{new Date(op.timestamp).toLocaleString()}</div>
+                      <div className="font-semibold">
+                        {op.table_name} / {op.object_id}
+                      </div>
+                      <div className="text-gray-500">
+                        {new Date(op.timestamp).toLocaleString()}
+                      </div>
                     </div>
                     <div className="flex items-center gap-2">
                       <Badge>{op.operation_type}</Badge>
@@ -135,7 +175,9 @@ const SyncEngineLearningPage: React.FC = () => {
                     </div>
                   </div>
                 ))}
-                {operations.length === 0 && <div className="text-gray-500 text-sm">暂无操作记录</div>}
+                {operations.length === 0 && (
+                  <div className="text-gray-500 text-sm">暂无操作记录</div>
+                )}
               </div>
             </TabsContent>
           </Tabs>

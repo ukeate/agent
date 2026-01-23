@@ -1,60 +1,64 @@
-import React, { useEffect, useRef } from 'react';
-import * as d3 from 'd3';
-import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
-import { Badge } from '../ui/badge';
+import React, { useEffect, useRef } from 'react'
+import * as d3 from 'd3'
+import { Card, CardContent, CardHeader, CardTitle } from '../ui/card'
+import { Badge } from '../ui/badge'
 
 interface AlgorithmData {
-  algorithm: string;
-  average_reward: number;
-  total_pulls: number;
-  regret: number;
-  usage_count: number;
+  algorithm: string
+  average_reward: number
+  total_pulls: number
+  regret: number
+  usage_count: number
 }
 
 interface AlgorithmVisualizationProps {
-  data: AlgorithmData[];
-  title?: string;
-  width?: number;
-  height?: number;
+  data: AlgorithmData[]
+  title?: string
+  width?: number
+  height?: number
 }
 
 const AlgorithmVisualization: React.FC<AlgorithmVisualizationProps> = ({
   data,
-  title = "算法性能对比",
+  title = '算法性能对比',
   width = 600,
-  height = 400
+  height = 400,
 }) => {
-  const svgRef = useRef<SVGSVGElement>(null);
+  const svgRef = useRef<SVGSVGElement>(null)
 
   useEffect(() => {
-    if (!data || data.length === 0 || !svgRef.current) return;
+    if (!data || data.length === 0 || !svgRef.current) return
 
     // 清除之前的绘制
-    d3.select(svgRef.current).selectAll('*').remove();
+    d3.select(svgRef.current).selectAll('*').remove()
 
-    const svg = d3.select(svgRef.current);
-    const margin = { top: 20, right: 30, bottom: 40, left: 50 };
-    const chartWidth = width - margin.left - margin.right;
-    const chartHeight = height - margin.top - margin.bottom;
+    const svg = d3.select(svgRef.current)
+    const margin = { top: 20, right: 30, bottom: 40, left: 50 }
+    const chartWidth = width - margin.left - margin.right
+    const chartHeight = height - margin.top - margin.bottom
 
     // 创建主要的图表容器
-    const g = svg.append('g')
-      .attr('transform', `translate(${margin.left},${margin.top})`);
+    const g = svg
+      .append('g')
+      .attr('transform', `translate(${margin.left},${margin.top})`)
 
     // 设置比例尺
-    const xScale = d3.scaleBand()
+    const xScale = d3
+      .scaleBand()
       .domain(data.map(d => d.algorithm))
       .range([0, chartWidth])
-      .padding(0.2);
+      .padding(0.2)
 
-    const yScale = d3.scaleLinear()
+    const yScale = d3
+      .scaleLinear()
       .domain([0, d3.max(data, d => d.average_reward) || 1])
-      .range([chartHeight, 0]);
+      .range([chartHeight, 0])
 
     // 颜色比例尺
-    const colorScale = d3.scaleOrdinal()
+    const colorScale = d3
+      .scaleOrdinal()
       .domain(data.map(d => d.algorithm))
-      .range(['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd']);
+      .range(['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd'])
 
     // 绘制柱状图
     g.selectAll('.bar')
@@ -71,7 +75,7 @@ const AlgorithmVisualization: React.FC<AlgorithmVisualizationProps> = ({
       .transition()
       .duration(800)
       .attr('y', d => yScale(d.average_reward))
-      .attr('height', d => chartHeight - yScale(d.average_reward));
+      .attr('height', d => chartHeight - yScale(d.average_reward))
 
     // 添加数值标签
     g.selectAll('.label')
@@ -85,7 +89,7 @@ const AlgorithmVisualization: React.FC<AlgorithmVisualizationProps> = ({
       .style('font-size', '12px')
       .style('font-weight', 'bold')
       .style('fill', '#333')
-      .text(d => d.average_reward.toFixed(3));
+      .text(d => d.average_reward.toFixed(3))
 
     // 添加x轴
     g.append('g')
@@ -94,35 +98,36 @@ const AlgorithmVisualization: React.FC<AlgorithmVisualizationProps> = ({
       .call(d3.axisBottom(xScale))
       .selectAll('text')
       .style('text-anchor', 'middle')
-      .style('font-size', '11px');
+      .style('font-size', '11px')
 
     // 添加y轴
     g.append('g')
       .attr('class', 'y-axis')
       .call(d3.axisLeft(yScale).ticks(5))
-      .style('font-size', '11px');
+      .style('font-size', '11px')
 
     // 添加y轴标题
     g.append('text')
       .attr('transform', 'rotate(-90)')
       .attr('y', 0 - margin.left)
-      .attr('x', 0 - (chartHeight / 2))
+      .attr('x', 0 - chartHeight / 2)
       .attr('dy', '1em')
       .style('text-anchor', 'middle')
       .style('font-size', '12px')
       .style('fill', '#666')
-      .text('平均奖励');
+      .text('平均奖励')
 
     // 添加鼠标悬停效果
     g.selectAll('.bar')
-      .on('mouseover', function(event, d) {
+      .on('mouseover', function (event, d) {
         d3.select(this)
           .attr('opacity', 1)
           .attr('stroke', '#333')
-          .attr('stroke-width', 2);
+          .attr('stroke-width', 2)
 
         // 显示tooltip
-        const tooltip = d3.select('body')
+        const tooltip = d3
+          .select('body')
           .append('div')
           .attr('class', 'tooltip')
           .style('position', 'absolute')
@@ -132,31 +137,29 @@ const AlgorithmVisualization: React.FC<AlgorithmVisualizationProps> = ({
           .style('border-radius', '4px')
           .style('font-size', '12px')
           .style('pointer-events', 'none')
-          .style('opacity', 0);
+          .style('opacity', 0)
 
-        tooltip.transition()
-          .duration(200)
-          .style('opacity', 1);
+        tooltip.transition().duration(200).style('opacity', 1)
 
-        tooltip.html(`
+        tooltip
+          .html(
+            `
           <strong>${(d as any).algorithm}</strong><br/>
           平均奖励: ${(d as any).average_reward.toFixed(3)}<br/>
           总选择数: ${(d as any).total_pulls}<br/>
           累积遗憾: ${(d as any).regret.toFixed(3)}<br/>
           使用次数: ${(d as any).usage_count}
-        `)
-          .style('left', (event.pageX + 10) + 'px')
-          .style('top', (event.pageY - 28) + 'px');
+        `
+          )
+          .style('left', event.pageX + 10 + 'px')
+          .style('top', event.pageY - 28 + 'px')
       })
-      .on('mouseout', function() {
-        d3.select(this)
-          .attr('opacity', 0.8)
-          .attr('stroke', 'none');
+      .on('mouseout', function () {
+        d3.select(this).attr('opacity', 0.8).attr('stroke', 'none')
 
-        d3.selectAll('.tooltip').remove();
-      });
-
-  }, [data, width, height]);
+        d3.selectAll('.tooltip').remove()
+      })
+  }, [data, width, height])
 
   return (
     <Card>
@@ -181,7 +184,7 @@ const AlgorithmVisualization: React.FC<AlgorithmVisualizationProps> = ({
         />
       </CardContent>
     </Card>
-  );
-};
+  )
+}
 
-export default AlgorithmVisualization;
+export default AlgorithmVisualization

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react'
 import {
   Card,
   Row,
@@ -20,8 +20,8 @@ import {
   Select,
   message,
   Tooltip,
-  Divider
-} from 'antd';
+  Divider,
+} from 'antd'
 import {
   CrownOutlined,
   TeamOutlined,
@@ -35,144 +35,144 @@ import {
   ReloadOutlined,
   WarningOutlined,
   CheckCircleOutlined,
-  ExclamationCircleOutlined
-} from '@ant-design/icons';
-import type { ColumnsType } from 'antd/es/table';
-import { healthService } from '../services/healthService';
+  ExclamationCircleOutlined,
+} from '@ant-design/icons'
+import type { ColumnsType } from 'antd/es/table'
+import { healthService } from '../services/healthService'
 
-const { Title, Text, Paragraph } = Typography;
-const { Option } = Select;
-const { TextArea } = Input;
+const { Title, Text, Paragraph } = Typography
+const { Option } = Select
+const { TextArea } = Input
 
 // Raft节点状态枚举
 enum RaftState {
   FOLLOWER = 'follower',
   CANDIDATE = 'candidate',
-  LEADER = 'leader'
+  LEADER = 'leader',
 }
 
 interface RaftNode {
-  node_id: string;
-  state: RaftState;
-  current_term: number;
-  voted_for?: string;
-  last_log_index: number;
-  last_log_term: number;
-  commit_index: number;
-  last_applied: number;
-  next_index?: Record<string, number>;
-  match_index?: Record<string, number>;
-  vote_count: number;
-  last_heartbeat: string;
-  is_active: boolean;
-  network_partition: boolean;
+  node_id: string
+  state: RaftState
+  current_term: number
+  voted_for?: string
+  last_log_index: number
+  last_log_term: number
+  commit_index: number
+  last_applied: number
+  next_index?: Record<string, number>
+  match_index?: Record<string, number>
+  vote_count: number
+  last_heartbeat: string
+  is_active: boolean
+  network_partition: boolean
 }
 
 interface LogEntry {
-  index: number;
-  term: number;
-  command_type: string;
-  command_data: any;
-  timestamp: string;
-  committed: boolean;
-  applied: boolean;
+  index: number
+  term: number
+  command_type: string
+  command_data: any
+  timestamp: string
+  committed: boolean
+  applied: boolean
 }
 
 interface ElectionEvent {
-  term: number;
-  candidate: string;
-  voters: string[];
-  result: 'won' | 'lost' | 'split';
-  timestamp: string;
-  duration: number;
+  term: number
+  candidate: string
+  voters: string[]
+  result: 'won' | 'lost' | 'split'
+  timestamp: string
+  duration: number
 }
 
 const RaftConsensusPage: React.FC = () => {
-  const [nodes, setNodes] = useState<RaftNode[]>([]);
-  const [logEntries, setLogEntries] = useState<LogEntry[]>([]);
-  const [electionHistory, setElectionHistory] = useState<ElectionEvent[]>([]);
-  const [isRunning, setIsRunning] = useState(false);
-  const [currentTerm, setCurrentTerm] = useState(0);
-  const [currentLeader, setCurrentLeader] = useState<string | null>(null);
-  const [simulationSpeed, setSimulationSpeed] = useState(1000);
-  const [commandModalVisible, setCommandModalVisible] = useState(false);
-  const [form] = Form.useForm();
+  const [nodes, setNodes] = useState<RaftNode[]>([])
+  const [logEntries, setLogEntries] = useState<LogEntry[]>([])
+  const [electionHistory, setElectionHistory] = useState<ElectionEvent[]>([])
+  const [isRunning, setIsRunning] = useState(false)
+  const [currentTerm, setCurrentTerm] = useState(0)
+  const [currentLeader, setCurrentLeader] = useState<string | null>(null)
+  const [simulationSpeed, setSimulationSpeed] = useState(1000)
+  const [commandModalVisible, setCommandModalVisible] = useState(false)
+  const [form] = Form.useForm()
 
   const initializeCluster = (fetchedNodes: RaftNode[]) => {
-    setNodes(fetchedNodes);
-    setLogEntries([]);
-    setElectionHistory([]);
-    setCurrentTerm(0);
-    setCurrentLeader(null);
-  };
+    setNodes(fetchedNodes)
+    setLogEntries([])
+    setElectionHistory([])
+    setCurrentTerm(0)
+    setCurrentLeader(null)
+  }
 
   // 添加日志条目
   const appendLogEntry = () => {
-    message.error('未连接后端 Raft 日志接口');
-  };
+    message.error('未连接后端 Raft 日志接口')
+  }
 
   // 模拟网络分区
   const simulateNetworkPartition = (nodeId: string) => {
-    setNodes(prev => 
-      prev.map(node => 
-        node.node_id === nodeId 
+    setNodes(prev =>
+      prev.map(node =>
+        node.node_id === nodeId
           ? { ...node, network_partition: !node.network_partition }
           : node
       )
-    );
+    )
 
-    const node = nodes.find(n => n.node_id === nodeId);
-    message.info(`${nodeId} ${node?.network_partition ? '网络恢复' : '网络分区'}`);
-  };
+    const node = nodes.find(n => n.node_id === nodeId)
+    message.info(
+      `${nodeId} ${node?.network_partition ? '网络恢复' : '网络分区'}`
+    )
+  }
 
   // 模拟节点故障
   const simulateNodeFailure = (nodeId: string) => {
-    setNodes(prev => 
-      prev.map(node => 
-        node.node_id === nodeId 
-          ? { ...node, is_active: !node.is_active }
-          : node
+    setNodes(prev =>
+      prev.map(node =>
+        node.node_id === nodeId ? { ...node, is_active: !node.is_active } : node
       )
-    );
+    )
 
-    const node = nodes.find(n => n.node_id === nodeId);
-    message.info(`${nodeId} ${node?.is_active ? '节点恢复' : '节点故障'}`);
+    const node = nodes.find(n => n.node_id === nodeId)
+    message.info(`${nodeId} ${node?.is_active ? '节点恢复' : '节点故障'}`)
 
     // 如果Leader故障，触发新选举
     if (nodeId === currentLeader && node?.is_active) {
-      setCurrentLeader(null);
-      setTimeout(simulateElection, 2000);
+      setCurrentLeader(null)
+      setTimeout(simulateElection, 2000)
     }
-  };
+  }
 
   // 心跳更新
   const updateHeartbeats = () => {
-    if (!currentLeader) return;
+    if (!currentLeader) return
 
-    setNodes(prev => 
-      prev.map(node => 
+    setNodes(prev =>
+      prev.map(node =>
         node.is_active && !node.network_partition
           ? { ...node, last_heartbeat: new Date().toISOString() }
           : node
       )
-    );
-  };
+    )
+  }
 
   // 自动模拟
   useEffect(() => {
-    if (!isRunning) return;
+    if (!isRunning) return
 
     const interval = setInterval(() => {
-      updateHeartbeats();
-    }, simulationSpeed);
+      updateHeartbeats()
+    }, simulationSpeed)
 
-    return () => clearInterval(interval);
-  }, [isRunning, currentLeader, simulationSpeed]);
+    return () => clearInterval(interval)
+  }, [isRunning, currentLeader, simulationSpeed])
 
   // 初始化
   useEffect(() => {
-    initializeCluster();
-  }, []);
+    initializeCluster()
+  }, [])
 
   // 节点表格列
   const nodeColumns: ColumnsType<RaftNode> = [
@@ -182,17 +182,23 @@ const RaftConsensusPage: React.FC = () => {
       key: 'node_id',
       render: (id: string, record: RaftNode) => (
         <Space>
-          <Badge 
+          <Badge
             status={
-              !record.is_active ? 'error' : 
-              record.network_partition ? 'warning' :
-              record.state === RaftState.LEADER ? 'success' : 'processing'
-            } 
+              !record.is_active
+                ? 'error'
+                : record.network_partition
+                  ? 'warning'
+                  : record.state === RaftState.LEADER
+                    ? 'success'
+                    : 'processing'
+            }
           />
           <Text strong={record.state === RaftState.LEADER}>{id}</Text>
-          {record.state === RaftState.LEADER && <CrownOutlined style={{ color: '#faad14' }} />}
+          {record.state === RaftState.LEADER && (
+            <CrownOutlined style={{ color: '#faad14' }} />
+          )}
         </Space>
-      )
+      ),
     },
     {
       title: '状态',
@@ -202,48 +208,52 @@ const RaftConsensusPage: React.FC = () => {
         const stateConfig = {
           [RaftState.LEADER]: { color: 'success', icon: <CrownOutlined /> },
           [RaftState.CANDIDATE]: { color: 'warning', icon: <UserOutlined /> },
-          [RaftState.FOLLOWER]: { color: 'default', icon: <TeamOutlined /> }
-        };
-        
-        const config = stateConfig[state];
+          [RaftState.FOLLOWER]: { color: 'default', icon: <TeamOutlined /> },
+        }
+
+        const config = stateConfig[state]
         return (
           <Tag color={config.color} icon={config.icon}>
             {state.toUpperCase()}
           </Tag>
-        );
-      }
+        )
+      },
     },
     {
       title: '任期',
       dataIndex: 'current_term',
-      key: 'current_term'
+      key: 'current_term',
     },
     {
       title: '日志索引',
       dataIndex: 'last_log_index',
-      key: 'last_log_index'
+      key: 'last_log_index',
     },
     {
       title: '提交索引',
       dataIndex: 'commit_index',
-      key: 'commit_index'
+      key: 'commit_index',
     },
     {
       title: '投票数',
       dataIndex: 'vote_count',
       key: 'vote_count',
-      render: (count: number, record: RaftNode) => 
-        record.state === RaftState.CANDIDATE ? <Tag color="blue">{count}</Tag> : '-'
+      render: (count: number, record: RaftNode) =>
+        record.state === RaftState.CANDIDATE ? (
+          <Tag color="blue">{count}</Tag>
+        ) : (
+          '-'
+        ),
     },
     {
       title: '最后心跳',
       dataIndex: 'last_heartbeat',
       key: 'last_heartbeat',
       render: (time: string) => {
-        const diff = Date.now() - new Date(time).getTime();
-        const color = diff > 5000 ? 'red' : diff > 2000 ? 'orange' : 'green';
-        return <Text style={{ color }}>{Math.floor(diff / 1000)}s前</Text>;
-      }
+        const diff = Date.now() - new Date(time).getTime()
+        const color = diff > 5000 ? 'red' : diff > 2000 ? 'orange' : 'green'
+        return <Text style={{ color }}>{Math.floor(diff / 1000)}s前</Text>
+      },
     },
     {
       title: '操作',
@@ -266,27 +276,27 @@ const RaftConsensusPage: React.FC = () => {
             {record.network_partition ? '恢复网络' : '网络分区'}
           </Button>
         </Space>
-      )
-    }
-  ];
+      ),
+    },
+  ]
 
   // 日志条目表格列
   const logColumns: ColumnsType<LogEntry> = [
     {
       title: '索引',
       dataIndex: 'index',
-      key: 'index'
+      key: 'index',
     },
     {
       title: '任期',
       dataIndex: 'term',
-      key: 'term'
+      key: 'term',
     },
     {
       title: '命令类型',
       dataIndex: 'command_type',
       key: 'command_type',
-      render: (type: string) => <Tag color="blue">{type}</Tag>
+      render: (type: string) => <Tag color="blue">{type}</Tag>,
     },
     {
       title: '命令数据',
@@ -296,7 +306,7 @@ const RaftConsensusPage: React.FC = () => {
         <Text code ellipsis style={{ maxWidth: 200 }}>
           {JSON.stringify(data)}
         </Text>
-      )
+      ),
     },
     {
       title: '状态',
@@ -308,15 +318,15 @@ const RaftConsensusPage: React.FC = () => {
           </Tag>
           {record.applied && <Tag color="green">已应用</Tag>}
         </Space>
-      )
+      ),
     },
     {
       title: '时间',
       dataIndex: 'timestamp',
       key: 'timestamp',
-      render: (time: string) => new Date(time).toLocaleTimeString()
-    }
-  ];
+      render: (time: string) => new Date(time).toLocaleTimeString(),
+    },
+  ]
 
   return (
     <div style={{ padding: '24px', background: '#f5f5f5', minHeight: '100vh' }}>
@@ -370,7 +380,11 @@ const RaftConsensusPage: React.FC = () => {
               title="网络分区"
               value={nodes.filter(n => n.network_partition).length}
               prefix={<WarningOutlined />}
-              valueStyle={{ color: nodes.some(n => n.network_partition) ? '#cf1322' : '#3f8600' }}
+              valueStyle={{
+                color: nodes.some(n => n.network_partition)
+                  ? '#cf1322'
+                  : '#3f8600',
+              }}
             />
           </Col>
         </Row>
@@ -454,9 +468,11 @@ const RaftConsensusPage: React.FC = () => {
                     key={index}
                     color={election.result === 'won' ? 'green' : 'red'}
                     dot={
-                      election.result === 'won' ? 
-                        <CheckCircleOutlined /> : 
+                      election.result === 'won' ? (
+                        <CheckCircleOutlined />
+                      ) : (
                         <ExclamationCircleOutlined />
+                      )
                     }
                   >
                     <div>
@@ -466,7 +482,9 @@ const RaftConsensusPage: React.FC = () => {
                       <br />
                       <Text>投票数: {election.voters.length}</Text>
                       <br />
-                      <Tag color={election.result === 'won' ? 'success' : 'error'}>
+                      <Tag
+                        color={election.result === 'won' ? 'success' : 'error'}
+                      >
                         {election.result === 'won' ? '当选' : '失败'}
                       </Tag>
                       <br />
@@ -486,21 +504,45 @@ const RaftConsensusPage: React.FC = () => {
               <div>
                 <Text>节点可用性</Text>
                 <Progress
-                  percent={Math.round((nodes.filter(n => n.is_active).length / nodes.length) * 100)}
-                  status={nodes.filter(n => n.is_active).length >= Math.floor(nodes.length / 2) + 1 ? 'success' : 'exception'}
+                  percent={Math.round(
+                    (nodes.filter(n => n.is_active).length / nodes.length) * 100
+                  )}
+                  status={
+                    nodes.filter(n => n.is_active).length >=
+                    Math.floor(nodes.length / 2) + 1
+                      ? 'success'
+                      : 'exception'
+                  }
                 />
               </div>
               <div>
                 <Text>网络连通性</Text>
                 <Progress
-                  percent={Math.round((nodes.filter(n => !n.network_partition).length / nodes.length) * 100)}
-                  status={nodes.filter(n => !n.network_partition).length >= Math.floor(nodes.length / 2) + 1 ? 'success' : 'exception'}
+                  percent={Math.round(
+                    (nodes.filter(n => !n.network_partition).length /
+                      nodes.length) *
+                      100
+                  )}
+                  status={
+                    nodes.filter(n => !n.network_partition).length >=
+                    Math.floor(nodes.length / 2) + 1
+                      ? 'success'
+                      : 'exception'
+                  }
                 />
               </div>
               <div>
                 <Text>日志一致性</Text>
                 <Progress
-                  percent={logEntries.length > 0 ? Math.round((logEntries.filter(e => e.committed).length / logEntries.length) * 100) : 100}
+                  percent={
+                    logEntries.length > 0
+                      ? Math.round(
+                          (logEntries.filter(e => e.committed).length /
+                            logEntries.length) *
+                            100
+                        )
+                      : 100
+                  }
                 />
               </div>
             </Space>
@@ -513,21 +555,21 @@ const RaftConsensusPage: React.FC = () => {
         title="添加日志条目"
         visible={commandModalVisible}
         onCancel={() => {
-          setCommandModalVisible(false);
-          form.resetFields();
+          setCommandModalVisible(false)
+          form.resetFields()
         }}
         onOk={async () => {
           try {
-            const values = await form.validateFields();
+            const values = await form.validateFields()
             const command = {
               type: values.type,
-              data: JSON.parse(values.data || '{}')
-            };
-            appendLogEntry(command);
-            setCommandModalVisible(false);
-            form.resetFields();
+              data: JSON.parse(values.data || '{}'),
+            }
+            appendLogEntry(command)
+            setCommandModalVisible(false)
+            form.resetFields()
           } catch (error) {
-            message.error('命令格式错误');
+            message.error('命令格式错误')
           }
         }}
       >
@@ -552,13 +594,13 @@ const RaftConsensusPage: React.FC = () => {
               {
                 validator: (_, value) => {
                   try {
-                    JSON.parse(value || '{}');
-                    return Promise.resolve();
+                    JSON.parse(value || '{}')
+                    return Promise.resolve()
                   } catch {
-                    return Promise.reject(new Error('请输入有效的JSON格式'));
+                    return Promise.reject(new Error('请输入有效的JSON格式'))
                   }
-                }
-              }
+                },
+              },
             ]}
           >
             <TextArea
@@ -569,7 +611,7 @@ const RaftConsensusPage: React.FC = () => {
         </Form>
       </Modal>
     </div>
-  );
-};
+  )
+}
 
-export default RaftConsensusPage;
+export default RaftConsensusPage

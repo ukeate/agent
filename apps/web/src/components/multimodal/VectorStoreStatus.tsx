@@ -3,7 +3,7 @@
  * 展示Chroma向量数据库的技术状态和索引信息
  */
 
-import React from 'react';
+import React from 'react'
 import {
   Card,
   Statistic,
@@ -14,30 +14,30 @@ import {
   Space,
   Typography,
   Table,
-  Alert
-} from 'antd';
+  Alert,
+} from 'antd'
 import {
   DatabaseOutlined,
   FileTextOutlined,
   FileImageOutlined,
   TableOutlined,
   ClusterOutlined,
-  InfoCircleOutlined
-} from '@ant-design/icons';
+  InfoCircleOutlined,
+} from '@ant-design/icons'
 
-const { Text, Title } = Typography;
+const { Text, Title } = Typography
 
 interface VectorStoreStats {
-  totalDocuments: number;
-  textChunks: number;
-  images: number;
-  tables: number;
-  embeddingDimension: number;
-  cacheHitRate: number;
+  totalDocuments: number
+  textChunks: number
+  images: number
+  tables: number
+  embeddingDimension: number
+  cacheHitRate: number
 }
 
 interface VectorStoreStatusProps {
-  stats: VectorStoreStats;
+  stats: VectorStoreStats
 }
 
 const VectorStoreStatus: React.FC<VectorStoreStatusProps> = ({ stats }) => {
@@ -56,8 +56,8 @@ const VectorStoreStatus: React.FC<VectorStoreStatusProps> = ({ stats }) => {
       name: 'multimodal_table',
       count: stats.tables,
       dimension: stats.embeddingDimension,
-    }
-  ];
+    },
+  ]
 
   const columns = [
     {
@@ -69,7 +69,7 @@ const VectorStoreStatus: React.FC<VectorStoreStatusProps> = ({ stats }) => {
           <ClusterOutlined />
           <Text code>{text}</Text>
         </Space>
-      )
+      ),
     },
     {
       title: '向量数',
@@ -77,18 +77,18 @@ const VectorStoreStatus: React.FC<VectorStoreStatusProps> = ({ stats }) => {
       key: 'count',
       render: (count: number) => (
         <Tag color={count > 0 ? 'green' : 'default'}>{count}</Tag>
-      )
+      ),
     },
     {
       title: '维度',
       dataIndex: 'dimension',
       key: 'dimension',
-      render: (dim: number) => <Text>{dim}D</Text>
-    }
-  ];
+      render: (dim: number) => <Text>{dim}D</Text>,
+    },
+  ]
 
   return (
-    <Card 
+    <Card
       title={
         <span>
           <DatabaseOutlined className="mr-2" />
@@ -159,7 +159,13 @@ const VectorStoreStatus: React.FC<VectorStoreStatusProps> = ({ stats }) => {
                 <FileTextOutlined style={{ fontSize: 24, color: '#1890ff' }} />
                 <div>文本块</div>
                 <Progress
-                  percent={stats.totalDocuments > 0 ? Math.round((stats.textChunks / stats.totalDocuments) * 100) : 0}
+                  percent={
+                    stats.totalDocuments > 0
+                      ? Math.round(
+                          (stats.textChunks / stats.totalDocuments) * 100
+                        )
+                      : 0
+                  }
                   strokeColor="#1890ff"
                 />
                 <Text type="secondary">{stats.textChunks} 个</Text>
@@ -170,7 +176,11 @@ const VectorStoreStatus: React.FC<VectorStoreStatusProps> = ({ stats }) => {
                 <FileImageOutlined style={{ fontSize: 24, color: '#722ed1' }} />
                 <div>图像</div>
                 <Progress
-                  percent={stats.totalDocuments > 0 ? Math.round((stats.images / stats.totalDocuments) * 100) : 0}
+                  percent={
+                    stats.totalDocuments > 0
+                      ? Math.round((stats.images / stats.totalDocuments) * 100)
+                      : 0
+                  }
                   strokeColor="#722ed1"
                 />
                 <Text type="secondary">{stats.images} 个</Text>
@@ -181,7 +191,11 @@ const VectorStoreStatus: React.FC<VectorStoreStatusProps> = ({ stats }) => {
                 <TableOutlined style={{ fontSize: 24, color: '#52c41a' }} />
                 <div>表格</div>
                 <Progress
-                  percent={stats.totalDocuments > 0 ? Math.round((stats.tables / stats.totalDocuments) * 100) : 0}
+                  percent={
+                    stats.totalDocuments > 0
+                      ? Math.round((stats.tables / stats.totalDocuments) * 100)
+                      : 0
+                  }
                   strokeColor="#52c41a"
                 />
                 <Text type="secondary">{stats.tables} 个</Text>
@@ -204,7 +218,7 @@ const VectorStoreStatus: React.FC<VectorStoreStatusProps> = ({ stats }) => {
         />
       </Space>
     </Card>
-  );
-};
+  )
+}
 
-export default VectorStoreStatus;
+export default VectorStoreStatus

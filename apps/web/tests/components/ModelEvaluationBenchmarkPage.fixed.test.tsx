@@ -21,23 +21,27 @@ vi.mock('antd', () => ({
   Statistic: ({ title, value, prefix }: any) => (
     <div data-testid="statistic">
       <div data-testid="statistic-title">{title}</div>
-      <div data-testid="statistic-value">{prefix}{value}</div>
+      <div data-testid="statistic-value">
+        {prefix}
+        {value}
+      </div>
     </div>
   ),
   Button: ({ children, onClick, icon, loading, type, ...props }: any) => (
-    <button 
-      data-testid={props['data-testid'] || 'button'} 
-      onClick={onClick} 
+    <button
+      data-testid={props['data-testid'] || 'button'}
+      onClick={onClick}
       disabled={loading}
       className={type}
       {...props}
     >
-      {icon}{children}
+      {icon}
+      {children}
     </button>
   ),
   Table: ({ dataSource, columns, rowKey, loading, ...props }: any) => {
     if (loading) return <div data-testid="table-loading">Loading...</div>
-    
+
     return (
       <table data-testid="table">
         <thead>
@@ -52,7 +56,9 @@ vi.mock('antd', () => ({
             <tr key={item[rowKey] || index}>
               {columns?.map((col: any, colIndex: number) => (
                 <td key={colIndex}>
-                  {col.render ? col.render(item[col.dataIndex], item) : item[col.dataIndex]}
+                  {col.render
+                    ? col.render(item[col.dataIndex], item)
+                    : item[col.dataIndex]}
                 </td>
               ))}
             </tr>
@@ -62,12 +68,17 @@ vi.mock('antd', () => ({
     )
   },
   Tag: ({ children, color }: any) => (
-    <span data-testid="tag" className={`tag-${color}`}>{children}</span>
+    <span data-testid="tag" className={`tag-${color}`}>
+      {children}
+    </span>
   ),
   Space: ({ children }: any) => <div data-testid="space">{children}</div>,
   Typography: {
-    Title: ({ children, level }: any) => React.createElement(`h${level}`, {}, children),
-    Text: ({ children, type }: any) => <span className={`text-${type}`}>{children}</span>
+    Title: ({ children, level }: any) =>
+      React.createElement(`h${level}`, {}, children),
+    Text: ({ children, type }: any) => (
+      <span className={`text-${type}`}>{children}</span>
+    ),
   },
   Progress: ({ percent, status }: any) => (
     <div data-testid="progress" data-percent={percent} data-status={status}>
@@ -85,32 +96,40 @@ vi.mock('antd', () => ({
       <div data-testid="modal">
         <div data-testid="modal-title">{title}</div>
         <div data-testid="modal-content">{children}</div>
-        <button data-testid="modal-ok" onClick={onOk}>OK</button>
-        <button data-testid="modal-cancel" onClick={onCancel}>Cancel</button>
+        <button data-testid="modal-ok" onClick={onOk}>
+          OK
+        </button>
+        <button data-testid="modal-cancel" onClick={onCancel}>
+          Cancel
+        </button>
       </div>
     )
   },
   Form: Object.assign(
     ({ children, onFinish }: any) => (
-      <form data-testid="form" onSubmit={onFinish}>{children}</form>
+      <form data-testid="form" onSubmit={onFinish}>
+        {children}
+      </form>
     ),
     {
-      useForm: () => [{
-        setFieldsValue: vi.fn(),
-        getFieldsValue: vi.fn(() => ({})),
-        resetFields: vi.fn(),
-        validateFields: vi.fn(() => Promise.resolve()),
-      }],
+      useForm: () => [
+        {
+          setFieldsValue: vi.fn(),
+          getFieldsValue: vi.fn(() => ({})),
+          resetFields: vi.fn(),
+          validateFields: vi.fn(() => Promise.resolve()),
+        },
+      ],
       Item: ({ children, label, name }: any) => (
         <div data-testid="form-item">
           {label && <label>{label}</label>}
           {children}
         </div>
-      )
+      ),
     }
   ),
   Input: ({ placeholder, value, onChange, ...props }: any) => (
-    <input 
+    <input
       data-testid={props['data-testid'] || 'input'}
       placeholder={placeholder}
       value={value}
@@ -119,7 +138,7 @@ vi.mock('antd', () => ({
     />
   ),
   Select: ({ children, placeholder, value, onChange, ...props }: any) => (
-    <select 
+    <select
       data-testid={props['data-testid'] || 'select'}
       value={value}
       onChange={onChange}
@@ -143,21 +162,30 @@ vi.mock('antd', () => ({
       )
     }
     return <div data-testid="tabs">{children}</div>
-  }
+  },
 }))
 
 // 模拟图标 - 使用Proxy来处理所有可能的图标
-vi.mock('@ant-design/icons', () => new Proxy({}, {
-  get: (target, prop) => {
-    if (typeof prop === 'string') {
-      // 返回一个React组件
-      const IconComponent = () => <span data-testid={`icon-${prop.toLowerCase()}`}>🔸</span>
-      IconComponent.displayName = prop
-      return IconComponent
-    }
-    return target[prop]
-  }
-}))
+vi.mock(
+  '@ant-design/icons',
+  () =>
+    new Proxy(
+      {},
+      {
+        get: (target, prop) => {
+          if (typeof prop === 'string') {
+            // 返回一个React组件
+            const IconComponent = () => (
+              <span data-testid={`icon-${prop.toLowerCase()}`}>🔸</span>
+            )
+            IconComponent.displayName = prop
+            return IconComponent
+          }
+          return target[prop]
+        },
+      }
+    )
+)
 
 import React from 'react'
 
@@ -175,10 +203,10 @@ describe('ModelEvaluationBenchmarkPage - Fixed Tests', () => {
 
     it('renders key statistics cards', () => {
       render(<ModelEvaluationBenchmarkPage />)
-      
+
       const statisticsCards = screen.getAllByTestId('statistic')
       expect(statisticsCards.length).toBeGreaterThan(0)
-      
+
       // 检查是否包含关键统计信息
       expect(screen.getByTestId('statistic-title')).toBeInTheDocument()
       expect(screen.getByTestId('statistic-value')).toBeInTheDocument()
@@ -210,7 +238,7 @@ describe('ModelEvaluationBenchmarkPage - Fixed Tests', () => {
 
     it('can click buttons without errors', () => {
       render(<ModelEvaluationBenchmarkPage />)
-      
+
       const startButton = screen.getByText('开始评估')
       expect(() => fireEvent.click(startButton)).not.toThrow()
     })
@@ -219,12 +247,12 @@ describe('ModelEvaluationBenchmarkPage - Fixed Tests', () => {
   describe('Data Display', () => {
     it('displays evaluation status correctly', async () => {
       render(<ModelEvaluationBenchmarkPage />)
-      
+
       // 等待数据加载
       await waitFor(() => {
         expect(screen.getByTestId('table')).toBeInTheDocument()
       })
-      
+
       // 检查状态标签
       const tags = screen.getAllByTestId('tag')
       expect(tags.length).toBeGreaterThan(0)
@@ -232,7 +260,7 @@ describe('ModelEvaluationBenchmarkPage - Fixed Tests', () => {
 
     it('displays progress information', async () => {
       render(<ModelEvaluationBenchmarkPage />)
-      
+
       await waitFor(() => {
         const progressBars = screen.queryAllByTestId('progress')
         // 可能有进度条，也可能没有，取决于数据状态
@@ -244,7 +272,7 @@ describe('ModelEvaluationBenchmarkPage - Fixed Tests', () => {
   describe('Form Handling', () => {
     it('handles form submission without errors', async () => {
       render(<ModelEvaluationBenchmarkPage />)
-      
+
       // 查找表单元素
       const forms = screen.queryAllByTestId('form')
       if (forms.length > 0) {
@@ -262,18 +290,21 @@ describe('ModelEvaluationBenchmarkPage - Fixed Tests', () => {
 
     it('handles loading states', async () => {
       render(<ModelEvaluationBenchmarkPage />)
-      
+
       // 检查是否有加载状态处理
-      await waitFor(() => {
-        expect(screen.getByTestId('table')).toBeInTheDocument()
-      }, { timeout: 1000 })
+      await waitFor(
+        () => {
+          expect(screen.getByTestId('table')).toBeInTheDocument()
+        },
+        { timeout: 1000 }
+      )
     })
   })
 
   describe('Component Integration', () => {
     it('integrates all major components', () => {
       render(<ModelEvaluationBenchmarkPage />)
-      
+
       // 验证主要组件都存在
       expect(screen.getByTestId('tabs')).toBeInTheDocument()
       expect(screen.getByTestId('table')).toBeInTheDocument()
@@ -283,7 +314,7 @@ describe('ModelEvaluationBenchmarkPage - Fixed Tests', () => {
 
     it('maintains consistent styling', () => {
       render(<ModelEvaluationBenchmarkPage />)
-      
+
       // 基本的样式一致性检查
       const cards = screen.getAllByTestId('card')
       cards.forEach(card => {
@@ -296,7 +327,7 @@ describe('ModelEvaluationBenchmarkPage - Fixed Tests', () => {
 describe('ModelEvaluationBenchmarkPage - Edge Cases', () => {
   it('handles empty evaluation jobs list', () => {
     render(<ModelEvaluationBenchmarkPage />)
-    
+
     // 应该正常渲染，即使没有评估任务
     expect(screen.getByText('模型评估与基准测试')).toBeInTheDocument()
     expect(screen.getByTestId('table')).toBeInTheDocument()
@@ -305,18 +336,18 @@ describe('ModelEvaluationBenchmarkPage - Edge Cases', () => {
   it('handles network errors gracefully', async () => {
     // 模拟网络错误
     const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
-    
+
     render(<ModelEvaluationBenchmarkPage />)
-    
+
     // 页面应该仍然渲染
     expect(screen.getByText('模型评估与基准测试')).toBeInTheDocument()
-    
+
     consoleSpy.mockRestore()
   })
 
   it('maintains functionality with missing data', () => {
     render(<ModelEvaluationBenchmarkPage />)
-    
+
     // 基本功能应该可用
     const buttons = screen.getAllByTestId('button')
     buttons.forEach(button => {

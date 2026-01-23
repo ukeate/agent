@@ -1,15 +1,42 @@
 import React, { useState } from 'react'
 import {
-  Card, Button, Input, Upload, List, Tag, Alert, Tabs, Space, Progress,
-  Row, Col, Statistic, Table, Divider, Badge, message, Spin, Empty,
-  Descriptions, Modal, Form, Select
+  Card,
+  Button,
+  Input,
+  Upload,
+  List,
+  Tag,
+  Alert,
+  Tabs,
+  Space,
+  Progress,
+  Row,
+  Col,
+  Statistic,
+  Table,
+  Divider,
+  Badge,
+  message,
+  Spin,
+  Empty,
+  Descriptions,
+  Modal,
+  Form,
+  Select,
 } from 'antd'
 import {
-  SearchOutlined, UploadOutlined, FileTextOutlined, DatabaseOutlined,
-  CloudUploadOutlined, DeleteOutlined, ReloadOutlined, BookOutlined,
-  FileSearchOutlined, FolderOpenOutlined
+  SearchOutlined,
+  UploadOutlined,
+  FileTextOutlined,
+  DatabaseOutlined,
+  CloudUploadOutlined,
+  DeleteOutlined,
+  ReloadOutlined,
+  BookOutlined,
+  FileSearchOutlined,
+  FolderOpenOutlined,
 } from '@ant-design/icons'
-import apiClient from '../services/apiClient'
+import ragService from '../services/ragService'
 
 const { TextArea } = Input
 const { TabPane } = Tabs
@@ -30,6 +57,25 @@ interface SearchResult {
   relevance: number
   source: string
 }
+
+const TEXT_EXTENSIONS = new Set([
+  'txt',
+  'md',
+  'json',
+  'yaml',
+  'yml',
+  'py',
+  'js',
+  'ts',
+  'tsx',
+  'jsx',
+  'java',
+  'cpp',
+  'c',
+  'cs',
+  'go',
+  'rs',
+])
 
 const RAGEnhancedPage: React.FC = () => {
   const [query, setQuery] = useState('')
@@ -53,15 +99,36 @@ const RAGEnhancedPage: React.FC = () => {
 
     setLoading(true)
     try {
-      const res = await apiClient.post('/rag/query', {
-        query,
-        documents: selectedDocs,
-        top_k: 5
+      const res = await ragService.query({
+        query: query.trim(),
+        search_type: 'hybrid',
+        limit: 5,
+        score_threshold: 0.5,
       })
 
-      setResponse(res.data.response)
-      setConfidence(res.data.confidence * 100)
-      setSearchResults(res.data.sources || [])
+      if (!res.success) {
+        throw new Error(res.error || '查询失败')
+      }
+
+      const mappedResults: SearchResult[] = (res.results || []).map(item => ({
+        title:
+          item.metadata?.title ||
+          item.metadata?.filename ||
+          item.file_path?.split('/').pop() ||
+          '文档片段',
+        content: item.content,
+        relevance: item.score || 0,
+        source:
+          item.file_path ||
+          item.metadata?.source ||
+          item.metadata?.filename ||
+          'unknown',
+      }))
+
+      const topResult = mappedResults[0]
+      setResponse(topResult?.content || '')
+      setConfidence(topResult ? Math.min(topResult.relevance * 100, 100) : 0)
+      setSearchResults(mappedResults)
       message.success('查询成功')
     } catch (error: any) {
       message.error('查询失败: ' + error.message)
@@ -76,21 +143,46 @@ const RAGEnhancedPage: React.FC = () => {
   // 上传文档
   const handleUpload = async (file: any) => {
     setUploading(true)
-    const formData = new FormData()
-    formData.append('file', file)
-
     try {
-      const res = await apiClient.post('/rag/documents', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
+      const extension = file.name.split('.').pop()?.toLowerCase() || ''
+      const isTextFile =
+        file.type.startsWith('text/') ||
+        file.type === 'application/json' ||
+        file.type === 'application/x-yaml' ||
+        file.type === 'application/yaml' ||
+        TEXT_EXTENSIONS.has(extension)
+
+      if (!isTextFile) {
+        message.error('仅支持文本类文件')
+        return false
+      }
+
+      const content = await file.text()
+      if (!content.trim()) {
+        message.error('文档内容为空')
+        return false
+      }
+
+      const res = await ragService.addDocument({
+        text: content,
+        metadata: {
+          filename: file.name,
+          size: file.size,
+          type: file.type,
+        },
       })
 
+      if (!res.success) {
+        throw new Error(res.error || '文档添加失败')
+      }
+
       const newDoc: Document = {
-        id: res.data.document_id,
+        id: res.document_id || file.uid,
         name: file.name,
         size: file.size,
-        chunks: res.data.chunks,
-        status: res.data.status,
-        uploadedAt: new Date().toISOString()
+        chunks: res.chunks || 0,
+        status: 'indexed',
+        uploadedAt: new Date().toISOString(),
       }
 
       setDocuments(prev => [...prev, newDoc])
@@ -107,7 +199,10 @@ const RAGEnhancedPage: React.FC = () => {
   // 删除文档
   const handleDeleteDoc = async (docId: string) => {
     try {
-      await apiClient.delete(`/rag/documents/${docId}`)
+      const res = await ragService.deleteDocument(docId)
+      if (!res.success) {
+        throw new Error(res.error || '文档删除失败')
+      }
       setDocuments(prev => prev.filter(doc => doc.id !== docId))
       message.success('文档删除成功')
     } catch (error) {
@@ -126,28 +221,40 @@ const RAGEnhancedPage: React.FC = () => {
           <FileTextOutlined />
           {text}
         </Space>
-      )
+      ),
     },
     {
       title: '大小',
       dataIndex: 'size',
       key: 'size',
-      render: (size: number) => `${(size / 1024).toFixed(2)} KB`
+      render: (size: number) => `${(size / 1024).toFixed(2)} KB`,
     },
     {
       title: '分块数',
       dataIndex: 'chunks',
-      key: 'chunks'
+      key: 'chunks',
     },
     {
       title: '状态',
       dataIndex: 'status',
       key: 'status',
       render: (status: string) => (
-        <Tag color={status === 'indexed' ? 'success' : status === 'processing' ? 'processing' : 'error'}>
-          {status === 'indexed' ? '已索引' : status === 'processing' ? '处理中' : '错误'}
+        <Tag
+          color={
+            status === 'indexed'
+              ? 'success'
+              : status === 'processing'
+                ? 'processing'
+                : 'error'
+          }
+        >
+          {status === 'indexed'
+            ? '已索引'
+            : status === 'processing'
+              ? '处理中'
+              : '错误'}
         </Tag>
-      )
+      ),
     },
     {
       title: '操作',
@@ -161,8 +268,8 @@ const RAGEnhancedPage: React.FC = () => {
         >
           删除
         </Button>
-      )
-    }
+      ),
+    },
   ]
 
   return (
@@ -176,10 +283,16 @@ const RAGEnhancedPage: React.FC = () => {
         }
         extra={
           <Space>
-            <Button icon={<CloudUploadOutlined />} onClick={() => setShowUploadModal(true)}>
+            <Button
+              icon={<CloudUploadOutlined />}
+              onClick={() => setShowUploadModal(true)}
+            >
               上传文档
             </Button>
-            <Button icon={<ReloadOutlined />} onClick={() => window.location.reload()}>
+            <Button
+              icon={<ReloadOutlined />}
+              onClick={() => window.location.reload()}
+            >
               刷新
             </Button>
           </Space>
@@ -194,9 +307,9 @@ const RAGEnhancedPage: React.FC = () => {
                     <TextArea
                       rows={3}
                       value={query}
-                      onChange={(e) => setQuery(e.target.value)}
+                      onChange={e => setQuery(e.target.value)}
                       placeholder="输入您的问题，系统将基于知识库为您提供答案..."
-                      onPressEnter={(e) => {
+                      onPressEnter={e => {
                         if (e.shiftKey) return
                         e.preventDefault()
                         handleSearch()
@@ -213,7 +326,7 @@ const RAGEnhancedPage: React.FC = () => {
                           onChange={setSelectedDocs}
                           options={documents.map(doc => ({
                             label: doc.name,
-                            value: doc.id
+                            value: doc.id,
                           }))}
                         />
                       </Col>
@@ -248,7 +361,9 @@ const RAGEnhancedPage: React.FC = () => {
                             value={confidence}
                             precision={1}
                             suffix="%"
-                            valueStyle={{ color: confidence > 80 ? '#52c41a' : '#faad14' }}
+                            valueStyle={{
+                              color: confidence > 80 ? '#52c41a' : '#faad14',
+                            }}
                           />
                         </Col>
                         <Col span={12}>
@@ -264,14 +379,16 @@ const RAGEnhancedPage: React.FC = () => {
                     <Card title="参考来源">
                       <List
                         dataSource={searchResults}
-                        renderItem={(item) => (
+                        renderItem={item => (
                           <List.Item>
                             <List.Item.Meta
                               avatar={<FileSearchOutlined />}
                               title={
                                 <Space>
                                   {item.title}
-                                  <Tag color="blue">{(item.relevance * 100).toFixed(1)}%</Tag>
+                                  <Tag color="blue">
+                                    {(item.relevance * 100).toFixed(1)}%
+                                  </Tag>
                                 </Space>
                               }
                               description={item.content}
@@ -344,9 +461,16 @@ const RAGEnhancedPage: React.FC = () => {
                 <Card>
                   <Statistic
                     title="平均相关度"
-                    value={searchResults.length > 0
-                      ? (searchResults.reduce((sum, r) => sum + r.relevance, 0) / searchResults.length * 100)
-                      : 0}
+                    value={
+                      searchResults.length > 0
+                        ? (searchResults.reduce(
+                            (sum, r) => sum + r.relevance,
+                            0
+                          ) /
+                            searchResults.length) *
+                          100
+                        : 0
+                    }
                     precision={1}
                     suffix="%"
                   />
@@ -357,11 +481,19 @@ const RAGEnhancedPage: React.FC = () => {
             <Card title="系统信息" style={{ marginTop: 16 }}>
               <Descriptions column={2}>
                 <Descriptions.Item label="向量数据库">Qdrant</Descriptions.Item>
-                <Descriptions.Item label="嵌入模型">text-embedding-ada-002</Descriptions.Item>
-                <Descriptions.Item label="LLM模型">Claude 3.5</Descriptions.Item>
-                <Descriptions.Item label="检索算法">余弦相似度</Descriptions.Item>
+                <Descriptions.Item label="嵌入模型">
+                  text-embedding-ada-002
+                </Descriptions.Item>
+                <Descriptions.Item label="LLM模型">
+                  Claude 3.5
+                </Descriptions.Item>
+                <Descriptions.Item label="检索算法">
+                  余弦相似度
+                </Descriptions.Item>
                 <Descriptions.Item label="分块策略">滑动窗口</Descriptions.Item>
-                <Descriptions.Item label="最大分块">1000 tokens</Descriptions.Item>
+                <Descriptions.Item label="最大分块">
+                  1000 tokens
+                </Descriptions.Item>
               </Descriptions>
             </Card>
           </TabPane>

@@ -1,10 +1,26 @@
 import React, { useState, useEffect } from 'react'
 import { buildWsUrl } from '../utils/apiBase'
-import { Card, Row, Col, Statistic, Progress, Tag, Timeline, Button, Space, Tabs, Badge, Alert, Table, Typography, message } from 'antd'
+import {
+  Card,
+  Row,
+  Col,
+  Statistic,
+  Progress,
+  Tag,
+  Timeline,
+  Button,
+  Space,
+  Tabs,
+  Badge,
+  Alert,
+  Table,
+  Typography,
+  message,
+} from 'antd'
 import { personalizationService } from '../services/personalizationService'
-import { 
-  ThunderboltOutlined, 
-  RocketOutlined, 
+import {
+  ThunderboltOutlined,
+  RocketOutlined,
   ClockCircleOutlined,
   UserOutlined,
   HeartOutlined,
@@ -15,7 +31,7 @@ import {
   ApiOutlined,
   CheckCircleOutlined,
   WarningOutlined,
-  SyncOutlined
+  SyncOutlined,
 } from '@ant-design/icons'
 import type { ColumnsType } from 'antd/es/table'
 
@@ -47,13 +63,15 @@ interface RecommendationItem {
 
 const PersonalizationEnginePage: React.FC = () => {
   const [loading, setLoading] = useState(false)
-  const [engineStatus, setEngineStatus] = useState<'running' | 'stopped' | 'error'>('running')
+  const [engineStatus, setEngineStatus] = useState<
+    'running' | 'stopped' | 'error'
+  >('running')
   const [apiStatus, setApiStatus] = useState({
     metrics: 'unknown',
     features: 'unknown',
     models: 'unknown',
     recommend: 'unknown',
-    websocket: 'unknown'
+    websocket: 'unknown',
   })
   const [metrics, setMetrics] = useState({
     latencyP99: 0,
@@ -61,14 +79,16 @@ const PersonalizationEnginePage: React.FC = () => {
     cacheHitRate: 0,
     activeUsers: 0,
     totalRecommendations: 0,
-    errorRate: 0
+    errorRate: 0,
   })
 
   const [features, setFeatures] = useState<FeatureData[]>([])
 
   const [models, setModels] = useState<ModelInfo[]>([])
 
-  const [recommendations, setRecommendations] = useState<RecommendationItem[]>([])
+  const [recommendations, setRecommendations] = useState<RecommendationItem[]>(
+    []
+  )
 
   const updateApiStatus = (key: keyof typeof apiStatus, status: string) => {
     setApiStatus(prev => ({ ...prev, [key]: status }))
@@ -80,7 +100,7 @@ const PersonalizationEnginePage: React.FC = () => {
     if (!userId) return false
     const url = buildWsUrl('/personalization/stream')
     if (!url) return false
-    return await new Promise<boolean>((resolve) => {
+    return await new Promise<boolean>(resolve => {
       let settled = false
       const ws = new WebSocket(url)
       const timer = window.setTimeout(() => {
@@ -99,7 +119,7 @@ const PersonalizationEnginePage: React.FC = () => {
       ws.onopen = () => {
         ws.send(JSON.stringify({ user_id: userId }))
       }
-      ws.onmessage = (event) => {
+      ws.onmessage = event => {
         try {
           const data = JSON.parse(event.data)
           if (data?.type === 'connected') {
@@ -127,7 +147,7 @@ const PersonalizationEnginePage: React.FC = () => {
         features: 'checking',
         models: 'checking',
         recommend: 'checking',
-        websocket: 'checking'
+        websocket: 'checking',
       })
 
       try {
@@ -139,7 +159,7 @@ const PersonalizationEnginePage: React.FC = () => {
             cacheHitRate: overview.cache_hit_rate || 0,
             activeUsers: overview.active_users || 0,
             totalRecommendations: overview.total_recommendations || 0,
-            errorRate: overview.error_rate || 0
+            errorRate: overview.error_rate || 0,
           })
         }
         updateApiStatus('metrics', 'online')
@@ -157,7 +177,7 @@ const PersonalizationEnginePage: React.FC = () => {
               name: f.name,
               value: f.value ?? 0,
               type: f.type || '未知',
-              updateTime: f.updated_at || ''
+              updateTime: f.updated_at || '',
             }))
           )
         } else {
@@ -181,14 +201,16 @@ const PersonalizationEnginePage: React.FC = () => {
       }
 
       try {
-        const recs = await personalizationService.getRecommendations({ limit: 5 })
+        const recs = await personalizationService.getRecommendations({
+          limit: 5,
+        })
         if (recs && Array.isArray(recs)) {
           setRecommendations(
             recs.map((r: any, idx: number) => ({
               id: r.id || String(idx),
               item: r.item || '',
               score: r.score || 0,
-              reason: r.reason || ''
+              reason: r.reason || '',
             }))
           )
         } else {
@@ -232,28 +254,28 @@ const PersonalizationEnginePage: React.FC = () => {
       title: '特征值',
       dataIndex: 'value',
       key: 'value',
-      render: (value) => <Progress percent={value * 100} size="small" />
+      render: value => <Progress percent={value * 100} size="small" />,
     },
     {
       title: '类型',
       dataIndex: 'type',
       key: 'type',
-      render: (type) => {
+      render: type => {
         const colors: Record<string, string> = {
-          '实时特征': 'green',
-          '静态特征': 'blue',
-          '模型特征': 'purple',
-          '动态特征': 'orange'
+          实时特征: 'green',
+          静态特征: 'blue',
+          模型特征: 'purple',
+          动态特征: 'orange',
         }
         return <Tag color={colors[type]}>{type}</Tag>
-      }
+      },
     },
     {
       title: '更新时间',
       dataIndex: 'updateTime',
       key: 'updateTime',
-      render: (time) => <Text type="secondary">{time}</Text>
-    }
+      render: time => <Text type="secondary">{time}</Text>,
+    },
   ]
 
   const handleRefreshEngine = async () => {
@@ -270,10 +292,14 @@ const PersonalizationEnginePage: React.FC = () => {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'online': return 'success'
-      case 'offline': return 'default'
-      case 'updating': return 'processing'
-      default: return 'default'
+      case 'online':
+        return 'success'
+      case 'offline':
+        return 'default'
+      case 'updating':
+        return 'processing'
+      default:
+        return 'default'
     }
   }
 
@@ -303,16 +329,22 @@ const PersonalizationEnginePage: React.FC = () => {
       <Alert
         message={
           <Space>
-            {engineStatus === 'running' ? <CheckCircleOutlined /> : <WarningOutlined />}
-            <span>引擎状态: {engineStatus === 'running' ? '正常运行' : '异常'}</span>
+            {engineStatus === 'running' ? (
+              <CheckCircleOutlined />
+            ) : (
+              <WarningOutlined />
+            )}
+            <span>
+              引擎状态: {engineStatus === 'running' ? '正常运行' : '异常'}
+            </span>
           </Space>
         }
         type={engineStatus === 'running' ? 'success' : 'warning'}
         showIcon={false}
         action={
-          <Button 
-            size="small" 
-            type="primary" 
+          <Button
+            size="small"
+            type="primary"
             icon={<SyncOutlined spin={loading} />}
             onClick={handleRefreshEngine}
             loading={loading}
@@ -332,7 +364,9 @@ const PersonalizationEnginePage: React.FC = () => {
               value={metrics.latencyP99}
               suffix="ms"
               prefix={<ClockCircleOutlined />}
-              valueStyle={{ color: metrics.latencyP99 > 100 ? '#ff4d4f' : '#52c41a' }}
+              valueStyle={{
+                color: metrics.latencyP99 > 100 ? '#ff4d4f' : '#52c41a',
+              }}
             />
           </Card>
         </Col>
@@ -386,18 +420,27 @@ const PersonalizationEnginePage: React.FC = () => {
               suffix="%"
               precision={2}
               prefix={<WarningOutlined />}
-              valueStyle={{ color: metrics.errorRate > 1 ? '#ff4d4f' : '#52c41a' }}
+              valueStyle={{
+                color: metrics.errorRate > 1 ? '#ff4d4f' : '#52c41a',
+              }}
             />
           </Card>
         </Col>
       </Row>
 
       <Tabs defaultActiveKey="1">
-        <TabPane tab={<span><LineChartOutlined /> 实时特征</span>} key="1">
+        <TabPane
+          tab={
+            <span>
+              <LineChartOutlined /> 实时特征
+            </span>
+          }
+          key="1"
+        >
           <Card>
             <Title level={4}>实时特征计算</Title>
-            <Table 
-              columns={featureColumns} 
+            <Table
+              columns={featureColumns}
               dataSource={features}
               pagination={false}
               size="small"
@@ -405,13 +448,25 @@ const PersonalizationEnginePage: React.FC = () => {
           </Card>
         </TabPane>
 
-        <TabPane tab={<span><CloudServerOutlined /> 模型服务</span>} key="2">
+        <TabPane
+          tab={
+            <span>
+              <CloudServerOutlined /> 模型服务
+            </span>
+          }
+          key="2"
+        >
           <Row gutter={[16, 16]}>
             {models.map((model, index) => (
               <Col xs={24} sm={12} md={8} lg={6} key={index}>
                 <Card>
-                  <Badge status={getStatusColor(model.status)} text={model.status.toUpperCase()} />
-                  <Title level={5} style={{ marginTop: 8 }}>{model.name}</Title>
+                  <Badge
+                    status={getStatusColor(model.status)}
+                    text={model.status.toUpperCase()}
+                  />
+                  <Title level={5} style={{ marginTop: 8 }}>
+                    {model.name}
+                  </Title>
                   <Text type="secondary">{model.version}</Text>
                   <div style={{ marginTop: 16 }}>
                     <div style={{ marginBottom: 8 }}>
@@ -428,12 +483,19 @@ const PersonalizationEnginePage: React.FC = () => {
           </Row>
         </TabPane>
 
-        <TabPane tab={<span><HeartOutlined /> 推荐结果</span>} key="3">
+        <TabPane
+          tab={
+            <span>
+              <HeartOutlined /> 推荐结果
+            </span>
+          }
+          key="3"
+        >
           <Card>
             <Title level={4}>实时推荐示例</Title>
             <Timeline>
               {recommendations.map(rec => (
-                <Timeline.Item 
+                <Timeline.Item
                   key={rec.id}
                   dot={<TrophyOutlined />}
                   color={rec.score > 0.9 ? 'green' : 'blue'}
@@ -441,7 +503,9 @@ const PersonalizationEnginePage: React.FC = () => {
                   <Space direction="vertical" size="small">
                     <Space>
                       <Text strong>{rec.item}</Text>
-                      <Tag color="gold">评分: {(rec.score * 100).toFixed(0)}%</Tag>
+                      <Tag color="gold">
+                        评分: {(rec.score * 100).toFixed(0)}%
+                      </Tag>
                     </Space>
                     <Text type="secondary">推荐理由: {rec.reason}</Text>
                   </Space>
@@ -451,7 +515,14 @@ const PersonalizationEnginePage: React.FC = () => {
           </Card>
         </TabPane>
 
-        <TabPane tab={<span><ApiOutlined /> API监控</span>} key="4">
+        <TabPane
+          tab={
+            <span>
+              <ApiOutlined /> API监控
+            </span>
+          }
+          key="4"
+        >
           <Card>
             <Title level={4}>API端点状态</Title>
             <Row gutter={[16, 16]}>
@@ -460,7 +531,9 @@ const PersonalizationEnginePage: React.FC = () => {
                   <Statistic
                     title="/api/v1/personalization/recommend"
                     value={getApiStatusDisplay(apiStatus.recommend).text}
-                    valueStyle={{ color: getApiStatusDisplay(apiStatus.recommend).color }}
+                    valueStyle={{
+                      color: getApiStatusDisplay(apiStatus.recommend).color,
+                    }}
                   />
                   <Text type="secondary">REST推荐接口</Text>
                 </Card>
@@ -470,7 +543,9 @@ const PersonalizationEnginePage: React.FC = () => {
                   <Statistic
                     title="/ws/personalization/stream"
                     value={getApiStatusDisplay(apiStatus.websocket).text}
-                    valueStyle={{ color: getApiStatusDisplay(apiStatus.websocket).color }}
+                    valueStyle={{
+                      color: getApiStatusDisplay(apiStatus.websocket).color,
+                    }}
                   />
                   <Text type="secondary">WebSocket实时流</Text>
                 </Card>

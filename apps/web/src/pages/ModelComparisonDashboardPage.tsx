@@ -24,11 +24,13 @@ const ModelComparisonDashboardPage: React.FC = () => {
       const [m, b, comp] = await Promise.all([
         modelEvaluationService.listModels(),
         modelEvaluationService.listBenchmarks(),
-        modelEvaluationService.getPerformanceComparison()
+        modelEvaluationService.getPerformanceComparison(),
       ])
       setModels(m || [])
       setBenchmarks(b || [])
-      const list: ComparisonRow[] = (comp || []).flatMap((c: any) => c.comparison_matrix || [])
+      const list: ComparisonRow[] = (comp || []).flatMap(
+        (c: any) => c.comparison_matrix || []
+      )
       setRows(list)
     } catch (e: any) {
       setError(e?.message || '加载失败')
@@ -47,7 +49,10 @@ const ModelComparisonDashboardPage: React.FC = () => {
   return (
     <div style={{ padding: 24 }}>
       <Space direction="vertical" style={{ width: '100%' }} size="large">
-        <Space align="center" style={{ justifyContent: 'space-between', width: '100%' }}>
+        <Space
+          align="center"
+          style={{ justifyContent: 'space-between', width: '100%' }}
+        >
           <Space>
             <CompareOutlined />
             <Typography.Title level={3} style={{ margin: 0 }}>
@@ -71,7 +76,7 @@ const ModelComparisonDashboardPage: React.FC = () => {
 
         <Card title="对比结果">
           <Table
-            rowKey={(r) => `${r.model}-${r.benchmark}`}
+            rowKey={r => `${r.model}-${r.benchmark}`}
             dataSource={rows}
             loading={loading}
             locale={{ emptyText: '暂无数据' }}
@@ -79,7 +84,7 @@ const ModelComparisonDashboardPage: React.FC = () => {
               { title: '模型', dataIndex: 'model' },
               { title: '基准', dataIndex: 'benchmark' },
               { title: '得分', dataIndex: 'score' },
-              { title: '排名', dataIndex: 'rank' }
+              { title: '排名', dataIndex: 'rank' },
             ]}
           />
         </Card>

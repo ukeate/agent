@@ -1,7 +1,7 @@
 /**
  * 指标图表组件
  */
-import React, { useMemo } from 'react';
+import React, { useMemo } from 'react'
 import {
   LineChart,
   Line,
@@ -22,79 +22,79 @@ import {
   ReferenceArea,
   Brush,
   ErrorBar,
-} from 'recharts';
-import { Box, Paper, Typography, Chip, Stack } from '@mui/material';
-import { format } from 'date-fns';
-import { zhCN } from 'date-fns/locale';
+} from 'recharts'
+import { Box, Paper, Typography, Chip, Stack } from '@mui/material'
+import { format } from 'date-fns'
+import { zhCN } from 'date-fns/locale'
 
 // 图表类型
-export type ChartType = 'line' | 'area' | 'bar' | 'scatter' | 'composed';
+export type ChartType = 'line' | 'area' | 'bar' | 'scatter' | 'composed'
 
 // 数据点
 export interface DataPoint {
-  x: string | number;
-  y: number;
-  yMin?: number;
-  yMax?: number;
-  variant?: string;
-  category?: string;
-  metadata?: any;
+  x: string | number
+  y: number
+  yMin?: number
+  yMax?: number
+  variant?: string
+  category?: string
+  metadata?: any
 }
 
 // 数据系列
 export interface DataSeries {
-  name: string;
-  data: DataPoint[];
-  color?: string;
-  type?: 'line' | 'bar' | 'area' | 'scatter';
-  yAxisId?: string;
-  strokeDasharray?: string;
-  opacity?: number;
+  name: string
+  data: DataPoint[]
+  color?: string
+  type?: 'line' | 'bar' | 'area' | 'scatter'
+  yAxisId?: string
+  strokeDasharray?: string
+  opacity?: number
 }
 
 // 图表配置
 export interface ChartConfig {
-  showGrid?: boolean;
-  showLegend?: boolean;
-  showBrush?: boolean;
-  showTooltip?: boolean;
-  showReferenceLine?: boolean;
-  referenceValue?: number;
-  referenceLabel?: string;
-  confidenceInterval?: boolean;
-  xAxisLabel?: string;
-  yAxisLabel?: string;
-  yAxisDomain?: [number | 'auto', number | 'auto'];
-  dateFormat?: string;
-  numberFormat?: string;
-  height?: number;
+  showGrid?: boolean
+  showLegend?: boolean
+  showBrush?: boolean
+  showTooltip?: boolean
+  showReferenceLine?: boolean
+  referenceValue?: number
+  referenceLabel?: string
+  confidenceInterval?: boolean
+  xAxisLabel?: string
+  yAxisLabel?: string
+  yAxisDomain?: [number | 'auto', number | 'auto']
+  dateFormat?: string
+  numberFormat?: string
+  height?: number
 }
 
 // 统计信息
 export interface Statistics {
-  mean?: number;
-  median?: number;
-  stdDev?: number;
-  min?: number;
-  max?: number;
-  pValue?: number;
-  significant?: boolean;
+  mean?: number
+  median?: number
+  stdDev?: number
+  min?: number
+  max?: number
+  pValue?: number
+  significant?: boolean
 }
 
 interface MetricChartProps {
-  title?: string;
-  subtitle?: string;
-  type?: ChartType;
-  series: DataSeries[];
-  config?: ChartConfig;
-  statistics?: Statistics;
+  title?: string
+  subtitle?: string
+  type?: ChartType
+  series: DataSeries[]
+  config?: ChartConfig
+  statistics?: Statistics
   annotations?: Array<{
-    type: 'line' | 'area' | 'text';
-    value?: number | [number, number];
-    label?: string;
-    color?: string;
-  }>;
-  onDataPointClick?: (point: DataPoint) => void;
+    type: 'line' | 'area' | 'text'
+    value?: number | [number, number]
+    label?: string
+    color?: string
+  }>
+  onDataPointClick?: (point: DataPoint) => void
 }
 
 // 默认颜色
@@ -106,8 +106,8 @@ const DEFAULT_COLORS = [
   '#2196f3', // info
   '#9c27b0', // purple
   '#00bcd4', // cyan
-  '#8bc34a'  // light green
-];
+  '#8bc34a', // light green
+]
 
 const MetricChart: React.FC<MetricChartProps> = ({
   title,
@@ -117,7 +117,7 @@ const MetricChart: React.FC<MetricChartProps> = ({
   config = {},
   statistics,
   annotations = [],
-  onDataPointClick
+  onDataPointClick,
 }) => {
   const {
     showGrid = true,
@@ -132,49 +132,53 @@ const MetricChart: React.FC<MetricChartProps> = ({
     yAxisLabel,
     yAxisDomain,
     dateFormat = 'MM-dd',
-    height = 300
-  } = config;
+    height = 300,
+  } = config
 
   // 处理数据
   const chartData = useMemo(() => {
-    if (series.length === 0) return [];
+    if (series.length === 0) return []
 
     // 合并所有系列的数据点
-    const dataMap = new Map<string | number, any>();
-    
-    series.forEach((s) => {
+    const dataMap = new Map<string | number, any>()
+
+    series.forEach(s => {
       s.data.forEach(point => {
-        const key = point.x;
+        const key = point.x
         if (!dataMap.has(key)) {
-          dataMap.set(key, { x: key });
+          dataMap.set(key, { x: key })
         }
-        
-        const item = dataMap.get(key);
-        item[s.name] = point.y;
-        
-        if (confidenceInterval && point.yMin !== undefined && point.yMax !== undefined) {
-          item[`${s.name}_min`] = point.yMin;
-          item[`${s.name}_max`] = point.yMax;
-          item[`${s.name}_error`] = [point.yMin, point.yMax];
+
+        const item = dataMap.get(key)
+        item[s.name] = point.y
+
+        if (
+          confidenceInterval &&
+          point.yMin !== undefined &&
+          point.yMax !== undefined
+        ) {
+          item[`${s.name}_min`] = point.yMin
+          item[`${s.name}_max`] = point.yMax
+          item[`${s.name}_error`] = [point.yMin, point.yMax]
         }
-        
+
         if (point.metadata) {
-          item[`${s.name}_metadata`] = point.metadata;
+          item[`${s.name}_metadata`] = point.metadata
         }
-      });
-    });
+      })
+    })
 
     return Array.from(dataMap.values()).sort((a, b) => {
       if (typeof a.x === 'number' && typeof b.x === 'number') {
-        return a.x - b.x;
+        return a.x - b.x
       }
-      return String(a.x).localeCompare(String(b.x));
-    });
-  }, [series, confidenceInterval]);
+      return String(a.x).localeCompare(String(b.x))
+    })
+  }, [series, confidenceInterval])
 
   // 自定义Tooltip
   const CustomTooltip = ({ active, payload, label }: any) => {
-    if (!active || !payload) return null;
+    if (!active || !payload) return null
 
     return (
       <Paper sx={{ p: 1.5 }}>
@@ -188,7 +192,7 @@ const MetricChart: React.FC<MetricChartProps> = ({
                 width: 12,
                 height: 12,
                 bgcolor: entry.color,
-                borderRadius: '50%'
+                borderRadius: '50%',
               }}
             />
             <Typography variant="body2">
@@ -197,57 +201,67 @@ const MetricChart: React.FC<MetricChartProps> = ({
           </Stack>
         ))}
       </Paper>
-    );
-  };
+    )
+  }
 
   // 格式化X轴
   const formatXAxis = (value: any) => {
     if (typeof value === 'number') {
-      return value.toFixed(0);
+      return value.toFixed(0)
     }
     if (value instanceof Date || !isNaN(Date.parse(value))) {
-      return format(new Date(value), dateFormat, { locale: zhCN });
+      return format(new Date(value), dateFormat, { locale: zhCN })
     }
-    return value;
-  };
+    return value
+  }
 
   // 格式化Y轴
   const formatYAxis = (value: number) => {
     if (value >= 1000000) {
-      return `${(value / 1000000).toFixed(1)}M`;
+      return `${(value / 1000000).toFixed(1)}M`
     }
     if (value >= 1000) {
-      return `${(value / 1000).toFixed(1)}K`;
+      return `${(value / 1000).toFixed(1)}K`
     }
-    return value.toFixed(1);
-  };
+    return value.toFixed(1)
+  }
 
   // 渲染图表
   const renderChart = () => {
     const commonProps = {
       data: chartData,
-      margin: { top: 5, right: 30, left: 20, bottom: 5 }
-    };
+      margin: { top: 5, right: 30, left: 20, bottom: 5 },
+    }
 
     const commonAxisProps = {
       stroke: '#666',
-      style: { fontSize: 12 }
-    };
+      style: { fontSize: 12 },
+    }
 
     switch (type) {
       case 'line':
         return (
           <LineChart {...commonProps}>
-            {showGrid && <CartesianGrid strokeDasharray="3 3" stroke="#e0e0e0" />}
+            {showGrid && (
+              <CartesianGrid strokeDasharray="3 3" stroke="#e0e0e0" />
+            )}
             <XAxis
               dataKey="x"
               tickFormatter={formatXAxis}
-              label={xAxisLabel ? { value: xAxisLabel, position: 'insideBottom', offset: -5 } : undefined}
+              label={
+                xAxisLabel
+                  ? { value: xAxisLabel, position: 'insideBottom', offset: -5 }
+                  : undefined
+              }
               {...commonAxisProps}
             />
             <YAxis
               tickFormatter={formatYAxis}
-              label={yAxisLabel ? { value: yAxisLabel, angle: -90, position: 'insideLeft' } : undefined}
+              label={
+                yAxisLabel
+                  ? { value: yAxisLabel, angle: -90, position: 'insideLeft' }
+                  : undefined
+              }
               domain={yAxisDomain}
               {...commonAxisProps}
             />
@@ -258,17 +272,25 @@ const MetricChart: React.FC<MetricChartProps> = ({
                 key={s.name}
                 type="monotone"
                 dataKey={s.name}
-                stroke={s.color || DEFAULT_COLORS[index % DEFAULT_COLORS.length]}
+                stroke={
+                  s.color || DEFAULT_COLORS[index % DEFAULT_COLORS.length]
+                }
                 strokeWidth={2}
                 strokeDasharray={s.strokeDasharray}
                 dot={chartData.length < 20}
-                activeDot={onDataPointClick ? { r: 8, onClick: onDataPointClick as any } : undefined}
+                activeDot={
+                  onDataPointClick
+                    ? { r: 8, onClick: onDataPointClick as any }
+                    : undefined
+                }
               >
                 {confidenceInterval && (
                   <ErrorBar
                     dataKey={`${s.name}_error`}
                     width={4}
-                    stroke={s.color || DEFAULT_COLORS[index % DEFAULT_COLORS.length]}
+                    stroke={
+                      s.color || DEFAULT_COLORS[index % DEFAULT_COLORS.length]
+                    }
                     opacity={0.3}
                   />
                 )}
@@ -292,7 +314,7 @@ const MetricChart: React.FC<MetricChartProps> = ({
                     strokeDasharray="3 3"
                     label={ann.label}
                   />
-                );
+                )
               }
               if (ann.type === 'area' && Array.isArray(ann.value)) {
                 return (
@@ -304,27 +326,37 @@ const MetricChart: React.FC<MetricChartProps> = ({
                     fillOpacity={0.1}
                     label={ann.label}
                   />
-                );
+                )
               }
-              return null;
+              return null
             })}
             {showBrush && <Brush dataKey="x" height={30} stroke="#8884d8" />}
           </LineChart>
-        );
+        )
 
       case 'area':
         return (
           <AreaChart {...commonProps}>
-            {showGrid && <CartesianGrid strokeDasharray="3 3" stroke="#e0e0e0" />}
+            {showGrid && (
+              <CartesianGrid strokeDasharray="3 3" stroke="#e0e0e0" />
+            )}
             <XAxis
               dataKey="x"
               tickFormatter={formatXAxis}
-              label={xAxisLabel ? { value: xAxisLabel, position: 'insideBottom', offset: -5 } : undefined}
+              label={
+                xAxisLabel
+                  ? { value: xAxisLabel, position: 'insideBottom', offset: -5 }
+                  : undefined
+              }
               {...commonAxisProps}
             />
             <YAxis
               tickFormatter={formatYAxis}
-              label={yAxisLabel ? { value: yAxisLabel, angle: -90, position: 'insideLeft' } : undefined}
+              label={
+                yAxisLabel
+                  ? { value: yAxisLabel, angle: -90, position: 'insideLeft' }
+                  : undefined
+              }
               domain={yAxisDomain}
               {...commonAxisProps}
             />
@@ -335,7 +367,9 @@ const MetricChart: React.FC<MetricChartProps> = ({
                 key={s.name}
                 type="monotone"
                 dataKey={s.name}
-                stroke={s.color || DEFAULT_COLORS[index % DEFAULT_COLORS.length]}
+                stroke={
+                  s.color || DEFAULT_COLORS[index % DEFAULT_COLORS.length]
+                }
                 fill={s.color || DEFAULT_COLORS[index % DEFAULT_COLORS.length]}
                 fillOpacity={s.opacity || 0.6}
                 strokeWidth={2}
@@ -343,21 +377,31 @@ const MetricChart: React.FC<MetricChartProps> = ({
             ))}
             {showBrush && <Brush dataKey="x" height={30} stroke="#8884d8" />}
           </AreaChart>
-        );
+        )
 
       case 'bar':
         return (
           <BarChart {...commonProps}>
-            {showGrid && <CartesianGrid strokeDasharray="3 3" stroke="#e0e0e0" />}
+            {showGrid && (
+              <CartesianGrid strokeDasharray="3 3" stroke="#e0e0e0" />
+            )}
             <XAxis
               dataKey="x"
               tickFormatter={formatXAxis}
-              label={xAxisLabel ? { value: xAxisLabel, position: 'insideBottom', offset: -5 } : undefined}
+              label={
+                xAxisLabel
+                  ? { value: xAxisLabel, position: 'insideBottom', offset: -5 }
+                  : undefined
+              }
               {...commonAxisProps}
             />
             <YAxis
               tickFormatter={formatYAxis}
-              label={yAxisLabel ? { value: yAxisLabel, angle: -90, position: 'insideLeft' } : undefined}
+              label={
+                yAxisLabel
+                  ? { value: yAxisLabel, angle: -90, position: 'insideLeft' }
+                  : undefined
+              }
               domain={yAxisDomain}
               {...commonAxisProps}
             />
@@ -374,7 +418,9 @@ const MetricChart: React.FC<MetricChartProps> = ({
                   <ErrorBar
                     dataKey={`${s.name}_error`}
                     width={4}
-                    stroke={s.color || DEFAULT_COLORS[index % DEFAULT_COLORS.length]}
+                    stroke={
+                      s.color || DEFAULT_COLORS[index % DEFAULT_COLORS.length]
+                    }
                   />
                 )}
               </Bar>
@@ -388,21 +434,31 @@ const MetricChart: React.FC<MetricChartProps> = ({
               />
             )}
           </BarChart>
-        );
+        )
 
       case 'scatter':
         return (
           <ScatterChart {...commonProps}>
-            {showGrid && <CartesianGrid strokeDasharray="3 3" stroke="#e0e0e0" />}
+            {showGrid && (
+              <CartesianGrid strokeDasharray="3 3" stroke="#e0e0e0" />
+            )}
             <XAxis
               dataKey="x"
               tickFormatter={formatXAxis}
-              label={xAxisLabel ? { value: xAxisLabel, position: 'insideBottom', offset: -5 } : undefined}
+              label={
+                xAxisLabel
+                  ? { value: xAxisLabel, position: 'insideBottom', offset: -5 }
+                  : undefined
+              }
               {...commonAxisProps}
             />
             <YAxis
               tickFormatter={formatYAxis}
-              label={yAxisLabel ? { value: yAxisLabel, angle: -90, position: 'insideLeft' } : undefined}
+              label={
+                yAxisLabel
+                  ? { value: yAxisLabel, angle: -90, position: 'insideLeft' }
+                  : undefined
+              }
               domain={yAxisDomain}
               {...commonAxisProps}
             />
@@ -418,29 +474,40 @@ const MetricChart: React.FC<MetricChartProps> = ({
               />
             ))}
           </ScatterChart>
-        );
+        )
 
       case 'composed':
         return (
           <ComposedChart {...commonProps}>
-            {showGrid && <CartesianGrid strokeDasharray="3 3" stroke="#e0e0e0" />}
+            {showGrid && (
+              <CartesianGrid strokeDasharray="3 3" stroke="#e0e0e0" />
+            )}
             <XAxis
               dataKey="x"
               tickFormatter={formatXAxis}
-              label={xAxisLabel ? { value: xAxisLabel, position: 'insideBottom', offset: -5 } : undefined}
+              label={
+                xAxisLabel
+                  ? { value: xAxisLabel, position: 'insideBottom', offset: -5 }
+                  : undefined
+              }
               {...commonAxisProps}
             />
             <YAxis
               tickFormatter={formatYAxis}
-              label={yAxisLabel ? { value: yAxisLabel, angle: -90, position: 'insideLeft' } : undefined}
+              label={
+                yAxisLabel
+                  ? { value: yAxisLabel, angle: -90, position: 'insideLeft' }
+                  : undefined
+              }
               domain={yAxisDomain}
               {...commonAxisProps}
             />
             {showTooltip && <Tooltip content={<CustomTooltip />} />}
             {showLegend && <Legend />}
             {series.map((s, index) => {
-              const color = s.color || DEFAULT_COLORS[index % DEFAULT_COLORS.length];
-              
+              const color =
+                s.color || DEFAULT_COLORS[index % DEFAULT_COLORS.length]
+
               switch (s.type) {
                 case 'bar':
                   return (
@@ -450,7 +517,7 @@ const MetricChart: React.FC<MetricChartProps> = ({
                       fill={color}
                       yAxisId={s.yAxisId}
                     />
-                  );
+                  )
                 case 'area':
                   return (
                     <Area
@@ -462,7 +529,7 @@ const MetricChart: React.FC<MetricChartProps> = ({
                       fillOpacity={0.6}
                       yAxisId={s.yAxisId}
                     />
-                  );
+                  )
                 case 'line':
                 default:
                   return (
@@ -475,23 +542,27 @@ const MetricChart: React.FC<MetricChartProps> = ({
                       dot={false}
                       yAxisId={s.yAxisId}
                     />
-                  );
+                  )
               }
             })}
             {showBrush && <Brush dataKey="x" height={30} stroke="#8884d8" />}
           </ComposedChart>
-        );
+        )
 
       default:
-        return null;
+        return null
     }
-  };
+  }
 
   return (
     <Box>
       {(title || subtitle || statistics) && (
         <Box sx={{ mb: 2 }}>
-          <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
+          <Stack
+            direction="row"
+            justifyContent="space-between"
+            alignItems="flex-start"
+          >
             <Box>
               {title && (
                 <Typography variant="h6" gutterBottom>
@@ -530,7 +601,7 @@ const MetricChart: React.FC<MetricChartProps> = ({
         {renderChart() as React.ReactElement}
       </ResponsiveContainer>
     </Box>
-  );
-};
+  )
+}
 
-export default MetricChart;
+export default MetricChart

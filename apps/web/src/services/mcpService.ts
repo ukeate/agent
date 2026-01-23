@@ -111,7 +111,9 @@ class MCPService {
   /**
    * 获取可用工具列表
    */
-  async listAvailableTools(serverType?: string): Promise<AvailableToolsResponse> {
+  async listAvailableTools(
+    serverType?: string
+  ): Promise<AvailableToolsResponse> {
     try {
       const params = serverType ? { server_type: serverType } : {}
       const response = await apiClient.get('/mcp/tools', { params })
@@ -151,8 +153,9 @@ class MCPService {
   // 文件系统操作
   async readFile(path: string, encoding: string = 'utf-8'): Promise<any> {
     try {
-      const response = await apiClient.post('/mcp/tools/filesystem/read', null, {
-        params: { path, encoding }
+      const response = await apiClient.post('/mcp/tools/filesystem/read', {
+        path,
+        encoding,
       })
       return response.data
     } catch (error) {
@@ -161,10 +164,16 @@ class MCPService {
     }
   }
 
-  async writeFile(path: string, content: string, encoding: string = 'utf-8'): Promise<any> {
+  async writeFile(
+    path: string,
+    content: string,
+    encoding: string = 'utf-8'
+  ): Promise<any> {
     try {
-      const response = await apiClient.post('/mcp/tools/filesystem/write', null, {
-        params: { path, content, encoding }
+      const response = await apiClient.post('/mcp/tools/filesystem/write', {
+        path,
+        content,
+        encoding,
       })
       return response.data
     } catch (error) {
@@ -173,10 +182,13 @@ class MCPService {
     }
   }
 
-  async listDirectory(path: string, includeHidden: boolean = false): Promise<any> {
+  async listDirectory(
+    path: string,
+    includeHidden: boolean = false
+  ): Promise<any> {
     try {
       const response = await apiClient.get('/mcp/tools/filesystem/list', {
-        params: { path, include_hidden: includeHidden }
+        params: { path, include_hidden: includeHidden },
       })
       return response.data
     } catch (error) {
@@ -186,10 +198,14 @@ class MCPService {
   }
 
   // 数据库操作
-  async executeQuery(query: string, parameters?: Record<string, any>): Promise<any> {
+  async executeQuery(
+    query: string,
+    parameters?: Record<string, any>
+  ): Promise<any> {
     try {
-      const response = await apiClient.post('/mcp/tools/database/query', null, {
-        params: { query, parameters }
+      const response = await apiClient.post('/mcp/tools/database/query', {
+        query,
+        parameters,
       })
       return response.data
     } catch (error) {
@@ -201,8 +217,9 @@ class MCPService {
   // 系统操作
   async runCommand(command: string, timeout?: number): Promise<any> {
     try {
-      const response = await apiClient.post('/mcp/tools/system/command', null, {
-        params: { command, timeout }
+      const response = await apiClient.post('/mcp/tools/system/command', {
+        command,
+        timeout,
       })
       return response.data
     } catch (error) {

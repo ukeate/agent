@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
-import {
+import React, { useState, useEffect } from 'react'
 import { logger } from '../../utils/logger'
+import {
   Card,
   Row,
   Col,
@@ -21,7 +21,7 @@ import { logger } from '../../utils/logger'
   List,
   Avatar,
   message,
-} from 'antd';
+} from 'antd'
 import {
   ExperimentOutlined,
   RiseOutlined,
@@ -38,43 +38,51 @@ import {
   EyeOutlined,
   HeartOutlined,
   ShoppingCartOutlined,
-} from '@ant-design/icons';
-import type { ColumnsType } from 'antd/es/table';
-import { experimentService, type ExperimentData } from '../../services/experimentService';
+} from '@ant-design/icons'
+import type { ColumnsType } from 'antd/es/table'
+import {
+  experimentService,
+  type ExperimentData,
+} from '../../services/experimentService'
 
-const { Title, Text } = Typography;
-const { TabPane } = Tabs;
-const { Option } = Select;
-const { RangePicker } = DatePicker;
+const { Title, Text } = Typography
+const { TabPane } = Tabs
+const { Option } = Select
+const { RangePicker } = DatePicker
 
 interface ExperimentMetrics {
-  id: string;
-  name: string;
-  status: 'running' | 'paused' | 'completed';
-  conversion_rate: number;
-  conversion_change: number;
-  users_enrolled: number;
-  statistical_significance: boolean;
-  confidence_level: number;
-  remaining_days: number;
-  primary_metric: string;
+  id: string
+  name: string
+  status: 'running' | 'paused' | 'completed'
+  conversion_rate: number
+  conversion_change: number
+  users_enrolled: number
+  statistical_significance: boolean
+  confidence_level: number
+  remaining_days: number
+  primary_metric: string
 }
 
 interface ActivityItem {
-  id: string;
-  type: 'experiment_started' | 'experiment_paused' | 'experiment_completed' | 'alert_triggered';
-  experiment_name: string;
-  description: string;
-  timestamp: string;
-  severity?: 'info' | 'warning' | 'error' | 'success';
+  id: string
+  type:
+    | 'experiment_started'
+    | 'experiment_paused'
+    | 'experiment_completed'
+    | 'alert_triggered'
+  experiment_name: string
+  description: string
+  timestamp: string
+  severity?: 'info' | 'warning' | 'error' | 'success'
 }
 
 const ExperimentDashboardPage: React.FC = () => {
-  const [loading, setLoading] = useState(false);
-  const [timeRange, setTimeRange] = useState<string>('7d');
-  const [selectedMetric, setSelectedMetric] = useState<string>('conversion_rate');
-  const [experiments, setExperiments] = useState<ExperimentData[]>([]);
-  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false)
+  const [timeRange, setTimeRange] = useState<string>('7d')
+  const [selectedMetric, setSelectedMetric] =
+    useState<string>('conversion_rate')
+  const [experiments, setExperiments] = useState<ExperimentData[]>([])
+  const [error, setError] = useState<string | null>(null)
 
   // 仪表板统计数据
   const [dashboardStats, setDashboardStats] = useState({
@@ -87,9 +95,11 @@ const ExperimentDashboardPage: React.FC = () => {
     conversion_lift: 0,
     revenue_impact: 0,
     active_alerts: 0,
-  });
+  })
 
-  const [runningExperiments, setRunningExperiments] = useState<ExperimentMetrics[]>([]);
+  const [runningExperiments, setRunningExperiments] = useState<
+    ExperimentMetrics[]
+  >([])
 
   const recentActivities: ActivityItem[] = [
     {
@@ -124,22 +134,22 @@ const ExperimentDashboardPage: React.FC = () => {
       timestamp: '2024-01-22 09:15',
       severity: 'warning',
     },
-  ];
+  ]
 
   const getActivityIcon = (type: string) => {
     switch (type) {
       case 'experiment_started':
-        return <CheckCircleOutlined style={{ color: '#52c41a' }} />;
+        return <CheckCircleOutlined style={{ color: '#52c41a' }} />
       case 'experiment_paused':
-        return <WarningOutlined style={{ color: '#faad14' }} />;
+        return <WarningOutlined style={{ color: '#faad14' }} />
       case 'experiment_completed':
-        return <TrophyOutlined style={{ color: '#1890ff' }} />;
+        return <TrophyOutlined style={{ color: '#1890ff' }} />
       case 'alert_triggered':
-        return <FireOutlined style={{ color: '#ff4d4f' }} />;
+        return <FireOutlined style={{ color: '#ff4d4f' }} />
       default:
-        return <ClockCircleOutlined />;
+        return <ClockCircleOutlined />
     }
-  };
+  }
 
   const experimentColumns: ColumnsType<ExperimentMetrics> = [
     {
@@ -209,11 +219,15 @@ const ExperimentDashboardPage: React.FC = () => {
             size={50}
             percent={record.confidence_level}
             format={() => `${record.confidence_level}%`}
-            strokeColor={record.statistical_significance ? '#52c41a' : '#faad14'}
+            strokeColor={
+              record.statistical_significance ? '#52c41a' : '#faad14'
+            }
           />
           {record.statistical_significance && (
             <div style={{ marginTop: 4 }}>
-              <Tag color="green" size="small">显著</Tag>
+              <Tag color="green" size="small">
+                显著
+              </Tag>
             </div>
           )}
         </div>
@@ -231,34 +245,54 @@ const ExperimentDashboardPage: React.FC = () => {
         </Text>
       ),
     },
-  ];
+  ]
 
   const loadDashboardData = async () => {
-    setLoading(true);
-    setError(null);
+    setLoading(true)
+    setError(null)
     try {
       // 加载所有实验数据
-      const allExperimentsResponse = await experimentService.listExperiments({});
-      const allExperiments = allExperimentsResponse.experiments;
-      
+      const allExperimentsResponse = await experimentService.listExperiments({})
+      const allExperiments = allExperimentsResponse.experiments
+
       // 计算仪表板统计数据
       const stats = {
         total_experiments: allExperiments.length,
-        running_experiments: allExperiments.filter(e => e.status === 'running').length,
-        completed_experiments: allExperiments.filter(e => e.status === 'completed').length,
-        total_users: allExperiments.reduce((sum, exp) => sum + (exp.participants || 0), 0),
-        total_conversions: allExperiments.reduce((sum, exp) => sum + (exp.total_conversions || 0), 0),
-        overall_conversion_rate: allExperiments.length > 0 
-          ? allExperiments.reduce((sum, exp) => sum + (exp.conversion_rate || 0), 0) / allExperiments.length
-          : 0,
-        conversion_lift: allExperiments.length > 0
-          ? allExperiments.reduce((sum, exp) => sum + (exp.lift || 0), 0) / allExperiments.length
-          : 0,
-        revenue_impact: allExperiments.reduce((sum, exp) => sum + (exp.revenue_impact || 0), 0),
-        active_alerts: allExperiments.filter(e => e.status === 'running' && (e.lift || 0) < -10).length,
-      };
-      setDashboardStats(stats);
-      
+        running_experiments: allExperiments.filter(e => e.status === 'running')
+          .length,
+        completed_experiments: allExperiments.filter(
+          e => e.status === 'completed'
+        ).length,
+        total_users: allExperiments.reduce(
+          (sum, exp) => sum + (exp.participants || 0),
+          0
+        ),
+        total_conversions: allExperiments.reduce(
+          (sum, exp) => sum + (exp.total_conversions || 0),
+          0
+        ),
+        overall_conversion_rate:
+          allExperiments.length > 0
+            ? allExperiments.reduce(
+                (sum, exp) => sum + (exp.conversion_rate || 0),
+                0
+              ) / allExperiments.length
+            : 0,
+        conversion_lift:
+          allExperiments.length > 0
+            ? allExperiments.reduce((sum, exp) => sum + (exp.lift || 0), 0) /
+              allExperiments.length
+            : 0,
+        revenue_impact: allExperiments.reduce(
+          (sum, exp) => sum + (exp.revenue_impact || 0),
+          0
+        ),
+        active_alerts: allExperiments.filter(
+          e => e.status === 'running' && (e.lift || 0) < -10
+        ).length,
+      }
+      setDashboardStats(stats)
+
       // 获取运行中的实验并转换格式
       const runningExps = allExperiments
         .filter(exp => exp.status === 'running' || exp.status === 'paused')
@@ -271,25 +305,31 @@ const ExperimentDashboardPage: React.FC = () => {
           users_enrolled: exp.participants || 0,
           statistical_significance: (exp.statistical_power || 0) >= 0.8,
           confidence_level: Math.round((exp.confidence_interval || 0.95) * 100),
-          remaining_days: exp.end_date 
-            ? Math.max(0, Math.ceil((new Date(exp.end_date).getTime() - Date.now()) / (1000 * 60 * 60 * 24)))
+          remaining_days: exp.end_date
+            ? Math.max(
+                0,
+                Math.ceil(
+                  (new Date(exp.end_date).getTime() - Date.now()) /
+                    (1000 * 60 * 60 * 24)
+                )
+              )
             : 30,
           primary_metric: exp.primary_goal || exp.hypothesis || '转化率',
-        }));
-      setRunningExperiments(runningExps);
-      
-      setExperiments(allExperiments);
+        }))
+      setRunningExperiments(runningExps)
+
+      setExperiments(allExperiments)
     } catch (error) {
-      logger.error('加载仪表板数据失败:', error);
-      setError('加载仪表板数据失败，请检查网络连接');
+      logger.error('加载仪表板数据失败:', error)
+      setError('加载仪表板数据失败，请检查网络连接')
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
+  }
 
   useEffect(() => {
-    loadDashboardData();
-  }, [timeRange, selectedMetric]);
+    loadDashboardData()
+  }, [timeRange, selectedMetric])
 
   return (
     <div style={{ padding: '24px' }}>
@@ -311,7 +351,13 @@ const ExperimentDashboardPage: React.FC = () => {
 
       {/* 页面标题和筛选 */}
       <div style={{ marginBottom: '24px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+          }}
+        >
           <div>
             <Title level={2} style={{ margin: 0 }}>
               <ExperimentOutlined /> 实验仪表板
@@ -449,7 +495,7 @@ const ExperimentDashboardPage: React.FC = () => {
             <Alert
               message="定价策略实验异常"
               description="该实验的转化率相比基准版本下降了15.3%，建议立即暂停并检查配置。"
-              variant="warning"
+              type="warning"
               showIcon
               action={
                 <Button size="small" type="primary">
@@ -461,34 +507,46 @@ const ExperimentDashboardPage: React.FC = () => {
             <Alert
               message="流量分配不均"
               description="首页改版实验的流量分配出现偏差，变体B的流量占比超过预期5%。"
-              variant="default"
+              type="info"
               showIcon
-              action={
-                <Button size="small">
-                  重新平衡
-                </Button>
-              }
+              action={<Button size="small">重新平衡</Button>}
             />
           </Card>
         </Col>
 
         <Col span={8}>
           {/* 快速指标 */}
-          <Card title="今日快速指标" size="small" style={{ marginBottom: '16px' }}>
+          <Card
+            title="今日快速指标"
+            size="small"
+            style={{ marginBottom: '16px' }}
+          >
             <Space direction="vertical" style={{ width: '100%' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span><EyeOutlined /> 页面访问</span>
-                <Text strong>23,456 <Text type="success">(+12.3%)</Text></Text>
+                <span>
+                  <EyeOutlined /> 页面访问
+                </span>
+                <Text strong>
+                  23,456 <Text type="success">(+12.3%)</Text>
+                </Text>
               </div>
               <Divider style={{ margin: '8px 0' }} />
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span><HeartOutlined /> 用户参与</span>
-                <Text strong>18,923 <Text type="success">(+8.7%)</Text></Text>
+                <span>
+                  <HeartOutlined /> 用户参与
+                </span>
+                <Text strong>
+                  18,923 <Text type="success">(+8.7%)</Text>
+                </Text>
               </div>
               <Divider style={{ margin: '8px 0' }} />
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span><ShoppingCartOutlined /> 购买转化</span>
-                <Text strong>1,234 <Text type="danger">(-2.1%)</Text></Text>
+                <span>
+                  <ShoppingCartOutlined /> 购买转化
+                </span>
+                <Text strong>
+                  1,234 <Text type="danger">(-2.1%)</Text>
+                </Text>
               </div>
             </Space>
           </Card>
@@ -498,14 +556,17 @@ const ExperimentDashboardPage: React.FC = () => {
             <List
               itemLayout="horizontal"
               dataSource={recentActivities}
-              renderItem={(item) => (
+              renderItem={item => (
                 <List.Item>
                   <List.Item.Meta
                     avatar={<Avatar icon={getActivityIcon(item.type)} />}
                     title={
                       <div style={{ fontSize: '13px' }}>
                         <Text strong>{item.experiment_name}</Text>
-                        <Text type="secondary" style={{ float: 'right', fontSize: '12px' }}>
+                        <Text
+                          type="secondary"
+                          style={{ float: 'right', fontSize: '12px' }}
+                        >
                           {item.timestamp}
                         </Text>
                       </div>
@@ -523,7 +584,7 @@ const ExperimentDashboardPage: React.FC = () => {
         </Col>
       </Row>
     </div>
-  );
-};
+  )
+}
 
-export default ExperimentDashboardPage;
+export default ExperimentDashboardPage

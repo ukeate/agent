@@ -1,7 +1,20 @@
 import { buildApiUrl, apiFetch } from '../utils/apiBase'
 import React, { useEffect, useState } from 'react'
-import { Card, Row, Col, Statistic, Progress, Space, Button, message } from 'antd'
-import { ReloadOutlined, Activity, ClockCircleOutlined } from '@ant-design/icons'
+import {
+  Card,
+  Row,
+  Col,
+  Statistic,
+  Progress,
+  Space,
+  Button,
+  message,
+} from 'antd'
+import {
+  ReloadOutlined,
+  Activity,
+  ClockCircleOutlined,
+} from '@ant-design/icons'
 
 interface TrainingMetrics {
   current_step?: number
@@ -21,7 +34,9 @@ const TrainingMonitorDashboard: React.FC = () => {
   const loadData = async () => {
     setLoading(true)
     try {
-      const res = await apiFetch(buildApiUrl('/api/v1/model-evaluation/metrics'))
+      const res = await apiFetch(
+        buildApiUrl('/api/v1/model-evaluation/metrics')
+      )
       const data = await res.json()
       setMetrics(data)
     } catch (e: any) {
@@ -44,7 +59,12 @@ const TrainingMonitorDashboard: React.FC = () => {
         <Activity />
         <h2 style={{ margin: 0 }}>训练监控仪表盘</h2>
       </Space>
-      <Button icon={<ReloadOutlined />} onClick={loadData} loading={loading} style={{ marginBottom: 16 }}>
+      <Button
+        icon={<ReloadOutlined />}
+        onClick={loadData}
+        loading={loading}
+        style={{ marginBottom: 16 }}
+      >
         刷新
       </Button>
 
@@ -53,23 +73,50 @@ const TrainingMonitorDashboard: React.FC = () => {
           <Row gutter={16}>
             <Col span={6}>
               <Card>
-                <Statistic title="训练进度" value={`${metrics.current_step ?? 0}/${metrics.total_steps ?? 0}`} />
-                <Progress percent={metrics.total_steps ? ((metrics.current_step || 0) / metrics.total_steps) * 100 : 0} />
+                <Statistic
+                  title="训练进度"
+                  value={`${metrics.current_step ?? 0}/${metrics.total_steps ?? 0}`}
+                />
+                <Progress
+                  percent={
+                    metrics.total_steps
+                      ? ((metrics.current_step || 0) / metrics.total_steps) *
+                        100
+                      : 0
+                  }
+                />
               </Card>
             </Col>
             <Col span={6}>
               <Card>
-                <Statistic title="Loss" value={metrics.loss ?? 0} precision={4} />
+                <Statistic
+                  title="Loss"
+                  value={metrics.loss ?? 0}
+                  precision={4}
+                />
               </Card>
             </Col>
             <Col span={6}>
               <Card>
-                <Statistic title="Accuracy" value={(metrics.accuracy ?? 0) * 100} precision={2} suffix="%" />
+                <Statistic
+                  title="Accuracy"
+                  value={(metrics.accuracy ?? 0) * 100}
+                  precision={2}
+                  suffix="%"
+                />
               </Card>
             </Col>
             <Col span={6}>
               <Card>
-                <Statistic title="更新时间" value={metrics.updated_at ? new Date(metrics.updated_at).toLocaleTimeString() : '—'} prefix={<ClockCircleOutlined />} />
+                <Statistic
+                  title="更新时间"
+                  value={
+                    metrics.updated_at
+                      ? new Date(metrics.updated_at).toLocaleTimeString()
+                      : '—'
+                  }
+                  prefix={<ClockCircleOutlined />}
+                />
               </Card>
             </Col>
           </Row>
@@ -94,7 +141,9 @@ const TrainingMonitorDashboard: React.FC = () => {
         </>
       ) : (
         <Card>
-          <p style={{ color: '#888' }}>暂无训练数据，请确保后端 `/api/v1/model-evaluation/metrics` 可用。</p>
+          <p style={{ color: '#888' }}>
+            暂无训练数据，请确保后端 `/api/v1/model-evaluation/metrics` 可用。
+          </p>
         </Card>
       )}
     </div>

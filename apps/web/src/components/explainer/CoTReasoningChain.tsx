@@ -1,119 +1,122 @@
-import React, { useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Progress } from '@/components/ui/progress';
-import { 
-  ChevronDown, 
-  ChevronRight, 
-  Brain, 
-  ArrowDown, 
-  CheckCircle, 
+import React, { useState } from 'react'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Progress } from '@/components/ui/progress'
+import {
+  ChevronDown,
+  ChevronRight,
+  Brain,
+  ArrowDown,
+  CheckCircle,
   AlertCircle,
   Target,
   Lightbulb,
   Search,
-  Zap
-} from 'lucide-react';
+  Zap,
+} from 'lucide-react'
 
 interface ReasoningStep {
-  step_id: string;
-  step_type: 'observation' | 'thought' | 'action' | 'reflection' | 'conclusion';
-  content: string;
-  confidence: number;
-  dependencies: string[];
-  evidence: string[];
-  duration_ms: number;
+  step_id: string
+  step_type: 'observation' | 'thought' | 'action' | 'reflection' | 'conclusion'
+  content: string
+  confidence: number
+  dependencies: string[]
+  evidence: string[]
+  duration_ms: number
   metadata: {
-    reasoning_strategy?: string;
-    evidence_quality?: number;
-    logical_validity?: number;
-  };
+    reasoning_strategy?: string
+    evidence_quality?: number
+    logical_validity?: number
+  }
 }
 
 interface ReasoningChain {
-  chain_id: string;
-  reasoning_mode: 'analytical' | 'deductive' | 'inductive' | 'abductive';
-  steps: ReasoningStep[];
-  overall_confidence: number;
-  logical_consistency: number;
-  evidence_quality: number;
-  created_at: string;
+  chain_id: string
+  reasoning_mode: 'analytical' | 'deductive' | 'inductive' | 'abductive'
+  steps: ReasoningStep[]
+  overall_confidence: number
+  logical_consistency: number
+  evidence_quality: number
+  created_at: string
 }
 
 interface CoTReasoningChainProps {
-  chain: ReasoningChain;
-  className?: string;
+  chain: ReasoningChain
+  className?: string
 }
 
-const CoTReasoningChain: React.FC<CoTReasoningChainProps> = ({ chain, className = '' }) => {
-  const [expandedSteps, setExpandedSteps] = useState<Set<string>>(new Set());
-  const [showMetadata, setShowMetadata] = useState(false);
+const CoTReasoningChain: React.FC<CoTReasoningChainProps> = ({
+  chain,
+  className = '',
+}) => {
+  const [expandedSteps, setExpandedSteps] = useState<Set<string>>(new Set())
+  const [showMetadata, setShowMetadata] = useState(false)
 
   const toggleStep = (stepId: string) => {
-    const newExpanded = new Set(expandedSteps);
+    const newExpanded = new Set(expandedSteps)
     if (newExpanded.has(stepId)) {
-      newExpanded.delete(stepId);
+      newExpanded.delete(stepId)
     } else {
-      newExpanded.add(stepId);
+      newExpanded.add(stepId)
     }
-    setExpandedSteps(newExpanded);
-  };
+    setExpandedSteps(newExpanded)
+  }
 
   const getStepIcon = (stepType: string) => {
     switch (stepType) {
       case 'observation':
-        return <Search className="h-4 w-4" />;
+        return <Search className="h-4 w-4" />
       case 'thought':
-        return <Brain className="h-4 w-4" />;
+        return <Brain className="h-4 w-4" />
       case 'action':
-        return <Zap className="h-4 w-4" />;
+        return <Zap className="h-4 w-4" />
       case 'reflection':
-        return <Lightbulb className="h-4 w-4" />;
+        return <Lightbulb className="h-4 w-4" />
       case 'conclusion':
-        return <Target className="h-4 w-4" />;
+        return <Target className="h-4 w-4" />
       default:
-        return <Brain className="h-4 w-4" />;
+        return <Brain className="h-4 w-4" />
     }
-  };
+  }
 
   const getStepColor = (stepType: string) => {
     switch (stepType) {
       case 'observation':
-        return 'bg-blue-100 text-blue-700 border-blue-200';
+        return 'bg-blue-100 text-blue-700 border-blue-200'
       case 'thought':
-        return 'bg-purple-100 text-purple-700 border-purple-200';
+        return 'bg-purple-100 text-purple-700 border-purple-200'
       case 'action':
-        return 'bg-green-100 text-green-700 border-green-200';
+        return 'bg-green-100 text-green-700 border-green-200'
       case 'reflection':
-        return 'bg-yellow-100 text-yellow-700 border-yellow-200';
+        return 'bg-yellow-100 text-yellow-700 border-yellow-200'
       case 'conclusion':
-        return 'bg-red-100 text-red-700 border-red-200';
+        return 'bg-red-100 text-red-700 border-red-200'
       default:
-        return 'bg-gray-100 text-gray-700 border-gray-200';
+        return 'bg-gray-100 text-gray-700 border-gray-200'
     }
-  };
+  }
 
   const getConfidenceColor = (confidence: number) => {
-    if (confidence >= 0.8) return 'text-green-600';
-    if (confidence >= 0.6) return 'text-yellow-600';
-    return 'text-red-600';
-  };
+    if (confidence >= 0.8) return 'text-green-600'
+    if (confidence >= 0.6) return 'text-yellow-600'
+    return 'text-red-600'
+  }
 
   const getModeDescription = (mode: string) => {
     switch (mode) {
       case 'analytical':
-        return '分析性推理 - 逐步分解复杂问题';
+        return '分析性推理 - 逐步分解复杂问题'
       case 'deductive':
-        return '演绎推理 - 从一般原理推导具体结论';
+        return '演绎推理 - 从一般原理推导具体结论'
       case 'inductive':
-        return '归纳推理 - 从具体观察得出一般规律';
+        return '归纳推理 - 从具体观察得出一般规律'
       case 'abductive':
-        return '溯因推理 - 寻找最佳解释';
+        return '溯因推理 - 寻找最佳解释'
       default:
-        return '未知推理模式';
+        return '未知推理模式'
     }
-  };
+  }
 
   return (
     <div className={`space-y-4 ${className}`}>
@@ -136,30 +139,47 @@ const CoTReasoningChain: React.FC<CoTReasoningChainProps> = ({ chain, className 
               {showMetadata ? '隐藏' : '显示'}元数据
             </Button>
           </div>
-          <p className="text-sm text-gray-600">{getModeDescription(chain.reasoning_mode)}</p>
+          <p className="text-sm text-gray-600">
+            {getModeDescription(chain.reasoning_mode)}
+          </p>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
               <div className="text-sm text-gray-600">整体置信度</div>
-              <div className={`text-lg font-semibold ${getConfidenceColor(chain.overall_confidence)}`}>
+              <div
+                className={`text-lg font-semibold ${getConfidenceColor(chain.overall_confidence)}`}
+              >
                 {(chain.overall_confidence * 100).toFixed(1)}%
               </div>
-              <Progress value={chain.overall_confidence * 100} className="h-2 mt-1" />
+              <Progress
+                value={chain.overall_confidence * 100}
+                className="h-2 mt-1"
+              />
             </div>
             <div>
               <div className="text-sm text-gray-600">逻辑一致性</div>
-              <div className={`text-lg font-semibold ${getConfidenceColor(chain.logical_consistency)}`}>
+              <div
+                className={`text-lg font-semibold ${getConfidenceColor(chain.logical_consistency)}`}
+              >
                 {(chain.logical_consistency * 100).toFixed(1)}%
               </div>
-              <Progress value={chain.logical_consistency * 100} className="h-2 mt-1" />
+              <Progress
+                value={chain.logical_consistency * 100}
+                className="h-2 mt-1"
+              />
             </div>
             <div>
               <div className="text-sm text-gray-600">证据质量</div>
-              <div className={`text-lg font-semibold ${getConfidenceColor(chain.evidence_quality)}`}>
+              <div
+                className={`text-lg font-semibold ${getConfidenceColor(chain.evidence_quality)}`}
+              >
                 {(chain.evidence_quality * 100).toFixed(1)}%
               </div>
-              <Progress value={chain.evidence_quality * 100} className="h-2 mt-1" />
+              <Progress
+                value={chain.evidence_quality * 100}
+                className="h-2 mt-1"
+              />
             </div>
           </div>
 
@@ -167,16 +187,21 @@ const CoTReasoningChain: React.FC<CoTReasoningChainProps> = ({ chain, className 
             <div className="mt-4 p-3 bg-gray-50 rounded-lg">
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div>
-                  <span className="font-medium">推理链ID:</span> {chain.chain_id}
+                  <span className="font-medium">推理链ID:</span>{' '}
+                  {chain.chain_id}
                 </div>
                 <div>
-                  <span className="font-medium">步骤数量:</span> {chain.steps.length}
+                  <span className="font-medium">步骤数量:</span>{' '}
+                  {chain.steps.length}
                 </div>
                 <div>
-                  <span className="font-medium">创建时间:</span> {new Date(chain.created_at).toLocaleString()}
+                  <span className="font-medium">创建时间:</span>{' '}
+                  {new Date(chain.created_at).toLocaleString()}
                 </div>
                 <div>
-                  <span className="font-medium">总耗时:</span> {chain.steps.reduce((sum, step) => sum + step.duration_ms, 0)}ms
+                  <span className="font-medium">总耗时:</span>{' '}
+                  {chain.steps.reduce((sum, step) => sum + step.duration_ms, 0)}
+                  ms
                 </div>
               </div>
             </div>
@@ -188,24 +213,26 @@ const CoTReasoningChain: React.FC<CoTReasoningChainProps> = ({ chain, className 
       <div className="space-y-3">
         <h3 className="font-semibold text-lg">推理步骤</h3>
         {chain.steps.map((step, index) => {
-          const isExpanded = expandedSteps.has(step.step_id);
-          const isLast = index === chain.steps.length - 1;
-          
+          const isExpanded = expandedSteps.has(step.step_id)
+          const isLast = index === chain.steps.length - 1
+
           return (
             <div key={step.step_id} className="relative">
               {/* 连接线 */}
               {!isLast && (
                 <div className="absolute left-6 top-12 w-0.5 h-6 bg-gray-300 z-0" />
               )}
-              
+
               <Card className="relative z-10">
-                <CardHeader 
+                <CardHeader
                   className="cursor-pointer hover:bg-gray-50 transition-colors"
                   onClick={() => toggleStep(step.step_id)}
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-3">
-                      <div className={`w-8 h-8 rounded-full border-2 flex items-center justify-center ${getStepColor(step.step_type)}`}>
+                      <div
+                        className={`w-8 h-8 rounded-full border-2 flex items-center justify-center ${getStepColor(step.step_type)}`}
+                      >
                         {getStepIcon(step.step_type)}
                       </div>
                       <div>
@@ -214,7 +241,9 @@ const CoTReasoningChain: React.FC<CoTReasoningChainProps> = ({ chain, className 
                           <Badge variant="outline" className="text-xs">
                             {step.step_type}
                           </Badge>
-                          <span className={`text-sm font-medium ${getConfidenceColor(step.confidence)}`}>
+                          <span
+                            className={`text-sm font-medium ${getConfidenceColor(step.confidence)}`}
+                          >
                             {(step.confidence * 100).toFixed(0)}%
                           </span>
                         </div>
@@ -243,7 +272,9 @@ const CoTReasoningChain: React.FC<CoTReasoningChainProps> = ({ chain, className 
                       <div>
                         <h4 className="font-medium text-sm mb-2">推理内容</h4>
                         <div className="bg-gray-50 p-3 rounded-lg">
-                          <p className="text-sm text-gray-700">{step.content}</p>
+                          <p className="text-sm text-gray-700">
+                            {step.content}
+                          </p>
                         </div>
                       </div>
 
@@ -253,9 +284,14 @@ const CoTReasoningChain: React.FC<CoTReasoningChainProps> = ({ chain, className 
                           <h4 className="font-medium text-sm mb-2">支持证据</h4>
                           <div className="space-y-2">
                             {step.evidence.map((evidence, evidenceIndex) => (
-                              <div key={evidenceIndex} className="flex items-start space-x-2 text-sm">
+                              <div
+                                key={evidenceIndex}
+                                className="flex items-start space-x-2 text-sm"
+                              >
                                 <CheckCircle className="h-4 w-4 text-green-600 mt-0.5 flex-shrink-0" />
-                                <span className="text-gray-700">{evidence}</span>
+                                <span className="text-gray-700">
+                                  {evidence}
+                                </span>
                               </div>
                             ))}
                           </div>
@@ -268,7 +304,11 @@ const CoTReasoningChain: React.FC<CoTReasoningChainProps> = ({ chain, className 
                           <h4 className="font-medium text-sm mb-2">依赖步骤</h4>
                           <div className="flex flex-wrap gap-2">
                             {step.dependencies.map((dep, depIndex) => (
-                              <Badge key={depIndex} variant="outline" className="text-xs">
+                              <Badge
+                                key={depIndex}
+                                variant="outline"
+                                className="text-xs"
+                              >
                                 {dep}
                               </Badge>
                             ))}
@@ -277,37 +317,58 @@ const CoTReasoningChain: React.FC<CoTReasoningChainProps> = ({ chain, className 
                       )}
 
                       {/* 元数据 */}
-                      {step.metadata && Object.keys(step.metadata).length > 0 && (
-                        <div>
-                          <h4 className="font-medium text-sm mb-2">技术指标</h4>
-                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
-                            {step.metadata.reasoning_strategy && (
-                              <div>
-                                <span className="text-gray-600">推理策略:</span>
-                                <div className="font-medium">{step.metadata.reasoning_strategy}</div>
-                              </div>
-                            )}
-                            {step.metadata.evidence_quality && (
-                              <div>
-                                <span className="text-gray-600">证据质量:</span>
-                                <div className="font-medium">{(step.metadata.evidence_quality * 100).toFixed(1)}%</div>
-                              </div>
-                            )}
-                            {step.metadata.logical_validity && (
-                              <div>
-                                <span className="text-gray-600">逻辑有效性:</span>
-                                <div className="font-medium">{(step.metadata.logical_validity * 100).toFixed(1)}%</div>
-                              </div>
-                            )}
+                      {step.metadata &&
+                        Object.keys(step.metadata).length > 0 && (
+                          <div>
+                            <h4 className="font-medium text-sm mb-2">
+                              技术指标
+                            </h4>
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
+                              {step.metadata.reasoning_strategy && (
+                                <div>
+                                  <span className="text-gray-600">
+                                    推理策略:
+                                  </span>
+                                  <div className="font-medium">
+                                    {step.metadata.reasoning_strategy}
+                                  </div>
+                                </div>
+                              )}
+                              {step.metadata.evidence_quality && (
+                                <div>
+                                  <span className="text-gray-600">
+                                    证据质量:
+                                  </span>
+                                  <div className="font-medium">
+                                    {(
+                                      step.metadata.evidence_quality * 100
+                                    ).toFixed(1)}
+                                    %
+                                  </div>
+                                </div>
+                              )}
+                              {step.metadata.logical_validity && (
+                                <div>
+                                  <span className="text-gray-600">
+                                    逻辑有效性:
+                                  </span>
+                                  <div className="font-medium">
+                                    {(
+                                      step.metadata.logical_validity * 100
+                                    ).toFixed(1)}
+                                    %
+                                  </div>
+                                </div>
+                              )}
+                            </div>
                           </div>
-                        </div>
-                      )}
+                        )}
                     </div>
                   </CardContent>
                 )}
               </Card>
             </div>
-          );
+          )
         })}
       </div>
 
@@ -371,7 +432,7 @@ const CoTReasoningChain: React.FC<CoTReasoningChainProps> = ({ chain, className 
         </CardContent>
       </Card>
     </div>
-  );
-};
+  )
+}
 
-export default CoTReasoningChain;
+export default CoTReasoningChain

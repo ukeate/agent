@@ -1,23 +1,18 @@
+export const MESSAGE_MAX_LENGTH = 2000
+
 // 消息验证规则
-export const validateMessage = (message: string): { isValid: boolean; error?: string } => {
-  if (!message || message.trim().length === 0) {
+export const validateMessage = (
+  message: string
+): { isValid: boolean; error?: string } => {
+  const normalized = message.trim()
+  if (!normalized) {
     return { isValid: false, error: '消息不能为空' }
   }
 
-  if (message.trim().length > 2000) {
-    return { isValid: false, error: '消息长度不能超过2000个字符' }
-  }
-
-  // 检查是否包含恶意内容
-  const maliciousPatterns = [
-    /<script[^>]*>.*?<\/script>/gi,
-    /javascript:/gi,
-    /on\w+\s*=/gi,
-  ]
-
-  for (const pattern of maliciousPatterns) {
-    if (pattern.test(message)) {
-      return { isValid: false, error: '消息包含不允许的内容' }
+  if (normalized.length > MESSAGE_MAX_LENGTH) {
+    return {
+      isValid: false,
+      error: `消息长度不能超过${MESSAGE_MAX_LENGTH}个字符`,
     }
   }
 
@@ -25,7 +20,9 @@ export const validateMessage = (message: string): { isValid: boolean; error?: st
 }
 
 // 文件名验证
-export const validateFileName = (fileName: string): { isValid: boolean; error?: string } => {
+export const validateFileName = (
+  fileName: string
+): { isValid: boolean; error?: string } => {
   if (!fileName || fileName.trim().length === 0) {
     return { isValid: false, error: '文件名不能为空' }
   }
@@ -43,7 +40,9 @@ export const validateFileName = (fileName: string): { isValid: boolean; error?: 
 }
 
 // URL验证
-export const validateUrl = (url: string): { isValid: boolean; error?: string } => {
+export const validateUrl = (
+  url: string
+): { isValid: boolean; error?: string } => {
   try {
     new URL(url)
     return { isValid: true }
@@ -64,7 +63,10 @@ export const sanitizeInput = (input: string): string => {
 }
 
 // 检查内容长度
-export const checkContentLength = (content: string, maxLength: number = 2000): boolean => {
+export const checkContentLength = (
+  content: string,
+  maxLength: number = MESSAGE_MAX_LENGTH
+): boolean => {
   return content.length <= maxLength
 }
 

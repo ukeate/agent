@@ -1,56 +1,60 @@
-import React from 'react';
-import { Card } from '../ui/card';
-import { Badge } from '../ui/badge';
-import { Button } from '../ui/button';
-import { Progress } from '../ui/lprogress';
+import React from 'react'
+import { Card } from '../ui/card'
+import { Badge } from '../ui/badge'
+import { Button } from '../ui/button'
+import { Progress } from '../ui/progress'
 
 interface ExperimentCardProps {
   experiment: {
-    id: string;
-    name: string;
-    status: string;
-    algorithm: string;
-    objective: string;
-    created_at: string;
-    best_value?: number;
-    total_trials?: number;
-    successful_trials?: number;
-  };
-  onView?: (id: string) => void;
-  onStart?: (id: string) => void;
-  onStop?: (id: string) => void;
-  onDelete?: (id: string) => void;
+    id: string
+    name: string
+    status: string
+    algorithm: string
+    objective: string
+    created_at: string
+    best_value?: number
+    total_trials?: number
+    successful_trials?: number
+  }
+  onView?: (id: string) => void
+  onStart?: (id: string) => void
+  onStop?: (id: string) => void
+  onDelete?: (id: string) => void
 }
 
 const statusColors = {
-  'created': 'bg-gray-500',
-  'running': 'bg-blue-500',
-  'completed': 'bg-green-500',
-  'failed': 'bg-red-500',
-  'stopped': 'bg-yellow-500'
-};
+  created: 'bg-gray-500',
+  running: 'bg-blue-500',
+  completed: 'bg-green-500',
+  failed: 'bg-red-500',
+  stopped: 'bg-yellow-500',
+}
 
 const algorithmLabels = {
-  'tpe': 'TPE',
-  'cmaes': 'CMA-ES',
-  'random': '随机搜索',
-  'grid': '网格搜索',
-  'nsga2': 'NSGA-II'
-};
+  tpe: 'TPE',
+  cmaes: 'CMA-ES',
+  random: '随机搜索',
+  grid: '网格搜索',
+  nsga2: 'NSGA-II',
+}
 
 export const ExperimentCard: React.FC<ExperimentCardProps> = ({
   experiment,
   onView,
   onStart,
   onStop,
-  onDelete
+  onDelete,
 }) => {
-  const getStatusColor = (status: string) => statusColors[status as keyof typeof statusColors] || 'bg-gray-500';
-  const getAlgorithmLabel = (algorithm: string) => algorithmLabels[algorithm as keyof typeof algorithmLabels] || algorithm.toUpperCase();
-  
-  const successRate = experiment.total_trials && experiment.successful_trials 
-    ? (experiment.successful_trials / experiment.total_trials) * 100 
-    : 0;
+  const getStatusColor = (status: string) =>
+    statusColors[status as keyof typeof statusColors] || 'bg-gray-500'
+  const getAlgorithmLabel = (algorithm: string) =>
+    algorithmLabels[algorithm as keyof typeof algorithmLabels] ||
+    algorithm.toUpperCase()
+
+  const successRate =
+    experiment.total_trials && experiment.successful_trials
+      ? (experiment.successful_trials / experiment.total_trials) * 100
+      : 0
 
   return (
     <Card className="p-6 hover:shadow-lg transition-shadow">
@@ -60,7 +64,9 @@ export const ExperimentCard: React.FC<ExperimentCardProps> = ({
             {experiment.name}
           </h3>
           <div className="flex items-center space-x-2">
-            <Badge className={`${getStatusColor(experiment.status)} text-white text-xs`}>
+            <Badge
+              className={`${getStatusColor(experiment.status)} text-white text-xs`}
+            >
               {experiment.status}
             </Badge>
             <Badge className="bg-blue-100 text-blue-800 text-xs">
@@ -80,10 +86,7 @@ export const ExperimentCard: React.FC<ExperimentCardProps> = ({
             查看
           </Button>
           {experiment.status === 'created' && (
-            <Button
-              size="sm"
-              onClick={() => onStart?.(experiment.id)}
-            >
+            <Button size="sm" onClick={() => onStart?.(experiment.id)}>
               启动
             </Button>
           )}
@@ -122,7 +125,9 @@ export const ExperimentCard: React.FC<ExperimentCardProps> = ({
           <div>
             <div className="flex justify-between text-sm text-gray-600 mb-1">
               <span>试验进度</span>
-              <span>{experiment.successful_trials || 0}/{experiment.total_trials}</span>
+              <span>
+                {experiment.successful_trials || 0}/{experiment.total_trials}
+              </span>
             </div>
             <Progress value={successRate} className="h-2" />
           </div>
@@ -133,5 +138,5 @@ export const ExperimentCard: React.FC<ExperimentCardProps> = ({
         </div>
       </div>
     </Card>
-  );
-};
+  )
+}

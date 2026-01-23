@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
-import {
 import { logger } from '../utils/logger'
+import {
   Card,
   CardContent,
   CardDescription,
@@ -20,9 +20,22 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '../components/ui/dialog'
-import { Plus, Eye, EyeOff, Copy, Trash2, Key, Shield, Clock } from 'lucide-react'
+import {
+  Plus,
+  Eye,
+  EyeOff,
+  Copy,
+  Trash2,
+  Key,
+  Shield,
+  Clock,
+} from 'lucide-react'
 import { toast } from 'react-hot-toast'
-import { apiKeyService, type APIKey as APIKeyType, type CreateAPIKeyRequest as CreateAPIKeyRequestType } from '../services/apiKeyService'
+import {
+  apiKeyService,
+  type APIKey as APIKeyType,
+  type CreateAPIKeyRequest as CreateAPIKeyRequestType,
+} from '../services/apiKeyService'
 import authService from '../services/authService'
 
 type APIKey = APIKeyType
@@ -31,14 +44,16 @@ type CreateAPIKeyRequest = CreateAPIKeyRequestType
 const ApiKeyManagementPage: React.FC = () => {
   const [apiKeys, setApiKeys] = useState<APIKey[]>([])
   const [loading, setLoading] = useState(true)
-  const [isAuthenticated, setIsAuthenticated] = useState(authService.isAuthenticated())
+  const [isAuthenticated, setIsAuthenticated] = useState(
+    authService.isAuthenticated()
+  )
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
   const [visibleKeys, setVisibleKeys] = useState<Set<string>>(new Set())
   const [newKey, setNewKey] = useState<CreateAPIKeyRequest>({
     name: '',
     description: '',
     expires_in_days: 30,
-    permissions: []
+    permissions: [],
   })
 
   const [availablePermissions, setAvailablePermissions] = useState<string[]>([])
@@ -63,7 +78,7 @@ const ApiKeyManagementPage: React.FC = () => {
       // 同时加载API密钥和可用权限
       const [apiKeysData, permissionsData] = await Promise.all([
         apiKeyService.listApiKeys(),
-        apiKeyService.getApiKeyPermissions()
+        apiKeyService.getApiKeyPermissions(),
       ])
       setApiKeys(apiKeysData)
       setAvailablePermissions(permissionsData)
@@ -97,7 +112,7 @@ const ApiKeyManagementPage: React.FC = () => {
         name: '',
         description: '',
         expires_in_days: 30,
-        permissions: []
+        permissions: [],
       })
       toast.success('API密钥创建成功')
     } catch (error) {
@@ -122,11 +137,9 @@ const ApiKeyManagementPage: React.FC = () => {
     setLoading(true)
     try {
       await apiKeyService.revokeApiKey(keyId)
-      setApiKeys(prev => 
-        prev.map(key => 
-          key.id === keyId 
-            ? { ...key, status: 'revoked' as const }
-            : key
+      setApiKeys(prev =>
+        prev.map(key =>
+          key.id === keyId ? { ...key, status: 'revoked' as const } : key
         )
       )
       toast.success('API密钥已撤销')
@@ -167,9 +180,9 @@ const ApiKeyManagementPage: React.FC = () => {
     const statusConfig = {
       active: { variant: 'default' as const, text: '活跃' },
       expired: { variant: 'secondary' as const, text: '已过期' },
-      revoked: { variant: 'destructive' as const, text: '已撤销' }
+      revoked: { variant: 'destructive' as const, text: '已撤销' },
     }
-    
+
     const config = statusConfig[status as keyof typeof statusConfig]
     return <Badge variant={config.variant}>{config.text}</Badge>
   }
@@ -180,7 +193,7 @@ const ApiKeyManagementPage: React.FC = () => {
       month: 'short',
       day: 'numeric',
       hour: '2-digit',
-      minute: '2-digit'
+      minute: '2-digit',
     })
   }
 
@@ -189,7 +202,7 @@ const ApiKeyManagementPage: React.FC = () => {
       ...prev,
       permissions: prev.permissions.includes(permission)
         ? prev.permissions.filter(p => p !== permission)
-        : [...prev.permissions, permission]
+        : [...prev.permissions, permission],
     }))
   }
 
@@ -217,7 +230,7 @@ const ApiKeyManagementPage: React.FC = () => {
                 创建一个新的API密钥来访问我们的服务
               </DialogDescription>
             </DialogHeader>
-            
+
             <div className="space-y-4">
               <div>
                 <Label htmlFor="name">密钥名称 *</Label>
@@ -225,7 +238,9 @@ const ApiKeyManagementPage: React.FC = () => {
                   id="name"
                   placeholder="例如: Production API Key"
                   value={newKey.name}
-                  onChange={(e) => setNewKey(prev => ({ ...prev, name: e.target.value }))}
+                  onChange={e =>
+                    setNewKey(prev => ({ ...prev, name: e.target.value }))
+                  }
                 />
               </div>
 
@@ -235,7 +250,12 @@ const ApiKeyManagementPage: React.FC = () => {
                   id="description"
                   placeholder="描述此API密钥的用途"
                   value={newKey.description}
-                  onChange={(e) => setNewKey(prev => ({ ...prev, description: e.target.value }))}
+                  onChange={e =>
+                    setNewKey(prev => ({
+                      ...prev,
+                      description: e.target.value,
+                    }))
+                  }
                 />
               </div>
 
@@ -247,15 +267,23 @@ const ApiKeyManagementPage: React.FC = () => {
                   min="1"
                   max="365"
                   value={newKey.expires_in_days}
-                  onChange={(e) => setNewKey(prev => ({ ...prev, expires_in_days: parseInt(e.target.value) || 30 }))}
+                  onChange={e =>
+                    setNewKey(prev => ({
+                      ...prev,
+                      expires_in_days: parseInt(e.target.value) || 30,
+                    }))
+                  }
                 />
               </div>
 
               <div>
                 <Label>权限</Label>
                 <div className="grid grid-cols-2 gap-2 mt-2">
-                  {availablePermissions.map((permission) => (
-                    <label key={permission} className="flex items-center space-x-2 text-sm">
+                  {availablePermissions.map(permission => (
+                    <label
+                      key={permission}
+                      className="flex items-center space-x-2 text-sm"
+                    >
                       <input
                         type="checkbox"
                         checked={newKey.permissions.includes(permission)}
@@ -270,13 +298,13 @@ const ApiKeyManagementPage: React.FC = () => {
               </div>
 
               <div className="flex justify-end space-x-2 pt-4">
-                <Button 
-                  variant="outline" 
+                <Button
+                  variant="outline"
                   onClick={() => setIsCreateDialogOpen(false)}
                 >
                   取消
                 </Button>
-                <Button 
+                <Button
                   onClick={createApiKey}
                   disabled={loading || !newKey.name.trim()}
                 >
@@ -328,13 +356,17 @@ const ApiKeyManagementPage: React.FC = () => {
               <div>
                 <p className="text-sm font-medium text-gray-600">即将过期</p>
                 <p className="text-2xl font-bold text-yellow-600">
-                  {apiKeys.filter(key => {
-                    if (!key.expires_at) return false
-                    const expiresAt = new Date(key.expires_at)
-                    const now = new Date()
-                    const daysToExpiry = (expiresAt.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)
-                    return daysToExpiry <= 7 && daysToExpiry > 0
-                  }).length}
+                  {
+                    apiKeys.filter(key => {
+                      if (!key.expires_at) return false
+                      const expiresAt = new Date(key.expires_at)
+                      const now = new Date()
+                      const daysToExpiry =
+                        (expiresAt.getTime() - now.getTime()) /
+                        (1000 * 60 * 60 * 24)
+                      return daysToExpiry <= 7 && daysToExpiry > 0
+                    }).length
+                  }
                 </p>
               </div>
               <Clock className="h-8 w-8 text-yellow-600" />
@@ -361,9 +393,7 @@ const ApiKeyManagementPage: React.FC = () => {
       <Card>
         <CardHeader>
           <CardTitle>API密钥列表</CardTitle>
-          <CardDescription>
-            管理您的所有API密钥
-          </CardDescription>
+          <CardDescription>管理您的所有API密钥</CardDescription>
         </CardHeader>
         <CardContent>
           {loading && apiKeys.length === 0 ? (
@@ -375,11 +405,13 @@ const ApiKeyManagementPage: React.FC = () => {
             <div className="text-center py-8">
               <Key className="h-12 w-12 text-gray-400 mx-auto mb-4" />
               <p className="text-gray-600">暂无API密钥</p>
-              <p className="text-sm text-gray-500">创建您的第一个API密钥来开始使用</p>
+              <p className="text-sm text-gray-500">
+                创建您的第一个API密钥来开始使用
+              </p>
             </div>
           ) : (
             <div className="space-y-4">
-              {apiKeys.map((apiKey) => (
+              {apiKeys.map(apiKey => (
                 <div
                   key={apiKey.id}
                   className="border rounded-lg p-4 space-y-3"
@@ -422,21 +454,35 @@ const ApiKeyManagementPage: React.FC = () => {
                   </div>
 
                   <div className="font-mono text-sm bg-gray-100 p-2 rounded">
-                    {visibleKeys.has(apiKey.id) ? apiKey.key : maskApiKey(apiKey.key)}
+                    {visibleKeys.has(apiKey.id)
+                      ? apiKey.key
+                      : maskApiKey(apiKey.key)}
                   </div>
 
                   <div className="grid grid-cols-2 gap-4 text-sm text-gray-600">
                     <div>
-                      <p><strong>创建时间:</strong> {formatDate(apiKey.created_at)}</p>
+                      <p>
+                        <strong>创建时间:</strong>{' '}
+                        {formatDate(apiKey.created_at)}
+                      </p>
                       {apiKey.expires_at && (
-                        <p><strong>过期时间:</strong> {formatDate(apiKey.expires_at)}</p>
+                        <p>
+                          <strong>过期时间:</strong>{' '}
+                          {formatDate(apiKey.expires_at)}
+                        </p>
                       )}
                     </div>
                     <div>
-                      <p><strong>权限:</strong></p>
+                      <p>
+                        <strong>权限:</strong>
+                      </p>
                       <div className="flex flex-wrap gap-1 mt-1">
-                        {apiKey.permissions.map((permission) => (
-                          <Badge key={permission} variant="outline" className="text-xs">
+                        {apiKey.permissions.map(permission => (
+                          <Badge
+                            key={permission}
+                            variant="outline"
+                            className="text-xs"
+                          >
                             {permission}
                           </Badge>
                         ))}

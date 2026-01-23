@@ -1,6 +1,23 @@
 import React, { useEffect, useState } from 'react'
-import { Card, Row, Col, Button, Space, Alert, Typography, List, Tag, Timeline, message } from 'antd'
-import { BulbOutlined, ReloadOutlined, ThunderboltOutlined, ExperimentOutlined } from '@ant-design/icons'
+import {
+  Card,
+  Row,
+  Col,
+  Button,
+  Space,
+  Alert,
+  Typography,
+  List,
+  Tag,
+  Timeline,
+  message,
+} from 'antd'
+import {
+  BulbOutlined,
+  ReloadOutlined,
+  ThunderboltOutlined,
+  ExperimentOutlined,
+} from '@ant-design/icons'
 import apiClient from '../services/apiClient'
 
 const { Title, Text, Paragraph } = Typography
@@ -15,7 +32,9 @@ interface QModel {
 
 const QLearningStrategyPage: React.FC = () => {
   const [models, setModels] = useState<QModel[]>([])
-  const [trend, setTrend] = useState<Array<{ episode: number; reward: number }>>([])
+  const [trend, setTrend] = useState<
+    Array<{ episode: number; reward: number }>
+  >([])
   const [updatedAt, setUpdatedAt] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
 
@@ -26,12 +45,12 @@ const QLearningStrategyPage: React.FC = () => {
       const data: any = resp.data || {}
       const mapped: QModel[] = Array.isArray(data.models)
         ? data.models.map((m: any) => ({
-          id: m.id || m.name,
-          name: m.name || m.id,
-          status: m.status || 'unknown',
-          performance: m.performance,
-          episodes: m.episodes
-        }))
+            id: m.id || m.name,
+            name: m.name || m.id,
+            status: m.status || 'unknown',
+            performance: m.performance,
+            episodes: m.episodes,
+          }))
         : []
       setModels(mapped)
       setTrend(Array.isArray(data.trend) ? data.trend : [])
@@ -76,17 +95,24 @@ const QLearningStrategyPage: React.FC = () => {
         {models.length ? (
           <List
             dataSource={models}
-            renderItem={(item) => (
+            renderItem={item => (
               <List.Item>
                 <Space direction="vertical" size={2}>
                   <Space>
                     <Text strong>{item.name}</Text>
-                    <Tag color={item.status === 'running' || item.status === 'training' ? 'blue' : 'default'}>
+                    <Tag
+                      color={
+                        item.status === 'running' || item.status === 'training'
+                          ? 'blue'
+                          : 'default'
+                      }
+                    >
                       {item.status}
                     </Tag>
                   </Space>
                   <Text type="secondary">
-                    Episodes: {item.episodes || 0} | Performance: {item.performance ?? 0}
+                    Episodes: {item.episodes || 0} | Performance:{' '}
+                    {item.performance ?? 0}
                   </Text>
                 </Space>
               </List.Item>
@@ -97,12 +123,16 @@ const QLearningStrategyPage: React.FC = () => {
         )}
       </Card>
 
-      <Card title="训练趋势" style={{ marginTop: 16 }} extra={<ExperimentOutlined />}>
+      <Card
+        title="训练趋势"
+        style={{ marginTop: 16 }}
+        extra={<ExperimentOutlined />}
+      >
         {trend.length ? (
           <Timeline
-            items={trend.slice(-5).map((item) => ({
+            items={trend.slice(-5).map(item => ({
               children: `Episode ${item.episode}: 奖励 ${item.reward}`,
-              color: item.reward >= 0 ? 'green' : 'red'
+              color: item.reward >= 0 ? 'green' : 'red',
             }))}
           />
         ) : (

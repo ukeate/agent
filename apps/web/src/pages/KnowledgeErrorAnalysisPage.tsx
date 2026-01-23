@@ -8,66 +8,92 @@ const { Title, Paragraph } = Typography
 const KnowledgeErrorAnalysisPage: React.FC = () => {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [issues, setIssues] = useState<Array<{
-    issue_id: string
-    issue_type: string
-    description: string
-    severity: 'low' | 'medium' | 'high' | 'critical'
-    affected_entities: string[]
-    recommended_actions: string[]
-    confidence: number
-    detected_at: string
-  }>>([])
+  const [issues, setIssues] = useState<
+    Array<{
+      issue_id: string
+      issue_type: string
+      description: string
+      severity: 'low' | 'medium' | 'high' | 'critical'
+      affected_entities: string[]
+      recommended_actions: string[]
+      confidence: number
+      detected_at: string
+    }>
+  >([])
 
   const columns = [
     { title: '错误类型', dataIndex: 'type', key: 'type' },
     { title: '描述', dataIndex: 'description', key: 'description' },
-    { 
-      title: '严重性', 
-      dataIndex: 'severity', 
+    {
+      title: '严重性',
+      dataIndex: 'severity',
       key: 'severity',
       render: (severity: string) => {
         const labelMap: Record<string, string> = {
           low: '低',
           medium: '中等',
           high: '高',
-          critical: '严重'
+          critical: '严重',
         }
         const label = labelMap[severity] || severity
-        const color = severity === 'high' || severity === 'critical' ? 'red' : severity === 'medium' ? 'orange' : 'green'
-        return (
-          <Tag color={color}>
-            {label}
-          </Tag>
-        )
-      }
+        const color =
+          severity === 'high' || severity === 'critical'
+            ? 'red'
+            : severity === 'medium'
+              ? 'orange'
+              : 'green'
+        return <Tag color={color}>{label}</Tag>
+      },
     },
     { title: '影响实体', dataIndex: 'count', key: 'count' },
-    { title: '置信度', dataIndex: 'confidence', key: 'confidence', render: (value: number) => value.toFixed(2) },
-    { title: '检测时间', dataIndex: 'detected_at', key: 'detected_at', render: (value: string) => new Date(value).toLocaleString() }
+    {
+      title: '置信度',
+      dataIndex: 'confidence',
+      key: 'confidence',
+      render: (value: number) => value.toFixed(2),
+    },
+    {
+      title: '检测时间',
+      dataIndex: 'detected_at',
+      key: 'detected_at',
+      render: (value: string) => new Date(value).toLocaleString(),
+    },
   ]
 
-  const dataSource = useMemo(() => (
-    issues.map(issue => ({
-      key: issue.issue_id,
-      type: issue.issue_type,
-      description: issue.description,
-      severity: issue.severity,
-      count: issue.affected_entities?.length || 0,
-      confidence: issue.confidence,
-      detected_at: issue.detected_at
-    }))
-  ), [issues])
-
-  const timelineItems = useMemo(() => (
-    [...issues]
-      .sort((a, b) => new Date(b.detected_at).getTime() - new Date(a.detected_at).getTime())
-      .map(issue => ({
+  const dataSource = useMemo(
+    () =>
+      issues.map(issue => ({
         key: issue.issue_id,
-        color: issue.severity === 'high' || issue.severity === 'critical' ? 'red' : issue.severity === 'medium' ? 'orange' : 'green',
-        text: `${new Date(issue.detected_at).toLocaleString()} - ${issue.issue_type}：${issue.description}`
-      }))
-  ), [issues])
+        type: issue.issue_type,
+        description: issue.description,
+        severity: issue.severity,
+        count: issue.affected_entities?.length || 0,
+        confidence: issue.confidence,
+        detected_at: issue.detected_at,
+      })),
+    [issues]
+  )
+
+  const timelineItems = useMemo(
+    () =>
+      [...issues]
+        .sort(
+          (a, b) =>
+            new Date(b.detected_at).getTime() -
+            new Date(a.detected_at).getTime()
+        )
+        .map(issue => ({
+          key: issue.issue_id,
+          color:
+            issue.severity === 'high' || issue.severity === 'critical'
+              ? 'red'
+              : issue.severity === 'medium'
+                ? 'orange'
+                : 'green',
+          text: `${new Date(issue.detected_at).toLocaleString()} - ${issue.issue_type}：${issue.description}`,
+        })),
+    [issues]
+  )
 
   useEffect(() => {
     const loadIssues = async () => {
@@ -98,7 +124,14 @@ const KnowledgeErrorAnalysisPage: React.FC = () => {
       </div>
 
       <Card title="错误统计" style={{ marginBottom: 16 }}>
-        {error && <Alert type="error" message={error} showIcon style={{ marginBottom: 12 }} />}
+        {error && (
+          <Alert
+            type="error"
+            message={error}
+            showIcon
+            style={{ marginBottom: 12 }}
+          />
+        )}
         <Table columns={columns} dataSource={dataSource} loading={loading} />
       </Card>
 

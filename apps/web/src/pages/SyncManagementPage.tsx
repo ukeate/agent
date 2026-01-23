@@ -63,9 +63,9 @@ const SyncManagementPage: React.FC = () => {
     setError(null)
     try {
       const [tRes, sRes, cRes, dRes] = await Promise.all([
-        apiFetch(buildApiUrl('/api/v1/offline/sync/tasks'),
-        apiFetch(buildApiUrl('/api/v1/offline/sync/statistics'),
-        apiFetch(buildApiUrl('/api/v1/offline/vector-clocks'),
+        apiFetch(buildApiUrl('/api/v1/offline/sync/tasks')),
+        apiFetch(buildApiUrl('/api/v1/offline/sync/statistics')),
+        apiFetch(buildApiUrl('/api/v1/offline/vector-clocks')),
         apiFetch(buildApiUrl('/api/v1/offline/deltas/statistics'))
       ])
       const tData = await tRes.json()

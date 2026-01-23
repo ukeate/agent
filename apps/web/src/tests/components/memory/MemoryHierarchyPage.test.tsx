@@ -16,7 +16,7 @@ jest.mock('@/services/memoryService', () => ({
     getMemoryAnalytics: jest.fn(),
     updateMemory: jest.fn(),
     consolidateMemories: jest.fn(),
-  }
+  },
 }))
 
 // Mock localStorage
@@ -40,10 +40,10 @@ const mockMemories = {
       last_accessed: '2025-01-15T12:00:00Z',
       status: MemoryStatus.ACTIVE,
       tags: ['task', 'current'],
-      session_id: 'test_session'
+      session_id: 'test_session',
     },
     {
-      id: 'working_2', 
+      id: 'working_2',
       type: MemoryType.WORKING,
       content: '用户询问的技术问题',
       importance: 0.7,
@@ -52,8 +52,8 @@ const mockMemories = {
       last_accessed: '2025-01-15T11:30:00Z',
       status: MemoryStatus.ACTIVE,
       tags: ['question', 'tech'],
-      session_id: 'test_session'
-    }
+      session_id: 'test_session',
+    },
   ],
   episodic: [
     {
@@ -66,8 +66,8 @@ const mockMemories = {
       last_accessed: '2025-01-15T09:00:00Z',
       status: MemoryStatus.ACTIVE,
       tags: ['success', 'react', 'hooks'],
-      session_id: 'test_session'
-    }
+      session_id: 'test_session',
+    },
   ],
   semantic: [
     {
@@ -80,9 +80,9 @@ const mockMemories = {
       last_accessed: '2025-01-15T10:00:00Z',
       status: MemoryStatus.ACTIVE,
       tags: ['react', 'hooks', 'knowledge'],
-      session_id: 'test_session'
-    }
-  ]
+      session_id: 'test_session',
+    },
+  ],
 }
 
 const mockAnalytics = {
@@ -90,10 +90,10 @@ const mockAnalytics = {
   memories_by_type: {
     working: 2,
     episodic: 1,
-    semantic: 1
+    semantic: 1,
   },
   memories_by_status: {
-    active: 4
+    active: 4,
   },
   avg_importance: 0.75,
   total_access_count: 31,
@@ -101,15 +101,11 @@ const mockAnalytics = {
   most_accessed_memories: [],
   recent_memories: [],
   memory_growth_rate: 0.5,
-  storage_usage_mb: 2.5
+  storage_usage_mb: 2.5,
 }
 
 const renderWithRouter = (component: React.ReactElement) => {
-  return render(
-    <BrowserRouter>
-      {component}
-    </BrowserRouter>
-  )
+  return render(<BrowserRouter>{component}</BrowserRouter>)
 }
 
 describe('MemoryHierarchyPage', () => {
@@ -124,7 +120,9 @@ describe('MemoryHierarchyPage', () => {
       .mockResolvedValueOnce(mockMemories.working)
       .mockResolvedValueOnce(mockMemories.episodic)
       .mockResolvedValueOnce(mockMemories.semantic)
-    ;(memoryService.getMemoryAnalytics as jest.Mock).mockResolvedValue(mockAnalytics)
+    ;(memoryService.getMemoryAnalytics as jest.Mock).mockResolvedValue(
+      mockAnalytics
+    )
 
     renderWithRouter(<MemoryHierarchyPage />)
 
@@ -137,7 +135,9 @@ describe('MemoryHierarchyPage', () => {
       .mockResolvedValueOnce(mockMemories.working)
       .mockResolvedValueOnce(mockMemories.episodic)
       .mockResolvedValueOnce(mockMemories.semantic)
-    ;(memoryService.getMemoryAnalytics as jest.Mock).mockResolvedValue(mockAnalytics)
+    ;(memoryService.getMemoryAnalytics as jest.Mock).mockResolvedValue(
+      mockAnalytics
+    )
 
     renderWithRouter(<MemoryHierarchyPage />)
 
@@ -154,7 +154,9 @@ describe('MemoryHierarchyPage', () => {
       .mockResolvedValueOnce(mockMemories.working)
       .mockResolvedValueOnce(mockMemories.episodic)
       .mockResolvedValueOnce(mockMemories.semantic)
-    ;(memoryService.getMemoryAnalytics as jest.Mock).mockResolvedValue(mockAnalytics)
+    ;(memoryService.getMemoryAnalytics as jest.Mock).mockResolvedValue(
+      mockAnalytics
+    )
 
     renderWithRouter(<MemoryHierarchyPage />)
 
@@ -170,14 +172,20 @@ describe('MemoryHierarchyPage', () => {
       .mockResolvedValueOnce(mockMemories.working)
       .mockResolvedValueOnce(mockMemories.episodic)
       .mockResolvedValueOnce(mockMemories.semantic)
-    ;(memoryService.getMemoryAnalytics as jest.Mock).mockResolvedValue(mockAnalytics)
+    ;(memoryService.getMemoryAnalytics as jest.Mock).mockResolvedValue(
+      mockAnalytics
+    )
 
     renderWithRouter(<MemoryHierarchyPage />)
 
     await waitFor(() => {
       expect(screen.getByText(/当前正在处理的任务信息/)).toBeInTheDocument()
-      expect(screen.getByText(/用户成功解决了React hooks的问题/)).toBeInTheDocument()
-      expect(screen.getByText(/React Hooks是用于在函数组件中使用状态/)).toBeInTheDocument()
+      expect(
+        screen.getByText(/用户成功解决了React hooks的问题/)
+      ).toBeInTheDocument()
+      expect(
+        screen.getByText(/React Hooks是用于在函数组件中使用状态/)
+      ).toBeInTheDocument()
     })
   })
 
@@ -186,7 +194,9 @@ describe('MemoryHierarchyPage', () => {
       .mockResolvedValueOnce(mockMemories.working)
       .mockResolvedValueOnce(mockMemories.episodic)
       .mockResolvedValueOnce(mockMemories.semantic)
-    ;(memoryService.getMemoryAnalytics as jest.Mock).mockResolvedValue(mockAnalytics)
+    ;(memoryService.getMemoryAnalytics as jest.Mock).mockResolvedValue(
+      mockAnalytics
+    )
 
     renderWithRouter(<MemoryHierarchyPage />)
 
@@ -204,8 +214,12 @@ describe('MemoryHierarchyPage', () => {
       .mockResolvedValueOnce(mockMemories.working)
       .mockResolvedValueOnce(mockMemories.episodic)
       .mockResolvedValueOnce(mockMemories.semantic)
-    ;(memoryService.getMemoryAnalytics as jest.Mock).mockResolvedValue(mockAnalytics)
-    ;(memoryService.consolidateMemories as jest.Mock).mockResolvedValue(undefined)
+    ;(memoryService.getMemoryAnalytics as jest.Mock).mockResolvedValue(
+      mockAnalytics
+    )
+    ;(memoryService.consolidateMemories as jest.Mock).mockResolvedValue(
+      undefined
+    )
 
     renderWithRouter(<MemoryHierarchyPage />)
 
@@ -218,7 +232,9 @@ describe('MemoryHierarchyPage', () => {
     fireEvent.click(consolidateButton)
 
     await waitFor(() => {
-      expect(memoryService.consolidateMemories).toHaveBeenCalledWith('test_session')
+      expect(memoryService.consolidateMemories).toHaveBeenCalledWith(
+        'test_session'
+      )
     })
   })
 
@@ -227,8 +243,13 @@ describe('MemoryHierarchyPage', () => {
       .mockResolvedValueOnce(mockMemories.working)
       .mockResolvedValueOnce(mockMemories.episodic)
       .mockResolvedValueOnce(mockMemories.semantic)
-    ;(memoryService.getMemoryAnalytics as jest.Mock).mockResolvedValue(mockAnalytics)
-    ;(memoryService.updateMemory as jest.Mock).mockResolvedValue({ success: true, data: {} })
+    ;(memoryService.getMemoryAnalytics as jest.Mock).mockResolvedValue(
+      mockAnalytics
+    )
+    ;(memoryService.updateMemory as jest.Mock).mockResolvedValue({
+      success: true,
+      data: {},
+    })
 
     renderWithRouter(<MemoryHierarchyPage />)
 
@@ -251,14 +272,16 @@ describe('MemoryHierarchyPage', () => {
       .mockResolvedValueOnce(mockMemories.working)
       .mockResolvedValueOnce(mockMemories.episodic)
       .mockResolvedValueOnce(mockMemories.semantic)
-    ;(memoryService.getMemoryAnalytics as jest.Mock).mockResolvedValue(mockAnalytics)
+    ;(memoryService.getMemoryAnalytics as jest.Mock).mockResolvedValue(
+      mockAnalytics
+    )
 
     renderWithRouter(<MemoryHierarchyPage />)
 
     await waitFor(() => {
-      expect(screen.getByText(/容量: 2 \/ 100/)).toBeInTheDocument()  // 工作记忆
-      expect(screen.getByText(/容量: 1 \/ 10000/)).toBeInTheDocument()  // 情景记忆
-      expect(screen.getByText(/容量: 1 \/ 5000/)).toBeInTheDocument()   // 语义记忆
+      expect(screen.getByText(/容量: 2 \/ 100/)).toBeInTheDocument() // 工作记忆
+      expect(screen.getByText(/容量: 1 \/ 10000/)).toBeInTheDocument() // 情景记忆
+      expect(screen.getByText(/容量: 1 \/ 5000/)).toBeInTheDocument() // 语义记忆
     })
   })
 
@@ -267,25 +290,38 @@ describe('MemoryHierarchyPage', () => {
       .mockResolvedValueOnce(mockMemories.working)
       .mockResolvedValueOnce(mockMemories.episodic)
       .mockResolvedValueOnce(mockMemories.semantic)
-    ;(memoryService.getMemoryAnalytics as jest.Mock).mockResolvedValue(mockAnalytics)
+    ;(memoryService.getMemoryAnalytics as jest.Mock).mockResolvedValue(
+      mockAnalytics
+    )
 
     renderWithRouter(<MemoryHierarchyPage />)
 
     await waitFor(() => {
-      expect(screen.getByText('记忆通过重要性评估和访问频率，逐级提升到更持久的存储层')).toBeInTheDocument()
+      expect(
+        screen.getByText(
+          '记忆通过重要性评估和访问频率，逐级提升到更持久的存储层'
+        )
+      ).toBeInTheDocument()
     })
   })
 
   it('应该处理API错误', async () => {
     const consoleSpy = jest.spyOn(console, 'error').mockImplementation(() => {})
-    
-    ;(memoryService.getSessionMemories as jest.Mock).mockRejectedValue(new Error('API Error'))
-    ;(memoryService.getMemoryAnalytics as jest.Mock).mockRejectedValue(new Error('API Error'))
+
+    ;(memoryService.getSessionMemories as jest.Mock).mockRejectedValue(
+      new Error('API Error')
+    )
+    ;(memoryService.getMemoryAnalytics as jest.Mock).mockRejectedValue(
+      new Error('API Error')
+    )
 
     renderWithRouter(<MemoryHierarchyPage />)
 
     await waitFor(() => {
-      expect(consoleSpy).toHaveBeenCalledWith('加载记忆失败:', expect.any(Error))
+      expect(consoleSpy).toHaveBeenCalledWith(
+        '加载记忆失败:',
+        expect.any(Error)
+      )
     })
 
     consoleSpy.mockRestore()
@@ -296,7 +332,9 @@ describe('MemoryHierarchyPage', () => {
       .mockResolvedValueOnce(mockMemories.working)
       .mockResolvedValueOnce(mockMemories.episodic)
       .mockResolvedValueOnce(mockMemories.semantic)
-    ;(memoryService.getMemoryAnalytics as jest.Mock).mockResolvedValue(mockAnalytics)
+    ;(memoryService.getMemoryAnalytics as jest.Mock).mockResolvedValue(
+      mockAnalytics
+    )
 
     renderWithRouter(<MemoryHierarchyPage />)
 

@@ -4,7 +4,7 @@
 
 // 生成UUID
 export const generateUUID = (): string => {
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
     const r = Math.random() * 16 | 0;
     const v = c === 'x' ? r : (r & 0x3 | 0x8);
     return v.toString(16);
@@ -23,31 +23,53 @@ export const generateRandomString = (length: number, chars?: string): string => 
 
 // 深拷贝
 export const deepClone = <T>(obj: T): T => {
-  if (obj === null || typeof obj !== 'object') return obj;
-  if (obj instanceof Date) return new Date(obj.getTime()) as any;
-  if (obj instanceof Array) return obj.map(item => deepClone(item)) as any;
+  if (obj === null || typeof obj !== 'object') {
+    return obj;
+  }
+  if (obj instanceof Date) {
+    return new Date(obj.getTime()) as T;
+  }
+  if (Array.isArray(obj)) {
+    return (obj as unknown[]).map(item => deepClone(item)) as T;
+  }
   if (typeof obj === 'object') {
-    const copy: any = {};
+    const copy: Record<string, unknown> = {};
     Object.keys(obj).forEach(key => {
-      copy[key] = deepClone((obj as any)[key]);
+      copy[key] = deepClone((obj as Record<string, unknown>)[key]);
     });
-    return copy;
+    return copy as T;
   }
   return obj;
 };
 
 // 深度合并对象
-export const deepMerge = <T extends Record<string, any>>(target: T, ...sources: Partial<T>[]): T => {
-  if (!sources.length) return target;
+export const deepMerge = <T extends Record<string, unknown>>(
+  target: T,
+  ...sources: Partial<T>[]
+): T => {
+  if (!sources.length) {
+    return target;
+  }
   const source = sources.shift();
+  if (!source) {
+    return target;
+  }
 
   if (isObject(target) && isObject(source)) {
-    for (const key in source) {
-      if (isObject(source[key])) {
-        if (!target[key]) Object.assign(target, { [key]: {} });
-        deepMerge(target[key] as any, source[key] as any);
+    const sourceRecord = source as Record<string, unknown>;
+    const targetRecord = target as Record<string, unknown>;
+    for (const key in sourceRecord) {
+      const sourceValue = sourceRecord[key];
+      if (isObject(sourceValue)) {
+        if (!targetRecord[key]) {
+          Object.assign(targetRecord, { [key]: {} });
+        }
+        deepMerge(
+          targetRecord[key] as Record<string, unknown>,
+          sourceValue as Record<string, unknown>
+        );
       } else {
-        Object.assign(target, { [key]: source[key] });
+        Object.assign(targetRecord, { [key]: sourceValue });
       }
     }
   }
@@ -56,34 +78,38 @@ export const deepMerge = <T extends Record<string, any>>(target: T, ...sources: 
 };
 
 // 检查是否为对象
-export const isObject = (item: any): boolean => {
-  return item && typeof item === 'object' && !Array.isArray(item);
+export const isObject = (item: unknown): item is Record<string, unknown> => {
+  return Boolean(item) && typeof item === 'object' && !Array.isArray(item);
 };
 
 // 节流函数
-export const throttle = <T extends (...args: any[]) => any>(
+export const throttle = <T extends (...args: unknown[]) => unknown>(
   func: T,
   limit: number
 ): (...args: Parameters<T>) => void => {
-  let inThrottle: boolean;
-  return function(this: any, ...args: Parameters<T>) {
+  let inThrottle = false;
+  return function(this: unknown, ...args: Parameters<T>) {
     if (!inThrottle) {
       func.apply(this, args);
       inThrottle = true;
-      setTimeout(() => inThrottle = false, limit);
+      setTimeout(() => {
+        inThrottle = false;
+      }, limit);
     }
   };
 };
 
 // 防抖函数
-export const debounce = <T extends (...args: any[]) => any>(
+export const debounce = <T extends (...args: unknown[]) => unknown>(
   func: T,
   delay: number
 ): (...args: Parameters<T>) => void => {
   let timeoutId: NodeJS.Timeout;
-  return function(this: any, ...args: Parameters<T>) {
+  return function(this: unknown, ...args: Parameters<T>) {
     clearTimeout(timeoutId);
-    timeoutId = setTimeout(() => func.apply(this, args), delay);
+    timeoutId = setTimeout(() => {
+      func.apply(this, args);
+    }, delay);
   };
 };
 
@@ -98,8 +124,8 @@ export const retry = async <T>(
   maxRetries: number = 3,
   delay: number = 1000
 ): Promise<T> => {
-  let lastError: Error;
-  
+  let lastError: Error | undefined;
+
   for (let i = 0; i <= maxRetries; i++) {
     try {
       return await fn();
@@ -110,8 +136,8 @@ export const retry = async <T>(
       }
     }
   }
-  
-  throw lastError!;
+
+  throw lastError ?? new Error('重试失败');
 };
 
 // 数组去重
@@ -119,8 +145,8 @@ export const uniqueArray = <T>(array: T[], key?: keyof T): T[] => {
   if (!key) {
     return [...new Set(array)];
   }
-  
-  const seen = new Set();
+
+  const seen = new Set<unknown>();
   return array.filter(item => {
     const value = item[key];
     if (seen.has(value)) {
@@ -160,44 +186,68 @@ export const flatten = <T>(array: (T | T[])[]): T[] => {
 };
 
 // 获取嵌套对象属性
-export const getNestedValue = (obj: any, path: string, defaultValue?: any): any => {
-  return path.split('.').reduce((current, key) => {
-    return current && current[key] !== undefined ? current[key] : defaultValue;
-  }, obj);
+export const getNestedValue = (
+  obj: Record<string, unknown> | null | undefined,
+  path: string,
+  defaultValue?: unknown
+): unknown => {
+  return path.split('.').reduce<unknown>((current, key) => {
+    if (current && typeof current === 'object') {
+      const record = current as Record<string, unknown>;
+      if (record[key] !== undefined) {
+        return record[key];
+      }
+    }
+    return defaultValue;
+  }, obj ?? undefined);
 };
 
 // 设置嵌套对象属性
-export const setNestedValue = (obj: any, path: string, value: any): void => {
+export const setNestedValue = (
+  obj: Record<string, unknown>,
+  path: string,
+  value: unknown
+): void => {
   const keys = path.split('.');
-  const target = keys.slice(0, -1).reduce((current, key) => {
+  const target = keys.slice(0, -1).reduce<Record<string, unknown>>((current, key) => {
     if (!current[key] || typeof current[key] !== 'object') {
       current[key] = {};
     }
-    return current[key];
+    return current[key] as Record<string, unknown>;
   }, obj);
-  
+
   target[keys[keys.length - 1]] = value;
 };
 
 // 比较两个值是否深度相等
-export const isEqual = (a: any, b: any): boolean => {
-  if (a === b) return true;
-  
-  if (a == null || b == null) return false;
-  
+export const isEqual = (a: unknown, b: unknown): boolean => {
+  if (a === b) {
+    return true;
+  }
+
+  if (a === null || a === undefined || b === null || b === undefined) {
+    return false;
+  }
+
   if (Array.isArray(a) && Array.isArray(b)) {
-    if (a.length !== b.length) return false;
+    if (a.length !== b.length) {
+      return false;
+    }
     return a.every((item, index) => isEqual(item, b[index]));
   }
-  
+
   if (typeof a === 'object' && typeof b === 'object') {
-    const keysA = Object.keys(a);
-    const keysB = Object.keys(b);
-    
-    if (keysA.length !== keysB.length) return false;
-    
-    return keysA.every(key => isEqual(a[key], b[key]));
+    const recordA = a as Record<string, unknown>;
+    const recordB = b as Record<string, unknown>;
+    const keysA = Object.keys(recordA);
+    const keysB = Object.keys(recordB);
+
+    if (keysA.length !== keysB.length) {
+      return false;
+    }
+
+    return keysA.every(key => isEqual(recordA[key], recordB[key]));
   }
-  
+
   return false;
 };

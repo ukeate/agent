@@ -21,9 +21,9 @@ const SocialEmotionSystemPage: React.FC = () => {
     setError(null)
     try {
       const [statusRes, metricsRes, interactionsRes, alertsRes] = await Promise.all([
-        apiFetch(buildApiUrl('/api/v1/emotion-intelligence/health'),
-        apiFetch(buildApiUrl('/api/v1/emotion-intelligence/metrics'),
-        apiFetch(buildApiUrl('/api/v1/emotion-intelligence/interactions'),
+        apiFetch(buildApiUrl('/api/v1/emotion-intelligence/health')),
+        apiFetch(buildApiUrl('/api/v1/emotion-intelligence/metrics')),
+        apiFetch(buildApiUrl('/api/v1/emotion-intelligence/interactions')),
         apiFetch(buildApiUrl('/api/v1/emotion-intelligence/alerts'))
       ])
       setStatus((await statusRes.json())?.services || [])

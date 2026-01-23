@@ -4,17 +4,17 @@ import { persist } from 'zustand/middleware'
 interface UIState {
   // 侧边栏状态
   sidebarCollapsed: boolean
-  
+
   // 主题配置
   theme: 'light' | 'dark'
-  
+
   // 语言设置
   locale: 'zh-CN' | 'en-US'
-  
+
   // 显示选项
   showReasoningSteps: boolean
   showToolDetails: boolean
-  
+
   // 通知设置
   notifications: {
     sound: boolean
@@ -34,7 +34,7 @@ interface UIState {
 
 export const useUIStore = create<UIState>()(
   persist(
-    (set) => ({
+    set => ({
       // 初始状态
       sidebarCollapsed: false,
       theme: 'light',
@@ -47,23 +47,23 @@ export const useUIStore = create<UIState>()(
       },
 
       // Actions
-      setSidebarCollapsed: (collapsed) => set({ sidebarCollapsed: collapsed }),
+      setSidebarCollapsed: collapsed => set({ sidebarCollapsed: collapsed }),
 
-      setTheme: (theme) => set({ theme }),
+      setTheme: theme => set({ theme }),
 
-      setLocale: (locale) => set({ locale }),
+      setLocale: locale => set({ locale }),
 
-      setShowReasoningSteps: (show) => set({ showReasoningSteps: show }),
+      setShowReasoningSteps: show => set({ showReasoningSteps: show }),
 
-      setShowToolDetails: (show) => set({ showToolDetails: show }),
+      setShowToolDetails: show => set({ showToolDetails: show }),
 
-      updateNotifications: (updates) =>
-        set((state) => ({
-          notifications: { ...state.notifications, ...updates }
+      updateNotifications: updates =>
+        set(state => ({
+          notifications: { ...state.notifications, ...updates },
         })),
 
       toggleSidebar: () =>
-        set((state) => ({ sidebarCollapsed: !state.sidebarCollapsed })),
+        set(state => ({ sidebarCollapsed: !state.sidebarCollapsed })),
 
       resetUI: () =>
         set({

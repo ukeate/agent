@@ -9,7 +9,7 @@ import type {
   MemoryFilters,
   MemoryAnalytics,
   MemoryPattern,
-  MemoryTrend
+  MemoryTrend,
 } from '@/types/memory'
 
 class MemoryService {
@@ -18,9 +18,14 @@ class MemoryService {
   /**
    * 创建新记忆
    */
-  async createMemory(request: MemoryCreateRequest, sessionId?: string): Promise<Memory> {
+  async createMemory(
+    request: MemoryCreateRequest,
+    sessionId?: string
+  ): Promise<Memory> {
     const headers = sessionId ? { 'session-id': sessionId } : {}
-    const response = await apiClient.post<Memory>(this.baseUrl, request, { headers })
+    const response = await apiClient.post<Memory>(this.baseUrl, request, {
+      headers,
+    })
     return response.data
   }
 
@@ -35,8 +40,14 @@ class MemoryService {
   /**
    * 更新记忆
    */
-  async updateMemory(memoryId: string, request: MemoryUpdateRequest): Promise<Memory> {
-    const response = await apiClient.put<Memory>(`${this.baseUrl}/${memoryId}`, request)
+  async updateMemory(
+    memoryId: string,
+    request: MemoryUpdateRequest
+  ): Promise<Memory> {
+    const response = await apiClient.put<Memory>(
+      `${this.baseUrl}/${memoryId}`,
+      request
+    )
     return response.data
   }
 
@@ -58,9 +69,11 @@ class MemoryService {
     const params = {
       query,
       limit,
-      ...filters
+      ...filters,
     }
-    const response = await apiClient.get<Memory[]>(`${this.baseUrl}/search`, { params })
+    const response = await apiClient.get<Memory[]>(`${this.baseUrl}/search`, {
+      params,
+    })
     return response.data
   }
 
@@ -74,7 +87,7 @@ class MemoryService {
   ): Promise<Memory[]> {
     const params = {
       memory_type: memoryType,
-      limit
+      limit,
     }
     const response = await apiClient.get<Memory[]>(
       `${this.baseUrl}/session/${sessionId}`,
@@ -95,9 +108,11 @@ class MemoryService {
     const params = {
       target_memory_id: targetMemoryId,
       weight,
-      association_type: associationType
+      association_type: associationType,
     }
-    await apiClient.post(`${this.baseUrl}/${memoryId}/associate`, null, { params })
+    await apiClient.post(`${this.baseUrl}/${memoryId}/associate`, null, {
+      params,
+    })
   }
 
   /**
@@ -126,10 +141,13 @@ class MemoryService {
   /**
    * 清理旧记忆
    */
-  async cleanupOldMemories(daysOld: number = 30, minImportance: number = 0.3): Promise<void> {
+  async cleanupOldMemories(
+    daysOld: number = 30,
+    minImportance: number = 0.3
+  ): Promise<void> {
     const params = {
       days_old: daysOld,
-      min_importance: minImportance
+      min_importance: minImportance,
     }
     await apiClient.post(`${this.baseUrl}/cleanup`, null, { params })
   }
@@ -143,7 +161,7 @@ class MemoryService {
   ): Promise<MemoryAnalytics> {
     const params = {
       session_id: sessionId,
-      days_back: daysBack
+      days_back: daysBack,
     }
     const response = await apiClient.get<MemoryAnalytics>(
       `${this.baseUrl}/analytics`,
@@ -173,7 +191,7 @@ class MemoryService {
   ): Promise<MemoryTrend> {
     const params = {
       days,
-      session_id: sessionId
+      session_id: sessionId,
     }
     const response = await apiClient.get<MemoryTrend>(
       `${this.baseUrl}/analytics/trends`,
@@ -186,7 +204,9 @@ class MemoryService {
    * 获取图统计
    */
   async getGraphStatistics(): Promise<any> {
-    const response = await apiClient.get(`${this.baseUrl}/analytics/graph/stats`)
+    const response = await apiClient.get(
+      `${this.baseUrl}/analytics/graph/stats`
+    )
     return response.data
   }
 
@@ -214,15 +234,17 @@ class MemoryService {
   /**
    * 导出记忆
    */
-  async exportMemories(sessionId?: string, memoryTypes?: string[]): Promise<any[]> {
+  async exportMemories(
+    sessionId?: string,
+    memoryTypes?: string[]
+  ): Promise<any[]> {
     const params = {
       session_id: sessionId,
-      memory_types: memoryTypes
+      memory_types: memoryTypes,
     }
-    const response = await apiClient.get<any[]>(
-      `${this.baseUrl}/export`,
-      { params }
-    )
+    const response = await apiClient.get<any[]>(`${this.baseUrl}/export`, {
+      params,
+    })
     return response.data
   }
 }

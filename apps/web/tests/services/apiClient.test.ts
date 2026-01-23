@@ -25,10 +25,10 @@ describe('ApiClient Mock Tests', () => {
     expect(result.error).toBe('消息长度不能超过2000个字符')
   })
 
-  it('rejects messages with script tags', () => {
+  it('允许包含 script 标签的内容用于代码分析', () => {
     const result = validateMessage('<script>alert("xss")</script>')
-    expect(result.isValid).toBe(false)
-    expect(result.error).toBe('消息包含不允许的内容')
+    expect(result.isValid).toBe(true)
+    expect(result.error).toBeUndefined()
   })
 
   it('handles streaming responses correctly', async () => {
@@ -37,11 +37,19 @@ describe('ApiClient Mock Tests', () => {
       ok: true,
       body: new ReadableStream({
         start(controller) {
-          controller.enqueue(new TextEncoder().encode('data: {"type":"content","content":"Hello"}\n\n'))
-          controller.enqueue(new TextEncoder().encode('data: {"type":"content","content":" World"}\n\n'))
+          controller.enqueue(
+            new TextEncoder().encode(
+              'data: {"type":"content","content":"Hello"}\n\n'
+            )
+          )
+          controller.enqueue(
+            new TextEncoder().encode(
+              'data: {"type":"content","content":" World"}\n\n'
+            )
+          )
           controller.close()
-        }
-      })
+        },
+      }),
     })
 
     const onMessage = vi.fn()
@@ -58,16 +66,20 @@ describe('ApiClient Mock Tests', () => {
     await mockStreamHandler()
 
     expect(onMessage).toHaveBeenCalledTimes(2)
-    expect(onMessage).toHaveBeenNthCalledWith(1, { type: 'content', content: 'Hello' })
-    expect(onMessage).toHaveBeenNthCalledWith(2, { type: 'content', content: ' World' })
+    expect(onMessage).toHaveBeenNthCalledWith(1, {
+      type: 'content',
+      content: 'Hello',
+    })
+    expect(onMessage).toHaveBeenNthCalledWith(2, {
+      type: 'content',
+      content: ' World',
+    })
     expect(onComplete).toHaveBeenCalledOnce()
     expect(onError).not.toHaveBeenCalled()
   })
 
   it('handles streaming errors', async () => {
-    global.fetch = vi.fn().mockRejectedValueOnce(
-      new Error('Stream error')
-    )
+    global.fetch = vi.fn().mockRejectedValueOnce(new Error('Stream error'))
 
     const onMessage = vi.fn()
     const onError = vi.fn()

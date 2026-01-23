@@ -26,8 +26,8 @@ const ModelMonitoringPage: React.FC = () => {
     setError(null);
     try {
       const [oRes, aRes, mRes] = await Promise.all([
-        apiFetch(buildApiUrl('/api/v1/model-service/monitoring/overview'),
-        apiFetch(buildApiUrl('/api/v1/model-service/monitoring/alerts?active_only=false'),
+        apiFetch(buildApiUrl('/api/v1/model-service/monitoring/overview')),
+        apiFetch(buildApiUrl('/api/v1/model-service/monitoring/alerts?active_only=false')),
         apiFetch(buildApiUrl('/api/v1/model-service/monitoring/dashboard'))
       ]);
       setOverview(await oRes.json());

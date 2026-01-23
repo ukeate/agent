@@ -1,8 +1,24 @@
 import { buildWsUrl } from '../utils/apiBase'
 import React, { useState, useEffect, useRef } from 'react'
-import { Card, Row, Col, Button, Space, Typography, Input, Select, message, Badge, Table, Tag, Alert, Progress, Statistic } from 'antd'
-import { 
+import {
+  Card,
+  Row,
+  Col,
+  Button,
+  Space,
+  Typography,
+  Input,
+  Select,
+  message,
+  Badge,
+  Table,
+  Tag,
+  Alert,
+  Progress,
+  Statistic,
+} from 'antd'
 import { logger } from '../utils/logger'
+import {
   WifiOutlined,
   DisconnectOutlined,
   SendOutlined,
@@ -17,7 +33,7 @@ import { logger } from '../utils/logger'
   SyncOutlined,
   DashboardOutlined,
   LineChartOutlined,
-  ClockCircleOutlined
+  ClockCircleOutlined,
 } from '@ant-design/icons'
 import { Line } from '@ant-design/plots'
 import type { ColumnsType } from 'antd/es/table'
@@ -62,19 +78,23 @@ const PersonalizationWebSocketPage: React.FC = () => {
   const [userId, setUserId] = useState('demo_user_123')
   const [scenario, setScenario] = useState('content_discovery')
   const [nRecommendations, setNRecommendations] = useState(5)
-  const [contextData, setContextData] = useState('{"page": "homepage", "device": "mobile"}')
+  const [contextData, setContextData] = useState(
+    '{"page": "homepage", "device": "mobile"}'
+  )
   const [messages, setMessages] = useState<WebSocketMessage[]>([])
   const [connectionStats, setConnectionStats] = useState<ConnectionStats>({
     connected: false,
     messagesSeent: 0,
     messagesReceived: 0,
-    avgLatency: 0
+    avgLatency: 0,
   })
   const [latencyHistory, setLatencyHistory] = useState<any[]>([])
   const [autoHeartbeat, setAutoHeartbeat] = useState(false)
-  
+
   const wsRef = useRef<WebSocket | null>(null)
-  const heartbeatIntervalRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const heartbeatIntervalRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null
+  )
   const pingTimeRef = useRef<number>(0)
 
   useEffect(() => {
@@ -98,21 +118,21 @@ const PersonalizationWebSocketPage: React.FC = () => {
         setConnectionStats(prev => ({
           ...prev,
           connected: true,
-          connectionTime: new Date().toLocaleTimeString()
+          connectionTime: new Date().toLocaleTimeString(),
         }))
-        
+
         message.success('WebSocket连接成功')
-        
+
         // 发送认证消息
         sendAuthMessage()
-        
+
         // 开始自动心跳
         if (autoHeartbeat) {
           startHeartbeat()
         }
       }
 
-      wsRef.current.onmessage = (event) => {
+      wsRef.current.onmessage = event => {
         try {
           const data = JSON.parse(event.data)
           handleReceivedMessage(data)
@@ -125,14 +145,14 @@ const PersonalizationWebSocketPage: React.FC = () => {
         setIsConnected(false)
         setConnectionStats(prev => ({
           ...prev,
-          connected: false
+          connected: false,
         }))
         stopHeartbeat()
         wsRef.current = null
         message.info('WebSocket连接已关闭')
       }
 
-      wsRef.current.onerror = (error) => {
+      wsRef.current.onerror = error => {
         message.error('WebSocket连接错误')
         logger.error('WebSocket错误:', error)
         if (
@@ -143,7 +163,6 @@ const PersonalizationWebSocketPage: React.FC = () => {
           wsRef.current.close()
         }
       }
-
     } catch (error) {
       message.error('连接失败，无法建立WebSocket')
     }
@@ -159,7 +178,7 @@ const PersonalizationWebSocketPage: React.FC = () => {
 
   const sendAuthMessage = () => {
     const authMessage = {
-      user_id: userId
+      user_id: userId,
     }
     sendMessage(authMessage, 'auth')
   }
@@ -181,51 +200,56 @@ const PersonalizationWebSocketPage: React.FC = () => {
       type: 'sent',
       messageType,
       content,
-      timestamp
+      timestamp,
     }
-    
+
     setMessages(prev => [...prev, newMessage])
     setConnectionStats(prev => ({
       ...prev,
-      messagesSeent: prev.messagesSeent + 1
+      messagesSeent: prev.messagesSeent + 1,
     }))
   }
 
   const handleReceivedMessage = (data: any) => {
     const messageId = Date.now().toString()
     const timestamp = new Date().toLocaleTimeString()
-    
+
     const newMessage: WebSocketMessage = {
       id: messageId,
       type: 'received',
       messageType: data.type,
       content: data,
-      timestamp
+      timestamp,
     }
-    
+
     setMessages(prev => [...prev, newMessage])
     setConnectionStats(prev => ({
       ...prev,
-      messagesReceived: prev.messagesReceived + 1
+      messagesReceived: prev.messagesReceived + 1,
     }))
 
     // 处理pong消息，计算延迟
     if (data.type === 'pong' && pingTimeRef.current > 0) {
       const latency = Date.now() - pingTimeRef.current
       setLatencyHistory(prev => {
-        const newHistory = [...prev, {
-          timestamp: new Date().toLocaleTimeString(),
-          latency
-        }].slice(-20) // 保留最近20个数据点
-        
+        const newHistory = [
+          ...prev,
+          {
+            timestamp: new Date().toLocaleTimeString(),
+            latency,
+          },
+        ].slice(-20) // 保留最近20个数据点
+
         // 更新平均延迟
-        const avgLatency = newHistory.reduce((sum, item) => sum + item.latency, 0) / newHistory.length
+        const avgLatency =
+          newHistory.reduce((sum, item) => sum + item.latency, 0) /
+          newHistory.length
         setConnectionStats(prevStats => ({
           ...prevStats,
           avgLatency: Math.round(avgLatency),
-          lastPingTime: new Date().toLocaleTimeString()
+          lastPingTime: new Date().toLocaleTimeString(),
         }))
-        
+
         return newHistory
       })
       pingTimeRef.current = 0
@@ -239,7 +263,7 @@ const PersonalizationWebSocketPage: React.FC = () => {
         type: 'request',
         context,
         n_recommendations: nRecommendations,
-        scenario
+        scenario,
       }
       sendMessage(requestMessage, 'recommendation')
     } catch (error) {
@@ -253,7 +277,7 @@ const PersonalizationWebSocketPage: React.FC = () => {
       item_id: itemId,
       feedback_type: feedbackType,
       feedback_value: 1.0,
-      context: { source: 'websocket_test' }
+      context: { source: 'websocket_test' },
     }
     sendMessage(feedbackMessage, 'feedback')
   }
@@ -268,7 +292,7 @@ const PersonalizationWebSocketPage: React.FC = () => {
     if (heartbeatIntervalRef.current) {
       clearInterval(heartbeatIntervalRef.current)
     }
-    
+
     heartbeatIntervalRef.current = setInterval(() => {
       if (isConnected) {
         sendPing()
@@ -288,7 +312,7 @@ const PersonalizationWebSocketPage: React.FC = () => {
     setConnectionStats(prev => ({
       ...prev,
       messagesSeent: 0,
-      messagesReceived: 0
+      messagesReceived: 0,
     }))
   }
 
@@ -297,42 +321,44 @@ const PersonalizationWebSocketPage: React.FC = () => {
       title: '时间',
       dataIndex: 'timestamp',
       key: 'timestamp',
-      width: 100
+      width: 100,
     },
     {
       title: '方向',
       dataIndex: 'type',
       key: 'type',
       width: 80,
-      render: (type) => (
+      render: type => (
         <Tag color={type === 'sent' ? 'blue' : 'green'}>
           {type === 'sent' ? '发送' : '接收'}
         </Tag>
-      )
+      ),
     },
     {
       title: '类型',
       dataIndex: 'messageType',
       key: 'messageType',
       width: 120,
-      render: (type) => <Tag>{type}</Tag>
+      render: type => <Tag>{type}</Tag>,
     },
     {
       title: '内容',
       dataIndex: 'content',
       key: 'content',
-      render: (content) => (
-        <pre style={{ 
-          maxWidth: 400, 
-          overflow: 'auto', 
-          fontSize: '12px',
-          margin: 0,
-          whiteSpace: 'pre-wrap'
-        }}>
+      render: content => (
+        <pre
+          style={{
+            maxWidth: 400,
+            overflow: 'auto',
+            fontSize: '12px',
+            margin: 0,
+            whiteSpace: 'pre-wrap',
+          }}
+        >
           {JSON.stringify(content, null, 2)}
         </pre>
-      )
-    }
+      ),
+    },
   ]
 
   // 延迟趋势图配置
@@ -344,9 +370,9 @@ const PersonalizationWebSocketPage: React.FC = () => {
     color: '#1890ff',
     point: { size: 3 },
     yAxis: {
-      title: { text: '延迟 (ms)' }
+      title: { text: '延迟 (ms)' },
     },
-    height: 200
+    height: 200,
   }
 
   return (
@@ -366,7 +392,7 @@ const PersonalizationWebSocketPage: React.FC = () => {
               <Text>用户ID:</Text>
               <Input
                 value={userId}
-                onChange={(e) => setUserId(e.target.value)}
+                onChange={e => setUserId(e.target.value)}
                 disabled={isConnected}
                 placeholder="输入用户ID"
               />
@@ -376,21 +402,21 @@ const PersonalizationWebSocketPage: React.FC = () => {
             <Space direction="vertical" style={{ width: '100%' }}>
               <Text>连接状态:</Text>
               <Space>
-                <Badge 
-                  status={isConnected ? 'success' : 'error'} 
-                  text={isConnected ? '已连接' : '未连接'} 
+                <Badge
+                  status={isConnected ? 'success' : 'error'}
+                  text={isConnected ? '已连接' : '未连接'}
                 />
                 {isConnected ? (
-                  <Button 
-                    danger 
+                  <Button
+                    danger
                     icon={<DisconnectOutlined />}
                     onClick={disconnect}
                   >
                     断开
                   </Button>
                 ) : (
-                  <Button 
-                    type="primary" 
+                  <Button
+                    type="primary"
                     icon={<WifiOutlined />}
                     onClick={connect}
                   >
@@ -474,8 +500,8 @@ const PersonalizationWebSocketPage: React.FC = () => {
               value={connectionStats.avgLatency}
               suffix="ms"
               prefix={<ThunderboltOutlined />}
-              valueStyle={{ 
-                color: connectionStats.avgLatency > 100 ? '#ff4d4f' : '#52c41a' 
+              valueStyle={{
+                color: connectionStats.avgLatency > 100 ? '#ff4d4f' : '#52c41a',
               }}
             />
           </Card>
@@ -536,7 +562,7 @@ const PersonalizationWebSocketPage: React.FC = () => {
               <Text>上下文数据 (JSON):</Text>
               <TextArea
                 value={contextData}
-                onChange={(e) => setContextData(e.target.value)}
+                onChange={e => setContextData(e.target.value)}
                 rows={3}
                 placeholder='{"page": "homepage", "device": "mobile"}'
               />

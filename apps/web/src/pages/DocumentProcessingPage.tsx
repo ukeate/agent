@@ -1,7 +1,7 @@
-import { buildApiUrl, apiFetch } from '../utils/apiBase'
 import React, { useEffect, useState, useCallback } from 'react'
-import {
+import { buildApiUrl, apiFetch } from '../utils/apiBase'
 import { logger } from '../utils/logger'
+import {
   Container,
   Typography,
   Box,
@@ -26,7 +26,7 @@ import { logger } from '../utils/logger'
   DialogActions,
   TextField,
   FormControlLabel,
-  Switch
+  Switch,
 } from '@mui/material'
 import { documentsService } from '../services/documentsService'
 import { message } from 'antd'
@@ -42,7 +42,7 @@ import {
   AccountTree,
   Refresh,
   Close,
-  UploadFile
+  UploadFile,
 } from '@mui/icons-material'
 import { useDropzone } from 'react-dropzone'
 
@@ -81,7 +81,9 @@ const DocumentProcessingPage: React.FC<DocumentProcessingPageProps> = () => {
   const [documents, setDocuments] = useState<DocumentInfo[]>([])
   const [uploading, setUploading] = useState(false)
   const [selectedTab, setSelectedTab] = useState(0)
-  const [selectedDocument, setSelectedDocument] = useState<DocumentInfo | null>(null)
+  const [selectedDocument, setSelectedDocument] = useState<DocumentInfo | null>(
+    null
+  )
   const [dialogOpen, setDialogOpen] = useState(false)
   const [uploadOptions, setUploadOptions] = useState({
     enable_ocr: false,
@@ -91,7 +93,7 @@ const DocumentProcessingPage: React.FC<DocumentProcessingPageProps> = () => {
     auto_chunk: true,
     chunk_size: '512',
     chunk_overlap: '50',
-    auto_summarize: true
+    auto_summarize: true,
   })
 
   const [relationshipsOpen, setRelationshipsOpen] = useState(false)
@@ -112,59 +114,73 @@ const DocumentProcessingPage: React.FC<DocumentProcessingPageProps> = () => {
   useEffect(() => {
     loadDocuments()
   }, [loadDocuments])
-  
+
   // 文件上传处理
-  const onDrop = useCallback(async (acceptedFiles: File[]) => {
-    setUploading(true)
-    
-    try {
-      for (const file of acceptedFiles) {
-        try {
-          const result = await documentsService.uploadDocument(file, {
-            enableOcr: uploadOptions.enable_ocr,
-            extractImages: uploadOptions.extract_images,
-            autoTag: uploadOptions.auto_tag,
-            chunkStrategy: uploadOptions.chunk_strategy as any,
-          })
-          
-          const newDoc: DocumentInfo = {
-            doc_id: result.doc_id,
-            title: result.title || file.name,
-            file_type: result.file_type || result.content_type || file.type || 'unknown',
-            file_size: result.metadata?.file_size || result.metadata?.size_bytes,
-            status: 'completed',
-            created_at: new Date().toISOString(),
-            tags: (result.processing_info?.auto_tags || []).map((t: any) => t.tag),
-            processing_info: result.processing_info,
-            version: result.version
+  const onDrop = useCallback(
+    async (acceptedFiles: File[]) => {
+      setUploading(true)
+
+      try {
+        for (const file of acceptedFiles) {
+          try {
+            const result = await documentsService.uploadDocument(file, {
+              enableOcr: uploadOptions.enable_ocr,
+              extractImages: uploadOptions.extract_images,
+              autoTag: uploadOptions.auto_tag,
+              chunkStrategy: uploadOptions.chunk_strategy as any,
+            })
+
+            const newDoc: DocumentInfo = {
+              doc_id: result.doc_id,
+              title: result.title || file.name,
+              file_type:
+                result.file_type ||
+                result.content_type ||
+                file.type ||
+                'unknown',
+              file_size:
+                result.metadata?.file_size || result.metadata?.size_bytes,
+              status: 'completed',
+              created_at: new Date().toISOString(),
+              tags: (result.processing_info?.auto_tags || []).map(
+                (t: any) => t.tag
+              ),
+              processing_info: result.processing_info,
+              version: result.version,
+            }
+            setDocuments(prev => [...prev, newDoc])
+          } catch (error) {
+            logger.error('上传失败:', error)
           }
-          setDocuments(prev => [...prev, newDoc])
-        } catch (error) {
-          logger.error('上传失败:', error)
         }
+      } catch (error) {
+        logger.error('上传错误:', error)
+      } finally {
+        setUploading(false)
       }
-    } catch (error) {
-      logger.error('上传错误:', error)
-    } finally {
-      setUploading(false)
-    }
-  }, [uploadOptions])
-  
+    },
+    [uploadOptions]
+  )
+
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
     accept: {
       'application/pdf': ['.pdf'],
-      'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx'],
-      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'],
-      'application/vnd.openxmlformats-officedocument.presentationml.presentation': ['.pptx'],
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document':
+        ['.docx'],
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': [
+        '.xlsx',
+      ],
+      'application/vnd.openxmlformats-officedocument.presentationml.presentation':
+        ['.pptx'],
       'text/plain': ['.txt'],
       'text/markdown': ['.md'],
       'text/x-python': ['.py'],
       'application/javascript': ['.js'],
-      'text/x-java': ['.java']
-    }
+      'text/x-java': ['.java'],
+    },
   })
-  
+
   // 查看文档详情
   const handleViewDocument = async (docId: string) => {
     try {
@@ -178,24 +194,30 @@ const DocumentProcessingPage: React.FC<DocumentProcessingPageProps> = () => {
       logger.error('获取文档详情失败:', error)
     }
   }
-  
+
   // 生成标签
   const handleGenerateTags = async (docId: string) => {
     try {
       const current = documents.find(d => d.doc_id === docId)
-      const result = await documentsService.generateDocumentTags(docId, undefined, current?.tags || [])
-      setDocuments(prev => prev.map(doc =>
-        doc.doc_id === docId
-          ? { ...doc, tags: (result.tags || []).map((t: any) => t.tag) }
-          : doc
-      ))
+      const result = await documentsService.generateDocumentTags(
+        docId,
+        undefined,
+        current?.tags || []
+      )
+      setDocuments(prev =>
+        prev.map(doc =>
+          doc.doc_id === docId
+            ? { ...doc, tags: (result.tags || []).map((t: any) => t.tag) }
+            : doc
+        )
+      )
       message.success('标签生成完成')
     } catch (error) {
       logger.error('生成标签失败:', error)
       message.error('标签生成失败')
     }
   }
-  
+
   // 分析关系
   const handleAnalyzeRelationships = async (docId: string) => {
     try {
@@ -207,7 +229,7 @@ const DocumentProcessingPage: React.FC<DocumentProcessingPageProps> = () => {
       message.error('关系分析失败')
     }
   }
-  
+
   // 获取版本历史
   const handleViewVersions = async (docId: string) => {
     try {
@@ -219,7 +241,7 @@ const DocumentProcessingPage: React.FC<DocumentProcessingPageProps> = () => {
       message.error('获取版本历史失败')
     }
   }
-  
+
   // 删除文档
   const handleDeleteDocument = async (docId: string) => {
     try {
@@ -240,15 +262,19 @@ const DocumentProcessingPage: React.FC<DocumentProcessingPageProps> = () => {
     setUploading(true)
     try {
       const result = await documentsService.batchUploadDocuments(files)
-      const newDocs: DocumentInfo[] = (result.results || []).map((doc: any) => ({
-        doc_id: doc.doc_id,
-        title: doc.title || doc.doc_id,
-        file_type: doc.file_type || 'unknown',
-        status: 'completed' as const,
-        created_at: new Date().toISOString(),
-      }))
+      const newDocs: DocumentInfo[] = (result.results || []).map(
+        (doc: any) => ({
+          doc_id: doc.doc_id,
+          title: doc.title || doc.doc_id,
+          file_type: doc.file_type || 'unknown',
+          status: 'completed' as const,
+          created_at: new Date().toISOString(),
+        })
+      )
       setDocuments(prev => [...newDocs, ...prev])
-      message.success(`批量上传完成: ${result.success || newDocs.length} 个文件`)
+      message.success(
+        `批量上传完成: ${result.success || newDocs.length} 个文件`
+      )
     } catch (error) {
       logger.error('批量上传失败:', error)
       message.error('批量上传失败')
@@ -262,20 +288,20 @@ const DocumentProcessingPage: React.FC<DocumentProcessingPageProps> = () => {
       <Typography variant="h4" component="h1" gutterBottom>
         智能文档处理系统
       </Typography>
-      
+
       {/* 文件上传区域 */}
-	      <Paper sx={{ p: 3, mb: 3 }}>
-	        <Box
-	          data-testid="upload-area"
-	          {...getRootProps()}
-	          sx={{
-	            border: '2px dashed #ccc',
-	            borderRadius: 2,
+      <Paper sx={{ p: 3, mb: 3 }}>
+        <Box
+          data-testid="upload-area"
+          {...getRootProps()}
+          sx={{
+            border: '2px dashed #ccc',
+            borderRadius: 2,
             p: 4,
             textAlign: 'center',
             cursor: 'pointer',
             backgroundColor: isDragActive ? '#f5f5f5' : 'transparent',
-            '&:hover': { backgroundColor: '#f9f9f9' }
+            '&:hover': { backgroundColor: '#f9f9f9' },
           }}
         >
           <input {...getInputProps()} />
@@ -296,17 +322,19 @@ const DocumentProcessingPage: React.FC<DocumentProcessingPageProps> = () => {
             </Box>
           )}
         </Box>
-        
+
         {/* 上传选项 */}
         <Box sx={{ mt: 2, display: 'flex', gap: 2, flexWrap: 'wrap' }}>
           <FormControlLabel
             control={
               <Switch
                 checked={uploadOptions.enable_ocr}
-                onChange={(e) => setUploadOptions(prev => ({
-                  ...prev,
-                  enable_ocr: e.target.checked
-                }))}
+                onChange={e =>
+                  setUploadOptions(prev => ({
+                    ...prev,
+                    enable_ocr: e.target.checked,
+                  }))
+                }
               />
             }
             label="启用OCR"
@@ -315,10 +343,12 @@ const DocumentProcessingPage: React.FC<DocumentProcessingPageProps> = () => {
             control={
               <Switch
                 checked={uploadOptions.extract_images}
-                onChange={(e) => setUploadOptions(prev => ({
-                  ...prev,
-                  extract_images: e.target.checked
-                }))}
+                onChange={e =>
+                  setUploadOptions(prev => ({
+                    ...prev,
+                    extract_images: e.target.checked,
+                  }))
+                }
               />
             }
             label="提取图像"
@@ -327,16 +357,18 @@ const DocumentProcessingPage: React.FC<DocumentProcessingPageProps> = () => {
             control={
               <Switch
                 checked={uploadOptions.auto_tag}
-                onChange={(e) => setUploadOptions(prev => ({
-                  ...prev,
-                  auto_tag: e.target.checked
-                }))}
+                onChange={e =>
+                  setUploadOptions(prev => ({
+                    ...prev,
+                    auto_tag: e.target.checked,
+                  }))
+                }
               />
             }
             label="自动标签"
           />
         </Box>
-        
+
         {/* 新增：批量上传按钮 */}
         <Box sx={{ mt: 2, display: 'flex', gap: 2 }}>
           <Button
@@ -347,8 +379,10 @@ const DocumentProcessingPage: React.FC<DocumentProcessingPageProps> = () => {
               input.type = 'file'
               input.multiple = true
               input.accept = '.pdf,.docx,.xlsx,.pptx,.txt,.md,.py,.js,.java'
-              input.onchange = (e) => {
-                const files = Array.from((e.target as HTMLInputElement).files || [])
+              input.onchange = e => {
+                const files = Array.from(
+                  (e.target as HTMLInputElement).files || []
+                )
                 if (files.length > 0) {
                   handleBatchUpload(files)
                 }
@@ -361,7 +395,7 @@ const DocumentProcessingPage: React.FC<DocumentProcessingPageProps> = () => {
           </Button>
         </Box>
       </Paper>
-      
+
       {/* 标签栏 */}
       <Paper sx={{ mb: 3 }}>
         <Tabs
@@ -376,10 +410,10 @@ const DocumentProcessingPage: React.FC<DocumentProcessingPageProps> = () => {
           <Tab label="代码文件" />
         </Tabs>
       </Paper>
-      
+
       {/* 文档列表 */}
       <Grid container spacing={3}>
-        {documents.map((doc) => (
+        {documents.map(doc => (
           <Grid item xs={12} md={6} lg={4} key={doc.doc_id}>
             <Card>
               <CardContent>
@@ -390,7 +424,8 @@ const DocumentProcessingPage: React.FC<DocumentProcessingPageProps> = () => {
                       {doc.title}
                     </Typography>
                     <Typography variant="body2" color="textSecondary">
-                      {doc.file_type.toUpperCase()} • {new Date(doc.created_at).toLocaleDateString()}
+                      {doc.file_type.toUpperCase()} •{' '}
+                      {new Date(doc.created_at).toLocaleDateString()}
                     </Typography>
                   </Box>
                   <Chip
@@ -399,10 +434,10 @@ const DocumentProcessingPage: React.FC<DocumentProcessingPageProps> = () => {
                     size="small"
                   />
                 </Box>
-                
+
                 {doc.tags && (
                   <Box sx={{ mb: 2 }}>
-                    {doc.tags.slice(0, 3).map((tag) => (
+                    {doc.tags.slice(0, 3).map(tag => (
                       <Chip
                         key={tag}
                         label={tag}
@@ -420,14 +455,14 @@ const DocumentProcessingPage: React.FC<DocumentProcessingPageProps> = () => {
                     )}
                   </Box>
                 )}
-                
+
                 {doc.processing_info && (
                   <Typography variant="body2" color="textSecondary">
                     分块数量: {doc.processing_info.total_chunks || 0}
                   </Typography>
                 )}
               </CardContent>
-              
+
               <CardActions>
                 <Button
                   size="small"
@@ -470,7 +505,7 @@ const DocumentProcessingPage: React.FC<DocumentProcessingPageProps> = () => {
           </Grid>
         ))}
       </Grid>
-      
+
       {documents.length === 0 && (
         <Paper sx={{ p: 6, textAlign: 'center', mt: 3 }}>
           <Description sx={{ fontSize: 64, color: '#ccc', mb: 2 }} />
@@ -482,7 +517,7 @@ const DocumentProcessingPage: React.FC<DocumentProcessingPageProps> = () => {
           </Typography>
         </Paper>
       )}
-      
+
       {/* 文档详情对话框 */}
       <Dialog
         open={dialogOpen}
@@ -505,7 +540,7 @@ const DocumentProcessingPage: React.FC<DocumentProcessingPageProps> = () => {
               <Typography variant="h6" gutterBottom>
                 {selectedDocument.title}
               </Typography>
-              
+
               <Grid container spacing={2}>
                 <Grid item xs={6}>
                   <Typography variant="body2" color="textSecondary">
@@ -518,19 +553,19 @@ const DocumentProcessingPage: React.FC<DocumentProcessingPageProps> = () => {
                   </Typography>
                 </Grid>
               </Grid>
-              
+
               {selectedDocument.processing_info && (
                 <Box sx={{ mt: 2 }}>
                   <Typography variant="subtitle1" gutterBottom>
                     处理信息
                   </Typography>
-                  
+
                   {selectedDocument.processing_info.auto_tags && (
                     <Box sx={{ mb: 2 }}>
                       <Typography variant="body2" gutterBottom>
                         自动标签:
                       </Typography>
-                      {selectedDocument.processing_info.auto_tags.map((tag) => (
+                      {selectedDocument.processing_info.auto_tags.map(tag => (
                         <Chip
                           key={tag.tag}
                           label={`${tag.tag} (${(tag.confidence * 100).toFixed(1)}%)`}
@@ -540,25 +575,28 @@ const DocumentProcessingPage: React.FC<DocumentProcessingPageProps> = () => {
                       ))}
                     </Box>
                   )}
-                  
+
                   {selectedDocument.processing_info.chunks && (
                     <Box>
                       <Typography variant="body2" gutterBottom>
-                        内容分块 ({selectedDocument.processing_info.total_chunks}):
+                        内容分块 (
+                        {selectedDocument.processing_info.total_chunks}):
                       </Typography>
                       <List dense>
-                        {selectedDocument.processing_info.chunks.slice(0, 5).map((chunk) => (
-                          <ListItem key={chunk.chunk_id}>
-                            <ListItemText
-                              primary={`分块 ${chunk.index + 1}`}
-                              secondary={chunk.content}
-                              secondaryTypographyProps={{
-                                noWrap: true,
-                                style: { maxWidth: 400 }
-                              }}
-                            />
-                          </ListItem>
-                        ))}
+                        {selectedDocument.processing_info.chunks
+                          .slice(0, 5)
+                          .map(chunk => (
+                            <ListItem key={chunk.chunk_id}>
+                              <ListItemText
+                                primary={`分块 ${chunk.index + 1}`}
+                                secondary={chunk.content}
+                                secondaryTypographyProps={{
+                                  noWrap: true,
+                                  style: { maxWidth: 400 },
+                                }}
+                              />
+                            </ListItem>
+                          ))}
                       </List>
                     </Box>
                   )}
@@ -572,10 +610,18 @@ const DocumentProcessingPage: React.FC<DocumentProcessingPageProps> = () => {
         </DialogActions>
       </Dialog>
 
-      <Dialog open={relationshipsOpen} onClose={() => setRelationshipsOpen(false)} maxWidth="md" fullWidth>
+      <Dialog
+        open={relationshipsOpen}
+        onClose={() => setRelationshipsOpen(false)}
+        maxWidth="md"
+        fullWidth
+      >
         <DialogTitle>
           关系分析结果
-          <IconButton sx={{ position: 'absolute', right: 8, top: 8 }} onClick={() => setRelationshipsOpen(false)}>
+          <IconButton
+            sx={{ position: 'absolute', right: 8, top: 8 }}
+            onClick={() => setRelationshipsOpen(false)}
+          >
             <Close />
           </IconButton>
         </DialogTitle>
@@ -583,7 +629,8 @@ const DocumentProcessingPage: React.FC<DocumentProcessingPageProps> = () => {
           {relationshipsResult ? (
             <Box>
               <Typography variant="body2" color="textSecondary">
-                关系数: {(relationshipsResult.relationships || []).length} • 聚类数: {(relationshipsResult.clusters || []).length}
+                关系数: {(relationshipsResult.relationships || []).length} •
+                聚类数: {(relationshipsResult.clusters || []).length}
               </Typography>
             </Box>
           ) : null}
@@ -593,10 +640,18 @@ const DocumentProcessingPage: React.FC<DocumentProcessingPageProps> = () => {
         </DialogActions>
       </Dialog>
 
-      <Dialog open={versionsOpen} onClose={() => setVersionsOpen(false)} maxWidth="md" fullWidth>
+      <Dialog
+        open={versionsOpen}
+        onClose={() => setVersionsOpen(false)}
+        maxWidth="md"
+        fullWidth
+      >
         <DialogTitle>
           版本历史
-          <IconButton sx={{ position: 'absolute', right: 8, top: 8 }} onClick={() => setVersionsOpen(false)}>
+          <IconButton
+            sx={{ position: 'absolute', right: 8, top: 8 }}
+            onClick={() => setVersionsOpen(false)}
+          >
             <Close />
           </IconButton>
         </DialogTitle>

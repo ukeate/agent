@@ -32,7 +32,7 @@ const DistributedMessageOverviewPage: React.FC = () => {
     setLoading(true)
     try {
       const [sysRes, nodeRes] = await Promise.all([
-        apiFetch(buildApiUrl('/api/v1/streaming/backpressure/status'),
+        apiFetch(buildApiUrl('/api/v1/streaming/backpressure/status')),
         apiFetch(buildApiUrl('/api/v1/service-discovery/agents'))
       ])
 

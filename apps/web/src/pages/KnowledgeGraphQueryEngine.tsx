@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
-import {
 import { logger } from '../utils/logger'
+import {
   Card,
   Input,
   Button,
@@ -19,7 +19,7 @@ import { logger } from '../utils/logger'
   Select,
   message,
   Spin,
-  Empty
+  Empty,
 } from 'antd'
 import {
   PlayCircleOutlined,
@@ -33,9 +33,13 @@ import {
   FileTextOutlined,
   CopyOutlined,
   DeleteOutlined,
-  ExportOutlined
+  ExportOutlined,
 } from '@ant-design/icons'
-import { knowledgeGraphService, type QueryResult, type QueryTemplate } from '../services/knowledgeGraphService'
+import {
+  knowledgeGraphService,
+  type QueryResult,
+  type QueryTemplate,
+} from '../services/knowledgeGraphService'
 
 const { Title, Text, Paragraph } = Typography
 const { TextArea } = Input
@@ -63,42 +67,44 @@ const KnowledgeGraphQueryEngine: React.FC = () => {
   const [qualityReport, setQualityReport] = useState<any>(null)
   const [slowQueries, setSlowQueries] = useState<any[]>([])
   const [graphStats, setGraphStats] = useState<any>(null)
-  
+
   // 新增状态：推理功能
   const [reasoningQuery, setReasoningQuery] = useState('')
   const [reasoningResult, setReasoningResult] = useState<any>(null)
   const [reasoningStrategy, setReasoningStrategy] = useState('default')
   const [strategyPerformance, setStrategyPerformance] = useState<any[]>([])
-  
+
   // GraphRAG功能状态
   const [graphragQuestion, setGraphragQuestion] = useState('')
   const [graphragResult, setGraphragResult] = useState<any>(null)
   const [graphragType, setGraphragType] = useState('causal')
-  
+
   const [langGraphDemo, setLangGraphDemo] = useState<any>(null)
-  const [demoType, setDemoType] = useState<'context-api' | 'durability' | 'caching' | 'hooks'>('context-api')
-  
+  const [demoType, setDemoType] = useState<
+    'context-api' | 'durability' | 'caching' | 'hooks'
+  >('context-api')
+
   // RAG集成状态
   const [ragQuestion, setRagQuestion] = useState('')
   const [ragResult, setRagResult] = useState<any>(null)
-  
+
   // 实体管理状态
   const [newEntity, setNewEntity] = useState({
     canonical_form: '',
     entity_type: '',
-    confidence: 0.9
+    confidence: 0.9,
   })
   const [entitySearchTerm, setEntitySearchTerm] = useState('')
   const [searchedEntities, setSearchedEntities] = useState<any[]>([])
   const [batchEntitiesJson, setBatchEntitiesJson] = useState('')
-  
-  // 关系管理状态  
+
+  // 关系管理状态
   const [newRelation, setNewRelation] = useState({
     source_entity_id: '',
     target_entity_id: '',
     relation_type: '',
     context: '',
-    source_sentence: ''
+    source_sentence: '',
   })
 
   // 加载查询模板
@@ -173,7 +179,7 @@ const KnowledgeGraphQueryEngine: React.FC = () => {
         query: reasoningQuery,
         reasoning_strategy: reasoningStrategy,
         max_depth: 3,
-        confidence_threshold: 0.7
+        confidence_threshold: 0.7,
       })
       setReasoningResult(result)
       message.success('推理查询执行成功')
@@ -198,7 +204,7 @@ const KnowledgeGraphQueryEngine: React.FC = () => {
       const result = await knowledgeGraphService.graphragReasoningQuery({
         question: graphragQuestion,
         reasoning_type: graphragType as any,
-        evidence_threshold: 0.8
+        evidence_threshold: 0.8,
       })
       setGraphragResult(result)
       message.success('GraphRAG查询执行成功')
@@ -217,7 +223,7 @@ const KnowledgeGraphQueryEngine: React.FC = () => {
     try {
       const result = await knowledgeGraphService.demoContextApi({
         demo_type: demoType,
-        parameters: { example_input: 'demo_data' }
+        parameters: { example_input: 'demo_data' },
       })
       setLangGraphDemo(result)
       message.success('LangGraph演示执行成功')
@@ -243,7 +249,7 @@ const KnowledgeGraphQueryEngine: React.FC = () => {
         question: ragQuestion,
         document_collection: 'default',
         hybrid_search: true,
-        rerank_results: true
+        rerank_results: true,
       })
       setRagResult(result)
       message.success('RAG查询执行成功')
@@ -293,9 +299,16 @@ const KnowledgeGraphQueryEngine: React.FC = () => {
           <Card>
             <Statistic
               title="平均执行时间"
-              value={queryHistory.length > 0 
-                ? Math.round(queryHistory.reduce((sum, h) => sum + h.execution_time, 0) / queryHistory.length)
-                : 0}
+              value={
+                queryHistory.length > 0
+                  ? Math.round(
+                      queryHistory.reduce(
+                        (sum, h) => sum + h.execution_time,
+                        0
+                      ) / queryHistory.length
+                    )
+                  : 0
+              }
               suffix="ms"
               valueStyle={{ color: '#1890ff' }}
               prefix={<ClockCircleOutlined />}
@@ -324,7 +337,7 @@ const KnowledgeGraphQueryEngine: React.FC = () => {
                     <Input.TextArea
                       placeholder="输入推理查询，例如：张三在哪家公司工作？"
                       value={reasoningQuery}
-                      onChange={(e) => setReasoningQuery(e.target.value)}
+                      onChange={e => setReasoningQuery(e.target.value)}
                       name="kg-reasoning-query"
                       rows={3}
                     />
@@ -338,13 +351,15 @@ const KnowledgeGraphQueryEngine: React.FC = () => {
                       style={{ width: '100%' }}
                     >
                       <Select.Option value="default">默认推理</Select.Option>
-                      <Select.Option value="deep_reasoning">深度推理</Select.Option>
+                      <Select.Option value="deep_reasoning">
+                        深度推理
+                      </Select.Option>
                       <Select.Option value="causal">因果推理</Select.Option>
                       <Select.Option value="temporal">时序推理</Select.Option>
                     </Select>
                   </div>
-                  <Button 
-                    type="primary" 
+                  <Button
+                    type="primary"
                     onClick={executeReasoningQuery}
                     loading={loading}
                     disabled={!reasoningQuery.trim()}
@@ -352,7 +367,7 @@ const KnowledgeGraphQueryEngine: React.FC = () => {
                     执行推理查询
                   </Button>
                 </Space>
-                
+
                 {reasoningResult && (
                   <Card title="推理结果" style={{ marginTop: '16px' }}>
                     <div style={{ marginBottom: '16px' }}>
@@ -361,44 +376,64 @@ const KnowledgeGraphQueryEngine: React.FC = () => {
                     </div>
                     <div style={{ marginBottom: '16px' }}>
                       <Text strong>总体置信度: </Text>
-                      <Progress 
-                        percent={Math.round(reasoningResult.total_confidence * 100)} 
-                        status={reasoningResult.total_confidence > 0.8 ? 'success' : 'normal'}
+                      <Progress
+                        percent={Math.round(
+                          reasoningResult.total_confidence * 100
+                        )}
+                        status={
+                          reasoningResult.total_confidence > 0.8
+                            ? 'success'
+                            : 'normal'
+                        }
                       />
                     </div>
                     <div>
                       <Text strong>推理过程:</Text>
                       <div style={{ marginTop: '8px' }}>
-                        {reasoningResult.reasoning_trace?.map((step: any, index: number) => (
-                          <Card key={index} size="small" style={{ marginBottom: '8px' }}>
-                            <Row justify="space-between">
-                              <Col span={18}>
-                                <Text strong>步骤{step.step}: {step.operation}</Text>
-                                <br />
-                                <Text type="secondary">{step.explanation}</Text>
-                              </Col>
-                              <Col span={6}>
-                                <Progress 
-                                  type="circle" 
-                                  percent={Math.round(step.confidence * 100)} 
-                                  width={60}
-                                />
-                              </Col>
-                            </Row>
-                          </Card>
-                        ))}
+                        {reasoningResult.reasoning_trace?.map(
+                          (step: any, index: number) => (
+                            <Card
+                              key={index}
+                              size="small"
+                              style={{ marginBottom: '8px' }}
+                            >
+                              <Row justify="space-between">
+                                <Col span={18}>
+                                  <Text strong>
+                                    步骤{step.step}: {step.operation}
+                                  </Text>
+                                  <br />
+                                  <Text type="secondary">
+                                    {step.explanation}
+                                  </Text>
+                                </Col>
+                                <Col span={6}>
+                                  <Progress
+                                    type="circle"
+                                    percent={Math.round(step.confidence * 100)}
+                                    width={60}
+                                  />
+                                </Col>
+                              </Row>
+                            </Card>
+                          )
+                        )}
                       </div>
                     </div>
                   </Card>
                 )}
               </Col>
-              
+
               <Col span={8}>
                 <Card title="推理策略性能">
                   {strategyPerformance.length > 0 ? (
                     <div>
                       {strategyPerformance.map((strategy, index) => (
-                        <Card key={index} size="small" style={{ marginBottom: '12px' }}>
+                        <Card
+                          key={index}
+                          size="small"
+                          style={{ marginBottom: '12px' }}
+                        >
                           <div style={{ marginBottom: '8px' }}>
                             <Text strong>{strategy.strategy_name}</Text>
                           </div>
@@ -414,7 +449,9 @@ const KnowledgeGraphQueryEngine: React.FC = () => {
                             <Col span={12}>
                               <Statistic
                                 title="准确率"
-                                value={Math.round(strategy.accuracy_score * 100)}
+                                value={Math.round(
+                                  strategy.accuracy_score * 100
+                                )}
                                 suffix="%"
                                 valueStyle={{ fontSize: '14px' }}
                               />
@@ -442,7 +479,7 @@ const KnowledgeGraphQueryEngine: React.FC = () => {
                     <Input.TextArea
                       placeholder="输入问题，GraphRAG将结合知识图谱和文档进行回答"
                       value={graphragQuestion}
-                      onChange={(e) => setGraphragQuestion(e.target.value)}
+                      onChange={e => setGraphragQuestion(e.target.value)}
                       name="kg-graphrag-question"
                       rows={3}
                     />
@@ -456,13 +493,17 @@ const KnowledgeGraphQueryEngine: React.FC = () => {
                       style={{ width: '100%' }}
                     >
                       <Select.Option value="causal">因果推理</Select.Option>
-                      <Select.Option value="comparative">对比分析</Select.Option>
+                      <Select.Option value="comparative">
+                        对比分析
+                      </Select.Option>
                       <Select.Option value="temporal">时序分析</Select.Option>
-                      <Select.Option value="compositional">组合推理</Select.Option>
+                      <Select.Option value="compositional">
+                        组合推理
+                      </Select.Option>
                     </Select>
                   </div>
-                  <Button 
-                    type="primary" 
+                  <Button
+                    type="primary"
                     onClick={executeGraphRAGQuery}
                     loading={loading}
                     disabled={!graphragQuestion.trim()}
@@ -470,7 +511,7 @@ const KnowledgeGraphQueryEngine: React.FC = () => {
                     执行GraphRAG查询
                   </Button>
                 </Space>
-                
+
                 {graphragResult && (
                   <Card title="GraphRAG结果" style={{ marginTop: '16px' }}>
                     <div style={{ marginBottom: '16px' }}>
@@ -485,7 +526,7 @@ const KnowledgeGraphQueryEngine: React.FC = () => {
                 )}
               </Card>
             </Col>
-              
+
             <Col span={10}>
               <Card title="RAG集成查询" style={{ marginBottom: '16px' }}>
                 <Space direction="vertical" style={{ width: '100%' }}>
@@ -494,13 +535,13 @@ const KnowledgeGraphQueryEngine: React.FC = () => {
                     <Input.TextArea
                       placeholder="结合文档检索和知识图谱的混合查询"
                       value={ragQuestion}
-                      onChange={(e) => setRagQuestion(e.target.value)}
+                      onChange={e => setRagQuestion(e.target.value)}
                       name="kg-rag-question"
                       rows={2}
                     />
                   </div>
-                  <Button 
-                    type="primary" 
+                  <Button
+                    type="primary"
                     onClick={executeRAGQuery}
                     loading={loading}
                     disabled={!ragQuestion.trim()}
@@ -508,7 +549,7 @@ const KnowledgeGraphQueryEngine: React.FC = () => {
                     执行RAG查询
                   </Button>
                 </Space>
-                
+
                 {ragResult && (
                   <div style={{ marginTop: '16px' }}>
                     <div style={{ marginBottom: '12px' }}>
@@ -518,7 +559,7 @@ const KnowledgeGraphQueryEngine: React.FC = () => {
                   </div>
                 )}
               </Card>
-              
+
               <Card title="LangGraph演示">
                 <Space direction="vertical" style={{ width: '100%' }}>
                   <div>
@@ -529,14 +570,16 @@ const KnowledgeGraphQueryEngine: React.FC = () => {
                       name="kg-langgraph-demo"
                       style={{ width: '100%' }}
                     >
-                      <Select.Option value="context-api">上下文API</Select.Option>
+                      <Select.Option value="context-api">
+                        上下文API
+                      </Select.Option>
                       <Select.Option value="durability">持久化</Select.Option>
                       <Select.Option value="caching">缓存机制</Select.Option>
                       <Select.Option value="hooks">钩子函数</Select.Option>
                     </Select>
                   </div>
-                  <Button 
-                    type="primary" 
+                  <Button
+                    type="primary"
                     onClick={executeLangGraphDemo}
                     loading={loading}
                     block
@@ -544,17 +587,27 @@ const KnowledgeGraphQueryEngine: React.FC = () => {
                     执行演示
                   </Button>
                 </Space>
-                
+
                 {langGraphDemo && (
                   <div style={{ marginTop: '16px' }}>
                     <div style={{ marginBottom: '8px' }}>
                       <Text strong>演示结果:</Text>
-                      <div style={{ background: '#f5f5f5', padding: '8px', borderRadius: '4px', marginTop: '4px' }}>
-                        <Text code>{JSON.stringify(langGraphDemo.result, null, 2)}</Text>
+                      <div
+                        style={{
+                          background: '#f5f5f5',
+                          padding: '8px',
+                          borderRadius: '4px',
+                          marginTop: '4px',
+                        }}
+                      >
+                        <Text code>
+                          {JSON.stringify(langGraphDemo.result, null, 2)}
+                        </Text>
                       </div>
                     </div>
                     <div style={{ marginBottom: '8px' }}>
-                      <Text strong>执行时间:</Text> {langGraphDemo.execution_time}ms
+                      <Text strong>执行时间:</Text>{' '}
+                      {langGraphDemo.execution_time}ms
                     </div>
                   </div>
                 )}
@@ -571,12 +624,12 @@ const KnowledgeGraphQueryEngine: React.FC = () => {
             showIcon
             style={{ marginBottom: '16px' }}
           />
-          
+
           <Card title="Cypher查询编辑器">
             <Space direction="vertical" style={{ width: '100%' }}>
               <TextArea
                 value={query}
-                onChange={(e) => setQuery(e.target.value)}
+                onChange={e => setQuery(e.target.value)}
                 placeholder="输入Cypher查询语句..."
                 name="kg-cypher-query"
                 rows={8}
@@ -585,8 +638,8 @@ const KnowledgeGraphQueryEngine: React.FC = () => {
               <Row justify="space-between">
                 <Col>
                   <Space>
-                    <Button 
-                      type="primary" 
+                    <Button
+                      type="primary"
                       icon={<PlayCircleOutlined />}
                       loading={loading}
                     >

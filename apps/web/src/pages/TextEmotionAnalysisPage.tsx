@@ -28,7 +28,7 @@ import {
   Tooltip,
   message,
   Spin,
-  Empty
+  Empty,
 } from 'antd'
 import {
   FileTextOutlined,
@@ -51,7 +51,7 @@ import {
   GlobalOutlined,
   TranslationOutlined,
   HistoryOutlined,
-  RobotOutlined
+  RobotOutlined,
 } from '@ant-design/icons'
 import { Line, Column, Radar } from '@ant-design/plots'
 
@@ -71,7 +71,7 @@ const TextEmotionAnalysisPage: React.FC = () => {
     confidenceThreshold: 0.5,
     maxLength: 512,
     temperature: 1.0,
-    detailLevel: 'high'
+    detailLevel: 'high',
   })
 
   // 情感图标映射
@@ -85,7 +85,7 @@ const TextEmotionAnalysisPage: React.FC = () => {
     joy: <HeartOutlined style={{ color: '#eb2f96' }} />,
     disgust: <FrownOutlined style={{ color: '#13c2c2' }} />,
     trust: <CheckCircleOutlined style={{ color: '#52c41a' }} />,
-    anticipation: <ClockCircleOutlined style={{ color: '#fa8c16' }} />
+    anticipation: <ClockCircleOutlined style={{ color: '#fa8c16' }} />,
   }
 
   // 情感颜色映射
@@ -99,16 +99,16 @@ const TextEmotionAnalysisPage: React.FC = () => {
     joy: 'magenta',
     disgust: 'cyan',
     trust: 'lime',
-    anticipation: 'gold'
+    anticipation: 'gold',
   }
 
   // 示例文本
   const sampleTexts = [
     "I'm absolutely thrilled about the new project! Can't wait to get started.",
-    "这个产品真的让我很失望，完全没有达到预期的效果。",
-    "The weather is nice today, I might go for a walk in the park.",
-    "¡Estoy muy emocionado por las vacaciones! Será increíble.",
-    "Je suis vraiment heureux de vous voir aujourd'hui!"
+    '这个产品真的让我很失望，完全没有达到预期的效果。',
+    'The weather is nice today, I might go for a walk in the park.',
+    '¡Estoy muy emocionado por las vacaciones! Será increíble.',
+    "Je suis vraiment heureux de vous voir aujourd'hui!",
   ]
 
   // 分析文本
@@ -120,16 +120,19 @@ const TextEmotionAnalysisPage: React.FC = () => {
 
     setAnalyzing(true)
     try {
-      const res = await apiFetch(buildApiUrl('/api/v1/emotion-recognition/analyze/text'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          text: inputText,
-          language: settings.language,
-          analyze_intensity: true,
-          include_details: true
-        })
-      })
+      const res = await apiFetch(
+        buildApiUrl('/api/v1/emotion-recognition/analyze/text'),
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            text: inputText,
+            language: settings.language,
+            analyze_intensity: true,
+            include_details: true,
+          }),
+        }
+      )
       const data = await res.json()
       setAnalysisResult(data)
       setHistory([data, ...history.slice(0, 9)])
@@ -143,64 +146,68 @@ const TextEmotionAnalysisPage: React.FC = () => {
   }, [inputText, history, settings.language])
 
   // VAD模型雷达图配置
-  const vadRadarConfig = analysisResult ? {
-    data: [
-      { name: '效价(Valence)', value: analysisResult.valence * 100 },
-      { name: '唤醒度(Arousal)', value: analysisResult.arousal * 100 },
-      { name: '支配性(Dominance)', value: analysisResult.dominance * 100 }
-    ],
-    xField: 'name',
-    yField: 'value',
-    meta: {
-      value: {
-        alias: '强度',
-        min: 0,
-        max: 100
+  const vadRadarConfig = analysisResult
+    ? {
+        data: [
+          { name: '效价(Valence)', value: analysisResult.valence * 100 },
+          { name: '唤醒度(Arousal)', value: analysisResult.arousal * 100 },
+          { name: '支配性(Dominance)', value: analysisResult.dominance * 100 },
+        ],
+        xField: 'name',
+        yField: 'value',
+        meta: {
+          value: {
+            alias: '强度',
+            min: 0,
+            max: 100,
+          },
+        },
+        xAxis: {
+          line: null,
+          tickLine: null,
+        },
+        yAxis: {
+          line: null,
+          tickLine: null,
+          grid: {
+            line: {
+              type: 'line',
+            },
+          },
+        },
+        point: {
+          size: 4,
+        },
+        area: {},
       }
-    },
-    xAxis: {
-      line: null,
-      tickLine: null
-    },
-    yAxis: {
-      line: null,
-      tickLine: null,
-      grid: {
-        line: {
-          type: 'line'
-        }
-      }
-    },
-    point: {
-      size: 4
-    },
-    area: {}
-  } : null
+    : null
 
   // 情感分布柱状图配置
-  const emotionBarConfig = analysisResult ? {
-    data: analysisResult.emotions,
-    xField: 'label',
-    yField: 'score',
-    label: {
-      position: 'middle',
-      style: {
-        fill: '#FFFFFF',
-        opacity: 0.6
+  const emotionBarConfig = analysisResult
+    ? {
+        data: analysisResult.emotions,
+        xField: 'label',
+        yField: 'score',
+        label: {
+          position: 'middle',
+          style: {
+            fill: '#FFFFFF',
+            opacity: 0.6,
+          },
+        },
+        xAxis: {
+          label: {
+            autoHide: true,
+            autoRotate: false,
+          },
+        },
+        meta: {
+          score: {
+            alias: '置信度',
+          },
+        },
       }
-    },
-    xAxis: {
-      label: {
-        autoHide: true,
-        autoRotate: false
-      }
-    },
-    meta: {
-      score: {
-        alias: '置信度'
-      }
-    }
-  } : null
+    : null
 
   return (
     <div style={{ padding: '24px' }}>
@@ -221,15 +228,15 @@ const TextEmotionAnalysisPage: React.FC = () => {
         {/* 左侧输入区 */}
         <Col xs={24} lg={12}>
           {/* 输入卡片 */}
-          <Card 
-            title="文本输入" 
+          <Card
+            title="文本输入"
             extra={
               <Space>
-                <Select 
+                <Select
                   name="emotionLanguage"
-                  value={settings.language} 
+                  value={settings.language}
                   style={{ width: 100 }}
-                  onChange={v => setSettings({...settings, language: v})}
+                  onChange={v => setSettings({ ...settings, language: v })}
                 >
                   <Option value="en">English</Option>
                   <Option value="zh">中文</Option>
@@ -237,8 +244,8 @@ const TextEmotionAnalysisPage: React.FC = () => {
                   <Option value="fr">Français</Option>
                   <Option value="auto">自动检测</Option>
                 </Select>
-                <Button 
-                  icon={<ClearOutlined />} 
+                <Button
+                  icon={<ClearOutlined />}
                   onClick={() => {
                     setInputText('')
                     setAnalysisResult(null)
@@ -258,13 +265,13 @@ const TextEmotionAnalysisPage: React.FC = () => {
               maxLength={settings.maxLength}
               showCount
             />
-            
+
             {/* 示例文本 */}
             <div style={{ marginTop: 16 }}>
               <Text type="secondary">快速示例：</Text>
               <Space wrap style={{ marginTop: 8 }}>
                 {sampleTexts.map((text, index) => (
-                  <Tag 
+                  <Tag
                     key={index}
                     color="blue"
                     style={{ cursor: 'pointer' }}
@@ -294,13 +301,15 @@ const TextEmotionAnalysisPage: React.FC = () => {
             <Space direction="vertical" style={{ width: '100%' }}>
               <div>
                 <Text>模型选择：</Text>
-                <Select 
+                <Select
                   name="emotionModel"
-                  value={settings.model} 
+                  value={settings.model}
                   style={{ width: '100%', marginTop: 8 }}
-                  onChange={v => setSettings({...settings, model: v})}
+                  onChange={v => setSettings({ ...settings, model: v })}
                 >
-                  <Option value="distilroberta-base">DistilRoBERTa (推荐)</Option>
+                  <Option value="distilroberta-base">
+                    DistilRoBERTa (推荐)
+                  </Option>
                   <Option value="bert-base">BERT Base</Option>
                   <Option value="xlm-roberta">XLM-RoBERTa (多语言)</Option>
                   <Option value="albert-base">ALBERT Base (轻量)</Option>
@@ -314,16 +323,22 @@ const TextEmotionAnalysisPage: React.FC = () => {
                   max={1}
                   step={0.1}
                   value={settings.confidenceThreshold}
-                  onChange={v => setSettings({...settings, confidenceThreshold: v})}
+                  onChange={v =>
+                    setSettings({ ...settings, confidenceThreshold: v })
+                  }
                 />
               </div>
 
               <div>
-                <Space style={{ width: '100%', justifyContent: 'space-between' }}>
+                <Space
+                  style={{ width: '100%', justifyContent: 'space-between' }}
+                >
                   <Text>包含上下文分析</Text>
-                  <Switch 
+                  <Switch
                     checked={settings.includeContext}
-                    onChange={v => setSettings({...settings, includeContext: v})}
+                    onChange={v =>
+                      setSettings({ ...settings, includeContext: v })
+                    }
                   />
                 </Space>
               </div>
@@ -335,7 +350,7 @@ const TextEmotionAnalysisPage: React.FC = () => {
                   max={2}
                   step={0.1}
                   value={settings.temperature}
-                  onChange={v => setSettings({...settings, temperature: v})}
+                  onChange={v => setSettings({ ...settings, temperature: v })}
                 />
               </div>
             </Space>
@@ -358,7 +373,9 @@ const TextEmotionAnalysisPage: React.FC = () => {
                       title="主要情感"
                       value={analysisResult.primaryEmotion}
                       prefix={emotionIcons[analysisResult.primaryEmotion]}
-                      valueStyle={{ color: emotionColors[analysisResult.primaryEmotion] }}
+                      valueStyle={{
+                        color: emotionColors[analysisResult.primaryEmotion],
+                      }}
                     />
                   </Col>
                   <Col span={8}>
@@ -407,16 +424,24 @@ const TextEmotionAnalysisPage: React.FC = () => {
                   <Text strong>文本特征：</Text>
                   <Row gutter={16} style={{ marginTop: 8 }}>
                     <Col span={12}>
-                      <Text type="secondary">词数：{analysisResult.features.wordCount}</Text>
+                      <Text type="secondary">
+                        词数：{analysisResult.features.wordCount}
+                      </Text>
                     </Col>
                     <Col span={12}>
-                      <Text type="secondary">句数：{analysisResult.features.sentenceCount}</Text>
+                      <Text type="secondary">
+                        句数：{analysisResult.features.sentenceCount}
+                      </Text>
                     </Col>
                     <Col span={12}>
-                      <Text type="secondary">感叹号：{analysisResult.features.exclamationCount}</Text>
+                      <Text type="secondary">
+                        感叹号：{analysisResult.features.exclamationCount}
+                      </Text>
                     </Col>
                     <Col span={12}>
-                      <Text type="secondary">问号：{analysisResult.features.questionCount}</Text>
+                      <Text type="secondary">
+                        问号：{analysisResult.features.questionCount}
+                      </Text>
                     </Col>
                   </Row>
                 </div>
@@ -431,9 +456,7 @@ const TextEmotionAnalysisPage: React.FC = () => {
                   <Tag icon={<GlobalOutlined />}>
                     {analysisResult.language.toUpperCase()}
                   </Tag>
-                  <Tag icon={<RobotOutlined />}>
-                    {settings.model}
-                  </Tag>
+                  <Tag icon={<RobotOutlined />}>{settings.model}</Tag>
                 </Space>
               </Card>
 
@@ -453,7 +476,10 @@ const TextEmotionAnalysisPage: React.FC = () => {
                 description="暂无分析结果"
                 image={Empty.PRESENTED_IMAGE_SIMPLE}
               >
-                <Button type="primary" onClick={() => setInputText(sampleTexts[0])}>
+                <Button
+                  type="primary"
+                  onClick={() => setInputText(sampleTexts[0])}
+                >
                   试试示例文本
                 </Button>
               </Empty>
@@ -462,13 +488,13 @@ const TextEmotionAnalysisPage: React.FC = () => {
 
           {/* 历史记录 */}
           {history.length > 0 && (
-            <Card 
+            <Card
               title={
                 <Space>
                   <HistoryOutlined />
                   历史记录
                 </Space>
-              } 
+              }
               style={{ marginTop: 24 }}
             >
               <Timeline>

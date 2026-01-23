@@ -1,21 +1,26 @@
 import React, { useState } from 'react'
 import { Steps, Button, Typography, Space } from 'antd'
-import { 
-  BulbOutlined, 
-  PlayCircleOutlined, 
+import {
+  BulbOutlined,
+  PlayCircleOutlined,
   EyeOutlined,
   EyeInvisibleOutlined,
-  ThunderboltOutlined 
+  ThunderboltOutlined,
 } from '@ant-design/icons'
 import { ReasoningStep } from '@/types'
+import { renderHighlightedText } from '@/utils/highlightText'
 
 const { Text } = Typography
 
 interface ReasoningStepsProps {
   steps: ReasoningStep[]
+  highlightQuery?: string
 }
 
-const ReasoningSteps: React.FC<ReasoningStepsProps> = ({ steps }) => {
+const ReasoningSteps: React.FC<ReasoningStepsProps> = ({
+  steps,
+  highlightQuery,
+}) => {
   const [showSteps, setShowSteps] = useState(false)
 
   if (!steps || steps.length === 0) {
@@ -50,7 +55,9 @@ const ReasoningSteps: React.FC<ReasoningStepsProps> = ({ steps }) => {
 
   const stepItems = steps.map((step, index) => ({
     title: `${getStepTitle(step.type)} ${index + 1}`,
-    description: step.content,
+    description: highlightQuery
+      ? renderHighlightedText(step.content, highlightQuery)
+      : step.content,
     icon: getStepIcon(step.type),
     status: 'finish' as const,
   }))

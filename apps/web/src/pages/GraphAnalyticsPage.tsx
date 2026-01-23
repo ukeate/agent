@@ -12,9 +12,7 @@ const GraphAnalyticsPage: React.FC = () => {
           <BarChartOutlined style={{ marginRight: 8 }} />
           图谱分析统计
         </Title>
-        <Paragraph type="secondary">
-          知识图谱的统计分析和可视化展示
-        </Paragraph>
+        <Paragraph type="secondary">知识图谱的统计分析和可视化展示</Paragraph>
       </div>
 
       <Row gutter={[16, 16]}>

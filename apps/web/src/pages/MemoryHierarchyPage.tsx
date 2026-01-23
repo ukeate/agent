@@ -3,11 +3,25 @@
  * 展示工作记忆、情景记忆、语义记忆的三层架构
  */
 import React, { useState, useEffect } from 'react'
-import { Card, Row, Col, Progress, Tag, List, Button, Tooltip, Badge, Statistic, Space, message, Input } from 'antd'
-import { 
+import {
+  Card,
+  Row,
+  Col,
+  Progress,
+  Tag,
+  List,
+  Button,
+  Tooltip,
+  Badge,
+  Statistic,
+  Space,
+  message,
+  Input,
+} from 'antd'
 import { logger } from '../utils/logger'
-  DatabaseOutlined, 
-  ClockCircleOutlined, 
+import {
+  DatabaseOutlined,
+  ClockCircleOutlined,
   BookOutlined,
   ThunderboltOutlined,
   RiseOutlined,
@@ -15,7 +29,7 @@ import { logger } from '../utils/logger'
   DeleteOutlined,
   SyncOutlined,
   SearchOutlined,
-  DownloadOutlined
+  DownloadOutlined,
 } from '@ant-design/icons'
 import { memoryService } from '@/services/memoryService'
 import { Memory, MemoryType, MemoryAnalytics } from '@/types/memory'
@@ -41,14 +55,14 @@ const MemoryHierarchyPage: React.FC = () => {
     try {
       // 获取当前会话ID（示例）
       const sessionId = localStorage.getItem('current_session_id') || 'default'
-      
+
       // 加载各层级记忆
       const [working, episodic, semantic] = await Promise.all([
         memoryService.getSessionMemories(sessionId, MemoryType.WORKING, 20),
         memoryService.getSessionMemories(sessionId, MemoryType.EPISODIC, 20),
-        memoryService.getSessionMemories(sessionId, MemoryType.SEMANTIC, 20)
+        memoryService.getSessionMemories(sessionId, MemoryType.SEMANTIC, 20),
       ])
-      
+
       setWorkingMemories(working)
       setEpisodicMemories(episodic)
       setSemanticMemories(semantic)
@@ -72,16 +86,19 @@ const MemoryHierarchyPage: React.FC = () => {
   const handlePromoteMemory = async (memory: Memory) => {
     try {
       // 提升记忆层级
-      const newType = memory.type === MemoryType.WORKING 
-        ? MemoryType.EPISODIC 
-        : MemoryType.SEMANTIC
-      
-      await memoryService.updateMemory(memory.id, { 
+      const newType =
+        memory.type === MemoryType.WORKING
+          ? MemoryType.EPISODIC
+          : MemoryType.SEMANTIC
+
+      await memoryService.updateMemory(memory.id, {
         status: memory.status,
-        importance: Math.min(1.0, memory.importance * 1.2) 
+        importance: Math.min(1.0, memory.importance * 1.2),
       })
-      
-      message.success(`记忆已提升到${newType === MemoryType.EPISODIC ? '情景' : '语义'}记忆层`)
+
+      message.success(
+        `记忆已提升到${newType === MemoryType.EPISODIC ? '情景' : '语义'}记忆层`
+      )
       loadMemories()
     } catch (error) {
       message.error('提升记忆失败')
@@ -116,7 +133,7 @@ const MemoryHierarchyPage: React.FC = () => {
       setSearchResults([])
       return
     }
-    
+
     setSearching(true)
     try {
       const results = await memoryService.searchMemories(query, {}, 20)
@@ -134,9 +151,9 @@ const MemoryHierarchyPage: React.FC = () => {
     try {
       const sessionId = localStorage.getItem('current_session_id') || 'default'
       const memories = await memoryService.exportMemories(sessionId)
-      
+
       const blob = new Blob([JSON.stringify(memories, null, 2)], {
-        type: 'application/json'
+        type: 'application/json',
       })
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
@@ -146,7 +163,7 @@ const MemoryHierarchyPage: React.FC = () => {
       a.click()
       document.body.removeChild(a)
       URL.revokeObjectURL(url)
-      
+
       message.success('记忆导出成功')
     } catch (error) {
       logger.error('导出记忆失败:', error)
@@ -154,19 +171,29 @@ const MemoryHierarchyPage: React.FC = () => {
     }
   }
 
-  const renderMemoryCard = (memory: Memory, layerName: string, color: string) => (
+  const renderMemoryCard = (
+    memory: Memory,
+    layerName: string,
+    color: string
+  ) => (
     <Card
       key={memory.id}
       size="small"
       hoverable
       onClick={() => setSelectedMemory(memory)}
-      style={{ 
-        marginBottom: 8, 
+      style={{
+        marginBottom: 8,
         borderLeft: `3px solid ${color}`,
-        cursor: 'pointer'
+        cursor: 'pointer',
       }}
     >
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'start',
+        }}
+      >
         <div style={{ flex: 1 }}>
           <div style={{ marginBottom: 4 }}>
             <Text style={{ fontSize: 12 }} ellipsis>
@@ -178,9 +205,9 @@ const MemoryHierarchyPage: React.FC = () => {
               {layerName}
             </Tag>
             <Tooltip title="重要性">
-              <Progress 
-                percent={memory.importance * 100} 
-                size="small" 
+              <Progress
+                percent={memory.importance * 100}
+                size="small"
                 style={{ width: 60 }}
                 strokeColor={memory.importance > 0.7 ? '#f5222d' : '#1890ff'}
                 showInfo={false}
@@ -193,10 +220,10 @@ const MemoryHierarchyPage: React.FC = () => {
         </div>
         {memory.type !== MemoryType.SEMANTIC && (
           <Tooltip title="提升记忆层级">
-            <Button 
-              size="small" 
+            <Button
+              size="small"
               icon={<RiseOutlined />}
-              onClick={(e) => {
+              onClick={e => {
                 e.stopPropagation()
                 handlePromoteMemory(memory)
               }}
@@ -289,7 +316,7 @@ const MemoryHierarchyPage: React.FC = () => {
           size="large"
           loading={searching}
           onSearch={handleSearchMemories}
-          onChange={(e) => setSearchQuery(e.target.value)}
+          onChange={e => setSearchQuery(e.target.value)}
           style={{ maxWidth: 400 }}
         />
       </div>
@@ -297,8 +324,8 @@ const MemoryHierarchyPage: React.FC = () => {
       {/* 操作按钮 */}
       <div style={{ marginBottom: 16 }}>
         <Space>
-          <Button 
-            type="primary" 
+          <Button
+            type="primary"
             icon={<SwapOutlined />}
             onClick={handleConsolidateMemories}
           >
@@ -307,17 +334,14 @@ const MemoryHierarchyPage: React.FC = () => {
           <Button icon={<SyncOutlined />} onClick={loadMemories}>
             刷新
           </Button>
-          <Button 
-            icon={<DeleteOutlined />} 
+          <Button
+            icon={<DeleteOutlined />}
             danger
             onClick={handleCleanupOldMemories}
           >
             清理旧记忆
           </Button>
-          <Button 
-            icon={<DownloadOutlined />}
-            onClick={handleExportMemories}
-          >
+          <Button icon={<DownloadOutlined />} onClick={handleExportMemories}>
             导出记忆
           </Button>
         </Space>
@@ -325,12 +349,12 @@ const MemoryHierarchyPage: React.FC = () => {
 
       {/* 搜索结果 */}
       {searchResults.length > 0 && (
-        <Card 
+        <Card
           title={
             <span>
               <SearchOutlined style={{ color: '#1890ff' }} /> 搜索结果
-              <Badge 
-                count={searchResults.length} 
+              <Badge
+                count={searchResults.length}
                 style={{ marginLeft: 8 }}
                 showZero
               />
@@ -340,11 +364,13 @@ const MemoryHierarchyPage: React.FC = () => {
         >
           <List
             dataSource={searchResults}
-            renderItem={(memory) => renderMemoryCard(
-              memory, 
-              memory.type || '未知', 
-              getMemoryTypeColor(memory.type || MemoryType.WORKING)
-            )}
+            renderItem={memory =>
+              renderMemoryCard(
+                memory,
+                memory.type || '未知',
+                getMemoryTypeColor(memory.type || MemoryType.WORKING)
+              )
+            }
             loading={searching}
             style={{ maxHeight: 300, overflow: 'auto' }}
           />
@@ -355,29 +381,27 @@ const MemoryHierarchyPage: React.FC = () => {
       <Row gutter={16}>
         {/* 工作记忆层 */}
         <Col span={8}>
-          <Card 
+          <Card
             title={
               <span>
                 <ThunderboltOutlined style={{ color: '#52c41a' }} /> 工作记忆
-                <Badge 
-                  count={workingMemories.length} 
+                <Badge
+                  count={workingMemories.length}
                   style={{ marginLeft: 8 }}
                   showZero
                 />
               </span>
             }
-            extra={
-              <Tag color="green">短期缓冲</Tag>
-            }
+            extra={<Tag color="green">短期缓冲</Tag>}
             style={{ height: '70vh', overflow: 'auto' }}
           >
             <div style={{ fontSize: 12, color: '#666', marginBottom: 16 }}>
-              容量: {workingMemories.length} / 100 | 
-              特点: 快速访问，容量有限，自动淘汰
+              容量: {workingMemories.length} / 100 | 特点:
+              快速访问，容量有限，自动淘汰
             </div>
             <List
               dataSource={workingMemories}
-              renderItem={(memory) => renderMemoryCard(memory, '工作', '#52c41a')}
+              renderItem={memory => renderMemoryCard(memory, '工作', '#52c41a')}
               loading={loading}
             />
           </Card>
@@ -385,29 +409,27 @@ const MemoryHierarchyPage: React.FC = () => {
 
         {/* 情景记忆层 */}
         <Col span={8}>
-          <Card 
+          <Card
             title={
               <span>
                 <ClockCircleOutlined style={{ color: '#1890ff' }} /> 情景记忆
-                <Badge 
-                  count={episodicMemories.length} 
+                <Badge
+                  count={episodicMemories.length}
                   style={{ marginLeft: 8 }}
                   showZero
                 />
               </span>
             }
-            extra={
-              <Tag color="blue">具体事件</Tag>
-            }
+            extra={<Tag color="blue">具体事件</Tag>}
             style={{ height: '70vh', overflow: 'auto' }}
           >
             <div style={{ fontSize: 12, color: '#666', marginBottom: 16 }}>
-              容量: {episodicMemories.length} / 10000 | 
-              特点: 时序记录，情境相关，可召回
+              容量: {episodicMemories.length} / 10000 | 特点:
+              时序记录，情境相关，可召回
             </div>
             <List
               dataSource={episodicMemories}
-              renderItem={(memory) => renderMemoryCard(memory, '情景', '#1890ff')}
+              renderItem={memory => renderMemoryCard(memory, '情景', '#1890ff')}
               loading={loading}
             />
           </Card>
@@ -415,29 +437,27 @@ const MemoryHierarchyPage: React.FC = () => {
 
         {/* 语义记忆层 */}
         <Col span={8}>
-          <Card 
+          <Card
             title={
               <span>
                 <BookOutlined style={{ color: '#722ed1' }} /> 语义记忆
-                <Badge 
-                  count={semanticMemories.length} 
+                <Badge
+                  count={semanticMemories.length}
                   style={{ marginLeft: 8 }}
                   showZero
                 />
               </span>
             }
-            extra={
-              <Tag color="purple">抽象知识</Tag>
-            }
+            extra={<Tag color="purple">抽象知识</Tag>}
             style={{ height: '70vh', overflow: 'auto' }}
           >
             <div style={{ fontSize: 12, color: '#666', marginBottom: 16 }}>
-              容量: {semanticMemories.length} / 5000 | 
-              特点: 概念知识，永久存储，高度抽象
+              容量: {semanticMemories.length} / 5000 | 特点:
+              概念知识，永久存储，高度抽象
             </div>
             <List
               dataSource={semanticMemories}
-              renderItem={(memory) => renderMemoryCard(memory, '语义', '#722ed1')}
+              renderItem={memory => renderMemoryCard(memory, '语义', '#722ed1')}
               loading={loading}
             />
           </Card>
@@ -473,11 +493,21 @@ const MemoryHierarchyPage: React.FC = () => {
 }
 
 // 修复Text组件导入
-const Text: React.FC<{ style?: React.CSSProperties; ellipsis?: boolean; children: React.ReactNode }> = 
-  ({ style, children }) => (
-    <div style={{ ...style, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-      {children}
-    </div>
-  )
+const Text: React.FC<{
+  style?: React.CSSProperties
+  ellipsis?: boolean
+  children: React.ReactNode
+}> = ({ style, children }) => (
+  <div
+    style={{
+      ...style,
+      overflow: 'hidden',
+      textOverflow: 'ellipsis',
+      whiteSpace: 'nowrap',
+    }}
+  >
+    {children}
+  </div>
+)
 
 export default MemoryHierarchyPage

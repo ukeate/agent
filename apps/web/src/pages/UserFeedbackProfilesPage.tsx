@@ -41,14 +41,18 @@ const UserFeedbackProfilesPage: React.FC = () => {
     {
       title: '偏好',
       dataIndex: 'preferences',
-      render: (prefs: string[]) => (prefs || []).map((p) => <Tag key={p}>{p}</Tag>)
-    }
+      render: (prefs: string[]) =>
+        (prefs || []).map(p => <Tag key={p}>{p}</Tag>),
+    },
   ]
 
   return (
     <div style={{ padding: 24 }}>
       <Space direction="vertical" style={{ width: '100%' }} size="large">
-        <Space align="center" style={{ justifyContent: 'space-between', width: '100%' }}>
+        <Space
+          align="center"
+          style={{ justifyContent: 'space-between', width: '100%' }}
+        >
           <Space>
             <UserOutlined />
             <Typography.Title level={3} style={{ margin: 0 }}>
@@ -63,7 +67,12 @@ const UserFeedbackProfilesPage: React.FC = () => {
         {error && <Alert type="error" message={error} />}
 
         <Card>
-          <Table rowKey="user_id" dataSource={profiles} columns={columns} loading={loading} />
+          <Table
+            rowKey="user_id"
+            dataSource={profiles}
+            columns={columns}
+            loading={loading}
+          />
         </Card>
       </Space>
     </div>

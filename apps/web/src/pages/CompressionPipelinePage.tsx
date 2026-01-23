@@ -1,7 +1,30 @@
 import React, { useEffect, useState } from 'react'
-import { Badge, Button, Card, Col, Drawer, Empty, Modal, Row, Space, Statistic, Table, Tag, Typography, message, Select, Progress } from 'antd'
+import {
+  Badge,
+  Button,
+  Card,
+  Col,
+  Drawer,
+  Empty,
+  Modal,
+  Row,
+  Space,
+  Statistic,
+  Table,
+  Tag,
+  Typography,
+  message,
+  Select,
+  Progress,
+} from 'antd'
 import type { ColumnsType } from 'antd/es/table'
-import { BranchesOutlined, DeleteOutlined, EyeOutlined, ReloadOutlined, StopOutlined } from '@ant-design/icons'
+import {
+  BranchesOutlined,
+  DeleteOutlined,
+  EyeOutlined,
+  ReloadOutlined,
+  StopOutlined,
+} from '@ant-design/icons'
 import apiClient from '../services/apiClient'
 
 const { Title, Paragraph, Text } = Typography
@@ -49,9 +72,14 @@ const CompressionPipelinePage: React.FC = () => {
   const [refreshInterval, setRefreshInterval] = useState(5000)
   const [status, setStatus] = useState<PipelineStatus | null>(null)
   const [jobs, setJobs] = useState<CompressionJobListItem[]>([])
-  const [selectedJob, setSelectedJob] = useState<CompressionJobListItem | null>(null)
-  const [selectedJobStatus, setSelectedJobStatus] = useState<JobStatus | null>(null)
-  const [selectedJobResult, setSelectedJobResult] = useState<CompressionResult | null>(null)
+  const [selectedJob, setSelectedJob] = useState<CompressionJobListItem | null>(
+    null
+  )
+  const [selectedJobStatus, setSelectedJobStatus] = useState<JobStatus | null>(
+    null
+  )
+  const [selectedJobResult, setSelectedJobResult] =
+    useState<CompressionResult | null>(null)
   const [detailVisible, setDetailVisible] = useState(false)
   const [logVisible, setLogVisible] = useState(false)
 
@@ -98,7 +126,9 @@ const CompressionPipelinePage: React.FC = () => {
   }
 
   const fetchJobStatus = async (jobId: string) => {
-    const resp = await apiClient.get<JobStatus>(`/model-compression/jobs/${jobId}`)
+    const resp = await apiClient.get<JobStatus>(
+      `/model-compression/jobs/${jobId}`
+    )
     return resp.data || null
   }
 
@@ -144,20 +174,24 @@ const CompressionPipelinePage: React.FC = () => {
       cancelText: '取消',
       onOk: async () => {
         try {
-          await apiClient.delete(`/model-compression/jobs/${job.job_id}`, { params: { keep_result: true } })
+          await apiClient.delete(`/model-compression/jobs/${job.job_id}`, {
+            params: { keep_result: true },
+          })
           message.success('任务已删除')
           await loadData()
         } catch (e: any) {
           message.error(e?.message || '删除任务失败')
         }
-      }
+      },
     })
   }
 
   const loadResult = async () => {
     if (!selectedJob) return
     try {
-      const resp = await apiClient.get<CompressionResult>(`/model-compression/results/${selectedJob.job_id}`)
+      const resp = await apiClient.get<CompressionResult>(
+        `/model-compression/results/${selectedJob.job_id}`
+      )
       setSelectedJobResult(resp.data || null)
     } catch (e: any) {
       message.error(e?.message || '加载任务结果失败')
@@ -171,62 +205,104 @@ const CompressionPipelinePage: React.FC = () => {
       key: 'job',
       render: (_, record) => (
         <div>
-          <div style={{ fontWeight: 500 }}>{record.job_name || record.job_id}</div>
-          <Text type="secondary" style={{ fontSize: 12 }}>{record.job_id}</Text>
+          <div style={{ fontWeight: 500 }}>
+            {record.job_name || record.job_id}
+          </div>
+          <Text type="secondary" style={{ fontSize: 12 }}>
+            {record.job_id}
+          </Text>
         </div>
-      )
+      ),
     },
     {
       title: '阶段',
       dataIndex: 'status',
       key: 'status',
-      render: (v: string) => <Badge status={getBadgeStatus(v) as any} text={v} />
+      render: (v: string) => (
+        <Badge status={getBadgeStatus(v) as any} text={v} />
+      ),
     },
     {
       title: '更新时间',
       dataIndex: 'created_at',
       key: 'created_at',
-      render: (v: string) => <Text style={{ fontSize: 12 }}>{v}</Text>
+      render: (v: string) => <Text style={{ fontSize: 12 }}>{v}</Text>,
     },
     {
       title: '消息',
       dataIndex: 'message',
       key: 'message',
-      render: (v: string) => <Text style={{ fontSize: 12 }}>{v}</Text>
+      render: (v: string) => <Text style={{ fontSize: 12 }}>{v}</Text>,
     },
     {
       title: '操作',
       key: 'actions',
       render: (_, record) => (
         <Space>
-          <Button type="text" icon={<EyeOutlined />} onClick={() => openDetails(record)} />
-          <Button type="text" icon={<ReloadOutlined />} onClick={() => openLogs(record)} />
-          <Button type="text" icon={<StopOutlined />} onClick={() => cancelJob(record)} disabled={isTerminalStage(record.status)} />
-          <Button type="text" danger icon={<DeleteOutlined />} onClick={() => deleteJob(record)} />
+          <Button
+            type="text"
+            icon={<EyeOutlined />}
+            onClick={() => openDetails(record)}
+          />
+          <Button
+            type="text"
+            icon={<ReloadOutlined />}
+            onClick={() => openLogs(record)}
+          />
+          <Button
+            type="text"
+            icon={<StopOutlined />}
+            onClick={() => cancelJob(record)}
+            disabled={isTerminalStage(record.status)}
+          />
+          <Button
+            type="text"
+            danger
+            icon={<DeleteOutlined />}
+            onClick={() => deleteJob(record)}
+          />
         </Space>
-      )
-    }
+      ),
+    },
   ]
 
   return (
     <div style={{ padding: 24 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'flex-start',
+          marginBottom: 16,
+        }}
+      >
         <div>
           <Title level={2} style={{ margin: 0 }}>
             <BranchesOutlined /> 压缩流水线管理
           </Title>
           <Paragraph style={{ marginBottom: 0 }}>
-            数据来自 `/api/v1/model-compression/status` 与 `/api/v1/model-compression/jobs`
+            数据来自 `/api/v1/model-compression/status` 与
+            `/api/v1/model-compression/jobs`
           </Paragraph>
         </div>
         <Space>
-          <Select value={refreshInterval} onChange={setRefreshInterval} style={{ width: 120 }}>
+          <Select
+            value={refreshInterval}
+            onChange={setRefreshInterval}
+            style={{ width: 120 }}
+          >
             <Option value={5000}>5秒</Option>
             <Option value={10000}>10秒</Option>
             <Option value={30000}>30秒</Option>
             <Option value={60000}>1分钟</Option>
           </Select>
-          <Button icon={<ReloadOutlined />} onClick={() => loadData()} loading={loading}>刷新</Button>
+          <Button
+            icon={<ReloadOutlined />}
+            onClick={() => loadData()}
+            loading={loading}
+          >
+            刷新
+          </Button>
           <Button onClick={() => setAutoRefresh(v => !v)}>
             {autoRefresh ? '停止刷新' : '开启刷新'}
           </Button>
@@ -235,25 +311,51 @@ const CompressionPipelinePage: React.FC = () => {
 
       <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
         <Col xs={24} sm={12} md={6}>
-          <Card><Statistic title="活跃任务" value={status?.active_jobs ?? 0} /></Card>
+          <Card>
+            <Statistic title="活跃任务" value={status?.active_jobs ?? 0} />
+          </Card>
         </Col>
         <Col xs={24} sm={12} md={6}>
-          <Card><Statistic title="队列长度" value={status?.queue_length ?? 0} /></Card>
+          <Card>
+            <Statistic title="队列长度" value={status?.queue_length ?? 0} />
+          </Card>
         </Col>
         <Col xs={24} sm={12} md={6}>
-          <Card><Statistic title="并发上限" value={status?.max_concurrent_jobs ?? 0} /></Card>
+          <Card>
+            <Statistic
+              title="并发上限"
+              value={status?.max_concurrent_jobs ?? 0}
+            />
+          </Card>
         </Col>
         <Col xs={24} sm={12} md={6}>
-          <Card><Statistic title="更新时间" value={status?.timestamp || '-'} /></Card>
+          <Card>
+            <Statistic title="更新时间" value={status?.timestamp || '-'} />
+          </Card>
         </Col>
       </Row>
 
       <Card
-        title={<Space><Tag color="blue">任务列表</Tag><Text type="secondary" style={{ fontSize: 12 }}>当前仅展示活跃任务</Text></Space>}
+        title={
+          <Space>
+            <Tag color="blue">任务列表</Tag>
+            <Text type="secondary" style={{ fontSize: 12 }}>
+              当前仅展示活跃任务
+            </Text>
+          </Space>
+        }
         extra={<Tag>{jobs.length} 个</Tag>}
       >
-        <Table rowKey="job_id" dataSource={jobs} columns={columns} loading={loading} pagination={{ pageSize: 10 }} />
-        {!loading && jobs.length === 0 ? <Empty description="暂无活跃任务" /> : null}
+        <Table
+          rowKey="job_id"
+          dataSource={jobs}
+          columns={columns}
+          loading={loading}
+          pagination={{ pageSize: 10 }}
+        />
+        {!loading && jobs.length === 0 ? (
+          <Empty description="暂无活跃任务" />
+        ) : null}
       </Card>
 
       <Modal
@@ -261,8 +363,17 @@ const CompressionPipelinePage: React.FC = () => {
         open={detailVisible}
         onCancel={() => setDetailVisible(false)}
         footer={[
-          <Button key="result" type="primary" onClick={() => loadResult()} disabled={!selectedJob}>加载结果</Button>,
-          <Button key="close" onClick={() => setDetailVisible(false)}>关闭</Button>,
+          <Button
+            key="result"
+            type="primary"
+            onClick={() => loadResult()}
+            disabled={!selectedJob}
+          >
+            加载结果
+          </Button>,
+          <Button key="close" onClick={() => setDetailVisible(false)}>
+            关闭
+          </Button>,
         ]}
         width={800}
       >
@@ -272,7 +383,9 @@ const CompressionPipelinePage: React.FC = () => {
               <Text>当前阶段</Text>
               <Text strong>{selectedJobStatus.current_stage}</Text>
             </div>
-            <Progress percent={Math.round(selectedJobStatus.progress_percent)} />
+            <Progress
+              percent={Math.round(selectedJobStatus.progress_percent)}
+            />
             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
               <Text>预计剩余(秒)</Text>
               <Text>{selectedJobStatus.estimated_time_remaining}</Text>
@@ -286,7 +399,14 @@ const CompressionPipelinePage: React.FC = () => {
           <Empty description="暂无状态数据" />
         )}
         {selectedJobResult ? (
-          <pre style={{ marginTop: 16, background: '#f5f5f5', padding: 12, borderRadius: 4 }}>
+          <pre
+            style={{
+              marginTop: 16,
+              background: '#f5f5f5',
+              padding: 12,
+              borderRadius: 4,
+            }}
+          >
             {JSON.stringify(selectedJobResult, null, 2)}
           </pre>
         ) : null}
@@ -302,7 +422,15 @@ const CompressionPipelinePage: React.FC = () => {
         {selectedJobStatus?.recent_logs?.length ? (
           <Space direction="vertical" style={{ width: '100%' }}>
             {selectedJobStatus.recent_logs.map((line, index) => (
-              <div key={index} style={{ background: '#f5f5f5', padding: 8, borderRadius: 4, fontSize: 12 }}>
+              <div
+                key={index}
+                style={{
+                  background: '#f5f5f5',
+                  padding: 8,
+                  borderRadius: 4,
+                  fontSize: 12,
+                }}
+              >
                 {line}
               </div>
             ))}

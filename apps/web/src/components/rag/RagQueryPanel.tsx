@@ -1,6 +1,6 @@
 /**
  * 基础RAG查询面板
- * 
+ *
  * 功能包括：
  * - 查询输入框和搜索按钮，支持Enter键提交
  * - 文件类型过滤器（代码/文档/全部）和高级搜索选项
@@ -9,7 +9,7 @@
  * - 查询语法提示和自动补全功能
  */
 
-import React, { useState, useCallback, useEffect, useRef } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react'
 import {
   Input,
   Button,
@@ -25,29 +25,29 @@ import {
   Row,
   Col,
   message,
-} from 'antd';
+} from 'antd'
 import {
   SearchOutlined,
   SettingOutlined,
   HistoryOutlined,
   QuestionCircleOutlined,
   ClearOutlined,
-} from '@ant-design/icons';
-import { useRagStore } from '../../stores/ragStore';
-import { ragService, QueryRequest } from '../../services/ragService';
+} from '@ant-design/icons'
+import { useRagStore } from '../../stores/ragStore'
+import { ragService, QueryRequest } from '../../services/ragService'
 
-const { TextArea } = Input;
-const { Option } = Select;
-const { Panel } = Collapse;
-const { Text, Title } = Typography;
+const { TextArea } = Input
+const { Option } = Select
+const { Panel } = Collapse
+const { Text, Title } = Typography
 
 // ==================== 组件props类型 ====================
 
 interface RagQueryPanelProps {
-  onSearch?: (request: QueryRequest) => void;
-  onResults?: (results: any) => void;
-  disabled?: boolean;
-  className?: string;
+  onSearch?: (request: QueryRequest) => void
+  onResults?: (results: any) => void
+  disabled?: boolean
+  className?: string
 }
 
 // ==================== 主组件 ====================
@@ -59,7 +59,7 @@ const RagQueryPanel: React.FC<RagQueryPanelProps> = ({
   className = '',
 }) => {
   // ==================== 状态管理 ====================
-  
+
   const {
     currentQuery,
     queryHistory,
@@ -73,80 +73,96 @@ const RagQueryPanel: React.FC<RagQueryPanelProps> = ({
     addToHistory,
     updateSearchPreferences,
     clearErrors,
-  } = useRagStore();
+  } = useRagStore()
 
   // ==================== 本地状态 ====================
-  
-  const [searchType, setSearchType] = useState<'semantic' | 'keyword' | 'hybrid'>(
-    searchPreferences.default_search_type
-  );
-  const [resultLimit, setResultLimit] = useState(searchPreferences.default_limit);
-  const [scoreThreshold, setScoreThreshold] = useState(searchPreferences.default_score_threshold);
-  const [fileTypeFilter, setFileTypeFilter] = useState<'all' | 'code' | 'docs'>('all');
-  const [autoCompleteOptions, setAutoCompleteOptions] = useState<string[]>([]);
-  
-  const inputRef = useRef<any>(null);
+
+  const [searchType, setSearchType] = useState<
+    'semantic' | 'keyword' | 'hybrid'
+  >(searchPreferences.default_search_type)
+  const [resultLimit, setResultLimit] = useState(
+    searchPreferences.default_limit
+  )
+  const [scoreThreshold, setScoreThreshold] = useState(
+    searchPreferences.default_score_threshold
+  )
+  const [fileTypeFilter, setFileTypeFilter] = useState<'all' | 'code' | 'docs'>(
+    'all'
+  )
+  const [autoCompleteOptions, setAutoCompleteOptions] = useState<string[]>([])
+
+  const inputRef = useRef<any>(null)
 
   // ==================== 查询语法提示 ====================
-  
+
   const syntaxTips = [
     'AND、OR、NOT - 逻辑操作符',
     '"精确短语" - 精确匹配',
     'title:关键词 - 标题搜索',
     'ext:py - 文件扩展名',
     'path:/src/ - 路径搜索',
-  ];
+  ]
 
   // ==================== 自动补全逻辑 ====================
-  
-  const generateAutoComplete = useCallback((value: string) => {
-    if (!value.trim()) {
-      setAutoCompleteOptions([]);
-      return;
-    }
 
-    const suggestions = [];
-    
-    // 基于历史查询的建议
-    const historyMatches = queryHistory
-      .filter(h => h.query.toLowerCase().includes(value.toLowerCase()))
-      .slice(0, 3)
-      .map(h => h.query);
-    
-    suggestions.push(...historyMatches);
-    
-    // 常用搜索模式建议
-    if (value.length > 2) {
-      const patterns = [
-        `如何${value}`,
-        `${value}示例`,
-        `${value}文档`,
-        `${value}API`,
-        `${value}错误`,
-      ];
-      suggestions.push(...patterns);
-    }
-    
-    // 去重并限制数量
-    const uniqueSuggestions = [...new Set(suggestions)].slice(0, 8);
-    setAutoCompleteOptions(uniqueSuggestions);
-  }, [queryHistory]);
+  const generateAutoComplete = useCallback(
+    (value: string) => {
+      if (!value.trim()) {
+        setAutoCompleteOptions([])
+        return
+      }
+
+      const suggestions = []
+
+      // 基于历史查询的建议
+      const historyMatches = queryHistory
+        .filter(h => h.query.toLowerCase().includes(value.toLowerCase()))
+        .slice(0, 3)
+        .map(h => h.query)
+
+      suggestions.push(...historyMatches)
+
+      // 常用搜索模式建议
+      if (value.length > 2) {
+        const patterns = [
+          `如何${value}`,
+          `${value}示例`,
+          `${value}文档`,
+          `${value}API`,
+          `${value}错误`,
+        ]
+        suggestions.push(...patterns)
+      }
+
+      // 去重并限制数量
+      const uniqueSuggestions = [...new Set(suggestions)].slice(0, 8)
+      setAutoCompleteOptions(uniqueSuggestions)
+    },
+    [queryHistory]
+  )
 
   // ==================== 搜索执行逻辑 ====================
-  
+
   const handleSearch = useCallback(async () => {
     if (!currentQuery.trim()) {
-      message.warning('请输入搜索关键词');
-      return;
+      message.warning('请输入搜索关键词')
+      return
     }
 
     // 构建搜索请求
-    const filters: Record<string, any> = {};
-    
+    const filters: Record<string, any> = {}
+
     if (fileTypeFilter === 'code') {
-      filters.content_type = ['python', 'javascript', 'typescript', 'java', 'cpp', 'c'];
+      filters.content_type = [
+        'python',
+        'javascript',
+        'typescript',
+        'java',
+        'cpp',
+        'c',
+      ]
     } else if (fileTypeFilter === 'docs') {
-      filters.content_type = ['markdown', 'txt', 'pdf', 'doc'];
+      filters.content_type = ['markdown', 'txt', 'pdf', 'doc']
     }
 
     const searchRequest: QueryRequest = {
@@ -155,42 +171,41 @@ const RagQueryPanel: React.FC<RagQueryPanelProps> = ({
       limit: resultLimit,
       score_threshold: scoreThreshold,
       filters: Object.keys(filters).length > 0 ? filters : undefined,
-    };
+    }
 
     try {
-      setIsQuerying(true);
-      setError(null);
-      clearErrors();
-      
+      setIsQuerying(true)
+      setError(null)
+      clearErrors()
+
       // 调用API
-      const response = await ragService.query(searchRequest);
-      
+      const response = await ragService.query(searchRequest)
+
       if (response.success) {
-        setQueryResults(response.results);
-        
+        setQueryResults(response.results)
+
         // 添加到历史记录
         addToHistory(
           currentQuery,
           'basic',
           response.results.length,
           response.processing_time
-        );
-        
+        )
+
         // 回调通知
-        onSearch?.(searchRequest);
-        onResults?.(response);
-        
-        message.success(`找到 ${response.results.length} 个相关结果`);
+        onSearch?.(searchRequest)
+        onResults?.(response)
+
+        message.success(`找到 ${response.results.length} 个相关结果`)
       } else {
-        throw new Error(response.error || '搜索失败');
+        throw new Error(response.error || '搜索失败')
       }
-      
     } catch (err: any) {
-      const errorMsg = err.message || '搜索请求失败';
-      setError(errorMsg);
-      message.error(errorMsg);
+      const errorMsg = err.message || '搜索请求失败'
+      setError(errorMsg)
+      message.error(errorMsg)
     } finally {
-      setIsQuerying(false);
+      setIsQuerying(false)
     }
   }, [
     currentQuery,
@@ -205,62 +220,75 @@ const RagQueryPanel: React.FC<RagQueryPanelProps> = ({
     setQueryResults,
     addToHistory,
     clearErrors,
-  ]);
+  ])
 
   // ==================== 事件处理 ====================
-  
-  const handleQueryChange = useCallback((value: string) => {
-    setCurrentQuery(value);
-    generateAutoComplete(value);
-  }, [setCurrentQuery, generateAutoComplete]);
 
-  const handleEnterPress = useCallback((e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleSearch();
-    }
-  }, [handleSearch]);
+  const handleQueryChange = useCallback(
+    (value: string) => {
+      setCurrentQuery(value)
+      generateAutoComplete(value)
+    },
+    [setCurrentQuery, generateAutoComplete]
+  )
 
-  const handleHistorySelect = useCallback((query: string) => {
-    setCurrentQuery(query);
-    inputRef.current?.focus();
-  }, [setCurrentQuery]);
+  const handleEnterPress = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault()
+        handleSearch()
+      }
+    },
+    [handleSearch]
+  )
+
+  const handleHistorySelect = useCallback(
+    (query: string) => {
+      setCurrentQuery(query)
+      inputRef.current?.focus()
+    },
+    [setCurrentQuery]
+  )
 
   const handleClearQuery = useCallback(() => {
-    setCurrentQuery('');
-    setError(null);
-    clearErrors();
-    inputRef.current?.focus();
-  }, [setCurrentQuery, setError, clearErrors]);
+    setCurrentQuery('')
+    setError(null)
+    clearErrors()
+    inputRef.current?.focus()
+  }, [setCurrentQuery, setError, clearErrors])
 
   const handlePreferencesChange = useCallback(() => {
     updateSearchPreferences({
       default_search_type: searchType,
       default_limit: resultLimit,
       default_score_threshold: scoreThreshold,
-    });
-    message.success('搜索偏好已保存');
-  }, [searchType, resultLimit, scoreThreshold, updateSearchPreferences]);
+    })
+    message.success('搜索偏好已保存')
+  }, [searchType, resultLimit, scoreThreshold, updateSearchPreferences])
 
   // ==================== 生命周期 ====================
-  
+
   useEffect(() => {
     // 组件加载时设置焦点
-    inputRef.current?.focus();
-  }, []);
+    inputRef.current?.focus()
+  }, [])
 
   // ==================== 渲染组件 ====================
 
   return (
-    <Card className={`rag-query-panel ${className}`} title={
-      <Space>
-        <SearchOutlined />
-        <Title level={4} style={{ margin: 0 }}>RAG 混合搜索</Title>
-      </Space>
-    }>
+    <Card
+      className={`rag-query-panel ${className}`}
+      title={
+        <Space>
+          <SearchOutlined />
+          <Title level={4} style={{ margin: 0 }}>
+            RAG 混合搜索
+          </Title>
+        </Space>
+      }
+    >
       {/* 主搜索区域 */}
       <Space direction="vertical" style={{ width: '100%' }} size="middle">
-        
         {/* 查询输入框 */}
         <AutoComplete
           options={autoCompleteOptions.map(opt => ({ value: opt }))}
@@ -270,9 +298,9 @@ const RagQueryPanel: React.FC<RagQueryPanelProps> = ({
         >
           <TextArea
             ref={inputRef}
-            placeholder="请输入搜索关键词... (支持 AND/OR 逻辑操作符, &quot;精确短语&quot;, title:关键词等语法)"
+            placeholder='请输入搜索关键词... (支持 AND/OR 逻辑操作符, "精确短语", title:关键词等语法)'
             value={currentQuery}
-            onChange={(e) => handleQueryChange(e.target.value)}
+            onChange={e => handleQueryChange(e.target.value)}
             onKeyDown={handleEnterPress}
             autoSize={{ minRows: 2, maxRows: 4 }}
             disabled={disabled}
@@ -318,7 +346,7 @@ const RagQueryPanel: React.FC<RagQueryPanelProps> = ({
               </Select>
             </Space>
           </Col>
-          
+
           <Col>
             <Space>
               {/* 清空按钮 */}
@@ -346,22 +374,18 @@ const RagQueryPanel: React.FC<RagQueryPanelProps> = ({
         </Row>
 
         {/* 高级选项和历史记录 */}
-        <Collapse 
-          ghost 
-          size="small"
-        >
+        <Collapse ghost size="small">
           {/* 高级搜索选项 */}
-          <Panel 
+          <Panel
             header={
               <Space>
                 <SettingOutlined />
                 <Text>高级选项</Text>
               </Space>
-            } 
+            }
             key="advanced"
           >
             <Space direction="vertical" style={{ width: '100%' }} size="middle">
-              
               {/* 结果数量 */}
               <Row align="middle">
                 <Col span={6}>
@@ -404,8 +428,8 @@ const RagQueryPanel: React.FC<RagQueryPanelProps> = ({
               {/* 保存偏好按钮 */}
               <Row>
                 <Col span={24} style={{ textAlign: 'right' }}>
-                  <Button 
-                    size="small" 
+                  <Button
+                    size="small"
                     onClick={handlePreferencesChange}
                     disabled={disabled}
                   >
@@ -413,32 +437,41 @@ const RagQueryPanel: React.FC<RagQueryPanelProps> = ({
                   </Button>
                 </Col>
               </Row>
-
             </Space>
           </Panel>
 
           {/* 查询历史 */}
-          <Panel 
+          <Panel
             header={
               <Space>
                 <HistoryOutlined />
                 <Text>查询历史 ({queryHistory.length})</Text>
               </Space>
-            } 
+            }
             key="history"
           >
             {queryHistory.length > 0 ? (
-              <Space direction="vertical" style={{ width: '100%' }} size="small">
-                {queryHistory.slice(0, 10).map((item) => (
-                  <div key={item.id} style={{ 
-                    padding: 8, 
-                    border: '1px solid #f0f0f0', 
-                    borderRadius: 4,
-                    cursor: 'pointer'
-                  }}
-                  onClick={() => handleHistorySelect(item.query)}
+              <Space
+                direction="vertical"
+                style={{ width: '100%' }}
+                size="small"
+              >
+                {queryHistory.slice(0, 10).map(item => (
+                  <div
+                    key={item.id}
+                    style={{
+                      padding: 8,
+                      border: '1px solid #f0f0f0',
+                      borderRadius: 4,
+                      cursor: 'pointer',
+                    }}
+                    onClick={() => handleHistorySelect(item.query)}
                   >
-                    <Space direction="vertical" size="small" style={{ width: '100%' }}>
+                    <Space
+                      direction="vertical"
+                      size="small"
+                      style={{ width: '100%' }}
+                    >
                       <Text ellipsis style={{ maxWidth: '100%' }}>
                         {item.query}
                       </Text>
@@ -450,7 +483,10 @@ const RagQueryPanel: React.FC<RagQueryPanelProps> = ({
                           {item.results_count} 结果
                         </Text>
                         <Text type="secondary" style={{ fontSize: 11 }}>
-                          {item.processing_time ? item.processing_time.toFixed(2) : '0.00'}s
+                          {item.processing_time
+                            ? item.processing_time.toFixed(2)
+                            : '0.00'}
+                          s
                         </Text>
                         <Text type="secondary" style={{ fontSize: 11 }}>
                           {new Date(item.timestamp).toLocaleTimeString()}
@@ -466,13 +502,13 @@ const RagQueryPanel: React.FC<RagQueryPanelProps> = ({
           </Panel>
 
           {/* 语法提示 */}
-          <Panel 
+          <Panel
             header={
               <Space>
                 <QuestionCircleOutlined />
                 <Text>搜索语法</Text>
               </Space>
-            } 
+            }
             key="syntax"
           >
             <Space direction="vertical" size="small">
@@ -484,10 +520,9 @@ const RagQueryPanel: React.FC<RagQueryPanelProps> = ({
             </Space>
           </Panel>
         </Collapse>
-
       </Space>
     </Card>
-  );
-};
+  )
+}
 
-export default RagQueryPanel;
+export default RagQueryPanel

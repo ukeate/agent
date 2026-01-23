@@ -3,14 +3,14 @@
  * 展示记忆系统的统计分析、趋势和模式
  */
 import React, { useState, useEffect } from 'react'
-import { 
 import { logger } from '../utils/logger'
-  Card, 
-  Row, 
-  Col, 
-  Statistic, 
-  Progress, 
-  Tag, 
+import {
+  Card,
+  Row,
+  Col,
+  Statistic,
+  Progress,
+  Tag,
   Space,
   Table,
   Tabs,
@@ -18,9 +18,9 @@ import { logger } from '../utils/logger'
   Timeline,
   List,
   Badge,
-  Tooltip
+  Tooltip,
 } from 'antd'
-import { 
+import {
   DatabaseOutlined,
   LineChartOutlined,
   PieChartOutlined,
@@ -31,14 +31,14 @@ import {
   FallOutlined,
   ThunderboltOutlined,
   ClockCircleOutlined,
-  BookOutlined
+  BookOutlined,
 } from '@ant-design/icons'
 import { Line, Pie, Column, Area } from '@ant-design/charts'
-import { 
-  MemoryAnalytics, 
-  MemoryPattern, 
+import {
+  MemoryAnalytics,
+  MemoryPattern,
   MemoryTrend,
-  MemoryType 
+  MemoryType,
 } from '@/types/memory'
 import { memoryService } from '@/services/memoryService'
 
@@ -58,13 +58,14 @@ const MemoryAnalyticsDashboard: React.FC = () => {
   const loadAllData = async () => {
     setLoading(true)
     try {
-      const [analyticsData, patternsData, trendsData, graphData] = await Promise.all([
-        memoryService.getMemoryAnalytics(),
-        memoryService.getMemoryPatterns(),
-        memoryService.getMemoryTrends(30),
-        memoryService.getGraphStatistics()
-      ])
-      
+      const [analyticsData, patternsData, trendsData, graphData] =
+        await Promise.all([
+          memoryService.getMemoryAnalytics(),
+          memoryService.getMemoryPatterns(),
+          memoryService.getMemoryTrends(30),
+          memoryService.getGraphStatistics(),
+        ])
+
       setAnalytics(analyticsData)
       setPatterns(patternsData)
       setTrends(trendsData)
@@ -80,9 +81,19 @@ const MemoryAnalyticsDashboard: React.FC = () => {
   const getMemoryTypeData = () => {
     if (!analytics) return []
     return Object.entries(analytics.memories_by_type).map(([type, count]) => ({
-      type: type === 'working' ? '工作记忆' : type === 'episodic' ? '情景记忆' : '语义记忆',
+      type:
+        type === 'working'
+          ? '工作记忆'
+          : type === 'episodic'
+            ? '情景记忆'
+            : '语义记忆',
       value: count,
-      color: type === 'working' ? '#52c41a' : type === 'episodic' ? '#1890ff' : '#722ed1'
+      color:
+        type === 'working'
+          ? '#52c41a'
+          : type === 'episodic'
+            ? '#1890ff'
+            : '#722ed1',
     }))
   }
 
@@ -91,19 +102,26 @@ const MemoryAnalyticsDashboard: React.FC = () => {
     if (!trends) return []
     return Object.entries(trends.daily_trends).map(([date, data]) => ({
       date,
-      count: data.memory_count
+      count: data.memory_count,
     }))
   }
 
   // 准备记忆状态分布数据
   const getStatusData = () => {
     if (!analytics) return []
-    return Object.entries(analytics.memories_by_status).map(([status, count]) => ({
-      status: status === 'active' ? '活跃' : 
-              status === 'archived' ? '归档' : 
-              status === 'compressed' ? '压缩' : '删除',
-      count
-    }))
+    return Object.entries(analytics.memories_by_status).map(
+      ([status, count]) => ({
+        status:
+          status === 'active'
+            ? '活跃'
+            : status === 'archived'
+              ? '归档'
+              : status === 'compressed'
+                ? '压缩'
+                : '删除',
+        count,
+      })
+    )
   }
 
   // 饼图配置
@@ -135,9 +153,9 @@ const MemoryAnalyticsDashboard: React.FC = () => {
     xAxis: {
       label: {
         autoRotate: true,
-        formatter: (text: string) => text.split('-').slice(1).join('/')
-      }
-    }
+        formatter: (text: string) => text.split('-').slice(1).join('/'),
+      },
+    },
   }
 
   // 柱状图配置
@@ -177,14 +195,14 @@ const MemoryAnalyticsDashboard: React.FC = () => {
               prefix={<DatabaseOutlined />}
               valueStyle={{ color: '#1890ff' }}
             />
-            <Progress 
-              percent={(analytics?.total_memories || 0) / 100} 
+            <Progress
+              percent={(analytics?.total_memories || 0) / 100}
               showInfo={false}
               strokeColor="#1890ff"
             />
           </Card>
         </Col>
-        
+
         <Col span={6}>
           <Card>
             <Statistic
@@ -195,15 +213,15 @@ const MemoryAnalyticsDashboard: React.FC = () => {
               prefix={<ThunderboltOutlined />}
               valueStyle={{ color: '#52c41a' }}
             />
-            <Progress 
-              percent={(analytics?.avg_importance || 0) * 100} 
+            <Progress
+              percent={(analytics?.avg_importance || 0) * 100}
               showInfo={false}
               strokeColor="#52c41a"
               status="active"
             />
           </Card>
         </Col>
-        
+
         <Col span={6}>
           <Card>
             <Statistic
@@ -212,8 +230,8 @@ const MemoryAnalyticsDashboard: React.FC = () => {
               precision={2}
               suffix="条/天"
               prefix={<RiseOutlined />}
-              valueStyle={{ 
-                color: '#cf1322'
+              valueStyle={{
+                color: '#cf1322',
               }}
             />
             <div style={{ fontSize: 12, color: '#666', marginTop: 8 }}>
@@ -221,7 +239,7 @@ const MemoryAnalyticsDashboard: React.FC = () => {
             </div>
           </Card>
         </Col>
-        
+
         <Col span={6}>
           <Card>
             <Statistic
@@ -231,8 +249,8 @@ const MemoryAnalyticsDashboard: React.FC = () => {
               suffix="MB"
               prefix={<HeatMapOutlined />}
             />
-            <Progress 
-              percent={(analytics?.storage_usage_mb || 0) / 100} 
+            <Progress
+              percent={(analytics?.storage_usage_mb || 0) / 100}
               showInfo={false}
               strokeColor={{
                 '0%': '#108ee9',
@@ -249,16 +267,12 @@ const MemoryAnalyticsDashboard: React.FC = () => {
           <Row gutter={16}>
             <Col span={12}>
               <Card title="记忆类型分布">
-                {getMemoryTypeData().length > 0 && (
-                  <Pie {...pieConfig} />
-                )}
+                {getMemoryTypeData().length > 0 && <Pie {...pieConfig} />}
               </Card>
             </Col>
             <Col span={12}>
               <Card title="记忆状态统计">
-                {getStatusData().length > 0 && (
-                  <Column {...columnConfig} />
-                )}
+                {getStatusData().length > 0 && <Column {...columnConfig} />}
               </Card>
             </Col>
           </Row>
@@ -266,9 +280,7 @@ const MemoryAnalyticsDashboard: React.FC = () => {
 
         <TabPane tab="使用趋势" key="trends">
           <Card title="30天记忆增长趋势">
-            {getTrendData().length > 0 && (
-              <Line {...lineConfig} />
-            )}
+            {getTrendData().length > 0 && <Line {...lineConfig} />}
             <Row gutter={16} style={{ marginTop: 24 }}>
               <Col span={8}>
                 <Statistic
@@ -291,7 +303,7 @@ const MemoryAnalyticsDashboard: React.FC = () => {
                   suffix="条/天"
                   precision={2}
                   valueStyle={{
-                    color: '#3f8600'
+                    color: '#3f8600',
                   }}
                 />
               </Col>
@@ -305,7 +317,10 @@ const MemoryAnalyticsDashboard: React.FC = () => {
               <Card title="高频访问记忆">
                 <List
                   size="small"
-                  dataSource={(analytics?.most_accessed_memories || []).slice(0, 5)}
+                  dataSource={(analytics?.most_accessed_memories || []).slice(
+                    0,
+                    5
+                  )}
                   renderItem={item => (
                     <List.Item>
                       <div style={{ width: '100%' }}>
@@ -326,30 +341,35 @@ const MemoryAnalyticsDashboard: React.FC = () => {
                 />
               </Card>
             </Col>
-            
+
             <Col span={12}>
               <Card title="最近创建记忆">
                 <Timeline>
-                  {(analytics?.recent_memories || []).slice(0, 5).map(memory => (
-                    <Timeline.Item 
-                      key={memory.id}
-                      color={getTypeColor(memory.type)}
-                    >
-                      <div>
-                        <div style={{ marginBottom: 4 }}>
-                          {memory.content.substring(0, 50)}...
+                  {(analytics?.recent_memories || [])
+                    .slice(0, 5)
+                    .map(memory => (
+                      <Timeline.Item
+                        key={memory.id}
+                        color={getTypeColor(memory.type)}
+                      >
+                        <div>
+                          <div style={{ marginBottom: 4 }}>
+                            {memory.content.substring(0, 50)}...
+                          </div>
+                          <Space size={4}>
+                            <Tag
+                              color={getTypeColor(memory.type)}
+                              style={{ fontSize: 10 }}
+                            >
+                              {getTypeLabel(memory.type)}
+                            </Tag>
+                            <span style={{ fontSize: 10, color: '#999' }}>
+                              {new Date(memory.created_at).toLocaleString()}
+                            </span>
+                          </Space>
                         </div>
-                        <Space size={4}>
-                          <Tag color={getTypeColor(memory.type)} style={{ fontSize: 10 }}>
-                            {getTypeLabel(memory.type)}
-                          </Tag>
-                          <span style={{ fontSize: 10, color: '#999' }}>
-                            {new Date(memory.created_at).toLocaleString()}
-                          </span>
-                        </Space>
-                      </div>
-                    </Timeline.Item>
-                  ))}
+                      </Timeline.Item>
+                    ))}
                 </Timeline>
               </Card>
             </Col>
@@ -386,24 +406,32 @@ const MemoryAnalyticsDashboard: React.FC = () => {
               </Card>
             </Col>
           </Row>
-          
+
           {patterns && (
             <Card title="记忆访问模式" style={{ marginTop: 16 }}>
               <Row gutter={16}>
                 <Col span={12}>
                   <h4>高峰时段</h4>
                   <Space wrap>
-                    {patterns.usage_patterns.peak_hours.slice(0, 5).map(([hour, count]) => (
-                      <Tag key={hour} color="blue">{hour}:00 ({count})</Tag>
-                    ))}
+                    {patterns.usage_patterns.peak_hours
+                      .slice(0, 5)
+                      .map(([hour, count]) => (
+                        <Tag key={hour} color="blue">
+                          {hour}:00 ({count})
+                        </Tag>
+                      ))}
                   </Space>
                 </Col>
                 <Col span={12}>
                   <h4>活跃日期</h4>
                   <Space wrap>
-                    {patterns.usage_patterns.most_active_days.slice(0, 5).map(([day, count]) => (
-                      <Tag key={day} color="purple">{day} ({count})</Tag>
-                    ))}
+                    {patterns.usage_patterns.most_active_days
+                      .slice(0, 5)
+                      .map(([day, count]) => (
+                        <Tag key={day} color="purple">
+                          {day} ({count})
+                        </Tag>
+                      ))}
                   </Space>
                 </Col>
               </Row>
@@ -418,19 +446,27 @@ const MemoryAnalyticsDashboard: React.FC = () => {
 // 辅助函数
 const getTypeColor = (type: MemoryType) => {
   switch (type) {
-    case MemoryType.WORKING: return 'green'
-    case MemoryType.EPISODIC: return 'blue'
-    case MemoryType.SEMANTIC: return 'purple'
-    default: return 'default'
+    case MemoryType.WORKING:
+      return 'green'
+    case MemoryType.EPISODIC:
+      return 'blue'
+    case MemoryType.SEMANTIC:
+      return 'purple'
+    default:
+      return 'default'
   }
 }
 
 const getTypeLabel = (type: MemoryType) => {
   switch (type) {
-    case MemoryType.WORKING: return '工作'
-    case MemoryType.EPISODIC: return '情景'
-    case MemoryType.SEMANTIC: return '语义'
-    default: return '未知'
+    case MemoryType.WORKING:
+      return '工作'
+    case MemoryType.EPISODIC:
+      return '情景'
+    case MemoryType.SEMANTIC:
+      return '语义'
+    default:
+      return '未知'
   }
 }
 

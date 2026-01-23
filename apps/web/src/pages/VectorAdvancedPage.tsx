@@ -14,8 +14,8 @@
 
 import { buildApiUrl, apiFetch } from '../utils/apiBase'
 import React, { useState, useEffect } from 'react';
-import {
 import { logger } from '../utils/logger'
+import {
   Card,
   Tabs,
   Typography,
@@ -84,8 +84,8 @@ const VectorAdvancedPage: React.FC = () => {
     try {
       setLoading(true);
       const [statusRes, indexesRes] = await Promise.all([
-        apiFetch(buildApiUrl('/api/v1/pgvector/status'),
-        apiFetch(buildApiUrl('/api/v1/pgvector/indexes/list'),
+        apiFetch(buildApiUrl('/api/v1/pgvector/status')),
+        apiFetch(buildApiUrl('/api/v1/pgvector/indexes/list')),
       ]);
       const status = await statusRes.json();
       const indexesPayload = await indexesRes.json();

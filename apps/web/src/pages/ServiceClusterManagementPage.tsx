@@ -1,12 +1,32 @@
 import React, { useState, useEffect } from 'react'
-import { Card, Row, Col, Table, Badge, Button, Space, Typography, Alert, Progress, Statistic, Tag, Modal, Form, Input, Select, Tooltip, Drawer, Timeline } from 'antd'
-import { 
+import {
+  Card,
+  Row,
+  Col,
+  Table,
+  Badge,
+  Button,
+  Space,
+  Typography,
+  Alert,
+  Progress,
+  Statistic,
+  Tag,
+  Modal,
+  Form,
+  Input,
+  Select,
+  Tooltip,
+  Drawer,
+  Timeline,
+} from 'antd'
 import { logger } from '../utils/logger'
-  CloudServerOutlined, 
-  CheckCircleOutlined, 
-  ExclamationCircleOutlined, 
-  CloseCircleOutlined, 
-  ReloadOutlined, 
+import {
+  CloudServerOutlined,
+  CheckCircleOutlined,
+  ExclamationCircleOutlined,
+  CloseCircleOutlined,
+  ReloadOutlined,
   PlusOutlined,
   SettingOutlined,
   MonitorOutlined,
@@ -21,9 +41,19 @@ import { logger } from '../utils/logger'
   SyncOutlined,
   CrownOutlined,
   UserOutlined,
-  BookOutlined
+  BookOutlined,
 } from '@ant-design/icons'
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as ChartTooltip, ResponsiveContainer, AreaChart, Area } from 'recharts'
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip as ChartTooltip,
+  ResponsiveContainer,
+  AreaChart,
+  Area,
+} from 'recharts'
 import { clusterManagementService } from '../services/clusterManagementService'
 
 const { Title, Paragraph, Text } = Typography
@@ -36,7 +66,14 @@ interface ClusterNode {
   name: string
   ip: string
   port: number
-  status: 'healthy' | 'unhealthy' | 'joining' | 'leaving' | 'leader' | 'follower' | 'learner'
+  status:
+    | 'healthy'
+    | 'unhealthy'
+    | 'joining'
+    | 'leaving'
+    | 'leader'
+    | 'follower'
+    | 'learner'
   role: 'leader' | 'follower' | 'learner'
   region: string
   datacenter: string
@@ -70,7 +107,13 @@ interface ClusterNode {
 
 interface ClusterEvent {
   id: string
-  type: 'node_joined' | 'node_left' | 'leader_elected' | 'member_failed' | 'config_changed' | 'split_brain'
+  type:
+    | 'node_joined'
+    | 'node_left'
+    | 'leader_elected'
+    | 'member_failed'
+    | 'config_changed'
+    | 'split_brain'
   nodeId: string
   nodeName: string
   message: string
@@ -79,7 +122,9 @@ interface ClusterEvent {
   details?: any
 }
 
-const ServiceClusterManagementPage: React.FC<ServiceClusterManagementPageProps> = () => {
+const ServiceClusterManagementPage: React.FC<
+  ServiceClusterManagementPageProps
+> = () => {
   const [clusterNodes, setClusterNodes] = useState<ClusterNode[]>([])
   const [clusterEvents, setClusterEvents] = useState<ClusterEvent[]>([])
   const [performanceData, setPerformanceData] = useState<any[]>([])
@@ -114,20 +159,20 @@ const ServiceClusterManagementPage: React.FC<ServiceClusterManagementPageProps> 
         term: agent.raft_term || 0,
         index: agent.raft_index || 0,
         applied: agent.raft_applied || 0,
-        commit: agent.raft_commit || 0
+        commit: agent.raft_commit || 0,
       },
       metrics: {
         requestsPerSecond: agent.qps || usage.requests_per_second || 0,
         responseTime: usage.response_time || 0,
         errorRate: usage.error_rate || 0,
-        throughput: usage.throughput || 0
+        throughput: usage.throughput || 0,
       },
       config: {
         maxConnections: agent.max_capacity || 0,
         timeoutMs: 0,
         heartbeatInterval: 0,
-        electionTimeout: 0
-      }
+        electionTimeout: 0,
+      },
     }
   }
 
@@ -138,7 +183,7 @@ const ServiceClusterManagementPage: React.FC<ServiceClusterManagementPageProps> 
         clusterManagementService.getAgents(),
         clusterManagementService.getClusterStats().catch(() => null),
         clusterManagementService.getMetrics(undefined, 1800).catch(() => []),
-        clusterManagementService.getClusterHealth().catch(() => null)
+        clusterManagementService.getClusterHealth().catch(() => null),
       ])
       setClusterNodes((agents || []).map(mapAgentToNode))
 
@@ -146,7 +191,7 @@ const ServiceClusterManagementPage: React.FC<ServiceClusterManagementPageProps> 
         time: new Date(m.timestamp).toLocaleTimeString(),
         requests: m.request_rate || 0,
         latency: m.response_time || 0,
-        errors: m.error_rate || 0
+        errors: m.error_rate || 0,
       }))
       setPerformanceData(perf)
 
@@ -159,7 +204,7 @@ const ServiceClusterManagementPage: React.FC<ServiceClusterManagementPageProps> 
             nodeName: 'cluster',
             message: issue,
             timestamp: new Date().toISOString(),
-            severity: 'warning'
+            severity: 'warning',
           }))
         )
       } else {
@@ -185,56 +230,90 @@ const ServiceClusterManagementPage: React.FC<ServiceClusterManagementPageProps> 
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'healthy': return '#52c41a'
-      case 'leader': return '#1890ff'
-      case 'follower': return '#52c41a'
-      case 'learner': return '#faad14'
-      case 'unhealthy': return '#ff4d4f'
-      case 'joining': return '#722ed1'
-      case 'leaving': return '#fa8c16'
-      default: return '#d9d9d9'
+      case 'healthy':
+        return '#52c41a'
+      case 'leader':
+        return '#1890ff'
+      case 'follower':
+        return '#52c41a'
+      case 'learner':
+        return '#faad14'
+      case 'unhealthy':
+        return '#ff4d4f'
+      case 'joining':
+        return '#722ed1'
+      case 'leaving':
+        return '#fa8c16'
+      default:
+        return '#d9d9d9'
     }
   }
 
   const getStatusIcon = (status: string) => {
     switch (status) {
-      case 'healthy': return <CheckCircleOutlined />
-      case 'leader': return <CrownOutlined />
-      case 'follower': return <UserOutlined />
-      case 'learner': return <BookOutlined />
-      case 'unhealthy': return <CloseCircleOutlined />
-      case 'joining': return <SyncOutlined spin />
-      case 'leaving': return <ExclamationCircleOutlined />
-      default: return <InfoCircleOutlined />
+      case 'healthy':
+        return <CheckCircleOutlined />
+      case 'leader':
+        return <CrownOutlined />
+      case 'follower':
+        return <UserOutlined />
+      case 'learner':
+        return <BookOutlined />
+      case 'unhealthy':
+        return <CloseCircleOutlined />
+      case 'joining':
+        return <SyncOutlined spin />
+      case 'leaving':
+        return <ExclamationCircleOutlined />
+      default:
+        return <InfoCircleOutlined />
     }
   }
 
   const getRoleColor = (role: string) => {
     switch (role) {
-      case 'leader': return 'red'
-      case 'follower': return 'blue'
-      case 'learner': return 'orange'
-      default: return 'default'
+      case 'leader':
+        return 'red'
+      case 'follower':
+        return 'blue'
+      case 'learner':
+        return 'orange'
+      default:
+        return 'default'
     }
   }
 
   const getEventIcon = (type: string, severity: string) => {
     switch (severity) {
-      case 'success': return <CheckCircleOutlined style={{ color: '#52c41a' }} />
-      case 'warning': return <ExclamationCircleOutlined style={{ color: '#faad14' }} />
-      case 'error': return <CloseCircleOutlined style={{ color: '#ff4d4f' }} />
-      default: return <InfoCircleOutlined style={{ color: '#1890ff' }} />
+      case 'success':
+        return <CheckCircleOutlined style={{ color: '#52c41a' }} />
+      case 'warning':
+        return <ExclamationCircleOutlined style={{ color: '#faad14' }} />
+      case 'error':
+        return <CloseCircleOutlined style={{ color: '#ff4d4f' }} />
+      default:
+        return <InfoCircleOutlined style={{ color: '#1890ff' }} />
     }
   }
 
   const clusterStats = {
     totalNodes: clusterNodes.length,
-    healthyNodes: clusterNodes.filter(n => n.status === 'healthy' || n.status === 'leader' || n.status === 'follower').length,
+    healthyNodes: clusterNodes.filter(
+      n =>
+        n.status === 'healthy' ||
+        n.status === 'leader' ||
+        n.status === 'follower'
+    ).length,
     unhealthyNodes: clusterNodes.filter(n => n.status === 'unhealthy').length,
     leaderNode: clusterNodes.find(n => n.status === 'leader'),
-    avgUptime: clusterNodes.length ? clusterNodes.reduce((sum, n) => sum + n.uptime, 0) / clusterNodes.length : 0,
+    avgUptime: clusterNodes.length
+      ? clusterNodes.reduce((sum, n) => sum + n.uptime, 0) / clusterNodes.length
+      : 0,
     totalConnections: clusterNodes.reduce((sum, n) => sum + n.connections, 0),
-    totalRequests: clusterNodes.reduce((sum, n) => sum + n.metrics.requestsPerSecond, 0)
+    totalRequests: clusterNodes.reduce(
+      (sum, n) => sum + n.metrics.requestsPerSecond,
+      0
+    ),
   }
 
   const handleRefresh = async () => {
@@ -250,8 +329,8 @@ const ServiceClusterManagementPage: React.FC<ServiceClusterManagementPageProps> 
         port: values.port || 2379,
         labels: {
           region: values.region || '',
-          datacenter: values.datacenter || ''
-        }
+          datacenter: values.datacenter || '',
+        },
       })
       await loadData()
       setAddNodeModalVisible(false)
@@ -270,7 +349,7 @@ const ServiceClusterManagementPage: React.FC<ServiceClusterManagementPageProps> 
       onOk: async () => {
         await clusterManagementService.deleteAgent(nodeId)
         await loadData()
-      }
+      },
     })
   }
 
@@ -289,7 +368,9 @@ const ServiceClusterManagementPage: React.FC<ServiceClusterManagementPageProps> 
           <div>
             <div style={{ display: 'flex', alignItems: 'center' }}>
               {getStatusIcon(node.status)}
-              <Text strong style={{ marginLeft: 4 }}>{node.name}</Text>
+              <Text strong style={{ marginLeft: 4 }}>
+                {node.name}
+              </Text>
               <Tag color={getRoleColor(node.role)} style={{ marginLeft: 8 }}>
                 {node.role.toUpperCase()}
               </Tag>
@@ -299,7 +380,7 @@ const ServiceClusterManagementPage: React.FC<ServiceClusterManagementPageProps> 
             </Text>
           </div>
         </Space>
-      )
+      ),
     },
     {
       title: '状态',
@@ -313,7 +394,13 @@ const ServiceClusterManagementPage: React.FC<ServiceClusterManagementPageProps> 
             <Progress
               percent={node.uptime}
               size="small"
-              status={node.uptime > 99 ? 'success' : node.uptime > 95 ? 'active' : 'exception'}
+              status={
+                node.uptime > 99
+                  ? 'success'
+                  : node.uptime > 95
+                    ? 'active'
+                    : 'exception'
+              }
               showInfo={false}
             />
             <Text type="secondary" style={{ fontSize: '12px' }}>
@@ -321,7 +408,7 @@ const ServiceClusterManagementPage: React.FC<ServiceClusterManagementPageProps> 
             </Text>
           </div>
         </div>
-      )
+      ),
     },
     {
       title: '资源使用',
@@ -329,19 +416,31 @@ const ServiceClusterManagementPage: React.FC<ServiceClusterManagementPageProps> 
       render: (_, node: ClusterNode) => (
         <div style={{ minWidth: '120px' }}>
           <div style={{ marginBottom: '4px' }}>
-            <Text type="secondary" style={{ fontSize: '12px' }}>负载:</Text>
-            <Text style={{ marginLeft: 4, fontSize: '12px' }}>{node.loadAverage.toFixed(2)}</Text>
+            <Text type="secondary" style={{ fontSize: '12px' }}>
+              负载:
+            </Text>
+            <Text style={{ marginLeft: 4, fontSize: '12px' }}>
+              {node.loadAverage.toFixed(2)}
+            </Text>
           </div>
           <div style={{ marginBottom: '4px' }}>
-            <Text type="secondary" style={{ fontSize: '12px' }}>内存:</Text>
-            <Text style={{ marginLeft: 4, fontSize: '12px' }}>{node.memoryUsage}%</Text>
+            <Text type="secondary" style={{ fontSize: '12px' }}>
+              内存:
+            </Text>
+            <Text style={{ marginLeft: 4, fontSize: '12px' }}>
+              {node.memoryUsage}%
+            </Text>
           </div>
           <div>
-            <Text type="secondary" style={{ fontSize: '12px' }}>磁盘:</Text>
-            <Text style={{ marginLeft: 4, fontSize: '12px' }}>{node.diskUsage}%</Text>
+            <Text type="secondary" style={{ fontSize: '12px' }}>
+              磁盘:
+            </Text>
+            <Text style={{ marginLeft: 4, fontSize: '12px' }}>
+              {node.diskUsage}%
+            </Text>
           </div>
         </div>
-      )
+      ),
     },
     {
       title: 'Raft状态',
@@ -349,19 +448,31 @@ const ServiceClusterManagementPage: React.FC<ServiceClusterManagementPageProps> 
       render: (_, node: ClusterNode) => (
         <div style={{ minWidth: '100px' }}>
           <div>
-            <Text type="secondary" style={{ fontSize: '12px' }}>任期:</Text>
-            <Text style={{ marginLeft: 4, fontSize: '12px' }}>{node.raftState.term}</Text>
+            <Text type="secondary" style={{ fontSize: '12px' }}>
+              任期:
+            </Text>
+            <Text style={{ marginLeft: 4, fontSize: '12px' }}>
+              {node.raftState.term}
+            </Text>
           </div>
           <div>
-            <Text type="secondary" style={{ fontSize: '12px' }}>索引:</Text>
-            <Text style={{ marginLeft: 4, fontSize: '12px' }}>{node.raftState.index}</Text>
+            <Text type="secondary" style={{ fontSize: '12px' }}>
+              索引:
+            </Text>
+            <Text style={{ marginLeft: 4, fontSize: '12px' }}>
+              {node.raftState.index}
+            </Text>
           </div>
           <div>
-            <Text type="secondary" style={{ fontSize: '12px' }}>提交:</Text>
-            <Text style={{ marginLeft: 4, fontSize: '12px' }}>{node.raftState.commit}</Text>
+            <Text type="secondary" style={{ fontSize: '12px' }}>
+              提交:
+            </Text>
+            <Text style={{ marginLeft: 4, fontSize: '12px' }}>
+              {node.raftState.commit}
+            </Text>
           </div>
         </div>
-      )
+      ),
     },
     {
       title: '连接数',
@@ -369,7 +480,7 @@ const ServiceClusterManagementPage: React.FC<ServiceClusterManagementPageProps> 
       key: 'connections',
       render: (connections: number) => (
         <Statistic value={connections} valueStyle={{ fontSize: '14px' }} />
-      )
+      ),
     },
     {
       title: '区域',
@@ -378,9 +489,11 @@ const ServiceClusterManagementPage: React.FC<ServiceClusterManagementPageProps> 
         <div>
           <Tag color="blue">{node.region}</Tag>
           <br />
-          <Text type="secondary" style={{ fontSize: '12px' }}>{node.datacenter}</Text>
+          <Text type="secondary" style={{ fontSize: '12px' }}>
+            {node.datacenter}
+          </Text>
         </div>
-      )
+      ),
     },
     {
       title: '最后活跃',
@@ -389,7 +502,7 @@ const ServiceClusterManagementPage: React.FC<ServiceClusterManagementPageProps> 
         <Text type="secondary" style={{ fontSize: '12px' }}>
           {new Date(node.lastSeen).toLocaleString()}
         </Text>
-      )
+      ),
     },
     {
       title: '操作',
@@ -397,19 +510,28 @@ const ServiceClusterManagementPage: React.FC<ServiceClusterManagementPageProps> 
       render: (_, node: ClusterNode) => (
         <Space size="small">
           <Tooltip title="查看详情">
-            <Button size="small" icon={<EyeOutlined />} onClick={() => handleViewNodeDetail(node)} />
+            <Button
+              size="small"
+              icon={<EyeOutlined />}
+              onClick={() => handleViewNodeDetail(node)}
+            />
           </Tooltip>
           <Tooltip title="编辑配置">
             <Button size="small" icon={<EditOutlined />} />
           </Tooltip>
           {node.status !== 'leader' && (
             <Tooltip title="移除节点">
-              <Button size="small" danger icon={<DeleteOutlined />} onClick={() => handleRemoveNode(node.id)} />
+              <Button
+                size="small"
+                danger
+                icon={<DeleteOutlined />}
+                onClick={() => handleRemoveNode(node.id)}
+              />
             </Tooltip>
           )}
         </Space>
-      )
-    }
+      ),
+    },
   ]
 
   return (
@@ -507,9 +629,27 @@ const ServiceClusterManagementPage: React.FC<ServiceClusterManagementPageProps> 
                   <XAxis dataKey="time" />
                   <YAxis />
                   <ChartTooltip />
-                  <Line type="monotone" dataKey="requests" stroke="#1890ff" strokeWidth={2} name="请求数" />
-                  <Line type="monotone" dataKey="latency" stroke="#52c41a" strokeWidth={2} name="延迟(ms)" />
-                  <Line type="monotone" dataKey="errors" stroke="#ff4d4f" strokeWidth={2} name="错误数" />
+                  <Line
+                    type="monotone"
+                    dataKey="requests"
+                    stroke="#1890ff"
+                    strokeWidth={2}
+                    name="请求数"
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="latency"
+                    stroke="#52c41a"
+                    strokeWidth={2}
+                    name="延迟(ms)"
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="errors"
+                    stroke="#ff4d4f"
+                    strokeWidth={2}
+                    name="错误数"
+                  />
                 </LineChart>
               </ResponsiveContainer>
             </Card>
@@ -522,7 +662,7 @@ const ServiceClusterManagementPage: React.FC<ServiceClusterManagementPageProps> 
                 <Text type="secondary">暂无事件</Text>
               ) : (
                 <Timeline size="small">
-                  {clusterEvents.map((event) => (
+                  {clusterEvents.map(event => (
                     <Timeline.Item
                       key={event.id}
                       dot={getEventIcon(event.type, event.severity)}
@@ -532,11 +672,18 @@ const ServiceClusterManagementPage: React.FC<ServiceClusterManagementPageProps> 
                           <Text strong style={{ fontSize: '13px' }}>
                             {event.nodeName}
                           </Text>
-                          <Tag size="small" color={
-                            event.severity === 'error' ? 'red' : 
-                            event.severity === 'warning' ? 'orange' : 
-                            event.severity === 'success' ? 'green' : 'blue'
-                          }>
+                          <Tag
+                            size="small"
+                            color={
+                              event.severity === 'error'
+                                ? 'red'
+                                : event.severity === 'warning'
+                                  ? 'orange'
+                                  : event.severity === 'success'
+                                    ? 'green'
+                                    : 'blue'
+                            }
+                          >
                             {event.type.toUpperCase().replace('_', ' ')}
                           </Tag>
                         </div>
@@ -560,21 +707,33 @@ const ServiceClusterManagementPage: React.FC<ServiceClusterManagementPageProps> 
           <Row justify="space-between" align="middle">
             <Col>
               <Space>
-                <Button type="primary" icon={<PlusOutlined />} onClick={() => setAddNodeModalVisible(true)}>
+                <Button
+                  type="primary"
+                  icon={<PlusOutlined />}
+                  onClick={() => setAddNodeModalVisible(true)}
+                >
                   添加节点
                 </Button>
-                <Button icon={<ReloadOutlined />} loading={loading} onClick={handleRefresh}>
+                <Button
+                  icon={<ReloadOutlined />}
+                  loading={loading}
+                  onClick={handleRefresh}
+                >
                   刷新集群
                 </Button>
-                <Button icon={<SettingOutlined />}>
-                  集群配置
-                </Button>
+                <Button icon={<SettingOutlined />}>集群配置</Button>
               </Space>
             </Col>
             <Col>
               <Space>
-                <Badge status="processing" text={`领导者: ${clusterStats.leaderNode?.name || '未知'}`} />
-                <Badge status="success" text={`平均可用性: ${clusterStats.avgUptime.toFixed(1)}%`} />
+                <Badge
+                  status="processing"
+                  text={`领导者: ${clusterStats.leaderNode?.name || '未知'}`}
+                />
+                <Badge
+                  status="success"
+                  text={`平均可用性: ${clusterStats.avgUptime.toFixed(1)}%`}
+                />
               </Space>
             </Col>
           </Row>
@@ -603,11 +762,7 @@ const ServiceClusterManagementPage: React.FC<ServiceClusterManagementPageProps> 
           }}
           confirmLoading={loading}
         >
-          <Form
-            form={form}
-            layout="vertical"
-            onFinish={handleAddNode}
-          >
+          <Form form={form} layout="vertical" onFinish={handleAddNode}>
             <Form.Item
               name="name"
               label="节点名称"
@@ -615,7 +770,7 @@ const ServiceClusterManagementPage: React.FC<ServiceClusterManagementPageProps> 
             >
               <Input placeholder="例如: etcd-backup-3" />
             </Form.Item>
-            
+
             <Row gutter={16}>
               <Col span={16}>
                 <Form.Item
@@ -623,7 +778,10 @@ const ServiceClusterManagementPage: React.FC<ServiceClusterManagementPageProps> 
                   label="IP地址"
                   rules={[
                     { required: true, message: '请输入IP地址' },
-                    { pattern: /^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$/, message: '请输入有效的IP地址' }
+                    {
+                      pattern: /^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$/,
+                      message: '请输入有效的IP地址',
+                    },
                   ]}
                 >
                   <Input placeholder="192.168.1.106" />
@@ -667,8 +825,15 @@ const ServiceClusterManagementPage: React.FC<ServiceClusterManagementPageProps> 
             <div>
               <Alert
                 message={`节点状态: ${selectedNode.status.toUpperCase()}`}
-                type={selectedNode.status === 'leader' || selectedNode.status === 'follower' ? 'success' : 
-                      selectedNode.status === 'joining' || selectedNode.status === 'learner' ? 'info' : 'error'}
+                type={
+                  selectedNode.status === 'leader' ||
+                  selectedNode.status === 'follower'
+                    ? 'success'
+                    : selectedNode.status === 'joining' ||
+                        selectedNode.status === 'learner'
+                      ? 'info'
+                      : 'error'
+                }
                 showIcon
                 style={{ marginBottom: '16px' }}
               />
@@ -689,7 +854,11 @@ const ServiceClusterManagementPage: React.FC<ServiceClusterManagementPageProps> 
                 </Col>
                 <Col span={8}>
                   <Text type="secondary">角色</Text>
-                  <div><Tag color={getRoleColor(selectedNode.role)}>{selectedNode.role.toUpperCase()}</Tag></div>
+                  <div>
+                    <Tag color={getRoleColor(selectedNode.role)}>
+                      {selectedNode.role.toUpperCase()}
+                    </Tag>
+                  </div>
                 </Col>
                 <Col span={8}>
                   <Text type="secondary">版本</Text>
@@ -759,22 +928,39 @@ const ServiceClusterManagementPage: React.FC<ServiceClusterManagementPageProps> 
               <Row gutter={16}>
                 <Col span={12}>
                   <Card size="small">
-                    <Statistic title="QPS" value={selectedNode.metrics.requestsPerSecond} />
+                    <Statistic
+                      title="QPS"
+                      value={selectedNode.metrics.requestsPerSecond}
+                    />
                   </Card>
                 </Col>
                 <Col span={12}>
                   <Card size="small">
-                    <Statistic title="响应时间" value={selectedNode.metrics.responseTime} suffix="ms" />
+                    <Statistic
+                      title="响应时间"
+                      value={selectedNode.metrics.responseTime}
+                      suffix="ms"
+                    />
                   </Card>
                 </Col>
                 <Col span={12}>
                   <Card size="small">
-                    <Statistic title="错误率" value={selectedNode.metrics.errorRate} suffix="%" precision={1} />
+                    <Statistic
+                      title="错误率"
+                      value={selectedNode.metrics.errorRate}
+                      suffix="%"
+                      precision={1}
+                    />
                   </Card>
                 </Col>
                 <Col span={12}>
                   <Card size="small">
-                    <Statistic title="吞吐量" value={selectedNode.metrics.throughput} suffix="MB/s" precision={1} />
+                    <Statistic
+                      title="吞吐量"
+                      value={selectedNode.metrics.throughput}
+                      suffix="MB/s"
+                      precision={1}
+                    />
                   </Card>
                 </Col>
               </Row>

@@ -1,31 +1,31 @@
 import { buildApiUrl, apiFetch } from '../utils/apiBase'
-import React, { useState } from 'react';
-import { Card, Input, Button, Alert, Space } from 'antd';
+import React, { useState } from 'react'
+import { Card, Input, Button, Alert, Space } from 'antd'
 
 const SparqlQueryInterface: React.FC = () => {
-  const [query, setQuery] = useState('SELECT * WHERE { ?s ?p ?o } LIMIT 10');
-  const [result, setResult] = useState<any>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [query, setQuery] = useState('SELECT * WHERE { ?s ?p ?o } LIMIT 10')
+  const [result, setResult] = useState<any>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [loading, setLoading] = useState(false)
 
   const runQuery = async () => {
-    setLoading(true);
-    setError(null);
-    setResult(null);
+    setLoading(true)
+    setError(null)
+    setResult(null)
     try {
       const res = await apiFetch(buildApiUrl('/api/v1/kg/sparql/query'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query })
-      });
-      const data = await res.json();
-      setResult(data);
+        body: JSON.stringify({ query }),
+      })
+      const data = await res.json()
+      setResult(data)
     } catch (e: any) {
-      setError(e?.message || '查询失败');
+      setError(e?.message || '查询失败')
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
+  }
 
   return (
     <div style={{ padding: 24 }}>
@@ -33,7 +33,7 @@ const SparqlQueryInterface: React.FC = () => {
         <Card title="SPARQL 查询">
           <Input.TextArea
             value={query}
-            onChange={(e) => setQuery(e.target.value)}
+            onChange={e => setQuery(e.target.value)}
             rows={6}
             placeholder="输入 SPARQL 查询语句"
           />
@@ -47,12 +47,14 @@ const SparqlQueryInterface: React.FC = () => {
         {error && <Alert type="error" message={error} />}
         {result && (
           <Card title="结果">
-            <pre style={{ whiteSpace: 'pre-wrap' }}>{JSON.stringify(result, null, 2)}</pre>
+            <pre style={{ whiteSpace: 'pre-wrap' }}>
+              {JSON.stringify(result, null, 2)}
+            </pre>
           </Card>
         )}
       </Space>
     </div>
-  );
-};
+  )
+}
 
-export default SparqlQueryInterface;
+export default SparqlQueryInterface

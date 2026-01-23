@@ -5,8 +5,8 @@
 
 import { buildApiUrl, apiFetch } from '../utils/apiBase'
 import React, { useState, useRef, useCallback } from 'react'
-import {
 import { logger } from '../utils/logger'
+import {
   Card,
   Row,
   Col,
@@ -29,7 +29,7 @@ import { logger } from '../utils/logger'
   Spin,
   Empty,
   Tooltip,
-  Avatar
+  Avatar,
 } from 'antd'
 import {
   CameraOutlined,
@@ -54,7 +54,7 @@ import {
   RadarChartOutlined,
   CheckCircleOutlined,
   ClockCircleOutlined,
-  UserOutlined
+  UserOutlined,
 } from '@ant-design/icons'
 import { Column, Pie, Radar, Rose } from '@ant-design/plots'
 import type { UploadProps } from 'antd'
@@ -81,62 +81,67 @@ const VisualEmotionAnalysisPage: React.FC = () => {
     confidenceThreshold: 0.5,
     multipleFaces: true,
     enableLandmarks: true,
-    frameRate: 5
+    frameRate: 5,
   })
 
   // 情感图标和颜色映射
-  const emotionConfig: Record<string, { icon: React.ReactNode; color: string }> = {
-    happy: { 
-      icon: <SmileOutlined style={{ fontSize: 24, color: '#52c41a' }} />, 
-      color: 'green' 
+  const emotionConfig: Record<
+    string,
+    { icon: React.ReactNode; color: string }
+  > = {
+    happy: {
+      icon: <SmileOutlined style={{ fontSize: 24, color: '#52c41a' }} />,
+      color: 'green',
     },
-    sad: { 
-      icon: <FrownOutlined style={{ fontSize: 24, color: '#1890ff' }} />, 
-      color: 'blue' 
+    sad: {
+      icon: <FrownOutlined style={{ fontSize: 24, color: '#1890ff' }} />,
+      color: 'blue',
     },
-    angry: { 
-      icon: <ThunderboltOutlined style={{ fontSize: 24, color: '#f5222d' }} />, 
-      color: 'red' 
+    angry: {
+      icon: <ThunderboltOutlined style={{ fontSize: 24, color: '#f5222d' }} />,
+      color: 'red',
     },
-    fear: { 
-      icon: <ExclamationCircleOutlined style={{ fontSize: 24, color: '#faad14' }} />, 
-      color: 'orange' 
+    fear: {
+      icon: (
+        <ExclamationCircleOutlined style={{ fontSize: 24, color: '#faad14' }} />
+      ),
+      color: 'orange',
     },
-    surprise: { 
-      icon: <SmileOutlined style={{ fontSize: 24, color: '#722ed1' }} />, 
-      color: 'purple' 
+    surprise: {
+      icon: <SmileOutlined style={{ fontSize: 24, color: '#722ed1' }} />,
+      color: 'purple',
     },
-    neutral: { 
-      icon: <MehOutlined style={{ fontSize: 24, color: '#8c8c8c' }} />, 
-      color: 'default' 
+    neutral: {
+      icon: <MehOutlined style={{ fontSize: 24, color: '#8c8c8c' }} />,
+      color: 'default',
     },
-    disgust: { 
-      icon: <FrownOutlined style={{ fontSize: 24, color: '#13c2c2' }} />, 
-      color: 'cyan' 
+    disgust: {
+      icon: <FrownOutlined style={{ fontSize: 24, color: '#13c2c2' }} />,
+      color: 'cyan',
     },
-    contempt: { 
-      icon: <MehOutlined style={{ fontSize: 24, color: '#fa8c16' }} />, 
-      color: 'gold' 
-    }
+    contempt: {
+      icon: <MehOutlined style={{ fontSize: 24, color: '#fa8c16' }} />,
+      color: 'gold',
+    },
   }
 
   // 开始视频流
   const startVideoStream = async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ 
-        video: { 
-          width: 640, 
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          width: 640,
           height: 480,
-          frameRate: settings.frameRate 
-        } 
+          frameRate: settings.frameRate,
+        },
       })
-      
+
       if (videoRef.current) {
         videoRef.current.srcObject = stream
         streamRef.current = stream
         setStreaming(true)
         message.success('摄像头已启动')
-        
+
         // 开始实时分析
         startRealtimeAnalysis()
       }
@@ -166,19 +171,24 @@ const VisualEmotionAnalysisPage: React.FC = () => {
         const ctx = canvas.getContext('2d')
         if (ctx) {
           ctx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height)
-          const blob: Blob = await new Promise(resolve => canvas.toBlob(b => resolve(b as Blob), 'image/jpeg'))
+          const blob: Blob = await new Promise(resolve =>
+            canvas.toBlob(b => resolve(b as Blob), 'image/jpeg')
+          )
           const formData = new FormData()
           formData.append('image_file', blob)
-          const res = await apiFetch(buildApiUrl('/api/v1/emotion-recognition/analyze/visual'), {
-            method: 'POST',
-            body: formData
-          })
+          const res = await apiFetch(
+            buildApiUrl('/api/v1/emotion-recognition/analyze/visual'),
+            {
+              method: 'POST',
+              body: formData,
+            }
+          )
           const data = await res.json()
           const faces = (data?.faces || []).map((f: any, idx: number) => ({
             id: idx,
             emotion: f.primary_emotion || f.emotion,
             confidence: f.confidence || f.score || 0,
-            position: f.bounding_box || {}
+            position: f.bounding_box || {},
           }))
           setDetectedFaces(faces)
         }
@@ -206,10 +216,13 @@ const VisualEmotionAnalysisPage: React.FC = () => {
       const formData = new FormData()
       if (imageFile) formData.append('image_file', imageFile)
       if (imageUrl) formData.append('image_url', imageUrl)
-      const res = await apiFetch(buildApiUrl('/api/v1/emotion-recognition/analyze/visual'), {
-        method: 'POST',
-        body: formData
-      })
+      const res = await apiFetch(
+        buildApiUrl('/api/v1/emotion-recognition/analyze/visual'),
+        {
+          method: 'POST',
+          body: formData,
+        }
+      )
       const data = await res.json()
       setAnalysisResult(data)
       message.success('视觉情感分析完成')
@@ -226,7 +239,7 @@ const VisualEmotionAnalysisPage: React.FC = () => {
     name: 'image',
     accept: 'image/*',
     maxCount: 1,
-    beforeUpload: (file) => {
+    beforeUpload: file => {
       const isImage = file.type.startsWith('image/')
       if (!isImage) {
         message.error('只能上传图片文件!')
@@ -237,14 +250,14 @@ const VisualEmotionAnalysisPage: React.FC = () => {
         message.error('图片必须小于5MB!')
         return false
       }
-      
+
       // 创建图片预览URL
       const reader = new FileReader()
-      reader.onload = (e) => {
+      reader.onload = e => {
         setImageUrl(e.target?.result as string)
       }
       reader.readAsDataURL(file)
-      
+
       setImageFile(file)
       return false
     },
@@ -252,38 +265,44 @@ const VisualEmotionAnalysisPage: React.FC = () => {
       setImageFile(null)
       setImageUrl('')
       setAnalysisResult(null)
-    }
+    },
   }
 
   // 面部情感分布图配置
-  const faceEmotionConfig = analysisResult ? {
-    data: analysisResult.emotions.filter((e: any) => e.count > 0),
-    xField: 'label',
-    yField: 'avgConfidence',
-    seriesField: 'label',
-    radius: 0.9,
-    label: {
-      offset: -15,
-    },
-    interactions: [{ type: 'element-active' }],
-  } : null
+  const faceEmotionConfig = analysisResult
+    ? {
+        data: analysisResult.emotions.filter((e: any) => e.count > 0),
+        xField: 'label',
+        yField: 'avgConfidence',
+        seriesField: 'label',
+        radius: 0.9,
+        label: {
+          offset: -15,
+        },
+        interactions: [{ type: 'element-active' }],
+      }
+    : null
 
   // 情感统计饼图配置
-  const emotionPieConfig = analysisResult ? {
-    appendPadding: 10,
-    data: analysisResult.emotions.filter((e: any) => e.count > 0).map((e: any) => ({
-      type: e.label,
-      value: e.count
-    })),
-    angleField: 'value',
-    colorField: 'type',
-    radius: 0.8,
-    label: {
-      type: 'outer',
-      content: '{name} {percentage}'
-    },
-    interactions: [{ type: 'pie-legend-active' }],
-  } : null
+  const emotionPieConfig = analysisResult
+    ? {
+        appendPadding: 10,
+        data: analysisResult.emotions
+          .filter((e: any) => e.count > 0)
+          .map((e: any) => ({
+            type: e.label,
+            value: e.count,
+          })),
+        angleField: 'value',
+        colorField: 'type',
+        radius: 0.8,
+        label: {
+          type: 'outer',
+          content: '{name} {percentage}',
+        },
+        interactions: [{ type: 'pie-legend-active' }],
+      }
+    : null
 
   return (
     <div style={{ padding: '24px' }}>
@@ -316,8 +335,8 @@ const VisualEmotionAnalysisPage: React.FC = () => {
         {/* 左侧输入区 */}
         <Col xs={24} lg={12}>
           {/* 输入模式切换 */}
-          <Card 
-            title="输入源" 
+          <Card
+            title="输入源"
             extra={
               <Space>
                 <Button
@@ -345,7 +364,9 @@ const VisualEmotionAnalysisPage: React.FC = () => {
                 {/* 图片上传 */}
                 <Dragger {...uploadProps}>
                   <p className="ant-upload-drag-icon">
-                    <CloudUploadOutlined style={{ fontSize: 48, color: '#1890ff' }} />
+                    <CloudUploadOutlined
+                      style={{ fontSize: 48, color: '#1890ff' }}
+                    />
                   </p>
                   <p className="ant-upload-text">点击或拖拽图片到此区域</p>
                   <p className="ant-upload-hint">
@@ -361,12 +382,18 @@ const VisualEmotionAnalysisPage: React.FC = () => {
                       alt="预览"
                       style={{ maxHeight: 300 }}
                       preview={{
-                        mask: <Space><ZoomInOutlined /> 查看大图</Space>
+                        mask: (
+                          <Space>
+                            <ZoomInOutlined /> 查看大图
+                          </Space>
+                        ),
                       }}
                     />
                     {analysisResult && detectedFaces.length > 0 && (
                       <div style={{ marginTop: 8 }}>
-                        <Badge count={`检测到 ${analysisResult.numFaces} 张面部`} />
+                        <Badge
+                          count={`检测到 ${analysisResult.numFaces} 张面部`}
+                        />
                       </div>
                     )}
                   </div>
@@ -375,36 +402,45 @@ const VisualEmotionAnalysisPage: React.FC = () => {
             ) : (
               <Space direction="vertical" style={{ width: '100%' }}>
                 {/* 视频流显示 */}
-                <div style={{ position: 'relative', width: '100%', backgroundColor: '#000', borderRadius: 8, overflow: 'hidden' }}>
+                <div
+                  style={{
+                    position: 'relative',
+                    width: '100%',
+                    backgroundColor: '#000',
+                    borderRadius: 8,
+                    overflow: 'hidden',
+                  }}
+                >
                   <video
                     ref={videoRef}
                     autoPlay
                     muted
                     style={{ width: '100%', height: 'auto' }}
                   />
-                  
+
                   {/* 实时检测覆盖层 */}
-                  {streaming && detectedFaces.map((face) => (
-                    <div
-                      key={face.id}
-                      style={{
-                        position: 'absolute',
-                        left: face.position.x,
-                        top: face.position.y,
-                        width: face.position.width,
-                        height: face.position.height,
-                        border: '2px solid #52c41a',
-                        borderRadius: 4
-                      }}
-                    >
-                      <Tag 
-                        color={emotionConfig[face.emotion]?.color}
-                        style={{ position: 'absolute', top: -25 }}
+                  {streaming &&
+                    detectedFaces.map(face => (
+                      <div
+                        key={face.id}
+                        style={{
+                          position: 'absolute',
+                          left: face.position.x,
+                          top: face.position.y,
+                          width: face.position.width,
+                          height: face.position.height,
+                          border: '2px solid #52c41a',
+                          borderRadius: 4,
+                        }}
                       >
-                        {face.emotion} ({(face.confidence * 100).toFixed(0)}%)
-                      </Tag>
-                    </div>
-                  ))}
+                        <Tag
+                          color={emotionConfig[face.emotion]?.color}
+                          style={{ position: 'absolute', top: -25 }}
+                        >
+                          {face.emotion} ({(face.confidence * 100).toFixed(0)}%)
+                        </Tag>
+                      </div>
+                    ))}
                 </div>
 
                 {/* 视频控制 */}
@@ -456,10 +492,10 @@ const VisualEmotionAnalysisPage: React.FC = () => {
             <Space direction="vertical" style={{ width: '100%' }}>
               <div>
                 <Text>识别模型：</Text>
-                <Select 
-                  value={settings.model} 
+                <Select
+                  value={settings.model}
                   style={{ width: '100%', marginTop: 8 }}
-                  onChange={v => setSettings({...settings, model: v})}
+                  onChange={v => setSettings({ ...settings, model: v })}
                 >
                   <Option value="fer2013-cnn">FER2013 CNN (推荐)</Option>
                   <Option value="affectnet">AffectNet</Option>
@@ -474,26 +510,34 @@ const VisualEmotionAnalysisPage: React.FC = () => {
                   min={20}
                   max={100}
                   value={settings.minFaceSize}
-                  onChange={v => setSettings({...settings, minFaceSize: v})}
+                  onChange={v => setSettings({ ...settings, minFaceSize: v })}
                 />
               </div>
 
               <div>
-                <Space style={{ width: '100%', justifyContent: 'space-between' }}>
+                <Space
+                  style={{ width: '100%', justifyContent: 'space-between' }}
+                >
                   <Text>多人脸检测</Text>
-                  <Switch 
+                  <Switch
                     checked={settings.multipleFaces}
-                    onChange={v => setSettings({...settings, multipleFaces: v})}
+                    onChange={v =>
+                      setSettings({ ...settings, multipleFaces: v })
+                    }
                   />
                 </Space>
               </div>
 
               <div>
-                <Space style={{ width: '100%', justifyContent: 'space-between' }}>
+                <Space
+                  style={{ width: '100%', justifyContent: 'space-between' }}
+                >
                   <Text>面部关键点</Text>
-                  <Switch 
+                  <Switch
                     checked={settings.enableLandmarks}
-                    onChange={v => setSettings({...settings, enableLandmarks: v})}
+                    onChange={v =>
+                      setSettings({ ...settings, enableLandmarks: v })
+                    }
                   />
                 </Space>
               </div>
@@ -505,7 +549,7 @@ const VisualEmotionAnalysisPage: React.FC = () => {
                     min={1}
                     max={30}
                     value={settings.frameRate}
-                    onChange={v => setSettings({...settings, frameRate: v})}
+                    onChange={v => setSettings({ ...settings, frameRate: v })}
                   />
                 </div>
               )}
@@ -536,13 +580,18 @@ const VisualEmotionAnalysisPage: React.FC = () => {
                     <Statistic
                       title="主要情感"
                       value={analysisResult.aggregatedEmotion.emotion}
-                      prefix={emotionConfig[analysisResult.aggregatedEmotion.emotion]?.icon}
+                      prefix={
+                        emotionConfig[analysisResult.aggregatedEmotion.emotion]
+                          ?.icon
+                      }
                     />
                   </Col>
                   <Col span={8}>
                     <Statistic
                       title="综合置信度"
-                      value={(analysisResult.aggregatedEmotion.confidence * 100).toFixed(1)}
+                      value={(
+                        analysisResult.aggregatedEmotion.confidence * 100
+                      ).toFixed(1)}
                       suffix="%"
                       valueStyle={{ color: '#52c41a' }}
                     />
@@ -560,15 +609,18 @@ const VisualEmotionAnalysisPage: React.FC = () => {
                       actions={[
                         <Tag color={emotionConfig[face.emotion]?.color}>
                           {(face.confidence * 100).toFixed(1)}%
-                        </Tag>
+                        </Tag>,
                       ]}
                     >
                       <List.Item.Meta
                         avatar={
-                          <Avatar 
-                            size={48} 
+                          <Avatar
+                            size={48}
                             icon={emotionConfig[face.emotion]?.icon}
-                            style={{ backgroundColor: emotionConfig[face.emotion]?.color }}
+                            style={{
+                              backgroundColor:
+                                emotionConfig[face.emotion]?.color,
+                            }}
                           />
                         }
                         title={`面部 ${face.id}: ${face.emotion}`}
@@ -620,9 +672,7 @@ const VisualEmotionAnalysisPage: React.FC = () => {
                 description="暂无分析结果"
                 image={Empty.PRESENTED_IMAGE_SIMPLE}
               >
-                <Button type="primary">
-                  上传图片开始分析
-                </Button>
+                <Button type="primary">上传图片开始分析</Button>
               </Empty>
             </Card>
           )}
@@ -640,7 +690,8 @@ const VisualEmotionAnalysisPage: React.FC = () => {
                       color={emotionConfig[face.emotion]?.color}
                       style={{ marginBottom: 8 }}
                     >
-                      面部{index + 1}: {face.emotion} ({(face.confidence * 100).toFixed(0)}%)
+                      面部{index + 1}: {face.emotion} (
+                      {(face.confidence * 100).toFixed(0)}%)
                     </Tag>
                   ))}
                 </div>

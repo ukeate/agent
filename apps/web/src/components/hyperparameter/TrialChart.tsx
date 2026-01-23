@@ -1,8 +1,8 @@
 /**
  * 试验图表组件
  */
-import React from 'react';
-import { Empty, Spin, Typography } from 'antd';
+import React from 'react'
+import { Empty, Spin, Typography } from 'antd'
 import {
   LineChart,
   Line,
@@ -15,29 +15,33 @@ import {
   CartesianGrid,
   Tooltip,
   Legend,
-  ResponsiveContainer
-} from 'recharts';
+  ResponsiveContainer,
+} from 'recharts'
 
-const { Title } = Typography;
+const { Title } = Typography
 
 interface TrialChartProps {
-  data: any[];
-  chartType: 'optimization-history' | 'parameter-scatter' | 'parameter-importance' | 'multi-metric';
-  title?: string;
-  loading?: boolean;
-  showBestValue?: boolean;
-  xParameter?: string;
-  yParameter?: string;
-  colors?: string[];
-  xLabel?: string;
-  yLabel?: string;
-  valueFormatter?: (value: number) => string;
-  onTrialSelect?: (trial: any) => void;
-  xAxisType?: 'number' | 'time';
-  yAxisType?: 'number' | 'log';
-  enableZoom?: boolean;
-  onExport?: () => void;
-  metrics?: string[];
+  data: any[]
+  chartType:
+    | 'optimization-history'
+    | 'parameter-scatter'
+    | 'parameter-importance'
+    | 'multi-metric'
+  title?: string
+  loading?: boolean
+  showBestValue?: boolean
+  xParameter?: string
+  yParameter?: string
+  colors?: string[]
+  xLabel?: string
+  yLabel?: string
+  valueFormatter?: (value: number) => string
+  onTrialSelect?: (trial: any) => void
+  xAxisType?: 'number' | 'time'
+  yAxisType?: 'number' | 'log'
+  enableZoom?: boolean
+  onExport?: () => void
+  metrics?: string[]
 }
 
 const TrialChart: React.FC<TrialChartProps> = ({
@@ -57,14 +61,18 @@ const TrialChart: React.FC<TrialChartProps> = ({
   yAxisType = 'number',
   enableZoom,
   onExport,
-  metrics = []
+  metrics = [],
 }) => {
   if (loading) {
-    return <div data-testid="loading"><Spin size="large" /></div>;
+    return (
+      <div data-testid="loading">
+        <Spin size="large" />
+      </div>
+    )
   }
 
   if (!data || data.length === 0) {
-    return <Empty description="暂无数据" />;
+    return <Empty description="暂无数据" />
   }
 
   // 处理参数重要性数据
@@ -88,7 +96,7 @@ const TrialChart: React.FC<TrialChartProps> = ({
           <div key={item.parameter}>{item.parameter}</div>
         ))}
       </div>
-    );
+    )
   }
 
   // 处理散点图
@@ -96,8 +104,8 @@ const TrialChart: React.FC<TrialChartProps> = ({
     const scatterData = data.map(trial => ({
       x: trial.parameters?.[xParameter!] || trial[xParameter!],
       y: trial.parameters?.[yParameter!] || trial[yParameter!],
-      ...trial
-    }));
+      ...trial,
+    }))
 
     return (
       <div>
@@ -113,7 +121,7 @@ const TrialChart: React.FC<TrialChartProps> = ({
           </ScatterChart>
         </ResponsiveContainer>
       </div>
-    );
+    )
   }
 
   // 处理多指标图表
@@ -129,29 +137,31 @@ const TrialChart: React.FC<TrialChartProps> = ({
             <Tooltip />
             <Legend />
             {metrics.map((metric, index) => (
-              <Line 
+              <Line
                 key={metric}
-                type="monotone" 
+                type="monotone"
                 dataKey={`metrics.${metric}`}
-                stroke={colors[index % colors.length]} 
+                stroke={colors[index % colors.length]}
                 name={metric}
               />
             ))}
           </LineChart>
         </ResponsiveContainer>
       </div>
-    );
+    )
   }
 
   // 默认优化历史图表
   const chartData = data.map((trial, index) => ({
     trial: trial.id || index + 1,
     value: trial.value,
-    ...trial
-  }));
+    ...trial,
+  }))
 
   // 找出最佳值
-  const bestValue = showBestValue ? Math.max(...data.map(t => t.value || 0)) : null;
+  const bestValue = showBestValue
+    ? Math.max(...data.map(t => t.value || 0))
+    : null
 
   return (
     <div>
@@ -169,11 +179,9 @@ const TrialChart: React.FC<TrialChartProps> = ({
         </LineChart>
       </ResponsiveContainer>
       {bestValue && <div>{bestValue}</div>}
-      {onExport && (
-        <button onClick={onExport}>导出</button>
-      )}
+      {onExport && <button onClick={onExport}>导出</button>}
     </div>
-  );
-};
+  )
+}
 
-export default TrialChart;
+export default TrialChart

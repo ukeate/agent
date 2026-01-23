@@ -35,6 +35,10 @@ class TaskRequest(ApiBaseModel):
     task_type: str = Field(default="general", description="任务类型")
     context: Optional[Dict[str, Any]] = Field(default_factory=dict, description="任务上下文")
 
+class UpdateConversationTitleRequest(ApiBaseModel):
+    """更新对话标题请求"""
+    title: str = Field(..., description="对话标题")
+
 # 响应模型
 class AgentSessionResponse(ApiBaseModel):
     """智能体会话响应"""
@@ -219,6 +223,7 @@ async def get_conversation_history(
     try:
         result = await agent_service.get_conversation_history(
             conversation_id=conversation_id,
+            user_id=current_user,
             limit=limit
         )
         
@@ -241,6 +246,41 @@ async def get_conversation_history(
             detail=f"获取对话历史失败: {str(e)}"
         )
 
+@router.put("/conversations/{conversation_id}/title")
+async def update_conversation_title(
+    conversation_id: str,
+    request: UpdateConversationTitleRequest,
+    agent_service: AgentService = Depends(get_agent_service),
+    current_user: str = Depends(get_current_user)
+):
+    """更新对话标题"""
+    try:
+        normalized = request.title.strip()
+        if not normalized:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="对话标题不能为空"
+            )
+        result = await agent_service.update_conversation_title(
+            conversation_id=conversation_id,
+            user_id=current_user,
+            title=normalized
+        )
+        return result
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+    except Exception as e:
+        logger.error(
+            "更新对话标题失败",
+            error=str(e),
+            conversation_id=conversation_id,
+            user_id=current_user
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"更新对话标题失败: {str(e)}"
+        )
+
 @router.get("/conversations/{conversation_id}/status", response_model=AgentStatusResponse)
 async def get_agent_status(
     conversation_id: str,
@@ -249,10 +289,15 @@ async def get_agent_status(
 ):
     """获取智能体状态"""
     try:
-        result = await agent_service.get_agent_status(conversation_id)
+        result = await agent_service.get_agent_status(conversation_id, current_user)
         
         return AgentStatusResponse(**result)
         
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(e)
+        )
     except Exception as e:
         logger.error(
             "获取智能体状态失败",
@@ -277,7 +322,8 @@ async def close_agent_session(
         # 在后台任务中执行清理
         background_tasks.add_task(
             agent_service.close_agent_session,
-            conversation_id
+            conversation_id,
+            current_user
         )
         
         return {
@@ -286,6 +332,11 @@ async def close_agent_session(
             "message": "会话正在关闭"
         }
         
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(e)
+        )
     except Exception as e:
         logger.error(
             "关闭智能体会话失败",
@@ -302,20 +353,22 @@ async def close_agent_session(
 async def list_user_conversations(
     limit: int = 20,
     offset: int = 0,
+    query: Optional[str] = None,
     agent_service: AgentService = Depends(get_agent_service),
     current_user: str = Depends(get_current_user)
 ):
     """列出用户的对话会话"""
     try:
-        conversations = await agent_service.list_user_conversations(
+        conversations, total = await agent_service.list_user_conversations(
             user_id=current_user,
             limit=limit,
-            offset=offset
+            offset=offset,
+            query=query
         )
         
         return {
             "conversations": conversations,
-            "total": len(conversations),
+            "total": total,
             "limit": limit,
             "offset": offset
         }

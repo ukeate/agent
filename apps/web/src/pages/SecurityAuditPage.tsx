@@ -1,6 +1,16 @@
 import { buildApiUrl, apiFetch } from '../utils/apiBase'
 import React, { useEffect, useState } from 'react'
-import { Card, Table, Button, Space, Typography, Alert, Tag, Statistic, message } from 'antd'
+import {
+  Card,
+  Table,
+  Button,
+  Space,
+  Typography,
+  Alert,
+  Tag,
+  Statistic,
+  message,
+} from 'antd'
 import { ReloadOutlined, SecurityScanOutlined } from '@ant-design/icons'
 import authService from '../services/authService'
 
@@ -26,11 +36,14 @@ const SecurityAuditPage: React.FC = () => {
         setLogs([])
         return
       }
-      const res = await apiFetch(buildApiUrl('/api/v1/security/mcp-tools/audit?limit=200'), {
-        headers: {
-          Authorization: `Bearer ${token}`
+      const res = await apiFetch(
+        buildApiUrl('/api/v1/security/mcp-tools/audit?limit=200'),
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
         }
-      })
+      )
       const data = await res.json()
       setLogs(Array.isArray(data?.logs) ? data.logs : [])
     } catch (e: any) {
@@ -55,10 +68,11 @@ const SecurityAuditPage: React.FC = () => {
       dataIndex: 'result',
       key: 'result',
       render: (val: string) => {
-        const color = val === 'success' ? 'green' : val === 'failure' ? 'red' : 'orange'
+        const color =
+          val === 'success' ? 'green' : val === 'failure' ? 'red' : 'orange'
         return <Tag color={color}>{val || 'unknown'}</Tag>
-      }
-    }
+      },
+    },
   ]
 
   return (
@@ -71,7 +85,11 @@ const SecurityAuditPage: React.FC = () => {
               安全审计
             </Typography.Title>
           </Space>
-          <Button icon={<ReloadOutlined />} onClick={loadLogs} loading={loading}>
+          <Button
+            icon={<ReloadOutlined />}
+            onClick={loadLogs}
+            loading={loading}
+          >
             刷新
           </Button>
         </Space>
@@ -81,7 +99,7 @@ const SecurityAuditPage: React.FC = () => {
             <Statistic title="日志条数" value={logs.length} />
             <Statistic
               title="失败次数"
-              value={logs.filter((l) => l.result === 'failure').length}
+              value={logs.filter(l => l.result === 'failure').length}
               valueStyle={{ color: '#ff4d4f' }}
             />
           </Space>
@@ -89,10 +107,17 @@ const SecurityAuditPage: React.FC = () => {
 
         <Card title="审计日志">
           {logs.length === 0 ? (
-            <Alert type="info" showIcon message="暂无日志，请先触发真实的 MCP 工具调用以生成审计数据。" />
+            <Alert
+              type="info"
+              showIcon
+              message="暂无日志，请先触发真实的 MCP 工具调用以生成审计数据。"
+            />
           ) : (
             <Table
-              dataSource={logs.map((log, idx) => ({ ...log, key: log.id || idx }))}
+              dataSource={logs.map((log, idx) => ({
+                ...log,
+                key: log.id || idx,
+              }))}
               columns={columns}
               loading={loading}
               pagination={{ pageSize: 20 }}

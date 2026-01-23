@@ -1,58 +1,58 @@
-import React, { useState } from 'react';
-import { 
+import React, { useState } from 'react'
 import { logger } from '../../utils/logger'
-  Drawer, 
-  Tabs, 
-  Timeline, 
-  Table, 
-  Tag, 
-  Button, 
-  Space, 
+import {
+  Drawer,
+  Tabs,
+  Timeline,
+  Table,
+  Tag,
+  Button,
+  Space,
   Collapse,
   Typography,
-  Divider
-} from 'antd';
-import { 
-  BugOutlined, 
-  HistoryOutlined, 
+  Divider,
+} from 'antd'
+import {
+  BugOutlined,
+  HistoryOutlined,
   InfoCircleOutlined,
   ClockCircleOutlined,
   CheckCircleOutlined,
   ExclamationCircleOutlined,
-  CloseCircleOutlined
-} from '@ant-design/icons';
+  CloseCircleOutlined,
+} from '@ant-design/icons'
 
-const { Text, Paragraph } = Typography;
-const { Panel } = Collapse;
+const { Text, Paragraph } = Typography
+const { Panel } = Collapse
 
 interface StateHistoryItem {
-  timestamp: string;
-  nodeId: string;
-  nodeName: string;
-  previousStatus: string;
-  newStatus: string;
-  metadata?: any;
+  timestamp: string
+  nodeId: string
+  nodeName: string
+  previousStatus: string
+  newStatus: string
+  metadata?: any
 }
 
 interface ExecutionStep {
-  stepId: string;
-  timestamp: string;
-  nodeId: string;
-  nodeName: string;
-  action: string;
-  duration: number;
-  status: 'success' | 'error' | 'warning';
-  details?: any;
-  error?: string;
+  stepId: string
+  timestamp: string
+  nodeId: string
+  nodeName: string
+  action: string
+  duration: number
+  status: 'success' | 'error' | 'warning'
+  details?: any
+  error?: string
 }
 
 interface WorkflowDebugPanelProps {
-  visible: boolean;
-  onClose: () => void;
-  workflowId: string;
-  stateHistory?: StateHistoryItem[];
-  executionSteps?: ExecutionStep[];
-  currentState?: any;
+  visible: boolean
+  onClose: () => void
+  workflowId: string
+  stateHistory?: StateHistoryItem[]
+  executionSteps?: ExecutionStep[]
+  currentState?: any
 }
 
 export const WorkflowDebugPanel: React.FC<WorkflowDebugPanelProps> = ({
@@ -61,38 +61,38 @@ export const WorkflowDebugPanel: React.FC<WorkflowDebugPanelProps> = ({
   workflowId,
   stateHistory = [],
   executionSteps = [],
-  currentState
+  currentState,
 }) => {
-  const [activeTab, setActiveTab] = useState('history');
+  const [activeTab, setActiveTab] = useState('history')
 
   const getStatusIcon = (status: string) => {
     switch (status) {
       case 'completed':
-        return <CheckCircleOutlined style={{ color: '#52c41a' }} />;
+        return <CheckCircleOutlined style={{ color: '#52c41a' }} />
       case 'running':
-        return <ClockCircleOutlined style={{ color: '#1890ff' }} />;
+        return <ClockCircleOutlined style={{ color: '#1890ff' }} />
       case 'failed':
-        return <CloseCircleOutlined style={{ color: '#ff4d4f' }} />;
+        return <CloseCircleOutlined style={{ color: '#ff4d4f' }} />
       case 'paused':
-        return <ExclamationCircleOutlined style={{ color: '#faad14' }} />;
+        return <ExclamationCircleOutlined style={{ color: '#faad14' }} />
       default:
-        return <InfoCircleOutlined style={{ color: '#d9d9d9' }} />;
+        return <InfoCircleOutlined style={{ color: '#d9d9d9' }} />
     }
-  };
+  }
 
   const getStatusTag = (status: string) => {
     const colorMap = {
-      'success': 'green',
-      'error': 'red',
-      'warning': 'orange',
-      'completed': 'green',
-      'running': 'blue',
-      'failed': 'red',
-      'paused': 'orange',
-      'pending': 'default'
-    };
-    return <Tag color={colorMap[status as keyof typeof colorMap]}>{status}</Tag>;
-  };
+      success: 'green',
+      error: 'red',
+      warning: 'orange',
+      completed: 'green',
+      running: 'blue',
+      failed: 'red',
+      paused: 'orange',
+      pending: 'default',
+    }
+    return <Tag color={colorMap[status as keyof typeof colorMap]}>{status}</Tag>
+  }
 
   // 状态历史表格列
   const historyColumns = [
@@ -119,7 +119,7 @@ export const WorkflowDebugPanel: React.FC<WorkflowDebugPanelProps> = ({
         </Space>
       ),
     },
-  ];
+  ]
 
   // 执行步骤表格列
   const stepsColumns = [
@@ -159,8 +159,8 @@ export const WorkflowDebugPanel: React.FC<WorkflowDebugPanelProps> = ({
       title: '详情',
       key: 'details',
       render: (record: ExecutionStep) => (
-        <Button 
-          size="small" 
+        <Button
+          size="small"
           type="link"
           onClick={() => logger.log('查看详情:', record)}
         >
@@ -168,13 +168,17 @@ export const WorkflowDebugPanel: React.FC<WorkflowDebugPanelProps> = ({
         </Button>
       ),
     },
-  ];
+  ]
 
   // 渲染状态历史时间轴
   const renderStateTimeline = () => {
-    const timelineItems = stateHistory.map((item) => ({
-      color: item.newStatus === 'failed' ? 'red' : 
-             item.newStatus === 'completed' ? 'green' : 'blue',
+    const timelineItems = stateHistory.map(item => ({
+      color:
+        item.newStatus === 'failed'
+          ? 'red'
+          : item.newStatus === 'completed'
+            ? 'green'
+            : 'blue',
       dot: getStatusIcon(item.newStatus),
       children: (
         <div>
@@ -182,7 +186,8 @@ export const WorkflowDebugPanel: React.FC<WorkflowDebugPanelProps> = ({
             {item.nodeName} - {item.timestamp}
           </div>
           <div>
-            状态从 {getStatusTag(item.previousStatus)} 变更为 {getStatusTag(item.newStatus)}
+            状态从 {getStatusTag(item.previousStatus)} 变更为{' '}
+            {getStatusTag(item.newStatus)}
           </div>
           {item.metadata && (
             <Collapse size="small" style={{ marginTop: 8 }}>
@@ -195,15 +200,15 @@ export const WorkflowDebugPanel: React.FC<WorkflowDebugPanelProps> = ({
           )}
         </div>
       ),
-    }));
+    }))
 
-    return <Timeline items={timelineItems} />;
-  };
+    return <Timeline items={timelineItems} />
+  }
 
   // 渲染当前状态
   const renderCurrentState = () => {
     if (!currentState) {
-      return <Text type="secondary">暂无状态信息</Text>;
+      return <Text type="secondary">暂无状态信息</Text>
     }
 
     return (
@@ -211,22 +216,28 @@ export const WorkflowDebugPanel: React.FC<WorkflowDebugPanelProps> = ({
         <Paragraph>
           <Text strong>工作流状态:</Text> {getStatusTag(currentState.status)}
         </Paragraph>
-        
+
         <Paragraph>
           <Text strong>创建时间:</Text> {currentState.created_at || 'N/A'}
         </Paragraph>
-        
+
         <Paragraph>
           <Text strong>开始时间:</Text> {currentState.started_at || 'N/A'}
         </Paragraph>
-        
+
         {currentState.current_state && (
           <>
             <Divider />
             <Text strong>当前状态详情:</Text>
             <Collapse style={{ marginTop: 8 }}>
               <Panel header="状态数据" key="1">
-                <pre style={{ fontSize: '12px', maxHeight: '300px', overflow: 'auto' }}>
+                <pre
+                  style={{
+                    fontSize: '12px',
+                    maxHeight: '300px',
+                    overflow: 'auto',
+                  }}
+                >
                   {JSON.stringify(currentState.current_state, null, 2)}
                 </pre>
               </Panel>
@@ -234,8 +245,8 @@ export const WorkflowDebugPanel: React.FC<WorkflowDebugPanelProps> = ({
           </>
         )}
       </div>
-    );
-  };
+    )
+  }
 
   const tabItems = [
     {
@@ -269,7 +280,7 @@ export const WorkflowDebugPanel: React.FC<WorkflowDebugPanelProps> = ({
                     columns={historyColumns}
                     size="small"
                     pagination={{ pageSize: 10 }}
-                    rowKey={(record) => `${record.timestamp}-${record.nodeId}`}
+                    rowKey={record => `${record.timestamp}-${record.nodeId}`}
                   />
                 ),
               },
@@ -298,7 +309,7 @@ export const WorkflowDebugPanel: React.FC<WorkflowDebugPanelProps> = ({
             pagination={{ pageSize: 10 }}
             rowKey="stepId"
             expandable={{
-              expandedRowRender: (record) => (
+              expandedRowRender: record => (
                 <div style={{ padding: 16, background: '#fafafa' }}>
                   {record.details && (
                     <>
@@ -310,7 +321,9 @@ export const WorkflowDebugPanel: React.FC<WorkflowDebugPanelProps> = ({
                   )}
                   {record.error && (
                     <>
-                      <Text strong style={{ color: '#ff4d4f' }}>错误信息:</Text>
+                      <Text strong style={{ color: '#ff4d4f' }}>
+                        错误信息:
+                      </Text>
                       <div style={{ marginTop: 8, color: '#ff4d4f' }}>
                         {record.error}
                       </div>
@@ -333,7 +346,7 @@ export const WorkflowDebugPanel: React.FC<WorkflowDebugPanelProps> = ({
       ),
       children: renderCurrentState(),
     },
-  ];
+  ]
 
   return (
     <Drawer
@@ -353,13 +366,9 @@ export const WorkflowDebugPanel: React.FC<WorkflowDebugPanelProps> = ({
         </Space>
       }
     >
-      <Tabs
-        activeKey={activeTab}
-        onChange={setActiveTab}
-        items={tabItems}
-      />
+      <Tabs activeKey={activeTab} onChange={setActiveTab} items={tabItems} />
     </Drawer>
-  );
-};
+  )
+}
 
-export default WorkflowDebugPanel;
+export default WorkflowDebugPanel

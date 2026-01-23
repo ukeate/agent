@@ -3,7 +3,7 @@
  */
 
 // 任务类型枚举
-export type TaskType = 
+export type TaskType =
   | 'code_generation'
   | 'code_review'
   | 'documentation'
@@ -14,7 +14,7 @@ export type TaskType =
 export type TaskPriority = 'low' | 'medium' | 'high' | 'urgent'
 
 // 任务状态
-export type TaskStatus = 
+export type TaskStatus =
   | 'pending'
   | 'running'
   | 'completed'
@@ -22,7 +22,7 @@ export type TaskStatus =
   | 'cancelled'
 
 // 智能体状态
-export type AgentRole = 
+export type AgentRole =
   | 'code_expert'
   | 'architect'
   | 'doc_expert'
@@ -32,7 +32,11 @@ export type AgentRole =
 export type SupervisorAgentStatus = 'active' | 'idle' | 'busy' | 'offline'
 
 // 路由策略
-export type RoutingStrategy = 'round_robin' | 'capability_based' | 'load_balanced' | 'hybrid'
+export type RoutingStrategy =
+  | 'round_robin'
+  | 'capability_based'
+  | 'load_balanced'
+  | 'hybrid'
 
 // Supervisor任务接口
 export interface SupervisorTask {

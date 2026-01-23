@@ -1,23 +1,28 @@
 import React, { useState } from 'react'
 import { Collapse, Tag, Typography, Space, Button } from 'antd'
-import { 
-  ToolOutlined, 
-  CheckCircleOutlined, 
-  CloseCircleOutlined, 
+import {
+  ToolOutlined,
+  CheckCircleOutlined,
+  CloseCircleOutlined,
   LoadingOutlined,
   EyeOutlined,
-  EyeInvisibleOutlined 
+  EyeInvisibleOutlined,
 } from '@ant-design/icons'
 import { ToolCall } from '@/types'
+import { renderHighlightedText } from '@/utils/highlightText'
 
 const { Text } = Typography
 const { Panel } = Collapse
 
 interface ToolCallDisplayProps {
   toolCalls: ToolCall[]
+  highlightQuery?: string
 }
 
-const ToolCallDisplay: React.FC<ToolCallDisplayProps> = ({ toolCalls }) => {
+const ToolCallDisplay: React.FC<ToolCallDisplayProps> = ({
+  toolCalls,
+  highlightQuery,
+}) => {
   const [showDetails, setShowDetails] = useState(false)
 
   if (!toolCalls || toolCalls.length === 0) {
@@ -50,6 +55,16 @@ const ToolCallDisplay: React.FC<ToolCallDisplayProps> = ({ toolCalls }) => {
     }
   }
 
+  const formatContent = (value: unknown) => {
+    if (value === null || value === undefined) return ''
+    if (typeof value === 'string') return value
+    try {
+      return JSON.stringify(value, null, 2)
+    } catch {
+      return String(value)
+    }
+  }
+
   return (
     <div className="mt-4 p-3 bg-gray-50 rounded-lg">
       <div className="flex items-center justify-between mb-3">
@@ -70,15 +85,22 @@ const ToolCallDisplay: React.FC<ToolCallDisplayProps> = ({ toolCalls }) => {
       </div>
 
       <div className="space-y-2">
-        {toolCalls.map((toolCall) => (
+        {toolCalls.map(toolCall => (
           <div key={toolCall.id} className="bg-white p-3 rounded border">
             <div className="flex items-center justify-between mb-2">
               <Space>
                 {getStatusIcon(toolCall.status)}
-                <Text strong>{toolCall.name}</Text>
+                <Text strong>
+                  {highlightQuery
+                    ? renderHighlightedText(toolCall.name, highlightQuery)
+                    : toolCall.name}
+                </Text>
                 <Tag color={getStatusColor(toolCall.status)}>
-                  {toolCall.status === 'success' ? '成功' : 
-                   toolCall.status === 'error' ? '失败' : '执行中'}
+                  {toolCall.status === 'success'
+                    ? '成功'
+                    : toolCall.status === 'error'
+                      ? '失败'
+                      : '执行中'}
                 </Tag>
               </Space>
               <Text type="secondary" className="text-xs">
@@ -90,15 +112,23 @@ const ToolCallDisplay: React.FC<ToolCallDisplayProps> = ({ toolCalls }) => {
               <Collapse ghost size="small">
                 <Panel header="参数" key="args">
                   <pre className="text-xs bg-gray-100 p-2 rounded overflow-x-auto">
-                    {JSON.stringify(toolCall.args, null, 2)}
+                    {highlightQuery
+                      ? renderHighlightedText(
+                          formatContent(toolCall.args),
+                          highlightQuery
+                        )
+                      : formatContent(toolCall.args)}
                   </pre>
                 </Panel>
                 {toolCall.result && (
                   <Panel header="结果" key="result">
                     <pre className="text-xs bg-gray-100 p-2 rounded overflow-x-auto">
-                      {typeof toolCall.result === 'string' 
-                        ? toolCall.result 
-                        : JSON.stringify(toolCall.result, null, 2)}
+                      {highlightQuery
+                        ? renderHighlightedText(
+                            formatContent(toolCall.result),
+                            highlightQuery
+                          )
+                        : formatContent(toolCall.result)}
                     </pre>
                   </Panel>
                 )}

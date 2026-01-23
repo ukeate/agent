@@ -41,13 +41,22 @@ def test_api_modules_status():
         response = client.get("/api/v1/modules/status")
         if response.status_code == 200:
             data = response.json()
-            loaded = data.get("data", {}).get("loaded_modules", [])
-            failed = data.get("data", {}).get("failed_modules", [])
-            success_rate = data.get("data", {}).get("success_rate", "")
+            payload = data.get("data", {})
+            modules = payload.get("modules", {})
+            summary = payload.get("summary", {})
+            loaded = [
+                key for key, info in modules.items()
+                if info.get("status") == "active"
+            ]
+            failed = [
+                key for key, info in modules.items()
+                if info.get("status") != "active"
+            ]
+            success_rate = summary.get("success_rate", "")
             
             return {
-                "loaded_count": len(loaded),
-                "failed_count": len(failed), 
+                "loaded_count": summary.get("loaded", len(loaded)),
+                "failed_count": summary.get("failed", len(failed)),
                 "success_rate": success_rate,
                 "loaded_modules": loaded,
                 "failed_modules": failed

@@ -5,12 +5,12 @@ import {
   ReloadOutlined,
   PlayCircleOutlined,
   HistoryOutlined,
-  RollbackOutlined
+  RollbackOutlined,
 } from '@ant-design/icons'
 import {
   knowledgeGraphService,
   type Migration,
-  type MigrationRecord
+  type MigrationRecord,
 } from '../services/knowledgeGraphService'
 
 const { Title, Text } = Typography
@@ -20,7 +20,7 @@ const statusColor: Record<string, string> = {
   running: 'blue',
   completed: 'green',
   failed: 'red',
-  rolled_back: 'purple'
+  rolled_back: 'purple',
 }
 
 const KnowledgeGraphDataMigration: React.FC = () => {
@@ -37,7 +37,7 @@ const KnowledgeGraphDataMigration: React.FC = () => {
     try {
       const [migs, recs] = await Promise.all([
         knowledgeGraphService.listMigrations(),
-        knowledgeGraphService.getMigrationRecords()
+        knowledgeGraphService.getMigrationRecords(),
       ])
       setMigrations(migs)
       setRecords(recs)
@@ -92,25 +92,25 @@ const KnowledgeGraphDataMigration: React.FC = () => {
       title: '迁移ID',
       dataIndex: 'id',
       key: 'id',
-      width: 160
+      width: 160,
     },
     {
       title: '名称',
       dataIndex: 'name',
-      key: 'name'
+      key: 'name',
     },
     {
       title: '类型',
       dataIndex: 'migration_type',
       key: 'migration_type',
       render: (type: string) => <Tag>{type}</Tag>,
-      width: 140
+      width: 140,
     },
     {
       title: '版本',
       dataIndex: 'version',
       key: 'version',
-      width: 100
+      width: 100,
     },
     {
       title: '状态',
@@ -119,22 +119,26 @@ const KnowledgeGraphDataMigration: React.FC = () => {
       width: 120,
       render: (status: string) => (
         <Tag color={statusColor[status] || 'default'}>{status}</Tag>
-      )
+      ),
     },
     {
       title: '依赖',
       dataIndex: 'dependencies',
       key: 'dependencies',
       render: (deps: string[]) =>
-        deps && deps.length ? deps.map(dep => <Tag key={dep}>{dep}</Tag>) : <Text type="secondary">无</Text>,
-      width: 200
+        deps && deps.length ? (
+          deps.map(dep => <Tag key={dep}>{dep}</Tag>)
+        ) : (
+          <Text type="secondary">无</Text>
+        ),
+      width: 200,
     },
     {
       title: '创建时间',
       dataIndex: 'created_at',
       key: 'created_at',
       render: (time: string) => new Date(time).toLocaleString(),
-      width: 200
+      width: 200,
     },
     {
       title: '操作',
@@ -158,8 +162,8 @@ const KnowledgeGraphDataMigration: React.FC = () => {
             回滚
           </Button>
         </Space>
-      )
-    }
+      ),
+    },
   ]
 
   const recordColumns = [
@@ -167,68 +171,81 @@ const KnowledgeGraphDataMigration: React.FC = () => {
       title: '迁移ID',
       dataIndex: 'migration_id',
       key: 'migration_id',
-      width: 160
+      width: 160,
     },
     {
       title: '状态',
       dataIndex: 'status',
       key: 'status',
       width: 120,
-      render: (status: string) => <Tag color={statusColor[status] || 'default'}>{status}</Tag>
+      render: (status: string) => (
+        <Tag color={statusColor[status] || 'default'}>{status}</Tag>
+      ),
     },
     {
       title: '开始时间',
       dataIndex: 'started_at',
       key: 'started_at',
       render: (time: string) => new Date(time).toLocaleString(),
-      width: 180
+      width: 180,
     },
     {
       title: '完成时间',
       dataIndex: 'completed_at',
       key: 'completed_at',
-      render: (time?: string) => (time ? new Date(time).toLocaleString() : '进行中'),
-      width: 180
+      render: (time?: string) =>
+        time ? new Date(time).toLocaleString() : '进行中',
+      width: 180,
     },
     {
       title: '耗时(ms)',
       dataIndex: 'execution_time_ms',
       key: 'execution_time_ms',
-      width: 120
+      width: 120,
     },
     {
       title: '影响节点',
       dataIndex: 'affected_nodes',
       key: 'affected_nodes',
-      width: 120
+      width: 120,
     },
     {
       title: '影响关系',
       dataIndex: 'affected_relationships',
       key: 'affected_relationships',
-      width: 120
+      width: 120,
     },
     {
       title: '错误信息',
       dataIndex: 'error_message',
       key: 'error_message',
-      render: (msg?: string) => msg || '-'
-    }
+      render: (msg?: string) => msg || '-',
+    },
   ]
 
   return (
     <div style={{ padding: 24 }}>
       <Space style={{ marginBottom: 16 }}>
         <SwapOutlined />
-        <Title level={3} style={{ margin: 0 }}>知识图谱数据迁移</Title>
+        <Title level={3} style={{ margin: 0 }}>
+          知识图谱数据迁移
+        </Title>
       </Space>
 
       <Card
         title="迁移任务"
         extra={
           <Space>
-            <Button icon={<ReloadOutlined />} onClick={loadData} loading={loading}>刷新</Button>
-            <Button type="primary" onClick={runAll} loading={loading}>执行全部待迁移</Button>
+            <Button
+              icon={<ReloadOutlined />}
+              onClick={loadData}
+              loading={loading}
+            >
+              刷新
+            </Button>
+            <Button type="primary" onClick={runAll} loading={loading}>
+              执行全部待迁移
+            </Button>
           </Space>
         }
       >
@@ -247,7 +264,7 @@ const KnowledgeGraphDataMigration: React.FC = () => {
         extra={<HistoryOutlined />}
       >
         <Table
-          rowKey={(record) => `${record.migration_id}-${record.started_at}`}
+          rowKey={record => `${record.migration_id}-${record.started_at}`}
           loading={loading}
           columns={recordColumns}
           dataSource={records}

@@ -50,14 +50,34 @@ export const validatePasswordStrength = (password: string): {
   }
 
   // 长度检查
-  if (password.length >= 12) score += 2;
-  else if (password.length >= 8) score += 1;
+  if (password.length >= 12) {
+    score += 2;
+  } else if (password.length >= 8) {
+    score += 1;
+  }
 
   // 复杂度检查
-  if (/[a-z]/.test(password)) score += 1; // 小写字母
-  if (/[A-Z]/.test(password)) score += 1; // 大写字母
-  if (/\d/.test(password)) score += 1; // 数字
-  if (/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password)) score += 2; // 特殊字符
+  if (/[a-z]/.test(password)) {
+    score += 1; // 小写字母
+  }
+  if (/[A-Z]/.test(password)) {
+    score += 1; // 大写字母
+  }
+  if (/\d/.test(password)) {
+    score += 1; // 数字
+  }
+
+  const specialChars = '!@#$%^&*()_+-={}[];:\'"\\|,.<>/?';
+  let hasSpecial = false;
+  for (const char of specialChars) {
+    if (password.includes(char)) {
+      hasSpecial = true;
+      break;
+    }
+  }
+  if (hasSpecial) {
+    score += 2; // 特殊字符
+  }
 
   if (score >= 6) {
     message = '强密码';
@@ -77,11 +97,19 @@ export const validatePasswordStrength = (password: string): {
 };
 
 // 非空验证
-export const isNotEmpty = (value: any): boolean => {
-  if (value === null || value === undefined) return false;
-  if (typeof value === 'string') return value.trim().length > 0;
-  if (Array.isArray(value)) return value.length > 0;
-  if (typeof value === 'object') return Object.keys(value).length > 0;
+export const isNotEmpty = (value: unknown): boolean => {
+  if (value === null || value === undefined) {
+    return false;
+  }
+  if (typeof value === 'string') {
+    return value.trim().length > 0;
+  }
+  if (Array.isArray(value)) {
+    return value.length > 0;
+  }
+  if (typeof value === 'object') {
+    return Object.keys(value as Record<string, unknown>).length > 0;
+  }
   return true;
 };
 
@@ -92,8 +120,12 @@ export const isInRange = (value: number, min: number, max: number): boolean => {
 
 // 字符串长度验证
 export const isValidLength = (str: string, min: number, max?: number): boolean => {
-  if (str.length < min) return false;
-  if (max !== undefined && str.length > max) return false;
+  if (str.length < min) {
+    return false;
+  }
+  if (max !== undefined && str.length > max) {
+    return false;
+  }
   return true;
 };
 

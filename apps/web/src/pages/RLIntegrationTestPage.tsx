@@ -37,7 +37,9 @@ const RLIntegrationTestPage: React.FC = () => {
   const runAll = async () => {
     setLoading(true)
     try {
-      const res = await apiFetch(buildApiUrl('/api/v1/qlearning/tests/run'), { method: 'POST' })
+      const res = await apiFetch(buildApiUrl('/api/v1/qlearning/tests/run'), {
+        method: 'POST',
+      })
       message.success('已触发测试')
       loadData()
     } catch (e: any) {
@@ -50,18 +52,50 @@ const RLIntegrationTestPage: React.FC = () => {
   const columns = [
     { title: 'ID', dataIndex: 'test_id', key: 'test_id' },
     { title: '套件', dataIndex: 'suite', key: 'suite' },
-    { title: '状态', dataIndex: 'status', key: 'status', render: (s: string) => <Tag color={s === 'passed' ? 'green' : s === 'running' ? 'blue' : 'red'}>{s}</Tag> },
+    {
+      title: '状态',
+      dataIndex: 'status',
+      key: 'status',
+      render: (s: string) => (
+        <Tag
+          color={s === 'passed' ? 'green' : s === 'running' ? 'blue' : 'red'}
+        >
+          {s}
+        </Tag>
+      ),
+    },
     { title: '耗时(ms)', dataIndex: 'duration_ms', key: 'duration_ms' },
-    { title: '时间', dataIndex: 'timestamp', key: 'timestamp', render: (t: string) => new Date(t).toLocaleString() },
-    { title: '错误', dataIndex: 'error', key: 'error', render: (e?: string) => e || '—' }
+    {
+      title: '时间',
+      dataIndex: 'timestamp',
+      key: 'timestamp',
+      render: (t: string) => new Date(t).toLocaleString(),
+    },
+    {
+      title: '错误',
+      dataIndex: 'error',
+      key: 'error',
+      render: (e?: string) => e || '—',
+    },
   ]
 
   return (
     <div style={{ padding: 24 }}>
       <Space style={{ marginBottom: 16 }}>
-        <Typography.Title level={3} style={{ margin: 0 }}>RL 集成测试</Typography.Title>
-        <Button icon={<ReloadOutlined />} onClick={loadData} loading={loading}>刷新</Button>
-        <Button type="primary" icon={<PlayCircleOutlined />} onClick={runAll} loading={loading}>运行全部</Button>
+        <Typography.Title level={3} style={{ margin: 0 }}>
+          RL 集成测试
+        </Typography.Title>
+        <Button icon={<ReloadOutlined />} onClick={loadData} loading={loading}>
+          刷新
+        </Button>
+        <Button
+          type="primary"
+          icon={<PlayCircleOutlined />}
+          onClick={runAll}
+          loading={loading}
+        >
+          运行全部
+        </Button>
       </Space>
       <Card>
         <Table

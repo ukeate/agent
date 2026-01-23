@@ -26,7 +26,7 @@ const KnowledgeValidationPage: React.FC = () => {
     { title: '规则类型', dataIndex: 'rule_type', key: 'rule_type' },
     { title: '问题描述', dataIndex: 'message', key: 'message' },
     { title: '影响数量', dataIndex: 'count', key: 'count' },
-    { title: '详情数', dataIndex: 'details_count', key: 'details_count' }
+    { title: '详情数', dataIndex: 'details_count', key: 'details_count' },
   ]
 
   useEffect(() => {
@@ -51,7 +51,7 @@ const KnowledgeValidationPage: React.FC = () => {
     rule_type: item.rule_type,
     message: item.message,
     count: item.count,
-    details_count: item.details ? item.details.length : 0
+    details_count: item.details ? item.details.length : 0,
   }))
 
   return (
@@ -67,7 +67,14 @@ const KnowledgeValidationPage: React.FC = () => {
       </div>
 
       <Card title="知识验证列表">
-        {error && <Alert type="error" message={error} showIcon style={{ marginBottom: 12 }} />}
+        {error && (
+          <Alert
+            type="error"
+            message={error}
+            showIcon
+            style={{ marginBottom: 12 }}
+          />
+        )}
         {!error && result && (
           <Alert
             type={result.valid ? 'success' : 'warning'}

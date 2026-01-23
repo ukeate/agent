@@ -13,10 +13,10 @@
 import React, { useState, useEffect } from 'react';
 import { Card } from '../components/ui/card';
 import { Button } from '../components/ui/button';
-import { Alert, AlertDescription } from '../components/ui/lalert';
+import { Alert, AlertDescription } from '../components/ui/alert';
 import { hyperparameterServiceEnhanced } from '../services/hyperparameterServiceEnhanced';
-import type { 
 import { logger } from '../utils/logger'
+import type { 
   ExperimentProgress, 
   TaskInfo, 
   AlgorithmComparison, 

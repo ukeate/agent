@@ -16,7 +16,7 @@ const ServicePerformanceDashboardPage: React.FC = () => {
     setError(null);
     try {
       const [overallRes, svcRes] = await Promise.all([
-        apiFetch(buildApiUrl('/api/v1/realtime-metrics/overview'),
+        apiFetch(buildApiUrl('/api/v1/realtime-metrics/overview')),
         apiFetch(buildApiUrl('/api/v1/realtime-metrics/services'))
       ]);
       setMetrics((await overallRes.json())?.metrics || []);

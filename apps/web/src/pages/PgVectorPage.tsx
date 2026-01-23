@@ -1,96 +1,100 @@
-import React, { useState, useEffect } from 'react';
-import { 
+import React, { useState, useEffect } from 'react'
 import { logger } from '../utils/logger'
-  Card, 
-  Tabs, 
-  Typography, 
-  Row, 
-  Col, 
-  Button, 
-  Alert, 
+import {
+  Card,
+  Tabs,
+  Typography,
+  Row,
+  Col,
+  Button,
+  Alert,
   Progress,
   Tag,
   Statistic,
   Space,
-  Divider
-} from 'antd';
-import { 
-  DatabaseOutlined, 
-  ThunderboltOutlined, 
-  BarChartOutlined, 
+  Divider,
+} from 'antd'
+import {
+  DatabaseOutlined,
+  ThunderboltOutlined,
+  BarChartOutlined,
   SearchOutlined,
   CheckCircleOutlined,
   ExclamationCircleOutlined,
-  LoadingOutlined
-} from '@ant-design/icons';
+  LoadingOutlined,
+} from '@ant-design/icons'
 
-import VectorQuantizationPanel from '../components/pgvector/VectorQuantizationPanel';
-import PerformanceMonitorPanel from '../components/pgvector/PerformanceMonitorPanel';
-import HybridRetrievalPanel from '../components/pgvector/HybridRetrievalPanel';
-import DataIntegrityPanel from '../components/pgvector/DataIntegrityPanel';
-import { pgvectorApi } from '../services/pgvectorApi';
+import VectorQuantizationPanel from '../components/pgvector/VectorQuantizationPanel'
+import PerformanceMonitorPanel from '../components/pgvector/PerformanceMonitorPanel'
+import HybridRetrievalPanel from '../components/pgvector/HybridRetrievalPanel'
+import DataIntegrityPanel from '../components/pgvector/DataIntegrityPanel'
+import { pgvectorApi } from '../services/pgvectorApi'
 
-const { Title, Text } = Typography;
-const { TabPane } = Tabs;
+const { Title, Text } = Typography
+const { TabPane } = Tabs
 
 interface SystemStatus {
-  pgvector_version: string;
-  upgrade_available: boolean;
-  quantization_enabled: boolean;
-  cache_status: 'healthy' | 'warning' | 'error';
-  index_health: 'optimal' | 'needs_optimization' | 'error';
-  last_updated: string;
+  pgvector_version: string
+  upgrade_available: boolean
+  quantization_enabled: boolean
+  cache_status: 'healthy' | 'warning' | 'error'
+  index_health: 'optimal' | 'needs_optimization' | 'error'
+  last_updated: string
 }
 
 const PgVectorPage: React.FC = () => {
-  const [systemStatus, setSystemStatus] = useState<SystemStatus | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [upgradeInProgress, setUpgradeInProgress] = useState(false);
+  const [systemStatus, setSystemStatus] = useState<SystemStatus | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [upgradeInProgress, setUpgradeInProgress] = useState(false)
 
   useEffect(() => {
-    fetchSystemStatus();
-  }, []);
+    fetchSystemStatus()
+  }, [])
 
   const fetchSystemStatus = async () => {
     try {
-      setLoading(true);
-      const status = await pgvectorApi.getSystemStatus();
-      setSystemStatus(status);
+      setLoading(true)
+      const status = await pgvectorApi.getSystemStatus()
+      setSystemStatus(status)
     } catch (error) {
-      logger.error('获取系统状态失败:', error);
+      logger.error('获取系统状态失败:', error)
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
+  }
 
   const handleUpgradePgVector = async () => {
     try {
-      setUpgradeInProgress(true);
-      const result = await pgvectorApi.upgradeToPgVector08();
+      setUpgradeInProgress(true)
+      const result = await pgvectorApi.upgradeToPgVector08()
       if (result.success) {
-        await fetchSystemStatus();
+        await fetchSystemStatus()
       }
     } catch (error) {
-      logger.error('升级失败:', error);
+      logger.error('升级失败:', error)
     } finally {
-      setUpgradeInProgress(false);
+      setUpgradeInProgress(false)
     }
-  };
+  }
 
   const getVersionStatusColor = (version: string) => {
-    if (version >= '0.8.0') return 'success';
-    if (version >= '0.5.0') return 'warning';
-    return 'error';
-  };
+    if (version >= '0.8.0') return 'success'
+    if (version >= '0.5.0') return 'warning'
+    return 'error'
+  }
 
   const getCacheStatusColor = (status: string) => {
     switch (status) {
-      case 'healthy': return 'success';
-      case 'warning': return 'warning';
-      case 'error': return 'error';
-      default: return 'default';
+      case 'healthy':
+        return 'success'
+      case 'warning':
+        return 'warning'
+      case 'error':
+        return 'error'
+      default:
+        return 'default'
     }
-  };
+  }
 
   if (loading) {
     return (
@@ -98,7 +102,7 @@ const PgVectorPage: React.FC = () => {
         <LoadingOutlined style={{ fontSize: 24 }} />
         <div style={{ marginTop: 16 }}>Loading pgvector system status...</div>
       </div>
-    );
+    )
   }
 
   return (
@@ -114,8 +118,8 @@ const PgVectorPage: React.FC = () => {
       </div>
 
       {/* 系统状态概览 */}
-      <Card 
-        title="系统状态概览" 
+      <Card
+        title="系统状态概览"
         style={{ marginBottom: '24px' }}
         extra={
           <Button onClick={fetchSystemStatus} loading={loading}>
@@ -129,25 +133,41 @@ const PgVectorPage: React.FC = () => {
               <Statistic
                 title="pgvector版本"
                 value={systemStatus.pgvector_version}
-                valueStyle={{ 
-                  color: getVersionStatusColor(systemStatus.pgvector_version) === 'success' ? '#3f8600' : '#cf1322' 
+                valueStyle={{
+                  color:
+                    getVersionStatusColor(systemStatus.pgvector_version) ===
+                    'success'
+                      ? '#3f8600'
+                      : '#cf1322',
                 }}
                 suffix={
-                  <Tag color={getVersionStatusColor(systemStatus.pgvector_version)}>
-                    {systemStatus.pgvector_version >= '0.8.0' ? '已升级' : '需升级'}
+                  <Tag
+                    color={getVersionStatusColor(systemStatus.pgvector_version)}
+                  >
+                    {systemStatus.pgvector_version >= '0.8.0'
+                      ? '已升级'
+                      : '需升级'}
                   </Tag>
                 }
               />
             </Col>
-            
+
             <Col span={6}>
               <Statistic
                 title="量化状态"
                 value={systemStatus.quantization_enabled ? '已启用' : '未启用'}
-                valueStyle={{ 
-                  color: systemStatus.quantization_enabled ? '#3f8600' : '#cf1322' 
+                valueStyle={{
+                  color: systemStatus.quantization_enabled
+                    ? '#3f8600'
+                    : '#cf1322',
                 }}
-                prefix={systemStatus.quantization_enabled ? <CheckCircleOutlined /> : <ExclamationCircleOutlined />}
+                prefix={
+                  systemStatus.quantization_enabled ? (
+                    <CheckCircleOutlined />
+                  ) : (
+                    <ExclamationCircleOutlined />
+                  )
+                }
               />
             </Col>
 
@@ -155,8 +175,11 @@ const PgVectorPage: React.FC = () => {
               <Statistic
                 title="缓存状态"
                 value={systemStatus.cache_status.toUpperCase()}
-                valueStyle={{ 
-                  color: getCacheStatusColor(systemStatus.cache_status) === 'success' ? '#3f8600' : '#faad14' 
+                valueStyle={{
+                  color:
+                    getCacheStatusColor(systemStatus.cache_status) === 'success'
+                      ? '#3f8600'
+                      : '#faad14',
                 }}
               />
             </Col>
@@ -164,9 +187,14 @@ const PgVectorPage: React.FC = () => {
             <Col span={6}>
               <Statistic
                 title="索引健康度"
-                value={systemStatus.index_health === 'optimal' ? '优化' : '需优化'}
-                valueStyle={{ 
-                  color: systemStatus.index_health === 'optimal' ? '#3f8600' : '#faad14' 
+                value={
+                  systemStatus.index_health === 'optimal' ? '优化' : '需优化'
+                }
+                valueStyle={{
+                  color:
+                    systemStatus.index_health === 'optimal'
+                      ? '#3f8600'
+                      : '#faad14',
                 }}
               />
             </Col>
@@ -178,11 +206,11 @@ const PgVectorPage: React.FC = () => {
             <Alert
               message="pgvector升级可用"
               description="检测到pgvector 0.8版本可用，建议升级以获得更好的性能和量化支持。"
-              variant="default"
+              type="info"
               showIcon
               action={
-                <Button 
-                  type="primary" 
+                <Button
+                  type="primary"
                   onClick={handleUpgradePgVector}
                   loading={upgradeInProgress}
                 >
@@ -247,7 +275,7 @@ const PgVectorPage: React.FC = () => {
         </Tabs>
       </Card>
     </div>
-  );
-};
+  )
+}
 
-export default PgVectorPage;
+export default PgVectorPage

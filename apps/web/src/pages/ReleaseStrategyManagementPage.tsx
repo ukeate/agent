@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Card, Button, Select, Input, Form, Table, Space, Tabs, Row, Col, Statistic, Alert, Switch, InputNumber, Tag, Modal, message } from 'antd';
 import { PlusOutlined, PlayCircleOutlined, CheckCircleOutlined, ExclamationCircleOutlined, RocketOutlined, SettingOutlined } from '@ant-design/icons';
-import releaseStrategyService, {
 import { logger } from '../utils/logger'
+import releaseStrategyService, {
   ReleaseStrategy,
   CreateStrategyRequest,
   CreateFromTemplateRequest,

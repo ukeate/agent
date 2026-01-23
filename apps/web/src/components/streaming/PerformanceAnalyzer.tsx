@@ -1,52 +1,54 @@
 /**
  * 性能分析工具
- * 
+ *
  * 提供流式处理和批处理系统的性能分析和优化建议
  */
 
-import React, { useState, useEffect } from 'react';
-import { streamingService } from '../../services/streamingService';
-import { batchService } from '../../services/batchService';
+import React, { useState, useEffect } from 'react'
+import { streamingService } from '../../services/streamingService'
+import { batchService } from '../../services/batchService'
 
 import { logger } from '../../utils/logger'
 interface PerformanceMetrics {
   streaming: {
-    latency_p50: number;
-    latency_p95: number;
-    latency_p99: number;
-    throughput: number;
-    error_rate: number;
-    concurrent_connections: number;
-    buffer_utilization: number;
-    cpu_usage: number;
-    memory_usage: number;
-  };
+    latency_p50: number
+    latency_p95: number
+    latency_p99: number
+    throughput: number
+    error_rate: number
+    concurrent_connections: number
+    buffer_utilization: number
+    cpu_usage: number
+    memory_usage: number
+  }
   batch: {
-    tasks_per_second: number;
-    avg_task_duration: number;
-    queue_depth: number;
-    worker_utilization: number;
-    success_rate: number;
-    retry_rate: number;
-  };
+    tasks_per_second: number
+    avg_task_duration: number
+    queue_depth: number
+    worker_utilization: number
+    success_rate: number
+    retry_rate: number
+  }
 }
 
 interface PerformanceAnalysis {
-  bottlenecks: string[];
-  recommendations: string[];
-  score: number;
-  status: 'excellent' | 'good' | 'warning' | 'critical';
+  bottlenecks: string[]
+  recommendations: string[]
+  score: number
+  status: 'excellent' | 'good' | 'warning' | 'critical'
 }
 
 export const PerformanceAnalyzer: React.FC = () => {
-  const [metrics, setMetrics] = useState<PerformanceMetrics | null>(null);
-  const [analysis, setAnalysis] = useState<PerformanceAnalysis | null>(null);
-  const [historicalData, setHistoricalData] = useState<Array<{
-    timestamp: Date;
-    metrics: PerformanceMetrics;
-  }>>([]);
-  const [loading, setLoading] = useState(true);
-  const [timeRange, setTimeRange] = useState<'1h' | '6h' | '24h' | '7d'>('1h');
+  const [metrics, setMetrics] = useState<PerformanceMetrics | null>(null)
+  const [analysis, setAnalysis] = useState<PerformanceAnalysis | null>(null)
+  const [historicalData, setHistoricalData] = useState<
+    Array<{
+      timestamp: Date
+      metrics: PerformanceMetrics
+    }>
+  >([])
+  const [loading, setLoading] = useState(true)
+  const [timeRange, setTimeRange] = useState<'1h' | '6h' | '24h' | '7d'>('1h')
 
   // 获取性能指标
   const fetchPerformanceMetrics = async () => {
@@ -54,139 +56,149 @@ export const PerformanceAnalyzer: React.FC = () => {
       const [streamingMetrics, flowControl, batchMetrics] = await Promise.all([
         streamingService.getSystemMetrics(),
         streamingService.getFlowControlMetrics(),
-        batchService.getMetrics()
-      ]);
+        batchService.getMetrics(),
+      ])
 
       const perfMetrics: PerformanceMetrics = {
         streaming: {
           latency_p50: 50, // 需要从实际API获取
           latency_p95: 100, // 需要从实际API获取
           latency_p99: 200, // 需要从实际API获取
-          throughput: streamingMetrics.system_metrics?.total_tokens_processed || 0,
+          throughput:
+            streamingMetrics.system_metrics?.total_tokens_processed || 0,
           error_rate: 0, // 需要从实际API获取
-          concurrent_connections: streamingMetrics.system_metrics?.active_sessions || 0,
-          buffer_utilization: streamingMetrics.system_metrics?.total_buffer_usage || 0,
+          concurrent_connections:
+            streamingMetrics.system_metrics?.active_sessions || 0,
+          buffer_utilization:
+            streamingMetrics.system_metrics?.total_buffer_usage || 0,
           cpu_usage: 0, // 需要从实际API获取
-          memory_usage: 0 // 需要从实际API获取
+          memory_usage: 0, // 需要从实际API获取
         },
         batch: {
           tasks_per_second: batchMetrics.tasks_per_second,
           avg_task_duration: batchMetrics.avg_task_duration,
           queue_depth: batchMetrics.queue_depth,
-          worker_utilization: (batchMetrics.active_workers / batchMetrics.max_workers) * 100,
+          worker_utilization:
+            (batchMetrics.active_workers / batchMetrics.max_workers) * 100,
           success_rate: batchMetrics.success_rate,
-          retry_rate: (batchMetrics.failed_tasks / batchMetrics.total_tasks) * 100
-        }
-      };
+          retry_rate:
+            (batchMetrics.failed_tasks / batchMetrics.total_tasks) * 100,
+        },
+      }
 
-      setMetrics(perfMetrics);
-      
+      setMetrics(perfMetrics)
+
       // 添加到历史数据
       setHistoricalData(prev => [
         ...prev.slice(-99), // 保留最近100个数据点
-        { timestamp: new Date(), metrics: perfMetrics }
-      ]);
+        { timestamp: new Date(), metrics: perfMetrics },
+      ])
 
       // 分析性能
-      analyzePerformance(perfMetrics);
+      analyzePerformance(perfMetrics)
     } catch (error) {
-      logger.error('获取性能指标失败:', error);
+      logger.error('获取性能指标失败:', error)
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
+  }
 
   // 分析性能并生成建议
   const analyzePerformance = (metrics: PerformanceMetrics) => {
-    const bottlenecks: string[] = [];
-    const recommendations: string[] = [];
-    let score = 100;
+    const bottlenecks: string[] = []
+    const recommendations: string[] = []
+    let score = 100
 
     // 分析流式处理性能
     if (metrics.streaming.latency_p99 > 1000) {
-      bottlenecks.push('流式处理延迟过高');
-      recommendations.push('考虑增加缓冲区大小或优化处理逻辑');
-      score -= 15;
+      bottlenecks.push('流式处理延迟过高')
+      recommendations.push('考虑增加缓冲区大小或优化处理逻辑')
+      score -= 15
     }
 
     if (metrics.streaming.error_rate > 5) {
-      bottlenecks.push('流式处理错误率高');
-      recommendations.push('检查错误日志，优化错误处理机制');
-      score -= 20;
+      bottlenecks.push('流式处理错误率高')
+      recommendations.push('检查错误日志，优化错误处理机制')
+      score -= 20
     }
 
     if (metrics.streaming.buffer_utilization > 80) {
-      bottlenecks.push('缓冲区使用率过高');
-      recommendations.push('启用背压控制或增加缓冲区容量');
-      score -= 10;
+      bottlenecks.push('缓冲区使用率过高')
+      recommendations.push('启用背压控制或增加缓冲区容量')
+      score -= 10
     }
 
     if (metrics.streaming.cpu_usage > 80) {
-      bottlenecks.push('CPU使用率过高');
-      recommendations.push('优化算法或考虑横向扩展');
-      score -= 15;
+      bottlenecks.push('CPU使用率过高')
+      recommendations.push('优化算法或考虑横向扩展')
+      score -= 15
     }
 
     // 分析批处理性能
     if (metrics.batch.queue_depth > 1000) {
-      bottlenecks.push('批处理队列积压严重');
-      recommendations.push('增加工作线程数或优化任务处理速度');
-      score -= 15;
+      bottlenecks.push('批处理队列积压严重')
+      recommendations.push('增加工作线程数或优化任务处理速度')
+      score -= 15
     }
 
     if (metrics.batch.worker_utilization < 50) {
-      bottlenecks.push('工作线程利用率低');
-      recommendations.push('减少工作线程数以节省资源');
-      score -= 5;
+      bottlenecks.push('工作线程利用率低')
+      recommendations.push('减少工作线程数以节省资源')
+      score -= 5
     }
 
     if (metrics.batch.success_rate < 90) {
-      bottlenecks.push('批处理成功率低');
-      recommendations.push('分析失败原因，增加重试机制');
-      score -= 20;
+      bottlenecks.push('批处理成功率低')
+      recommendations.push('分析失败原因，增加重试机制')
+      score -= 20
     }
 
     // 确定状态
-    let status: PerformanceAnalysis['status'];
-    if (score >= 90) status = 'excellent';
-    else if (score >= 70) status = 'good';
-    else if (score >= 50) status = 'warning';
-    else status = 'critical';
+    let status: PerformanceAnalysis['status']
+    if (score >= 90) status = 'excellent'
+    else if (score >= 70) status = 'good'
+    else if (score >= 50) status = 'warning'
+    else status = 'critical'
 
     // 如果没有瓶颈，添加正面反馈
     if (bottlenecks.length === 0) {
-      recommendations.push('系统运行状况良好，继续保持');
+      recommendations.push('系统运行状况良好，继续保持')
     }
 
     setAnalysis({
       bottlenecks,
       recommendations,
       score,
-      status
-    });
-  };
+      status,
+    })
+  }
 
   useEffect(() => {
-    fetchPerformanceMetrics();
-    const interval = setInterval(fetchPerformanceMetrics, 5000);
-    return () => clearInterval(interval);
-  }, []);
+    fetchPerformanceMetrics()
+    const interval = setInterval(fetchPerformanceMetrics, 5000)
+    return () => clearInterval(interval)
+  }, [])
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'excellent': return 'text-green-600 bg-green-100';
-      case 'good': return 'text-blue-600 bg-blue-100';
-      case 'warning': return 'text-yellow-600 bg-yellow-100';
-      case 'critical': return 'text-red-600 bg-red-100';
-      default: return 'text-gray-600 bg-gray-100';
+      case 'excellent':
+        return 'text-green-600 bg-green-100'
+      case 'good':
+        return 'text-blue-600 bg-blue-100'
+      case 'warning':
+        return 'text-yellow-600 bg-yellow-100'
+      case 'critical':
+        return 'text-red-600 bg-red-100'
+      default:
+        return 'text-gray-600 bg-gray-100'
     }
-  };
+  }
 
   const formatLatency = (ms: number) => {
-    if (ms < 1) return `${(ms * 1000).toFixed(0)}μs`;
-    if (ms < 1000) return `${ms.toFixed(1)}ms`;
-    return `${(ms / 1000).toFixed(2)}s`;
-  };
+    if (ms < 1) return `${(ms * 1000).toFixed(0)}μs`
+    if (ms < 1000) return `${ms.toFixed(1)}ms`
+    return `${(ms / 1000).toFixed(2)}s`
+  }
 
   if (loading) {
     return (
@@ -194,7 +206,7 @@ export const PerformanceAnalyzer: React.FC = () => {
         <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
         <p className="mt-2 text-gray-600">分析性能中...</p>
       </div>
-    );
+    )
   }
 
   return (
@@ -207,7 +219,7 @@ export const PerformanceAnalyzer: React.FC = () => {
             <div className="flex items-center space-x-4">
               <select
                 value={timeRange}
-                onChange={(e) => setTimeRange(e.target.value as any)}
+                onChange={e => setTimeRange(e.target.value as any)}
                 className="border border-gray-300 rounded px-3 py-1 text-sm"
               >
                 <option value="1h">最近1小时</option>
@@ -236,10 +248,13 @@ export const PerformanceAnalyzer: React.FC = () => {
                     cy="64"
                     r="56"
                     stroke={
-                      analysis.status === 'excellent' ? '#10b981' :
-                      analysis.status === 'good' ? '#3b82f6' :
-                      analysis.status === 'warning' ? '#f59e0b' :
-                      '#ef4444'
+                      analysis.status === 'excellent'
+                        ? '#10b981'
+                        : analysis.status === 'good'
+                          ? '#3b82f6'
+                          : analysis.status === 'warning'
+                            ? '#f59e0b'
+                            : '#ef4444'
                     }
                     strokeWidth="8"
                     fill="none"
@@ -255,11 +270,16 @@ export const PerformanceAnalyzer: React.FC = () => {
                   </div>
                 </div>
               </div>
-              <span className={`inline-flex mt-4 px-3 py-1 text-sm font-semibold rounded-full ${getStatusColor(analysis.status)}`}>
-                {analysis.status === 'excellent' ? '优秀' :
-                 analysis.status === 'good' ? '良好' :
-                 analysis.status === 'warning' ? '警告' :
-                 '严重'}
+              <span
+                className={`inline-flex mt-4 px-3 py-1 text-sm font-semibold rounded-full ${getStatusColor(analysis.status)}`}
+              >
+                {analysis.status === 'excellent'
+                  ? '优秀'
+                  : analysis.status === 'good'
+                    ? '良好'
+                    : analysis.status === 'warning'
+                      ? '警告'
+                      : '严重'}
               </span>
             </div>
 
@@ -273,7 +293,9 @@ export const PerformanceAnalyzer: React.FC = () => {
                   {analysis.bottlenecks.map((bottleneck, index) => (
                     <li key={index} className="flex items-start">
                       <span className="text-red-500 mr-2">•</span>
-                      <span className="text-sm text-gray-700">{bottleneck}</span>
+                      <span className="text-sm text-gray-700">
+                        {bottleneck}
+                      </span>
                     </li>
                   ))}
                 </ul>
@@ -287,7 +309,9 @@ export const PerformanceAnalyzer: React.FC = () => {
                 {analysis.recommendations.map((recommendation, index) => (
                   <li key={index} className="flex items-start">
                     <span className="text-blue-500 mr-2">→</span>
-                    <span className="text-sm text-gray-700">{recommendation}</span>
+                    <span className="text-sm text-gray-700">
+                      {recommendation}
+                    </span>
                   </li>
                 ))}
               </ul>
@@ -301,7 +325,9 @@ export const PerformanceAnalyzer: React.FC = () => {
         <>
           {/* 流式处理指标 */}
           <div className="bg-white p-6 rounded-lg shadow">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">流式处理性能</h3>
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">
+              流式处理性能
+            </h3>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div className="bg-gray-50 p-4 rounded">
                 <div className="text-sm text-gray-600">P50延迟</div>
@@ -359,7 +385,9 @@ export const PerformanceAnalyzer: React.FC = () => {
 
           {/* 批处理指标 */}
           <div className="bg-white p-6 rounded-lg shadow">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">批处理性能</h3>
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">
+              批处理性能
+            </h3>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
               <div className="bg-gray-50 p-4 rounded">
                 <div className="text-sm text-gray-600">处理速率</div>
@@ -403,10 +431,12 @@ export const PerformanceAnalyzer: React.FC = () => {
           {/* 性能趋势图 */}
           {historicalData.length > 1 && (
             <div className="bg-white p-6 rounded-lg shadow">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">性能趋势</h3>
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                性能趋势
+              </h3>
               <div className="h-64 flex items-end space-x-1">
                 {historicalData.slice(-30).map((data, index) => {
-                  const height = (data.metrics.streaming.throughput / 100) * 100;
+                  const height = (data.metrics.streaming.throughput / 100) * 100
                   return (
                     <div
                       key={index}
@@ -414,7 +444,7 @@ export const PerformanceAnalyzer: React.FC = () => {
                       style={{ height: `${Math.min(height, 100)}%` }}
                       title={`吞吐量: ${data.metrics.streaming.throughput.toFixed(1)} token/s`}
                     />
-                  );
+                  )
                 })}
               </div>
               <div className="mt-2 text-sm text-gray-600 text-center">
@@ -425,5 +455,5 @@ export const PerformanceAnalyzer: React.FC = () => {
         </>
       )}
     </div>
-  );
-};
+  )
+}

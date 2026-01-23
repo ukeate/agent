@@ -3,28 +3,28 @@
  * 展示查询类型识别、关键词提取、过滤条件等技术细节
  */
 
-import React from 'react';
-import { Card, Tag, Descriptions, Badge, Empty, Space } from 'antd';
+import React from 'react'
+import { Card, Tag, Descriptions, Badge, Empty, Space } from 'antd'
 import {
   FileTextOutlined,
   FileImageOutlined,
   TableOutlined,
   MergeCellsOutlined,
   FilterOutlined,
-  SearchOutlined
-} from '@ant-design/icons';
+  SearchOutlined,
+} from '@ant-design/icons'
 
 interface QueryAnalysisData {
-  query_type: 'text' | 'visual' | 'document' | 'mixed';
-  requires_image_search: boolean;
-  requires_table_search: boolean;
-  filters: Record<string, any>;
-  top_k: number;
-  similarity_threshold: number;
+  query_type: 'text' | 'visual' | 'document' | 'mixed'
+  requires_image_search: boolean
+  requires_table_search: boolean
+  filters: Record<string, any>
+  top_k: number
+  similarity_threshold: number
 }
 
 interface QueryAnalyzerProps {
-  analysis: QueryAnalysisData | null;
+  analysis: QueryAnalysisData | null
 }
 
 const QueryAnalyzer: React.FC<QueryAnalyzerProps> = ({ analysis }) => {
@@ -33,41 +33,41 @@ const QueryAnalyzer: React.FC<QueryAnalyzerProps> = ({ analysis }) => {
       <Card title="查询分析器" size="small">
         <Empty description="等待查询输入..." />
       </Card>
-    );
+    )
   }
 
   const getQueryTypeIcon = () => {
     switch (analysis.query_type) {
       case 'text':
-        return <FileTextOutlined />;
+        return <FileTextOutlined />
       case 'visual':
-        return <FileImageOutlined />;
+        return <FileImageOutlined />
       case 'document':
-        return <TableOutlined />;
+        return <TableOutlined />
       case 'mixed':
-        return <MergeCellsOutlined />;
+        return <MergeCellsOutlined />
       default:
-        return <SearchOutlined />;
+        return <SearchOutlined />
     }
-  };
+  }
 
   const getQueryTypeColor = () => {
     switch (analysis.query_type) {
       case 'text':
-        return 'blue';
+        return 'blue'
       case 'visual':
-        return 'purple';
+        return 'purple'
       case 'document':
-        return 'green';
+        return 'green'
       case 'mixed':
-        return 'orange';
+        return 'orange'
       default:
-        return 'default';
+        return 'default'
     }
-  };
+  }
 
   return (
-    <Card 
+    <Card
       title={
         <span>
           <SearchOutlined className="mr-2" />
@@ -91,9 +91,10 @@ const QueryAnalyzer: React.FC<QueryAnalyzerProps> = ({ analysis }) => {
             {analysis.requires_table_search && (
               <Badge status="processing" text="表格搜索" />
             )}
-            {!analysis.requires_image_search && !analysis.requires_table_search && (
-              <Badge status="default" text="纯文本搜索" />
-            )}
+            {!analysis.requires_image_search &&
+              !analysis.requires_table_search && (
+                <Badge status="default" text="纯文本搜索" />
+              )}
           </Space>
         </Descriptions.Item>
 
@@ -130,7 +131,7 @@ const QueryAnalyzer: React.FC<QueryAnalyzerProps> = ({ analysis }) => {
         </Descriptions.Item>
       </Descriptions>
     </Card>
-  );
-};
+  )
+}
 
-export default QueryAnalyzer;
+export default QueryAnalyzer

@@ -1,7 +1,21 @@
 import React, { useEffect, useState } from 'react'
-import { Card, Row, Col, Input, Button, Typography, List, Tag, Space, message } from 'antd'
+import {
+  Card,
+  Row,
+  Col,
+  Input,
+  Button,
+  Typography,
+  List,
+  Tag,
+  Space,
+  message,
+} from 'antd'
 import { SearchOutlined, ReloadOutlined } from '@ant-design/icons'
-import { graphRAGService, type GraphRAGResponse } from '../services/graphRAGService'
+import {
+  graphRAGService,
+  type GraphRAGResponse,
+} from '../services/graphRAGService'
 
 const { Title, Text } = Typography
 
@@ -39,10 +53,18 @@ const GraphRAGPageEnhanced: React.FC = () => {
       <Row justify="space-between" align="middle" style={{ marginBottom: 16 }}>
         <Col>
           <Title level={3}>GraphRAG 增强查询</Title>
-          <Text type="secondary">直接调用后端 GraphRAG 接口，无任何本地静态数据</Text>
+          <Text type="secondary">
+            直接调用后端 GraphRAG 接口，无任何本地静态数据
+          </Text>
         </Col>
         <Col>
-          <Button icon={<ReloadOutlined />} onClick={runQuery} loading={loading}>重新查询</Button>
+          <Button
+            icon={<ReloadOutlined />}
+            onClick={runQuery}
+            loading={loading}
+          >
+            重新查询
+          </Button>
         </Col>
       </Row>
 
@@ -50,7 +72,11 @@ const GraphRAGPageEnhanced: React.FC = () => {
         <Input.Search
           value={question}
           onChange={e => setQuestion(e.target.value)}
-          enterButton={<><SearchOutlined /> 搜索</>}
+          enterButton={
+            <>
+              <SearchOutlined /> 搜索
+            </>
+          }
           onSearch={runQuery}
           loading={loading}
           name="graphrag-question"
@@ -63,9 +89,20 @@ const GraphRAGPageEnhanced: React.FC = () => {
           <div>
             <Space>
               <Tag color="blue">文档 {result.documents.length}</Tag>
-              <Tag color="green">实体 {(result.graph_context?.entities || []).length}</Tag>
-              <Tag color="gold">关系 {(result.graph_context?.relations || []).length}</Tag>
-              <Tag color="purple">用时 {(((result.performance_metrics.total_time as number) || 0) * 1000).toFixed(0)}ms</Tag>
+              <Tag color="green">
+                实体 {(result.graph_context?.entities || []).length}
+              </Tag>
+              <Tag color="gold">
+                关系 {(result.graph_context?.relations || []).length}
+              </Tag>
+              <Tag color="purple">
+                用时{' '}
+                {(
+                  ((result.performance_metrics.total_time as number) || 0) *
+                  1000
+                ).toFixed(0)}
+                ms
+              </Tag>
             </Space>
             <div className="mt-3">
               <Text strong>查询:</Text> <Text>{result.query}</Text>
@@ -86,7 +123,10 @@ const GraphRAGPageEnhanced: React.FC = () => {
                   <Space direction="vertical">
                     <Text strong>Top {index + 1}</Text>
                     <Text type="secondary">{d.content || '-'}</Text>
-                    <Tag color="blue">分数 {(((d.final_score ?? d.score) || 0) * 100).toFixed(1)}%</Tag>
+                    <Tag color="blue">
+                      分数{' '}
+                      {(((d.final_score ?? d.score) || 0) * 100).toFixed(1)}%
+                    </Tag>
                   </Space>
                 </List.Item>
               )}
@@ -97,8 +137,16 @@ const GraphRAGPageEnhanced: React.FC = () => {
           <Card title="图谱上下文">
             <List
               dataSource={[
-                { key: 'entities', title: '实体数', value: (result?.graph_context?.entities || []).length },
-                { key: 'relations', title: '关系数', value: (result?.graph_context?.relations || []).length },
+                {
+                  key: 'entities',
+                  title: '实体数',
+                  value: (result?.graph_context?.entities || []).length,
+                },
+                {
+                  key: 'relations',
+                  title: '关系数',
+                  value: (result?.graph_context?.relations || []).length,
+                },
               ]}
               renderItem={(g: any) => (
                 <List.Item>

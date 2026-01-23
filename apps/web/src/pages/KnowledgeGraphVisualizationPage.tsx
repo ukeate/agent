@@ -6,7 +6,9 @@ import { SearchOutlined, ReloadOutlined } from '@ant-design/icons'
 const { TextArea } = Input
 
 const KnowledgeGraphVisualizationPage: React.FC = () => {
-  const [query, setQuery] = useState<string>('{\n  "query": "match (n)-[r]->(m) return n,r,m limit 20"\n}');
+  const [query, setQuery] = useState<string>(
+    '{\n  "query": "match (n)-[r]->(m) return n,r,m limit 20"\n}'
+  )
   const [result, setResult] = useState<string>('')
   const [loading, setLoading] = useState(false)
 
@@ -31,20 +33,31 @@ const KnowledgeGraphVisualizationPage: React.FC = () => {
   return (
     <div style={{ padding: 24 }}>
       <Space direction="vertical" style={{ width: '100%' }} size="large">
-        <Space align="center" style={{ justifyContent: 'space-between', width: '100%' }}>
+        <Space
+          align="center"
+          style={{ justifyContent: 'space-between', width: '100%' }}
+        >
           <Space>
             <SearchOutlined />
             <Typography.Title level={3} style={{ margin: 0 }}>
               知识图谱可视化
             </Typography.Title>
           </Space>
-          <Button icon={<ReloadOutlined />} onClick={runQuery} loading={loading}>
+          <Button
+            icon={<ReloadOutlined />}
+            onClick={runQuery}
+            loading={loading}
+          >
             运行查询
           </Button>
         </Space>
 
         <Card title="查询请求">
-          <TextArea rows={6} value={query} onChange={(e) => setQuery(e.target.value)} />
+          <TextArea
+            rows={6}
+            value={query}
+            onChange={e => setQuery(e.target.value)}
+          />
         </Card>
 
         <Card title="查询结果">

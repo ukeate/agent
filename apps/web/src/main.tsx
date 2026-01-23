@@ -16,7 +16,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
           v7_relativeSplatPath: true,
         }}
       >
-        <ConfigProvider 
+        <ConfigProvider
           locale={zhCN}
           theme={{
             token: {
@@ -32,5 +32,5 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
         </ConfigProvider>
       </BrowserRouter>
     </ErrorBoundary>
-  </React.StrictMode>,
+  </React.StrictMode>
 )

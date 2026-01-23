@@ -6,6 +6,7 @@ import numpy as np
 from openai import AsyncOpenAI
 from src.core.config import get_settings
 from src.core.redis import get_redis
+from src.core.logging import get_logger
 
 logger = get_logger(__name__)
 
@@ -267,4 +268,3 @@ class TextChunker:
 # 全局嵌入服务实例
 embedding_service = EmbeddingService()
 text_chunker = TextChunker()
-from src.core.logging import get_logger

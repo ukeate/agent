@@ -3,7 +3,7 @@
  * 展示检索结果和最终答案，突出技术细节
  */
 
-import React, { useState } from 'react';
+import React, { useState } from 'react'
 import {
   Card,
   Tabs,
@@ -16,8 +16,8 @@ import {
   Badge,
   Row,
   Col,
-  Statistic
-} from 'antd';
+  Statistic,
+} from 'antd'
 import {
   FileTextOutlined,
   FileImageOutlined,
@@ -25,72 +25,72 @@ import {
   CheckCircleOutlined,
   CodeOutlined,
   ThunderboltOutlined,
-  DatabaseOutlined
-} from '@ant-design/icons';
+  DatabaseOutlined,
+} from '@ant-design/icons'
 
-const { Text, Paragraph } = Typography;
-const { TabPane } = Tabs;
-const { Panel } = Collapse;
+const { Text, Paragraph } = Typography
+const { TabPane } = Tabs
+const { Panel } = Collapse
 
 interface RetrievalItem {
-  content: string;
-  score: number;
-  source: string;
+  content: string
+  score: number
+  source: string
   metadata: {
-    chunk_id?: string;
-    page?: number;
-    type?: string;
-  };
+    chunk_id?: string
+    page?: number
+    type?: string
+  }
 }
 
 interface RetrievalResultsData {
-  texts: RetrievalItem[];
-  images: RetrievalItem[];
-  tables: RetrievalItem[];
-  total_results: number;
-  retrieval_time_ms: number;
-  sources: string[];
+  texts: RetrievalItem[]
+  images: RetrievalItem[]
+  tables: RetrievalItem[]
+  total_results: number
+  retrieval_time_ms: number
+  sources: string[]
 }
 
 interface QAResponseData {
-  answer: string;
-  confidence: number;
-  processing_time_ms: number;
-  context_used: Record<string, number>;
+  answer: string
+  confidence: number
+  processing_time_ms: number
+  context_used: Record<string, number>
 }
 
 interface MultimodalResultsProps {
-  retrievalResults: RetrievalResultsData | null;
-  qaResponse: QAResponseData | null;
+  retrievalResults: RetrievalResultsData | null
+  qaResponse: QAResponseData | null
 }
 
-const MultimodalResults: React.FC<MultimodalResultsProps> = ({ 
-  retrievalResults, 
-  qaResponse 
+const MultimodalResults: React.FC<MultimodalResultsProps> = ({
+  retrievalResults,
+  qaResponse,
 }) => {
-  const [activeTab, setActiveTab] = useState('answer');
+  const [activeTab, setActiveTab] = useState('answer')
 
   if (!retrievalResults && !qaResponse) {
     return (
       <Card title="查询结果" size="small">
         <Empty description="等待查询执行..." />
       </Card>
-    );
+    )
   }
 
   const renderRetrievalItem = (item: RetrievalItem, type: string) => {
     const getTypeIcon = () => {
       switch (type) {
         case 'text':
-          return <FileTextOutlined style={{ color: '#1890ff' }} />;
+          return <FileTextOutlined style={{ color: '#1890ff' }} />
         case 'image':
-          return <FileImageOutlined style={{ color: '#722ed1' }} />;
+          return <FileImageOutlined style={{ color: '#722ed1' }} />
         case 'table':
-          return <TableOutlined style={{ color: '#52c41a' }} />;
+          return <TableOutlined style={{ color: '#52c41a' }} />
         default:
-          return <FileTextOutlined />;
+          return <FileTextOutlined />
       }
-    };
+    }
 
     return (
       <List.Item>
@@ -98,19 +98,21 @@ const MultimodalResults: React.FC<MultimodalResultsProps> = ({
           <Space>
             {getTypeIcon()}
             <Text strong>{item.source}</Text>
-            <Badge 
+            <Badge
               count={`相似度: ${(item.score * 100).toFixed(1)}%`}
-              style={{ backgroundColor: item.score > 0.8 ? '#52c41a' : '#faad14' }}
+              style={{
+                backgroundColor: item.score > 0.8 ? '#52c41a' : '#faad14',
+              }}
             />
           </Space>
-          
-          <Paragraph 
+
+          <Paragraph
             ellipsis={{ rows: 3, expandable: true }}
             style={{ marginBottom: 0 }}
           >
             {item.content}
           </Paragraph>
-          
+
           {item.metadata && Object.keys(item.metadata).length > 0 && (
             <Space wrap>
               {item.metadata.chunk_id && (
@@ -128,11 +130,11 @@ const MultimodalResults: React.FC<MultimodalResultsProps> = ({
           )}
         </Space>
       </List.Item>
-    );
-  };
+    )
+  }
 
   return (
-    <Card 
+    <Card
       title={
         <span>
           <ThunderboltOutlined className="mr-2" />
@@ -142,13 +144,13 @@ const MultimodalResults: React.FC<MultimodalResultsProps> = ({
       size="small"
     >
       <Tabs activeKey={activeTab} onChange={setActiveTab}>
-        <TabPane 
+        <TabPane
           tab={
             <span>
               <CheckCircleOutlined />
               最终答案
             </span>
-          } 
+          }
           key="answer"
         >
           {qaResponse ? (
@@ -166,8 +168,9 @@ const MultimodalResults: React.FC<MultimodalResultsProps> = ({
                     value={qaResponse.confidence * 100}
                     suffix="%"
                     precision={1}
-                    valueStyle={{ 
-                      color: qaResponse.confidence > 0.8 ? '#52c41a' : '#faad14' 
+                    valueStyle={{
+                      color:
+                        qaResponse.confidence > 0.8 ? '#52c41a' : '#faad14',
                     }}
                   />
                 </Col>
@@ -197,13 +200,13 @@ const MultimodalResults: React.FC<MultimodalResultsProps> = ({
           )}
         </TabPane>
 
-        <TabPane 
+        <TabPane
           tab={
             <span>
               <DatabaseOutlined />
               检索结果
             </span>
-          } 
+          }
           key="retrieval"
         >
           {retrievalResults ? (
@@ -239,52 +242,61 @@ const MultimodalResults: React.FC<MultimodalResultsProps> = ({
               {/* 分类结果 */}
               <Collapse defaultActiveKey={['texts']}>
                 {retrievalResults.texts.length > 0 && (
-                  <Panel 
+                  <Panel
                     header={
                       <span>
-                        <FileTextOutlined /> 文本结果 
-                        <Badge count={retrievalResults.texts.length} className="ml-2" />
+                        <FileTextOutlined /> 文本结果
+                        <Badge
+                          count={retrievalResults.texts.length}
+                          className="ml-2"
+                        />
                       </span>
-                    } 
+                    }
                     key="texts"
                   >
                     <List
                       dataSource={retrievalResults.texts}
-                      renderItem={(item) => renderRetrievalItem(item, 'text')}
+                      renderItem={item => renderRetrievalItem(item, 'text')}
                     />
                   </Panel>
                 )}
 
                 {retrievalResults.images.length > 0 && (
-                  <Panel 
+                  <Panel
                     header={
                       <span>
                         <FileImageOutlined /> 图像结果
-                        <Badge count={retrievalResults.images.length} className="ml-2" />
+                        <Badge
+                          count={retrievalResults.images.length}
+                          className="ml-2"
+                        />
                       </span>
-                    } 
+                    }
                     key="images"
                   >
                     <List
                       dataSource={retrievalResults.images}
-                      renderItem={(item) => renderRetrievalItem(item, 'image')}
+                      renderItem={item => renderRetrievalItem(item, 'image')}
                     />
                   </Panel>
                 )}
 
                 {retrievalResults.tables.length > 0 && (
-                  <Panel 
+                  <Panel
                     header={
                       <span>
                         <TableOutlined /> 表格结果
-                        <Badge count={retrievalResults.tables.length} className="ml-2" />
+                        <Badge
+                          count={retrievalResults.tables.length}
+                          className="ml-2"
+                        />
                       </span>
-                    } 
+                    }
                     key="tables"
                   >
                     <List
                       dataSource={retrievalResults.tables}
-                      renderItem={(item) => renderRetrievalItem(item, 'table')}
+                      renderItem={item => renderRetrievalItem(item, 'table')}
                     />
                   </Panel>
                 )}
@@ -307,7 +319,7 @@ const MultimodalResults: React.FC<MultimodalResultsProps> = ({
         </TabPane>
       </Tabs>
     </Card>
-  );
-};
+  )
+}
 
-export default MultimodalResults;
+export default MultimodalResults

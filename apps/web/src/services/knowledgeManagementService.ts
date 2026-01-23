@@ -19,7 +19,10 @@ class KnowledgeManagementService {
   private baseUrl = '/kg'
 
   async validateGraph(rules?: any[]): Promise<GraphValidationResult> {
-    const response = await apiClient.post(`${this.baseUrl}/validate`, rules || null)
+    const response = await apiClient.post(
+      `${this.baseUrl}/validate`,
+      rules || null
+    )
     return response.data
   }
 }

@@ -1,22 +1,22 @@
 import React, { useState } from 'react'
-import { 
 import { logger } from '../../utils/logger'
-  Card, 
-  Row, 
-  Col, 
-  Form, 
-  Input, 
-  Select, 
-  Switch, 
-  Button, 
-  Space, 
-  Tag, 
-  Alert, 
-  Collapse, 
+import {
+  Card,
+  Row,
+  Col,
+  Form,
+  Input,
+  Select,
+  Switch,
+  Button,
+  Space,
+  Tag,
+  Alert,
+  Collapse,
   InputNumber,
   Typography,
   Divider,
-  Tooltip
+  Tooltip,
 } from 'antd'
 import {
   ThunderboltOutlined,
@@ -25,7 +25,7 @@ import {
   InfoCircleOutlined,
   SaveOutlined,
   ReloadOutlined,
-  PlayCircleOutlined
+  PlayCircleOutlined,
 } from '@ant-design/icons'
 
 const { Option } = Select
@@ -85,21 +85,21 @@ const QLearningEnvironmentPanel: React.FC = () => {
           type: 'discrete',
           min: 0,
           max: 9,
-          description: 'X坐标位置'
+          description: 'X坐标位置',
         },
         {
           name: 'y_position',
           type: 'discrete',
           min: 0,
           max: 9,
-          description: 'Y坐标位置'
-        }
+          description: 'Y坐标位置',
+        },
       ],
       actions: [
         { id: 'up', name: '向上', description: '向上移动一格' },
         { id: 'down', name: '向下', description: '向下移动一格' },
         { id: 'left', name: '向左', description: '向左移动一格' },
-        { id: 'right', name: '向右', description: '向右移动一格' }
+        { id: 'right', name: '向右', description: '向右移动一格' },
       ],
       rewardFunction: {
         type: 'simple',
@@ -107,18 +107,18 @@ const QLearningEnvironmentPanel: React.FC = () => {
         shaping: {
           enabled: true,
           factors: {
-            'distance_to_goal': -0.1,
-            'step_penalty': -0.01
-          }
+            distance_to_goal: -0.1,
+            step_penalty: -0.01,
+          },
         },
         penalties: {
           enabled: true,
           factors: {
-            'wall_collision': -1.0,
-            'out_of_bounds': -1.0
-          }
-        }
-      }
+            wall_collision: -1.0,
+            out_of_bounds: -1.0,
+          },
+        },
+      },
     },
     {
       name: 'CartPole',
@@ -131,73 +131,84 @@ const QLearningEnvironmentPanel: React.FC = () => {
           type: 'continuous',
           min: -2.4,
           max: 2.4,
-          description: '小车位置'
+          description: '小车位置',
         },
         {
           name: 'cart_velocity',
           type: 'continuous',
           min: -3.0,
           max: 3.0,
-          description: '小车速度'
+          description: '小车速度',
         },
         {
           name: 'pole_angle',
           type: 'continuous',
           min: -0.2,
           max: 0.2,
-          description: '杆子角度'
+          description: '杆子角度',
         },
         {
           name: 'pole_velocity',
           type: 'continuous',
           min: -2.0,
           max: 2.0,
-          description: '杆子角速度'
-        }
+          description: '杆子角速度',
+        },
       ],
       actions: [
         { id: 'left', name: '向左推', description: '向左推动小车' },
-        { id: 'right', name: '向右推', description: '向右推动小车' }
+        { id: 'right', name: '向右推', description: '向右推动小车' },
       ],
       rewardFunction: {
         type: 'simple',
         baseReward: 1.0,
         shaping: {
           enabled: false,
-          factors: {}
+          factors: {},
         },
         penalties: {
           enabled: true,
           factors: {
-            'episode_end': -100.0
-          }
-        }
-      }
-    }
+            episode_end: -100.0,
+          },
+        },
+      },
+    },
   ])
-  
-  const [selectedEnvironment, setSelectedEnvironment] = useState<string>('GridWorld')
+
+  const [selectedEnvironment, setSelectedEnvironment] =
+    useState<string>('GridWorld')
   const [isCustomizing, setIsCustomizing] = useState(false)
 
   const getSpaceTypeColor = (type: string) => {
     switch (type) {
-      case 'discrete': return 'blue'
-      case 'continuous': return 'green'
-      case 'hybrid': return 'orange'
-      default: return 'default'
+      case 'discrete':
+        return 'blue'
+      case 'continuous':
+        return 'green'
+      case 'hybrid':
+        return 'orange'
+      default:
+        return 'default'
     }
   }
 
   const getFeatureTypeColor = (type: string) => {
     switch (type) {
-      case 'continuous': return 'green'
-      case 'discrete': return 'blue'
-      case 'categorical': return 'purple'
-      default: return 'default'
+      case 'continuous':
+        return 'green'
+      case 'discrete':
+        return 'blue'
+      case 'categorical':
+        return 'purple'
+      default:
+        return 'default'
     }
   }
 
-  const currentEnvironment = environments.find(env => env.name === selectedEnvironment)
+  const currentEnvironment = environments.find(
+    env => env.name === selectedEnvironment
+  )
 
   const handleSaveEnvironment = async (values: any) => {
     try {
@@ -216,7 +227,9 @@ const QLearningEnvironmentPanel: React.FC = () => {
         <Card>
           <Space style={{ width: '100%', justifyContent: 'space-between' }}>
             <Space>
-              <ThunderboltOutlined style={{ fontSize: '16px', color: '#1890ff' }} />
+              <ThunderboltOutlined
+                style={{ fontSize: '16px', color: '#1890ff' }}
+              />
               <Text strong>强化学习环境配置</Text>
               <Select
                 value={selectedEnvironment}
@@ -233,18 +246,16 @@ const QLearningEnvironmentPanel: React.FC = () => {
                 ))}
               </Select>
             </Space>
-            
+
             <Space>
-              <Button 
-                type={isCustomizing ? "default" : "primary"} 
+              <Button
+                type={isCustomizing ? 'default' : 'primary'}
                 icon={<SettingOutlined />}
                 onClick={() => setIsCustomizing(!isCustomizing)}
               >
                 {isCustomizing ? '取消自定义' : '自定义环境'}
               </Button>
-              <Button icon={<ReloadOutlined />}>
-                重置配置
-              </Button>
+              <Button icon={<ReloadOutlined />}>重置配置</Button>
               <Button type="primary" icon={<PlayCircleOutlined />}>
                 测试环境
               </Button>
@@ -259,7 +270,7 @@ const QLearningEnvironmentPanel: React.FC = () => {
           <Alert
             message={`${currentEnvironment.name} 环境`}
             description={currentEnvironment.description}
-            variant="default"
+            type="info"
             showIcon
           />
         </Col>
@@ -269,13 +280,15 @@ const QLearningEnvironmentPanel: React.FC = () => {
       <Col span={16}>
         <Space direction="vertical" style={{ width: '100%' }}>
           {/* 状态空间配置 */}
-          <Card 
+          <Card
             title={
               <Space>
                 <InfoCircleOutlined />
                 状态空间配置
                 {currentEnvironment && (
-                  <Tag color={getSpaceTypeColor(currentEnvironment.stateSpaceType)}>
+                  <Tag
+                    color={getSpaceTypeColor(currentEnvironment.stateSpaceType)}
+                  >
                     {currentEnvironment.stateSpaceType}
                   </Tag>
                 )}
@@ -294,11 +307,11 @@ const QLearningEnvironmentPanel: React.FC = () => {
                           </Tag>
                           <Text strong>{feature.name}</Text>
                         </div>
-                        
+
                         <Text type="secondary" style={{ fontSize: '12px' }}>
                           {feature.description}
                         </Text>
-                        
+
                         {feature.type !== 'categorical' && (
                           <div>
                             <Text type="secondary">范围: </Text>
@@ -307,13 +320,15 @@ const QLearningEnvironmentPanel: React.FC = () => {
                             </Tag>
                           </div>
                         )}
-                        
+
                         {feature.categories && (
                           <div>
                             <Text type="secondary">类别: </Text>
                             <Space wrap>
                               {feature.categories.map(cat => (
-                                <Tag key={cat} size="small">{cat}</Tag>
+                                <Tag key={cat} size="small">
+                                  {cat}
+                                </Tag>
                               ))}
                             </Space>
                           </div>
@@ -324,9 +339,16 @@ const QLearningEnvironmentPanel: React.FC = () => {
                 ))}
               </Row>
             )}
-            
+
             {isCustomizing && (
-              <div style={{ marginTop: 16, padding: 16, backgroundColor: '#fafafa', borderRadius: '4px' }}>
+              <div
+                style={{
+                  marginTop: 16,
+                  padding: 16,
+                  backgroundColor: '#fafafa',
+                  borderRadius: '4px',
+                }}
+              >
                 <Button type="dashed" block icon={<ExperimentOutlined />}>
                   添加新的状态特征
                 </Button>
@@ -335,13 +357,17 @@ const QLearningEnvironmentPanel: React.FC = () => {
           </Card>
 
           {/* 动作空间配置 */}
-          <Card 
+          <Card
             title={
               <Space>
                 <PlayCircleOutlined />
                 动作空间配置
                 {currentEnvironment && (
-                  <Tag color={getSpaceTypeColor(currentEnvironment.actionSpaceType)}>
+                  <Tag
+                    color={getSpaceTypeColor(
+                      currentEnvironment.actionSpaceType
+                    )}
+                  >
                     {currentEnvironment.actionSpaceType}
                   </Tag>
                 )}
@@ -355,14 +381,16 @@ const QLearningEnvironmentPanel: React.FC = () => {
                     <Card size="small" hoverable>
                       <Space direction="vertical" style={{ width: '100%' }}>
                         <div>
-                          <PlayCircleOutlined style={{ color: '#1890ff', marginRight: '4px' }} />
+                          <PlayCircleOutlined
+                            style={{ color: '#1890ff', marginRight: '4px' }}
+                          />
                           <Text strong>{action.name}</Text>
                         </div>
-                        
+
                         <Text type="secondary" style={{ fontSize: '12px' }}>
                           {action.description}
                         </Text>
-                        
+
                         <Tag size="small" color="blue">
                           ID: {action.id}
                         </Tag>
@@ -372,9 +400,16 @@ const QLearningEnvironmentPanel: React.FC = () => {
                 ))}
               </Row>
             )}
-            
+
             {isCustomizing && (
-              <div style={{ marginTop: 16, padding: 16, backgroundColor: '#fafafa', borderRadius: '4px' }}>
+              <div
+                style={{
+                  marginTop: 16,
+                  padding: 16,
+                  backgroundColor: '#fafafa',
+                  borderRadius: '4px',
+                }}
+              >
                 <Button type="dashed" block icon={<PlayCircleOutlined />}>
                   添加新动作
                 </Button>
@@ -383,12 +418,14 @@ const QLearningEnvironmentPanel: React.FC = () => {
           </Card>
 
           {/* 奖励函数配置 */}
-          <Card title={
-            <Space>
-              <ThunderboltOutlined />
-              奖励函数配置
-            </Space>
-          }>
+          <Card
+            title={
+              <Space>
+                <ThunderboltOutlined />
+                奖励函数配置
+              </Space>
+            }
+          >
             {currentEnvironment && (
               <Collapse defaultActiveKey={['basic']}>
                 <Panel header="基础奖励设置" key="basic">
@@ -397,53 +434,51 @@ const QLearningEnvironmentPanel: React.FC = () => {
                       <div>
                         <Text type="secondary">奖励类型</Text>
                         <br />
-                        <Tag color="blue">{currentEnvironment.rewardFunction.type}</Tag>
+                        <Tag color="blue">
+                          {currentEnvironment.rewardFunction.type}
+                        </Tag>
                       </div>
                     </Col>
                     <Col span={8}>
                       <div>
                         <Text type="secondary">基础奖励</Text>
                         <br />
-                        <Text strong>{currentEnvironment.rewardFunction.baseReward}</Text>
+                        <Text strong>
+                          {currentEnvironment.rewardFunction.baseReward}
+                        </Text>
                       </div>
                     </Col>
                     <Col span={8}>
                       <div>
                         <Text type="secondary">奖励塑形</Text>
                         <br />
-                        <Tag color={currentEnvironment.rewardFunction.shaping.enabled ? 'green' : 'default'}>
-                          {currentEnvironment.rewardFunction.shaping.enabled ? '启用' : '禁用'}
+                        <Tag
+                          color={
+                            currentEnvironment.rewardFunction.shaping.enabled
+                              ? 'green'
+                              : 'default'
+                          }
+                        >
+                          {currentEnvironment.rewardFunction.shaping.enabled
+                            ? '启用'
+                            : '禁用'}
                         </Tag>
                       </div>
                     </Col>
                   </Row>
                 </Panel>
-                
+
                 {currentEnvironment.rewardFunction.shaping.enabled && (
                   <Panel header="奖励塑形因子" key="shaping">
                     <Row gutter={16}>
-                      {Object.entries(currentEnvironment.rewardFunction.shaping.factors).map(([key, value]) => (
+                      {Object.entries(
+                        currentEnvironment.rewardFunction.shaping.factors
+                      ).map(([key, value]) => (
                         <Col span={8} key={key}>
                           <Space direction="vertical">
                             <Text type="secondary">{key}</Text>
                             <Tag color={value < 0 ? 'red' : 'green'}>
-                              {value > 0 ? '+' : ''}{value}
-                            </Tag>
-                          </Space>
-                        </Col>
-                      ))}
-                    </Row>
-                  </Panel>
-                )}
-                
-                {currentEnvironment.rewardFunction.penalties.enabled && (
-                  <Panel header="惩罚因子" key="penalties">
-                    <Row gutter={16}>
-                      {Object.entries(currentEnvironment.rewardFunction.penalties.factors).map(([key, value]) => (
-                        <Col span={8} key={key}>
-                          <Space direction="vertical">
-                            <Text type="secondary">{key}</Text>
-                            <Tag color="red">
+                              {value > 0 ? '+' : ''}
                               {value}
                             </Tag>
                           </Space>
@@ -452,11 +487,35 @@ const QLearningEnvironmentPanel: React.FC = () => {
                     </Row>
                   </Panel>
                 )}
+
+                {currentEnvironment.rewardFunction.penalties.enabled && (
+                  <Panel header="惩罚因子" key="penalties">
+                    <Row gutter={16}>
+                      {Object.entries(
+                        currentEnvironment.rewardFunction.penalties.factors
+                      ).map(([key, value]) => (
+                        <Col span={8} key={key}>
+                          <Space direction="vertical">
+                            <Text type="secondary">{key}</Text>
+                            <Tag color="red">{value}</Tag>
+                          </Space>
+                        </Col>
+                      ))}
+                    </Row>
+                  </Panel>
+                )}
               </Collapse>
             )}
-            
+
             {isCustomizing && (
-              <div style={{ marginTop: 16, padding: 16, backgroundColor: '#fafafa', borderRadius: '4px' }}>
+              <div
+                style={{
+                  marginTop: 16,
+                  padding: 16,
+                  backgroundColor: '#fafafa',
+                  borderRadius: '4px',
+                }}
+              >
                 <Button type="dashed" block icon={<ThunderboltOutlined />}>
                   添加自定义奖励规则
                 </Button>
@@ -480,7 +539,7 @@ const QLearningEnvironmentPanel: React.FC = () => {
                   <Text strong>{environments.length}</Text>
                 </Col>
               </Row>
-              
+
               {currentEnvironment && (
                 <>
                   <Row>
@@ -488,10 +547,12 @@ const QLearningEnvironmentPanel: React.FC = () => {
                       <Text type="secondary">状态特征</Text>
                     </Col>
                     <Col span={12} style={{ textAlign: 'right' }}>
-                      <Text strong>{currentEnvironment.stateFeatures.length}</Text>
+                      <Text strong>
+                        {currentEnvironment.stateFeatures.length}
+                      </Text>
                     </Col>
                   </Row>
-                  
+
                   <Row>
                     <Col span={12}>
                       <Text type="secondary">可用动作</Text>
@@ -511,11 +572,11 @@ const QLearningEnvironmentPanel: React.FC = () => {
               <Alert
                 message="Classic Q-Learning"
                 description="推荐使用GridWorld等离散状态空间环境"
-                variant="default"
+                type="info"
                 size="small"
                 showIcon
               />
-              
+
               <Alert
                 message="Deep Q-Network"
                 description="推荐使用CartPole等连续状态空间环境"
@@ -523,11 +584,11 @@ const QLearningEnvironmentPanel: React.FC = () => {
                 size="small"
                 showIcon
               />
-              
+
               <Alert
                 message="Dueling DQN"
                 description="适用于动作价值差异明显的环境"
-                variant="warning"
+                type="warning"
                 size="small"
                 showIcon
               />
@@ -557,17 +618,22 @@ const QLearningEnvironmentPanel: React.FC = () => {
       {/* 自定义配置表单 */}
       {isCustomizing && (
         <Col span={24}>
-          <Card title="自定义环境配置" extra={
-            <Space>
-              <Button icon={<SaveOutlined />} type="primary">
-                保存配置
-              </Button>
-              <Button onClick={() => setIsCustomizing(false)}>
-                取消
-              </Button>
-            </Space>
-          }>
-            <Form form={form} layout="vertical" onFinish={handleSaveEnvironment}>
+          <Card
+            title="自定义环境配置"
+            extra={
+              <Space>
+                <Button icon={<SaveOutlined />} type="primary">
+                  保存配置
+                </Button>
+                <Button onClick={() => setIsCustomizing(false)}>取消</Button>
+              </Space>
+            }
+          >
+            <Form
+              form={form}
+              layout="vertical"
+              onFinish={handleSaveEnvironment}
+            >
               <Row gutter={16}>
                 <Col span={8}>
                   <Form.Item
@@ -588,10 +654,14 @@ const QLearningEnvironmentPanel: React.FC = () => {
                   </Form.Item>
                 </Col>
               </Row>
-              
+
               <Row gutter={16}>
                 <Col span={12}>
-                  <Form.Item name="stateSpaceType" label="状态空间类型" initialValue="discrete">
+                  <Form.Item
+                    name="stateSpaceType"
+                    label="状态空间类型"
+                    initialValue="discrete"
+                  >
                     <Select>
                       <Option value="discrete">离散状态空间</Option>
                       <Option value="continuous">连续状态空间</Option>
@@ -600,7 +670,11 @@ const QLearningEnvironmentPanel: React.FC = () => {
                   </Form.Item>
                 </Col>
                 <Col span={12}>
-                  <Form.Item name="actionSpaceType" label="动作空间类型" initialValue="discrete">
+                  <Form.Item
+                    name="actionSpaceType"
+                    label="动作空间类型"
+                    initialValue="discrete"
+                  >
                     <Select>
                       <Option value="discrete">离散动作空间</Option>
                       <Option value="continuous">连续动作空间</Option>

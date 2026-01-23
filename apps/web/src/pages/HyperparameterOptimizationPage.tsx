@@ -1,203 +1,203 @@
-import React, { useState, useEffect } from 'react';
-import { Button } from '../components/ui/button';
-import { Card } from '../components/ui/card';
-import { Alert } from '../components/ui/lalert';
-import { 
+import React, { useState, useEffect } from 'react'
+import { Button } from '../components/ui/button'
+import { Card } from '../components/ui/card'
+import { Alert } from '../components/ui/alert'
 import { logger } from '../utils/logger'
-  ExperimentCard, 
-  ExperimentForm, 
-  ExperimentDetail 
-} from '../components/hyperparameter';
-import { hyperparameterService } from '../services/hyperparameterService';
+import {
+  ExperimentCard,
+  ExperimentForm,
+  ExperimentDetail,
+} from '../components/hyperparameter'
+import { hyperparameterService } from '../services/hyperparameterService'
 
 interface Experiment {
-  id: string;
-  name: string;
-  status: string;
-  algorithm: string;
-  objective: string;
-  created_at: string;
-  best_value?: number;
-  total_trials?: number;
-  successful_trials?: number;
+  id: string
+  name: string
+  status: string
+  algorithm: string
+  objective: string
+  created_at: string
+  best_value?: number
+  total_trials?: number
+  successful_trials?: number
 }
 
 interface Trial {
-  id: string;
-  trial_number: number;
-  parameters: Record<string, any>;
-  value?: number;
-  state: string;
-  start_time?: string;
-  end_time?: string;
-  duration?: number;
-  error_message?: string;
+  id: string
+  trial_number: number
+  parameters: Record<string, any>
+  value?: number
+  state: string
+  start_time?: string
+  end_time?: string
+  duration?: number
+  error_message?: string
 }
 
 const HyperparameterOptimizationPage: React.FC = () => {
-  const [experiments, setExperiments] = useState<Experiment[]>([]);
-  const [selectedExperiment, setSelectedExperiment] = useState<any>(null);
-  const [trials, setTrials] = useState<Trial[]>([]);
-  const [isFormOpen, setIsFormOpen] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [presetTasks, setPresetTasks] = useState<string[]>([]);
+  const [experiments, setExperiments] = useState<Experiment[]>([])
+  const [selectedExperiment, setSelectedExperiment] = useState<any>(null)
+  const [trials, setTrials] = useState<Trial[]>([])
+  const [isFormOpen, setIsFormOpen] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [presetTasks, setPresetTasks] = useState<string[]>([])
 
   // 加载实验列表
   const loadExperiments = async () => {
     try {
-      setLoading(true);
-      const data = await hyperparameterService.listExperiments();
-      setExperiments(data);
+      setLoading(true)
+      const data = await hyperparameterService.listExperiments()
+      setExperiments(data)
     } catch (err) {
-      setError(err instanceof Error ? err.message : '未知错误');
+      setError(err instanceof Error ? err.message : '未知错误')
       // 使用空数组作为后备
-      setExperiments([]);
+      setExperiments([])
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
+  }
 
   // 加载预设任务
   const loadPresetTasks = async () => {
     try {
-      const data = await hyperparameterService.listPresetTasks();
-      setPresetTasks(data);
+      const data = await hyperparameterService.listPresetTasks()
+      setPresetTasks(data)
     } catch (err) {
-      logger.error('加载预设任务失败:', err);
-      setPresetTasks([]);
+      logger.error('加载预设任务失败:', err)
+      setPresetTasks([])
     }
-  };
+  }
 
   // 加载实验详情
   const loadExperimentDetail = async (experimentId: string) => {
     try {
-      setLoading(true);
-      
+      setLoading(true)
+
       // 获取实验详情
       const [experimentData, trialsData] = await Promise.all([
         hyperparameterService.getExperiment(experimentId),
-        hyperparameterService.listTrials(experimentId)
-      ]);
-      
-      setSelectedExperiment(experimentData);
-      setTrials(trialsData);
+        hyperparameterService.listTrials(experimentId),
+      ])
+
+      setSelectedExperiment(experimentData)
+      setTrials(trialsData)
     } catch (err) {
-      setError(err instanceof Error ? err.message : '未知错误');
+      setError(err instanceof Error ? err.message : '未知错误')
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
+  }
 
   // 加载预设配置
   const loadPresetConfig = async (taskName: string) => {
     try {
-      return await hyperparameterService.getPresetTaskConfig(taskName);
+      return await hyperparameterService.getPresetTaskConfig(taskName)
     } catch (err) {
-      logger.error('加载预设配置失败:', err);
-      throw err;
+      logger.error('加载预设配置失败:', err)
+      throw err
     }
-  };
+  }
 
   // 创建实验
   const createExperiment = async (experimentData: any) => {
     try {
-      setLoading(true);
-      
-      await hyperparameterService.createExperiment(experimentData);
-      
-      await loadExperiments();
-      setError(null);
+      setLoading(true)
+
+      await hyperparameterService.createExperiment(experimentData)
+
+      await loadExperiments()
+      setError(null)
     } catch (err) {
-      setError(err instanceof Error ? err.message : '未知错误');
+      setError(err instanceof Error ? err.message : '未知错误')
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
+  }
 
   // 启动实验
   const startExperiment = async (experimentId: string) => {
     try {
-      setLoading(true);
-      
-      await hyperparameterService.resumeExperiment(experimentId);
-      
-      await loadExperiments();
+      setLoading(true)
+
+      await hyperparameterService.resumeExperiment(experimentId)
+
+      await loadExperiments()
       if (selectedExperiment?.id === experimentId) {
-        await loadExperimentDetail(experimentId);
+        await loadExperimentDetail(experimentId)
       }
-      setError(null);
+      setError(null)
     } catch (err) {
-      setError(err instanceof Error ? err.message : '未知错误');
+      setError(err instanceof Error ? err.message : '未知错误')
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
+  }
 
   // 停止实验
   const stopExperiment = async (experimentId: string) => {
     try {
-      setLoading(true);
-      
-      await hyperparameterService.stopExperiment(experimentId);
-      
-      await loadExperiments();
+      setLoading(true)
+
+      await hyperparameterService.stopExperiment(experimentId)
+
+      await loadExperiments()
       if (selectedExperiment?.id === experimentId) {
-        await loadExperimentDetail(experimentId);
+        await loadExperimentDetail(experimentId)
       }
-      setError(null);
+      setError(null)
     } catch (err) {
-      setError(err instanceof Error ? err.message : '未知错误');
+      setError(err instanceof Error ? err.message : '未知错误')
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
+  }
 
   // 删除实验
   const deleteExperiment = async (experimentId: string) => {
     if (!confirm('确认删除此实验？此操作不可撤销。')) {
-      return;
+      return
     }
-    
+
     try {
-      setLoading(true);
-      
-      await hyperparameterService.deleteExperiment(experimentId);
-      
+      setLoading(true)
+
+      await hyperparameterService.deleteExperiment(experimentId)
+
       if (selectedExperiment?.id === experimentId) {
-        setSelectedExperiment(null);
-        setTrials([]);
+        setSelectedExperiment(null)
+        setTrials([])
       }
-      
-      await loadExperiments();
-      setError(null);
+
+      await loadExperiments()
+      setError(null)
     } catch (err) {
-      setError(err instanceof Error ? err.message : '未知错误');
+      setError(err instanceof Error ? err.message : '未知错误')
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
+  }
 
   // 页面加载时获取数据
   useEffect(() => {
-    loadExperiments();
-    loadPresetTasks();
-  }, []);
+    loadExperiments()
+    loadPresetTasks()
+  }, [])
 
   const handleViewExperiment = (experimentId: string) => {
-    loadExperimentDetail(experimentId);
-  };
+    loadExperimentDetail(experimentId)
+  }
 
   const handleBackToList = () => {
-    setSelectedExperiment(null);
-    setTrials([]);
-  };
+    setSelectedExperiment(null)
+    setTrials([])
+  }
 
   const handleRefreshDetail = () => {
     if (selectedExperiment) {
-      loadExperimentDetail(selectedExperiment.id);
+      loadExperimentDetail(selectedExperiment.id)
     }
-  };
+  }
 
   // 渲染实验列表
   const renderExperimentList = () => (
@@ -210,9 +210,7 @@ const HyperparameterOptimizationPage: React.FC = () => {
             创建和管理自动化超参数优化实验，提升模型性能
           </p>
         </div>
-        <Button onClick={() => setIsFormOpen(true)}>
-          创建实验
-        </Button>
+        <Button onClick={() => setIsFormOpen(true)}>创建实验</Button>
       </div>
 
       {/* 错误提示 */}
@@ -230,13 +228,11 @@ const HyperparameterOptimizationPage: React.FC = () => {
       ) : experiments.length === 0 ? (
         <Card className="p-8 text-center">
           <div className="text-gray-500 mb-4">暂无实验</div>
-          <Button onClick={() => setIsFormOpen(true)}>
-            创建第一个实验
-          </Button>
+          <Button onClick={() => setIsFormOpen(true)}>创建第一个实验</Button>
         </Card>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {experiments.map((experiment) => (
+          {experiments.map(experiment => (
             <ExperimentCard
               key={experiment.id}
               experiment={experiment}
@@ -288,7 +284,7 @@ const HyperparameterOptimizationPage: React.FC = () => {
         </Card>
       )}
     </div>
-  );
+  )
 
   // 渲染实验详情
   const renderExperimentDetail = () => (
@@ -302,11 +298,7 @@ const HyperparameterOptimizationPage: React.FC = () => {
         </div>
       </div>
 
-      {error && (
-        <Alert variant="destructive">
-          {error}
-        </Alert>
-      )}
+      {error && <Alert variant="destructive">{error}</Alert>}
 
       {loading && !selectedExperiment ? (
         <div className="flex justify-center items-center h-64">
@@ -323,12 +315,12 @@ const HyperparameterOptimizationPage: React.FC = () => {
         />
       ) : null}
     </div>
-  );
+  )
 
   return (
     <div className="container mx-auto px-4 py-8">
       {selectedExperiment ? renderExperimentDetail() : renderExperimentList()}
-      
+
       {/* 创建实验表单 */}
       <ExperimentForm
         isOpen={isFormOpen}
@@ -338,7 +330,7 @@ const HyperparameterOptimizationPage: React.FC = () => {
         onLoadPreset={loadPresetConfig}
       />
     </div>
-  );
-};
+  )
+}
 
-export default HyperparameterOptimizationPage;
+export default HyperparameterOptimizationPage

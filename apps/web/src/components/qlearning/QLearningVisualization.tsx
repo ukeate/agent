@@ -1,18 +1,6 @@
 import React, { useState, useEffect } from 'react'
-import { 
-  Card, 
-  Row, 
-  Col, 
-  Select, 
-  Space, 
-  Tag,
-  Typography,
-  Alert
-} from 'antd'
-import {
-  LineChartOutlined,
-  BarChartOutlined
-} from '@ant-design/icons'
+import { Card, Row, Col, Select, Space, Tag, Typography, Alert } from 'antd'
+import { LineChartOutlined, BarChartOutlined } from '@ant-design/icons'
 import {
   LineChart,
   Line,
@@ -24,7 +12,7 @@ import {
   BarChart,
   Bar,
   Cell,
-  Legend
+  Legend,
 } from 'recharts'
 
 const { Title, Text } = Typography
@@ -62,9 +50,11 @@ interface QLearningVisualizationProps {
 const QLearningVisualization: React.FC<QLearningVisualizationProps> = ({
   agents,
   trainingSessions,
-  selectedAgent
+  selectedAgent,
 }) => {
-  const [selectedAgentForChart, setSelectedAgentForChart] = useState<string | null>(selectedAgent)
+  const [selectedAgentForChart, setSelectedAgentForChart] = useState<
+    string | null
+  >(selectedAgent)
   const [chartType, setChartType] = useState<string>('rewards')
 
   useEffect(() => {
@@ -75,21 +65,31 @@ const QLearningVisualization: React.FC<QLearningVisualizationProps> = ({
 
   const getAlgorithmName = (algorithm: string) => {
     switch (algorithm) {
-      case 'q_learning': return 'Classic Q-Learning'
-      case 'dqn': return 'Deep Q-Network'
-      case 'double_dqn': return 'Double DQN'  
-      case 'dueling_dqn': return 'Dueling DQN'
-      default: return algorithm
+      case 'q_learning':
+        return 'Classic Q-Learning'
+      case 'dqn':
+        return 'Deep Q-Network'
+      case 'double_dqn':
+        return 'Double DQN'
+      case 'dueling_dqn':
+        return 'Dueling DQN'
+      default:
+        return algorithm
     }
   }
 
   const getAlgorithmColor = (algorithm: string) => {
     switch (algorithm) {
-      case 'q_learning': return '#1890ff'
-      case 'dqn': return '#52c41a'
-      case 'double_dqn': return '#faad14'
-      case 'dueling_dqn': return '#722ed1'
-      default: return '#d9d9d9'
+      case 'q_learning':
+        return '#1890ff'
+      case 'dqn':
+        return '#52c41a'
+      case 'double_dqn':
+        return '#faad14'
+      case 'dueling_dqn':
+        return '#722ed1'
+      default:
+        return '#d9d9d9'
     }
   }
 
@@ -97,15 +97,16 @@ const QLearningVisualization: React.FC<QLearningVisualizationProps> = ({
   const generateRewardTrendData = (agent: AgentStats) => {
     const data = []
     const rewards = agent.recent_rewards || []
-    
+
     for (let i = 0; i < rewards.length; i++) {
       data.push({
         episode: agent.episode_count - rewards.length + i + 1,
         reward: rewards[i],
-        averageReward: rewards.slice(0, i + 1).reduce((sum, r) => sum + r, 0) / (i + 1)
+        averageReward:
+          rewards.slice(0, i + 1).reduce((sum, r) => sum + r, 0) / (i + 1),
       })
     }
-    
+
     return data
   }
 
@@ -116,17 +117,19 @@ const QLearningVisualization: React.FC<QLearningVisualizationProps> = ({
       averageReward: agent.average_reward,
       episodes: agent.episode_count,
       epsilon: agent.current_epsilon,
-      color: getAlgorithmColor(agent.algorithm_type)
+      color: getAlgorithmColor(agent.algorithm_type),
     }))
   }
 
   // 探索率变化数据
 
-  const selectedAgentData = selectedAgentForChart 
-    ? agents.find(a => a.agent_id === selectedAgentForChart) 
+  const selectedAgentData = selectedAgentForChart
+    ? agents.find(a => a.agent_id === selectedAgentForChart)
     : null
 
-  const rewardTrendData = selectedAgentData ? generateRewardTrendData(selectedAgentData) : []
+  const rewardTrendData = selectedAgentData
+    ? generateRewardTrendData(selectedAgentData)
+    : []
   const algorithmComparisonData = generateAlgorithmComparisonData()
 
   return (
@@ -136,10 +139,12 @@ const QLearningVisualization: React.FC<QLearningVisualizationProps> = ({
         <Card size="small">
           <Space style={{ width: '100%', justifyContent: 'space-between' }}>
             <Space>
-              <LineChartOutlined style={{ fontSize: '16px', color: '#1890ff' }} />
+              <LineChartOutlined
+                style={{ fontSize: '16px', color: '#1890ff' }}
+              />
               <Text strong>性能可视化分析</Text>
             </Space>
-            
+
             <Space>
               <Text>选择智能体:</Text>
               <Select
@@ -155,16 +160,23 @@ const QLearningVisualization: React.FC<QLearningVisualizationProps> = ({
                       <code style={{ fontSize: '11px' }}>
                         {agent.agent_id.slice(-8)}
                       </code>
-                      <Tag size="small" color={getAlgorithmColor(agent.algorithm_type)}>
+                      <Tag
+                        size="small"
+                        color={getAlgorithmColor(agent.algorithm_type)}
+                      >
                         {getAlgorithmName(agent.algorithm_type)}
                       </Tag>
                     </Space>
                   </Option>
                 ))}
               </Select>
-              
+
               <Text>图表类型:</Text>
-              <Select value={chartType} onChange={setChartType} style={{ width: 120 }}>
+              <Select
+                value={chartType}
+                onChange={setChartType}
+                style={{ width: 120 }}
+              >
                 <Option value="rewards">奖励趋势</Option>
                 <Option value="comparison">算法对比</Option>
               </Select>
@@ -180,14 +192,14 @@ const QLearningVisualization: React.FC<QLearningVisualizationProps> = ({
             <Space>
               {chartType === 'rewards' && <LineChartOutlined />}
               {chartType === 'comparison' && <BarChartOutlined />}
-              
+
               {chartType === 'rewards' && '奖励趋势分析'}
               {chartType === 'comparison' && '算法性能对比'}
             </Space>
           }
         >
-          {chartType === 'rewards' && (
-            selectedAgentData ? (
+          {chartType === 'rewards' &&
+            (selectedAgentData ? (
               <ResponsiveContainer width="100%" height={400}>
                 <LineChart data={rewardTrendData}>
                   <CartesianGrid strokeDasharray="3 3" />
@@ -195,18 +207,18 @@ const QLearningVisualization: React.FC<QLearningVisualizationProps> = ({
                   <YAxis />
                   <Tooltip />
                   <Legend />
-                  <Line 
-                    type="monotone" 
-                    dataKey="reward" 
-                    stroke="#1890ff" 
+                  <Line
+                    type="monotone"
+                    dataKey="reward"
+                    stroke="#1890ff"
                     strokeWidth={2}
                     dot={{ r: 3 }}
                     name="单轮奖励"
                   />
-                  <Line 
-                    type="monotone" 
-                    dataKey="averageReward" 
-                    stroke="#52c41a" 
+                  <Line
+                    type="monotone"
+                    dataKey="averageReward"
+                    stroke="#52c41a"
                     strokeWidth={2}
                     strokeDasharray="5 5"
                     name="平均奖励"
@@ -215,9 +227,8 @@ const QLearningVisualization: React.FC<QLearningVisualizationProps> = ({
               </ResponsiveContainer>
             ) : (
               <Alert message="请选择一个智能体查看奖励趋势" type="info" />
-            )
-          )}
-          
+            ))}
+
           {chartType === 'comparison' && (
             <ResponsiveContainer width="100%" height={400}>
               <BarChart data={algorithmComparisonData}>
@@ -247,17 +258,21 @@ const QLearningVisualization: React.FC<QLearningVisualizationProps> = ({
                 <div>
                   <Text type="secondary">智能体ID:</Text>
                   <br />
-                  <code style={{ fontSize: '12px' }}>{selectedAgentData.agent_id}</code>
+                  <code style={{ fontSize: '12px' }}>
+                    {selectedAgentData.agent_id}
+                  </code>
                 </div>
-                
+
                 <div>
                   <Text type="secondary">算法类型:</Text>
                   <br />
-                  <Tag color={getAlgorithmColor(selectedAgentData.algorithm_type)}>
+                  <Tag
+                    color={getAlgorithmColor(selectedAgentData.algorithm_type)}
+                  >
                     {getAlgorithmName(selectedAgentData.algorithm_type)}
                   </Tag>
                 </div>
-                
+
                 <Row gutter={8}>
                   <Col span={12}>
                     <Text type="secondary">训练轮数</Text>
@@ -267,20 +282,26 @@ const QLearningVisualization: React.FC<QLearningVisualizationProps> = ({
                   <Col span={12}>
                     <Text type="secondary">总步数</Text>
                     <br />
-                    <Text strong>{selectedAgentData.step_count.toLocaleString()}</Text>
+                    <Text strong>
+                      {selectedAgentData.step_count.toLocaleString()}
+                    </Text>
                   </Col>
                 </Row>
-                
+
                 <Row gutter={8}>
                   <Col span={12}>
                     <Text type="secondary">探索率</Text>
                     <br />
-                    <Text strong>{(selectedAgentData.current_epsilon * 100).toFixed(1)}%</Text>
+                    <Text strong>
+                      {(selectedAgentData.current_epsilon * 100).toFixed(1)}%
+                    </Text>
                   </Col>
                   <Col span={12}>
                     <Text type="secondary">平均奖励</Text>
                     <br />
-                    <Text strong>{selectedAgentData.average_reward.toFixed(2)}</Text>
+                    <Text strong>
+                      {selectedAgentData.average_reward.toFixed(2)}
+                    </Text>
                   </Col>
                 </Row>
               </Space>
@@ -291,7 +312,11 @@ const QLearningVisualization: React.FC<QLearningVisualizationProps> = ({
           <Card title="算法性能对比" size="small">
             <Space direction="vertical" style={{ width: '100%' }}>
               {algorithmComparisonData.map(data => (
-                <Row key={data.algorithm} style={{ width: '100%' }} align="middle">
+                <Row
+                  key={data.algorithm}
+                  style={{ width: '100%' }}
+                  align="middle"
+                >
                   <Col span={12}>
                     <Tag size="small" color={data.color}>
                       {data.algorithm.replace(/^.* /, '')}
@@ -316,7 +341,7 @@ const QLearningVisualization: React.FC<QLearningVisualizationProps> = ({
                   <Text strong>{agents.length}</Text>
                 </Col>
               </Row>
-              
+
               <Row>
                 <Col span={12}>
                   <Text type="secondary">训练会话</Text>
@@ -325,25 +350,31 @@ const QLearningVisualization: React.FC<QLearningVisualizationProps> = ({
                   <Text strong>{trainingSessions.length}</Text>
                 </Col>
               </Row>
-              
+
               <Row>
                 <Col span={12}>
                   <Text type="secondary">运行中</Text>
                 </Col>
                 <Col span={12} style={{ textAlign: 'right' }}>
                   <Text strong style={{ color: '#52c41a' }}>
-                    {trainingSessions.filter(s => s.status === 'running').length}
+                    {
+                      trainingSessions.filter(s => s.status === 'running')
+                        .length
+                    }
                   </Text>
                 </Col>
               </Row>
-              
+
               <Row>
                 <Col span={12}>
                   <Text type="secondary">已完成</Text>
                 </Col>
                 <Col span={12} style={{ textAlign: 'right' }}>
                   <Text strong style={{ color: '#1890ff' }}>
-                    {trainingSessions.filter(s => s.status === 'completed').length}
+                    {
+                      trainingSessions.filter(s => s.status === 'completed')
+                        .length
+                    }
                   </Text>
                 </Col>
               </Row>

@@ -1,79 +1,79 @@
-import React, { useState, useEffect } from 'react';
-import { Card } from '../../components/ui/Card';
-import { Button } from '../../components/ui/button';
-import { Input } from '../../components/ui/input';
-import { Badge } from '../../components/ui/badge';
-import { behaviorAnalyticsService } from '../../services/behaviorAnalyticsService';
+import React, { useState, useEffect } from 'react'
+import { Card } from '../../components/ui/card'
+import { Button } from '../../components/ui/button'
+import { Input } from '../../components/ui/input'
+import { Badge } from '../../components/ui/badge'
+import { behaviorAnalyticsService } from '../../services/behaviorAnalyticsService'
 
 import { logger } from '../../utils/logger'
 interface BehaviorEvent {
-  event_id: string;
-  user_id: string;
-  session_id: string;
-  event_type: string;
-  timestamp: string;
-  properties: Record<string, any>;
-  context?: Record<string, any>;
+  event_id: string
+  user_id: string
+  session_id: string
+  event_type: string
+  timestamp: string
+  properties: Record<string, any>
+  context?: Record<string, any>
 }
 
 interface EventFilter {
-  user_id?: string;
-  session_id?: string;
-  event_type?: string;
-  start_time?: string;
-  end_time?: string;
-  limit?: number;
-  offset?: number;
+  user_id?: string
+  session_id?: string
+  event_type?: string
+  start_time?: string
+  end_time?: string
+  limit?: number
+  offset?: number
 }
 
 export const EventDataManagePage: React.FC = () => {
-  const [events, setEvents] = useState<BehaviorEvent[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [events, setEvents] = useState<BehaviorEvent[]>([])
+  const [loading, setLoading] = useState(false)
   const [filter, setFilter] = useState<EventFilter>({
     limit: 50,
-    offset: 0
-  });
-  const [totalEvents, setTotalEvents] = useState(0);
-  const [eventTypes, setEventTypes] = useState<string[]>([]);
+    offset: 0,
+  })
+  const [totalEvents, setTotalEvents] = useState(0)
+  const [eventTypes, setEventTypes] = useState<string[]>([])
 
   // 获取事件数据
   const fetchEvents = async () => {
-    setLoading(true);
+    setLoading(true)
     try {
-      const response = await behaviorAnalyticsService.getEvents(filter);
-      setEvents(response.events || []);
-      setTotalEvents(response.total || 0);
-      
+      const response = await behaviorAnalyticsService.getEvents(filter)
+      setEvents(response.events || [])
+      setTotalEvents(response.total || 0)
+
       // 提取事件类型用于筛选
-      const types = [...new Set(response.events?.map(e => e.event_type) || [])];
-      setEventTypes(types);
+      const types = [...new Set(response.events?.map(e => e.event_type) || [])]
+      setEventTypes(types)
     } catch (error) {
-      logger.error('获取事件数据失败:', error);
+      logger.error('获取事件数据失败:', error)
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
+  }
 
   useEffect(() => {
-    fetchEvents();
-  }, [filter]);
+    fetchEvents()
+  }, [filter])
 
   // 格式化时间戳
   const formatTimestamp = (timestamp: string) => {
-    return new Date(timestamp).toLocaleString('zh-CN');
-  };
+    return new Date(timestamp).toLocaleString('zh-CN')
+  }
 
   // 获取事件类型颜色
   const getEventTypeColor = (eventType: string) => {
     const colors: Record<string, string> = {
-      'click': 'bg-blue-100 text-blue-800',
-      'page_view': 'bg-green-100 text-green-800',
-      'form_submit': 'bg-orange-100 text-orange-800',
-      'error': 'bg-red-100 text-red-800',
-      'api_call': 'bg-purple-100 text-purple-800',
-    };
-    return colors[eventType] || 'bg-gray-100 text-gray-800';
-  };
+      click: 'bg-blue-100 text-blue-800',
+      page_view: 'bg-green-100 text-green-800',
+      form_submit: 'bg-orange-100 text-orange-800',
+      error: 'bg-red-100 text-red-800',
+      api_call: 'bg-purple-100 text-purple-800',
+    }
+    return colors[eventType] || 'bg-gray-100 text-gray-800'
+  }
 
   // 导出事件数据
   const handleExport = async () => {
@@ -82,29 +82,29 @@ export const EventDataManagePage: React.FC = () => {
         user_id: filter.user_id,
         start_time: filter.start_time,
         end_time: filter.end_time,
-        limit: filter.limit
-      });
+        limit: filter.limit,
+      })
 
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `events_${new Date().toISOString()}.csv`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `events_${new Date().toISOString()}.csv`
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      URL.revokeObjectURL(url)
     } catch (error) {
-      logger.error('导出失败:', error);
+      logger.error('导出失败:', error)
     }
-  };
+  }
 
   // 分页处理
   const handlePageChange = (page: number) => {
     setFilter(prev => ({
       ...prev,
-      offset: (page - 1) * (prev.limit || 50)
-    }));
-  };
+      offset: (page - 1) * (prev.limit || 50),
+    }))
+  }
 
   return (
     <div className="p-6 space-y-6">
@@ -133,13 +133,17 @@ export const EventDataManagePage: React.FC = () => {
         </Card>
         <Card className="p-4">
           <div className="text-center">
-            <p className="text-2xl font-bold text-green-600">{eventTypes.length}</p>
+            <p className="text-2xl font-bold text-green-600">
+              {eventTypes.length}
+            </p>
             <p className="text-sm text-gray-600">事件类型数</p>
           </div>
         </Card>
         <Card className="p-4">
           <div className="text-center">
-            <p className="text-2xl font-bold text-purple-600">{events.length}</p>
+            <p className="text-2xl font-bold text-purple-600">
+              {events.length}
+            </p>
             <p className="text-sm text-gray-600">当前显示</p>
           </div>
         </Card>
@@ -150,59 +154,94 @@ export const EventDataManagePage: React.FC = () => {
         <h3 className="text-lg font-semibold mb-4">数据筛选</h3>
         <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">用户ID</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              用户ID
+            </label>
             <Input
               placeholder="输入用户ID"
               value={filter.user_id || ''}
-              onChange={(e) => setFilter(prev => ({ ...prev, user_id: e.target.value || undefined }))}
+              onChange={e =>
+                setFilter(prev => ({
+                  ...prev,
+                  user_id: e.target.value || undefined,
+                }))
+              }
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">会话ID</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              会话ID
+            </label>
             <Input
               placeholder="输入会话ID"
               value={filter.session_id || ''}
-              onChange={(e) => setFilter(prev => ({ ...prev, session_id: e.target.value || undefined }))}
+              onChange={e =>
+                setFilter(prev => ({
+                  ...prev,
+                  session_id: e.target.value || undefined,
+                }))
+              }
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">事件类型</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              事件类型
+            </label>
             <select
               className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
               value={filter.event_type || ''}
-              onChange={(e) => setFilter(prev => ({ ...prev, event_type: e.target.value || undefined }))}
+              onChange={e =>
+                setFilter(prev => ({
+                  ...prev,
+                  event_type: e.target.value || undefined,
+                }))
+              }
             >
               <option value="">全部类型</option>
               {eventTypes.map(type => (
-                <option key={type} value={type}>{type}</option>
+                <option key={type} value={type}>
+                  {type}
+                </option>
               ))}
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">开始时间</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              开始时间
+            </label>
             <Input
               type="datetime-local"
               value={filter.start_time || ''}
-              onChange={(e) => setFilter(prev => ({ ...prev, start_time: e.target.value || undefined }))}
+              onChange={e =>
+                setFilter(prev => ({
+                  ...prev,
+                  start_time: e.target.value || undefined,
+                }))
+              }
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">结束时间</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              结束时间
+            </label>
             <Input
               type="datetime-local"
               value={filter.end_time || ''}
-              onChange={(e) => setFilter(prev => ({ ...prev, end_time: e.target.value || undefined }))}
+              onChange={e =>
+                setFilter(prev => ({
+                  ...prev,
+                  end_time: e.target.value || undefined,
+                }))
+              }
             />
           </div>
         </div>
         <div className="mt-4 flex space-x-2">
-          <Button onClick={fetchEvents}>
-            🔍 应用筛选
-          </Button>
-          <Button 
+          <Button onClick={fetchEvents}>🔍 应用筛选</Button>
+          <Button
             variant="outline"
             onClick={() => {
-              setFilter({ limit: 50, offset: 0 });
+              setFilter({ limit: 50, offset: 0 })
             }}
           >
             🔄 重置
@@ -223,7 +262,7 @@ export const EventDataManagePage: React.FC = () => {
           </div>
         ) : (
           <div className="space-y-3 max-h-96 overflow-y-auto">
-            {events.map((event) => (
+            {events.map(event => (
               <div
                 key={event.event_id}
                 className="p-4 border rounded-md transition-colors border-gray-200 hover:border-gray-300"
@@ -242,11 +281,15 @@ export const EventDataManagePage: React.FC = () => {
                       <div className="grid grid-cols-2 gap-4 text-sm">
                         <div>
                           <span className="text-gray-500">用户:</span>
-                          <span className="ml-1 font-medium">{event.user_id}</span>
+                          <span className="ml-1 font-medium">
+                            {event.user_id}
+                          </span>
                         </div>
                         <div>
                           <span className="text-gray-500">会话:</span>
-                          <span className="ml-1 font-medium">{event.session_id.substring(0, 8)}...</span>
+                          <span className="ml-1 font-medium">
+                            {event.session_id.substring(0, 8)}...
+                          </span>
                         </div>
                       </div>
                       {Object.keys(event.properties || {}).length > 0 && (
@@ -269,7 +312,7 @@ export const EventDataManagePage: React.FC = () => {
                 </div>
               </div>
             ))}
-            
+
             {events.length === 0 && !loading && (
               <div className="text-center py-8 text-gray-500">
                 <p>暂无事件数据</p>
@@ -283,23 +326,37 @@ export const EventDataManagePage: React.FC = () => {
         {totalEvents > (filter.limit || 50) && (
           <div className="mt-6 flex items-center justify-between">
             <div className="text-sm text-gray-600">
-              显示 {(filter.offset || 0) + 1} - {Math.min((filter.offset || 0) + (filter.limit || 50), totalEvents)} 条，
-              共 {totalEvents} 条记录
+              显示 {(filter.offset || 0) + 1} -{' '}
+              {Math.min(
+                (filter.offset || 0) + (filter.limit || 50),
+                totalEvents
+              )}{' '}
+              条， 共 {totalEvents} 条记录
             </div>
             <div className="flex space-x-2">
               <Button
                 variant="outline"
                 size="sm"
                 disabled={(filter.offset || 0) === 0}
-                onClick={() => handlePageChange(Math.floor((filter.offset || 0) / (filter.limit || 50)))}
+                onClick={() =>
+                  handlePageChange(
+                    Math.floor((filter.offset || 0) / (filter.limit || 50))
+                  )
+                }
               >
                 上一页
               </Button>
               <Button
                 variant="outline"
                 size="sm"
-                disabled={(filter.offset || 0) + (filter.limit || 50) >= totalEvents}
-                onClick={() => handlePageChange(Math.floor((filter.offset || 0) / (filter.limit || 50)) + 2)}
+                disabled={
+                  (filter.offset || 0) + (filter.limit || 50) >= totalEvents
+                }
+                onClick={() =>
+                  handlePageChange(
+                    Math.floor((filter.offset || 0) / (filter.limit || 50)) + 2
+                  )
+                }
               >
                 下一页
               </Button>
@@ -308,7 +365,7 @@ export const EventDataManagePage: React.FC = () => {
         )}
       </Card>
     </div>
-  );
-};
+  )
+}
 
-export default EventDataManagePage;
+export default EventDataManagePage

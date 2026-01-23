@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
-import {
+import React, { useState, useEffect } from 'react'
 import { logger } from '../../utils/logger'
+import {
   Card,
   Button,
   Row,
@@ -16,8 +16,8 @@ import { logger } from '../../utils/logger'
   Divider,
   Modal,
   Descriptions,
-  List
-} from 'antd';
+  List,
+} from 'antd'
 import {
   DatabaseOutlined,
   CheckCircleOutlined,
@@ -25,131 +25,137 @@ import {
   WarningOutlined,
   BugOutlined,
   ToolOutlined,
-  SyncOutlined
-} from '@ant-design/icons';
-import { pgvectorApi } from '../../services/pgvectorApi';
+  SyncOutlined,
+} from '@ant-design/icons'
+import { pgvectorApi } from '../../services/pgvectorApi'
 
-const { Title, Text } = Typography;
-const { Option } = Select;
+const { Title, Text } = Typography
+const { Option } = Select
 
 interface IntegrityReport {
-  table_name: string;
-  total_records: number;
-  valid_vectors: number;
-  null_vectors: number;
-  invalid_vectors: number;
-  dimension_mismatches: number;
-  zero_vectors: number;
-  integrity_rate: number;
-  issues: IntegrityIssue[];
-  timestamp: string;
+  table_name: string
+  total_records: number
+  valid_vectors: number
+  null_vectors: number
+  invalid_vectors: number
+  dimension_mismatches: number
+  zero_vectors: number
+  integrity_rate: number
+  issues: IntegrityIssue[]
+  timestamp: string
 }
 
 interface IntegrityIssue {
-  record_id: string;
-  issue: string;
-  details: string;
+  record_id: string
+  issue: string
+  details: string
 }
 
 interface RepairResult {
-  strategy: string;
-  processed_issues: number;
-  successful_repairs: number;
-  failed_repairs: number;
-  removed_records: number;
+  strategy: string
+  processed_issues: number
+  successful_repairs: number
+  failed_repairs: number
+  removed_records: number
 }
 
 interface SystemSummary {
-  total_records: number;
-  non_null_embeddings: number;
-  null_embeddings: number;
-  null_rate: number;
-  indexes: Array<{ name: string; definition: string }>;
-  validation_stats: any;
+  total_records: number
+  non_null_embeddings: number
+  null_embeddings: number
+  null_rate: number
+  indexes: Array<{ name: string; definition: string }>
+  validation_stats: any
 }
 
 const DataIntegrityPanel: React.FC = () => {
-  const [integrityReport, setIntegrityReport] = useState<IntegrityReport | null>(null);
-  const [systemSummary, setSystemSummary] = useState<SystemSummary | null>(null);
-  const [repairResult, setRepairResult] = useState<RepairResult | null>(null);
-  const [checking, setChecking] = useState(false);
-  const [repairing, setRepairing] = useState(false);
-  const [selectedTable, setSelectedTable] = useState('documents');
-  const [repairStrategy, setRepairStrategy] = useState<'remove_invalid' | 'set_null'>('remove_invalid');
-  const [repairModalVisible, setRepairModalVisible] = useState(false);
+  const [integrityReport, setIntegrityReport] =
+    useState<IntegrityReport | null>(null)
+  const [systemSummary, setSystemSummary] = useState<SystemSummary | null>(null)
+  const [repairResult, setRepairResult] = useState<RepairResult | null>(null)
+  const [checking, setChecking] = useState(false)
+  const [repairing, setRepairing] = useState(false)
+  const [selectedTable, setSelectedTable] = useState('documents')
+  const [repairStrategy, setRepairStrategy] = useState<
+    'remove_invalid' | 'set_null'
+  >('remove_invalid')
+  const [repairModalVisible, setRepairModalVisible] = useState(false)
 
   useEffect(() => {
-    fetchSystemSummary();
-  }, []);
+    fetchSystemSummary()
+  }, [])
 
   const fetchSystemSummary = async () => {
     try {
-      const summary = await pgvectorApi.getIntegritySummary(selectedTable);
-      setSystemSummary(summary);
+      const summary = await pgvectorApi.getIntegritySummary(selectedTable)
+      setSystemSummary(summary)
     } catch (error) {
-      logger.error('获取系统摘要失败:', error);
+      logger.error('获取系统摘要失败:', error)
     }
-  };
+  }
 
   const handleIntegrityCheck = async () => {
     try {
-      setChecking(true);
+      setChecking(true)
       const report = await pgvectorApi.validateVectorDataIntegrity({
         table_name: selectedTable,
-        batch_size: 1000
-      });
-      setIntegrityReport(report);
-      await fetchSystemSummary();
+        batch_size: 1000,
+      })
+      setIntegrityReport(report)
+      await fetchSystemSummary()
     } catch (error) {
-      logger.error('完整性检查失败:', error);
+      logger.error('完整性检查失败:', error)
     } finally {
-      setChecking(false);
+      setChecking(false)
     }
-  };
+  }
 
   const handleRepairData = async () => {
-    if (!integrityReport || integrityReport.issues.length === 0) return;
+    if (!integrityReport || integrityReport.issues.length === 0) return
 
     try {
-      setRepairing(true);
-      const result = await pgvectorApi.repairVectorData(integrityReport, repairStrategy);
-      setRepairResult(result);
-      setRepairModalVisible(false);
-      
+      setRepairing(true)
+      const result = await pgvectorApi.repairVectorData(
+        integrityReport,
+        repairStrategy
+      )
+      setRepairResult(result)
+      setRepairModalVisible(false)
+
       // 重新检查完整性
-      await handleIntegrityCheck();
+      await handleIntegrityCheck()
     } catch (error) {
-      logger.error('数据修复失败:', error);
+      logger.error('数据修复失败:', error)
     } finally {
-      setRepairing(false);
+      setRepairing(false)
     }
-  };
+  }
 
   const getIntegrityColor = (rate: number) => {
-    if (rate >= 0.95) return '#52c41a';
-    if (rate >= 0.8) return '#faad14';
-    return '#f5222d';
-  };
+    if (rate >= 0.95) return '#52c41a'
+    if (rate >= 0.8) return '#faad14'
+    return '#f5222d'
+  }
 
   const getIssueColor = (issue: string) => {
     const colorMap: { [key: string]: string } = {
-      'null': 'default',
-      'invalid': 'red',
-      'dimension_mismatch': 'orange',
-      'zero_vector': 'yellow'
-    };
-    return colorMap[issue] || 'default';
-  };
+      null: 'default',
+      invalid: 'red',
+      dimension_mismatch: 'orange',
+      zero_vector: 'yellow',
+    }
+    return colorMap[issue] || 'default'
+  }
 
   const getIssueText = (issue: string) => {
     const textMap: { [key: string]: string } = {
-      'null': '空向量',
-      'invalid': '无效向量',
-      'dimension_mismatch': '维度不匹配',
-      'zero_vector': '零向量'
-    };
-    return textMap[issue] || issue;
-  };
+      null: '空向量',
+      invalid: '无效向量',
+      dimension_mismatch: '维度不匹配',
+      zero_vector: '零向量',
+    }
+    return textMap[issue] || issue
+  }
 
   const issueColumns = [
     {
@@ -157,7 +163,7 @@ const DataIntegrityPanel: React.FC = () => {
       dataIndex: 'record_id',
       key: 'record_id',
       width: 120,
-      render: (id: string) => <Text code>{id.substring(0, 8)}...</Text>
+      render: (id: string) => <Text code>{id.substring(0, 8)}...</Text>,
     },
     {
       title: '问题类型',
@@ -165,32 +171,30 @@ const DataIntegrityPanel: React.FC = () => {
       key: 'issue',
       width: 120,
       render: (issue: string) => (
-        <Tag color={getIssueColor(issue)}>
-          {getIssueText(issue)}
-        </Tag>
-      )
+        <Tag color={getIssueColor(issue)}>{getIssueText(issue)}</Tag>
+      ),
     },
     {
       title: '详细信息',
       dataIndex: 'details',
       key: 'details',
-      ellipsis: true
-    }
-  ];
+      ellipsis: true,
+    },
+  ]
 
   const indexColumns = [
     {
       title: '索引名称',
       dataIndex: 'name',
-      key: 'name'
+      key: 'name',
     },
     {
       title: '索引定义',
       dataIndex: 'definition',
       key: 'definition',
-      ellipsis: true
-    }
-  ];
+      ellipsis: true,
+    },
+  ]
 
   return (
     <div>
@@ -200,15 +204,15 @@ const DataIntegrityPanel: React.FC = () => {
           <Col>
             <Space>
               <Text>表名:</Text>
-              <Select 
-                value={selectedTable} 
+              <Select
+                value={selectedTable}
                 onChange={setSelectedTable}
                 style={{ width: 200 }}
               >
                 <Option value="documents">documents</Option>
                 <Option value="knowledge_items">knowledge_items</Option>
               </Select>
-              
+
               <Button
                 type="primary"
                 icon={<BugOutlined />}
@@ -260,8 +264,8 @@ const DataIntegrityPanel: React.FC = () => {
                 value={systemSummary.null_rate * 100}
                 precision={1}
                 suffix="%"
-                valueStyle={{ 
-                  color: systemSummary.null_rate < 0.05 ? '#3f8600' : '#cf1322' 
+                valueStyle={{
+                  color: systemSummary.null_rate < 0.05 ? '#3f8600' : '#cf1322',
                 }}
                 prefix={<WarningOutlined />}
               />
@@ -276,7 +280,7 @@ const DataIntegrityPanel: React.FC = () => {
 
       {/* 完整性检查结果 */}
       {integrityReport && (
-        <Card 
+        <Card
           title={`完整性检查结果 - ${integrityReport.table_name}`}
           style={{ marginBottom: 16 }}
           extra={
@@ -307,16 +311,20 @@ const DataIntegrityPanel: React.FC = () => {
                   value={integrityReport.integrity_rate * 100}
                   precision={1}
                   suffix="%"
-                  valueStyle={{ color: getIntegrityColor(integrityReport.integrity_rate) }}
+                  valueStyle={{
+                    color: getIntegrityColor(integrityReport.integrity_rate),
+                  }}
                 />
-                <Progress 
+                <Progress
                   percent={integrityReport.integrity_rate * 100}
-                  strokeColor={getIntegrityColor(integrityReport.integrity_rate)}
+                  strokeColor={getIntegrityColor(
+                    integrityReport.integrity_rate
+                  )}
                   size="small"
                 />
               </Card>
             </Col>
-            
+
             <Col span={16}>
               <Row gutter={8}>
                 <Col span={6}>
@@ -351,7 +359,7 @@ const DataIntegrityPanel: React.FC = () => {
                   />
                 </Col>
               </Row>
-              
+
               <Row gutter={8} style={{ marginTop: 16 }}>
                 <Col span={12}>
                   <Statistic
@@ -381,7 +389,10 @@ const DataIntegrityPanel: React.FC = () => {
                 发现的问题 ({integrityReport.issues.length}个)
               </Title>
               <Table
-                dataSource={integrityReport.issues.map((issue, index) => ({ ...issue, key: index }))}
+                dataSource={integrityReport.issues.map((issue, index) => ({
+                  ...issue,
+                  key: index,
+                }))}
                 columns={issueColumns}
                 size="small"
                 pagination={{ pageSize: 10, showSizeChanger: false }}
@@ -403,7 +414,10 @@ const DataIntegrityPanel: React.FC = () => {
       {systemSummary?.indexes && systemSummary.indexes.length > 0 && (
         <Card title="向量索引信息">
           <Table
-            dataSource={systemSummary.indexes.map((index, i) => ({ ...index, key: i }))}
+            dataSource={systemSummary.indexes.map((index, i) => ({
+              ...index,
+              key: i,
+            }))}
             columns={indexColumns}
             size="small"
             pagination={false}
@@ -428,13 +442,13 @@ const DataIntegrityPanel: React.FC = () => {
             onClick={handleRepairData}
           >
             执行修复
-          </Button>
+          </Button>,
         ]}
       >
         <Alert
           message="警告：数据修复操作不可逆"
           description="请确认修复策略后再执行，建议先备份数据"
-          variant="warning"
+          type="warning"
           showIcon
           style={{ marginBottom: 16 }}
         />
@@ -447,8 +461,8 @@ const DataIntegrityPanel: React.FC = () => {
             {integrityReport?.issues.length}个
           </Descriptions.Item>
           <Descriptions.Item label="修复策略">
-            <Select 
-              value={repairStrategy} 
+            <Select
+              value={repairStrategy}
               onChange={setRepairStrategy}
               style={{ width: 200 }}
             >
@@ -462,11 +476,11 @@ const DataIntegrityPanel: React.FC = () => {
           <Title level={5}>修复策略说明：</Title>
           <List size="small">
             <List.Item>
-              <Text strong>删除无效记录：</Text> 
+              <Text strong>删除无效记录：</Text>
               <Text>将无效、空值、零向量的记录从数据库中删除</Text>
             </List.Item>
             <List.Item>
-              <Text strong>设置为NULL：</Text> 
+              <Text strong>设置为NULL：</Text>
               <Text>将有问题的向量字段设置为NULL，保留记录</Text>
             </List.Item>
           </List>
@@ -508,7 +522,7 @@ const DataIntegrityPanel: React.FC = () => {
         </Card>
       )}
     </div>
-  );
-};
+  )
+}
 
-export default DataIntegrityPanel;
+export default DataIntegrityPanel

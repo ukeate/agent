@@ -1,7 +1,28 @@
 import React, { useState, useEffect } from 'react'
-import { Card, Row, Col, Progress, Button, Space, Switch, Typography, Table, Tag, Statistic, Alert, Timeline, List, Modal, Form, Input, Select, Slider, Badge } from 'antd'
-import { 
+import {
+  Card,
+  Row,
+  Col,
+  Progress,
+  Button,
+  Space,
+  Switch,
+  Typography,
+  Table,
+  Tag,
+  Statistic,
+  Alert,
+  Timeline,
+  List,
+  Modal,
+  Form,
+  Input,
+  Select,
+  Slider,
+  Badge,
+} from 'antd'
 import { logger } from '../utils/logger'
+import {
   BellOutlined,
   AlertOutlined,
   ExclamationCircleOutlined,
@@ -16,7 +37,7 @@ import { logger } from '../utils/logger'
   FilterOutlined,
   SyncOutlined,
   WarningOutlined,
-  InfoCircleOutlined
+  InfoCircleOutlined,
 } from '@ant-design/icons'
 import { Line, Column, Gauge } from '@ant-design/plots'
 import type { ColumnsType } from 'antd/es/table'
@@ -73,7 +94,7 @@ const PersonalizationAlertsPage: React.FC = () => {
       const [rulesResp, activeResp, historyResp] = await Promise.all([
         apiClient.get('/personalization/alerts/rules'),
         apiClient.get('/personalization/alerts/active'),
-        apiClient.get('/personalization/alerts/history')
+        apiClient.get('/personalization/alerts/history'),
       ])
       setAlertRules(rulesResp.data || [])
       setActiveAlerts(activeResp.data || [])
@@ -92,7 +113,7 @@ const PersonalizationAlertsPage: React.FC = () => {
       low: '#52c41a',
       medium: '#faad14',
       high: '#fa8c16',
-      critical: '#ff4d4f'
+      critical: '#ff4d4f',
     }
     return colors[severity] || '#d9d9d9'
   }
@@ -102,7 +123,7 @@ const PersonalizationAlertsPage: React.FC = () => {
       active: 'red',
       resolved: 'green',
       acknowledged: 'orange',
-      suppressed: 'default'
+      suppressed: 'default',
     }
     return colors[status] || 'default'
   }
@@ -112,65 +133,61 @@ const PersonalizationAlertsPage: React.FC = () => {
       title: '规则名称',
       dataIndex: 'name',
       key: 'name',
-      render: (text) => <Text strong>{text}</Text>
+      render: text => <Text strong>{text}</Text>,
     },
     {
       title: '描述',
       dataIndex: 'description',
-      key: 'description'
+      key: 'description',
     },
     {
       title: '指标',
       dataIndex: 'metric_name',
       key: 'metric_name',
-      render: (text) => <Tag color="blue">{text}</Tag>
+      render: text => <Tag color="blue">{text}</Tag>,
     },
     {
       title: '阈值',
       key: 'threshold',
-      render: (_, record) => `${record.comparison} ${record.threshold}`
+      render: (_, record) => `${record.comparison} ${record.threshold}`,
     },
     {
       title: '严重级别',
       dataIndex: 'severity',
       key: 'severity',
-      render: (severity) => (
-        <Tag color={getSeverityColor(severity)}>
-          {severity.toUpperCase()}
-        </Tag>
-      )
+      render: severity => (
+        <Tag color={getSeverityColor(severity)}>{severity.toUpperCase()}</Tag>
+      ),
     },
     {
       title: '状态',
       dataIndex: 'enabled',
       key: 'enabled',
-      render: (enabled) => (
-        <Switch checked={enabled} size="small" />
-      )
+      render: enabled => <Switch checked={enabled} size="small" />,
     },
     {
       title: '操作',
       key: 'actions',
       render: (_, record) => (
         <Space>
-          <Button 
-            type="link" 
-            icon={<EditOutlined />} 
+          <Button
+            type="link"
+            icon={<EditOutlined />}
             onClick={() => handleEditRule(record)}
           >
             编辑
           </Button>
-          <Button 
-            type="link" 
-            danger 
+          <Button
+            type="link"
+            danger
             icon={<DeleteOutlined />}
             onClick={() => handleDeleteRule(record.id)}
           >
             删除
           </Button>
         </Space>
-      )
-    }
+      ),
+    },
   ]
 
   const activeAlertColumns: ColumnsType<AlertInstance> = [
@@ -185,27 +202,23 @@ const PersonalizationAlertsPage: React.FC = () => {
             {record.description}
           </Text>
         </Space>
-      )
+      ),
     },
     {
       title: '严重级别',
       dataIndex: 'severity',
       key: 'severity',
-      render: (severity) => (
-        <Tag color={getSeverityColor(severity)}>
-          {severity.toUpperCase()}
-        </Tag>
-      )
+      render: severity => (
+        <Tag color={getSeverityColor(severity)}>{severity.toUpperCase()}</Tag>
+      ),
     },
     {
       title: '状态',
       dataIndex: 'status',
       key: 'status',
-      render: (status) => (
-        <Tag color={getStatusColor(status)}>
-          {status.toUpperCase()}
-        </Tag>
-      )
+      render: status => (
+        <Tag color={getStatusColor(status)}>{status.toUpperCase()}</Tag>
+      ),
     },
     {
       title: '当前值',
@@ -217,28 +230,28 @@ const PersonalizationAlertsPage: React.FC = () => {
             阈值: {record.threshold}
           </Text>
         </Space>
-      )
+      ),
     },
     {
       title: '开始时间',
       dataIndex: 'start_time',
-      key: 'start_time'
+      key: 'start_time',
     },
     {
       title: '操作',
       key: 'actions',
       render: (_, record) => (
         <Space>
-          <Button 
-            type="link" 
+          <Button
+            type="link"
             icon={<EyeOutlined />}
             onClick={() => setSelectedAlert(record)}
           >
             详情
           </Button>
           {record.status === 'active' && (
-            <Button 
-              type="link" 
+            <Button
+              type="link"
               icon={<CheckCircleOutlined />}
               onClick={() => handleAcknowledgeAlert(record.id)}
             >
@@ -246,8 +259,8 @@ const PersonalizationAlertsPage: React.FC = () => {
             </Button>
           )}
         </Space>
-      )
-    }
+      ),
+    },
   ]
 
   const handleEditRule = (rule: AlertRule) => {
@@ -261,10 +274,14 @@ const PersonalizationAlertsPage: React.FC = () => {
   }
 
   const handleAcknowledgeAlert = (alertId: string) => {
-    setActiveAlerts(prev => 
-      prev.map(alert => 
-        alert.id === alertId 
-          ? { ...alert, status: 'acknowledged', acknowledged_by: 'current_user' }
+    setActiveAlerts(prev =>
+      prev.map(alert =>
+        alert.id === alertId
+          ? {
+              ...alert,
+              status: 'acknowledged',
+              acknowledged_by: 'current_user',
+            }
           : alert
       )
     )
@@ -273,22 +290,20 @@ const PersonalizationAlertsPage: React.FC = () => {
   const handleSaveRule = async (values: any) => {
     if (editingRule) {
       // 更新规则
-      setAlertRules(prev => 
-        prev.map(rule => 
-          rule.id === editingRule.id 
-            ? { ...rule, ...values }
-            : rule
+      setAlertRules(prev =>
+        prev.map(rule =>
+          rule.id === editingRule.id ? { ...rule, ...values } : rule
         )
       )
     } else {
       // 新增规则
       const newRule: AlertRule = {
         id: Date.now().toString(),
-        ...values
+        ...values,
       }
       setAlertRules(prev => [...prev, newRule])
     }
-    
+
     setRuleModalVisible(false)
     setEditingRule(null)
     form.resetFields()
@@ -305,7 +320,7 @@ const PersonalizationAlertsPage: React.FC = () => {
     critical: activeAlerts.filter(a => a.severity === 'critical').length,
     high: activeAlerts.filter(a => a.severity === 'high').length,
     medium: activeAlerts.filter(a => a.severity === 'medium').length,
-    low: activeAlerts.filter(a => a.severity === 'low').length
+    low: activeAlerts.filter(a => a.severity === 'low').length,
   }
 
   return (
@@ -325,7 +340,9 @@ const PersonalizationAlertsPage: React.FC = () => {
               title="总告警数"
               value={alertStats.total}
               prefix={<AlertOutlined />}
-              valueStyle={{ color: alertStats.total > 0 ? '#fa8c16' : '#52c41a' }}
+              valueStyle={{
+                color: alertStats.total > 0 ? '#fa8c16' : '#52c41a',
+              }}
             />
           </Card>
         </Col>
@@ -362,8 +379,8 @@ const PersonalizationAlertsPage: React.FC = () => {
       </Row>
 
       {/* 活跃告警 */}
-      <Card 
-        title="活跃告警" 
+      <Card
+        title="活跃告警"
         style={{ marginBottom: 24 }}
         extra={
           <Space>
@@ -392,11 +409,11 @@ const PersonalizationAlertsPage: React.FC = () => {
       </Card>
 
       {/* 告警规则管理 */}
-      <Card 
+      <Card
         title="告警规则"
         extra={
-          <Button 
-            type="primary" 
+          <Button
+            type="primary"
             icon={<PlusOutlined />}
             onClick={() => {
               setEditingRule(null)
@@ -449,11 +466,7 @@ const PersonalizationAlertsPage: React.FC = () => {
         onOk={() => form.submit()}
         width={600}
       >
-        <Form
-          form={form}
-          layout="vertical"
-          onFinish={handleSaveRule}
-        >
+        <Form form={form} layout="vertical" onFinish={handleSaveRule}>
           <Form.Item
             name="name"
             label="规则名称"
@@ -461,7 +474,7 @@ const PersonalizationAlertsPage: React.FC = () => {
           >
             <Input placeholder="规则名称" />
           </Form.Item>
-          
+
           <Form.Item
             name="description"
             label="描述"
@@ -469,7 +482,7 @@ const PersonalizationAlertsPage: React.FC = () => {
           >
             <Input.TextArea placeholder="规则描述" />
           </Form.Item>
-          
+
           <Form.Item
             name="metric_name"
             label="监控指标"
@@ -477,14 +490,16 @@ const PersonalizationAlertsPage: React.FC = () => {
           >
             <Select placeholder="选择监控指标">
               <Option value="recommendation_latency_p99">推荐延迟P99</Option>
-              <Option value="feature_computation_latency_avg">特征计算延迟</Option>
+              <Option value="feature_computation_latency_avg">
+                特征计算延迟
+              </Option>
               <Option value="cache_hit_rate">缓存命中率</Option>
               <Option value="error_rate">错误率</Option>
               <Option value="memory_usage_percent">内存使用率</Option>
               <Option value="cpu_usage_percent">CPU使用率</Option>
             </Select>
           </Form.Item>
-          
+
           <Row gutter={16}>
             <Col span={8}>
               <Form.Item
@@ -511,7 +526,7 @@ const PersonalizationAlertsPage: React.FC = () => {
               </Form.Item>
             </Col>
           </Row>
-          
+
           <Form.Item
             name="severity"
             label="严重级别"
@@ -524,7 +539,7 @@ const PersonalizationAlertsPage: React.FC = () => {
               <Option value="critical">严重</Option>
             </Select>
           </Form.Item>
-          
+
           <Form.Item
             name="duration"
             label="持续时间(秒)"
@@ -538,11 +553,11 @@ const PersonalizationAlertsPage: React.FC = () => {
                 300: '5分钟',
                 900: '15分钟',
                 1800: '30分钟',
-                3600: '1小时'
+                3600: '1小时',
               }}
             />
           </Form.Item>
-          
+
           <Form.Item
             name="enabled"
             label="启用状态"
@@ -562,7 +577,7 @@ const PersonalizationAlertsPage: React.FC = () => {
         footer={[
           <Button key="close" onClick={() => setSelectedAlert(null)}>
             关闭
-          </Button>
+          </Button>,
         ]}
         width={600}
       >
@@ -582,7 +597,7 @@ const PersonalizationAlertsPage: React.FC = () => {
                 </Tag>
               </Col>
             </Row>
-            
+
             <Row gutter={[16, 16]} style={{ marginTop: 16 }}>
               <Col span={24}>
                 <Text strong>描述:</Text>
@@ -590,7 +605,7 @@ const PersonalizationAlertsPage: React.FC = () => {
                 <Text>{selectedAlert.description}</Text>
               </Col>
             </Row>
-            
+
             <Row gutter={[16, 16]} style={{ marginTop: 16 }}>
               <Col span={12}>
                 <Text strong>指标名称:</Text>
@@ -603,7 +618,7 @@ const PersonalizationAlertsPage: React.FC = () => {
                 <Text>{selectedAlert.current_value}</Text>
               </Col>
             </Row>
-            
+
             <Row gutter={[16, 16]} style={{ marginTop: 16 }}>
               <Col span={12}>
                 <Text strong>阈值:</Text>
@@ -618,7 +633,7 @@ const PersonalizationAlertsPage: React.FC = () => {
                 </Tag>
               </Col>
             </Row>
-            
+
             <Row gutter={[16, 16]} style={{ marginTop: 16 }}>
               <Col span={12}>
                 <Text strong>开始时间:</Text>
@@ -631,7 +646,7 @@ const PersonalizationAlertsPage: React.FC = () => {
                 <Text>{selectedAlert.last_update}</Text>
               </Col>
             </Row>
-            
+
             {selectedAlert.acknowledged_by && (
               <Row gutter={[16, 16]} style={{ marginTop: 16 }}>
                 <Col span={24}>

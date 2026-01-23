@@ -1,13 +1,13 @@
 import { buildApiUrl, apiFetch } from '../utils/apiBase'
 import React, { useState, useEffect } from 'react'
-import { 
 import { logger } from '../utils/logger'
-  Card, 
-  Row, 
-  Col, 
-  Button, 
-  Space, 
-  Table, 
+import {
+  Card,
+  Row,
+  Col,
+  Button,
+  Space,
+  Table,
   Progress,
   Tag,
   Statistic,
@@ -19,15 +19,15 @@ import { logger } from '../utils/logger'
   Timeline,
   Badge,
   Tooltip,
-  Switch
+  Switch,
 } from 'antd'
-import { 
-  LineChart, 
-  Line, 
-  XAxis, 
-  YAxis, 
-  CartesianGrid, 
-  Legend, 
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Legend,
   ResponsiveContainer,
   AreaChart,
   Area,
@@ -35,7 +35,7 @@ import {
   Bar,
   PieChart,
   Pie,
-  Cell
+  Cell,
 } from 'recharts'
 import {
   HeartOutlined,
@@ -50,7 +50,7 @@ import {
   CloudOutlined,
   SecurityScanOutlined,
   DashboardOutlined,
-  WarningOutlined
+  WarningOutlined,
 } from '@ant-design/icons'
 
 const { Title, Text, Paragraph } = Typography
@@ -61,7 +61,7 @@ enum HealthStatus {
   HEALTHY = 'healthy',
   WARNING = 'warning',
   CRITICAL = 'critical',
-  DOWN = 'down'
+  DOWN = 'down',
 }
 
 const HealthComprehensivePage: React.FC = () => {
@@ -75,9 +75,11 @@ const HealthComprehensivePage: React.FC = () => {
     setRefreshing(true)
     try {
       const [healthRes, metricsRes, alertsRes] = await Promise.all([
-        apiFetch(buildApiUrl('/api/v1/health?detailed=true')).then(r => r.json()),
+        apiFetch(buildApiUrl('/api/v1/health?detailed=true')).then(r =>
+          r.json()
+        ),
         apiFetch(buildApiUrl('/api/v1/health/metrics')).then(r => r.json()),
-        apiFetch(buildApiUrl('/api/v1/health/alerts')).then(r => r.json())
+        apiFetch(buildApiUrl('/api/v1/health/alerts')).then(r => r.json()),
       ])
       const components = healthRes?.components || {}
       const list = Object.entries(components).map(([name, info]: any, idx) => ({
@@ -88,9 +90,10 @@ const HealthComprehensivePage: React.FC = () => {
         responseTime: info.response_time_ms || 0,
         critical: info.critical ?? false,
         uptime: info.uptime || 0,
-        lastCheck: info.last_check || info.checked_at || new Date().toISOString(),
+        lastCheck:
+          info.last_check || info.checked_at || new Date().toISOString(),
         errorCount: info.error_count || 0,
-        version: info.version || ''
+        version: info.version || '',
       }))
       setHealthData(list)
       const metricSeries = (metricsRes?.timeseries || []).map((m: any) => ({
@@ -101,7 +104,7 @@ const HealthComprehensivePage: React.FC = () => {
         networkIn: m.network_in ?? m.net_in ?? 0,
         networkOut: m.network_out ?? m.net_out ?? 0,
         activeConnections: m.active_connections ?? m.connections ?? 0,
-        requestRate: m.request_rate ?? m.qps ?? 0
+        requestRate: m.request_rate ?? m.qps ?? 0,
       }))
       setSystemMetrics(metricSeries)
       setAlerts(alertsRes?.alerts || [])
@@ -115,13 +118,13 @@ const HealthComprehensivePage: React.FC = () => {
   // 自动刷新
   useEffect(() => {
     let interval: ReturnType<typeof setTimeout> | null = null
-    
+
     if (autoRefresh) {
       interval = setInterval(() => {
         loadData()
       }, 30000)
     }
-    
+
     return () => {
       if (interval) clearInterval(interval)
     }
@@ -138,10 +141,16 @@ const HealthComprehensivePage: React.FC = () => {
   // 计算整体状态
   const overallStatus = () => {
     const criticalServices = healthData.filter(s => s.critical)
-    const downCritical = criticalServices.filter(s => s.status === HealthStatus.DOWN).length
-    const criticalIssues = criticalServices.filter(s => s.status === HealthStatus.CRITICAL).length
-    const warningIssues = criticalServices.filter(s => s.status === HealthStatus.WARNING).length
-    
+    const downCritical = criticalServices.filter(
+      s => s.status === HealthStatus.DOWN
+    ).length
+    const criticalIssues = criticalServices.filter(
+      s => s.status === HealthStatus.CRITICAL
+    ).length
+    const warningIssues = criticalServices.filter(
+      s => s.status === HealthStatus.WARNING
+    ).length
+
     if (downCritical > 0) return HealthStatus.DOWN
     if (criticalIssues > 0) return HealthStatus.CRITICAL
     if (warningIssues > 0) return HealthStatus.WARNING
@@ -151,9 +160,9 @@ const HealthComprehensivePage: React.FC = () => {
   const getStatusColor = (status: HealthStatus): string => {
     const colors = {
       [HealthStatus.HEALTHY]: '#52c41a',
-      [HealthStatus.WARNING]: '#faad14', 
+      [HealthStatus.WARNING]: '#faad14',
       [HealthStatus.CRITICAL]: '#ff7875',
-      [HealthStatus.DOWN]: '#ff4d4f'
+      [HealthStatus.DOWN]: '#ff4d4f',
     }
     return colors[status]
   }
@@ -163,7 +172,7 @@ const HealthComprehensivePage: React.FC = () => {
       [HealthStatus.HEALTHY]: '健康',
       [HealthStatus.WARNING]: '警告',
       [HealthStatus.CRITICAL]: '严重',
-      [HealthStatus.DOWN]: '离线'
+      [HealthStatus.DOWN]: '离线',
     }
     return texts[status]
   }
@@ -171,19 +180,21 @@ const HealthComprehensivePage: React.FC = () => {
   // 整体状态卡片
   const OverallStatusCard = () => {
     const status = overallStatus()
-    const healthyCount = healthData.filter(s => s.status === HealthStatus.HEALTHY).length
+    const healthyCount = healthData.filter(
+      s => s.status === HealthStatus.HEALTHY
+    ).length
     const totalCount = healthData.length
-    
+
     return (
       <Card>
         <Row align="middle">
           <Col span={6}>
             <div style={{ textAlign: 'center' }}>
-              <HeartOutlined 
-                style={{ 
-                  fontSize: 48, 
-                  color: getStatusColor(status) 
-                }} 
+              <HeartOutlined
+                style={{
+                  fontSize: 48,
+                  color: getStatusColor(status),
+                }}
               />
               <div style={{ marginTop: 8 }}>
                 <Text strong style={{ color: getStatusColor(status) }}>
@@ -205,7 +216,10 @@ const HealthComprehensivePage: React.FC = () => {
               <Col span={6}>
                 <Statistic
                   title="平均响应时间"
-                  value={Math.round(healthData.reduce((sum, s) => sum + s.responseTime, 0) / healthData.length)}
+                  value={Math.round(
+                    healthData.reduce((sum, s) => sum + s.responseTime, 0) /
+                      healthData.length
+                  )}
                   suffix="ms"
                 />
               </Col>
@@ -240,13 +254,23 @@ const HealthComprehensivePage: React.FC = () => {
         key: 'name',
         render: (name: string, record: any) => (
           <Space>
-            <Badge 
-              status={record.status === HealthStatus.HEALTHY ? 'success' : 
-                     record.status === HealthStatus.WARNING ? 'warning' :
-                     record.status === HealthStatus.CRITICAL ? 'error' : 'default'} 
+            <Badge
+              status={
+                record.status === HealthStatus.HEALTHY
+                  ? 'success'
+                  : record.status === HealthStatus.WARNING
+                    ? 'warning'
+                    : record.status === HealthStatus.CRITICAL
+                      ? 'error'
+                      : 'default'
+              }
             />
             <Text strong={record.critical}>{name}</Text>
-            {record.critical && <Tag color="red" size="small">核心</Tag>}
+            {record.critical && (
+              <Tag color="red" size="small">
+                核心
+              </Tag>
+            )}
           </Space>
         ),
       },
@@ -263,7 +287,12 @@ const HealthComprehensivePage: React.FC = () => {
         dataIndex: 'responseTime',
         key: 'responseTime',
         render: (time: number) => (
-          <Text style={{ color: time > 500 ? '#ff4d4f' : time > 200 ? '#faad14' : '#52c41a' }}>
+          <Text
+            style={{
+              color:
+                time > 500 ? '#ff4d4f' : time > 200 ? '#faad14' : '#52c41a',
+            }}
+          >
             {time > 0 ? `${time}ms` : 'N/A'}
           </Text>
         ),
@@ -273,11 +302,13 @@ const HealthComprehensivePage: React.FC = () => {
         dataIndex: 'uptime',
         key: 'uptime',
         render: (uptime: number) => (
-          <Progress 
-            percent={uptime} 
-            size="small" 
+          <Progress
+            percent={uptime}
+            size="small"
             format={percent => `${percent?.toFixed(1)}%`}
-            strokeColor={uptime > 99 ? '#52c41a' : uptime > 95 ? '#faad14' : '#ff4d4f'}
+            strokeColor={
+              uptime > 99 ? '#52c41a' : uptime > 95 ? '#faad14' : '#ff4d4f'
+            }
           />
         ),
       },
@@ -305,22 +336,22 @@ const HealthComprehensivePage: React.FC = () => {
             <Text type="secondary">{time.toLocaleTimeString()}</Text>
           </Tooltip>
         ),
-      }
+      },
     ]
 
     return (
-      <Card 
-        title="服务状态详情" 
+      <Card
+        title="服务状态详情"
         size="small"
         extra={
           <Space>
-            <Switch 
+            <Switch
               checked={autoRefresh}
               onChange={setAutoRefresh}
               checkedChildren="自动刷新"
               unCheckedChildren="手动刷新"
             />
-            <Button 
+            <Button
               icon={<ReloadOutlined />}
               loading={refreshing}
               onClick={handleRefresh}
@@ -348,29 +379,55 @@ const HealthComprehensivePage: React.FC = () => {
       <ResponsiveContainer width="100%" height={300}>
         <LineChart data={systemMetrics}>
           <CartesianGrid strokeDasharray="3 3" />
-          <XAxis 
-            dataKey="time" 
-            tickFormatter={(time) => new Date(time).getHours() + ':00'}
+          <XAxis
+            dataKey="time"
+            tickFormatter={time => new Date(time).getHours() + ':00'}
           />
           <YAxis />
-          <Tooltip 
-            labelFormatter={(time) => new Date(time).toLocaleString()}
+          <Tooltip
+            labelFormatter={time => new Date(time).toLocaleString()}
             formatter={(value: number, name: string) => [
-              name === 'cpuUsage' || name === 'memoryUsage' || name === 'diskUsage' ? 
-                `${value.toFixed(1)}%` : `${value.toFixed(0)}`,
-              name === 'cpuUsage' ? 'CPU使用率' :
-              name === 'memoryUsage' ? '内存使用率' :
-              name === 'diskUsage' ? '磁盘使用率' :
-              name === 'networkIn' ? '网络流入' :
-              name === 'networkOut' ? '网络流出' :
-              name === 'activeConnections' ? '活跃连接' :
-              name === 'requestRate' ? '请求速率' : name
+              name === 'cpuUsage' ||
+              name === 'memoryUsage' ||
+              name === 'diskUsage'
+                ? `${value.toFixed(1)}%`
+                : `${value.toFixed(0)}`,
+              name === 'cpuUsage'
+                ? 'CPU使用率'
+                : name === 'memoryUsage'
+                  ? '内存使用率'
+                  : name === 'diskUsage'
+                    ? '磁盘使用率'
+                    : name === 'networkIn'
+                      ? '网络流入'
+                      : name === 'networkOut'
+                        ? '网络流出'
+                        : name === 'activeConnections'
+                          ? '活跃连接'
+                          : name === 'requestRate'
+                            ? '请求速率'
+                            : name,
             ]}
           />
           <Legend />
-          <Line type="monotone" dataKey="cpuUsage" stroke="#1890ff" name="CPU使用率" />
-          <Line type="monotone" dataKey="memoryUsage" stroke="#52c41a" name="内存使用率" />
-          <Line type="monotone" dataKey="diskUsage" stroke="#fa8c16" name="磁盘使用率" />
+          <Line
+            type="monotone"
+            dataKey="cpuUsage"
+            stroke="#1890ff"
+            name="CPU使用率"
+          />
+          <Line
+            type="monotone"
+            dataKey="memoryUsage"
+            stroke="#52c41a"
+            name="内存使用率"
+          />
+          <Line
+            type="monotone"
+            dataKey="diskUsage"
+            stroke="#fa8c16"
+            name="磁盘使用率"
+          />
         </LineChart>
       </ResponsiveContainer>
     </Card>
@@ -382,31 +439,31 @@ const HealthComprehensivePage: React.FC = () => {
       <ResponsiveContainer width="100%" height={300}>
         <AreaChart data={systemMetrics}>
           <CartesianGrid strokeDasharray="3 3" />
-          <XAxis 
-            dataKey="time" 
-            tickFormatter={(time) => new Date(time).getHours() + ':00'}
+          <XAxis
+            dataKey="time"
+            tickFormatter={time => new Date(time).getHours() + ':00'}
           />
           <YAxis />
-          <Tooltip 
-            labelFormatter={(time) => new Date(time).toLocaleString()}
+          <Tooltip
+            labelFormatter={time => new Date(time).toLocaleString()}
             formatter={(value: number) => [`${value.toFixed(0)} MB/s`]}
           />
           <Legend />
-          <Area 
-            type="monotone" 
-            dataKey="networkIn" 
-            stackId="1" 
-            stroke="#1890ff" 
-            fill="#1890ff" 
+          <Area
+            type="monotone"
+            dataKey="networkIn"
+            stackId="1"
+            stroke="#1890ff"
+            fill="#1890ff"
             name="流入"
             fillOpacity={0.6}
           />
-          <Area 
-            type="monotone" 
-            dataKey="networkOut" 
-            stackId="1" 
-            stroke="#52c41a" 
-            fill="#52c41a" 
+          <Area
+            type="monotone"
+            dataKey="networkOut"
+            stackId="1"
+            stroke="#52c41a"
+            fill="#52c41a"
             name="流出"
             fillOpacity={0.6}
           />
@@ -423,13 +480,20 @@ const HealthComprehensivePage: React.FC = () => {
           <Timeline.Item
             key={alert.id}
             color={
-              alert.level === 'critical' ? 'red' :
-              alert.level === 'warning' ? 'orange' : 'blue'
+              alert.level === 'critical'
+                ? 'red'
+                : alert.level === 'warning'
+                  ? 'orange'
+                  : 'blue'
             }
             dot={
-              alert.level === 'critical' ? <CloseCircleOutlined /> :
-              alert.level === 'warning' ? <ExclamationCircleOutlined /> :
-              <CheckCircleOutlined />
+              alert.level === 'critical' ? (
+                <CloseCircleOutlined />
+              ) : alert.level === 'warning' ? (
+                <ExclamationCircleOutlined />
+              ) : (
+                <CheckCircleOutlined />
+              )
             }
           >
             <div>
@@ -457,14 +521,16 @@ const HealthComprehensivePage: React.FC = () => {
   // 服务依赖拓扑
   const ServiceTopology = () => (
     <Card title="服务依赖拓扑" size="small">
-      <div style={{ 
-        height: 300, 
-        display: 'flex', 
-        alignItems: 'center', 
-        justifyContent: 'center',
-        border: '1px dashed #d9d9d9',
-        borderRadius: '6px'
-      }}>
+      <div
+        style={{
+          height: 300,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          border: '1px dashed #d9d9d9',
+          borderRadius: '6px',
+        }}
+      >
         <Space direction="vertical" align="center">
           <ApiOutlined style={{ fontSize: 48, color: '#1890ff' }} />
           <Text type="secondary">服务依赖关系图</Text>
@@ -484,7 +550,7 @@ const HealthComprehensivePage: React.FC = () => {
       <Paragraph type="secondary">
         实时监控系统各个组件的健康状态，包括服务可用性、性能指标、系统资源使用情况和告警信息
       </Paragraph>
-      
+
       <Divider />
 
       <Tabs defaultActiveKey="1">
@@ -514,26 +580,26 @@ const HealthComprehensivePage: React.FC = () => {
               <NetworkTrafficChart />
             </Col>
           </Row>
-          
+
           <div style={{ marginTop: 16 }}>
             <Row gutter={16}>
               <Col span={8}>
                 <Card title="CPU & 内存" size="small">
                   <Row gutter={16}>
                     <Col span={12}>
-                      <Statistic 
-                        title="CPU使用率" 
-                        value={75.3} 
-                        suffix="%" 
+                      <Statistic
+                        title="CPU使用率"
+                        value={75.3}
+                        suffix="%"
                         precision={1}
                         valueStyle={{ color: '#fa8c16' }}
                       />
                     </Col>
                     <Col span={12}>
-                      <Statistic 
-                        title="内存使用率" 
-                        value={68.7} 
-                        suffix="%" 
+                      <Statistic
+                        title="内存使用率"
+                        value={68.7}
+                        suffix="%"
                         precision={1}
                         valueStyle={{ color: '#52c41a' }}
                       />
@@ -545,18 +611,18 @@ const HealthComprehensivePage: React.FC = () => {
                 <Card title="存储 & 网络" size="small">
                   <Row gutter={16}>
                     <Col span={12}>
-                      <Statistic 
-                        title="磁盘使用率" 
-                        value={45.2} 
-                        suffix="%" 
+                      <Statistic
+                        title="磁盘使用率"
+                        value={45.2}
+                        suffix="%"
                         precision={1}
                       />
                     </Col>
                     <Col span={12}>
-                      <Statistic 
-                        title="网络延迟" 
-                        value={12.5} 
-                        suffix="ms" 
+                      <Statistic
+                        title="网络延迟"
+                        value={12.5}
+                        suffix="ms"
                         precision={1}
                       />
                     </Col>
@@ -567,17 +633,10 @@ const HealthComprehensivePage: React.FC = () => {
                 <Card title="连接 & 请求" size="small">
                   <Row gutter={16}>
                     <Col span={12}>
-                      <Statistic 
-                        title="活跃连接" 
-                        value={847} 
-                      />
+                      <Statistic title="活跃连接" value={847} />
                     </Col>
                     <Col span={12}>
-                      <Statistic 
-                        title="请求速率" 
-                        value={3240} 
-                        suffix="/min"
-                      />
+                      <Statistic title="请求速率" value={3240} suffix="/min" />
                     </Col>
                   </Row>
                 </Card>
@@ -599,11 +658,15 @@ const HealthComprehensivePage: React.FC = () => {
                     <List.Item>
                       <List.Item.Meta
                         avatar={
-                          <Badge 
+                          <Badge
                             status={
-                              service.status === HealthStatus.HEALTHY ? 'success' : 
-                              service.status === HealthStatus.WARNING ? 'warning' :
-                              service.status === HealthStatus.CRITICAL ? 'error' : 'default'
+                              service.status === HealthStatus.HEALTHY
+                                ? 'success'
+                                : service.status === HealthStatus.WARNING
+                                  ? 'warning'
+                                  : service.status === HealthStatus.CRITICAL
+                                    ? 'error'
+                                    : 'default'
                             }
                           />
                         }
@@ -623,17 +686,19 @@ const HealthComprehensivePage: React.FC = () => {
             <Alert
               message="历史监控数据"
               description="显示过去24小时内各服务的健康状态变化趋势和关键事件"
-              variant="default"
+              type="info"
               style={{ marginBottom: 16 }}
             />
-            <div style={{ 
-              height: 400, 
-              display: 'flex', 
-              alignItems: 'center', 
-              justifyContent: 'center',
-              border: '1px dashed #d9d9d9',
-              borderRadius: '6px'
-            }}>
+            <div
+              style={{
+                height: 400,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                border: '1px dashed #d9d9d9',
+                borderRadius: '6px',
+              }}
+            >
               <Space direction="vertical" align="center">
                 <DashboardOutlined style={{ fontSize: 48, color: '#1890ff' }} />
                 <Text type="secondary">历史监控图表区域</Text>

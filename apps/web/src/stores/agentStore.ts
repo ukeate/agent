@@ -4,13 +4,13 @@ import { AgentStatus } from '../types'
 interface AgentState {
   // 智能体状态
   status: AgentStatus | null
-  
+
   // 连接状态
   connected: boolean
-  
+
   // 错误状态
   error: string | null
-  
+
   // 统计信息
   stats: {
     totalMessages: number
@@ -23,12 +23,12 @@ interface AgentState {
   setConnected: (connected: boolean) => void
   setError: (error: string | null) => void
   updateStats: (updates: Partial<AgentState['stats']>) => void
-  incrementMessageCount: () => void
+  incrementMessageCount: (durationMs?: number) => void
   incrementToolCount: () => void
   resetStats: () => void
 }
 
-export const useAgentStore = create<AgentState>((set) => ({
+export const useAgentStore = create<AgentState>(set => ({
   // 初始状态
   status: null,
   connected: false,
@@ -40,31 +40,41 @@ export const useAgentStore = create<AgentState>((set) => ({
   },
 
   // Actions
-  setStatus: (status) => set({ status, error: null }),
+  setStatus: status => set({ status, error: null }),
 
-  setConnected: (connected) => set({ connected }),
+  setConnected: connected => set({ connected }),
 
-  setError: (error) => set({ error }),
+  setError: error => set({ error }),
 
-  updateStats: (updates) => 
-    set((state) => ({
-      stats: { ...state.stats, ...updates }
+  updateStats: updates =>
+    set(state => ({
+      stats: { ...state.stats, ...updates },
     })),
 
-  incrementMessageCount: () =>
-    set((state) => ({
-      stats: {
-        ...state.stats,
-        totalMessages: state.stats.totalMessages + 1
+  incrementMessageCount: (durationMs?: number) =>
+    set(state => {
+      const nextTotal = state.stats.totalMessages + 1
+      const nextAverage =
+        typeof durationMs === 'number' && Number.isFinite(durationMs)
+          ? (state.stats.averageResponseTime * state.stats.totalMessages +
+              durationMs) /
+            nextTotal
+          : state.stats.averageResponseTime
+      return {
+        stats: {
+          ...state.stats,
+          totalMessages: nextTotal,
+          averageResponseTime: nextAverage,
+        },
       }
-    })),
+    }),
 
   incrementToolCount: () =>
-    set((state) => ({
+    set(state => ({
       stats: {
         ...state.stats,
-        totalTools: state.stats.totalTools + 1
-      }
+        totalTools: state.stats.totalTools + 1,
+      },
     })),
 
   resetStats: () =>
@@ -73,6 +83,6 @@ export const useAgentStore = create<AgentState>((set) => ({
         totalMessages: 0,
         totalTools: 0,
         averageResponseTime: 0,
-      }
+      },
     }),
 }))

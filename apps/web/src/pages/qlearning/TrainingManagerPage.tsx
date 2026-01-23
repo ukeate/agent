@@ -15,7 +15,7 @@ const TrainingManagerPage: React.FC = () => {
     try {
       const [sessionsRes, checkpointsRes] = await Promise.all([
         apiFetch(buildApiUrl('/api/v1/qlearning/sessions')),
-        apiFetch(buildApiUrl('/api/v1/qlearning/checkpoints'))
+        apiFetch(buildApiUrl('/api/v1/qlearning/checkpoints')),
       ])
       const sessionsData = await sessionsRes.json()
       const checkpointsData = await checkpointsRes.json()
@@ -33,7 +33,10 @@ const TrainingManagerPage: React.FC = () => {
   return (
     <div style={{ padding: 24 }}>
       <Space direction="vertical" style={{ width: '100%' }} size="large">
-        <Space align="center" style={{ justifyContent: 'space-between', width: '100%' }}>
+        <Space
+          align="center"
+          style={{ justifyContent: 'space-between', width: '100%' }}
+        >
           <Title level={3} style={{ margin: 0 }}>
             <ControlOutlined /> Q-Learning 训练管理
           </Title>
@@ -48,7 +51,10 @@ const TrainingManagerPage: React.FC = () => {
           <>
             <Card title="训练作业">
               {jobs.length === 0 ? (
-                <Alert type="info" message="暂无训练作业，先调用 /api/v1/qlearning 创建会话并启动训练。" />
+                <Alert
+                  type="info"
+                  message="暂无训练作业，先调用 /api/v1/qlearning 创建会话并启动训练。"
+                />
               ) : (
                 <Table
                   rowKey="session_id"

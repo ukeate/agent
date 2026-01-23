@@ -1,7 +1,7 @@
 import { buildApiUrl, apiFetch } from '../utils/apiBase'
-import React, { useState, useEffect } from 'react';
-import {
+import React, { useState, useEffect } from 'react'
 import { logger } from '../utils/logger'
+import {
   Box,
   Card,
   CardContent,
@@ -28,8 +28,8 @@ import { logger } from '../utils/logger'
   Alert,
   CircularProgress,
   IconButton,
-  Tooltip
-} from '@mui/material';
+  Tooltip,
+} from '@mui/material'
 import {
   Add as AddIcon,
   Refresh as RefreshIcon,
@@ -40,149 +40,174 @@ import {
   CloudDownload as CloudDownloadIcon,
   Storage as DatabaseIcon,
   Language as WebIcon,
-  InsertDriveFile as FileIcon
-} from '@mui/icons-material';
+  InsertDriveFile as FileIcon,
+} from '@mui/icons-material'
 
 interface DataSource {
-  id: string;
-  source_id: string;
-  source_type: string;
-  name: string;
-  description: string;
-  config: any;
-  is_active: boolean;
-  created_at: string;
-  updated_at: string;
+  id: string
+  source_id: string
+  source_type: string
+  name: string
+  description: string
+  config: any
+  is_active: boolean
+  created_at: string
+  updated_at: string
 }
 
 export default function DataSourceManagementPage() {
-  const [dataSources, setDataSources] = useState<DataSource[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [createDialog, setCreateDialog] = useState(false);
-  const [editDialog, setEditDialog] = useState(false);
-  const [selectedSource, setSelectedSource] = useState<DataSource | null>(null);
+  const [dataSources, setDataSources] = useState<DataSource[]>([])
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [createDialog, setCreateDialog] = useState(false)
+  const [editDialog, setEditDialog] = useState(false)
+  const [selectedSource, setSelectedSource] = useState<DataSource | null>(null)
   const [newDataSource, setNewDataSource] = useState({
     source_id: '',
     source_type: 'file',
     name: '',
     description: '',
-    config: {}
-  });
-  const [statistics, setStatistics] = useState<any>(null);
+    config: {},
+  })
+  const [statistics, setStatistics] = useState<any>(null)
 
   const fetchDataSources = async () => {
     try {
-      setLoading(true);
-      const response = await apiFetch(buildApiUrl('/api/v1/training-data/sources'));
-      const data = await response.json();
-      setDataSources(data);
+      setLoading(true)
+      const response = await apiFetch(
+        buildApiUrl('/api/v1/training-data/sources')
+      )
+      const data = await response.json()
+      setDataSources(data)
     } catch (err) {
-      setError(err instanceof Error ? err.message : '获取数据源失败');
+      setError(err instanceof Error ? err.message : '获取数据源失败')
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
+  }
 
   const fetchStatistics = async () => {
     try {
-      const response = await apiFetch(buildApiUrl('/api/v1/training-data/stats/overview'));
-      const data = await response.json();
-      setStatistics(data);
+      const response = await apiFetch(
+        buildApiUrl('/api/v1/training-data/stats/overview')
+      )
+      const data = await response.json()
+      setStatistics(data)
     } catch (err) {
-      logger.error('获取统计信息失败:', err);
+      logger.error('获取统计信息失败:', err)
     }
-  };
+  }
 
   const handleCreateDataSource = async () => {
     try {
-      setLoading(true);
-      const response = await apiFetch(buildApiUrl('/api/v1/training-data/sources'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newDataSource)
-      });
-      
-      await response.json().catch(() => null);
-      setCreateDialog(false);
+      setLoading(true)
+      const response = await apiFetch(
+        buildApiUrl('/api/v1/training-data/sources'),
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(newDataSource),
+        }
+      )
+
+      await response.json().catch(() => null)
+      setCreateDialog(false)
       setNewDataSource({
         source_id: '',
         source_type: 'file',
         name: '',
         description: '',
-        config: {}
-      });
-      await fetchDataSources();
+        config: {},
+      })
+      await fetchDataSources()
     } catch (err) {
-      setError(err instanceof Error ? err.message : '创建数据源失败');
+      setError(err instanceof Error ? err.message : '创建数据源失败')
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
+  }
 
   const handleCollectData = async (sourceId: string) => {
     try {
-      setLoading(true);
-      const response = await apiFetch(buildApiUrl(`/api/v1/training-data/collect/${sourceId}`), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          processing_rules: ['text_cleaning', 'format_standardization', 'quality_filtering'],
-          batch_size: 100
-        })
-      });
-      
-      await response.json().catch(() => null);
-      alert('数据收集任务已启动');
+      setLoading(true)
+      const response = await apiFetch(
+        buildApiUrl(`/api/v1/training-data/collect/${sourceId}`),
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            processing_rules: [
+              'text_cleaning',
+              'format_standardization',
+              'quality_filtering',
+            ],
+            batch_size: 100,
+          }),
+        }
+      )
+
+      await response.json().catch(() => null)
+      alert('数据收集任务已启动')
     } catch (err) {
-      setError(err instanceof Error ? err.message : '启动数据收集失败');
+      setError(err instanceof Error ? err.message : '启动数据收集失败')
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
+  }
 
   const handleDeleteSource = async (sourceId: string) => {
     if (!window.confirm('确定要删除这个数据源吗？')) {
-      return;
+      return
     }
 
     try {
-      setLoading(true);
-      const response = await apiFetch(buildApiUrl(`/api/v1/training-data/sources/${sourceId}`), {
-        method: 'DELETE'
-      });
-      
-      await response.json().catch(() => null);
-      await fetchDataSources();
+      setLoading(true)
+      const response = await apiFetch(
+        buildApiUrl(`/api/v1/training-data/sources/${sourceId}`),
+        {
+          method: 'DELETE',
+        }
+      )
+
+      await response.json().catch(() => null)
+      await fetchDataSources()
     } catch (err) {
-      setError(err instanceof Error ? err.message : '删除数据源失败');
+      setError(err instanceof Error ? err.message : '删除数据源失败')
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
+  }
 
   const getSourceTypeIcon = (type: string) => {
     switch (type) {
-      case 'api': return <CloudDownloadIcon />;
-      case 'database': return <DatabaseIcon />;
-      case 'web': return <WebIcon />;
-      default: return <FileIcon />;
+      case 'api':
+        return <CloudDownloadIcon />
+      case 'database':
+        return <DatabaseIcon />
+      case 'web':
+        return <WebIcon />
+      default:
+        return <FileIcon />
     }
-  };
+  }
 
   const getSourceTypeColor = (type: string) => {
     switch (type) {
-      case 'api': return 'primary';
-      case 'database': return 'success';
-      case 'web': return 'warning';
-      default: return 'default';
+      case 'api':
+        return 'primary'
+      case 'database':
+        return 'success'
+      case 'web':
+        return 'warning'
+      default:
+        return 'default'
     }
-  };
+  }
 
   useEffect(() => {
-    fetchDataSources();
-    fetchStatistics();
-  }, []);
+    fetchDataSources()
+    fetchStatistics()
+  }, [])
 
   return (
     <Box sx={{ p: 3 }}>
@@ -260,7 +285,10 @@ export default function DataSourceManagementPage() {
                   <SettingsIcon color="warning" sx={{ mr: 2 }} />
                   <Box>
                     <Typography variant="h6" color="warning.main">
-                      {((statistics.records?.processing_rate || 0) * 100).toFixed(1)}%
+                      {(
+                        (statistics.records?.processing_rate || 0) * 100
+                      ).toFixed(1)}
+                      %
                     </Typography>
                     <Typography variant="body2" color="text.secondary">
                       处理完成率
@@ -330,7 +358,7 @@ export default function DataSourceManagementPage() {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  dataSources.map((source) => (
+                  dataSources.map(source => (
                     <TableRow key={source.id} hover>
                       <TableCell>
                         <Box>
@@ -376,7 +404,9 @@ export default function DataSourceManagementPage() {
                             <IconButton
                               size="small"
                               color="primary"
-                              onClick={() => handleCollectData(source.source_id)}
+                              onClick={() =>
+                                handleCollectData(source.source_id)
+                              }
                               disabled={!source.is_active || loading}
                             >
                               <DownloadIcon />
@@ -387,8 +417,8 @@ export default function DataSourceManagementPage() {
                               size="small"
                               color="default"
                               onClick={() => {
-                                setSelectedSource(source);
-                                setEditDialog(true);
+                                setSelectedSource(source)
+                                setEditDialog(true)
                               }}
                             >
                               <EditIcon />
@@ -398,7 +428,9 @@ export default function DataSourceManagementPage() {
                             <IconButton
                               size="small"
                               color="error"
-                              onClick={() => handleDeleteSource(source.source_id)}
+                              onClick={() =>
+                                handleDeleteSource(source.source_id)
+                              }
                               disabled={loading}
                             >
                               <DeleteIcon />
@@ -416,7 +448,12 @@ export default function DataSourceManagementPage() {
       </Card>
 
       {/* 创建数据源对话框 */}
-      <Dialog open={createDialog} onClose={() => setCreateDialog(false)} maxWidth="sm" fullWidth>
+      <Dialog
+        open={createDialog}
+        onClose={() => setCreateDialog(false)}
+        maxWidth="sm"
+        fullWidth
+      >
         <DialogTitle>创建数据源</DialogTitle>
         <DialogContent>
           <TextField
@@ -424,7 +461,9 @@ export default function DataSourceManagementPage() {
             margin="normal"
             label="数据源ID"
             value={newDataSource.source_id}
-            onChange={(e) => setNewDataSource(prev => ({ ...prev, source_id: e.target.value }))}
+            onChange={e =>
+              setNewDataSource(prev => ({ ...prev, source_id: e.target.value }))
+            }
             helperText="唯一标识符，只能包含字母、数字、下划线"
           />
           <FormControl fullWidth margin="normal">
@@ -432,7 +471,12 @@ export default function DataSourceManagementPage() {
             <Select
               value={newDataSource.source_type}
               label="数据源类型"
-              onChange={(e) => setNewDataSource(prev => ({ ...prev, source_type: e.target.value }))}
+              onChange={e =>
+                setNewDataSource(prev => ({
+                  ...prev,
+                  source_type: e.target.value,
+                }))
+              }
             >
               <MenuItem value="file">文件 - 本地或远程文件</MenuItem>
               <MenuItem value="api">API - REST API接口</MenuItem>
@@ -445,7 +489,9 @@ export default function DataSourceManagementPage() {
             margin="normal"
             label="数据源名称"
             value={newDataSource.name}
-            onChange={(e) => setNewDataSource(prev => ({ ...prev, name: e.target.value }))}
+            onChange={e =>
+              setNewDataSource(prev => ({ ...prev, name: e.target.value }))
+            }
             helperText="便于识别的显示名称"
           />
           <TextField
@@ -455,7 +501,12 @@ export default function DataSourceManagementPage() {
             multiline
             rows={3}
             value={newDataSource.description}
-            onChange={(e) => setNewDataSource(prev => ({ ...prev, description: e.target.value }))}
+            onChange={e =>
+              setNewDataSource(prev => ({
+                ...prev,
+                description: e.target.value,
+              }))
+            }
             helperText="详细说明数据源的用途和内容"
           />
           <TextField
@@ -465,10 +516,10 @@ export default function DataSourceManagementPage() {
             multiline
             rows={6}
             value={JSON.stringify(newDataSource.config, null, 2)}
-            onChange={(e) => {
+            onChange={e => {
               try {
-                const config = JSON.parse(e.target.value);
-                setNewDataSource(prev => ({ ...prev, config }));
+                const config = JSON.parse(e.target.value)
+                setNewDataSource(prev => ({ ...prev, config }))
               } catch {
                 // 忽略无效JSON
               }
@@ -478,10 +529,12 @@ export default function DataSourceManagementPage() {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setCreateDialog(false)}>取消</Button>
-          <Button 
-            onClick={handleCreateDataSource} 
+          <Button
+            onClick={handleCreateDataSource}
             variant="contained"
-            disabled={loading || !newDataSource.source_id || !newDataSource.name}
+            disabled={
+              loading || !newDataSource.source_id || !newDataSource.name
+            }
           >
             {loading ? <CircularProgress size={20} /> : '创建'}
           </Button>
@@ -489,7 +542,12 @@ export default function DataSourceManagementPage() {
       </Dialog>
 
       {/* 编辑数据源对话框 */}
-      <Dialog open={editDialog} onClose={() => setEditDialog(false)} maxWidth="sm" fullWidth>
+      <Dialog
+        open={editDialog}
+        onClose={() => setEditDialog(false)}
+        maxWidth="sm"
+        fullWidth
+      >
         <DialogTitle>编辑数据源</DialogTitle>
         <DialogContent>
           {selectedSource && (
@@ -529,5 +587,5 @@ export default function DataSourceManagementPage() {
         </DialogActions>
       </Dialog>
     </Box>
-  );
+  )
 }

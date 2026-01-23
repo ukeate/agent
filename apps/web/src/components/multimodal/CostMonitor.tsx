@@ -1,22 +1,39 @@
-import React from 'react';
-import { Card, Statistic, Row, Col, Typography, Tag, Progress, Tooltip } from 'antd';
-import { DollarOutlined, FileTextOutlined, ApiOutlined } from '@ant-design/icons';
-import { Pie } from '@ant-design/charts';
+import React from 'react'
+import {
+  Card,
+  Statistic,
+  Row,
+  Col,
+  Typography,
+  Tag,
+  Progress,
+  Tooltip,
+} from 'antd'
+import {
+  DollarOutlined,
+  FileTextOutlined,
+  ApiOutlined,
+} from '@ant-design/icons'
+import { Pie } from '@ant-design/charts'
 
-const { Text } = Typography;
+const { Text } = Typography
 
 interface CostMonitorProps {
-  totalCost: number;
-  totalTokens: number;
-  modelUsage: Record<string, number>;
+  totalCost: number
+  totalTokens: number
+  modelUsage: Record<string, number>
 }
 
-const CostMonitor: React.FC<CostMonitorProps> = ({ totalCost, totalTokens, modelUsage }) => {
+const CostMonitor: React.FC<CostMonitorProps> = ({
+  totalCost,
+  totalTokens,
+  modelUsage,
+}) => {
   // 准备饼图数据
   const pieData = Object.entries(modelUsage).map(([model, count]) => ({
     type: model,
-    value: count
-  }));
+    value: count,
+  }))
 
   const pieConfig = {
     data: pieData,
@@ -29,12 +46,12 @@ const CostMonitor: React.FC<CostMonitorProps> = ({ totalCost, totalTokens, model
       content: '{value}',
       style: {
         fontSize: 14,
-        textAlign: 'center'
-      }
+        textAlign: 'center',
+      },
     },
     interactions: [{ type: 'element-active' }],
-    height: 160
-  };
+    height: 160,
+  }
 
   return (
     <Card title="成本与使用监控" className="mb-4">
@@ -69,7 +86,9 @@ const CostMonitor: React.FC<CostMonitorProps> = ({ totalCost, totalTokens, model
         <Text strong>成本预警</Text>
         <Progress
           percent={Math.min((totalCost / 10) * 100, 100)}
-          status={totalCost > 8 ? 'exception' : totalCost > 5 ? 'normal' : 'success'}
+          status={
+            totalCost > 8 ? 'exception' : totalCost > 5 ? 'normal' : 'success'
+          }
           format={() => `$${totalCost.toFixed(2)} / $10.00`}
         />
         <Text type="secondary" className="text-xs">
@@ -102,7 +121,7 @@ const CostMonitor: React.FC<CostMonitorProps> = ({ totalCost, totalTokens, model
         </Tooltip>
       </div>
     </Card>
-  );
-};
+  )
+}
 
-export default CostMonitor;
+export default CostMonitor

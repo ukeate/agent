@@ -14,6 +14,7 @@ from src.ai.document_processing import (
     DocumentVersionManager
 )
 from src.ai.document_processing.chunkers import ChunkStrategy
+from src.core.logging import get_logger
 
 logger = get_logger(__name__)
 
@@ -459,4 +460,3 @@ async def delete_document(doc_id: str):
     del version_manager.versions[doc_id]
     version_manager.changes = [c for c in version_manager.changes if c.doc_id != doc_id]
     return JSONResponse(content={"success": True, "message": "文档已删除"})
-from src.core.logging import get_logger

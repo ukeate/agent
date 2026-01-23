@@ -10,6 +10,7 @@ from src.ai.memory.models import MemoryAnalytics, MemoryStatus, MemoryFilters
 from src.services.memory_service import memory_service
 from src.core.dependencies import get_current_user
 from src.api.base_model import ApiBaseModel
+from src.core.logging import get_logger
 
 logger = get_logger(__name__)
 
@@ -235,4 +236,3 @@ async def get_memory_system_health(
             "status": "error",
             "error": str(e)
         }
-from src.core.logging import get_logger

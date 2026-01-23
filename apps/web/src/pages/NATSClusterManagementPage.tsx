@@ -1,27 +1,27 @@
 import React, { useState, useEffect } from 'react'
-import { 
-  Card, 
-  Row, 
-  Col, 
-  Table, 
-  Button, 
-  Badge, 
-  Progress, 
-  Statistic, 
-  Modal, 
-  Form, 
-  Input, 
-  Select, 
-  Switch, 
-  Space, 
-  Typography, 
-  Alert, 
-  Tag, 
+import {
+  Card,
+  Row,
+  Col,
+  Table,
+  Button,
+  Badge,
+  Progress,
+  Statistic,
+  Modal,
+  Form,
+  Input,
+  Select,
+  Switch,
+  Space,
+  Typography,
+  Alert,
+  Tag,
   Divider,
   Tabs,
   Timeline,
   Tooltip,
-  notification
+  notification,
 } from 'antd'
 import {
   ClusterOutlined,
@@ -41,7 +41,7 @@ import {
   ExclamationCircleOutlined,
   EyeOutlined,
   EditOutlined,
-  CloudServerOutlined
+  CloudServerOutlined,
 } from '@ant-design/icons'
 
 const { Title, Text, Paragraph } = Typography
@@ -125,7 +125,7 @@ const NATSClusterManagementPage: React.FC = () => {
       lastSeen: '2025-08-26 12:45:30',
       routes: 2,
       subscriptions: 156,
-      slowConsumers: 0
+      slowConsumers: 0,
     },
     {
       id: 'nats-node-2',
@@ -146,7 +146,7 @@ const NATSClusterManagementPage: React.FC = () => {
       lastSeen: '2025-08-26 12:45:29',
       routes: 2,
       subscriptions: 134,
-      slowConsumers: 1
+      slowConsumers: 1,
     },
     {
       id: 'nats-node-3',
@@ -167,8 +167,8 @@ const NATSClusterManagementPage: React.FC = () => {
       lastSeen: '2025-08-26 12:45:31',
       routes: 2,
       subscriptions: 142,
-      slowConsumers: 0
-    }
+      slowConsumers: 0,
+    },
   ])
 
   const [streams, setStreams] = useState<StreamConfig[]>([
@@ -184,7 +184,7 @@ const NATSClusterManagementPage: React.FC = () => {
       compression: 's2',
       status: 'active',
       messages: 45632,
-      consumers: 5
+      consumers: 5,
     },
     {
       name: 'AGENTS_EVENTS',
@@ -198,7 +198,7 @@ const NATSClusterManagementPage: React.FC = () => {
       compression: 's2',
       status: 'active',
       messages: 128945,
-      consumers: 8
+      consumers: 8,
     },
     {
       name: 'AGENTS_DIRECT',
@@ -212,8 +212,8 @@ const NATSClusterManagementPage: React.FC = () => {
       compression: 'none',
       status: 'active',
       messages: 8467,
-      consumers: 12
-    }
+      consumers: 12,
+    },
   ])
 
   const [consumers, setConsumers] = useState<ConsumerInfo[]>([
@@ -226,14 +226,14 @@ const NATSClusterManagementPage: React.FC = () => {
         ackPolicy: 'explicit',
         replayPolicy: 'instant',
         maxDeliver: 3,
-        maxWaiting: 100
+        maxWaiting: 100,
       },
       delivered: 8467,
       acknowledged: 8445,
       pending: 22,
       redelivered: 12,
       numWaiting: 5,
-      lastActive: '2025-08-26 12:44:55'
+      lastActive: '2025-08-26 12:44:55',
     },
     {
       stream: 'AGENTS_EVENTS',
@@ -243,15 +243,15 @@ const NATSClusterManagementPage: React.FC = () => {
         ackPolicy: 'none',
         replayPolicy: 'instant',
         maxDeliver: 1,
-        maxWaiting: 0
+        maxWaiting: 0,
       },
       delivered: 24589,
       acknowledged: 24589,
       pending: 0,
       redelivered: 0,
       numWaiting: 0,
-      lastActive: '2025-08-26 12:45:12'
-    }
+      lastActive: '2025-08-26 12:45:12',
+    },
   ])
 
   const [loading, setLoading] = useState(false)
@@ -267,16 +267,31 @@ const NATSClusterManagementPage: React.FC = () => {
       key: 'info',
       render: (record: ClusterNode) => (
         <div>
-          <div style={{ display: 'flex', alignItems: 'center', marginBottom: '4px' }}>
-            <Badge 
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              marginBottom: '4px',
+            }}
+          >
+            <Badge
               status={
-                record.status === 'online' ? 'success' : 
-                record.status === 'offline' ? 'default' : 
-                record.status === 'error' ? 'error' : 'processing'
+                record.status === 'online'
+                  ? 'success'
+                  : record.status === 'offline'
+                    ? 'default'
+                    : record.status === 'error'
+                      ? 'error'
+                      : 'processing'
               }
             />
-            <Text strong style={{ marginLeft: '8px' }}>{record.name}</Text>
-            <Tag color={record.role === 'primary' ? 'gold' : 'blue'} style={{ marginLeft: '8px' }}>
+            <Text strong style={{ marginLeft: '8px' }}>
+              {record.name}
+            </Text>
+            <Tag
+              color={record.role === 'primary' ? 'gold' : 'blue'}
+              style={{ marginLeft: '8px' }}
+            >
               {record.role === 'primary' ? '主节点' : '从节点'}
             </Tag>
           </div>
@@ -284,7 +299,7 @@ const NATSClusterManagementPage: React.FC = () => {
             {record.host}:{record.port} | v{record.version}
           </Text>
         </div>
-      )
+      ),
     },
     {
       title: '连接状态',
@@ -292,16 +307,24 @@ const NATSClusterManagementPage: React.FC = () => {
       render: (record: ClusterNode) => (
         <div>
           <div style={{ marginBottom: '4px' }}>
-            <Text>{record.connections}/{record.maxConnections}</Text>
+            <Text>
+              {record.connections}/{record.maxConnections}
+            </Text>
           </div>
-          <Progress 
-            percent={Math.round((record.connections / record.maxConnections) * 100)} 
+          <Progress
+            percent={Math.round(
+              (record.connections / record.maxConnections) * 100
+            )}
             size="small"
-            status={record.connections > record.maxConnections * 0.8 ? 'exception' : 'success'}
+            status={
+              record.connections > record.maxConnections * 0.8
+                ? 'exception'
+                : 'success'
+            }
             showInfo={false}
           />
         </div>
-      )
+      ),
     },
     {
       title: '资源使用',
@@ -309,26 +332,42 @@ const NATSClusterManagementPage: React.FC = () => {
       render: (record: ClusterNode) => (
         <div>
           <div style={{ marginBottom: '4px' }}>
-            <Text style={{ fontSize: '12px' }}>CPU: {record.cpu.toFixed(1)}%</Text>
-            <Progress 
-              percent={record.cpu} 
-              size="small" 
-              status={record.cpu > 80 ? 'exception' : record.cpu > 60 ? 'active' : 'success'}
+            <Text style={{ fontSize: '12px' }}>
+              CPU: {record.cpu.toFixed(1)}%
+            </Text>
+            <Progress
+              percent={record.cpu}
+              size="small"
+              status={
+                record.cpu > 80
+                  ? 'exception'
+                  : record.cpu > 60
+                    ? 'active'
+                    : 'success'
+              }
               showInfo={false}
               style={{ marginBottom: '2px' }}
             />
           </div>
           <div>
-            <Text style={{ fontSize: '12px' }}>内存: {record.memory.toFixed(1)}%</Text>
-            <Progress 
-              percent={record.memory} 
+            <Text style={{ fontSize: '12px' }}>
+              内存: {record.memory.toFixed(1)}%
+            </Text>
+            <Progress
+              percent={record.memory}
               size="small"
-              status={record.memory > 85 ? 'exception' : record.memory > 70 ? 'active' : 'success'}
+              status={
+                record.memory > 85
+                  ? 'exception'
+                  : record.memory > 70
+                    ? 'active'
+                    : 'success'
+              }
               showInfo={false}
             />
           </div>
         </div>
-      )
+      ),
     },
     {
       title: '消息统计',
@@ -336,16 +375,20 @@ const NATSClusterManagementPage: React.FC = () => {
       render: (record: ClusterNode) => (
         <div>
           <div style={{ marginBottom: '2px' }}>
-            <Text style={{ fontSize: '12px' }}>消息: {record.messages.toLocaleString()}</Text>
+            <Text style={{ fontSize: '12px' }}>
+              消息: {record.messages.toLocaleString()}
+            </Text>
           </div>
           <div style={{ marginBottom: '2px' }}>
-            <Text style={{ fontSize: '12px' }}>订阅: {record.subscriptions}</Text>
+            <Text style={{ fontSize: '12px' }}>
+              订阅: {record.subscriptions}
+            </Text>
           </div>
           <div>
             <Text style={{ fontSize: '12px' }}>路由: {record.routes}</Text>
           </div>
         </div>
-      )
+      ),
     },
     {
       title: '运行时间',
@@ -358,7 +401,7 @@ const NATSClusterManagementPage: React.FC = () => {
             最后心跳: {record.lastSeen}
           </Text>
         </div>
-      )
+      ),
     },
     {
       title: '操作',
@@ -366,9 +409,9 @@ const NATSClusterManagementPage: React.FC = () => {
       render: (record: ClusterNode) => (
         <Space>
           <Tooltip title="查看详情">
-            <Button 
-              type="text" 
-              size="small" 
+            <Button
+              type="text"
+              size="small"
               icon={<EyeOutlined />}
               onClick={() => {
                 setSelectedNode(record)
@@ -377,18 +420,18 @@ const NATSClusterManagementPage: React.FC = () => {
             />
           </Tooltip>
           <Tooltip title="配置节点">
-            <Button 
-              type="text" 
-              size="small" 
+            <Button
+              type="text"
+              size="small"
               icon={<SettingOutlined />}
               onClick={() => handleConfigureNode(record)}
             />
           </Tooltip>
           {record.status === 'online' ? (
             <Tooltip title="停止节点">
-              <Button 
-                type="text" 
-                size="small" 
+              <Button
+                type="text"
+                size="small"
                 icon={<StopOutlined />}
                 danger
                 onClick={() => handleStopNode(record)}
@@ -396,17 +439,17 @@ const NATSClusterManagementPage: React.FC = () => {
             </Tooltip>
           ) : (
             <Tooltip title="启动节点">
-              <Button 
-                type="text" 
-                size="small" 
+              <Button
+                type="text"
+                size="small"
                 icon={<PlayCircleOutlined />}
                 onClick={() => handleStartNode(record)}
               />
             </Tooltip>
           )}
         </Space>
-      )
-    }
+      ),
+    },
   ]
 
   const streamColumns = [
@@ -418,27 +461,37 @@ const NATSClusterManagementPage: React.FC = () => {
         <div>
           <div style={{ display: 'flex', alignItems: 'center' }}>
             <Badge status={record.status === 'active' ? 'success' : 'error'} />
-            <Text strong style={{ marginLeft: '8px' }}>{name}</Text>
+            <Text strong style={{ marginLeft: '8px' }}>
+              {name}
+            </Text>
           </div>
           <Text type="secondary" style={{ fontSize: '12px' }}>
             主题: {record.subjects.join(', ')}
           </Text>
         </div>
-      )
+      ),
     },
     {
       title: '保留策略',
       dataIndex: 'retention',
       key: 'retention',
       render: (retention: string) => (
-        <Tag color={
-          retention === 'limits' ? 'blue' : 
-          retention === 'interest' ? 'green' : 'orange'
-        }>
-          {retention === 'limits' ? '限制' : 
-           retention === 'interest' ? '兴趣' : '工作队列'}
+        <Tag
+          color={
+            retention === 'limits'
+              ? 'blue'
+              : retention === 'interest'
+                ? 'green'
+                : 'orange'
+          }
+        >
+          {retention === 'limits'
+            ? '限制'
+            : retention === 'interest'
+              ? '兴趣'
+              : '工作队列'}
         </Tag>
-      )
+      ),
     },
     {
       title: '存储配置',
@@ -451,9 +504,7 @@ const NATSClusterManagementPage: React.FC = () => {
             </Text>
           </div>
           <div style={{ marginBottom: '2px' }}>
-            <Text style={{ fontSize: '12px' }}>
-              副本: {record.replicas}
-            </Text>
+            <Text style={{ fontSize: '12px' }}>副本: {record.replicas}</Text>
           </div>
           <div>
             <Text style={{ fontSize: '12px' }}>
@@ -461,7 +512,7 @@ const NATSClusterManagementPage: React.FC = () => {
             </Text>
           </div>
         </div>
-      )
+      ),
     },
     {
       title: '限制配置',
@@ -479,12 +530,10 @@ const NATSClusterManagementPage: React.FC = () => {
             </Text>
           </div>
           <div>
-            <Text style={{ fontSize: '12px' }}>
-              时间: {record.maxAge}
-            </Text>
+            <Text style={{ fontSize: '12px' }}>时间: {record.maxAge}</Text>
           </div>
         </div>
-      )
+      ),
     },
     {
       title: '使用统计',
@@ -497,12 +546,10 @@ const NATSClusterManagementPage: React.FC = () => {
             </Text>
           </div>
           <div>
-            <Text style={{ fontSize: '12px' }}>
-              消费者: {record.consumers}
-            </Text>
+            <Text style={{ fontSize: '12px' }}>消费者: {record.consumers}</Text>
           </div>
         </div>
-      )
+      ),
     },
     {
       title: '操作',
@@ -513,8 +560,8 @@ const NATSClusterManagementPage: React.FC = () => {
           <Button type="text" size="small" icon={<EditOutlined />} />
           <Button type="text" size="small" icon={<DeleteOutlined />} danger />
         </Space>
-      )
-    }
+      ),
+    },
   ]
 
   const consumerColumns = [
@@ -530,7 +577,7 @@ const NATSClusterManagementPage: React.FC = () => {
             Stream: {record.stream}
           </Text>
         </div>
-      )
+      ),
     },
     {
       title: '配置',
@@ -546,7 +593,7 @@ const NATSClusterManagementPage: React.FC = () => {
             ACK策略: {record.config.ackPolicy}
           </Text>
         </div>
-      )
+      ),
     },
     {
       title: '消息统计',
@@ -564,12 +611,10 @@ const NATSClusterManagementPage: React.FC = () => {
             </Text>
           </div>
           <div>
-            <Text style={{ fontSize: '12px' }}>
-              待处理: {record.pending}
-            </Text>
+            <Text style={{ fontSize: '12px' }}>待处理: {record.pending}</Text>
           </div>
         </div>
-      )
+      ),
     },
     {
       title: '状态',
@@ -591,7 +636,7 @@ const NATSClusterManagementPage: React.FC = () => {
             最后活跃: {record.lastActive}
           </Text>
         </div>
-      )
+      ),
     },
     {
       title: '操作',
@@ -602,8 +647,8 @@ const NATSClusterManagementPage: React.FC = () => {
           <Button type="text" size="small" icon={<EditOutlined />} />
           <Button type="text" size="small" icon={<DeleteOutlined />} danger />
         </Space>
-      )
-    }
+      ),
+    },
   ]
 
   const handleRefresh = async () => {
@@ -612,7 +657,7 @@ const NATSClusterManagementPage: React.FC = () => {
     setTimeout(() => {
       notification.success({
         message: '刷新成功',
-        description: '集群状态已更新'
+        description: '集群状态已更新',
       })
       setLoading(false)
     }, 1000)
@@ -625,9 +670,9 @@ const NATSClusterManagementPage: React.FC = () => {
       onOk: () => {
         notification.success({
           message: '节点启动成功',
-          description: `${node.name} 已成功启动`
+          description: `${node.name} 已成功启动`,
         })
-      }
+      },
     })
   }
 
@@ -638,16 +683,16 @@ const NATSClusterManagementPage: React.FC = () => {
       onOk: () => {
         notification.warning({
           message: '节点已停止',
-          description: `${node.name} 已停止运行`
+          description: `${node.name} 已停止运行`,
         })
-      }
+      },
     })
   }
 
   const handleConfigureNode = (node: ClusterNode) => {
     notification.info({
       message: '配置节点',
-      description: `打开 ${node.name} 的配置页面`
+      description: `打开 ${node.name} 的配置页面`,
     })
   }
 
@@ -655,16 +700,22 @@ const NATSClusterManagementPage: React.FC = () => {
     const onlineNodes = nodes.filter(n => n.status === 'online').length
     const totalNodes = nodes.length
     const healthPercent = (onlineNodes / totalNodes) * 100
-    
-    if (healthPercent === 100) return { status: 'healthy', color: 'green', text: '健康' }
-    if (healthPercent >= 80) return { status: 'warning', color: 'orange', text: '警告' }
+
+    if (healthPercent === 100)
+      return { status: 'healthy', color: 'green', text: '健康' }
+    if (healthPercent >= 80)
+      return { status: 'warning', color: 'orange', text: '警告' }
     return { status: 'error', color: 'red', text: '异常' }
   }
 
   const clusterHealth = getClusterHealth()
-  const totalConnections = nodes.reduce((sum, node) => sum + node.connections, 0)
+  const totalConnections = nodes.reduce(
+    (sum, node) => sum + node.connections,
+    0
+  )
   const totalMessages = nodes.reduce((sum, node) => sum + node.messages, 0)
-  const avgCpuUsage = nodes.reduce((sum, node) => sum + node.cpu, 0) / nodes.length
+  const avgCpuUsage =
+    nodes.reduce((sum, node) => sum + node.cpu, 0) / nodes.length
 
   return (
     <div style={{ padding: '24px', background: '#f5f5f5', minHeight: '100vh' }}>
@@ -674,7 +725,8 @@ const NATSClusterManagementPage: React.FC = () => {
           NATS JetStream集群管理
         </Title>
         <Paragraph>
-          管理和监控NATS JetStream集群，包括节点状态、Stream配置、消费者管理等功能
+          管理和监控NATS
+          JetStream集群，包括节点状态、Stream配置、消费者管理等功能
         </Paragraph>
       </div>
 
@@ -683,9 +735,9 @@ const NATSClusterManagementPage: React.FC = () => {
         <Alert
           message="集群状态警告"
           description={
-            clusterHealth.status === 'warning' 
-              ? "部分节点离线，建议检查网络连接和节点状态" 
-              : "多个节点离线，集群可能无法正常工作，请立即处理"
+            clusterHealth.status === 'warning'
+              ? '部分节点离线，建议检查网络连接和节点状态'
+              : '多个节点离线，集群可能无法正常工作，请立即处理'
           }
           type={clusterHealth.status === 'warning' ? 'warning' : 'error'}
           showIcon
@@ -701,16 +753,23 @@ const NATSClusterManagementPage: React.FC = () => {
               title="集群健康度"
               value={clusterHealth.text}
               valueStyle={{ color: clusterHealth.color }}
-              prefix={clusterHealth.status === 'healthy' ? <CheckCircleOutlined /> : <ExclamationCircleOutlined />}
+              prefix={
+                clusterHealth.status === 'healthy' ? (
+                  <CheckCircleOutlined />
+                ) : (
+                  <ExclamationCircleOutlined />
+                )
+              }
             />
             <div style={{ marginTop: '8px' }}>
               <Text type="secondary">
-                在线节点: {nodes.filter(n => n.status === 'online').length}/{nodes.length}
+                在线节点: {nodes.filter(n => n.status === 'online').length}/
+                {nodes.length}
               </Text>
             </div>
           </Card>
         </Col>
-        
+
         <Col xs={24} sm={6}>
           <Card>
             <Statistic
@@ -722,12 +781,13 @@ const NATSClusterManagementPage: React.FC = () => {
             />
             <div style={{ marginTop: '8px' }}>
               <Text type="secondary">
-                最大容量: {nodes.reduce((sum, node) => sum + node.maxConnections, 0)}
+                最大容量:{' '}
+                {nodes.reduce((sum, node) => sum + node.maxConnections, 0)}
               </Text>
             </div>
           </Card>
         </Col>
-        
+
         <Col xs={24} sm={6}>
           <Card>
             <Statistic
@@ -744,7 +804,7 @@ const NATSClusterManagementPage: React.FC = () => {
             </div>
           </Card>
         </Col>
-        
+
         <Col xs={24} sm={6}>
           <Card>
             <Statistic
@@ -756,9 +816,9 @@ const NATSClusterManagementPage: React.FC = () => {
               prefix={<MonitorOutlined />}
             />
             <div style={{ marginTop: '8px' }}>
-              <Progress 
-                percent={avgCpuUsage} 
-                size="small" 
+              <Progress
+                percent={avgCpuUsage}
+                size="small"
                 showInfo={false}
                 status={avgCpuUsage > 80 ? 'exception' : 'success'}
               />
@@ -769,24 +829,31 @@ const NATSClusterManagementPage: React.FC = () => {
 
       {/* 主要管理界面 */}
       <Card>
-        <div style={{ marginBottom: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div
+          style={{
+            marginBottom: '16px',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+          }}
+        >
           <Space>
-            <Button 
-              type="primary" 
+            <Button
+              type="primary"
               icon={<PlusOutlined />}
               onClick={() => setNodeModalVisible(true)}
             >
               添加节点
             </Button>
-            <Button 
-              icon={<ReloadOutlined />} 
+            <Button
+              icon={<ReloadOutlined />}
               loading={loading}
               onClick={handleRefresh}
             >
               刷新状态
             </Button>
           </Space>
-          
+
           <Space>
             <Button icon={<SettingOutlined />}>集群配置</Button>
             <Button icon={<SafetyCertificateOutlined />}>安全设置</Button>
@@ -804,11 +871,15 @@ const NATSClusterManagementPage: React.FC = () => {
               scroll={{ x: 1200 }}
             />
           </TabPane>
-          
-          <TabPane tab="Stream管理" key="streams" icon={<CloudServerOutlined />}>
+
+          <TabPane
+            tab="Stream管理"
+            key="streams"
+            icon={<CloudServerOutlined />}
+          >
             <div style={{ marginBottom: '16px' }}>
-              <Button 
-                type="primary" 
+              <Button
+                type="primary"
                 icon={<PlusOutlined />}
                 onClick={() => setStreamModalVisible(true)}
               >
@@ -823,11 +894,15 @@ const NATSClusterManagementPage: React.FC = () => {
               pagination={{ pageSize: 10 }}
             />
           </TabPane>
-          
-          <TabPane tab="消费者管理" key="consumers" icon={<ThunderboltOutlined />}>
+
+          <TabPane
+            tab="消费者管理"
+            key="consumers"
+            icon={<ThunderboltOutlined />}
+          >
             <div style={{ marginBottom: '16px' }}>
-              <Button 
-                type="primary" 
+              <Button
+                type="primary"
                 icon={<PlusOutlined />}
                 onClick={() => setConsumerModalVisible(true)}
               >
@@ -837,7 +912,7 @@ const NATSClusterManagementPage: React.FC = () => {
             <Table
               columns={consumerColumns}
               dataSource={consumers}
-              rowKey={(record) => `${record.stream}-${record.name}`}
+              rowKey={record => `${record.stream}-${record.name}`}
               size="small"
               pagination={{ pageSize: 10 }}
             />
@@ -853,7 +928,7 @@ const NATSClusterManagementPage: React.FC = () => {
         footer={[
           <Button key="close" onClick={() => setNodeModalVisible(false)}>
             关闭
-          </Button>
+          </Button>,
         ]}
         width={800}
       >
@@ -872,7 +947,9 @@ const NATSClusterManagementPage: React.FC = () => {
                   </div>
                   <div style={{ marginBottom: '8px' }}>
                     <Text strong>地址: </Text>
-                    <Text>{selectedNode.host}:{selectedNode.port}</Text>
+                    <Text>
+                      {selectedNode.host}:{selectedNode.port}
+                    </Text>
                   </div>
                   <div style={{ marginBottom: '8px' }}>
                     <Text strong>版本: </Text>
@@ -880,18 +957,24 @@ const NATSClusterManagementPage: React.FC = () => {
                   </div>
                   <div>
                     <Text strong>角色: </Text>
-                    <Tag color={selectedNode.role === 'primary' ? 'gold' : 'blue'}>
+                    <Tag
+                      color={selectedNode.role === 'primary' ? 'gold' : 'blue'}
+                    >
                       {selectedNode.role === 'primary' ? '主节点' : '从节点'}
                     </Tag>
                   </div>
                 </Card>
               </Col>
-              
+
               <Col span={12}>
                 <Card title="运行状态" size="small">
                   <div style={{ marginBottom: '8px' }}>
                     <Text strong>状态: </Text>
-                    <Badge status={selectedNode.status === 'online' ? 'success' : 'error'} />
+                    <Badge
+                      status={
+                        selectedNode.status === 'online' ? 'success' : 'error'
+                      }
+                    />
                     <Text>{selectedNode.status}</Text>
                   </div>
                   <div style={{ marginBottom: '8px' }}>
@@ -904,54 +987,77 @@ const NATSClusterManagementPage: React.FC = () => {
                   </div>
                   <div>
                     <Text strong>慢消费者: </Text>
-                    <Text style={{ color: selectedNode.slowConsumers > 0 ? '#ff4d4f' : '#52c41a' }}>
+                    <Text
+                      style={{
+                        color:
+                          selectedNode.slowConsumers > 0
+                            ? '#ff4d4f'
+                            : '#52c41a',
+                      }}
+                    >
                       {selectedNode.slowConsumers}
                     </Text>
                   </div>
                 </Card>
               </Col>
             </Row>
-            
+
             <Row gutter={[16, 16]} style={{ marginTop: '16px' }}>
               <Col span={24}>
                 <Card title="性能指标" size="small">
                   <Row gutter={[16, 16]}>
                     <Col span={8}>
-                      <Statistic 
-                        title="CPU使用率" 
-                        value={selectedNode.cpu} 
-                        precision={1} 
-                        suffix="%" 
+                      <Statistic
+                        title="CPU使用率"
+                        value={selectedNode.cpu}
+                        precision={1}
+                        suffix="%"
                       />
-                      <Progress 
-                        percent={selectedNode.cpu} 
-                        size="small" 
+                      <Progress
+                        percent={selectedNode.cpu}
+                        size="small"
                         status={selectedNode.cpu > 80 ? 'exception' : 'success'}
                       />
                     </Col>
                     <Col span={8}>
-                      <Statistic 
-                        title="内存使用率" 
-                        value={selectedNode.memory} 
-                        precision={1} 
-                        suffix="%" 
+                      <Statistic
+                        title="内存使用率"
+                        value={selectedNode.memory}
+                        precision={1}
+                        suffix="%"
                       />
-                      <Progress 
-                        percent={selectedNode.memory} 
+                      <Progress
+                        percent={selectedNode.memory}
                         size="small"
-                        status={selectedNode.memory > 85 ? 'exception' : 'success'}
+                        status={
+                          selectedNode.memory > 85 ? 'exception' : 'success'
+                        }
                       />
                     </Col>
                     <Col span={8}>
-                      <Statistic 
-                        title="连接使用率" 
-                        value={(selectedNode.connections / selectedNode.maxConnections * 100).toFixed(1)} 
-                        suffix="%" 
+                      <Statistic
+                        title="连接使用率"
+                        value={(
+                          (selectedNode.connections /
+                            selectedNode.maxConnections) *
+                          100
+                        ).toFixed(1)}
+                        suffix="%"
                       />
-                      <Progress 
-                        percent={(selectedNode.connections / selectedNode.maxConnections) * 100} 
+                      <Progress
+                        percent={
+                          (selectedNode.connections /
+                            selectedNode.maxConnections) *
+                          100
+                        }
                         size="small"
-                        status={(selectedNode.connections / selectedNode.maxConnections) > 0.8 ? 'exception' : 'success'}
+                        status={
+                          selectedNode.connections /
+                            selectedNode.maxConnections >
+                          0.8
+                            ? 'exception'
+                            : 'success'
+                        }
                       />
                     </Col>
                   </Row>

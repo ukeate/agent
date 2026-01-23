@@ -115,12 +115,18 @@ class TestReActIntegration:
             assert chat_result["completed"] is True
             
             # 获取对话历史
-            history_result = await service.get_conversation_history(conversation_id)
+            history_result = await service.get_conversation_history(
+                conversation_id,
+                user_id="test_user"
+            )
             assert history_result["conversation_id"] == conversation_id
             assert len(history_result["messages"]) >= 1
             
             # 获取智能体状态
-            status_result = await service.get_agent_status(conversation_id)
+            status_result = await service.get_agent_status(
+                conversation_id,
+                user_id="test_user"
+            )
             assert status_result["conversation_id"] == conversation_id
             assert status_result["agent_type"] == "react"
 

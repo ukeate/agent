@@ -340,7 +340,7 @@ const NLQueryInterface: React.FC<NLQueryInterfaceProps> = ({
         const r = await apiFetch(buildApiUrl('/api/v1/knowledge-graph/query'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ query: cypher, parameters: {}), read_only: true }),
+          body: JSON.stringify({ query: cypher, parameters: {}, read_only: true }),
         });
         const resp = await r.json();
         if (!resp?.success) throw new Error(resp?.error || resp?.detail || '查询执行失败');

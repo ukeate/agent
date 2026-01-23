@@ -18,6 +18,7 @@ from src.api.base_model import ApiBaseModel
 from src.ai.rag.multimodal_qa_chain import MultimodalQAChain
 from src.ai.rag.document_processor import MultimodalDocumentProcessor
 from src.ai.rag.multimodal_vectorstore import MultimodalVectorStore
+from src.core.logging import get_logger
 
 logger = get_logger(__name__)
 
@@ -574,4 +575,3 @@ async def clear_query_cache(
     except Exception as e:
         logger.error(f"Error clearing cache: {e}")
         raise HTTPException(status_code=500, detail=str(e))
-from src.core.logging import get_logger

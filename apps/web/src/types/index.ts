@@ -31,6 +31,8 @@ export interface Conversation {
   updatedAt: string
   messageCount?: number
   userMessageCount?: number
+  status?: string
+  lastMessage?: Pick<Message, 'id' | 'content' | 'role' | 'timestamp'>
 }
 
 export interface AgentStatus {
@@ -45,21 +47,4 @@ export interface ApiResponse<T = any> {
   success: boolean
   error?: string
   message?: string
-}
-
-export interface ChatRequest {
-  message: string
-  conversationId?: string
-  stream?: boolean
-}
-
-export interface ChatResponse {
-  message: string
-  conversation_id?: string
-  message_id: string
-  reasoning_steps: string[]
-  tool_calls: any[]
-  metadata: Record<string, any>
-  response_time: number
-  token_usage?: Record<string, number> | null
 }

@@ -2,7 +2,7 @@
  * 共享API类型定义
  */
 
-export interface ApiResponse<T = any> {
+export interface ApiResponse<T = unknown> {
   success: boolean;
   data?: T;
   error?: string;
@@ -23,7 +23,7 @@ export interface ErrorResponse {
   success: false;
   error: string;
   code?: string;
-  details?: Record<string, any>;
+  details?: Record<string, unknown>;
   timestamp: string;
 }
 

@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
-import {
+import React, { useState, useEffect } from 'react'
 import { logger } from '../utils/logger'
+import {
   Layout,
   Card,
   Row,
@@ -25,8 +25,8 @@ import { logger } from '../utils/logger'
   Alert,
   Divider,
   Badge,
-  Popconfirm
-} from 'antd';
+  Popconfirm,
+} from 'antd'
 import {
   PlayCircleOutlined,
   PauseCircleOutlined,
@@ -40,8 +40,8 @@ import {
   ThunderboltOutlined,
   InfoCircleOutlined,
   WarningOutlined,
-  CheckCircleOutlined
-} from '@ant-design/icons';
+  CheckCircleOutlined,
+} from '@ant-design/icons'
 import {
   clusterManagementService,
   AgentInfo,
@@ -51,159 +51,163 @@ import {
   AgentCreateRequest,
   GroupCreateRequest,
   ScalingPolicyRequest,
-  ManualScalingRequest
-} from '../services/clusterManagementService';
+  ManualScalingRequest,
+} from '../services/clusterManagementService'
 
-const { Title, Text } = Typography;
-const { TabPane } = Tabs;
+const { Title, Text } = Typography
+const { TabPane } = Tabs
 
 const AgentClusterManagementPage: React.FC = () => {
-  const [loading, setLoading] = useState(false);
-  const [agents, setAgents] = useState<AgentInfo[]>([]);
-  const [groups, setGroups] = useState<AgentGroup[]>([]);
-  const [policies, setPolicies] = useState<ScalingPolicy[]>([]);
-  const [clusterStats, setClusterStats] = useState<ClusterStats | null>(null);
-  const [selectedAgent, setSelectedAgent] = useState<AgentInfo | null>(null);
-  const [createAgentVisible, setCreateAgentVisible] = useState(false);
-  const [createGroupVisible, setCreateGroupVisible] = useState(false);
-  const [createPolicyVisible, setCreatePolicyVisible] = useState(false);
-  const [manualScalingVisible, setManualScalingVisible] = useState(false);
-  const [selectedGroup, setSelectedGroup] = useState<string>('');
-  const [agentDetailsVisible, setAgentDetailsVisible] = useState(false);
-  const [activeTab, setActiveTab] = useState('agents');
+  const [loading, setLoading] = useState(false)
+  const [agents, setAgents] = useState<AgentInfo[]>([])
+  const [groups, setGroups] = useState<AgentGroup[]>([])
+  const [policies, setPolicies] = useState<ScalingPolicy[]>([])
+  const [clusterStats, setClusterStats] = useState<ClusterStats | null>(null)
+  const [selectedAgent, setSelectedAgent] = useState<AgentInfo | null>(null)
+  const [createAgentVisible, setCreateAgentVisible] = useState(false)
+  const [createGroupVisible, setCreateGroupVisible] = useState(false)
+  const [createPolicyVisible, setCreatePolicyVisible] = useState(false)
+  const [manualScalingVisible, setManualScalingVisible] = useState(false)
+  const [selectedGroup, setSelectedGroup] = useState<string>('')
+  const [agentDetailsVisible, setAgentDetailsVisible] = useState(false)
+  const [activeTab, setActiveTab] = useState('agents')
 
-  const [createAgentForm] = Form.useForm();
-  const [createGroupForm] = Form.useForm();
-  const [createPolicyForm] = Form.useForm();
-  const [manualScalingForm] = Form.useForm();
+  const [createAgentForm] = Form.useForm()
+  const [createGroupForm] = Form.useForm()
+  const [createPolicyForm] = Form.useForm()
+  const [manualScalingForm] = Form.useForm()
 
   useEffect(() => {
-    loadData();
-    const interval = setInterval(loadData, 30000);
-    return () => clearInterval(interval);
-  }, []);
+    loadData()
+    const interval = setInterval(loadData, 30000)
+    return () => clearInterval(interval)
+  }, [])
 
   const loadData = async () => {
-    setLoading(true);
+    setLoading(true)
     try {
-      const [agentsData, groupsData, policiesData, statsData] = await Promise.all([
-        clusterManagementService.getAgents(),
-        clusterManagementService.getGroups(),
-        clusterManagementService.getScalingPolicies(),
-        clusterManagementService.getClusterStats()
-      ]);
+      const [agentsData, groupsData, policiesData, statsData] =
+        await Promise.all([
+          clusterManagementService.getAgents(),
+          clusterManagementService.getGroups(),
+          clusterManagementService.getScalingPolicies(),
+          clusterManagementService.getClusterStats(),
+        ])
 
-      setAgents(agentsData);
-      setGroups(groupsData);
-      setPolicies(policiesData);
-      setClusterStats(statsData);
+      setAgents(agentsData)
+      setGroups(groupsData)
+      setPolicies(policiesData)
+      setClusterStats(statsData)
     } catch (error) {
-      message.error('加载数据失败');
-      logger.error(error);
+      message.error('加载数据失败')
+      logger.error(error)
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
+  }
 
-  const handleAgentAction = async (agentId: string, action: 'start' | 'stop' | 'restart' | 'delete') => {
+  const handleAgentAction = async (
+    agentId: string,
+    action: 'start' | 'stop' | 'restart' | 'delete'
+  ) => {
     try {
-      let result;
+      let result
       switch (action) {
         case 'start':
-          result = await clusterManagementService.startAgent(agentId);
-          break;
+          result = await clusterManagementService.startAgent(agentId)
+          break
         case 'stop':
-          result = await clusterManagementService.stopAgent(agentId);
-          break;
+          result = await clusterManagementService.stopAgent(agentId)
+          break
         case 'restart':
-          result = await clusterManagementService.restartAgent(agentId);
-          break;
+          result = await clusterManagementService.restartAgent(agentId)
+          break
         case 'delete':
-          await clusterManagementService.deleteAgent(agentId);
-          message.success('智能体删除成功');
-          loadData();
-          return;
+          await clusterManagementService.deleteAgent(agentId)
+          message.success('智能体删除成功')
+          loadData()
+          return
       }
 
       if (result?.success) {
-        message.success(`智能体${action}操作成功`);
-        loadData();
+        message.success(`智能体${action}操作成功`)
+        loadData()
       } else {
-        message.error(result?.message || `智能体${action}操作失败`);
+        message.error(result?.message || `智能体${action}操作失败`)
       }
     } catch (error) {
-      const detail = (error as any)?.response?.data?.detail;
-      const errorMessage = detail || (error as Error)?.message || '未知错误';
-      message.error(`智能体操作失败: ${errorMessage}`);
+      const detail = (error as any)?.response?.data?.detail
+      const errorMessage = detail || (error as Error)?.message || '未知错误'
+      message.error(`智能体操作失败: ${errorMessage}`)
     }
-  };
+  }
 
   const handleCreateAgent = async (values: AgentCreateRequest) => {
     try {
-      await clusterManagementService.createAgent(values);
-      message.success('智能体创建成功');
-      setCreateAgentVisible(false);
-      createAgentForm.resetFields();
-      loadData();
+      await clusterManagementService.createAgent(values)
+      message.success('智能体创建成功')
+      setCreateAgentVisible(false)
+      createAgentForm.resetFields()
+      loadData()
     } catch (error) {
-      message.error('智能体创建失败');
+      message.error('智能体创建失败')
     }
-  };
+  }
 
   const handleCreateGroup = async (values: GroupCreateRequest) => {
     try {
-      await clusterManagementService.createGroup(values);
-      message.success('分组创建成功');
-      setCreateGroupVisible(false);
-      createGroupForm.resetFields();
-      loadData();
+      await clusterManagementService.createGroup(values)
+      message.success('分组创建成功')
+      setCreateGroupVisible(false)
+      createGroupForm.resetFields()
+      loadData()
     } catch (error) {
-      message.error('分组创建失败');
+      message.error('分组创建失败')
     }
-  };
+  }
 
   const handleCreatePolicy = async (values: ScalingPolicyRequest) => {
     try {
-      await clusterManagementService.createScalingPolicy(values);
-      message.success('扩缩容策略创建成功');
-      setCreatePolicyVisible(false);
-      createPolicyForm.resetFields();
-      loadData();
+      await clusterManagementService.createScalingPolicy(values)
+      message.success('扩缩容策略创建成功')
+      setCreatePolicyVisible(false)
+      createPolicyForm.resetFields()
+      loadData()
     } catch (error) {
-      message.error('扩缩容策略创建失败');
+      message.error('扩缩容策略创建失败')
     }
-  };
+  }
 
   const handleManualScaling = async (values: ManualScalingRequest) => {
     try {
-      await clusterManagementService.manualScale(selectedGroup, values);
-      message.success('手动扩缩容成功');
-      setManualScalingVisible(false);
-      manualScalingForm.resetFields();
-      loadData();
+      await clusterManagementService.manualScale(selectedGroup, values)
+      message.success('手动扩缩容成功')
+      setManualScalingVisible(false)
+      manualScalingForm.resetFields()
+      loadData()
     } catch (error) {
-      message.error('手动扩缩容失败');
+      message.error('手动扩缩容失败')
     }
-  };
+  }
 
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'online':
       case 'running':
-        return 'success';
+        return 'success'
       case 'offline':
       case 'stopped':
-        return 'default';
+        return 'default'
       case 'error':
       case 'failed':
-        return 'error';
+        return 'error'
       case 'starting':
       case 'stopping':
-        return 'processing';
+        return 'processing'
       default:
-        return 'default';
+        return 'default'
     }
-  };
+  }
 
   const agentColumns = [
     {
@@ -240,7 +244,9 @@ const AgentClusterManagementPage: React.FC = () => {
       render: (capabilities: string[]) => (
         <Space wrap>
           {capabilities?.map((cap, index) => (
-            <Tag key={index} color="blue">{cap}</Tag>
+            <Tag key={index} color="blue">
+              {cap}
+            </Tag>
           ))}
         </Space>
       ),
@@ -266,9 +272,9 @@ const AgentClusterManagementPage: React.FC = () => {
       dataIndex: 'is_healthy',
       key: 'is_healthy',
       render: (healthy: boolean) => (
-        <Badge 
-          status={healthy ? 'success' : 'error'} 
-          text={healthy ? '健康' : '异常'} 
+        <Badge
+          status={healthy ? 'success' : 'error'}
+          text={healthy ? '健康' : '异常'}
         />
       ),
     },
@@ -279,35 +285,35 @@ const AgentClusterManagementPage: React.FC = () => {
       render: (_: any, record: AgentInfo) => (
         <Space size="small">
           <Tooltip title="查看详情">
-            <Button 
-              size="small" 
+            <Button
+              size="small"
               icon={<InfoCircleOutlined />}
               onClick={() => {
-                setSelectedAgent(record);
-                setAgentDetailsVisible(true);
+                setSelectedAgent(record)
+                setAgentDetailsVisible(true)
               }}
             />
           </Tooltip>
           <Tooltip title="启动">
-            <Button 
-              size="small" 
-              type="primary" 
+            <Button
+              size="small"
+              type="primary"
               icon={<PlayCircleOutlined />}
               disabled={record.status === 'online'}
               onClick={() => handleAgentAction(record.agent_id, 'start')}
             />
           </Tooltip>
           <Tooltip title="停止">
-            <Button 
-              size="small" 
+            <Button
+              size="small"
               icon={<PauseCircleOutlined />}
               disabled={record.status === 'offline'}
               onClick={() => handleAgentAction(record.agent_id, 'stop')}
             />
           </Tooltip>
           <Tooltip title="重启">
-            <Button 
-              size="small" 
+            <Button
+              size="small"
               icon={<ReloadOutlined />}
               onClick={() => handleAgentAction(record.agent_id, 'restart')}
             />
@@ -317,17 +323,13 @@ const AgentClusterManagementPage: React.FC = () => {
             onConfirm={() => handleAgentAction(record.agent_id, 'delete')}
           >
             <Tooltip title="删除">
-              <Button 
-                size="small" 
-                danger 
-                icon={<DeleteOutlined />}
-              />
+              <Button size="small" danger icon={<DeleteOutlined />} />
             </Tooltip>
           </Popconfirm>
         </Space>
       ),
     },
-  ];
+  ]
 
   const groupColumns = [
     {
@@ -356,12 +358,12 @@ const AgentClusterManagementPage: React.FC = () => {
       key: 'status',
       render: (_: any, record: AgentGroup) => {
         if (record.current_agents < record.min_agents) {
-          return <Tag color="warning">需要扩容</Tag>;
+          return <Tag color="warning">需要扩容</Tag>
         }
         if (record.max_agents && record.current_agents >= record.max_agents) {
-          return <Tag color="error">已满</Tag>;
+          return <Tag color="error">已满</Tag>
         }
-        return <Tag color="success">正常</Tag>;
+        return <Tag color="success">正常</Tag>
       },
     },
     {
@@ -375,13 +377,13 @@ const AgentClusterManagementPage: React.FC = () => {
       key: 'actions',
       render: (_: any, record: AgentGroup) => (
         <Space>
-          <Button 
-            size="small" 
+          <Button
+            size="small"
             type="primary"
             icon={<ThunderboltOutlined />}
             onClick={() => {
-              setSelectedGroup(record.group_id);
-              setManualScalingVisible(true);
+              setSelectedGroup(record.group_id)
+              setManualScalingVisible(true)
             }}
           >
             手动扩缩容
@@ -389,7 +391,7 @@ const AgentClusterManagementPage: React.FC = () => {
         </Space>
       ),
     },
-  ];
+  ]
 
   const policyColumns = [
     {
@@ -412,9 +414,8 @@ const AgentClusterManagementPage: React.FC = () => {
     {
       title: '实例范围',
       key: 'instance_range',
-      render: (_: any, record: ScalingPolicy) => (
-        `${record.min_instances} - ${record.max_instances}`
-      ),
+      render: (_: any, record: ScalingPolicy) =>
+        `${record.min_instances} - ${record.max_instances}`,
     },
     {
       title: '冷却时间',
@@ -432,78 +433,84 @@ const AgentClusterManagementPage: React.FC = () => {
         </Tag>
       ),
     },
-  ];
+  ]
 
   return (
     <Layout style={{ padding: '24px', background: '#f0f2f5' }}>
       <div style={{ maxWidth: '1400px', margin: '0 auto', width: '100%' }}>
         <Title level={2}>智能体集群管理</Title>
-        
+
         {/* 集群概览 */}
         {clusterStats && (
           <Card title="集群概览" style={{ marginBottom: 24 }}>
             <Row gutter={16}>
               <Col span={6}>
-                <Statistic 
-                  title="总智能体数" 
+                <Statistic
+                  title="总智能体数"
                   value={clusterStats.total_agents}
                   prefix={<ClusterOutlined />}
                 />
               </Col>
               <Col span={6}>
-                <Statistic 
-                  title="在线智能体" 
+                <Statistic
+                  title="在线智能体"
                   value={clusterStats.online_agents}
                   valueStyle={{ color: '#3f8600' }}
                   prefix={<CheckCircleOutlined />}
                 />
               </Col>
               <Col span={6}>
-                <Statistic 
-                  title="平均CPU使用率" 
+                <Statistic
+                  title="平均CPU使用率"
                   value={clusterStats.avg_cpu_usage}
                   suffix="%"
                   prefix={<MonitorOutlined />}
                 />
               </Col>
               <Col span={6}>
-                <Statistic 
-                  title="平均内存使用率" 
+                <Statistic
+                  title="平均内存使用率"
                   value={clusterStats.avg_memory_usage}
                   suffix="%"
                   prefix={<MonitorOutlined />}
                 />
               </Col>
             </Row>
-            
+
             <Divider />
-            
+
             <Row gutter={16}>
               <Col span={6}>
-                <Statistic 
-                  title="错误率" 
+                <Statistic
+                  title="错误率"
                   value={clusterStats.error_rate}
                   suffix="%"
-                  valueStyle={{ color: clusterStats.error_rate > 5 ? '#cf1322' : '#3f8600' }}
+                  valueStyle={{
+                    color: clusterStats.error_rate > 5 ? '#cf1322' : '#3f8600',
+                  }}
                   prefix={<WarningOutlined />}
                 />
               </Col>
               <Col span={6}>
-                <Statistic 
-                  title="已处理任务" 
+                <Statistic
+                  title="已处理任务"
                   value={clusterStats.total_tasks_processed}
                 />
               </Col>
               <Col span={6}>
-                <Statistic 
-                  title="容量利用率" 
-                  value={Math.round((clusterStats.used_capacity / clusterStats.total_capacity) * 100)}
+                <Statistic
+                  title="容量利用率"
+                  value={Math.round(
+                    (clusterStats.used_capacity / clusterStats.total_capacity) *
+                      100
+                  )}
                   suffix="%"
                 />
               </Col>
               <Col span={6}>
                 <Text type="secondary">
-                  最后更新: {new Date(clusterStats.last_updated).toLocaleString()}
+                  最后更新:{' '}
+                  {new Date(clusterStats.last_updated).toLocaleString()}
                 </Text>
               </Col>
             </Row>
@@ -517,8 +524,8 @@ const AgentClusterManagementPage: React.FC = () => {
             <TabPane tab="智能体管理" key="agents">
               <div style={{ marginBottom: 16 }}>
                 <Space>
-                  <Button 
-                    type="primary" 
+                  <Button
+                    type="primary"
                     icon={<PlusOutlined />}
                     onClick={() => setCreateAgentVisible(true)}
                   >
@@ -529,7 +536,7 @@ const AgentClusterManagementPage: React.FC = () => {
                   </Button>
                 </Space>
               </div>
-              
+
               <Table
                 columns={agentColumns}
                 dataSource={agents}
@@ -544,8 +551,8 @@ const AgentClusterManagementPage: React.FC = () => {
             <TabPane tab="分组管理" key="groups">
               <div style={{ marginBottom: 16 }}>
                 <Space>
-                  <Button 
-                    type="primary" 
+                  <Button
+                    type="primary"
                     icon={<PlusOutlined />}
                     onClick={() => setCreateGroupVisible(true)}
                   >
@@ -556,7 +563,7 @@ const AgentClusterManagementPage: React.FC = () => {
                   </Button>
                 </Space>
               </div>
-              
+
               <Table
                 columns={groupColumns}
                 dataSource={groups}
@@ -570,8 +577,8 @@ const AgentClusterManagementPage: React.FC = () => {
             <TabPane tab="扩缩容策略" key="scaling">
               <div style={{ marginBottom: 16 }}>
                 <Space>
-                  <Button 
-                    type="primary" 
+                  <Button
+                    type="primary"
                     icon={<PlusOutlined />}
                     onClick={() => setCreatePolicyVisible(true)}
                   >
@@ -582,7 +589,7 @@ const AgentClusterManagementPage: React.FC = () => {
                   </Button>
                 </Space>
               </div>
-              
+
               <Table
                 columns={policyColumns}
                 dataSource={policies}
@@ -614,7 +621,7 @@ const AgentClusterManagementPage: React.FC = () => {
             >
               <Input placeholder="智能体名称" />
             </Form.Item>
-            
+
             <Row gutter={16}>
               <Col span={12}>
                 <Form.Item
@@ -631,11 +638,16 @@ const AgentClusterManagementPage: React.FC = () => {
                   name="port"
                   rules={[{ required: true, message: '请输入端口号' }]}
                 >
-                  <InputNumber min={1} max={65535} placeholder="8080" style={{ width: '100%' }} />
+                  <InputNumber
+                    min={1}
+                    max={65535}
+                    placeholder="8080"
+                    style={{ width: '100%' }}
+                  />
                 </Form.Item>
               </Col>
             </Row>
-            
+
             <Form.Item label="能力" name="capabilities">
               <Select
                 mode="tags"
@@ -648,15 +660,19 @@ const AgentClusterManagementPage: React.FC = () => {
                 <Select.Option value="reasoning">推理</Select.Option>
               </Select>
             </Form.Item>
-            
+
             <Form.Item label="版本" name="version" initialValue="1.0.0">
               <Input placeholder="1.0.0" />
             </Form.Item>
-            
+
             <div style={{ textAlign: 'right' }}>
               <Space>
-                <Button onClick={() => setCreateAgentVisible(false)}>取消</Button>
-                <Button type="primary" htmlType="submit">创建</Button>
+                <Button onClick={() => setCreateAgentVisible(false)}>
+                  取消
+                </Button>
+                <Button type="primary" htmlType="submit">
+                  创建
+                </Button>
               </Space>
             </div>
           </Form>
@@ -682,14 +698,18 @@ const AgentClusterManagementPage: React.FC = () => {
             >
               <Input placeholder="分组名称" />
             </Form.Item>
-            
+
             <Form.Item label="描述" name="description">
               <Input.TextArea placeholder="分组描述" rows={3} />
             </Form.Item>
-            
+
             <Row gutter={16}>
               <Col span={12}>
-                <Form.Item label="最小智能体数" name="min_agents" initialValue={0}>
+                <Form.Item
+                  label="最小智能体数"
+                  name="min_agents"
+                  initialValue={0}
+                >
                   <InputNumber min={0} style={{ width: '100%' }} />
                 </Form.Item>
               </Col>
@@ -699,11 +719,15 @@ const AgentClusterManagementPage: React.FC = () => {
                 </Form.Item>
               </Col>
             </Row>
-            
+
             <div style={{ textAlign: 'right' }}>
               <Space>
-                <Button onClick={() => setCreateGroupVisible(false)}>取消</Button>
-                <Button type="primary" htmlType="submit">创建</Button>
+                <Button onClick={() => setCreateGroupVisible(false)}>
+                  取消
+                </Button>
+                <Button type="primary" htmlType="submit">
+                  创建
+                </Button>
               </Space>
             </div>
           </Form>
@@ -729,45 +753,74 @@ const AgentClusterManagementPage: React.FC = () => {
             >
               <Input placeholder="策略名称" />
             </Form.Item>
-            
+
             <Row gutter={16}>
               <Col span={12}>
-                <Form.Item label="目标CPU使用率 (%)" name="target_cpu_percent" initialValue={70}>
+                <Form.Item
+                  label="目标CPU使用率 (%)"
+                  name="target_cpu_percent"
+                  initialValue={70}
+                >
                   <InputNumber min={1} max={100} style={{ width: '100%' }} />
                 </Form.Item>
               </Col>
               <Col span={12}>
-                <Form.Item label="目标内存使用率 (%)" name="target_memory_percent" initialValue={75}>
+                <Form.Item
+                  label="目标内存使用率 (%)"
+                  name="target_memory_percent"
+                  initialValue={75}
+                >
                   <InputNumber min={1} max={100} style={{ width: '100%' }} />
                 </Form.Item>
               </Col>
             </Row>
-            
+
             <Row gutter={16}>
               <Col span={12}>
-                <Form.Item label="最小实例数" name="min_instances" initialValue={1}>
+                <Form.Item
+                  label="最小实例数"
+                  name="min_instances"
+                  initialValue={1}
+                >
                   <InputNumber min={1} style={{ width: '100%' }} />
                 </Form.Item>
               </Col>
               <Col span={12}>
-                <Form.Item label="最大实例数" name="max_instances" initialValue={10}>
+                <Form.Item
+                  label="最大实例数"
+                  name="max_instances"
+                  initialValue={10}
+                >
                   <InputNumber min={1} style={{ width: '100%' }} />
                 </Form.Item>
               </Col>
             </Row>
-            
-            <Form.Item label="冷却时间 (秒)" name="cooldown_period_seconds" initialValue={180}>
+
+            <Form.Item
+              label="冷却时间 (秒)"
+              name="cooldown_period_seconds"
+              initialValue={180}
+            >
               <InputNumber min={30} style={{ width: '100%' }} />
             </Form.Item>
-            
-            <Form.Item label="启用策略" name="enabled" valuePropName="checked" initialValue={true}>
+
+            <Form.Item
+              label="启用策略"
+              name="enabled"
+              valuePropName="checked"
+              initialValue={true}
+            >
               <Switch />
             </Form.Item>
-            
+
             <div style={{ textAlign: 'right' }}>
               <Space>
-                <Button onClick={() => setCreatePolicyVisible(false)}>取消</Button>
-                <Button type="primary" htmlType="submit">创建</Button>
+                <Button onClick={() => setCreatePolicyVisible(false)}>
+                  取消
+                </Button>
+                <Button type="primary" htmlType="submit">
+                  创建
+                </Button>
               </Space>
             </div>
           </Form>
@@ -792,15 +845,19 @@ const AgentClusterManagementPage: React.FC = () => {
             >
               <InputNumber min={0} style={{ width: '100%' }} />
             </Form.Item>
-            
+
             <Form.Item label="扩缩容原因" name="reason">
               <Input.TextArea placeholder="请输入扩缩容原因" rows={3} />
             </Form.Item>
-            
+
             <div style={{ textAlign: 'right' }}>
               <Space>
-                <Button onClick={() => setManualScalingVisible(false)}>取消</Button>
-                <Button type="primary" htmlType="submit">执行</Button>
+                <Button onClick={() => setManualScalingVisible(false)}>
+                  取消
+                </Button>
+                <Button type="primary" htmlType="submit">
+                  执行
+                </Button>
               </Space>
             </div>
           </Form>
@@ -814,22 +871,32 @@ const AgentClusterManagementPage: React.FC = () => {
           footer={[
             <Button key="close" onClick={() => setAgentDetailsVisible(false)}>
               关闭
-            </Button>
+            </Button>,
           ]}
           width={800}
         >
           {selectedAgent && (
             <Descriptions bordered column={2}>
-              <Descriptions.Item label="Agent ID">{selectedAgent.agent_id}</Descriptions.Item>
-              <Descriptions.Item label="名称">{selectedAgent.name}</Descriptions.Item>
+              <Descriptions.Item label="Agent ID">
+                {selectedAgent.agent_id}
+              </Descriptions.Item>
+              <Descriptions.Item label="名称">
+                {selectedAgent.name}
+              </Descriptions.Item>
               <Descriptions.Item label="状态">
                 <Tag color={getStatusColor(selectedAgent.status)}>
                   {selectedAgent.status?.toUpperCase()}
                 </Tag>
               </Descriptions.Item>
-              <Descriptions.Item label="端点">{selectedAgent.endpoint}</Descriptions.Item>
-              <Descriptions.Item label="版本">{selectedAgent.version}</Descriptions.Item>
-              <Descriptions.Item label="运行时间">{selectedAgent.uptime}秒</Descriptions.Item>
+              <Descriptions.Item label="端点">
+                {selectedAgent.endpoint}
+              </Descriptions.Item>
+              <Descriptions.Item label="版本">
+                {selectedAgent.version}
+              </Descriptions.Item>
+              <Descriptions.Item label="运行时间">
+                {selectedAgent.uptime}秒
+              </Descriptions.Item>
               <Descriptions.Item label="CPU使用率">
                 {selectedAgent.resource_usage?.cpu_usage.toFixed(1)}%
               </Descriptions.Item>
@@ -845,7 +912,9 @@ const AgentClusterManagementPage: React.FC = () => {
               <Descriptions.Item label="能力" span={2}>
                 <Space wrap>
                   {selectedAgent.capabilities?.map((cap, index) => (
-                    <Tag key={index} color="blue">{cap}</Tag>
+                    <Tag key={index} color="blue">
+                      {cap}
+                    </Tag>
                   ))}
                 </Space>
               </Descriptions.Item>
@@ -854,7 +923,7 @@ const AgentClusterManagementPage: React.FC = () => {
         </Modal>
       </div>
     </Layout>
-  );
-};
+  )
+}
 
-export default AgentClusterManagementPage;
+export default AgentClusterManagementPage

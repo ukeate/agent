@@ -5,6 +5,7 @@
 from typing import List, Dict, Any, Optional, Union
 from fastapi import APIRouter, HTTPException
 from pydantic import Field, field_validator, ValidationInfo
+from src.api.base_model import ApiBaseModel
 from src.services.power_analysis_service import (
     get_power_analysis_service,
     PowerAnalysisType,
@@ -88,6 +89,25 @@ class ABTestSampleSizeRequest(ApiBaseModel):
             raise ValueError("Treatment conversion rate cannot exceed 1")
         return v
 
+class MinimumDetectableEffectRequest(ApiBaseModel):
+    """最小可检测效应请求"""
+    baseline_rate: float = Field(..., ge=0, le=1, description="基准转化率")
+    sample_size: Union[int, List[int]] = Field(..., description="样本量（每组）")
+    power: float = Field(0.8, ge=0.5, le=0.99, description="期望统计功效")
+    alpha: float = Field(0.05, ge=0.001, le=0.1, description="显著性水平")
+    alternative: AlternativeHypothesis = Field(AlternativeHypothesis.TWO_SIDED, description="备择假设类型")
+
+    @field_validator('sample_size')
+    def validate_sample_size(cls, v):
+        if isinstance(v, list):
+            if len(v) != 2:
+                raise ValueError("sample_size为数组时必须包含两组样本量")
+            if any(n <= 0 for n in v):
+                raise ValueError("样本量必须为正数")
+        elif v <= 0:
+            raise ValueError("样本量必须为正数")
+        return v
+
 # 响应模型
 class PowerAnalysisResponse(ApiBaseModel):
     """功效分析响应"""
@@ -103,6 +123,11 @@ class ABTestSampleSizeResponse(ApiBaseModel):
     duration_estimates: Dict[str, int] = Field(..., description="实验持续时间估计")
     recommendations: List[str] = Field(default_factory=list, description="建议")
     message: str = Field(default="A/B test sample size calculation completed")
+
+class MinimumDetectableEffectResponse(ApiBaseModel):
+    """最小可检测效应响应"""
+    result: Dict[str, Any] = Field(..., description="MDE计算结果")
+    message: str = Field(default="MDE calculation completed")
 
 # 辅助函数
 def _interpret_power_result(result: Dict[str, Any]) -> Dict[str, str]:
@@ -350,6 +375,35 @@ async def calculate_proportion_sample_size(request: ProportionSampleSizeRequest)
     except Exception as e:
         logger.error(f"Proportion sample size calculation failed: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Proportion sample size calculation failed: {str(e)}")
+
+@router.post("/mde", response_model=MinimumDetectableEffectResponse)
+async def calculate_minimum_detectable_effect(request: MinimumDetectableEffectRequest):
+    """计算最小可检测效应量"""
+    try:
+        service = get_power_analysis_service()
+        sample_size = tuple(request.sample_size) if isinstance(request.sample_size, list) else request.sample_size
+        mde = service.proportion_calculator.calculate_detectable_proportion_difference(
+            baseline_proportion=request.baseline_rate,
+            sample_size=sample_size,
+            power=request.power,
+            alpha=request.alpha,
+            test_type=TestType.TWO_PROPORTIONS,
+            alternative=request.alternative
+        )
+        relative_change = mde / request.baseline_rate if request.baseline_rate > 0 else 0
+        result = {
+            "mde": mde,
+            "baseline_rate": request.baseline_rate,
+            "relative_change": relative_change,
+            "absolute_change": mde
+        }
+        return MinimumDetectableEffectResponse(
+            result=result,
+            message=f"最小可检测效应量计算完成，MDE = {mde:.6f}"
+        )
+    except Exception as e:
+        logger.error(f"MDE calculation failed: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"MDE calculation failed: {str(e)}")
 
 @router.post("/ab-test-sample-size", response_model=ABTestSampleSizeResponse)
 async def calculate_ab_test_sample_size(request: ABTestSampleSizeRequest):

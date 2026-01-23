@@ -1,13 +1,13 @@
 import { buildWsUrl } from '../utils/apiBase'
-import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Progress } from '@/components/ui/progress';
-import {
+import React, { useState, useEffect } from 'react'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Progress } from '@/components/ui/progress'
 import { logger } from '../utils/logger'
+import {
   Heart,
   Brain,
   Activity,
@@ -18,21 +18,28 @@ import { logger } from '../utils/logger'
   MemoryStick,
   AlertCircle,
   CheckCircle,
-  Loader2
-} from 'lucide-react';
-import { toast } from 'sonner';
-import { cn } from '@/lib/utils';
+  Loader2,
+} from 'lucide-react'
+import { toast } from 'sonner'
+import { cn } from '@/lib/utils'
 
-import { EmotionalInputPanel, EmotionalInputData, ModalityType } from '@/components/emotion/EmotionalInputPanel';
-import { EmotionalFeedbackDisplay } from '@/components/emotion/EmotionalFeedbackDisplay';
-import { Emotion3DVisualizer, EmotionState } from '@/components/emotion/Emotion3DVisualizer';
-import { useEmotionWebSocket, ContextMemory } from '@/hooks/useEmotionWebSocket';
-import { ConnectionState } from '@/services/emotionWebSocketService';
+import {
+  EmotionalInputPanel,
+  EmotionalInputData,
+  ModalityType,
+} from '@/components/emotion/EmotionalInputPanel'
+import { EmotionalFeedbackDisplay } from '@/components/emotion/EmotionalFeedbackDisplay'
+import {
+  Emotion3DVisualizer,
+  EmotionState,
+} from '@/components/emotion/Emotion3DVisualizer'
+import { useEmotionWebSocket, ContextMemory } from '@/hooks/useEmotionWebSocket'
+import { ConnectionState } from '@/services/emotionWebSocketService'
 
 // 连接状态指示器组件
 const ConnectionStatusIndicator: React.FC<{
-  state: ConnectionState;
-  stats: any;
+  state: ConnectionState
+  stats: any
 }> = ({ state, stats }) => {
   const getStatusInfo = (state: ConnectionState) => {
     switch (state) {
@@ -41,48 +48,50 @@ const ConnectionStatusIndicator: React.FC<{
           icon: Wifi,
           label: '已连接',
           color: 'text-green-600 bg-green-50 border-green-200',
-          variant: 'default' as const
-        };
+          variant: 'default' as const,
+        }
       case ConnectionState.CONNECTING:
         return {
           icon: Loader2,
           label: '连接中',
           color: 'text-blue-600 bg-blue-50 border-blue-200',
-          variant: 'secondary' as const
-        };
+          variant: 'secondary' as const,
+        }
       case ConnectionState.RECONNECTING:
         return {
           icon: Loader2,
           label: '重连中',
           color: 'text-yellow-600 bg-yellow-50 border-yellow-200',
-          variant: 'outline' as const
-        };
+          variant: 'outline' as const,
+        }
       case ConnectionState.ERROR:
         return {
           icon: AlertCircle,
           label: '连接错误',
           color: 'text-red-600 bg-red-50 border-red-200',
-          variant: 'destructive' as const
-        };
+          variant: 'destructive' as const,
+        }
       default:
         return {
           icon: WifiOff,
           label: '未连接',
           color: 'text-gray-600 bg-gray-50 border-gray-200',
-          variant: 'outline' as const
-        };
+          variant: 'outline' as const,
+        }
     }
-  };
+  }
 
-  const statusInfo = getStatusInfo(state);
-  const StatusIcon = statusInfo.icon;
-  const isLoading = state === ConnectionState.CONNECTING || state === ConnectionState.RECONNECTING;
+  const statusInfo = getStatusInfo(state)
+  const StatusIcon = statusInfo.icon
+  const isLoading =
+    state === ConnectionState.CONNECTING ||
+    state === ConnectionState.RECONNECTING
 
   return (
-    <div className={cn("p-3 rounded-lg border", statusInfo.color)}>
+    <div className={cn('p-3 rounded-lg border', statusInfo.color)}>
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <StatusIcon className={cn("h-4 w-4", isLoading && "animate-spin")} />
+          <StatusIcon className={cn('h-4 w-4', isLoading && 'animate-spin')} />
           <span className="text-sm font-medium">{statusInfo.label}</span>
         </div>
         {stats && (
@@ -91,31 +100,45 @@ const ConnectionStatusIndicator: React.FC<{
           </div>
         )}
       </div>
-      
+
       {state === ConnectionState.CONNECTED && stats && (
         <div className="mt-2 text-xs opacity-70">
-          <div>连接时间: {stats.connectionTime ? new Date(stats.connectionTime).toLocaleTimeString() : '-'}</div>
+          <div>
+            连接时间:{' '}
+            {stats.connectionTime
+              ? new Date(stats.connectionTime).toLocaleTimeString()
+              : '-'}
+          </div>
           {stats.lastHeartbeat && (
-            <div>最后心跳: {new Date(stats.lastHeartbeat).toLocaleTimeString()}</div>
+            <div>
+              最后心跳: {new Date(stats.lastHeartbeat).toLocaleTimeString()}
+            </div>
           )}
         </div>
       )}
     </div>
-  );
-};
+  )
+}
 
 // 会话信息组件
 const SessionInfoPanel: React.FC<{
-  session: any;
-  emotionHistory: any[];
-  contextMemory: ContextMemory[];
-  onClearSession: () => void;
-  onSaveSession: () => void;
-}> = ({ session, emotionHistory, contextMemory, onClearSession, onSaveSession }) => {
-  if (!session) return null;
+  session: any
+  emotionHistory: any[]
+  contextMemory: ContextMemory[]
+  onClearSession: () => void
+  onSaveSession: () => void
+}> = ({
+  session,
+  emotionHistory,
+  contextMemory,
+  onClearSession,
+  onSaveSession,
+}) => {
+  if (!session) return null
 
-  const sessionDuration = session.startTime ? 
-    Math.floor((Date.now() - new Date(session.startTime).getTime()) / 60000) : 0;
+  const sessionDuration = session.startTime
+    ? Math.floor((Date.now() - new Date(session.startTime).getTime()) / 60000)
+    : 0
 
   return (
     <Card>
@@ -129,7 +152,9 @@ const SessionInfoPanel: React.FC<{
         <div className="grid grid-cols-2 gap-4 text-sm">
           <div>
             <div className="text-muted-foreground">会话ID</div>
-            <div className="font-mono text-xs">{session.sessionId.substring(0, 12)}...</div>
+            <div className="font-mono text-xs">
+              {session.sessionId.substring(0, 12)}...
+            </div>
           </div>
           <div>
             <div className="text-muted-foreground">用户ID</div>
@@ -157,17 +182,17 @@ const SessionInfoPanel: React.FC<{
         </div>
 
         <div className="flex gap-2">
-          <Button 
-            variant="outline" 
-            size="sm" 
+          <Button
+            variant="outline"
+            size="sm"
             onClick={onSaveSession}
             className="flex-1"
           >
             保存会话
           </Button>
-          <Button 
-            variant="outline" 
-            size="sm" 
+          <Button
+            variant="outline"
+            size="sm"
             onClick={onClearSession}
             className="flex-1"
           >
@@ -176,21 +201,21 @@ const SessionInfoPanel: React.FC<{
         </div>
       </CardContent>
     </Card>
-  );
-};
+  )
+}
 
 // 记忆浏览器组件
 const MemoryBrowser: React.FC<{
-  memories: ContextMemory[];
-  onUpdateImportance: (memoryId: string, importance: number) => void;
+  memories: ContextMemory[]
+  onUpdateImportance: (memoryId: string, importance: number) => void
 }> = ({ memories, onUpdateImportance }) => {
-  const [selectedType, setSelectedType] = useState<string>('all');
-  
-  const filteredMemories = memories.filter(memory => 
-    selectedType === 'all' || memory.type === selectedType
-  );
+  const [selectedType, setSelectedType] = useState<string>('all')
 
-  const memoryTypes = ['all', ...new Set(memories.map(m => m.type))];
+  const filteredMemories = memories.filter(
+    memory => selectedType === 'all' || memory.type === selectedType
+  )
+
+  const memoryTypes = ['all', ...new Set(memories.map(m => m.type))]
 
   return (
     <Card>
@@ -205,7 +230,7 @@ const MemoryBrowser: React.FC<{
           {memoryTypes.map(type => (
             <Button
               key={type}
-              variant={selectedType === type ? "default" : "outline"}
+              variant={selectedType === type ? 'default' : 'outline'}
               size="sm"
               onClick={() => setSelectedType(type)}
               className="text-xs"
@@ -235,16 +260,16 @@ const MemoryBrowser: React.FC<{
                         </Badge>
                       ))}
                     </div>
-                    
+
                     <div className="text-xs text-muted-foreground mb-2">
                       {memory.timestamp.toLocaleString()}
                     </div>
 
                     <div className="text-xs">
-                      {typeof memory.content === 'string' 
-                        ? memory.content 
-                        : JSON.stringify(memory.content).substring(0, 100) + '...'
-                      }
+                      {typeof memory.content === 'string'
+                        ? memory.content
+                        : JSON.stringify(memory.content).substring(0, 100) +
+                          '...'}
                     </div>
                   </div>
                 </div>
@@ -271,13 +296,13 @@ const MemoryBrowser: React.FC<{
         </div>
       </CardContent>
     </Card>
-  );
-};
+  )
+}
 
 // 转换情感数据格式为3D可视化格式
 const convertToEmotionState = (emotionData: any): EmotionState | undefined => {
-  if (!emotionData) return undefined;
-  
+  if (!emotionData) return undefined
+
   return {
     emotion: emotionData.primary_emotion || 'neutral',
     intensity: emotionData.intensity || 0.5,
@@ -285,14 +310,14 @@ const convertToEmotionState = (emotionData: any): EmotionState | undefined => {
     arousal: emotionData.arousal || 0.5,
     dominance: emotionData.dominance || 0,
     confidence: emotionData.confidence || 0.8,
-    timestamp: new Date(emotionData.timestamp || Date.now())
-  };
-};
+    timestamp: new Date(emotionData.timestamp || Date.now()),
+  }
+}
 
 // 主页面组件
 export default function EmotionInteractionPage() {
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [activeTab, setActiveTab] = useState('interaction');
+  const [isProcessing, setIsProcessing] = useState(false)
+  const [activeTab, setActiveTab] = useState('interaction')
 
   // 使用WebSocket Hook
   const {
@@ -317,71 +342,71 @@ export default function EmotionInteractionPage() {
     getRelevantMemories,
     updateMemoryImportance,
     error,
-    clearError
+    clearError,
   } = useEmotionWebSocket({
     url: buildWsUrl('/ws'),
     userId: 'demo_user', // 在实际应用中应该从认证系统获取
     maxHistoryLength: 50,
     maxMemoryLength: 200,
     memoryDecayRate: 0.005,
-    autoSaveSession: true
-  });
+    autoSaveSession: true,
+  })
 
   // 自动连接
   useEffect(() => {
-    connect();
-    return () => disconnect();
-  }, [connect, disconnect]);
+    connect()
+    return () => disconnect()
+  }, [connect, disconnect])
 
   // 处理情感输入
   const handleEmotionSubmit = async (data: EmotionalInputData) => {
-    setIsProcessing(true);
-    
+    setIsProcessing(true)
+
     try {
       // 根据模态类型分别发送
       for (const modality of data.modalities) {
         switch (modality) {
           case ModalityType.TEXT:
             if (data.text) {
-              await sendTextEmotion(data.text);
+              await sendTextEmotion(data.text)
             }
-            break;
+            break
           case ModalityType.AUDIO:
             if (data.audioBlob) {
-              await sendAudioEmotion(data.audioBlob);
+              await sendAudioEmotion(data.audioBlob)
             }
-            break;
+            break
           case ModalityType.VIDEO:
             if (data.videoBlob) {
-              await sendVideoEmotion(data.videoBlob);
+              await sendVideoEmotion(data.videoBlob)
             }
-            break;
+            break
           case ModalityType.IMAGE:
             if (data.imageFile) {
-              await sendImageEmotion(data.imageFile);
+              await sendImageEmotion(data.imageFile)
             }
-            break;
+            break
           case ModalityType.PHYSIOLOGICAL:
             if (data.physiologicalData) {
-              await sendPhysiologicalData(data.physiologicalData);
+              await sendPhysiologicalData(data.physiologicalData)
             }
-            break;
+            break
         }
       }
-      
-      toast.success('情感数据已发送');
+
+      toast.success('情感数据已发送')
     } catch (error: any) {
-      toast.error('发送失败: ' + error.message);
+      toast.error('发送失败: ' + error.message)
     } finally {
-      setIsProcessing(false);
+      setIsProcessing(false)
     }
-  };
+  }
 
   // 处理实时数据
   const handleRealTimeData = (data: Partial<EmotionalInputData>) => {
     // 这里可以实现实时数据的预处理或预览
-    logger.log('实时数据:', data);
-  };
+    logger.log('实时数据:', data)
+  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -398,11 +423,14 @@ export default function EmotionInteractionPage() {
                 </p>
               </div>
             </div>
-            
+
             <div className="flex items-center gap-3">
-              <ConnectionStatusIndicator state={connectionState} stats={stats} />
+              <ConnectionStatusIndicator
+                state={connectionState}
+                stats={stats}
+              />
               <Button
-                variant={isConnected ? "outline" : "default"}
+                variant={isConnected ? 'outline' : 'default'}
                 onClick={isConnected ? disconnect : connect}
                 disabled={connectionState === ConnectionState.CONNECTING}
               >
@@ -453,7 +481,7 @@ export default function EmotionInteractionPage() {
                     ModalityType.AUDIO,
                     ModalityType.VIDEO,
                     ModalityType.IMAGE,
-                    ModalityType.PHYSIOLOGICAL
+                    ModalityType.PHYSIOLOGICAL,
                   ]}
                 />
               </div>
@@ -486,16 +514,22 @@ export default function EmotionInteractionPage() {
                   <CardContent>
                     <Emotion3DVisualizer
                       emotionalState={convertToEmotionState(currentEmotion)}
-                      history={emotionHistory.map(emotion => convertToEmotionState(emotion)).filter(Boolean) as EmotionState[]}
+                      history={
+                        emotionHistory
+                          .map(emotion => convertToEmotionState(emotion))
+                          .filter(Boolean) as EmotionState[]
+                      }
                       width={800}
                       height={500}
                       showControls={true}
                       showAxisLabels={true}
                       showTrajectory={true}
                       interactive={true}
-                      onEmotionClick={(emotion) => {
-                        logger.log('点击的情感:', emotion);
-                        toast.info(`点击了情感: ${emotion.emotion} (强度: ${(emotion.intensity * 100).toFixed(1)}%)`);
+                      onEmotionClick={emotion => {
+                        logger.log('点击的情感:', emotion)
+                        toast.info(
+                          `点击了情感: ${emotion.emotion} (强度: ${(emotion.intensity * 100).toFixed(1)}%)`
+                        )
                       }}
                     />
                   </CardContent>
@@ -523,7 +557,9 @@ export default function EmotionInteractionPage() {
                     <div className="grid grid-cols-2 gap-4 text-sm">
                       <div>
                         <div className="text-muted-foreground">总情感点</div>
-                        <div className="font-semibold">{emotionHistory.length}</div>
+                        <div className="font-semibold">
+                          {emotionHistory.length}
+                        </div>
                       </div>
                       <div>
                         <div className="text-muted-foreground">当前情感</div>
@@ -535,18 +571,27 @@ export default function EmotionInteractionPage() {
                         <div className="text-muted-foreground">平均强度</div>
                         <div className="font-semibold">
                           {emotionHistory.length > 0
-                            ? ((emotionHistory.reduce((sum, e) => sum + (e.intensity || 0), 0) / emotionHistory.length) * 100).toFixed(1) + '%'
-                            : '0%'
-                          }
+                            ? (
+                                (emotionHistory.reduce(
+                                  (sum, e) => sum + (e.intensity || 0),
+                                  0
+                                ) /
+                                  emotionHistory.length) *
+                                100
+                              ).toFixed(1) + '%'
+                            : '0%'}
                         </div>
                       </div>
                       <div>
                         <div className="text-muted-foreground">会话时长</div>
                         <div className="font-semibold">
-                          {session?.startTime 
-                            ? Math.floor((Date.now() - new Date(session.startTime).getTime()) / 60000) + ' 分钟'
-                            : '0 分钟'
-                          }
+                          {session?.startTime
+                            ? Math.floor(
+                                (Date.now() -
+                                  new Date(session.startTime).getTime()) /
+                                  60000
+                              ) + ' 分钟'
+                            : '0 分钟'}
                         </div>
                       </div>
                     </div>
@@ -556,31 +601,41 @@ export default function EmotionInteractionPage() {
                       <div className="space-y-2">
                         <div className="text-sm font-medium">情感分布</div>
                         {(() => {
-                          const emotionCounts = emotionHistory.reduce((acc: Record<string, number>, emotion) => {
-                            const key = emotion.primary_emotion || 'neutral';
-                            acc[key] = (acc[key] || 0) + 1;
-                            return acc;
-                          }, {});
-                          
-                          const total = emotionHistory.length;
-                          
+                          const emotionCounts = emotionHistory.reduce(
+                            (acc: Record<string, number>, emotion) => {
+                              const key = emotion.primary_emotion || 'neutral'
+                              acc[key] = (acc[key] || 0) + 1
+                              return acc
+                            },
+                            {}
+                          )
+
+                          const total = emotionHistory.length
+
                           return Object.entries(emotionCounts)
-                            .sort(([,a], [,b]) => b - a)
+                            .sort(([, a], [, b]) => b - a)
                             .slice(0, 5)
                             .map(([emotion, count]) => (
-                              <div key={emotion} className="flex items-center justify-between text-xs">
+                              <div
+                                key={emotion}
+                                className="flex items-center justify-between text-xs"
+                              >
                                 <span className="capitalize">{emotion}</span>
                                 <div className="flex items-center gap-2">
                                   <div className="w-16 h-2 bg-muted rounded-full overflow-hidden">
-                                    <div 
+                                    <div
                                       className="h-full bg-primary rounded-full"
-                                      style={{ width: `${(count / total) * 100}%` }}
+                                      style={{
+                                        width: `${(count / total) * 100}%`,
+                                      }}
                                     />
                                   </div>
-                                  <span className="w-8 text-right">{count}</span>
+                                  <span className="w-8 text-right">
+                                    {count}
+                                  </span>
                                 </div>
                               </div>
-                            ));
+                            ))
                         })()}
                       </div>
                     )}
@@ -654,13 +709,11 @@ export default function EmotionInteractionPage() {
               ) : (
                 <AlertCircle className="h-3 w-3 text-red-500" />
               )}
-              <span>
-                {isConnected ? '在线' : '离线'}
-              </span>
+              <span>{isConnected ? '在线' : '离线'}</span>
             </div>
           </div>
         </div>
       )}
     </div>
-  );
+  )
 }

@@ -17,7 +17,7 @@ const ModelDeploymentPage: React.FC = () => {
     setError(null)
     try {
       const [mRes, dRes] = await Promise.all([
-        apiFetch(buildApiUrl('/api/v1/model-service/models'),
+        apiFetch(buildApiUrl('/api/v1/model-service/models')),
         apiFetch(buildApiUrl('/api/v1/model-service/deployment/list'))
       ])
       const mData = await mRes.json()

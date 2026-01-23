@@ -1,14 +1,14 @@
-import React from 'react';
-import { Card, Row, Col, Statistic, Progress, Alert, Badge } from 'antd';
+import React from 'react'
+import { Card, Row, Col, Statistic, Progress, Alert, Badge } from 'antd'
 import {
   ClockCircleOutlined,
   CheckCircleOutlined,
   SyncOutlined,
   ExclamationCircleOutlined,
-} from '@ant-design/icons';
+} from '@ant-design/icons'
 
 interface ProcessingQueueProps {
-  status: any;
+  status: any
 }
 
 const ProcessingQueue: React.FC<ProcessingQueueProps> = ({ status }) => {
@@ -17,20 +17,24 @@ const ProcessingQueue: React.FC<ProcessingQueueProps> = ({ status }) => {
       <Card title="处理队列状态" loading>
         加载中...
       </Card>
-    );
+    )
   }
 
-  const totalTasks = (status.queued_tasks || 0) + (status.completed_tasks || 0) + (status.failed_tasks || 0);
-  const completionRate = totalTasks > 0 ? ((status.completed_tasks || 0) / totalTasks * 100) : 0;
+  const totalTasks =
+    (status.queued_tasks || 0) +
+    (status.completed_tasks || 0) +
+    (status.failed_tasks || 0)
+  const completionRate =
+    totalTasks > 0 ? ((status.completed_tasks || 0) / totalTasks) * 100 : 0
 
   return (
-    <Card 
+    <Card
       title={
         <div className="flex items-center justify-between">
           <span>处理队列监控</span>
-          <Badge 
-            status={status.is_running ? "processing" : "default"} 
-            text={status.is_running ? "运行中" : "已停止"}
+          <Badge
+            status={status.is_running ? 'processing' : 'default'}
+            text={status.is_running ? '运行中' : '已停止'}
           />
         </div>
       }
@@ -65,7 +69,9 @@ const ProcessingQueue: React.FC<ProcessingQueueProps> = ({ status }) => {
             title="失败"
             value={status.failed_tasks || 0}
             prefix={<ExclamationCircleOutlined />}
-            valueStyle={{ color: status.failed_tasks > 0 ? '#ff4d4f' : undefined }}
+            valueStyle={{
+              color: status.failed_tasks > 0 ? '#ff4d4f' : undefined,
+            }}
           />
         </Col>
       </Row>
@@ -74,7 +80,7 @@ const ProcessingQueue: React.FC<ProcessingQueueProps> = ({ status }) => {
         <div className="mt-4">
           <Progress
             percent={Number(completionRate.toFixed(1))}
-            status={status.failed_tasks > 0 ? "exception" : "active"}
+            status={status.failed_tasks > 0 ? 'exception' : 'active'}
             strokeColor={{
               '0%': '#108ee9',
               '100%': '#87d068',
@@ -82,7 +88,9 @@ const ProcessingQueue: React.FC<ProcessingQueueProps> = ({ status }) => {
           />
           <div className="mt-2 flex justify-between text-sm text-gray-500">
             <span>完成率</span>
-            <span>{status.completed_tasks} / {totalTasks} 任务</span>
+            <span>
+              {status.completed_tasks} / {totalTasks} 任务
+            </span>
           </div>
         </div>
       )}
@@ -106,7 +114,7 @@ const ProcessingQueue: React.FC<ProcessingQueueProps> = ({ status }) => {
         />
       )}
     </Card>
-  );
-};
+  )
+}
 
-export default ProcessingQueue;
+export default ProcessingQueue

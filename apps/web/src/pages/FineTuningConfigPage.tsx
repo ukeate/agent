@@ -1,43 +1,60 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { Card, Table, Tag, Form, Input, Select, Button, Alert, Space, message } from 'antd';
-import type { ColumnsType } from 'antd/es/table';
-import { fineTuningService, TrainingJobRequest } from '../services/fineTuningService';
+import React, { useEffect, useMemo, useState } from 'react'
+import {
+  Card,
+  Table,
+  Tag,
+  Form,
+  Input,
+  Select,
+  Button,
+  Alert,
+  Space,
+  message,
+} from 'antd'
+import type { ColumnsType } from 'antd/es/table'
+import {
+  fineTuningService,
+  TrainingJobRequest,
+} from '../services/fineTuningService'
 
 import { logger } from '../utils/logger'
 type TemplateRecord = {
-  name: string;
-  training_mode?: string;
-  learning_rate?: number;
-  num_train_epochs?: number;
-  per_device_train_batch_size?: number;
-  gradient_accumulation_steps?: number;
-  lora_config?: any;
-  quantization_config?: any;
-};
+  name: string
+  training_mode?: string
+  learning_rate?: number
+  num_train_epochs?: number
+  per_device_train_batch_size?: number
+  gradient_accumulation_steps?: number
+  lora_config?: any
+  quantization_config?: any
+}
 
 const FineTuningConfigPage: React.FC = () => {
-  const [templates, setTemplates] = useState<Record<string, any>>({});
-  const [loading, setLoading] = useState(false);
-  const [validating, setValidating] = useState(false);
-  const [validationResult, setValidationResult] = useState<{ valid: boolean; errors: string[] } | null>(null);
-  const [form] = Form.useForm();
+  const [templates, setTemplates] = useState<Record<string, any>>({})
+  const [loading, setLoading] = useState(false)
+  const [validating, setValidating] = useState(false)
+  const [validationResult, setValidationResult] = useState<{
+    valid: boolean
+    errors: string[]
+  } | null>(null)
+  const [form] = Form.useForm()
 
   const loadTemplates = async () => {
     try {
-      setLoading(true);
-      const data = await fineTuningService.getConfigTemplates();
-      setTemplates(data.templates || {});
+      setLoading(true)
+      const data = await fineTuningService.getConfigTemplates()
+      setTemplates(data.templates || {})
     } catch (e) {
-      logger.error('加载配置模板失败:', e);
-      message.error('加载配置模板失败');
+      logger.error('加载配置模板失败:', e)
+      message.error('加载配置模板失败')
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
+  }
 
   useEffect(() => {
-    loadTemplates();
-  }, []);
+    loadTemplates()
+  }, [])
 
   const templateRows = useMemo<TemplateRecord[]>(
     () =>
@@ -52,7 +69,7 @@ const FineTuningConfigPage: React.FC = () => {
         quantization_config: tpl?.quantization_config,
       })),
     [templates]
-  );
+  )
 
   const columns: ColumnsType<TemplateRecord> = [
     { title: '模板名称', dataIndex: 'name', key: 'name' },
@@ -72,26 +89,27 @@ const FineTuningConfigPage: React.FC = () => {
       title: '轮次',
       dataIndex: 'num_train_epochs',
       key: 'num_train_epochs',
-      render: (value: number) => (value ?? '-'),
+      render: (value: number) => value ?? '-',
     },
     {
       title: '批次大小',
       dataIndex: 'per_device_train_batch_size',
       key: 'per_device_train_batch_size',
-      render: (value: number) => (value ?? '-'),
+      render: (value: number) => value ?? '-',
     },
     {
       title: '量化',
       dataIndex: 'quantization_config',
       key: 'quantization_config',
-      render: (value: any) => (value?.quantization_type ? <Tag>{value.quantization_type}</Tag> : '-'),
+      render: (value: any) =>
+        value?.quantization_type ? <Tag>{value.quantization_type}</Tag> : '-',
     },
-  ];
+  ]
 
   const handleValidate = async () => {
     try {
-      const values = await form.validateFields();
-      const selected = templates[values.template_name] || {};
+      const values = await form.validateFields()
+      const selected = templates[values.template_name] || {}
       const payload: TrainingJobRequest = {
         job_name: values.job_name,
         model_name: values.model_name,
@@ -112,24 +130,30 @@ const FineTuningConfigPage: React.FC = () => {
         use_gradient_checkpointing: selected.use_gradient_checkpointing ?? true,
         fp16: selected.fp16 ?? false,
         bf16: selected.bf16 ?? true,
-      };
-      setValidating(true);
-      const result = await fineTuningService.validateTrainingConfig(payload);
-      setValidationResult(result);
-      message.success(result.valid ? '配置验证通过' : '配置验证未通过');
+      }
+      setValidating(true)
+      const result = await fineTuningService.validateTrainingConfig(payload)
+      setValidationResult(result)
+      message.success(result.valid ? '配置验证通过' : '配置验证未通过')
     } catch (e: any) {
-      if (e?.errorFields) return;
-      logger.error('验证配置失败:', e);
-      message.error('验证配置失败');
+      if (e?.errorFields) return
+      logger.error('验证配置失败:', e)
+      message.error('验证配置失败')
     } finally {
-      setValidating(false);
+      setValidating(false)
     }
-  };
+  }
 
   return (
     <div style={{ padding: '24px' }}>
       <Card title="配置模板" style={{ marginBottom: 16 }}>
-        <Table columns={columns} dataSource={templateRows} rowKey="name" loading={loading} pagination={false} />
+        <Table
+          columns={columns}
+          dataSource={templateRows}
+          rowKey="name"
+          loading={loading}
+          pagination={false}
+        />
       </Card>
 
       <Card title="配置校验">
@@ -147,20 +171,36 @@ const FineTuningConfigPage: React.FC = () => {
               ))}
             </Select>
           </Form.Item>
-          <Form.Item name="job_name" label="任务名称" rules={[{ required: true, message: '请输入任务名称' }]}>
+          <Form.Item
+            name="job_name"
+            label="任务名称"
+            rules={[{ required: true, message: '请输入任务名称' }]}
+          >
             <Input placeholder="例如 lora_small_job" />
           </Form.Item>
-          <Form.Item name="model_name" label="模型名称" rules={[{ required: true, message: '请输入模型名称' }]}>
+          <Form.Item
+            name="model_name"
+            label="模型名称"
+            rules={[{ required: true, message: '请输入模型名称' }]}
+          >
             <Input placeholder="例如 hf-internal-testing/tiny-random-LlamaForCausalLM" />
           </Form.Item>
-          <Form.Item name="dataset_path" label="数据集路径" rules={[{ required: true, message: '请输入数据集路径' }]}>
+          <Form.Item
+            name="dataset_path"
+            label="数据集路径"
+            rules={[{ required: true, message: '请输入数据集路径' }]}
+          >
             <Input placeholder="例如 data/train.jsonl" />
           </Form.Item>
           <Form.Item name="output_dir" label="输出目录">
             <Input placeholder="例如 ./fine_tuned_models" />
           </Form.Item>
           <Space>
-            <Button type="primary" onClick={handleValidate} loading={validating}>
+            <Button
+              type="primary"
+              onClick={handleValidate}
+              loading={validating}
+            >
               校验配置
             </Button>
             <Button onClick={loadTemplates}>刷新模板</Button>
@@ -184,7 +224,7 @@ const FineTuningConfigPage: React.FC = () => {
         )}
       </Card>
     </div>
-  );
-};
+  )
+}
 
-export default FineTuningConfigPage;
+export default FineTuningConfigPage

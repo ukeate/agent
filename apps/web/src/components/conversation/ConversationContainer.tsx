@@ -10,7 +10,13 @@ interface ConversationContainerProps {
   loading: boolean
   error?: string | null
   onSendMessage: (message: string) => void
+  onStop?: () => void
   onClearHistory?: () => void | Promise<void>
+  onStartNewConversation?: () => void | Promise<void>
+  onRetrySend?: () => void
+  onDismissError?: () => void
+  draftKey?: string
+  conversationId?: string
 }
 
 const ConversationContainer: React.FC<ConversationContainerProps> = ({
@@ -18,37 +24,49 @@ const ConversationContainer: React.FC<ConversationContainerProps> = ({
   loading,
   error,
   onSendMessage,
+  onStop,
   onClearHistory,
+  onStartNewConversation,
+  onRetrySend,
+  onDismissError,
+  draftKey,
+  conversationId,
 }) => {
   return (
     <div className="flex-1 flex flex-col max-h-full">
       {error && (
         <div className="m-4 mb-0">
-          <NetworkErrorAlert 
+          <NetworkErrorAlert
             error={error}
-            onRetry={() => window.location.reload()}
+            onRetry={onRetrySend}
+            onDismiss={onDismissError}
           />
         </div>
       )}
-      <Card 
+      <Card
         className="flex-1 flex flex-col m-4 !p-0 overflow-hidden"
-        styles={{ 
-          body: { 
-            padding: 0, 
-            height: '100%', 
-            display: 'flex', 
-            flexDirection: 'column' 
-          }
+        styles={{
+          body: {
+            padding: 0,
+            height: '100%',
+            display: 'flex',
+            flexDirection: 'column',
+          },
         }}
       >
-        <MessageList 
-          messages={messages} 
+        <MessageList
+          messages={messages}
           loading={loading}
           onClearHistory={onClearHistory}
+          onStartNewConversation={onStartNewConversation}
+          onRetrySend={onRetrySend}
+          conversationId={conversationId}
         />
-        <MessageInput 
-          onSendMessage={onSendMessage} 
-          loading={loading} 
+        <MessageInput
+          onSendMessage={onSendMessage}
+          onStop={onStop}
+          loading={loading}
+          draftKey={draftKey}
         />
       </Card>
     </div>

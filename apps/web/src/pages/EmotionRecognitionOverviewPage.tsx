@@ -1,6 +1,8 @@
-import React from 'react';
-import EmotionalMemoryManagementPage from './EmotionalMemoryManagementPage';
+import React from 'react'
+import EmotionalMemoryManagementPage from './EmotionalMemoryManagementPage'
 
-const EmotionRecognitionOverviewPage: React.FC = () => <EmotionalMemoryManagementPage />;
+const EmotionRecognitionOverviewPage: React.FC = () => (
+  <EmotionalMemoryManagementPage />
+)
 
-export default EmotionRecognitionOverviewPage;
+export default EmotionRecognitionOverviewPage

@@ -28,7 +28,7 @@ export const SessionControls: React.FC<SessionControlsProps> = ({
   const canPause = session.status === 'active' && !loading
   const canResume = session.status === 'paused' && !loading
   const canTerminate = ['active', 'paused'].includes(session.status) && !loading
-  
+
   const handleTerminate = () => {
     onTerminate(terminateReason || '用户手动终止')
     setShowTerminateConfirm(false)
@@ -44,20 +44,20 @@ export const SessionControls: React.FC<SessionControlsProps> = ({
       terminated: { text: '已终止', color: 'text-red-600', bg: 'bg-red-100' },
       error: { text: '错误', color: 'text-red-600', bg: 'bg-red-100' },
     }
-    
+
     return statusMap[status as keyof typeof statusMap] || statusMap.created
   }
 
   const statusInfo = getStatusDisplay(session.status)
 
   return (
-    <div className={`bg-white border border-gray-200 rounded-lg p-4 ${className}`}>
+    <div
+      className={`bg-white border border-gray-200 rounded-lg p-4 ${className}`}
+    >
       {/* 会话信息 */}
       <div className="flex items-center justify-between mb-4">
         <div>
-          <h3 className="text-lg font-medium text-gray-900 mb-1">
-            会话控制
-          </h3>
+          <h3 className="text-lg font-medium text-gray-900 mb-1">会话控制</h3>
           <div className="flex items-center gap-2">
             <span
               className={`
@@ -175,7 +175,7 @@ export const SessionControls: React.FC<SessionControlsProps> = ({
             <p className="text-sm text-gray-600 mb-4">
               终止后将无法恢复会话，确定要继续吗？
             </p>
-            
+
             <div className="mb-4">
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 终止原因 (可选)
@@ -183,7 +183,7 @@ export const SessionControls: React.FC<SessionControlsProps> = ({
               <input
                 type="text"
                 value={terminateReason}
-                onChange={(e) => setTerminateReason(e.target.value)}
+                onChange={e => setTerminateReason(e.target.value)}
                 placeholder="请输入终止原因..."
                 className="
                   w-full px-3 py-2 border border-gray-300 rounded-md
@@ -191,7 +191,7 @@ export const SessionControls: React.FC<SessionControlsProps> = ({
                 "
               />
             </div>
-            
+
             <div className="flex gap-2">
               <button
                 onClick={() => setShowTerminateConfirm(false)}

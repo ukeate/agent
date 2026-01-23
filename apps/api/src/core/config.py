@@ -2,6 +2,7 @@
 应用配置管理
 """
 
+import json
 import secrets
 from functools import lru_cache
 from pydantic import Field, field_validator, model_validator
@@ -240,13 +241,23 @@ class Settings(BaseSettings):
         "CORS_ALLOW_METHODS",
         "CORS_ALLOW_HEADERS",
         "CORS_EXPOSE_HEADERS",
+        "TRUSTED_HOSTS",
         mode="before",
     )
     @classmethod
     def parse_list_settings(cls, v):
         """解析列表配置"""
         if isinstance(v, str):
-            return [host.strip() for host in v.split(",") if host.strip()]
+            value = v.strip()
+            if not value:
+                return []
+            try:
+                parsed = json.loads(value)
+            except json.JSONDecodeError as exc:
+                raise ValueError("列表配置必须为JSON数组字符串") from exc
+            if not isinstance(parsed, list):
+                raise ValueError("列表配置必须为JSON数组")
+            return parsed
         return v
 
     model_config = SettingsConfigDict(

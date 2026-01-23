@@ -1,14 +1,14 @@
 import { buildApiUrl, apiFetch } from '../utils/apiBase'
 import React, { useState } from 'react'
-import { 
-  Card, 
-  Table, 
-  Tag, 
-  Button, 
-  Space, 
-  Progress, 
-  Statistic, 
-  Row, 
+import {
+  Card,
+  Table,
+  Tag,
+  Button,
+  Space,
+  Progress,
+  Statistic,
+  Row,
   Col,
   Badge,
   Tooltip,
@@ -16,17 +16,17 @@ import {
   Form,
   Input,
   Select,
-  message
+  message,
 } from 'antd'
-import { 
-  PlayCircleOutlined, 
-  PauseCircleOutlined, 
+import {
+  PlayCircleOutlined,
+  PauseCircleOutlined,
   StopOutlined,
   ReloadOutlined,
   PlusOutlined,
   SettingOutlined,
   DeleteOutlined,
-  ExclamationCircleOutlined
+  ExclamationCircleOutlined,
 } from '@ant-design/icons'
 
 const { Option } = Select
@@ -55,16 +55,16 @@ const AsyncAgentPage: React.FC = () => {
 
   const statusColors = {
     running: 'success',
-    paused: 'warning', 
+    paused: 'warning',
     stopped: 'default',
-    error: 'error'
+    error: 'error',
   }
 
   const statusTexts = {
     running: '运行中',
     paused: '已暂停',
     stopped: '已停止',
-    error: '错误'
+    error: '错误',
   }
 
   const normalizeStatus = (status: string): Agent['status'] => {
@@ -74,7 +74,7 @@ const AsyncAgentPage: React.FC = () => {
       paused: 'paused',
       idle: 'paused',
       stopped: 'stopped',
-      error: 'error'
+      error: 'error',
     }
     return mapping[status] || 'running'
   }
@@ -85,23 +85,34 @@ const AsyncAgentPage: React.FC = () => {
     try {
       const res = await apiFetch(buildApiUrl('/api/v1/async-agents/agents'))
       const body = await res.json()
-      const agentList: Agent[] = (body.data?.agents || []).map((agent: any, idx: number) => {
-        const tasksTotal = Number(agent.total_tasks ?? agent.state?.total_tasks ?? 0) || 0
-        const tasksCompleted = Number(agent.completed_tasks ?? agent.state?.completed_tasks ?? 0) || 0
-        const progress = tasksTotal > 0 ? Math.round((tasksCompleted / tasksTotal) * 100) : Math.round(agent.state?.progress ?? 0)
-        return {
-          id: agent.id || `agent-${idx}`,
-          name: agent.name || agent.role || `agent-${idx}`,
-          type: agent.role || 'unknown',
-          status: normalizeStatus(agent.status),
-          progress: Math.max(0, Math.min(100, progress)),
-          tasksCompleted,
-          tasksTotal,
-          lastActivity: agent.last_activity ? new Date(agent.last_activity).toLocaleString('zh-CN') : '',
-          cpu: Math.round((agent.state?.load ?? 0) * 100),
-          memory: Math.round(agent.state?.memory_mb ?? 0)
+      const agentList: Agent[] = (body.data?.agents || []).map(
+        (agent: any, idx: number) => {
+          const tasksTotal =
+            Number(agent.total_tasks ?? agent.state?.total_tasks ?? 0) || 0
+          const tasksCompleted =
+            Number(
+              agent.completed_tasks ?? agent.state?.completed_tasks ?? 0
+            ) || 0
+          const progress =
+            tasksTotal > 0
+              ? Math.round((tasksCompleted / tasksTotal) * 100)
+              : Math.round(agent.state?.progress ?? 0)
+          return {
+            id: agent.id || `agent-${idx}`,
+            name: agent.name || agent.role || `agent-${idx}`,
+            type: agent.role || 'unknown',
+            status: normalizeStatus(agent.status),
+            progress: Math.max(0, Math.min(100, progress)),
+            tasksCompleted,
+            tasksTotal,
+            lastActivity: agent.last_activity
+              ? new Date(agent.last_activity).toLocaleString('zh-CN')
+              : '',
+            cpu: Math.round((agent.state?.load ?? 0) * 100),
+            memory: Math.round(agent.state?.memory_mb ?? 0),
+          }
         }
-      })
+      )
       setAgents(agentList)
     } catch (e) {
       setError('加载异步智能体失败')
@@ -119,13 +130,15 @@ const AsyncAgentPage: React.FC = () => {
         content: `这将永久删除智能体 ${agentId}`,
         okType: 'danger',
         onOk() {
-          apiFetch(buildApiUrl(`/api/v1/async-agents/agents/${agentId}`), { method: 'DELETE' })
-            .then((res) => {
+          apiFetch(buildApiUrl(`/api/v1/async-agents/agents/${agentId}`), {
+            method: 'DELETE',
+          })
+            .then(res => {
               message.success('删除成功')
               fetchAgents()
             })
             .catch(() => message.error('删除智能体失败'))
-        }
+        },
       })
       return
     }
@@ -139,8 +152,8 @@ const AsyncAgentPage: React.FC = () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           role: values.type,
-          name: values.name || undefined
-        })
+          name: values.name || undefined,
+        }),
       })
       await res.json().catch(() => null)
       message.success('已创建智能体')
@@ -162,7 +175,7 @@ const AsyncAgentPage: React.FC = () => {
           <Badge status={statusColors[record.status] as any} />
           <strong>{text}</strong>
         </Space>
-      )
+      ),
     },
     {
       title: '类型',
@@ -172,11 +185,14 @@ const AsyncAgentPage: React.FC = () => {
         const typeMap = {
           retrieval: { color: 'blue', text: '检索型' },
           analysis: { color: 'green', text: '分析型' },
-          generation: { color: 'purple', text: '生成型' }
+          generation: { color: 'purple', text: '生成型' },
         }
-        const config = typeMap[type as keyof typeof typeMap] || { color: 'default', text: type }
+        const config = typeMap[type as keyof typeof typeMap] || {
+          color: 'default',
+          text: type,
+        }
         return <Tag color={config.color}>{config.text}</Tag>
-      }
+      },
     },
     {
       title: '状态',
@@ -184,7 +200,7 @@ const AsyncAgentPage: React.FC = () => {
       key: 'status',
       render: (status: keyof typeof statusColors) => (
         <Tag color={statusColors[status]}>{statusTexts[status]}</Tag>
-      )
+      ),
     },
     {
       title: '进度',
@@ -192,16 +208,16 @@ const AsyncAgentPage: React.FC = () => {
       key: 'progress',
       render: (progress: number, record: Agent) => (
         <div>
-          <Progress 
-            percent={progress} 
-            size="small" 
+          <Progress
+            percent={progress}
+            size="small"
             status={record.status === 'error' ? 'exception' : 'active'}
           />
           <div className="text-xs text-gray-500 mt-1">
             {record.tasksCompleted}/{record.tasksTotal} 任务
           </div>
         </div>
-      )
+      ),
     },
     {
       title: '资源使用',
@@ -209,18 +225,18 @@ const AsyncAgentPage: React.FC = () => {
       render: (record: Agent) => (
         <Space direction="vertical" size="small">
           <div className="text-xs">
-            CPU: <Progress 
-              percent={record.cpu} 
-              size="small" 
+            CPU:{' '}
+            <Progress
+              percent={record.cpu}
+              size="small"
               showInfo={false}
               strokeColor={record.cpu > 80 ? '#ff4d4f' : '#1890ff'}
-            /> {record.cpu}%
+            />{' '}
+            {record.cpu}%
           </div>
-          <div className="text-xs">
-            内存: {record.memory}MB
-          </div>
+          <div className="text-xs">内存: {record.memory}MB</div>
         </Space>
-      )
+      ),
     },
     {
       title: '最后活动',
@@ -228,7 +244,7 @@ const AsyncAgentPage: React.FC = () => {
       key: 'lastActivity',
       render: (time: string) => (
         <div className="text-xs text-gray-500">{time}</div>
-      )
+      ),
     },
     {
       title: '操作',
@@ -236,37 +252,35 @@ const AsyncAgentPage: React.FC = () => {
       render: (record: Agent) => (
         <Space>
           <Tooltip title="暂停/启动请通过任务接口控制">
-            <Button 
-              size="small" 
-              icon={record.status === 'running' ? <PauseCircleOutlined /> : <PlayCircleOutlined />}
+            <Button
+              size="small"
+              icon={
+                record.status === 'running' ? (
+                  <PauseCircleOutlined />
+                ) : (
+                  <PlayCircleOutlined />
+                )
+              }
               disabled
             />
           </Tooltip>
           <Tooltip title="停止请通过任务接口控制">
-            <Button 
-              size="small" 
-              danger
-              icon={<StopOutlined />}
-              disabled
-            />
+            <Button size="small" danger icon={<StopOutlined />} disabled />
           </Tooltip>
           <Tooltip title="设置">
-            <Button 
-              size="small" 
-              icon={<SettingOutlined />}
-            />
+            <Button size="small" icon={<SettingOutlined />} />
           </Tooltip>
           <Tooltip title="删除">
-            <Button 
-              size="small" 
+            <Button
+              size="small"
               danger
               icon={<DeleteOutlined />}
               onClick={() => handleAgentAction(record.id, 'delete')}
             />
           </Tooltip>
         </Space>
-      )
-    }
+      ),
+    },
   ]
 
   React.useEffect(() => {
@@ -276,7 +290,10 @@ const AsyncAgentPage: React.FC = () => {
   const runningAgents = agents.filter(a => a.status === 'running').length
   const totalTasks = agents.reduce((sum, a) => sum + a.tasksTotal, 0)
   const completedTasks = agents.reduce((sum, a) => sum + a.tasksCompleted, 0)
-  const avgCpu = agents.length > 0 ? Math.round(agents.reduce((sum, a) => sum + a.cpu, 0) / agents.length) : 0
+  const avgCpu =
+    agents.length > 0
+      ? Math.round(agents.reduce((sum, a) => sum + a.cpu, 0) / agents.length)
+      : 0
 
   return (
     <div className="p-6">
@@ -284,11 +301,15 @@ const AsyncAgentPage: React.FC = () => {
         <div className="flex justify-between items-center mb-4">
           <h1 className="text-2xl font-bold">异步智能体管理</h1>
           <Space>
-            <Button icon={<ReloadOutlined />} onClick={fetchAgents} loading={loading}>
+            <Button
+              icon={<ReloadOutlined />}
+              onClick={fetchAgents}
+              loading={loading}
+            >
               刷新
             </Button>
-            <Button 
-              type="primary" 
+            <Button
+              type="primary"
               icon={<PlusOutlined />}
               onClick={() => setIsCreateModalVisible(true)}
             >
@@ -312,7 +333,11 @@ const AsyncAgentPage: React.FC = () => {
             <Card>
               <Statistic
                 title="任务进度"
-                value={totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0}
+                value={
+                  totalTasks > 0
+                    ? Math.round((completedTasks / totalTasks) * 100)
+                    : 0
+                }
                 suffix="%"
                 valueStyle={{ color: '#1890ff' }}
               />
@@ -367,11 +392,7 @@ const AsyncAgentPage: React.FC = () => {
         okText="创建"
         cancelText="取消"
       >
-        <Form
-          form={form}
-          layout="vertical"
-          onFinish={handleCreateAgent}
-        >
+        <Form form={form} layout="vertical" onFinish={handleCreateAgent}>
           <Form.Item
             name="name"
             label="智能体名称"

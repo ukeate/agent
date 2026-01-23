@@ -1,9 +1,13 @@
 """健康检查API路由"""
 
-from fastapi import APIRouter, Query
-from typing import Dict, Any
-from src.core.health import get_health_status, check_readiness, check_liveness, HealthStatus
+from datetime import datetime, timezone
+from fastapi import APIRouter, Query, status
+from fastapi.responses import JSONResponse
+from typing import Dict, Any, Optional
+from src.core.health import get_health_status, check_liveness, HealthStatus
+from src.core.utils.timezone_utils import utc_now, parse_iso_string
 from src.core.monitoring import get_monitoring_service
+from src.core.logging import get_logger
 
 logger = get_logger(__name__)
 
@@ -35,6 +39,7 @@ async def health_check(detailed: bool = Query(False, description="是否返回�
         logger.error(f"Health check failed: {e}")
         return {
             "status": HealthStatus.UNHEALTHY,
+            "timestamp": utc_now().isoformat(),
             "error": str(e)
         }
 
@@ -55,11 +60,17 @@ async def liveness_check() -> Dict[str, str]:
             return {"status": "alive"}
         else:
             # 返回503 Service Unavailable
-            return {"status": "dead"}
+            return JSONResponse(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                content={"status": "dead"},
+            )
             
     except Exception as e:
         logger.error(f"Liveness check failed: {e}")
-        return {"status": "dead", "error": str(e)}
+        return JSONResponse(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            content={"status": "dead", "error": str(e)},
+        )
 
 @router.get("/ready")
 async def readiness_check() -> Dict[str, Any]:
@@ -72,23 +83,27 @@ async def readiness_check() -> Dict[str, Any]:
         就绪状态
     """
     try:
-        is_ready = await check_readiness()
+        health_status = await get_health_status(detailed=False)
+        is_ready = health_status.get("status") != HealthStatus.UNHEALTHY
         
         if is_ready:
             return {"status": "ready"}
         else:
-            # 获取详细信息以了解哪些组件未就绪
-            health_status = await get_health_status(detailed=False)
-            
-            return {
-                "status": "not_ready",
-                "components": health_status.get("components", {}),
-                "failed_components": health_status.get("failed_components", [])
-            }
+            return JSONResponse(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                content={
+                    "status": "not_ready",
+                    "components": health_status.get("components", {}),
+                    "failed_components": health_status.get("failed_components", []),
+                },
+            )
             
     except Exception as e:
         logger.error(f"Readiness check failed: {e}")
-        return {"status": "not_ready", "error": str(e)}
+        return JSONResponse(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            content={"status": "not_ready", "error": str(e)},
+        )
 
 @router.get("/metrics")
 async def get_metrics() -> Dict[str, Any]:
@@ -108,7 +123,12 @@ async def get_metrics() -> Dict[str, Any]:
         return {"error": str(e)}
 
 @router.get("/alerts")
-async def get_alerts() -> Dict[str, Any]:
+async def get_alerts(
+    severity: Optional[str] = Query(None, description="告警级别过滤"),
+    component: Optional[str] = Query(None, description="组件或规则名过滤"),
+    resolved: Optional[bool] = Query(None, description="是否已解决"),
+    limit: Optional[int] = Query(None, ge=1, le=200, description="返回数量上限"),
+) -> Dict[str, Any]:
     """
     获取活动告警
     
@@ -118,13 +138,46 @@ async def get_alerts() -> Dict[str, Any]:
     try:
         monitoring_service = get_monitoring_service()
         alerts = await monitoring_service.alert_manager.get_active_alerts()
-        
+        normalized_severity = severity.strip().lower() if severity else None
+        normalized_component = component.strip().lower() if component else None
+
+        def parse_alert_timestamp(alert: Dict[str, Any]) -> datetime:
+            raw = alert.get("timestamp")
+            if isinstance(raw, str):
+                parsed = parse_iso_string(raw)
+                if parsed:
+                    return parsed
+            return datetime.min.replace(tzinfo=timezone.utc)
+
+        filtered = []
+        for alert in alerts:
+            if normalized_severity:
+                alert_severity = str(alert.get("severity", "")).lower()
+                if alert_severity != normalized_severity:
+                    continue
+            if normalized_component:
+                name = str(alert.get("name", "")).lower()
+                metric_component = str(
+                    (alert.get("metrics") or {}).get("component", "")
+                ).lower()
+                if normalized_component not in name and normalized_component not in metric_component:
+                    continue
+            if resolved is not None:
+                alert_resolved = bool(alert.get("resolved"))
+                if alert_resolved != resolved:
+                    continue
+            filtered.append(alert)
+
+        filtered.sort(key=parse_alert_timestamp, reverse=True)
+        total_alerts = len(filtered)
+        if limit:
+            filtered = filtered[:limit]
+
         return {
-            "total_alerts": len(alerts),
-            "alerts": alerts
+            "total_alerts": total_alerts,
+            "alerts": filtered
         }
         
     except Exception as e:
         logger.error(f"Failed to get alerts: {e}")
         return {"error": str(e)}
-from src.core.logging import get_logger

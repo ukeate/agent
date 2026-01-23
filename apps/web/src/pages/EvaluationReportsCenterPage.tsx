@@ -58,7 +58,7 @@ const EvaluationReportsCenterPage: React.FC = () => {
           include_detailed_metrics: true,
           include_recommendations: true,
           output_format: 'html',
-        },
+        }),
       });
       const data = await res.json();
       setReportJobId(data?.report_job_id || null);
@@ -148,4 +148,3 @@ const EvaluationReportsCenterPage: React.FC = () => {
 };
 
 export default EvaluationReportsCenterPage;
-

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
-import {
 import { logger } from '../utils/logger'
+import {
   Card,
   Row,
   Col,
@@ -16,7 +16,7 @@ import { logger } from '../utils/logger'
   List,
   notification,
   Form,
-  Modal
+  Modal,
 } from 'antd'
 import {
   SearchOutlined,
@@ -26,9 +26,12 @@ import {
   BookOutlined,
   TableOutlined,
   BarChartOutlined,
-  ReloadOutlined
+  ReloadOutlined,
 } from '@ant-design/icons'
-import { knowledgeGraphService, type QueryTemplate } from '../services/knowledgeGraphService'
+import {
+  knowledgeGraphService,
+  type QueryTemplate,
+} from '../services/knowledgeGraphService'
 import { sparqlService } from '../services/sparqlService'
 
 const { Title, Text, Paragraph } = Typography
@@ -42,7 +45,9 @@ const GraphQueryEnginePage: React.FC = () => {
   const [queryResults, setQueryResults] = useState<any[]>([])
   const [resultColumns, setResultColumns] = useState<any[]>([])
   const [resultError, setResultError] = useState<string | null>(null)
-  const [queryType, setQueryType] = useState<'cypher' | 'sparql' | 'gremlin'>('cypher')
+  const [queryType, setQueryType] = useState<'cypher' | 'sparql' | 'gremlin'>(
+    'cypher'
+  )
   const [templates, setTemplates] = useState<QueryTemplate[]>([])
   const [templatesLoading, setTemplatesLoading] = useState(false)
   const [templateModalVisible, setTemplateModalVisible] = useState(false)
@@ -69,13 +74,16 @@ const GraphQueryEnginePage: React.FC = () => {
     if (!rows.length) return { data: [], columns: [] }
     const first = rows[0]
     if (first && typeof first === 'object' && !Array.isArray(first)) {
-      const columns = Object.keys(first).map((key) => ({
+      const columns = Object.keys(first).map(key => ({
         title: key,
         dataIndex: key,
         key,
       }))
       return {
-        data: rows.map((row, index) => ({ key: row.id || row.key || index, ...row })),
+        data: rows.map((row, index) => ({
+          key: row.id || row.key || index,
+          ...row,
+        })),
         columns,
       }
     }
@@ -127,17 +135,23 @@ const GraphQueryEnginePage: React.FC = () => {
         const normalized = normalizeSparqlResult(result)
         setQueryResults(normalized.data)
         setResultColumns(normalized.columns)
-        notification.success({ message: `查询完成，返回 ${normalized.data.length} 条结果` })
+        notification.success({
+          message: `查询完成，返回 ${normalized.data.length} 条结果`,
+        })
       } else if (queryType === 'cypher') {
         const result = await knowledgeGraphService.executeQuery({
           query: queryText,
           parameters: {},
           read_only: true,
         })
-        const normalized = normalizeRows(Array.isArray(result?.data) ? result.data : [])
+        const normalized = normalizeRows(
+          Array.isArray(result?.data) ? result.data : []
+        )
         setQueryResults(normalized.data)
         setResultColumns(normalized.columns)
-        notification.success({ message: `查询完成，返回 ${normalized.data.length} 条结果` })
+        notification.success({
+          message: `查询完成，返回 ${normalized.data.length} 条结果`,
+        })
       } else {
         throw new Error('当前查询类型暂不支持')
       }
@@ -186,35 +200,48 @@ const GraphQueryEnginePage: React.FC = () => {
   const renderQueryInterface = () => (
     <Row gutter={[16, 16]}>
       <Col span={24}>
-        <Card title="图查询引擎" extra={
-          <Space>
-            <Select value={queryType} onChange={setQueryType} name="graph-query-type" style={{ width: 120 }}>
-              <Select.Option value="cypher">Cypher</Select.Option>
-              <Select.Option value="sparql">SPARQL</Select.Option>
-              <Select.Option value="gremlin">Gremlin</Select.Option>
-            </Select>
-            <Button icon={<BookOutlined />}>语法帮助</Button>
-          </Space>
-        }>
+        <Card
+          title="图查询引擎"
+          extra={
+            <Space>
+              <Select
+                value={queryType}
+                onChange={setQueryType}
+                name="graph-query-type"
+                style={{ width: 120 }}
+              >
+                <Select.Option value="cypher">Cypher</Select.Option>
+                <Select.Option value="sparql">SPARQL</Select.Option>
+                <Select.Option value="gremlin">Gremlin</Select.Option>
+              </Select>
+              <Button icon={<BookOutlined />}>语法帮助</Button>
+            </Space>
+          }
+        >
           <Space direction="vertical" style={{ width: '100%' }} size="large">
             <TextArea
               rows={8}
               placeholder="请输入图查询语句...&#10;例如: MATCH (p:Person)-[:WORKS_FOR]->(c:Company) RETURN p.name, c.name"
               value={queryText}
-              onChange={(e) => setQueryText(e.target.value)}
+              onChange={e => setQueryText(e.target.value)}
               name="graph-query-text"
               style={{ fontFamily: 'monospace' }}
             />
             <Row justify="space-between">
               <Col>
                 <Space>
-                  <Button icon={<SaveOutlined />} onClick={handleOpenTemplateModal}>保存查询</Button>
+                  <Button
+                    icon={<SaveOutlined />}
+                    onClick={handleOpenTemplateModal}
+                  >
+                    保存查询
+                  </Button>
                   <Button icon={<HistoryOutlined />}>查询历史</Button>
                 </Space>
               </Col>
               <Col>
-                <Button 
-                  type="primary" 
+                <Button
+                  type="primary"
                   icon={<PlayCircleOutlined />}
                   loading={loading}
                   onClick={handleQuery}
@@ -227,14 +254,22 @@ const GraphQueryEnginePage: React.FC = () => {
         </Card>
       </Col>
       <Col span={24}>
-        <Card title="查询结果" extra={
-          <Space>
-            <Button icon={<TableOutlined />}>表格视图</Button>
-            <Button icon={<BarChartOutlined />}>图表视图</Button>
-          </Space>
-        }>
+        <Card
+          title="查询结果"
+          extra={
+            <Space>
+              <Button icon={<TableOutlined />}>表格视图</Button>
+              <Button icon={<BarChartOutlined />}>图表视图</Button>
+            </Space>
+          }
+        >
           {resultError && (
-            <Alert type="error" message="查询失败" description={resultError} style={{ marginBottom: 12 }} />
+            <Alert
+              type="error"
+              message="查询失败"
+              description={resultError}
+              style={{ marginBottom: 12 }}
+            />
           )}
           <Table
             dataSource={queryResults}
@@ -265,12 +300,19 @@ const GraphQueryEnginePage: React.FC = () => {
           {renderQueryInterface()}
         </TabPane>
         <TabPane tab="查询模板" key="templates">
-          <Card title="查询模板库" extra={<Button icon={<ReloadOutlined />} onClick={loadTemplates}>刷新</Button>}>
+          <Card
+            title="查询模板库"
+            extra={
+              <Button icon={<ReloadOutlined />} onClick={loadTemplates}>
+                刷新
+              </Button>
+            }
+          >
             <List
               loading={templatesLoading}
               dataSource={templates}
               locale={{ emptyText: '暂无模板，请保存查询后使用' }}
-              renderItem={(item) => (
+              renderItem={item => (
                 <List.Item
                   actions={[
                     <Button
@@ -278,13 +320,15 @@ const GraphQueryEnginePage: React.FC = () => {
                       onClick={() => {
                         setQueryText(item.query)
                         if (item.category) {
-                          setQueryType(item.category as 'cypher' | 'sparql' | 'gremlin')
+                          setQueryType(
+                            item.category as 'cypher' | 'sparql' | 'gremlin'
+                          )
                         }
                         setActiveTab('query')
                       }}
                     >
                       使用模板
-                    </Button>
+                    </Button>,
                   ]}
                 >
                   <List.Item.Meta
@@ -296,7 +340,9 @@ const GraphQueryEnginePage: React.FC = () => {
                     }
                     description={
                       <div>
-                        {item.description && <Text type="secondary">{item.description}</Text>}
+                        {item.description && (
+                          <Text type="secondary">{item.description}</Text>
+                        )}
                         <div>
                           <Text code>{item.query}</Text>
                         </div>

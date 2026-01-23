@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
+import dayjs from 'dayjs';
+import { logger } from '../../utils/logger';
+import { useDebouncedValue } from '../../hooks/useDebouncedValue';
 import {
-import { logger } from '../../utils/logger'
   Card,
   Table,
   Button,
@@ -33,6 +35,7 @@ import {
   DeleteOutlined,
   EyeOutlined,
   MoreOutlined,
+  InboxOutlined,
   ExperimentOutlined,
   RiseOutlined,
   UsergroupAddOutlined,
@@ -54,27 +57,51 @@ interface Experiment extends ExperimentData {
   creator: string;
 }
 
+const STATUS_CONFIG = {
+  draft: { text: '草稿', color: 'default' },
+  running: { text: '运行中', color: 'processing' },
+  paused: { text: '已暂停', color: 'warning' },
+  completed: { text: '已完成', color: 'success' },
+  terminated: { text: '已归档', color: 'default' },
+} as const;
+
+const STATUS_OPTIONS = [
+  { value: 'all', label: '全部状态' },
+  { value: 'draft', label: STATUS_CONFIG.draft.text },
+  { value: 'running', label: STATUS_CONFIG.running.text },
+  { value: 'paused', label: STATUS_CONFIG.paused.text },
+  { value: 'completed', label: STATUS_CONFIG.completed.text },
+  { value: 'terminated', label: STATUS_CONFIG.terminated.text },
+];
+
 const ExperimentListPage: React.FC = () => {
   const [experiments, setExperiments] = useState<Experiment[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedRowKeys, setSelectedRowKeys] = useState<string[]>([]);
   const [searchText, setSearchText] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [dateRange, setDateRange] = useState<any[]>([]);
+  const [dateRange, setDateRange] = useState<any[] | null>(null);
   const [total, setTotal] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [error, setError] = useState<string | null>(null);
   const [createModalVisible, setCreateModalVisible] = useState(false);
   const [form] = Form.useForm();
+  const debouncedSearchText = useDebouncedValue(searchText, 300);
 
   const loadExperiments = async () => {
     setLoading(true);
     setError(null);
     try {
+      const [startDate, endDate] = dateRange || [];
+      const trimmedSearch = debouncedSearchText.trim();
       const params: ListExperimentsParams = {
-        search: searchText || undefined,
+        search: trimmedSearch || undefined,
         status: statusFilter !== 'all' ? statusFilter : undefined,
+        startDateFrom: startDate
+          ? startDate.startOf('day').toISOString()
+          : undefined,
+        startDateTo: endDate ? endDate.endOf('day').toISOString() : undefined,
         page: currentPage,
         pageSize: pageSize,
       };
@@ -82,14 +109,27 @@ const ExperimentListPage: React.FC = () => {
       const response = await experimentService.listExperiments(params);
       
       // 转换数据格式以适应本地接口
-      const experimentsWithExtendedData: Experiment[] = response.experiments.map(exp => ({
-        ...exp,
-        traffic_percentage: 50, // 默认值，需要从API获取
-        users_enrolled: 0, // 默认值，需要从API获取
-        conversion_rate: 0, // 默认值，需要从API获取
-        statistical_significance: false, // 默认值，需要从API获取
-        creator: exp.owners?.[0] || 'Unknown',
-      }));
+      const experimentsWithExtendedData: Experiment[] = response.experiments.map(exp => {
+        const trafficPercentage = Array.isArray(exp.variants)
+          ? exp.variants.reduce(
+              (sum, variant) =>
+                sum + Number(variant?.traffic ?? variant?.traffic_percentage ?? 0),
+              0
+            )
+          : 0;
+        const participants = exp.participants ?? exp.sampleSize?.current ?? 0;
+        const sampleReached = exp.sampleSize?.required
+          ? participants >= exp.sampleSize.required
+          : false;
+        return {
+          ...exp,
+          traffic_percentage: Math.min(100, Math.max(0, trafficPercentage)),
+          users_enrolled: participants,
+          conversion_rate: exp.conversion_rate ?? 0,
+          statistical_significance: sampleReached,
+          creator: exp.owners?.[0] || exp.owner || 'Unknown',
+        };
+      });
       
       setExperiments(experimentsWithExtendedData);
       setTotal(response.total);
@@ -104,39 +144,33 @@ const ExperimentListPage: React.FC = () => {
 
   useEffect(() => {
     loadExperiments();
-  }, [searchText, statusFilter, currentPage, pageSize]);
+  }, [debouncedSearchText, statusFilter, dateRange, currentPage, pageSize]);
 
   const getStatusColor = (status: string) => {
-    const colors = {
-      draft: 'default',
-      running: 'processing',
-      paused: 'warning',
-      completed: 'success',
-      archived: 'default',
-    };
-    return colors[status as keyof typeof colors];
+    return (
+      STATUS_CONFIG[status as keyof typeof STATUS_CONFIG]?.color || 'default'
+    );
   };
 
   const getStatusText = (status: string) => {
-    const texts = {
-      draft: '草稿',
-      running: '运行中',
-      paused: '已暂停',
-      completed: '已完成',
-      archived: '已归档',
-    };
-    return texts[status as keyof typeof texts];
+    return STATUS_CONFIG[status as keyof typeof STATUS_CONFIG]?.text || status;
   };
 
-  const handleStatusChange = async (experimentId: string, newStatus: string) => {
+  const handleStatusChange = async (experiment: Experiment, newStatus: string) => {
     try {
       // 根据状态调用相应的API
       if (newStatus === 'running') {
-        await experimentService.startExperiment(experimentId);
+        if (experiment.status === 'paused') {
+          await experimentService.resumeExperiment(experiment.id);
+        } else {
+          await experimentService.startExperiment(experiment.id);
+        }
       } else if (newStatus === 'paused') {
-        await experimentService.pauseExperiment(experimentId);
+        await experimentService.pauseExperiment(experiment.id);
       } else if (newStatus === 'completed') {
-        await experimentService.stopExperiment(experimentId);
+        await experimentService.stopExperiment(experiment.id);
+      } else if (newStatus === 'terminated') {
+        await experimentService.archiveExperiment(experiment.id);
       }
       
       // 重新加载数据
@@ -162,6 +196,86 @@ const ExperimentListPage: React.FC = () => {
           message.error('删除实验失败');
         }
       },
+    });
+  };
+
+  const getSelectedExperiments = () =>
+    selectedRowKeys
+      .map(key => experiments.find(exp => exp.id === key))
+      .filter(Boolean) as Experiment[];
+
+  const handleBatchAction = async (action: 'start' | 'pause' | 'delete') => {
+    const selectedExperiments = getSelectedExperiments();
+    if (selectedExperiments.length === 0) {
+      message.warning('请先选择实验');
+      return;
+    }
+
+    const actionConfig = {
+      start: {
+        label: '启动',
+        allowStatuses: new Set(['draft', 'paused']),
+        request: (exp: Experiment) =>
+          exp.status === 'paused'
+            ? experimentService.resumeExperiment(exp.id)
+            : experimentService.startExperiment(exp.id),
+      },
+      pause: {
+        label: '暂停',
+        allowStatuses: new Set(['running']),
+        request: (exp: Experiment) => experimentService.pauseExperiment(exp.id),
+      },
+      delete: {
+        label: '删除',
+        allowStatuses: new Set(['draft']),
+        request: (exp: Experiment) => experimentService.deleteExperiment(exp.id),
+      },
+    } as const;
+
+    const config = actionConfig[action];
+    const eligible = selectedExperiments.filter(exp =>
+      config.allowStatuses.has(exp.status)
+    );
+    const skippedCount = selectedExperiments.length - eligible.length;
+
+    if (eligible.length === 0) {
+      message.warning(`没有可${config.label}的实验`);
+      return;
+    }
+
+    try {
+      const results = await Promise.allSettled(
+        eligible.map(exp => config.request(exp))
+      );
+      const successCount = results.filter(result => result.status === 'fulfilled')
+        .length;
+      const failedCount = results.length - successCount;
+
+      if (successCount > 0) {
+        message.success(`${config.label}成功 ${successCount} 个实验`);
+      }
+      if (failedCount > 0) {
+        message.error(`${config.label}失败 ${failedCount} 个实验`);
+      }
+      if (skippedCount > 0) {
+        message.info(`已跳过 ${skippedCount} 个状态不符合的实验`);
+      }
+    } catch (error) {
+      logger.error(`批量${config.label}失败:`, error);
+      message.error(`批量${config.label}失败`);
+    } finally {
+      setSelectedRowKeys([]);
+      await loadExperiments();
+    }
+  };
+
+  const handleBatchDelete = () => {
+    Modal.confirm({
+      title: '确认批量删除',
+      content: '仅草稿状态允许删除，删除后无法恢复。',
+      okText: '删除',
+      cancelText: '取消',
+      onOk: () => handleBatchAction('delete'),
     });
   };
 
@@ -222,31 +336,41 @@ const ExperimentListPage: React.FC = () => {
             {
               key: 'start',
               icon: <PlayCircleOutlined />,
-              label: '启动',
-              onClick: () => handleStatusChange(record.id, 'running'),
+              label: record.status === 'paused' ? '恢复' : '启动',
+              onClick: () => handleStatusChange(record, 'running'),
             },
           ]
-        : [],
+        : []),
       ...(record.status === 'running'
         ? [
             {
               key: 'pause',
               icon: <PauseCircleOutlined />,
               label: '暂停',
-              onClick: () => handleStatusChange(record.id, 'paused'),
+              onClick: () => handleStatusChange(record, 'paused'),
             },
           ]
-        : [],
+        : []),
       ...(record.status === 'running' || record.status === 'paused'
         ? [
             {
               key: 'complete',
               icon: <StopOutlined />,
               label: '结束',
-              onClick: () => handleStatusChange(record.id, 'completed'),
+              onClick: () => handleStatusChange(record, 'completed'),
             },
           ]
-        : [],
+        : []),
+      ...(record.status === 'completed'
+        ? [
+            {
+              key: 'archive',
+              icon: <InboxOutlined />,
+              label: '归档',
+              onClick: () => handleStatusChange(record, 'terminated'),
+            },
+          ]
+        : []),
       {
         type: 'divider',
       },
@@ -332,7 +456,7 @@ const ExperimentListPage: React.FC = () => {
           </Text>
           {record.statistical_significance && (
             <div>
-              <Tag size="small" color="green">显著</Tag>
+              <Tag size="small" color="green">样本量达标</Tag>
             </div>
           )}
         </div>
@@ -344,14 +468,14 @@ const ExperimentListPage: React.FC = () => {
       width: 140,
       render: (_, record: Experiment) => (
         <div>
-          {record.start_date && (
+          {record.startDate && (
             <Text style={{ display: 'block', fontSize: '12px' }}>
-              开始: {record.start_date}
+              开始: {dayjs(record.startDate).format('YYYY-MM-DD')}
             </Text>
           )}
-          {record.end_date && (
+          {record.endDate && (
             <Text style={{ display: 'block', fontSize: '12px' }}>
-              结束: {record.end_date}
+              结束: {dayjs(record.endDate).format('YYYY-MM-DD')}
             </Text>
           )}
         </div>
@@ -378,7 +502,7 @@ const ExperimentListPage: React.FC = () => {
   ];
 
   const stats = {
-    total: experiments.length,
+    total: total,
     running: experiments.filter(e => e.status === 'running').length,
     completed: experiments.filter(e => e.status === 'completed').length,
     draft: experiments.filter(e => e.status === 'draft').length,
@@ -461,25 +585,36 @@ const ExperimentListPage: React.FC = () => {
               <Search
                 placeholder="搜索实验名称或描述"
                 value={searchText}
-                onChange={(e) => setSearchText(e.target.value)}
+                onChange={(e) => {
+                  setSearchText(e.target.value);
+                  setCurrentPage(1);
+                  setSelectedRowKeys([]);
+                }}
                 style={{ width: 250 }}
                 allowClear
               />
               <Select
                 value={statusFilter}
-                onChange={setStatusFilter}
+                onChange={(value) => {
+                  setStatusFilter(value);
+                  setCurrentPage(1);
+                  setSelectedRowKeys([]);
+                }}
                 style={{ width: 120 }}
               >
-                <Option value="all">全部状态</Option>
-                <Option value="draft">草稿</Option>
-                <Option value="running">运行中</Option>
-                <Option value="paused">已暂停</Option>
-                <Option value="completed">已完成</Option>
-                <Option value="archived">已归档</Option>
+                {STATUS_OPTIONS.map(option => (
+                  <Option key={option.value} value={option.value}>
+                    {option.label}
+                  </Option>
+                ))}
               </Select>
               <RangePicker
                 value={dateRange}
-                onChange={setDateRange}
+                onChange={(value) => {
+                  setDateRange(value);
+                  setCurrentPage(1);
+                  setSelectedRowKeys([]);
+                }}
                 placeholder={['开始日期', '结束日期']}
               />
             </Space>
@@ -516,14 +651,12 @@ const ExperimentListPage: React.FC = () => {
             onChange: (page, size) => {
               setCurrentPage(page);
               setPageSize(size || 10);
+              setSelectedRowKeys([]);
             },
           }}
           rowSelection={{
             selectedRowKeys,
             onChange: setSelectedRowKeys,
-            getCheckboxProps: (record) => ({
-              disabled: record.status === 'running',
-            }),
           }}
           scroll={{ x: 1200 }}
         />
@@ -534,9 +667,9 @@ const ExperimentListPage: React.FC = () => {
         <Card style={{ position: 'fixed', bottom: '24px', left: '50%', transform: 'translateX(-50%)', zIndex: 1000 }}>
           <Space>
             <Text>已选择 {selectedRowKeys.length} 个实验</Text>
-            <Button onClick={() => message.info('批量启动')}>批量启动</Button>
-            <Button onClick={() => message.info('批量暂停')}>批量暂停</Button>
-            <Button danger onClick={() => message.info('批量删除')}>批量删除</Button>
+            <Button disabled={loading} onClick={() => handleBatchAction('start')}>批量启动</Button>
+            <Button disabled={loading} onClick={() => handleBatchAction('pause')}>批量暂停</Button>
+            <Button danger disabled={loading} onClick={handleBatchDelete}>批量删除</Button>
             <Button onClick={() => setSelectedRowKeys([])}>取消选择</Button>
           </Space>
         </Card>

@@ -15,7 +15,7 @@ export interface EmotionState {
   timestamp: string;
   confidence: number;
   triggers?: string[];
-  context?: Record<string, any>;
+  context?: Record<string, unknown>;
   source?: string;
   session_id?: string;
 }
@@ -29,7 +29,7 @@ export interface EmotionStateInput {
   confidence?: number;
   timestamp?: string;
   triggers?: string[];
-  context?: Record<string, any>;
+  context?: Record<string, unknown>;
   source?: string;
   session_id?: string;
 }
@@ -135,9 +135,15 @@ export class EmotionModelingApiClient extends ApiClient {
   } = {}): Promise<ApiResponse<EmotionState[]>> {
     const searchParams = new URLSearchParams();
     
-    if (params.limit) searchParams.set('limit', params.limit.toString());
-    if (params.start_date) searchParams.set('start_date', params.start_date);
-    if (params.end_date) searchParams.set('end_date', params.end_date);
+    if (params.limit) {
+      searchParams.set('limit', params.limit.toString());
+    }
+    if (params.start_date) {
+      searchParams.set('start_date', params.start_date);
+    }
+    if (params.end_date) {
+      searchParams.set('end_date', params.end_date);
+    }
     if (params.emotions) {
       params.emotions.forEach(emotion => searchParams.append('emotions', emotion));
     }
@@ -168,17 +174,17 @@ export class EmotionModelingApiClient extends ApiClient {
   }
 
   // 检测情感模式
-  async detectPatterns(): Promise<ApiResponse<any>> {
+  async detectPatterns(): Promise<ApiResponse<unknown>> {
     return this.get(`${this.BASE_PATH}/patterns`);
   }
 
   // 获取情感聚类分析
-  async getEmotionClusters(): Promise<ApiResponse<any>> {
+  async getEmotionClusters(): Promise<ApiResponse<unknown>> {
     return this.get(`${this.BASE_PATH}/clusters`);
   }
 
   // 获取情感转换分析
-  async getTransitionAnalysis(): Promise<ApiResponse<any>> {
+  async getTransitionAnalysis(): Promise<ApiResponse<unknown>> {
     return this.get(`${this.BASE_PATH}/transitions`);
   }
 
@@ -188,7 +194,7 @@ export class EmotionModelingApiClient extends ApiClient {
   }
 
   // 导出数据
-  async exportData(): Promise<ApiResponse<any>> {
+  async exportData(): Promise<ApiResponse<unknown>> {
     return this.get(`${this.BASE_PATH}/export`);
   }
 
@@ -198,31 +204,41 @@ export class EmotionModelingApiClient extends ApiClient {
   }
 
   // 获取系统状态
-  async getSystemStatus(): Promise<ApiResponse<any>> {
+  async getSystemStatus(): Promise<ApiResponse<unknown>> {
     return this.get(`${this.BASE_PATH}/status`);
   }
 
   // WebSocket连接（用于实时更新）
   connectRealtime(userId: string, callbacks: {
     onOpen?: () => void;
-    onMessage?: (data: any) => void;
+    onMessage?: (data: unknown) => void;
     onClose?: () => void;
     onError?: (error: Event) => void;
   }): WebSocket {
     const wsUrl = `${this.config.baseURL.replace('http', 'ws')}${this.BASE_PATH}/realtime/${userId}`;
     const ws = new WebSocket(wsUrl);
 
-    ws.onopen = callbacks.onOpen || (() => {});
-    ws.onmessage = (event) => {
+    if (callbacks.onOpen) {
+      ws.onopen = callbacks.onOpen;
+    }
+    ws.onmessage = (event): void => {
       try {
         const data = JSON.parse(event.data);
-        if (callbacks.onMessage) callbacks.onMessage(data);
+        if (callbacks.onMessage) {
+          callbacks.onMessage(data);
+        }
       } catch (error) {
-        console.error('WebSocket消息解析失败:', error);
+        if (callbacks.onError) {
+          callbacks.onError(new Event('messageerror'));
+        }
       }
     };
-    ws.onclose = callbacks.onClose || (() => {});
-    ws.onerror = callbacks.onError || (() => {});
+    if (callbacks.onClose) {
+      ws.onclose = callbacks.onClose;
+    }
+    if (callbacks.onError) {
+      ws.onerror = callbacks.onError;
+    }
 
     return ws;
   }

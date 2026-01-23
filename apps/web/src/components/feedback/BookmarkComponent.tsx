@@ -3,21 +3,21 @@
  * 支持收藏/取消收藏操作
  */
 
-import React, { useState, useCallback } from 'react';
-import { feedbackService } from '../../services/feedbackService';
+import React, { useState, useCallback } from 'react'
+import { feedbackService } from '../../services/feedbackService'
 
 import { logger } from '../../utils/logger'
-interface BookmarkComponentProps {
-  itemId?: string;
-  userId: string;
-  sessionId: string;
-  initialBookmarked?: boolean;
-  size?: 'small' | 'medium' | 'large';
-  disabled?: boolean;
-  showLabel?: boolean;
-  onBookmarkChange?: (bookmarked: boolean) => void;
-  onSubmitSuccess?: (bookmarked: boolean) => void;
-  onSubmitError?: (error: Error) => void;
+export interface BookmarkComponentProps {
+  itemId?: string
+  userId: string
+  sessionId: string
+  initialBookmarked?: boolean
+  size?: 'small' | 'medium' | 'large'
+  disabled?: boolean
+  showLabel?: boolean
+  onBookmarkChange?: (bookmarked: boolean) => void
+  onSubmitSuccess?: (bookmarked: boolean) => void
+  onSubmitError?: (error: Error) => void
 }
 
 export const BookmarkComponent: React.FC<BookmarkComponentProps> = ({
@@ -30,43 +30,49 @@ export const BookmarkComponent: React.FC<BookmarkComponentProps> = ({
   showLabel = true,
   onBookmarkChange,
   onSubmitSuccess,
-  onSubmitError
+  onSubmitError,
 }) => {
-  const [isBookmarked, setIsBookmarked] = useState(initialBookmarked);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isHovered, setIsHovered] = useState(false);
+  const [isBookmarked, setIsBookmarked] = useState(initialBookmarked)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isHovered, setIsHovered] = useState(false)
 
   // 获取图标大小样式
   const getIconSize = () => {
     switch (size) {
-      case 'small': return 'w-4 h-4';
-      case 'large': return 'w-7 h-7';
-      default: return 'w-5 h-5';
+      case 'small':
+        return 'w-4 h-4'
+      case 'large':
+        return 'w-7 h-7'
+      default:
+        return 'w-5 h-5'
     }
-  };
+  }
 
   // 获取按钮大小样式
   const getButtonSize = () => {
     switch (size) {
-      case 'small': return 'p-1.5';
-      case 'large': return 'p-3';
-      default: return 'p-2';
+      case 'small':
+        return 'p-1.5'
+      case 'large':
+        return 'p-3'
+      default:
+        return 'p-2'
     }
-  };
+  }
 
   // 处理收藏操作
   const handleBookmark = useCallback(async () => {
-    if (disabled || isSubmitting) return;
+    if (disabled || isSubmitting) return
 
-    const previousState = isBookmarked;
-    const newState = !isBookmarked;
-    
+    const previousState = isBookmarked
+    const newState = !isBookmarked
+
     // 乐观更新UI
-    setIsBookmarked(newState);
-    onBookmarkChange?.(newState);
+    setIsBookmarked(newState)
+    onBookmarkChange?.(newState)
 
     try {
-      setIsSubmitting(true);
+      setIsSubmitting(true)
 
       await feedbackService.submitBookmark(
         userId,
@@ -77,21 +83,21 @@ export const BookmarkComponent: React.FC<BookmarkComponentProps> = ({
           component: 'BookmarkComponent',
           action: newState ? 'bookmark' : 'unbookmark',
           previousState,
-          timestamp: Date.now()
+          timestamp: Date.now(),
         }
-      );
+      )
 
-      onSubmitSuccess?.(newState);
+      onSubmitSuccess?.(newState)
     } catch (error) {
-      logger.error('提交收藏反馈失败:', error);
-      
+      logger.error('提交收藏反馈失败:', error)
+
       // 回滚状态
-      setIsBookmarked(previousState);
-      onBookmarkChange?.(previousState);
-      
-      onSubmitError?.(error as Error);
+      setIsBookmarked(previousState)
+      onBookmarkChange?.(previousState)
+
+      onSubmitError?.(error as Error)
     } finally {
-      setIsSubmitting(false);
+      setIsSubmitting(false)
     }
   }, [
     disabled,
@@ -102,8 +108,8 @@ export const BookmarkComponent: React.FC<BookmarkComponentProps> = ({
     sessionId,
     onBookmarkChange,
     onSubmitSuccess,
-    onSubmitError
-  ]);
+    onSubmitError,
+  ])
 
   // 获取按钮样式
   const getButtonStyle = () => {
@@ -113,35 +119,38 @@ export const BookmarkComponent: React.FC<BookmarkComponentProps> = ({
       flex items-center justify-center space-x-2
       ${disabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer hover:scale-105'}
       ${isSubmitting ? 'animate-pulse' : ''}
-    `;
+    `
 
     if (isBookmarked) {
-      return `${baseStyle} bg-yellow-100 text-yellow-600 ring-2 ring-yellow-300 hover:bg-yellow-200`;
+      return `${baseStyle} bg-yellow-100 text-yellow-600 ring-2 ring-yellow-300 hover:bg-yellow-200`
     }
-    
+
     if (isHovered) {
-      return `${baseStyle} bg-yellow-50 text-yellow-500 hover:bg-yellow-100`;
+      return `${baseStyle} bg-yellow-50 text-yellow-500 hover:bg-yellow-100`
     }
-    
-    return `${baseStyle} bg-gray-100 text-gray-500 hover:bg-yellow-50 hover:text-yellow-500`;
-  };
+
+    return `${baseStyle} bg-gray-100 text-gray-500 hover:bg-yellow-50 hover:text-yellow-500`
+  }
 
   // 获取图标填充样式
   const getIconFill = () => {
     if (isBookmarked) {
-      return 'currentColor';
+      return 'currentColor'
     }
-    return isHovered ? 'rgba(234, 179, 8, 0.3)' : 'none';
-  };
+    return isHovered ? 'rgba(234, 179, 8, 0.3)' : 'none'
+  }
 
   // 获取文本样式
   const getTextSize = () => {
     switch (size) {
-      case 'small': return 'text-xs';
-      case 'large': return 'text-base';
-      default: return 'text-sm';
+      case 'small':
+        return 'text-xs'
+      case 'large':
+        return 'text-base'
+      default:
+        return 'text-sm'
     }
-  };
+  }
 
   return (
     <div className="flex items-center">
@@ -174,7 +183,9 @@ export const BookmarkComponent: React.FC<BookmarkComponentProps> = ({
 
         {/* 文本标签 */}
         {showLabel && size !== 'small' && (
-          <span className={`${getTextSize()} font-medium transition-opacity duration-200`}>
+          <span
+            className={`${getTextSize()} font-medium transition-opacity duration-200`}
+          >
             {isBookmarked ? '已收藏' : '收藏'}
           </span>
         )}
@@ -214,7 +225,7 @@ export const BookmarkComponent: React.FC<BookmarkComponentProps> = ({
         </div>
       )}
     </div>
-  );
-};
+  )
+}
 
-export default BookmarkComponent;
+export default BookmarkComponent

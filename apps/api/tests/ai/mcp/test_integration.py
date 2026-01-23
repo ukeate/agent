@@ -80,10 +80,7 @@ def test_filesystem_write_and_read(client):
         # 写入文件
         write_response = client.post(
             "/api/v1/mcp/tools/filesystem/write",
-            params={
-                "path": temp_path,
-                "content": "Hello from API test"
-            }
+            json={"path": temp_path, "content": "Hello from API test"}
         )
         
         assert write_response.status_code == 200
@@ -92,7 +89,8 @@ def test_filesystem_write_and_read(client):
         
         # 读取文件
         read_response = client.post(
-            f"/api/v1/mcp/tools/filesystem/read?path={temp_path}"
+            "/api/v1/mcp/tools/filesystem/read",
+            json={"path": temp_path}
         )
         
         assert read_response.status_code == 200
@@ -135,7 +133,7 @@ def test_system_command_api(client):
     # 测试安全的命令
     response = client.post(
         "/api/v1/mcp/tools/system/command",
-        params={"command": "echo 'Hello World'"}
+        json={"command": "echo 'Hello World'"}
     )
     
     assert response.status_code == 200
@@ -150,7 +148,7 @@ def test_database_query_api(client):
     # 测试简单查询
     response = client.post(
         "/api/v1/mcp/tools/database/query",
-        params={"query": "SELECT 1 as test_value"}
+        json={"query": "SELECT 1 as test_value"}
     )
     
     assert response.status_code == 200

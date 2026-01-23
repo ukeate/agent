@@ -1,6 +1,8 @@
-import React from 'react';
-import DistributedTaskCoordinationPage from './DistributedTaskCoordinationPage';
+import React from 'react'
+import DistributedTaskCoordinationPage from './DistributedTaskCoordinationPage'
 
-const DistributedTaskMonitorPage: React.FC = () => <DistributedTaskCoordinationPage />;
+const DistributedTaskMonitorPage: React.FC = () => (
+  <DistributedTaskCoordinationPage />
+)
 
-export default DistributedTaskMonitorPage;
+export default DistributedTaskMonitorPage

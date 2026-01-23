@@ -109,7 +109,11 @@ async def _append_history(
     user: str,
     reason: str = "",
     environment: str = "default",
+    sensitive: bool = False,
 ):
+    if sensitive:
+        old_value = "***" if old_value is not None else None
+        new_value = "***" if new_value is not None else None
     entry = {
         "id": f"hist_{uuid.uuid4().hex[:8]}",
         "configKey": config_key,
@@ -164,6 +168,7 @@ async def create_config(request: ConfigItemCreate):
         new_value=request.value,
         user=config["modifiedBy"],
         reason="create",
+        sensitive=request.sensitive,
     )
     return config
 
@@ -179,6 +184,13 @@ async def update_config(config_id: str, request: ConfigItemUpdate):
         raise HTTPException(status_code=500, detail="配置项数据损坏")
 
     old_value = config.get("value")
+    if request.key is not None and request.key != config.get("key"):
+        configs = await _load_configs(redis)
+        if any(
+            cfg.get("key") == request.key and cfg.get("id") != config_id
+            for cfg in configs
+        ):
+            raise HTTPException(status_code=409, detail="配置键已存在")
     if request.category is not None:
         config["category"] = request.category
     if request.key is not None:
@@ -210,6 +222,7 @@ async def update_config(config_id: str, request: ConfigItemUpdate):
         new_value=config.get("value"),
         user=config.get("modifiedBy") or "system",
         reason="update",
+        sensitive=bool(config.get("sensitive")),
     )
     return config
 
@@ -232,6 +245,7 @@ async def delete_config(config_id: str):
         new_value=None,
         user=config.get("modifiedBy") or "system",
         reason="delete",
+        sensitive=bool(config.get("sensitive")),
     )
     return {"message": "配置项已删除", "id": config_id}
 

@@ -1,69 +1,74 @@
 import { buildApiUrl, apiFetch } from '../../utils/apiBase'
-import React, { useEffect, useState } from 'react';
-import { Card, Space, Typography, Table, Alert, Button, Tag, Spin } from 'antd';
-import { ReloadOutlined } from '@ant-design/icons';
+import React, { useEffect, useState } from 'react'
+import { Card, Space, Typography, Table, Alert, Button, Tag, Spin } from 'antd'
+import { ReloadOutlined } from '@ant-design/icons'
 
 type SessionRow = {
-  session_id: string;
-  agent_type?: string;
-  is_training?: boolean;
-  created_at?: string;
-  last_updated?: string;
-};
+  session_id: string
+  agent_type?: string
+  is_training?: boolean
+  created_at?: string
+  last_updated?: string
+}
 
 type AlgorithmInfo = {
-  supported_algorithms?: Array<{ type: string; name?: string; description?: string }>;
-  exploration_strategies?: string[];
-  reward_functions?: string[];
-};
+  supported_algorithms?: Array<{
+    type: string
+    name?: string
+    description?: string
+  }>
+  exploration_strategies?: string[]
+  reward_functions?: string[]
+}
 
 type Props = {
-  title: string;
-  subtitle?: string;
-};
+  title: string
+  subtitle?: string
+}
 
 const QLearningLiveView: React.FC<Props> = ({ title, subtitle }) => {
-  const [sessions, setSessions] = useState<SessionRow[]>([]);
-  const [info, setInfo] = useState<AlgorithmInfo>({});
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [sessions, setSessions] = useState<SessionRow[]>([])
+  const [info, setInfo] = useState<AlgorithmInfo>({})
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   const load = async () => {
-    setLoading(true);
-    setError(null);
+    setLoading(true)
+    setError(null)
     try {
       const [summaryRes, infoRes] = await Promise.all([
         apiFetch(buildApiUrl('/api/v1/qlearning/summary')),
         apiFetch(buildApiUrl('/api/v1/qlearning/info')),
-      ]);
-      const summaryData = await summaryRes.json();
-      setSessions(summaryData?.sessions || []);
+      ])
+      const summaryData = await summaryRes.json()
+      setSessions(summaryData?.sessions || [])
 
-      const infoData = await infoRes.json();
-      setInfo(infoData || {});
+      const infoData = await infoRes.json()
+      setInfo(infoData || {})
     } catch (e: any) {
-      setError(e?.message || '加载失败');
+      setError(e?.message || '加载失败')
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
+  }
 
   useEffect(() => {
-    load();
-  }, []);
+    load()
+  }, [])
 
   return (
     <div style={{ padding: 24 }}>
       <Space direction="vertical" style={{ width: '100%' }} size="large">
-        <Space align="center" style={{ justifyContent: 'space-between', width: '100%' }}>
+        <Space
+          align="center"
+          style={{ justifyContent: 'space-between', width: '100%' }}
+        >
           <div>
             <Typography.Title level={3} style={{ margin: 0 }}>
               {title}
             </Typography.Title>
             {subtitle && (
-              <Typography.Text type="secondary">
-                {subtitle}
-              </Typography.Text>
+              <Typography.Text type="secondary">{subtitle}</Typography.Text>
             )}
           </div>
           <Button icon={<ReloadOutlined />} onClick={load} loading={loading}>
@@ -71,7 +76,9 @@ const QLearningLiveView: React.FC<Props> = ({ title, subtitle }) => {
           </Button>
         </Space>
 
-        {error && <Alert type="error" message="加载失败" description={error} showIcon />}
+        {error && (
+          <Alert type="error" message="加载失败" description={error} showIcon />
+        )}
 
         <Card title="会话列表">
           {loading ? (
@@ -110,7 +117,7 @@ const QLearningLiveView: React.FC<Props> = ({ title, subtitle }) => {
               <div>
                 <Typography.Text strong>算法</Typography.Text>
                 <Space wrap style={{ marginTop: 8 }}>
-                  {(info.supported_algorithms || []).map((item) => (
+                  {(info.supported_algorithms || []).map(item => (
                     <Tag key={item.type}>{item.name || item.type}</Tag>
                   ))}
                   {(info.supported_algorithms || []).length === 0 && (
@@ -121,7 +128,7 @@ const QLearningLiveView: React.FC<Props> = ({ title, subtitle }) => {
               <div>
                 <Typography.Text strong>探索策略</Typography.Text>
                 <Space wrap style={{ marginTop: 8 }}>
-                  {(info.exploration_strategies || []).map((s) => (
+                  {(info.exploration_strategies || []).map(s => (
                     <Tag key={s}>{s}</Tag>
                   ))}
                   {(info.exploration_strategies || []).length === 0 && (
@@ -132,7 +139,7 @@ const QLearningLiveView: React.FC<Props> = ({ title, subtitle }) => {
               <div>
                 <Typography.Text strong>奖励函数</Typography.Text>
                 <Space wrap style={{ marginTop: 8 }}>
-                  {(info.reward_functions || []).map((r) => (
+                  {(info.reward_functions || []).map(r => (
                     <Tag key={r}>{r}</Tag>
                   ))}
                   {(info.reward_functions || []).length === 0 && (
@@ -145,7 +152,7 @@ const QLearningLiveView: React.FC<Props> = ({ title, subtitle }) => {
         </Card>
       </Space>
     </div>
-  );
-};
+  )
+}
 
-export default QLearningLiveView;
+export default QLearningLiveView

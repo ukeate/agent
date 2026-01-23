@@ -1,19 +1,24 @@
 /**
  * 批处理监控面板
- * 
+ *
  * 提供批处理任务的实时监控、进度跟踪和管理界面
  */
 
-import React, { useState, useEffect } from 'react';
-import { batchService, BatchJob, BatchTask, BatchMetrics } from '../../services/batchService';
+import React, { useState, useEffect } from 'react'
+import {
+  batchService,
+  BatchJob,
+  BatchTask,
+  BatchMetrics,
+} from '../../services/batchService'
 
 import { logger } from '../../utils/logger'
 interface BatchDashboardState {
-  jobs: BatchJob[];
-  metrics: BatchMetrics | null;
-  selectedJob: BatchJob | null;
-  loading: boolean;
-  error: string | null;
+  jobs: BatchJob[]
+  metrics: BatchMetrics | null
+  selectedJob: BatchJob | null
+  loading: boolean
+  error: string | null
 }
 
 export const BatchProcessingDashboard: React.FC = () => {
@@ -22,96 +27,102 @@ export const BatchProcessingDashboard: React.FC = () => {
     metrics: null,
     selectedJob: null,
     loading: true,
-    error: null
-  });
+    error: null,
+  })
 
-  const [autoRefresh, setAutoRefresh] = useState(true);
-  const [refreshInterval] = useState(3000);
+  const [autoRefresh, setAutoRefresh] = useState(true)
+  const [refreshInterval] = useState(3000)
 
   // 获取批处理作业列表
   const fetchJobs = async () => {
     try {
-      const jobs = await batchService.getJobs();
-      setState(prev => ({ ...prev, jobs }));
+      const jobs = await batchService.getJobs()
+      setState(prev => ({ ...prev, jobs }))
     } catch (error) {
-      logger.error('获取批处理作业失败:', error);
-      setState(prev => ({ 
-        ...prev, 
-        error: error instanceof Error ? error.message : '获取作业列表失败' 
-      }));
+      logger.error('获取批处理作业失败:', error)
+      setState(prev => ({
+        ...prev,
+        error: error instanceof Error ? error.message : '获取作业列表失败',
+      }))
     }
-  };
+  }
 
   // 获取批处理指标
   const fetchMetrics = async () => {
     try {
-      const metrics = await batchService.getMetrics();
-      setState(prev => ({ ...prev, metrics }));
+      const metrics = await batchService.getMetrics()
+      setState(prev => ({ ...prev, metrics }))
     } catch (error) {
-      logger.error('获取批处理指标失败:', error);
+      logger.error('获取批处理指标失败:', error)
     }
-  };
+  }
 
   // 获取作业详情
   const fetchJobDetails = async (jobId: string) => {
     try {
-      const job = await batchService.getJobDetails(jobId);
-      setState(prev => ({ ...prev, selectedJob: job }));
+      const job = await batchService.getJobDetails(jobId)
+      setState(prev => ({ ...prev, selectedJob: job }))
     } catch (error) {
-      logger.error('获取作业详情失败:', error);
+      logger.error('获取作业详情失败:', error)
     }
-  };
+  }
 
   useEffect(() => {
     const fetchData = async () => {
-      setState(prev => ({ ...prev, loading: true }));
-      await Promise.all([fetchJobs(), fetchMetrics()]);
-      setState(prev => ({ ...prev, loading: false }));
-    };
+      setState(prev => ({ ...prev, loading: true }))
+      await Promise.all([fetchJobs(), fetchMetrics()])
+      setState(prev => ({ ...prev, loading: false }))
+    }
 
-    fetchData();
+    fetchData()
 
     if (autoRefresh) {
-      const interval = setInterval(fetchData, refreshInterval);
-      return () => clearInterval(interval);
+      const interval = setInterval(fetchData, refreshInterval)
+      return () => clearInterval(interval)
     }
-  }, [autoRefresh, refreshInterval]);
+  }, [autoRefresh, refreshInterval])
 
   // 取消作业
   const handleCancelJob = async (jobId: string) => {
     try {
-      await batchService.cancelJob(jobId);
-      await fetchJobs();
+      await batchService.cancelJob(jobId)
+      await fetchJobs()
     } catch (error) {
-      logger.error('取消作业失败:', error);
+      logger.error('取消作业失败:', error)
     }
-  };
+  }
 
   // 重试失败任务
   const handleRetryTasks = async (jobId: string) => {
     try {
-      await batchService.retryFailedTasks(jobId);
-      await fetchJobs();
+      await batchService.retryFailedTasks(jobId)
+      await fetchJobs()
     } catch (error) {
-      logger.error('重试任务失败:', error);
+      logger.error('重试任务失败:', error)
     }
-  };
+  }
 
   const getJobStatusColor = (status: string) => {
     switch (status) {
-      case 'pending': return 'text-yellow-600 bg-yellow-100';
-      case 'running': return 'text-blue-600 bg-blue-100';
-      case 'completed': return 'text-green-600 bg-green-100';
-      case 'failed': return 'text-red-600 bg-red-100';
-      case 'cancelled': return 'text-gray-600 bg-gray-100';
-      default: return 'text-gray-600 bg-gray-100';
+      case 'pending':
+        return 'text-yellow-600 bg-yellow-100'
+      case 'running':
+        return 'text-blue-600 bg-blue-100'
+      case 'completed':
+        return 'text-green-600 bg-green-100'
+      case 'failed':
+        return 'text-red-600 bg-red-100'
+      case 'cancelled':
+        return 'text-gray-600 bg-gray-100'
+      default:
+        return 'text-gray-600 bg-gray-100'
     }
-  };
+  }
 
   const calculateProgress = (job: BatchJob) => {
-    if (job.total_tasks === 0) return 0;
-    return ((job.completed_tasks + job.failed_tasks) / job.total_tasks) * 100;
-  };
+    if (job.total_tasks === 0) return 0
+    return ((job.completed_tasks + job.failed_tasks) / job.total_tasks) * 100
+  }
 
   return (
     <div className="space-y-6 mt-6">
@@ -119,13 +130,15 @@ export const BatchProcessingDashboard: React.FC = () => {
       {state.metrics && (
         <div className="bg-white p-6 rounded-lg shadow">
           <div className="flex justify-between items-center mb-4">
-            <h3 className="text-lg font-semibold text-gray-900">批处理系统指标</h3>
+            <h3 className="text-lg font-semibold text-gray-900">
+              批处理系统指标
+            </h3>
             <div className="flex items-center space-x-2">
               <label className="flex items-center">
                 <input
                   type="checkbox"
                   checked={autoRefresh}
-                  onChange={(e) => setAutoRefresh(e.target.checked)}
+                  onChange={e => setAutoRefresh(e.target.checked)}
                   className="mr-2"
                 />
                 <span className="text-sm text-gray-600">自动刷新</span>
@@ -192,7 +205,7 @@ export const BatchProcessingDashboard: React.FC = () => {
       {/* 批处理作业列表 */}
       <div className="bg-white p-6 rounded-lg shadow">
         <h3 className="text-lg font-semibold text-gray-900 mb-4">批处理作业</h3>
-        
+
         {state.loading && (
           <div className="text-center py-8">
             <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
@@ -206,7 +219,7 @@ export const BatchProcessingDashboard: React.FC = () => {
 
         {!state.loading && state.jobs.length > 0 && (
           <div className="space-y-4">
-            {state.jobs.map((job) => (
+            {state.jobs.map(job => (
               <div key={job.id} className="border rounded-lg p-4">
                 <div className="flex justify-between items-start mb-3">
                   <div>
@@ -217,7 +230,9 @@ export const BatchProcessingDashboard: React.FC = () => {
                       创建时间: {new Date(job.created_at).toLocaleString()}
                     </p>
                   </div>
-                  <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getJobStatusColor(job.status)}`}>
+                  <span
+                    className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getJobStatusColor(job.status)}`}
+                  >
                     {job.status}
                   </span>
                 </div>
@@ -229,7 +244,7 @@ export const BatchProcessingDashboard: React.FC = () => {
                     <span>{calculateProgress(job).toFixed(1)}%</span>
                   </div>
                   <div className="w-full bg-gray-200 rounded-full h-2">
-                    <div 
+                    <div
                       className="bg-blue-500 h-2 rounded-full transition-all duration-300"
                       style={{ width: `${calculateProgress(job)}%` }}
                     />
@@ -244,11 +259,15 @@ export const BatchProcessingDashboard: React.FC = () => {
                   </div>
                   <div>
                     <span className="text-gray-600">完成:</span>
-                    <span className="ml-1 font-medium text-green-600">{job.completed_tasks}</span>
+                    <span className="ml-1 font-medium text-green-600">
+                      {job.completed_tasks}
+                    </span>
                   </div>
                   <div>
                     <span className="text-gray-600">失败:</span>
-                    <span className="ml-1 font-medium text-red-600">{job.failed_tasks}</span>
+                    <span className="ml-1 font-medium text-red-600">
+                      {job.failed_tasks}
+                    </span>
                   </div>
                 </div>
 
@@ -288,9 +307,13 @@ export const BatchProcessingDashboard: React.FC = () => {
         <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 max-w-4xl w-full max-h-[80vh] overflow-y-auto">
             <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-semibold">作业详情: {state.selectedJob.id}</h3>
+              <h3 className="text-lg font-semibold">
+                作业详情: {state.selectedJob.id}
+              </h3>
               <button
-                onClick={() => setState(prev => ({ ...prev, selectedJob: null }))}
+                onClick={() =>
+                  setState(prev => ({ ...prev, selectedJob: null }))
+                }
                 className="text-gray-400 hover:text-gray-600"
               >
                 ✕
@@ -305,10 +328,16 @@ export const BatchProcessingDashboard: React.FC = () => {
                   <div key={task.id} className="border rounded p-3 mb-2">
                     <div className="flex justify-between items-center">
                       <div>
-                        <span className="font-medium">任务 {task.id.substring(0, 8)}...</span>
-                        <span className="ml-2 text-sm text-gray-600">类型: {task.type}</span>
+                        <span className="font-medium">
+                          任务 {task.id.substring(0, 8)}...
+                        </span>
+                        <span className="ml-2 text-sm text-gray-600">
+                          类型: {task.type}
+                        </span>
                       </div>
-                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getJobStatusColor(task.status)}`}>
+                      <span
+                        className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getJobStatusColor(task.status)}`}
+                      >
                         {task.status}
                       </span>
                     </div>
@@ -330,5 +359,5 @@ export const BatchProcessingDashboard: React.FC = () => {
         </div>
       )}
     </div>
-  );
-};
+  )
+}

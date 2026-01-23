@@ -1,8 +1,8 @@
 import { buildApiUrl, apiFetch } from '../../utils/apiBase'
+import { logger } from '../../utils/logger'
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Card, Spin, Alert, Tooltip, message } from 'antd';
 import ReactFlow, {
-import { logger } from '../../utils/logger'
   Node,
   Edge,
   addEdge,

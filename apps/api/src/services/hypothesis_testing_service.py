@@ -9,6 +9,9 @@ from enum import Enum
 from scipy import stats
 import numpy as np
 from src.services.statistical_analysis_service import DescriptiveStats, MetricType
+from src.core.logging import get_logger
+
+logger = get_logger(__name__)
 
 class HypothesisType(str, Enum):
     """假设检验类型"""

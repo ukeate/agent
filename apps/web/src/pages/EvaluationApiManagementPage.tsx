@@ -19,8 +19,8 @@ const EvaluationApiManagementPage: React.FC = () => {
     setError(null);
     try {
       const [bmRes, keyRes, logRes] = await Promise.all([
-        apiFetch(buildApiUrl('/api/v1/model-evaluation/benchmarks'),
-        apiFetch(buildApiUrl('/api/v1/security/api-keys'),
+        apiFetch(buildApiUrl('/api/v1/model-evaluation/benchmarks')),
+        apiFetch(buildApiUrl('/api/v1/security/api-keys')),
         apiFetch(buildApiUrl('/api/v1/security/mcp-tools/audit?limit=100'))
       ]);
       const bmData = await bmRes.json();

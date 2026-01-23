@@ -5,7 +5,11 @@
 
 import React, { useState } from 'react'
 import { useSupervisorStore } from '../../stores/supervisorStore'
-import { TaskType, TaskPriority, TaskSubmissionRequest } from '../../types/supervisor'
+import {
+  TaskType,
+  TaskPriority,
+  TaskSubmissionRequest,
+} from '../../types/supervisor'
 
 interface TaskSubmissionFormProps {
   onSubmit?: () => void
@@ -14,7 +18,7 @@ interface TaskSubmissionFormProps {
 
 export const TaskSubmissionForm: React.FC<TaskSubmissionFormProps> = ({
   onSubmit,
-  onCancel
+  onCancel,
 }) => {
   const { submitTask, loading } = useSupervisorStore()
 
@@ -25,7 +29,7 @@ export const TaskSubmissionForm: React.FC<TaskSubmissionFormProps> = ({
     priority: 'medium',
     input_data: {},
     constraints: {},
-    timeout_minutes: 30
+    timeout_minutes: 30,
   })
 
   const [constraintKey, setConstraintKey] = useState('')
@@ -49,10 +53,13 @@ export const TaskSubmissionForm: React.FC<TaskSubmissionFormProps> = ({
     { value: 'urgent', label: '紧急', color: 'text-red-600' },
   ]
 
-  const handleInputChange = (field: keyof TaskSubmissionRequest, value: any) => {
+  const handleInputChange = (
+    field: keyof TaskSubmissionRequest,
+    value: any
+  ) => {
     setFormData(prev => ({
       ...prev,
-      [field]: value
+      [field]: value,
     }))
   }
 
@@ -62,8 +69,8 @@ export const TaskSubmissionForm: React.FC<TaskSubmissionFormProps> = ({
         ...prev,
         constraints: {
           ...(prev.constraints || {}),
-          [constraintKey.trim()]: constraintValue.trim()
-        }
+          [constraintKey.trim()]: constraintValue.trim(),
+        },
       }))
       setConstraintKey('')
       setConstraintValue('')
@@ -76,7 +83,7 @@ export const TaskSubmissionForm: React.FC<TaskSubmissionFormProps> = ({
       delete newConstraints[key]
       return {
         ...prev,
-        constraints: newConstraints
+        constraints: newConstraints,
       }
     })
   }
@@ -143,7 +150,7 @@ export const TaskSubmissionForm: React.FC<TaskSubmissionFormProps> = ({
       priority: 'medium',
       input_data: {},
       constraints: {},
-      timeout_minutes: 30
+      timeout_minutes: 30,
     })
     setConstraintKey('')
     setConstraintValue('')
@@ -156,7 +163,9 @@ export const TaskSubmissionForm: React.FC<TaskSubmissionFormProps> = ({
     return (
       <div className="text-center py-8">
         <div className="text-6xl mb-4">✅</div>
-        <h3 className="text-xl font-semibold text-green-600 mb-2">任务提交成功！</h3>
+        <h3 className="text-xl font-semibold text-green-600 mb-2">
+          任务提交成功！
+        </h3>
         <p className="text-gray-600 mb-4">任务已分配给最合适的智能体处理</p>
         <button
           onClick={onSubmit}
@@ -179,7 +188,7 @@ export const TaskSubmissionForm: React.FC<TaskSubmissionFormProps> = ({
           <input
             type="text"
             value={formData.name}
-            onChange={(e) => handleInputChange('name', e.target.value)}
+            onChange={e => handleInputChange('name', e.target.value)}
             className="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             placeholder="请输入任务名称"
             required
@@ -192,7 +201,7 @@ export const TaskSubmissionForm: React.FC<TaskSubmissionFormProps> = ({
           </label>
           <textarea
             value={formData.description}
-            onChange={(e) => handleInputChange('description', e.target.value)}
+            onChange={e => handleInputChange('description', e.target.value)}
             rows={4}
             className="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             placeholder="详细描述任务需求和目标"
@@ -209,7 +218,9 @@ export const TaskSubmissionForm: React.FC<TaskSubmissionFormProps> = ({
           </label>
           <select
             value={formData.task_type}
-            onChange={(e) => handleInputChange('task_type', e.target.value as TaskType)}
+            onChange={e =>
+              handleInputChange('task_type', e.target.value as TaskType)
+            }
             className="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
           >
             {taskTypeOptions.map(option => (
@@ -226,11 +237,17 @@ export const TaskSubmissionForm: React.FC<TaskSubmissionFormProps> = ({
           </label>
           <select
             value={formData.priority}
-            onChange={(e) => handleInputChange('priority', e.target.value as TaskPriority)}
+            onChange={e =>
+              handleInputChange('priority', e.target.value as TaskPriority)
+            }
             className="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
           >
             {priorityOptions.map(option => (
-              <option key={option.value} value={option.value} className={option.color}>
+              <option
+                key={option.value}
+                value={option.value}
+                className={option.color}
+              >
                 {option.label}
               </option>
             ))}
@@ -247,17 +264,19 @@ export const TaskSubmissionForm: React.FC<TaskSubmissionFormProps> = ({
           <input
             type="text"
             value={constraintKey}
-            onChange={(e) => setConstraintKey(e.target.value)}
+            onChange={e => setConstraintKey(e.target.value)}
             className="flex-1 border border-gray-300 rounded-md px-3 py-2"
             placeholder="约束名称"
           />
           <input
             type="text"
             value={constraintValue}
-            onChange={(e) => setConstraintValue(e.target.value)}
+            onChange={e => setConstraintValue(e.target.value)}
             className="flex-1 border border-gray-300 rounded-md px-3 py-2"
             placeholder="约束值"
-            onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addConstraint())}
+            onKeyPress={e =>
+              e.key === 'Enter' && (e.preventDefault(), addConstraint())
+            }
           />
           <button
             type="button"
@@ -269,8 +288,13 @@ export const TaskSubmissionForm: React.FC<TaskSubmissionFormProps> = ({
         </div>
         <div className="space-y-1">
           {Object.entries(formData.constraints || {}).map(([key, value]) => (
-            <div key={key} className="flex items-center justify-between bg-gray-100 px-3 py-2 rounded">
-              <span className="text-sm"><strong>{key}:</strong> {value}</span>
+            <div
+              key={key}
+              className="flex items-center justify-between bg-gray-100 px-3 py-2 rounded"
+            >
+              <span className="text-sm">
+                <strong>{key}:</strong> {value}
+              </span>
               <button
                 type="button"
                 onClick={() => removeConstraint(key)}
@@ -283,7 +307,6 @@ export const TaskSubmissionForm: React.FC<TaskSubmissionFormProps> = ({
         </div>
       </div>
 
-
       {/* 输入数据 */}
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -291,7 +314,7 @@ export const TaskSubmissionForm: React.FC<TaskSubmissionFormProps> = ({
         </label>
         <textarea
           value={inputDataText}
-          onChange={(e) => handleInputDataChange(e.target.value)}
+          onChange={e => handleInputDataChange(e.target.value)}
           rows={4}
           className="w-full border border-gray-300 rounded-md px-3 py-2 font-mono text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
           placeholder='{"key": "value"}'
@@ -328,7 +351,7 @@ export const TaskSubmissionForm: React.FC<TaskSubmissionFormProps> = ({
             重置
           </button>
         </div>
-        
+
         <div className="flex space-x-2">
           {onCancel && (
             <button

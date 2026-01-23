@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
-import {
 import { logger } from '../utils/logger'
+import {
   Card,
   Row,
   Col,
@@ -27,7 +27,7 @@ import { logger } from '../utils/logger'
   Badge,
   Empty,
   Divider,
-  Switch
+  Switch,
 } from 'antd'
 import {
   DatabaseOutlined,
@@ -45,14 +45,14 @@ import {
   RocketOutlined,
   FieldTimeOutlined,
   SettingOutlined,
-  BulbOutlined
+  BulbOutlined,
 } from '@ant-design/icons'
 import {
   cacheService,
   CacheStats,
   CacheHealth,
   CachePerformance,
-  CacheStrategy
+  CacheStrategy,
 } from '../services/cacheService'
 
 const { Title, Text } = Typography
@@ -66,20 +66,22 @@ const CacheMonitorPage: React.FC = () => {
   const [performance, setPerformance] = useState<CachePerformance | null>(null)
   const [strategy, setStrategy] = useState<CacheStrategy | null>(null)
   const [cacheKeys, setCacheKeys] = useState<string[]>([])
-  
+
   const [clearModalVisible, setClearModalVisible] = useState(false)
   const [invalidateModalVisible, setInvalidateModalVisible] = useState(false)
   const [strategyModalVisible, setStrategyModalVisible] = useState(false)
   const [warmModalVisible, setWarmModalVisible] = useState(false)
-  
+
   const [clearForm] = Form.useForm()
   const [invalidateForm] = Form.useForm()
   const [strategyForm] = Form.useForm()
   const [warmForm] = Form.useForm()
-  
+
   const [autoRefresh, setAutoRefresh] = useState(false)
   const [activeTab, setActiveTab] = useState('overview')
-  const [refreshInterval, setRefreshInterval] = useState<ReturnType<typeof setTimeout> | null>(null)
+  const [refreshInterval, setRefreshInterval] = useState<ReturnType<
+    typeof setTimeout
+  > | null>(null)
 
   // 加载数据
   useEffect(() => {
@@ -109,12 +111,14 @@ const CacheMonitorPage: React.FC = () => {
   const loadCacheData = async () => {
     setLoading(true)
     try {
-      const [statsData, healthData, perfData, strategyData] = await Promise.all([
-        cacheService.getStats(),
-        cacheService.checkHealth(),
-        cacheService.getPerformance(),
-        cacheService.getStrategy()
-      ])
+      const [statsData, healthData, perfData, strategyData] = await Promise.all(
+        [
+          cacheService.getStats(),
+          cacheService.checkHealth(),
+          cacheService.getPerformance(),
+          cacheService.getStrategy(),
+        ]
+      )
       setStats(statsData)
       setHealth(healthData)
       setPerformance(perfData)
@@ -218,25 +222,25 @@ const CacheMonitorPage: React.FC = () => {
       title: '节点名称',
       dataIndex: 'name',
       key: 'name',
-      render: (name: string) => <Text strong>{name}</Text>
+      render: (name: string) => <Text strong>{name}</Text>,
     },
     {
       title: '命中次数',
       dataIndex: 'hits',
       key: 'hits',
-      sorter: (a: any, b: any) => a.hits - b.hits
+      sorter: (a: any, b: any) => a.hits - b.hits,
     },
     {
       title: '未命中次数',
       dataIndex: 'misses',
       key: 'misses',
-      sorter: (a: any, b: any) => a.misses - b.misses
+      sorter: (a: any, b: any) => a.misses - b.misses,
     },
     {
       title: '命中率',
       key: 'hit_rate',
       render: (record: any) => {
-        const rate = record.hits / (record.hits + record.misses) * 100
+        const rate = (record.hits / (record.hits + record.misses)) * 100
         return (
           <Progress
             percent={rate}
@@ -244,25 +248,25 @@ const CacheMonitorPage: React.FC = () => {
             strokeColor={rate > 80 ? '#52c41a' : '#faad14'}
           />
         )
-      }
+      },
     },
     {
       title: '大小',
       dataIndex: 'size',
       key: 'size',
-      render: (size: number) => `${(size / 1024 / 1024).toFixed(2)} MB`
+      render: (size: number) => `${(size / 1024 / 1024).toFixed(2)} MB`,
     },
     {
       title: '条目数',
       dataIndex: 'items',
-      key: 'items'
+      key: 'items',
     },
     {
       title: '最后访问',
       dataIndex: 'last_accessed',
       key: 'last_accessed',
-      render: (time: string) => new Date(time).toLocaleString()
-    }
+      render: (time: string) => new Date(time).toLocaleString(),
+    },
   ]
 
   return (
@@ -272,40 +276,40 @@ const CacheMonitorPage: React.FC = () => {
           <div className="flex justify-between items-center mb-4">
             <Title level={2}>缓存监控 (LangGraph缓存系统)</Title>
             <Space>
-              <Button 
+              <Button
                 icon={<SyncOutlined spin={loading} />}
                 onClick={loadCacheData}
                 loading={loading}
               >
                 刷新
               </Button>
-              <Button 
+              <Button
                 icon={<ReloadOutlined />}
                 onClick={() => setAutoRefresh(!autoRefresh)}
                 type={autoRefresh ? 'primary' : 'default'}
               >
                 {autoRefresh ? '停止' : '开始'}自动刷新
               </Button>
-              <Button 
-                icon={<DeleteOutlined />} 
+              <Button
+                icon={<DeleteOutlined />}
                 danger
                 onClick={() => setClearModalVisible(true)}
               >
                 清理缓存
               </Button>
-              <Button 
+              <Button
                 icon={<WarningOutlined />}
                 onClick={() => setInvalidateModalVisible(true)}
               >
                 失效节点缓存
               </Button>
-              <Button 
+              <Button
                 icon={<FireOutlined />}
                 onClick={() => setWarmModalVisible(true)}
               >
                 缓存预热
               </Button>
-              <Button 
+              <Button
                 icon={<SettingOutlined />}
                 onClick={() => {
                   setStrategyModalVisible(true)
@@ -349,12 +353,16 @@ const CacheMonitorPage: React.FC = () => {
                   value={stats?.hit_rate || 0}
                   precision={1}
                   suffix="%"
-                  valueStyle={{ color: (stats?.hit_rate || 0) > 80 ? '#3f8600' : '#cf1322' }}
+                  valueStyle={{
+                    color: (stats?.hit_rate || 0) > 80 ? '#3f8600' : '#cf1322',
+                  }}
                   prefix={<ThunderboltOutlined />}
                 />
-                <Progress 
-                  percent={stats?.hit_rate || 0} 
-                  strokeColor={(stats?.hit_rate || 0) > 80 ? '#52c41a' : '#ff4d4f'}
+                <Progress
+                  percent={stats?.hit_rate || 0}
+                  strokeColor={
+                    (stats?.hit_rate || 0) > 80 ? '#52c41a' : '#ff4d4f'
+                  }
                   size="small"
                   className="mt-2"
                 />
@@ -368,7 +376,8 @@ const CacheMonitorPage: React.FC = () => {
                   prefix={<DatabaseOutlined />}
                 />
                 <div className="mt-2 text-xs text-gray-500">
-                  命中: {stats?.total_hits || 0} | 未命中: {stats?.total_misses || 0}
+                  命中: {stats?.total_hits || 0} | 未命中:{' '}
+                  {stats?.total_misses || 0}
                 </div>
               </Card>
             </Col>
@@ -380,8 +389,13 @@ const CacheMonitorPage: React.FC = () => {
                   suffix="MB"
                   prefix={<DatabaseOutlined />}
                 />
-                <Progress 
-                  percent={Math.min(100, ((stats?.memory_usage_mb || 0) / (stats?.max_memory_mb || 1024)) * 100)} 
+                <Progress
+                  percent={Math.min(
+                    100,
+                    ((stats?.memory_usage_mb || 0) /
+                      (stats?.max_memory_mb || 1024)) *
+                      100
+                  )}
                   size="small"
                   className="mt-2"
                 />
@@ -455,7 +469,10 @@ const CacheMonitorPage: React.FC = () => {
                               {performance.memory.available_mb} MB
                             </Descriptions.Item>
                             <Descriptions.Item label="碎片率">
-                              {(performance.memory.fragmentation_ratio * 100).toFixed(1)}%
+                              {(
+                                performance.memory.fragmentation_ratio * 100
+                              ).toFixed(1)}
+                              %
                             </Descriptions.Item>
                           </Descriptions>
                         </Card>
@@ -486,11 +503,13 @@ const CacheMonitorPage: React.FC = () => {
                 {stats?.nodes && Object.keys(stats.nodes).length > 0 ? (
                   <Table
                     columns={nodeColumns}
-                    dataSource={Object.entries(stats.nodes).map(([name, data]) => ({
-                      name,
-                      ...data,
-                      key: name
-                    }))}
+                    dataSource={Object.entries(stats.nodes).map(
+                      ([name, data]) => ({
+                        name,
+                        ...data,
+                        key: name,
+                      })
+                    )}
                     pagination={{ pageSize: 10 }}
                   />
                 ) : (
@@ -532,7 +551,9 @@ const CacheMonitorPage: React.FC = () => {
                             {performance.operations.total_deletes}
                           </Descriptions.Item>
                           <Descriptions.Item label="失败操作">
-                            <Badge count={performance.operations.failed_operations} />
+                            <Badge
+                              count={performance.operations.failed_operations}
+                            />
                           </Descriptions.Item>
                         </Descriptions>
                       </Card>
@@ -549,8 +570,11 @@ const CacheMonitorPage: React.FC = () => {
                     <Alert
                       message={`健康状态: ${health.status}`}
                       type={
-                        health.status === 'healthy' ? 'success' :
-                        health.status === 'degraded' ? 'warning' : 'error'
+                        health.status === 'healthy'
+                          ? 'success'
+                          : health.status === 'degraded'
+                            ? 'warning'
+                            : 'error'
                       }
                       showIcon
                       style={{ marginBottom: 16 }}
@@ -564,11 +588,17 @@ const CacheMonitorPage: React.FC = () => {
                               <List.Item>
                                 <Space>
                                   {value ? (
-                                    <CheckCircleOutlined style={{ color: '#52c41a' }} />
+                                    <CheckCircleOutlined
+                                      style={{ color: '#52c41a' }}
+                                    />
                                   ) : (
-                                    <CloseCircleOutlined style={{ color: '#ff4d4f' }} />
+                                    <CloseCircleOutlined
+                                      style={{ color: '#ff4d4f' }}
+                                    />
                                   )}
-                                  <span>{key.replace(/_/g, ' ').toUpperCase()}</span>
+                                  <span>
+                                    {key.replace(/_/g, ' ').toUpperCase()}
+                                  </span>
                                 </Space>
                               </List.Item>
                             )}
@@ -653,22 +683,13 @@ const CacheMonitorPage: React.FC = () => {
           >
             <Input placeholder="例如: langgraph_node_1" />
           </Form.Item>
-          <Form.Item
-            name="user_id"
-            label="用户ID（可选）"
-          >
+          <Form.Item name="user_id" label="用户ID（可选）">
             <Input placeholder="特定用户的缓存" />
           </Form.Item>
-          <Form.Item
-            name="session_id"
-            label="会话ID（可选）"
-          >
+          <Form.Item name="session_id" label="会话ID（可选）">
             <Input placeholder="特定会话的缓存" />
           </Form.Item>
-          <Form.Item
-            name="workflow_id"
-            label="工作流ID（可选）"
-          >
+          <Form.Item name="workflow_id" label="工作流ID（可选）">
             <Input placeholder="特定工作流的缓存" />
           </Form.Item>
         </Form>
@@ -739,11 +760,7 @@ const CacheMonitorPage: React.FC = () => {
         onOk={() => warmForm.submit()}
         width={500}
       >
-        <Form
-          form={warmForm}
-          layout="vertical"
-          onFinish={handleWarmCache}
-        >
+        <Form form={warmForm} layout="vertical" onFinish={handleWarmCache}>
           <Alert
             message="提示"
             description="预热缓存可以提前加载常用数据，提高访问速度"
@@ -757,9 +774,9 @@ const CacheMonitorPage: React.FC = () => {
             rules={[{ required: true, message: '请输入缓存键' }]}
             extra="多个键用逗号分隔"
           >
-            <Input.TextArea 
-              rows={4} 
-              placeholder="例如: user_1234, workflow_abc, session_xyz" 
+            <Input.TextArea
+              rows={4}
+              placeholder="例如: user_1234, workflow_abc, session_xyz"
             />
           </Form.Item>
         </Form>

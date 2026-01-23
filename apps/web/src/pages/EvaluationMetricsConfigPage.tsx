@@ -1,5 +1,17 @@
 import React, { useEffect, useState } from 'react'
-import { Card, Table, Button, Space, Typography, Tag, Form, Input, Select, InputNumber, message } from 'antd'
+import {
+  Card,
+  Table,
+  Button,
+  Space,
+  Typography,
+  Tag,
+  Form,
+  Input,
+  Select,
+  InputNumber,
+  message,
+} from 'antd'
 import { ReloadOutlined, PlusOutlined } from '@ant-design/icons'
 import { buildApiUrl, apiFetch } from '../utils/apiBase'
 
@@ -35,7 +47,7 @@ const EvaluationMetricsConfigPage: React.FC = () => {
     try {
       const [mRes, cRes] = await Promise.all([
         apiFetch(buildApiUrl('/model-evaluation/metrics')),
-        apiFetch(buildApiUrl('/model-evaluation/metrics/configurations'))
+        apiFetch(buildApiUrl('/model-evaluation/metrics/configurations')),
       ])
       setMetrics((await mRes.json()) || [])
       setConfigs((await cRes.json()) || [])
@@ -57,7 +69,7 @@ const EvaluationMetricsConfigPage: React.FC = () => {
       const res = await apiFetch(buildApiUrl('/model-evaluation/metrics'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(values)
+        body: JSON.stringify(values),
       })
       message.success('新增指标成功')
       metricForm.resetFields()
@@ -69,11 +81,14 @@ const EvaluationMetricsConfigPage: React.FC = () => {
 
   const addConfig = async (values: any) => {
     try {
-      const res = await apiFetch(buildApiUrl('/model-evaluation/metrics/configurations'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(values)
-      })
+      const res = await apiFetch(
+        buildApiUrl('/model-evaluation/metrics/configurations'),
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(values),
+        }
+      )
       message.success('新增配置成功')
       configForm.resetFields()
       load()
@@ -85,20 +100,35 @@ const EvaluationMetricsConfigPage: React.FC = () => {
   const metricColumns = [
     { title: '名称', dataIndex: 'name' },
     { title: '类别', dataIndex: 'category' },
-    { title: '状态', dataIndex: 'status', render: (s: string) => <Tag>{s}</Tag> },
-    { title: '权重', dataIndex: 'weight' }
+    {
+      title: '状态',
+      dataIndex: 'status',
+      render: (s: string) => <Tag>{s}</Tag>,
+    },
+    { title: '权重', dataIndex: 'weight' },
   ]
 
   const configColumns = [
     { title: '配置名', dataIndex: 'name' },
-    { title: '状态', dataIndex: 'status', render: (s: string) => <Tag>{s}</Tag> },
-    { title: '指标数', dataIndex: 'metrics', render: (arr: any[]) => arr?.length || 0 }
+    {
+      title: '状态',
+      dataIndex: 'status',
+      render: (s: string) => <Tag>{s}</Tag>,
+    },
+    {
+      title: '指标数',
+      dataIndex: 'metrics',
+      render: (arr: any[]) => arr?.length || 0,
+    },
   ]
 
   return (
     <div style={{ padding: 24 }}>
       <Space direction="vertical" style={{ width: '100%' }} size="large">
-        <Space align="center" style={{ justifyContent: 'space-between', width: '100%' }}>
+        <Space
+          align="center"
+          style={{ justifyContent: 'space-between', width: '100%' }}
+        >
           <Typography.Title level={3} style={{ margin: 0 }}>
             评估指标配置
           </Typography.Title>
@@ -109,7 +139,10 @@ const EvaluationMetricsConfigPage: React.FC = () => {
 
         <Card title="新增指标">
           <Form layout="inline" form={metricForm} onFinish={addMetric}>
-            <Form.Item name="name" rules={[{ required: true, message: '必填' }]}>
+            <Form.Item
+              name="name"
+              rules={[{ required: true, message: '必填' }]}
+            >
               <Input placeholder="accuracy" />
             </Form.Item>
             <Form.Item name="category">
@@ -119,7 +152,12 @@ const EvaluationMetricsConfigPage: React.FC = () => {
               <InputNumber min={0} step={0.1} />
             </Form.Item>
             <Form.Item>
-              <Button type="primary" htmlType="submit" icon={<PlusOutlined />} loading={loading}>
+              <Button
+                type="primary"
+                htmlType="submit"
+                icon={<PlusOutlined />}
+                loading={loading}
+              >
                 新增
               </Button>
             </Form.Item>
@@ -135,8 +173,12 @@ const EvaluationMetricsConfigPage: React.FC = () => {
               <Input />
             </Form.Item>
             <Form.Item name="metrics" label="指标">
-              <Select mode="multiple" placeholder="选择指标" style={{ width: '100%' }}>
-                {metrics.map((m) => (
+              <Select
+                mode="multiple"
+                placeholder="选择指标"
+                style={{ width: '100%' }}
+              >
+                {metrics.map(m => (
                   <Option key={m.id || m.name} value={m.id || m.name}>
                     {m.name}
                   </Option>
@@ -144,7 +186,12 @@ const EvaluationMetricsConfigPage: React.FC = () => {
               </Select>
             </Form.Item>
             <Form.Item>
-              <Button type="primary" htmlType="submit" icon={<PlusOutlined />} loading={loading}>
+              <Button
+                type="primary"
+                htmlType="submit"
+                icon={<PlusOutlined />}
+                loading={loading}
+              >
                 新增配置
               </Button>
             </Form.Item>
@@ -152,11 +199,21 @@ const EvaluationMetricsConfigPage: React.FC = () => {
         </Card>
 
         <Card title="指标列表">
-          <Table rowKey={(r) => r.id || r.name} dataSource={metrics} columns={metricColumns} loading={loading} />
+          <Table
+            rowKey={r => r.id || r.name}
+            dataSource={metrics}
+            columns={metricColumns}
+            loading={loading}
+          />
         </Card>
 
         <Card title="配置列表">
-          <Table rowKey={(r) => r.id || r.name} dataSource={configs} columns={configColumns} loading={loading} />
+          <Table
+            rowKey={r => r.id || r.name}
+            dataSource={configs}
+            columns={configColumns}
+            loading={loading}
+          />
         </Card>
       </Space>
     </div>

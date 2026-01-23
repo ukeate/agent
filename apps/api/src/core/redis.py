@@ -45,6 +45,8 @@ async def close_redis() -> None:
     if connection_pool:
         await connection_pool.aclose()
 
+    redis_client = None
+    connection_pool = None
     logger.info("Redis连接已关闭")
 
 def get_redis() -> redis.Redis | None:
@@ -107,8 +109,8 @@ class RedisCache:
             logger.error("Redis存在性检查失败", key=key, error=str(e))
             return False
 
-def get_cache() -> RedisCache:
-    """FastAPI依赖注入函数：获取Redis缓存操作实例（复用全局客户端）"""
+def get_cache() -> RedisCache | None:
+    """FastAPI依赖注入函数：获取Redis缓存操作实例（复用全局客户端，可能返回None）"""
     from .config import get_settings
 
     settings = get_settings()

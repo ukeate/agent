@@ -10,14 +10,14 @@ import {
   Typography,
   Divider,
   Timeline,
-  message
+  message,
 } from 'antd'
 import {
   ExperimentOutlined,
   MonitorOutlined,
   TrophyOutlined,
   LineChartOutlined,
-  ReloadOutlined
+  ReloadOutlined,
 } from '@ant-design/icons'
 import {
   LineChart,
@@ -29,7 +29,7 @@ import {
   Legend,
   ResponsiveContainer,
   AreaChart,
-  Area
+  Area,
 } from 'recharts'
 import apiClient from '../services/apiClient'
 
@@ -47,7 +47,7 @@ const QLearningTrainingPage: React.FC = () => {
     running: 0,
     training: 0,
     average_performance: 0,
-    total_episodes: 0
+    total_episodes: 0,
   })
   const [trainingData, setTrainingData] = useState<TrendPoint[]>([])
   const [updatedAt, setUpdatedAt] = useState<string | null>(null)
@@ -64,7 +64,7 @@ const QLearningTrainingPage: React.FC = () => {
         episode: item.episode || idx + 1,
         reward: item.reward || 0,
         loss: item.loss || 0,
-        averageReward: item.averageReward || item.reward || 0
+        averageReward: item.averageReward || item.reward || 0,
       }))
       setTrainingData(points)
       setUpdatedAt(data.updated_at || null)
@@ -93,7 +93,11 @@ const QLearningTrainingPage: React.FC = () => {
       </Text>
       <div style={{ margin: '16px 0' }}>
         <Space>
-          <Button icon={<ReloadOutlined />} onClick={fetchData} loading={loading}>
+          <Button
+            icon={<ReloadOutlined />}
+            onClick={fetchData}
+            loading={loading}
+          >
             刷新数据
           </Button>
           {updatedAt && <Text type="secondary">最近更新: {updatedAt}</Text>}
@@ -127,7 +131,10 @@ const QLearningTrainingPage: React.FC = () => {
                 value={currentPoint?.reward || 0}
                 precision={1}
                 prefix={<TrophyOutlined />}
-                valueStyle={{ color: (currentPoint?.reward || 0) >= 0 ? '#3f8600' : '#cf1322' }}
+                valueStyle={{
+                  color:
+                    (currentPoint?.reward || 0) >= 0 ? '#3f8600' : '#cf1322',
+                }}
               />
             </Card>
           </Col>
@@ -135,7 +142,11 @@ const QLearningTrainingPage: React.FC = () => {
             <Card>
               <Statistic
                 title="平均奖励"
-                value={summary.average_performance || currentPoint?.averageReward || 0}
+                value={
+                  summary.average_performance ||
+                  currentPoint?.averageReward ||
+                  0
+                }
                 precision={1}
                 prefix={<LineChartOutlined />}
               />
@@ -215,9 +226,9 @@ const QLearningTrainingPage: React.FC = () => {
         <Card title="训练日志" size="small">
           {trainingData.length ? (
             <Timeline
-              items={trainingData.slice(-5).map((item) => ({
+              items={trainingData.slice(-5).map(item => ({
                 children: `Episode ${item.episode} - 奖励 ${item.reward}`,
-                color: item.reward >= 0 ? 'green' : 'red'
+                color: item.reward >= 0 ? 'green' : 'red',
               }))}
             />
           ) : (

@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
-import {
+import React, { useState, useEffect } from 'react'
 import { logger } from '../utils/logger'
+import {
   Card,
   Button,
   Table,
@@ -23,8 +23,8 @@ import { logger } from '../utils/logger'
   Tooltip,
   Divider,
   Alert,
-  Timeline
-} from 'antd';
+  Timeline,
+} from 'antd'
 import {
   LineChartOutlined,
   BarChartOutlined,
@@ -41,183 +41,189 @@ import {
   AlertOutlined,
   RiseOutlined,
   CheckCircleOutlined,
-  ExclamationCircleOutlined
-} from '@ant-design/icons';
-import { realtimeMetricsService } from '../services/realtimeMetricsService';
-import { experimentService } from '../services/experimentService';
-import MetricChart from '../components/charts/MetricChart';
+  ExclamationCircleOutlined,
+} from '@ant-design/icons'
+import { realtimeMetricsService } from '../services/realtimeMetricsService'
+import { experimentService } from '../services/experimentService'
+import MetricChart from '../components/charts/MetricChart'
 
-const { Title, Text } = Typography;
-const { TabPane } = Tabs;
-const { Option } = Select;
+const { Title, Text } = Typography
+const { TabPane } = Tabs
+const { Option } = Select
 
 const RealtimeMetricsManagementPage: React.FC = () => {
-  const [loading, setLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState('dashboard');
-  const [metricsCatalog, setMetricsCatalog] = useState<any>(null);
-  const [experiments, setExperiments] = useState<any[]>([]);
-  const [selectedExperiment, setSelectedExperiment] = useState<string>('');
-  const [metricsData, setMetricsData] = useState<any>(null);
-  const [comparisonData, setComparisonData] = useState<any>(null);
-  const [trendsData, setTrendsData] = useState<any>(null);
-  const [healthStatus, setHealthStatus] = useState<any>(null);
-  const [monitoringStatus, setMonitoringStatus] = useState<string>('stopped');
+  const [loading, setLoading] = useState(false)
+  const [activeTab, setActiveTab] = useState('dashboard')
+  const [metricsCatalog, setMetricsCatalog] = useState<any>(null)
+  const [experiments, setExperiments] = useState<any[]>([])
+  const [selectedExperiment, setSelectedExperiment] = useState<string>('')
+  const [metricsData, setMetricsData] = useState<any>(null)
+  const [comparisonData, setComparisonData] = useState<any>(null)
+  const [trendsData, setTrendsData] = useState<any>(null)
+  const [healthStatus, setHealthStatus] = useState<any>(null)
+  const [monitoringStatus, setMonitoringStatus] = useState<string>('stopped')
 
   // 表单状态
-  const [registerForm] = Form.useForm();
-  const [calculationForm] = Form.useForm();
-  const [comparisonForm] = Form.useForm();
-  const [trendsForm] = Form.useForm();
+  const [registerForm] = Form.useForm()
+  const [calculationForm] = Form.useForm()
+  const [comparisonForm] = Form.useForm()
+  const [trendsForm] = Form.useForm()
 
   // Modal 状态
-  const [registerModalVisible, setRegisterModalVisible] = useState(false);
-  const [calculationModalVisible, setCalculationModalVisible] = useState(false);
-  const [comparisonModalVisible, setComparisonModalVisible] = useState(false);
-  const [trendsModalVisible, setTrendsModalVisible] = useState(false);
+  const [registerModalVisible, setRegisterModalVisible] = useState(false)
+  const [calculationModalVisible, setCalculationModalVisible] = useState(false)
+  const [comparisonModalVisible, setComparisonModalVisible] = useState(false)
+  const [trendsModalVisible, setTrendsModalVisible] = useState(false)
 
   // 获取指标目录
   const fetchMetricsCatalog = async () => {
     try {
-      setLoading(true);
-      const response = await realtimeMetricsService.getRealtimeMetricsCatalog();
-      setMetricsCatalog(response);
+      setLoading(true)
+      const response = await realtimeMetricsService.getRealtimeMetricsCatalog()
+      setMetricsCatalog(response)
     } catch (error) {
-      message.error('获取指标目录失败');
-      logger.error('获取指标目录失败:', error);
+      message.error('获取指标目录失败')
+      logger.error('获取指标目录失败:', error)
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
+  }
 
   // 获取健康状态
   const fetchHealthStatus = async () => {
     try {
-      const response = await realtimeMetricsService.realtimeHealthCheck();
-      setHealthStatus(response);
+      const response = await realtimeMetricsService.realtimeHealthCheck()
+      setHealthStatus(response)
     } catch (error) {
-      message.error('获取健康状态失败');
-      logger.error('获取健康状态失败:', error);
+      message.error('获取健康状态失败')
+      logger.error('获取健康状态失败:', error)
     }
-  };
+  }
 
   // 获取实验摘要
   const fetchExperimentSummary = async (experimentId: string) => {
     try {
-      setLoading(true);
-      const response = await realtimeMetricsService.getRealtimeExperimentSummary(experimentId);
-      setMetricsData(response);
+      setLoading(true)
+      const response =
+        await realtimeMetricsService.getRealtimeExperimentSummary(experimentId)
+      setMetricsData(response)
     } catch (error) {
-      message.error('获取实验摘要失败');
-      logger.error('获取实验摘要失败:', error);
+      message.error('获取实验摘要失败')
+      logger.error('获取实验摘要失败:', error)
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
+  }
 
   const fetchExperiments = async () => {
     try {
-      const res = await experimentService.listExperiments({ pageSize: 50 });
-      setExperiments(res.experiments || []);
+      const res = await experimentService.listExperiments({ pageSize: 50 })
+      setExperiments(res.experiments || [])
       if (res.experiments?.length && !selectedExperiment) {
-        setSelectedExperiment(res.experiments[0].id || res.experiments[0].experiment_id || '');
+        setSelectedExperiment(
+          res.experiments[0].id || res.experiments[0].experiment_id || ''
+        )
       }
     } catch (error) {
-      setExperiments([]);
+      setExperiments([])
     }
-  };
+  }
 
   useEffect(() => {
-    fetchMetricsCatalog();
-    fetchHealthStatus();
-    fetchExperiments();
-  }, []);
+    fetchMetricsCatalog()
+    fetchHealthStatus()
+    fetchExperiments()
+  }, [])
 
   // 注册指标
   const handleRegisterMetric = async (values: any) => {
     try {
-      setLoading(true);
-      await realtimeMetricsService.registerMetric(values);
-      message.success('指标注册成功');
-      setRegisterModalVisible(false);
-      registerForm.resetFields();
-      fetchMetricsCatalog();
+      setLoading(true)
+      await realtimeMetricsService.registerMetric(values)
+      message.success('指标注册成功')
+      setRegisterModalVisible(false)
+      registerForm.resetFields()
+      fetchMetricsCatalog()
     } catch (error) {
-      message.error('指标注册失败');
-      logger.error('指标注册失败:', error);
+      message.error('指标注册失败')
+      logger.error('指标注册失败:', error)
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
+  }
 
   // 计算指标
   const handleCalculateMetrics = async (values: any) => {
     try {
-      setLoading(true);
-      const response = await realtimeMetricsService.calculateExperimentMetrics(values);
-      setMetricsData(response);
-      message.success('指标计算完成');
-      setCalculationModalVisible(false);
+      setLoading(true)
+      const response =
+        await realtimeMetricsService.calculateExperimentMetrics(values)
+      setMetricsData(response)
+      message.success('指标计算完成')
+      setCalculationModalVisible(false)
     } catch (error) {
-      message.error('指标计算失败');
-      logger.error('指标计算失败:', error);
+      message.error('指标计算失败')
+      logger.error('指标计算失败:', error)
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
+  }
 
   // 比较实验组
   const handleCompareGroups = async (values: any) => {
     try {
-      setLoading(true);
-      const response = await realtimeMetricsService.compareExperimentGroups(values);
-      setComparisonData(response);
-      message.success('分组比较完成');
-      setComparisonModalVisible(false);
+      setLoading(true)
+      const response =
+        await realtimeMetricsService.compareExperimentGroups(values)
+      setComparisonData(response)
+      message.success('分组比较完成')
+      setComparisonModalVisible(false)
     } catch (error) {
-      message.error('分组比较失败');
-      logger.error('分组比较失败:', error);
+      message.error('分组比较失败')
+      logger.error('分组比较失败:', error)
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
+  }
 
   // 获取趋势数据
   const handleGetTrends = async (values: any) => {
     try {
-      setLoading(true);
-      const response = await realtimeMetricsService.getExperimentMetricTrends(values);
-      setTrendsData(response);
-      message.success('趋势数据获取完成');
-      setTrendsModalVisible(false);
+      setLoading(true)
+      const response =
+        await realtimeMetricsService.getExperimentMetricTrends(values)
+      setTrendsData(response)
+      message.success('趋势数据获取完成')
+      setTrendsModalVisible(false)
     } catch (error) {
-      message.error('获取趋势数据失败');
-      logger.error('获取趋势数据失败:', error);
+      message.error('获取趋势数据失败')
+      logger.error('获取趋势数据失败:', error)
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
+  }
 
   // 启动/停止监控
   const handleToggleMonitoring = async () => {
     try {
       if (monitoringStatus === 'stopped') {
         if (!selectedExperiment) {
-          message.warning('请先选择实验');
-          return;
+          message.warning('请先选择实验')
+          return
         }
-        await realtimeMetricsService.startRealtimeMonitoring(selectedExperiment);
-        setMonitoringStatus('running');
-        message.success('实时监控已启动');
+        await realtimeMetricsService.startRealtimeMonitoring(selectedExperiment)
+        setMonitoringStatus('running')
+        message.success('实时监控已启动')
       } else {
-        await realtimeMetricsService.stopRealtimeMonitoring();
-        setMonitoringStatus('stopped');
-        message.success('实时监控已停止');
+        await realtimeMetricsService.stopRealtimeMonitoring()
+        setMonitoringStatus('stopped')
+        message.success('实时监控已停止')
       }
     } catch (error) {
-      message.error('监控状态切换失败');
-      logger.error('监控状态切换失败:', error);
+      message.error('监控状态切换失败')
+      logger.error('监控状态切换失败:', error)
     }
-  };
+  }
 
   // 指标目录表格列
   const catalogColumns = [
@@ -228,36 +234,44 @@ const RealtimeMetricsManagementPage: React.FC = () => {
       render: (text: string, record: any) => (
         <Space>
           <Text strong>{text}</Text>
-          <Tag color={record.category === 'primary' ? 'blue' : 
-                     record.category === 'secondary' ? 'green' : 
-                     record.category === 'guardrail' ? 'orange' : 'purple'}>
+          <Tag
+            color={
+              record.category === 'primary'
+                ? 'blue'
+                : record.category === 'secondary'
+                  ? 'green'
+                  : record.category === 'guardrail'
+                    ? 'orange'
+                    : 'purple'
+            }
+          >
             {record.category}
           </Tag>
         </Space>
-      )
+      ),
     },
     {
       title: '指标类型',
       dataIndex: 'metric_type',
-      key: 'metric_type'
+      key: 'metric_type',
     },
     {
       title: '聚合方式',
       dataIndex: 'aggregation',
-      key: 'aggregation'
+      key: 'aggregation',
     },
     {
       title: '单位',
       dataIndex: 'unit',
-      key: 'unit'
+      key: 'unit',
     },
     {
       title: '描述',
       dataIndex: 'description',
       key: 'description',
-      ellipsis: true
-    }
-  ];
+      ellipsis: true,
+    },
+  ]
 
   // 仪表板标签页
   const renderDashboardTab = () => (
@@ -269,11 +283,17 @@ const RealtimeMetricsManagementPage: React.FC = () => {
             <Statistic
               title="系统状态"
               value={healthStatus?.status === 'healthy' ? '正常' : '异常'}
-              prefix={healthStatus?.status === 'healthy' ? 
-                <CheckCircleOutlined style={{ color: '#52c41a' }} /> : 
-                <ExclamationCircleOutlined style={{ color: '#ff4d4f' }} />
+              prefix={
+                healthStatus?.status === 'healthy' ? (
+                  <CheckCircleOutlined style={{ color: '#52c41a' }} />
+                ) : (
+                  <ExclamationCircleOutlined style={{ color: '#ff4d4f' }} />
+                )
               }
-              valueStyle={{ color: healthStatus?.status === 'healthy' ? '#52c41a' : '#ff4d4f' }}
+              valueStyle={{
+                color:
+                  healthStatus?.status === 'healthy' ? '#52c41a' : '#ff4d4f',
+              }}
             />
           </Card>
         </Col>
@@ -291,11 +311,16 @@ const RealtimeMetricsManagementPage: React.FC = () => {
             <Statistic
               title="监控状态"
               value={monitoringStatus === 'running' ? '运行中' : '已停止'}
-              prefix={monitoringStatus === 'running' ? 
-                <PlayCircleOutlined style={{ color: '#52c41a' }} /> : 
-                <PauseCircleOutlined style={{ color: '#faad14' }} />
+              prefix={
+                monitoringStatus === 'running' ? (
+                  <PlayCircleOutlined style={{ color: '#52c41a' }} />
+                ) : (
+                  <PauseCircleOutlined style={{ color: '#faad14' }} />
+                )
               }
-              valueStyle={{ color: monitoringStatus === 'running' ? '#52c41a' : '#faad14' }}
+              valueStyle={{
+                color: monitoringStatus === 'running' ? '#52c41a' : '#faad14',
+              }}
             />
           </Card>
         </Col>
@@ -322,15 +347,27 @@ const RealtimeMetricsManagementPage: React.FC = () => {
               onChange={setSelectedExperiment}
             >
               {experiments.map(exp => (
-                <Option key={exp.id || exp.experiment_id} value={exp.id || exp.experiment_id}>
-                  {exp.name || exp.experiment_name || exp.id || exp.experiment_id}
+                <Option
+                  key={exp.id || exp.experiment_id}
+                  value={exp.id || exp.experiment_id}
+                >
+                  {exp.name ||
+                    exp.experiment_name ||
+                    exp.id ||
+                    exp.experiment_id}
                 </Option>
               ))}
             </Select>
           </div>
           <Button
             type={monitoringStatus === 'running' ? 'default' : 'primary'}
-            icon={monitoringStatus === 'running' ? <PauseCircleOutlined /> : <PlayCircleOutlined />}
+            icon={
+              monitoringStatus === 'running' ? (
+                <PauseCircleOutlined />
+              ) : (
+                <PlayCircleOutlined />
+              )
+            }
             onClick={handleToggleMonitoring}
             disabled={!selectedExperiment}
           >
@@ -338,7 +375,9 @@ const RealtimeMetricsManagementPage: React.FC = () => {
           </Button>
           <Button
             icon={<ReloadOutlined />}
-            onClick={() => selectedExperiment && fetchExperimentSummary(selectedExperiment)}
+            onClick={() =>
+              selectedExperiment && fetchExperimentSummary(selectedExperiment)
+            }
             disabled={!selectedExperiment}
           >
             刷新数据
@@ -350,31 +389,33 @@ const RealtimeMetricsManagementPage: React.FC = () => {
       {metricsData && (
         <Card title="实验指标摘要" style={{ marginBottom: 24 }}>
           <Row gutter={[16, 16]}>
-            {Object.entries(metricsData.summary?.groups || {}).map(([groupId, group]: [string, any]) => (
-              <Col span={8} key={groupId}>
-                <Card size="small" title={`分组: ${groupId}`}>
-                  <Space direction="vertical" style={{ width: '100%' }}>
-                    <Statistic title="用户数" value={group.user_count} />
-                    <Statistic title="事件数" value={group.event_count} />
-                    <Statistic title="指标数" value={group.metrics_count} />
-                  </Space>
-                </Card>
-              </Col>
-            ))}
+            {Object.entries(metricsData.summary?.groups || {}).map(
+              ([groupId, group]: [string, any]) => (
+                <Col span={8} key={groupId}>
+                  <Card size="small" title={`分组: ${groupId}`}>
+                    <Space direction="vertical" style={{ width: '100%' }}>
+                      <Statistic title="用户数" value={group.user_count} />
+                      <Statistic title="事件数" value={group.event_count} />
+                      <Statistic title="指标数" value={group.metrics_count} />
+                    </Space>
+                  </Card>
+                </Col>
+              )
+            )}
           </Row>
         </Card>
       )}
     </div>
-  );
+  )
 
   // 指标管理标签页
   const renderMetricsTab = () => (
     <div>
-      <Card 
-        title="指标目录" 
+      <Card
+        title="指标目录"
         extra={
-          <Button 
-            type="primary" 
+          <Button
+            type="primary"
             icon={<PlusOutlined />}
             onClick={() => setRegisterModalVisible(true)}
           >
@@ -391,14 +432,17 @@ const RealtimeMetricsManagementPage: React.FC = () => {
                   ...metricsCatalog.catalog.primary,
                   ...metricsCatalog.catalog.secondary,
                   ...metricsCatalog.catalog.guardrail,
-                  ...metricsCatalog.catalog.diagnostic
+                  ...metricsCatalog.catalog.diagnostic,
                 ]}
                 rowKey="name"
                 loading={loading}
                 pagination={{ pageSize: 10 }}
               />
             </TabPane>
-            <TabPane tab={`主要指标 (${metricsCatalog.catalog.primary.length})`} key="primary">
+            <TabPane
+              tab={`主要指标 (${metricsCatalog.catalog.primary.length})`}
+              key="primary"
+            >
               <Table
                 columns={catalogColumns}
                 dataSource={metricsCatalog.catalog.primary}
@@ -407,7 +451,10 @@ const RealtimeMetricsManagementPage: React.FC = () => {
                 pagination={{ pageSize: 10 }}
               />
             </TabPane>
-            <TabPane tab={`次要指标 (${metricsCatalog.catalog.secondary.length})`} key="secondary">
+            <TabPane
+              tab={`次要指标 (${metricsCatalog.catalog.secondary.length})`}
+              key="secondary"
+            >
               <Table
                 columns={catalogColumns}
                 dataSource={metricsCatalog.catalog.secondary}
@@ -416,7 +463,10 @@ const RealtimeMetricsManagementPage: React.FC = () => {
                 pagination={{ pageSize: 10 }}
               />
             </TabPane>
-            <TabPane tab={`护栏指标 (${metricsCatalog.catalog.guardrail.length})`} key="guardrail">
+            <TabPane
+              tab={`护栏指标 (${metricsCatalog.catalog.guardrail.length})`}
+              key="guardrail"
+            >
               <Table
                 columns={catalogColumns}
                 dataSource={metricsCatalog.catalog.guardrail}
@@ -429,58 +479,60 @@ const RealtimeMetricsManagementPage: React.FC = () => {
         )}
       </Card>
     </div>
-  );
+  )
 
   // 分析工具标签页
   const renderAnalysisTab = () => (
     <div>
       <Row gutter={[16, 16]}>
         <Col span={8}>
-          <Card 
-            title="指标计算" 
+          <Card
+            title="指标计算"
             actions={[
-              <Button 
-                key="calculate" 
-                type="primary" 
+              <Button
+                key="calculate"
+                type="primary"
                 icon={<BarChartOutlined />}
                 onClick={() => setCalculationModalVisible(true)}
               >
                 开始计算
-              </Button>
+              </Button>,
             ]}
           >
-            <Text>计算指定实验的所有指标数据，支持不同时间窗口的聚合分析。</Text>
+            <Text>
+              计算指定实验的所有指标数据，支持不同时间窗口的聚合分析。
+            </Text>
           </Card>
         </Col>
         <Col span={8}>
-          <Card 
-            title="分组比较" 
+          <Card
+            title="分组比较"
             actions={[
-              <Button 
-                key="compare" 
-                type="primary" 
+              <Button
+                key="compare"
+                type="primary"
                 icon={<DiffOutlined />}
                 onClick={() => setComparisonModalVisible(true)}
               >
                 开始比较
-              </Button>
+              </Button>,
             ]}
           >
             <Text>对比实验组和对照组的指标差异，计算统计显著性。</Text>
           </Card>
         </Col>
         <Col span={8}>
-          <Card 
-            title="趋势分析" 
+          <Card
+            title="趋势分析"
             actions={[
-              <Button 
-                key="trends" 
-                type="primary" 
+              <Button
+                key="trends"
+                type="primary"
                 icon={<RiseOutlined />}
                 onClick={() => setTrendsModalVisible(true)}
               >
                 查看趋势
-              </Button>
+              </Button>,
             ]}
           >
             <Text>分析指标随时间的变化趋势，识别模式和异常。</Text>
@@ -498,21 +550,45 @@ const RealtimeMetricsManagementPage: React.FC = () => {
           />
           <Table
             columns={[
-              { title: '指标名称', dataIndex: 'metric_name', key: 'metric_name' },
-              { title: '对照组值', dataIndex: 'control_value', key: 'control_value', render: (val: number) => val.toFixed(4) },
-              { title: '实验组值', dataIndex: 'treatment_value', key: 'treatment_value', render: (val: number) => val.toFixed(4) },
-              { title: '绝对差异', dataIndex: 'absolute_difference', key: 'absolute_difference', render: (val: number) => val.toFixed(4) },
-              { title: '相对差异', dataIndex: 'relative_difference', key: 'relative_difference', render: (val: number) => `${val.toFixed(2)}%` },
-              { 
-                title: '显著性', 
-                dataIndex: 'is_significant', 
+              {
+                title: '指标名称',
+                dataIndex: 'metric_name',
+                key: 'metric_name',
+              },
+              {
+                title: '对照组值',
+                dataIndex: 'control_value',
+                key: 'control_value',
+                render: (val: number) => val.toFixed(4),
+              },
+              {
+                title: '实验组值',
+                dataIndex: 'treatment_value',
+                key: 'treatment_value',
+                render: (val: number) => val.toFixed(4),
+              },
+              {
+                title: '绝对差异',
+                dataIndex: 'absolute_difference',
+                key: 'absolute_difference',
+                render: (val: number) => val.toFixed(4),
+              },
+              {
+                title: '相对差异',
+                dataIndex: 'relative_difference',
+                key: 'relative_difference',
+                render: (val: number) => `${val.toFixed(2)}%`,
+              },
+              {
+                title: '显著性',
+                dataIndex: 'is_significant',
                 key: 'is_significant',
                 render: (significant: boolean) => (
                   <Tag color={significant ? 'green' : 'red'}>
                     {significant ? '显著' : '不显著'}
                   </Tag>
-                )
-              }
+                ),
+              },
             ]}
             dataSource={Object.values(comparisonData.comparisons || {})}
             rowKey="metric_name"
@@ -534,16 +610,20 @@ const RealtimeMetricsManagementPage: React.FC = () => {
                   y: t.value,
                   yMin: t.confidence_interval?.[0],
                   yMax: t.confidence_interval?.[1],
-                  metadata: { sample_size: t.sample_size }
-                }))
-              }
+                  metadata: { sample_size: t.sample_size },
+                })),
+              },
             ]}
-            config={{ showLegend: false, confidenceInterval: true, height: 300 }}
+            config={{
+              showLegend: false,
+              confidenceInterval: true,
+              height: 300,
+            }}
           />
         </Card>
       )}
     </div>
-  );
+  )
 
   return (
     <div style={{ padding: 24 }}>
@@ -558,13 +638,37 @@ const RealtimeMetricsManagementPage: React.FC = () => {
       </div>
 
       <Tabs activeKey={activeTab} onChange={setActiveTab} size="large">
-        <TabPane tab={<span><DashboardOutlined />实时仪表板</span>} key="dashboard">
+        <TabPane
+          tab={
+            <span>
+              <DashboardOutlined />
+              实时仪表板
+            </span>
+          }
+          key="dashboard"
+        >
           {renderDashboardTab()}
         </TabPane>
-        <TabPane tab={<span><SettingOutlined />指标管理</span>} key="metrics">
+        <TabPane
+          tab={
+            <span>
+              <SettingOutlined />
+              指标管理
+            </span>
+          }
+          key="metrics"
+        >
           {renderMetricsTab()}
         </TabPane>
-        <TabPane tab={<span><BarChartOutlined />分析工具</span>} key="analysis">
+        <TabPane
+          tab={
+            <span>
+              <BarChartOutlined />
+              分析工具
+            </span>
+          }
+          key="analysis"
+        >
           {renderAnalysisTab()}
         </TabPane>
       </Tabs>
@@ -585,12 +689,20 @@ const RealtimeMetricsManagementPage: React.FC = () => {
           <Form.Item name="name" label="指标名称" rules={[{ required: true }]}>
             <Input placeholder="输入指标的唯一标识名称" />
           </Form.Item>
-          <Form.Item name="display_name" label="显示名称" rules={[{ required: true }]}>
+          <Form.Item
+            name="display_name"
+            label="显示名称"
+            rules={[{ required: true }]}
+          >
             <Input placeholder="输入指标的显示名称" />
           </Form.Item>
           <Row gutter={16}>
             <Col span={12}>
-              <Form.Item name="metric_type" label="指标类型" rules={[{ required: true }]}>
+              <Form.Item
+                name="metric_type"
+                label="指标类型"
+                rules={[{ required: true }]}
+              >
                 <Select placeholder="选择指标类型">
                   <Option value="conversion">转化率</Option>
                   <Option value="continuous">连续值</Option>
@@ -600,7 +712,11 @@ const RealtimeMetricsManagementPage: React.FC = () => {
               </Form.Item>
             </Col>
             <Col span={12}>
-              <Form.Item name="category" label="指标类别" rules={[{ required: true }]}>
+              <Form.Item
+                name="category"
+                label="指标类别"
+                rules={[{ required: true }]}
+              >
                 <Select placeholder="选择指标类别">
                   <Option value="primary">主要指标</Option>
                   <Option value="secondary">次要指标</Option>
@@ -610,7 +726,11 @@ const RealtimeMetricsManagementPage: React.FC = () => {
               </Form.Item>
             </Col>
           </Row>
-          <Form.Item name="aggregation" label="聚合方式" rules={[{ required: true }]}>
+          <Form.Item
+            name="aggregation"
+            label="聚合方式"
+            rules={[{ required: true }]}
+          >
             <Select placeholder="选择聚合方式">
               <Option value="sum">求和</Option>
               <Option value="avg">平均值</Option>
@@ -627,12 +747,18 @@ const RealtimeMetricsManagementPage: React.FC = () => {
           <Row gutter={16}>
             <Col span={12}>
               <Form.Item name="threshold_lower" label="下限阈值">
-                <InputNumber style={{ width: '100%' }} placeholder="设置下限阈值" />
+                <InputNumber
+                  style={{ width: '100%' }}
+                  placeholder="设置下限阈值"
+                />
               </Form.Item>
             </Col>
             <Col span={12}>
               <Form.Item name="threshold_upper" label="上限阈值">
-                <InputNumber style={{ width: '100%' }} placeholder="设置上限阈值" />
+                <InputNumber
+                  style={{ width: '100%' }}
+                  placeholder="设置上限阈值"
+                />
               </Form.Item>
             </Col>
           </Row>
@@ -661,14 +787,24 @@ const RealtimeMetricsManagementPage: React.FC = () => {
           layout="vertical"
           onFinish={handleCalculateMetrics}
         >
-          <Form.Item name="experiment_id" label="实验ID" rules={[{ required: true }]}>
+          <Form.Item
+            name="experiment_id"
+            label="实验ID"
+            rules={[{ required: true }]}
+          >
             <Select placeholder="选择实验">
               {experiments.map(exp => (
-                <Option key={exp.id} value={exp.id}>{exp.name}</Option>
+                <Option key={exp.id} value={exp.id}>
+                  {exp.name}
+                </Option>
               ))}
             </Select>
           </Form.Item>
-          <Form.Item name="time_window" label="时间窗口" rules={[{ required: true }]}>
+          <Form.Item
+            name="time_window"
+            label="时间窗口"
+            rules={[{ required: true }]}
+          >
             <Select placeholder="选择时间窗口">
               <Option value="cumulative">累计</Option>
               <Option value="hourly">小时</Option>
@@ -701,21 +837,35 @@ const RealtimeMetricsManagementPage: React.FC = () => {
           layout="vertical"
           onFinish={handleCompareGroups}
         >
-          <Form.Item name="experiment_id" label="实验ID" rules={[{ required: true }]}>
+          <Form.Item
+            name="experiment_id"
+            label="实验ID"
+            rules={[{ required: true }]}
+          >
             <Select placeholder="选择实验">
               {experiments.map(exp => (
-                <Option key={exp.id} value={exp.id}>{exp.name}</Option>
+                <Option key={exp.id} value={exp.id}>
+                  {exp.name}
+                </Option>
               ))}
             </Select>
           </Form.Item>
           <Row gutter={16}>
             <Col span={12}>
-              <Form.Item name="control_group" label="对照组" rules={[{ required: true }]}>
+              <Form.Item
+                name="control_group"
+                label="对照组"
+                rules={[{ required: true }]}
+              >
                 <Input placeholder="输入对照组ID" />
               </Form.Item>
             </Col>
             <Col span={12}>
-              <Form.Item name="treatment_group" label="实验组" rules={[{ required: true }]}>
+              <Form.Item
+                name="treatment_group"
+                label="实验组"
+                rules={[{ required: true }]}
+              >
                 <Input placeholder="输入实验组ID" />
               </Form.Item>
             </Col>
@@ -740,22 +890,32 @@ const RealtimeMetricsManagementPage: React.FC = () => {
         onCancel={() => setTrendsModalVisible(false)}
         footer={null}
       >
-        <Form
-          form={trendsForm}
-          layout="vertical"
-          onFinish={handleGetTrends}
-        >
-          <Form.Item name="experiment_id" label="实验ID" rules={[{ required: true }]}>
+        <Form form={trendsForm} layout="vertical" onFinish={handleGetTrends}>
+          <Form.Item
+            name="experiment_id"
+            label="实验ID"
+            rules={[{ required: true }]}
+          >
             <Select placeholder="选择实验">
               {experiments.map(exp => (
-                <Option key={exp.id} value={exp.id}>{exp.name}</Option>
+                <Option key={exp.id} value={exp.id}>
+                  {exp.name}
+                </Option>
               ))}
             </Select>
           </Form.Item>
-          <Form.Item name="metric_name" label="指标名称" rules={[{ required: true }]}>
+          <Form.Item
+            name="metric_name"
+            label="指标名称"
+            rules={[{ required: true }]}
+          >
             <Input placeholder="输入指标名称" />
           </Form.Item>
-          <Form.Item name="granularity" label="时间粒度" rules={[{ required: true }]}>
+          <Form.Item
+            name="granularity"
+            label="时间粒度"
+            rules={[{ required: true }]}
+          >
             <Select placeholder="选择时间粒度">
               <Option value="hourly">小时</Option>
               <Option value="daily">天</Option>
@@ -767,15 +927,13 @@ const RealtimeMetricsManagementPage: React.FC = () => {
               <Button type="primary" htmlType="submit" loading={loading}>
                 获取趋势
               </Button>
-              <Button onClick={() => setTrendsModalVisible(false)}>
-                取消
-              </Button>
+              <Button onClick={() => setTrendsModalVisible(false)}>取消</Button>
             </Space>
           </Form.Item>
         </Form>
       </Modal>
     </div>
-  );
-};
+  )
+}
 
-export default RealtimeMetricsManagementPage;
+export default RealtimeMetricsManagementPage

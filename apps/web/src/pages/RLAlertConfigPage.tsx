@@ -1,65 +1,82 @@
-import React, { useState, useEffect } from 'react';
-import { Card, Row, Col, Button, Table, Switch, Modal, Form, Input, Select, InputNumber, Tag, Space, Alert, Tabs } from 'antd';
-import { 
-  BellOutlined, 
-  PlusOutlined, 
-  EditOutlined, 
+import React, { useState, useEffect } from 'react'
+import {
+  Card,
+  Row,
+  Col,
+  Button,
+  Table,
+  Switch,
+  Modal,
+  Form,
+  Input,
+  Select,
+  InputNumber,
+  Tag,
+  Space,
+  Alert,
+  Tabs,
+} from 'antd'
+import {
+  BellOutlined,
+  PlusOutlined,
+  EditOutlined,
   DeleteOutlined,
   SettingOutlined,
   ThunderboltOutlined,
   CheckCircleOutlined,
   ExclamationTriangleOutlined,
-  StopOutlined
-} from '@ant-design/icons';
-import type { ColumnsType } from 'antd/es/table';
+  StopOutlined,
+} from '@ant-design/icons'
+import type { ColumnsType } from 'antd/es/table'
 
-const { Option } = Select;
-const { TextArea } = Input;
-const { TabPane } = Tabs;
+const { Option } = Select
+const { TextArea } = Input
+const { TabPane } = Tabs
 
 interface AlertRule {
-  id: string;
-  name: string;
-  description: string;
-  metric: string;
-  condition: 'greater_than' | 'less_than' | 'equals' | 'not_equals';
-  threshold: number;
-  duration: number; // 持续时间（秒）
-  severity: 'low' | 'medium' | 'high' | 'critical';
-  enabled: boolean;
-  channels: string[];
-  lastTriggered?: string;
-  status: 'normal' | 'firing' | 'resolved';
+  id: string
+  name: string
+  description: string
+  metric: string
+  condition: 'greater_than' | 'less_than' | 'equals' | 'not_equals'
+  threshold: number
+  duration: number // 持续时间（秒）
+  severity: 'low' | 'medium' | 'high' | 'critical'
+  enabled: boolean
+  channels: string[]
+  lastTriggered?: string
+  status: 'normal' | 'firing' | 'resolved'
 }
 
 interface NotificationChannel {
-  id: string;
-  name: string;
-  type: 'email' | 'slack' | 'webhook' | 'sms';
-  config: Record<string, any>;
-  enabled: boolean;
+  id: string
+  name: string
+  type: 'email' | 'slack' | 'webhook' | 'sms'
+  config: Record<string, any>
+  enabled: boolean
 }
 
 interface AlertHistory {
-  id: string;
-  ruleName: string;
-  severity: string;
-  message: string;
-  timestamp: string;
-  status: 'firing' | 'resolved';
-  duration: number;
+  id: string
+  ruleName: string
+  severity: string
+  message: string
+  timestamp: string
+  status: 'firing' | 'resolved'
+  duration: number
 }
 
 const RLAlertConfigPage: React.FC = () => {
-  const [alertRules, setAlertRules] = useState<AlertRule[]>([]);
-  const [channels, setChannels] = useState<NotificationChannel[]>([]);
-  const [alertHistory, setAlertHistory] = useState<AlertHistory[]>([]);
-  const [showRuleModal, setShowRuleModal] = useState(false);
-  const [showChannelModal, setShowChannelModal] = useState(false);
-  const [editingRule, setEditingRule] = useState<AlertRule | null>(null);
-  const [editingChannel, setEditingChannel] = useState<NotificationChannel | null>(null);
-  const [form] = Form.useForm();
-  const [channelForm] = Form.useForm();
+  const [alertRules, setAlertRules] = useState<AlertRule[]>([])
+  const [channels, setChannels] = useState<NotificationChannel[]>([])
+  const [alertHistory, setAlertHistory] = useState<AlertHistory[]>([])
+  const [showRuleModal, setShowRuleModal] = useState(false)
+  const [showChannelModal, setShowChannelModal] = useState(false)
+  const [editingRule, setEditingRule] = useState<AlertRule | null>(null)
+  const [editingChannel, setEditingChannel] =
+    useState<NotificationChannel | null>(null)
+  const [form] = Form.useForm()
+  const [channelForm] = Form.useForm()
 
   // 初始化数据
   useEffect(() => {
@@ -76,7 +93,7 @@ const RLAlertConfigPage: React.FC = () => {
         enabled: true,
         channels: ['email-dev', 'slack-alerts'],
         lastTriggered: '2025-08-22 13:45:30',
-        status: 'normal'
+        status: 'normal',
       },
       {
         id: '2',
@@ -89,7 +106,7 @@ const RLAlertConfigPage: React.FC = () => {
         severity: 'medium',
         enabled: true,
         channels: ['email-dev'],
-        status: 'normal'
+        status: 'normal',
       },
       {
         id: '3',
@@ -102,7 +119,7 @@ const RLAlertConfigPage: React.FC = () => {
         severity: 'medium',
         enabled: true,
         channels: ['slack-alerts'],
-        status: 'normal'
+        status: 'normal',
       },
       {
         id: '4',
@@ -116,7 +133,7 @@ const RLAlertConfigPage: React.FC = () => {
         enabled: true,
         channels: ['email-dev', 'slack-alerts', 'webhook-pagerduty'],
         lastTriggered: '2025-08-22 11:20:15',
-        status: 'firing'
+        status: 'firing',
       },
       {
         id: '5',
@@ -129,9 +146,9 @@ const RLAlertConfigPage: React.FC = () => {
         severity: 'high',
         enabled: false,
         channels: ['email-ml-team'],
-        status: 'normal'
-      }
-    ];
+        status: 'normal',
+      },
+    ]
 
     const notificationChannels: NotificationChannel[] = [
       {
@@ -139,30 +156,33 @@ const RLAlertConfigPage: React.FC = () => {
         name: '开发团队邮件',
         type: 'email',
         config: { recipients: ['dev-team@company.com'] },
-        enabled: true
+        enabled: true,
       },
       {
         id: 'email-ml-team',
         name: 'ML团队邮件',
         type: 'email',
         config: { recipients: ['ml-team@company.com'] },
-        enabled: true
+        enabled: true,
       },
       {
         id: 'slack-alerts',
         name: 'Slack告警频道',
         type: 'slack',
-        config: { webhook: 'https://hooks.slack.com/...', channel: '#rl-alerts' },
-        enabled: true
+        config: {
+          webhook: 'https://hooks.slack.com/...',
+          channel: '#rl-alerts',
+        },
+        enabled: true,
       },
       {
         id: 'webhook-pagerduty',
         name: 'PagerDuty集成',
         type: 'webhook',
         config: { url: 'https://events.pagerduty.com/...', service_key: 'xxx' },
-        enabled: true
-      }
-    ];
+        enabled: true,
+      },
+    ]
 
     const history: AlertHistory[] = [
       {
@@ -172,7 +192,7 @@ const RLAlertConfigPage: React.FC = () => {
         message: '系统错误率达到1.2%，超过阈值1%',
         timestamp: '2025-08-22 14:15:30',
         status: 'firing',
-        duration: 1800
+        duration: 1800,
       },
       {
         id: '2',
@@ -181,7 +201,7 @@ const RLAlertConfigPage: React.FC = () => {
         message: 'P95延迟达到125ms，超过阈值100ms',
         timestamp: '2025-08-22 13:45:30',
         status: 'resolved',
-        duration: 900
+        duration: 900,
       },
       {
         id: '3',
@@ -190,36 +210,36 @@ const RLAlertConfigPage: React.FC = () => {
         message: '缓存命中率为88.5%，低于阈值90%',
         timestamp: '2025-08-22 12:30:15',
         status: 'resolved',
-        duration: 600
-      }
-    ];
+        duration: 600,
+      },
+    ]
 
-    setAlertRules(rules);
-    setChannels(notificationChannels);
-    setAlertHistory(history);
-  }, []);
+    setAlertRules(rules)
+    setChannels(notificationChannels)
+    setAlertHistory(history)
+  }, [])
 
   const handleCreateRule = () => {
-    setEditingRule(null);
-    form.resetFields();
-    setShowRuleModal(true);
-  };
+    setEditingRule(null)
+    form.resetFields()
+    setShowRuleModal(true)
+  }
 
   const handleEditRule = (rule: AlertRule) => {
-    setEditingRule(rule);
-    form.setFieldsValue(rule);
-    setShowRuleModal(true);
-  };
+    setEditingRule(rule)
+    form.setFieldsValue(rule)
+    setShowRuleModal(true)
+  }
 
   const handleDeleteRule = (ruleId: string) => {
     Modal.confirm({
       title: '确认删除',
       content: '确定要删除这个告警规则吗？',
       onOk: () => {
-        setAlertRules(prev => prev.filter(rule => rule.id !== ruleId));
-      }
-    });
-  };
+        setAlertRules(prev => prev.filter(rule => rule.id !== ruleId))
+      },
+    })
+  }
 
   const handleSaveRule = async (values: any) => {
     const newRule: AlertRule = {
@@ -227,57 +247,59 @@ const RLAlertConfigPage: React.FC = () => {
       ...values,
       enabled: values.enabled ?? true,
       status: 'normal',
-      lastTriggered: undefined
-    };
-
-    if (editingRule) {
-      setAlertRules(prev => prev.map(rule => 
-        rule.id === editingRule.id ? newRule : rule
-      ));
-    } else {
-      setAlertRules(prev => [...prev, newRule]);
+      lastTriggered: undefined,
     }
 
-    setShowRuleModal(false);
-    form.resetFields();
-  };
+    if (editingRule) {
+      setAlertRules(prev =>
+        prev.map(rule => (rule.id === editingRule.id ? newRule : rule))
+      )
+    } else {
+      setAlertRules(prev => [...prev, newRule])
+    }
+
+    setShowRuleModal(false)
+    form.resetFields()
+  }
 
   const handleToggleRule = (ruleId: string, enabled: boolean) => {
-    setAlertRules(prev => prev.map(rule => 
-      rule.id === ruleId ? { ...rule, enabled } : rule
-    ));
-  };
+    setAlertRules(prev =>
+      prev.map(rule => (rule.id === ruleId ? { ...rule, enabled } : rule))
+    )
+  }
 
   const handleCreateChannel = () => {
-    setEditingChannel(null);
-    channelForm.resetFields();
-    setShowChannelModal(true);
-  };
+    setEditingChannel(null)
+    channelForm.resetFields()
+    setShowChannelModal(true)
+  }
 
   const handleEditChannel = (channel: NotificationChannel) => {
-    setEditingChannel(channel);
-    channelForm.setFieldsValue(channel);
-    setShowChannelModal(true);
-  };
+    setEditingChannel(channel)
+    channelForm.setFieldsValue(channel)
+    setShowChannelModal(true)
+  }
 
   const handleSaveChannel = async (values: any) => {
     const newChannel: NotificationChannel = {
       id: editingChannel?.id || Date.now().toString(),
       ...values,
-      enabled: values.enabled ?? true
-    };
-
-    if (editingChannel) {
-      setChannels(prev => prev.map(channel => 
-        channel.id === editingChannel.id ? newChannel : channel
-      ));
-    } else {
-      setChannels(prev => [...prev, newChannel]);
+      enabled: values.enabled ?? true,
     }
 
-    setShowChannelModal(false);
-    channelForm.resetFields();
-  };
+    if (editingChannel) {
+      setChannels(prev =>
+        prev.map(channel =>
+          channel.id === editingChannel.id ? newChannel : channel
+        )
+      )
+    } else {
+      setChannels(prev => [...prev, newChannel])
+    }
+
+    setShowChannelModal(false)
+    channelForm.resetFields()
+  }
 
   const ruleColumns: ColumnsType<AlertRule> = [
     {
@@ -287,7 +309,9 @@ const RLAlertConfigPage: React.FC = () => {
       render: (text, record) => (
         <div>
           <strong>{text}</strong>
-          <div style={{ fontSize: '12px', color: '#666' }}>{record.description}</div>
+          <div style={{ fontSize: '12px', color: '#666' }}>
+            {record.description}
+          </div>
         </div>
       ),
     },
@@ -295,7 +319,7 @@ const RLAlertConfigPage: React.FC = () => {
       title: '监控指标',
       dataIndex: 'metric',
       key: 'metric',
-      render: (metric) => <code>{metric}</code>
+      render: metric => <code>{metric}</code>,
     },
     {
       title: '条件',
@@ -303,9 +327,13 @@ const RLAlertConfigPage: React.FC = () => {
       render: (_, record) => (
         <span>
           {record.condition.replace('_', ' ')} {record.threshold}
-          {record.metric.includes('rate') ? '%' : 
-           record.metric.includes('latency') ? 'ms' : 
-           record.metric.includes('qps') ? ' req/s' : ''}
+          {record.metric.includes('rate')
+            ? '%'
+            : record.metric.includes('latency')
+              ? 'ms'
+              : record.metric.includes('qps')
+                ? ' req/s'
+                : ''}
         </span>
       ),
     },
@@ -313,27 +341,43 @@ const RLAlertConfigPage: React.FC = () => {
       title: '严重性',
       dataIndex: 'severity',
       key: 'severity',
-      render: (severity) => {
+      render: severity => {
         const config = {
           low: { color: 'green', text: '低' },
           medium: { color: 'orange', text: '中' },
           high: { color: 'red', text: '高' },
-          critical: { color: 'purple', text: '严重' }
-        };
-        return <Tag color={config[severity].color}>{config[severity].text}</Tag>;
+          critical: { color: 'purple', text: '严重' },
+        }
+        return <Tag color={config[severity].color}>{config[severity].text}</Tag>
       },
     },
     {
       title: '状态',
       dataIndex: 'status',
       key: 'status',
-      render: (status) => {
+      render: status => {
         const config = {
-          normal: { color: 'green', icon: <CheckCircleOutlined />, text: '正常' },
-          firing: { color: 'red', icon: <ExclamationTriangleOutlined />, text: '告警中' },
-          resolved: { color: 'blue', icon: <CheckCircleOutlined />, text: '已解决' }
-        };
-        return <Tag color={config[status].color} icon={config[status].icon}>{config[status].text}</Tag>;
+          normal: {
+            color: 'green',
+            icon: <CheckCircleOutlined />,
+            text: '正常',
+          },
+          firing: {
+            color: 'red',
+            icon: <ExclamationTriangleOutlined />,
+            text: '告警中',
+          },
+          resolved: {
+            color: 'blue',
+            icon: <CheckCircleOutlined />,
+            text: '已解决',
+          },
+        }
+        return (
+          <Tag color={config[status].color} icon={config[status].icon}>
+            {config[status].text}
+          </Tag>
+        )
       },
     },
     {
@@ -341,9 +385,9 @@ const RLAlertConfigPage: React.FC = () => {
       dataIndex: 'enabled',
       key: 'enabled',
       render: (enabled, record) => (
-        <Switch 
-          checked={enabled} 
-          onChange={(checked) => handleToggleRule(record.id, checked)}
+        <Switch
+          checked={enabled}
+          onChange={checked => handleToggleRule(record.id, checked)}
         />
       ),
     },
@@ -351,24 +395,24 @@ const RLAlertConfigPage: React.FC = () => {
       title: '最后触发',
       dataIndex: 'lastTriggered',
       key: 'lastTriggered',
-      render: (time) => time || '-',
+      render: time => time || '-',
     },
     {
       title: '操作',
       key: 'actions',
       render: (_, record) => (
         <Space>
-          <Button 
-            size="small" 
-            icon={<EditOutlined />} 
+          <Button
+            size="small"
+            icon={<EditOutlined />}
             onClick={() => handleEditRule(record)}
           >
             编辑
           </Button>
-          <Button 
-            size="small" 
-            danger 
-            icon={<DeleteOutlined />} 
+          <Button
+            size="small"
+            danger
+            icon={<DeleteOutlined />}
             onClick={() => handleDeleteRule(record.id)}
           >
             删除
@@ -376,7 +420,7 @@ const RLAlertConfigPage: React.FC = () => {
         </Space>
       ),
     },
-  ];
+  ]
 
   const channelColumns: ColumnsType<NotificationChannel> = [
     {
@@ -388,14 +432,14 @@ const RLAlertConfigPage: React.FC = () => {
       title: '类型',
       dataIndex: 'type',
       key: 'type',
-      render: (type) => {
+      render: type => {
         const config = {
           email: { color: 'blue', text: '邮件' },
           slack: { color: 'purple', text: 'Slack' },
           webhook: { color: 'orange', text: 'Webhook' },
-          sms: { color: 'green', text: '短信' }
-        };
-        return <Tag color={config[type].color}>{config[type].text}</Tag>;
+          sms: { color: 'green', text: '短信' },
+        }
+        return <Tag color={config[type].color}>{config[type].text}</Tag>
       },
     },
     {
@@ -404,9 +448,11 @@ const RLAlertConfigPage: React.FC = () => {
       key: 'config',
       render: (config, record) => (
         <div style={{ fontSize: '12px' }}>
-          {record.type === 'email' && `收件人: ${config.recipients?.join(', ')}`}
+          {record.type === 'email' &&
+            `收件人: ${config.recipients?.join(', ')}`}
           {record.type === 'slack' && `频道: ${config.channel}`}
-          {record.type === 'webhook' && `URL: ${config.url?.substring(0, 30)}...`}
+          {record.type === 'webhook' &&
+            `URL: ${config.url?.substring(0, 30)}...`}
           {record.type === 'sms' && `号码: ${config.phone}`}
         </div>
       ),
@@ -415,32 +461,27 @@ const RLAlertConfigPage: React.FC = () => {
       title: '启用状态',
       dataIndex: 'enabled',
       key: 'enabled',
-      render: (enabled) => (
-        <Switch checked={enabled} />
-      ),
+      render: enabled => <Switch checked={enabled} />,
     },
     {
       title: '操作',
       key: 'actions',
       render: (_, record) => (
         <Space>
-          <Button 
-            size="small" 
-            icon={<EditOutlined />} 
+          <Button
+            size="small"
+            icon={<EditOutlined />}
             onClick={() => handleEditChannel(record)}
           >
             编辑
           </Button>
-          <Button 
-            size="small" 
-            icon={<ThunderboltOutlined />}
-          >
+          <Button size="small" icon={<ThunderboltOutlined />}>
             测试
           </Button>
         </Space>
       ),
     },
-  ];
+  ]
 
   const historyColumns: ColumnsType<AlertHistory> = [
     {
@@ -458,21 +499,21 @@ const RLAlertConfigPage: React.FC = () => {
       title: '严重性',
       dataIndex: 'severity',
       key: 'severity',
-      render: (severity) => {
+      render: severity => {
         const config = {
           low: { color: 'green' },
           medium: { color: 'orange' },
           high: { color: 'red' },
-          critical: { color: 'purple' }
-        };
-        return <Tag color={config[severity].color}>{severity}</Tag>;
+          critical: { color: 'purple' },
+        }
+        return <Tag color={config[severity].color}>{severity}</Tag>
       },
     },
     {
       title: '状态',
       dataIndex: 'status',
       key: 'status',
-      render: (status) => (
+      render: status => (
         <Tag color={status === 'firing' ? 'red' : 'green'}>
           {status === 'firing' ? '告警中' : '已解决'}
         </Tag>
@@ -482,7 +523,7 @@ const RLAlertConfigPage: React.FC = () => {
       title: '持续时间',
       dataIndex: 'duration',
       key: 'duration',
-      render: (duration) => `${Math.floor(duration / 60)}分${duration % 60}秒`,
+      render: duration => `${Math.floor(duration / 60)}分${duration % 60}秒`,
     },
     {
       title: '消息',
@@ -490,30 +531,36 @@ const RLAlertConfigPage: React.FC = () => {
       key: 'message',
       ellipsis: true,
     },
-  ];
+  ]
 
-  const firingAlerts = alertRules.filter(rule => rule.status === 'firing').length;
-  const enabledRules = alertRules.filter(rule => rule.enabled).length;
+  const firingAlerts = alertRules.filter(
+    rule => rule.status === 'firing'
+  ).length
+  const enabledRules = alertRules.filter(rule => rule.enabled).length
 
   return (
     <div style={{ padding: '24px' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          marginBottom: '24px',
+        }}
+      >
         <h1 style={{ margin: 0, display: 'flex', alignItems: 'center' }}>
           <BellOutlined style={{ marginRight: '8px' }} />
           强化学习告警配置
         </h1>
         <Space>
-          <Button 
-            type="primary" 
+          <Button
+            type="primary"
             icon={<PlusOutlined />}
             onClick={handleCreateRule}
           >
             新建告警规则
           </Button>
-          <Button 
-            icon={<SettingOutlined />}
-            onClick={handleCreateChannel}
-          >
+          <Button icon={<SettingOutlined />} onClick={handleCreateChannel}>
             配置通知频道
           </Button>
         </Space>
@@ -524,7 +571,13 @@ const RLAlertConfigPage: React.FC = () => {
         <Col xs={24} sm={8}>
           <Card>
             <div style={{ textAlign: 'center' }}>
-              <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#cf1322' }}>
+              <div
+                style={{
+                  fontSize: '24px',
+                  fontWeight: 'bold',
+                  color: '#cf1322',
+                }}
+              >
                 {firingAlerts}
               </div>
               <div>当前告警</div>
@@ -534,7 +587,13 @@ const RLAlertConfigPage: React.FC = () => {
         <Col xs={24} sm={8}>
           <Card>
             <div style={{ textAlign: 'center' }}>
-              <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#3f8600' }}>
+              <div
+                style={{
+                  fontSize: '24px',
+                  fontWeight: 'bold',
+                  color: '#3f8600',
+                }}
+              >
                 {enabledRules}
               </div>
               <div>启用规则</div>
@@ -544,7 +603,13 @@ const RLAlertConfigPage: React.FC = () => {
         <Col xs={24} sm={8}>
           <Card>
             <div style={{ textAlign: 'center' }}>
-              <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#1890ff' }}>
+              <div
+                style={{
+                  fontSize: '24px',
+                  fontWeight: 'bold',
+                  color: '#1890ff',
+                }}
+              >
                 {channels.filter(c => c.enabled).length}
               </div>
               <div>通知频道</div>
@@ -558,7 +623,7 @@ const RLAlertConfigPage: React.FC = () => {
         <Alert
           message="系统告警"
           description={`当前有 ${firingAlerts} 个告警规则正在触发，请及时处理`}
-          variant="destructive"
+          type="error"
           showIcon
           action={
             <Button size="small" danger>
@@ -583,7 +648,7 @@ const RLAlertConfigPage: React.FC = () => {
             />
           </Card>
         </TabPane>
-        
+
         <TabPane tab="通知频道" key="channels">
           <Card>
             <Table
@@ -595,7 +660,7 @@ const RLAlertConfigPage: React.FC = () => {
             />
           </Card>
         </TabPane>
-        
+
         <TabPane tab="告警历史" key="history">
           <Card>
             <Table
@@ -617,11 +682,7 @@ const RLAlertConfigPage: React.FC = () => {
         onOk={() => form.submit()}
         width={600}
       >
-        <Form
-          form={form}
-          layout="vertical"
-          onFinish={handleSaveRule}
-        >
+        <Form form={form} layout="vertical" onFinish={handleSaveRule}>
           <Form.Item
             name="name"
             label="规则名称"
@@ -629,7 +690,7 @@ const RLAlertConfigPage: React.FC = () => {
           >
             <Input placeholder="输入告警规则名称" />
           </Form.Item>
-          
+
           <Form.Item
             name="description"
             label="描述"
@@ -637,14 +698,16 @@ const RLAlertConfigPage: React.FC = () => {
           >
             <TextArea rows={2} placeholder="描述这个告警规则的用途" />
           </Form.Item>
-          
+
           <Form.Item
             name="metric"
             label="监控指标"
             rules={[{ required: true, message: '请选择监控指标' }]}
           >
             <Select placeholder="选择要监控的指标">
-              <Option value="rl_recommendation_latency_p95">推荐延迟 P95</Option>
+              <Option value="rl_recommendation_latency_p95">
+                推荐延迟 P95
+              </Option>
               <Option value="rl_requests_per_second">每秒请求数</Option>
               <Option value="rl_cache_hit_rate">缓存命中率</Option>
               <Option value="rl_error_rate">错误率</Option>
@@ -653,7 +716,7 @@ const RLAlertConfigPage: React.FC = () => {
               <Option value="rl_memory_usage">内存使用率</Option>
             </Select>
           </Form.Item>
-          
+
           <Row gutter={16}>
             <Col span={12}>
               <Form.Item
@@ -683,7 +746,7 @@ const RLAlertConfigPage: React.FC = () => {
               </Form.Item>
             </Col>
           </Row>
-          
+
           <Row gutter={16}>
             <Col span={12}>
               <Form.Item
@@ -713,7 +776,7 @@ const RLAlertConfigPage: React.FC = () => {
               </Form.Item>
             </Col>
           </Row>
-          
+
           <Form.Item
             name="channels"
             label="通知频道"
@@ -736,11 +799,7 @@ const RLAlertConfigPage: React.FC = () => {
         onOk={() => channelForm.submit()}
         width={500}
       >
-        <Form
-          form={channelForm}
-          layout="vertical"
-          onFinish={handleSaveChannel}
-        >
+        <Form form={channelForm} layout="vertical" onFinish={handleSaveChannel}>
           <Form.Item
             name="name"
             label="频道名称"
@@ -748,7 +807,7 @@ const RLAlertConfigPage: React.FC = () => {
           >
             <Input placeholder="输入通知频道名称" />
           </Form.Item>
-          
+
           <Form.Item
             name="type"
             label="类型"
@@ -764,7 +823,7 @@ const RLAlertConfigPage: React.FC = () => {
         </Form>
       </Modal>
     </div>
-  );
-};
+  )
+}
 
-export default RLAlertConfigPage;
+export default RLAlertConfigPage

@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react'
-import { 
-  Card, 
-  Row, 
-  Col, 
-  Button, 
-  Space, 
-  Table, 
+import {
+  Card,
+  Row,
+  Col,
+  Button,
+  Space,
+  Table,
   Upload,
   Progress,
   Tag,
@@ -22,9 +22,9 @@ import {
   message,
   Tabs,
   List,
-  Avatar
+  Avatar,
 } from 'antd'
-import { 
+import {
   UploadOutlined,
   DownloadOutlined,
   DeleteOutlined,
@@ -36,7 +36,7 @@ import {
   DatabaseOutlined,
   BarChartOutlined,
   ClearOutlined,
-  ReloadOutlined
+  ReloadOutlined,
 } from '@ant-design/icons'
 import filesService from '../services/filesService'
 
@@ -55,14 +55,14 @@ const formatFileSize = (bytes: number): string => {
 
 const getMimeType = (type: string): string => {
   const mimeTypes = {
-    'PDF': 'application/pdf',
-    'DOC': 'application/msword',
-    'TXT': 'text/plain',
-    'IMAGE': 'image/jpeg',
-    'VIDEO': 'video/mp4',
-    'AUDIO': 'audio/mpeg',
-    'JSON': 'application/json',
-    'CSV': 'text/csv'
+    PDF: 'application/pdf',
+    DOC: 'application/msword',
+    TXT: 'text/plain',
+    IMAGE: 'image/jpeg',
+    VIDEO: 'video/mp4',
+    AUDIO: 'audio/mpeg',
+    JSON: 'application/json',
+    CSV: 'text/csv',
   }
   return mimeTypes[type as keyof typeof mimeTypes] || 'application/octet-stream'
 }
@@ -79,7 +79,7 @@ const FileManagementAdvancedPage: React.FC = () => {
   const loadFiles = async () => {
     try {
       const res = await filesService.listFiles({ limit: 100, offset: 0 })
-      const files = (res.data?.files || []).map((f) => {
+      const files = (res.data?.files || []).map(f => {
         const type = getFileTypeFromName(f.filename)
         return {
           id: f.file_id || f.filename,
@@ -93,8 +93,8 @@ const FileManagementAdvancedPage: React.FC = () => {
           metadata: {
             checksum: f.file_id,
             encoding: 'UTF-8',
-            mimeType: getMimeType(type)
-          }
+            mimeType: getMimeType(type),
+          },
         }
       })
       setFileList(files)
@@ -110,7 +110,9 @@ const FileManagementAdvancedPage: React.FC = () => {
   // 过滤文件列表
   const filteredFiles = fileList.filter(file => {
     const matchesType = filterType === 'all' || file.type === filterType
-    const matchesSearch = file.name.toLowerCase().includes(searchKeyword.toLowerCase())
+    const matchesSearch = file.name
+      .toLowerCase()
+      .includes(searchKeyword.toLowerCase())
     return matchesType && matchesSearch
   })
 
@@ -118,13 +120,16 @@ const FileManagementAdvancedPage: React.FC = () => {
   const stats = {
     totalFiles: fileList.length,
     totalSize: fileList.reduce((sum, file) => sum + file.size, 0),
-    typeDistribution: fileList.reduce((acc, file) => {
-      acc[file.type] = (acc[file.type] || 0) + 1
-      return acc
-    }, {} as Record<string, number>),
-    recentUploads: fileList.filter(file => 
-      Date.now() - file.uploadTime.getTime() < 24 * 3600 * 1000
-    ).length
+    typeDistribution: fileList.reduce(
+      (acc, file) => {
+        acc[file.type] = (acc[file.type] || 0) + 1
+        return acc
+      },
+      {} as Record<string, number>
+    ),
+    recentUploads: fileList.filter(
+      file => Date.now() - file.uploadTime.getTime() < 24 * 3600 * 1000
+    ).length,
   }
 
   // 文件上传处理
@@ -147,14 +152,20 @@ const FileManagementAdvancedPage: React.FC = () => {
   const getFileTypeFromName = (fileName: string): string => {
     const ext = fileName.split('.').pop()?.toUpperCase() || 'UNKNOWN'
     const typeMap: Record<string, string> = {
-      'PDF': 'PDF',
-      'DOC': 'DOC', 'DOCX': 'DOC',
-      'TXT': 'TXT', 'MD': 'TXT',
-      'JPG': 'IMAGE', 'PNG': 'IMAGE', 'GIF': 'IMAGE',
-      'MP4': 'VIDEO', 'AVI': 'VIDEO',
-      'MP3': 'AUDIO', 'WAV': 'AUDIO',
-      'JSON': 'JSON',
-      'CSV': 'CSV'
+      PDF: 'PDF',
+      DOC: 'DOC',
+      DOCX: 'DOC',
+      TXT: 'TXT',
+      MD: 'TXT',
+      JPG: 'IMAGE',
+      PNG: 'IMAGE',
+      GIF: 'IMAGE',
+      MP4: 'VIDEO',
+      AVI: 'VIDEO',
+      MP3: 'AUDIO',
+      WAV: 'AUDIO',
+      JSON: 'JSON',
+      CSV: 'CSV',
     }
     return typeMap[ext] || 'OTHER'
   }
@@ -168,7 +179,7 @@ const FileManagementAdvancedPage: React.FC = () => {
         await filesService.deleteFile(fileId)
         await loadFiles()
         message.success('文件删除成功')
-      }
+      },
     })
   }
 
@@ -178,15 +189,17 @@ const FileManagementAdvancedPage: React.FC = () => {
       message.warning('请选择要删除的文件')
       return
     }
-    
+
     Modal.confirm({
       title: '批量删除确认',
       content: `确定要删除选中的 ${selectedFiles.length} 个文件吗？`,
       onOk: () => {
-        setFileList(prev => prev.filter(file => !selectedFiles.includes(file.id)))
+        setFileList(prev =>
+          prev.filter(file => !selectedFiles.includes(file.id))
+        )
         setSelectedFiles([])
         message.success(`成功删除 ${selectedFiles.length} 个文件`)
-      }
+      },
     })
   }
 
@@ -214,9 +227,7 @@ const FileManagementAdvancedPage: React.FC = () => {
       title: '类型',
       dataIndex: 'type',
       key: 'type',
-      render: (type: string) => (
-        <Tag color={getFileColor(type)}>{type}</Tag>
-      ),
+      render: (type: string) => <Tag color={getFileColor(type)}>{type}</Tag>,
     },
     {
       title: '大小',
@@ -240,22 +251,18 @@ const FileManagementAdvancedPage: React.FC = () => {
       render: (record: any) => (
         <Space>
           <Tooltip title="预览">
-            <Button 
-              icon={<EyeOutlined />} 
+            <Button
+              icon={<EyeOutlined />}
               size="small"
               onClick={() => handlePreview(record)}
             />
           </Tooltip>
           <Tooltip title="下载">
-            <Button 
-              icon={<DownloadOutlined />} 
-              size="small"
-              type="primary"
-            />
+            <Button icon={<DownloadOutlined />} size="small" type="primary" />
           </Tooltip>
           <Tooltip title="删除">
-            <Button 
-              icon={<DeleteOutlined />} 
+            <Button
+              icon={<DeleteOutlined />}
               size="small"
               danger
               onClick={() => handleDelete(record.id)}
@@ -268,14 +275,14 @@ const FileManagementAdvancedPage: React.FC = () => {
 
   const getFileColor = (type: string): string => {
     const colors: Record<string, string> = {
-      'PDF': '#ff4d4f',
-      'DOC': '#1890ff',
-      'TXT': '#52c41a',
-      'IMAGE': '#fa8c16',
-      'VIDEO': '#722ed1',
-      'AUDIO': '#eb2f96',
-      'JSON': '#13c2c2',
-      'CSV': '#a0d911'
+      PDF: '#ff4d4f',
+      DOC: '#1890ff',
+      TXT: '#52c41a',
+      IMAGE: '#fa8c16',
+      VIDEO: '#722ed1',
+      AUDIO: '#eb2f96',
+      JSON: '#13c2c2',
+      CSV: '#a0d911',
     }
     return colors[type] || '#666666'
   }
@@ -324,11 +331,13 @@ const FileManagementAdvancedPage: React.FC = () => {
 
   // 文件类型分布
   const FileTypeDistribution = () => {
-    const data = Object.entries(stats.typeDistribution).map(([type, count]) => ({
-      type,
-      count,
-      percentage: ((count / stats.totalFiles) * 100).toFixed(1)
-    }))
+    const data = Object.entries(stats.typeDistribution).map(
+      ([type, count]) => ({
+        type,
+        count,
+        percentage: ((count / stats.totalFiles) * 100).toFixed(1),
+      })
+    )
 
     return (
       <Card title="文件类型分布" size="small">
@@ -337,11 +346,19 @@ const FileManagementAdvancedPage: React.FC = () => {
           renderItem={item => (
             <List.Item>
               <List.Item.Meta
-                avatar={<Avatar style={{ backgroundColor: getFileColor(item.type) }}>{item.type}</Avatar>}
+                avatar={
+                  <Avatar style={{ backgroundColor: getFileColor(item.type) }}>
+                    {item.type}
+                  </Avatar>
+                }
                 title={item.type}
                 description={`${item.count} 个文件 (${item.percentage}%)`}
               />
-              <Progress percent={parseFloat(item.percentage)} size="small" showInfo={false} />
+              <Progress
+                percent={parseFloat(item.percentage)}
+                size="small"
+                showInfo={false}
+              />
             </List.Item>
           )}
         />
@@ -357,7 +374,7 @@ const FileManagementAdvancedPage: React.FC = () => {
       <Paragraph type="secondary">
         全面的文件上传、下载、管理和分析功能，支持批量操作和多格式文件处理
       </Paragraph>
-      
+
       <Divider />
 
       <Tabs defaultActiveKey="1">
@@ -379,7 +396,9 @@ const FileManagementAdvancedPage: React.FC = () => {
                     <p className="ant-upload-drag-icon">
                       <UploadOutlined />
                     </p>
-                    <p className="ant-upload-text">点击或拖拽文件到此区域上传</p>
+                    <p className="ant-upload-text">
+                      点击或拖拽文件到此区域上传
+                    </p>
                     <p className="ant-upload-hint">支持单个或批量上传</p>
                   </Dragger>
                 </Col>
@@ -390,7 +409,7 @@ const FileManagementAdvancedPage: React.FC = () => {
                       placeholder="搜索文件名"
                       allowClear
                       value={searchKeyword}
-                      onChange={(e) => setSearchKeyword(e.target.value)}
+                      onChange={e => setSearchKeyword(e.target.value)}
                       style={{ width: 200 }}
                     />
                     <Select
@@ -407,14 +426,17 @@ const FileManagementAdvancedPage: React.FC = () => {
                       <Option value="VIDEO">视频</Option>
                       <Option value="AUDIO">音频</Option>
                     </Select>
-                    <Button 
+                    <Button
                       danger
                       onClick={handleBatchDelete}
                       disabled={selectedFiles.length === 0}
                     >
                       批量删除 ({selectedFiles.length})
                     </Button>
-                    <Button icon={<ClearOutlined />} onClick={() => message.info('请使用后端清理接口')}>
+                    <Button
+                      icon={<ClearOutlined />}
+                      onClick={() => message.info('请使用后端清理接口')}
+                    >
                       清理临时文件
                     </Button>
                     <Button icon={<ReloadOutlined />} onClick={loadFiles}>
@@ -433,24 +455,38 @@ const FileManagementAdvancedPage: React.FC = () => {
                 rowKey="id"
                 rowSelection={{
                   selectedRowKeys: selectedFiles,
-                  onChange: (keys: React.Key[]) => setSelectedFiles(keys as string[]),
+                  onChange: (keys: React.Key[]) =>
+                    setSelectedFiles(keys as string[]),
                   getCheckboxProps: (record: any) => ({
-                    name: `fileSelect-${record.id}`
+                    name: `fileSelect-${record.id}`,
                   }),
                   columnTitle: (
                     <Checkbox
                       name="selectAllFiles"
-                      indeterminate={selectedFiles.length > 0 && selectedFiles.length < filteredFiles.length}
-                      checked={filteredFiles.length > 0 && selectedFiles.length === filteredFiles.length}
-                      onChange={(e) => setSelectedFiles(e.target.checked ? filteredFiles.map((item) => item.id) : [])}
+                      indeterminate={
+                        selectedFiles.length > 0 &&
+                        selectedFiles.length < filteredFiles.length
+                      }
+                      checked={
+                        filteredFiles.length > 0 &&
+                        selectedFiles.length === filteredFiles.length
+                      }
+                      onChange={e =>
+                        setSelectedFiles(
+                          e.target.checked
+                            ? filteredFiles.map(item => item.id)
+                            : []
+                        )
+                      }
                     />
-                  )
+                  ),
                 }}
-                pagination={{ 
+                pagination={{
                   pageSize: 15,
                   showSizeChanger: true,
                   showQuickJumper: true,
-                  showTotal: (total, range) => `第 ${range[0]}-${range[1]} 条，共 ${total} 条`
+                  showTotal: (total, range) =>
+                    `第 ${range[0]}-${range[1]} 条，共 ${total} 条`,
                 }}
                 scroll={{ x: 1000 }}
               />
@@ -467,15 +503,20 @@ const FileManagementAdvancedPage: React.FC = () => {
               <Card title="存储使用情况" size="small">
                 <div style={{ marginBottom: 16 }}>
                   <Text>已使用存储空间</Text>
-                  <Progress 
-                    percent={75} 
-                    format={percent => `${formatFileSize(stats.totalSize)} / 10GB`}
+                  <Progress
+                    percent={75}
+                    format={percent =>
+                      `${formatFileSize(stats.totalSize)} / 10GB`
+                    }
                   />
                 </div>
-                
+
                 <Row gutter={16}>
                   <Col span={12}>
-                    <Statistic title="平均文件大小" value={formatFileSize(stats.totalSize / stats.totalFiles)} />
+                    <Statistic
+                      title="平均文件大小"
+                      value={formatFileSize(stats.totalSize / stats.totalFiles)}
+                    />
                   </Col>
                   <Col span={12}>
                     <Statistic title="最大文件" value="45.2MB" />
@@ -492,7 +533,9 @@ const FileManagementAdvancedPage: React.FC = () => {
                     renderItem={file => (
                       <List.Item>
                         <Text>{file.name}</Text>
-                        <Text type="secondary">{file.uploadTime.toLocaleString()}</Text>
+                        <Text type="secondary">
+                          {file.uploadTime.toLocaleString()}
+                        </Text>
                       </List.Item>
                     )}
                   />
@@ -508,7 +551,7 @@ const FileManagementAdvancedPage: React.FC = () => {
               <Alert
                 message="批量操作功能"
                 description="可以对多个文件执行批量上传、下载、压缩、格式转换等操作"
-                variant="default"
+                type="info"
                 showIcon
               />
 
@@ -530,8 +573,8 @@ const FileManagementAdvancedPage: React.FC = () => {
                 </Col>
                 <Col span={8}>
                   <Card title="批量下载" size="small">
-                    <Button 
-                      type="primary" 
+                    <Button
+                      type="primary"
                       icon={<CloudDownloadOutlined />}
                       disabled={selectedFiles.length === 0}
                       style={{ width: '100%', height: 60 }}
@@ -542,7 +585,7 @@ const FileManagementAdvancedPage: React.FC = () => {
                 </Col>
                 <Col span={8}>
                   <Card title="批量清理" size="small">
-                    <Button 
+                    <Button
                       danger
                       icon={<ClearOutlined />}
                       onClick={async () => {
@@ -573,7 +616,7 @@ const FileManagementAdvancedPage: React.FC = () => {
           </Button>,
           <Button key="close" onClick={() => setPreviewVisible(false)}>
             关闭
-          </Button>
+          </Button>,
         ]}
         width={800}
       >
@@ -600,14 +643,16 @@ const FileManagementAdvancedPage: React.FC = () => {
               </Col>
             </Row>
             <Divider />
-            <div style={{ 
-              height: 300, 
-              border: '1px solid #d9d9d9', 
-              display: 'flex', 
-              alignItems: 'center', 
-              justifyContent: 'center',
-              backgroundColor: '#fafafa'
-            }}>
+            <div
+              style={{
+                height: 300,
+                border: '1px solid #d9d9d9',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                backgroundColor: '#fafafa',
+              }}
+            >
               <Text type="secondary">文件预览区域 ({previewFile.type})</Text>
             </div>
           </div>

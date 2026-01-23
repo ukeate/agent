@@ -39,8 +39,8 @@ const PersonalizationMonitorPage: React.FC = () => {
     setError(null)
     try {
       const [metricRes, healthRes, alertRes] = await Promise.all([
-        apiFetch(buildApiUrl('/api/v1/personalization/metrics'),
-        apiFetch(buildApiUrl('/api/v1/personalization/health'),
+        apiFetch(buildApiUrl('/api/v1/personalization/metrics')),
+        apiFetch(buildApiUrl('/api/v1/personalization/health')),
         apiFetch(buildApiUrl('/api/v1/personalization/alerts'))
       ])
 

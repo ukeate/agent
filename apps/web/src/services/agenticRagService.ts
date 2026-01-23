@@ -14,7 +14,7 @@ export enum QueryIntentType {
   ANALYTICAL = 'analytical',
   COMPARATIVE = 'comparative',
   EXPLORATORY = 'exploratory',
-  INSTRUCTIONAL = 'instructional'
+  INSTRUCTIONAL = 'instructional',
 }
 
 export enum ExpansionStrategyType {
@@ -22,7 +22,7 @@ export enum ExpansionStrategyType {
   SYNONYM = 'synonym',
   CONTEXTUAL = 'contextual',
   MULTILINGUAL = 'multilingual',
-  DECOMPOSITION = 'decomposition'
+  DECOMPOSITION = 'decomposition',
 }
 
 export enum RetrievalStrategyType {
@@ -42,7 +42,7 @@ export enum StreamEventType {
   CONTEXT_COMPOSITION = 'context_composition',
   EXPLANATION_GENERATED = 'explanation_generated',
   COMPLETE = 'complete',
-  ERROR = 'error'
+  ERROR = 'error',
 }
 
 // 接口定义
@@ -211,22 +211,25 @@ class AgenticRagService {
     onEvent: (event: StreamEvent) => void
   ): Promise<void> {
     try {
-      const response = await apiFetch(buildApiUrl('/rag/agentic/query/stream'), {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'text/event-stream',
-        },
-        body: JSON.stringify(request),
-      })
+      const response = await apiFetch(
+        buildApiUrl('/rag/agentic/query/stream'),
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Accept: 'text/event-stream',
+          },
+          body: JSON.stringify(request),
+        }
+      )
 
       await consumeSseJson<StreamEvent>(
         response,
-        (data) => {
+        data => {
           onEvent(data)
         },
         {
-          onParseError: (error) => {
+          onParseError: error => {
             logger.error('解析流式数据失败:', error)
           },
         }
@@ -240,7 +243,10 @@ class AgenticRagService {
   /**
    * 获取检索解释
    */
-  async getExplanation(queryId?: string, pathId?: string): Promise<RetrievalExplanation> {
+  async getExplanation(
+    queryId?: string,
+    pathId?: string
+  ): Promise<RetrievalExplanation> {
     try {
       const params = new URLSearchParams()
       if (queryId) params.append('query_id', queryId)
@@ -248,7 +254,9 @@ class AgenticRagService {
       params.append('explanation_level', 'detailed')
       params.append('include_visualization', 'true')
 
-      const response = await apiClient.get(`/rag/agentic/explain?${params.toString()}`)
+      const response = await apiClient.get(
+        `/rag/agentic/explain?${params.toString()}`
+      )
       return response.data
     } catch (error) {
       logger.error('获取检索解释失败:', error)

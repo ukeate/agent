@@ -1,10 +1,24 @@
 import React, { useState, useEffect, useRef } from 'react'
-import { Card, Row, Col, Statistic, Progress, Table, Badge, Space, Button, Typography, Tag, Timeline, Alert } from 'antd'
-import { 
+import {
+  Card,
+  Row,
+  Col,
+  Statistic,
+  Progress,
+  Table,
+  Badge,
+  Space,
+  Button,
+  Typography,
+  Tag,
+  Timeline,
+  Alert,
+} from 'antd'
 import { logger } from '../utils/logger'
-  CloudServerOutlined, 
-  TeamOutlined, 
-  ThunderboltOutlined, 
+import {
+  CloudServerOutlined,
+  TeamOutlined,
+  ThunderboltOutlined,
   CheckCircleOutlined,
   ClockCircleOutlined,
   ExclamationCircleOutlined,
@@ -13,9 +27,22 @@ import { logger } from '../utils/logger'
   MonitorOutlined,
   BarChartOutlined,
   ReloadOutlined,
-  SettingOutlined
+  SettingOutlined,
 } from '@ant-design/icons'
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, AreaChart, Area } from 'recharts'
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell,
+  AreaChart,
+  Area,
+} from 'recharts'
 import { serviceDiscoveryService } from '../services/serviceDiscoveryService'
 import { clusterManagementService } from '../services/clusterManagementService'
 
@@ -63,7 +90,9 @@ interface ClusterNode {
   connections: number
 }
 
-const ServiceDiscoveryOverviewPage: React.FC<ServiceDiscoveryOverviewPageProps> = () => {
+const ServiceDiscoveryOverviewPage: React.FC<
+  ServiceDiscoveryOverviewPageProps
+> = () => {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [systemStatus, setSystemStatus] = useState<string>('initializing')
@@ -75,49 +104,70 @@ const ServiceDiscoveryOverviewPage: React.FC<ServiceDiscoveryOverviewPageProps> 
     activeConnections: 0,
     avgResponseTime: 0,
     throughputPerSecond: 0,
-    uptime: 0
+    uptime: 0,
   })
 
   const [metrics, setMetrics] = useState<ServiceMetric[]>([])
 
-  const [loadBalancerStats, setLoadBalancerStats] = useState<LoadBalancerStats>({
-    algorithm: 'capability_based',
-    requestsPerSecond: 0,
-    avgLatency: 0,
-    successRate: 0,
-    activeNodes: 0
-  })
+  const [loadBalancerStats, setLoadBalancerStats] = useState<LoadBalancerStats>(
+    {
+      algorithm: 'capability_based',
+      requestsPerSecond: 0,
+      avgLatency: 0,
+      successRate: 0,
+      activeNodes: 0,
+    }
+  )
 
   const [clusterNodes, setClusterNodes] = useState<ClusterNode[]>([])
 
-  const [recentEvents, setRecentEvents] = useState<Array<{ time: string; type: string; message: string; status: string }>>([])
-  const lastSnapshotRef = useRef<{ total: number; unhealthy: number; status: string } | null>(null)
+  const [recentEvents, setRecentEvents] = useState<
+    Array<{ time: string; type: string; message: string; status: string }>
+  >([])
+  const lastSnapshotRef = useRef<{
+    total: number
+    unhealthy: number
+    status: string
+  } | null>(null)
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'healthy': return '#52c41a'
-      case 'unhealthy': return '#ff4d4f'
-      case 'joining': return '#faad14'
-      default: return '#d9d9d9'
+      case 'healthy':
+        return '#52c41a'
+      case 'unhealthy':
+        return '#ff4d4f'
+      case 'joining':
+        return '#faad14'
+      default:
+        return '#d9d9d9'
     }
   }
 
   const getRoleColor = (role: string) => {
     switch (role) {
-      case 'leader': return 'red'
-      case 'follower': return 'blue'
-      case 'learner': return 'orange'
-      default: return 'default'
+      case 'leader':
+        return 'red'
+      case 'follower':
+        return 'blue'
+      case 'learner':
+        return 'orange'
+      default:
+        return 'default'
     }
   }
 
   const getEventColor = (status: string) => {
     switch (status) {
-      case 'success': return 'green'
-      case 'warning': return 'orange'
-      case 'error': return 'red'
-      case 'processing': return 'blue'
-      default: return 'default'
+      case 'success':
+        return 'green'
+      case 'warning':
+        return 'orange'
+      case 'error':
+        return 'red'
+      case 'processing':
+        return 'blue'
+      default:
+        return 'default'
     }
   }
 
@@ -128,23 +178,40 @@ const ServiceDiscoveryOverviewPage: React.FC<ServiceDiscoveryOverviewPageProps> 
 
       const [stats, agents] = await Promise.all([
         serviceDiscoveryService.getSystemStats(),
-        clusterManagementService.getAgents().catch(() => [])
+        clusterManagementService.getAgents().catch(() => []),
       ])
       const statusFromApi = stats?.system_status || 'unknown'
       const agentList = Array.isArray(agents) ? agents : []
 
       const registry = stats?.registry || {}
       const statusCounts = registry.agents_by_status || {}
-      const total = typeof registry.registered_agents === 'number'
-        ? registry.registered_agents
-        : (typeof registry.total_agents === 'number' ? registry.total_agents : 0)
+      const total =
+        typeof registry.registered_agents === 'number'
+          ? registry.registered_agents
+          : typeof registry.total_agents === 'number'
+            ? registry.total_agents
+            : 0
       const healthyFromStats = statusCounts.active || 0
       const unhealthyFromStats = statusCounts.unhealthy || 0
       const registeringFromStats = statusCounts.maintenance || 0
       const derivedTotal = total || agentList.length
-      const derivedHealthy = healthyFromStats || agentList.filter((a: any) => a.is_healthy || a.status === 'online').length
-      const derivedUnhealthy = unhealthyFromStats || agentList.filter((a: any) => a.status === 'offline' || a.status === 'failed' || a.is_healthy === false).length
-      const derivedRegistering = registeringFromStats || agentList.filter((a: any) => a.status === 'starting' || a.status === 'registering').length
+      const derivedHealthy =
+        healthyFromStats ||
+        agentList.filter((a: any) => a.is_healthy || a.status === 'online')
+          .length
+      const derivedUnhealthy =
+        unhealthyFromStats ||
+        agentList.filter(
+          (a: any) =>
+            a.status === 'offline' ||
+            a.status === 'failed' ||
+            a.is_healthy === false
+        ).length
+      const derivedRegistering =
+        registeringFromStats ||
+        agentList.filter(
+          (a: any) => a.status === 'starting' || a.status === 'registering'
+        ).length
 
       const lb = stats?.load_balancer || {}
       const connectionStats = lb.connection_stats || {}
@@ -156,7 +223,11 @@ const ServiceDiscoveryOverviewPage: React.FC<ServiceDiscoveryOverviewPageProps> 
       })
       if (!activeConnections && agentList.length) {
         activeConnections = agentList.reduce((sum: number, a: any) => {
-          const tasks = a.resource_usage && typeof a.resource_usage.active_tasks === 'number' ? a.resource_usage.active_tasks : 0
+          const tasks =
+            a.resource_usage &&
+            typeof a.resource_usage.active_tasks === 'number'
+              ? a.resource_usage.active_tasks
+              : 0
           return sum + tasks
         }, 0)
       }
@@ -170,9 +241,14 @@ const ServiceDiscoveryOverviewPage: React.FC<ServiceDiscoveryOverviewPageProps> 
       } else if (derivedTotal > 0) {
         successRate = (derivedHealthy / derivedTotal) * 100
       }
-      const resolvedStatus = derivedTotal > 0
-        ? (derivedUnhealthy > 0 ? 'degraded' : 'healthy')
-        : (statusFromApi === 'unknown' ? 'no_agents' : statusFromApi)
+      const resolvedStatus =
+        derivedTotal > 0
+          ? derivedUnhealthy > 0
+            ? 'degraded'
+            : 'healthy'
+          : statusFromApi === 'unknown'
+            ? 'no_agents'
+            : statusFromApi
       setSystemStatus(resolvedStatus)
 
       setAgentStats({
@@ -183,16 +259,20 @@ const ServiceDiscoveryOverviewPage: React.FC<ServiceDiscoveryOverviewPageProps> 
         activeConnections,
         avgResponseTime: Math.round((avgResponseSeconds || 0) * 1000),
         throughputPerSecond: registry.discovery_requests || 0,
-        uptime: Math.round(successRate * 10) / 10
+        uptime: Math.round(successRate * 10) / 10,
       })
 
       const newMetric: ServiceMetric = {
-        timestamp: new Date().toLocaleTimeString('zh-CN', { hour12: false, hour: '2-digit', minute: '2-digit' }),
+        timestamp: new Date().toLocaleTimeString('zh-CN', {
+          hour12: false,
+          hour: '2-digit',
+          minute: '2-digit',
+        }),
         registrations: derivedTotal,
         discoveries: registry.discovery_requests || 0,
         healthChecks: healthChecks || 0,
         responseTime: Math.round((avgResponseSeconds || 0) * 1000),
-        errors: failedHealth || 0
+        errors: failedHealth || 0,
       }
 
       setMetrics(prev => {
@@ -201,22 +281,39 @@ const ServiceDiscoveryOverviewPage: React.FC<ServiceDiscoveryOverviewPageProps> 
       })
 
       setLoadBalancerStats({
-        algorithm: (lb.available_strategies && lb.available_strategies[0]) || 'capability_based',
+        algorithm:
+          (lb.available_strategies && lb.available_strategies[0]) ||
+          'capability_based',
         requestsPerSecond: registry.discovery_requests || 0,
         avgLatency: Math.round((avgResponseSeconds || 0) * 1000),
         successRate: Math.round(successRate * 10) / 10,
-        activeNodes: derivedHealthy
+        activeNodes: derivedHealthy,
       })
 
-      const nowLabel = new Date().toLocaleTimeString('zh-CN', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' })
-      const nextEvents: Array<{ time: string; type: string; message: string; status: string }> = []
+      const nowLabel = new Date().toLocaleTimeString('zh-CN', {
+        hour12: false,
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+      })
+      const nextEvents: Array<{
+        time: string
+        type: string
+        message: string
+        status: string
+      }> = []
       const lastSnapshot = lastSnapshotRef.current
       if (!lastSnapshot) {
         nextEvents.push({
           time: nowLabel,
           type: 'system',
           message: `系统状态：${resolvedStatus}`,
-          status: resolvedStatus === 'healthy' ? 'success' : resolvedStatus === 'degraded' ? 'warning' : 'processing'
+          status:
+            resolvedStatus === 'healthy'
+              ? 'success'
+              : resolvedStatus === 'degraded'
+                ? 'warning'
+                : 'processing',
         })
       } else {
         if (lastSnapshot.status !== resolvedStatus) {
@@ -224,7 +321,7 @@ const ServiceDiscoveryOverviewPage: React.FC<ServiceDiscoveryOverviewPageProps> 
             time: nowLabel,
             type: 'system',
             message: `系统状态变更：${lastSnapshot.status} → ${resolvedStatus}`,
-            status: resolvedStatus === 'healthy' ? 'success' : 'warning'
+            status: resolvedStatus === 'healthy' ? 'success' : 'warning',
           })
         }
         if (lastSnapshot.total !== derivedTotal) {
@@ -232,8 +329,11 @@ const ServiceDiscoveryOverviewPage: React.FC<ServiceDiscoveryOverviewPageProps> 
           nextEvents.push({
             time: nowLabel,
             type: 'agent',
-            message: diff > 0 ? `新增智能体 ${diff} 个` : `移除智能体 ${Math.abs(diff)} 个`,
-            status: diff > 0 ? 'success' : 'warning'
+            message:
+              diff > 0
+                ? `新增智能体 ${diff} 个`
+                : `移除智能体 ${Math.abs(diff)} 个`,
+            status: diff > 0 ? 'success' : 'warning',
           })
         }
         if (lastSnapshot.unhealthy !== derivedUnhealthy) {
@@ -241,16 +341,30 @@ const ServiceDiscoveryOverviewPage: React.FC<ServiceDiscoveryOverviewPageProps> 
           nextEvents.push({
             time: nowLabel,
             type: 'health',
-            message: diff > 0 ? `不健康智能体增加 ${diff} 个` : `不健康智能体减少 ${Math.abs(diff)} 个`,
-            status: diff > 0 ? 'error' : 'success'
+            message:
+              diff > 0
+                ? `不健康智能体增加 ${diff} 个`
+                : `不健康智能体减少 ${Math.abs(diff)} 个`,
+            status: diff > 0 ? 'error' : 'success',
           })
         }
       }
-      lastSnapshotRef.current = { total: derivedTotal, unhealthy: derivedUnhealthy, status: resolvedStatus }
+      lastSnapshotRef.current = {
+        total: derivedTotal,
+        unhealthy: derivedUnhealthy,
+        status: resolvedStatus,
+      }
       setRecentEvents(prev => {
         const merged = [...nextEvents, ...prev]
         if (!merged.length) {
-          return [{ time: nowLabel, type: 'system', message: '暂无事件更新', status: 'processing' }]
+          return [
+            {
+              time: nowLabel,
+              type: 'system',
+              message: '暂无事件更新',
+              status: 'processing',
+            },
+          ]
         }
         return merged.slice(0, 6)
       })
@@ -274,15 +388,23 @@ const ServiceDiscoveryOverviewPage: React.FC<ServiceDiscoveryOverviewPageProps> 
             }
           }
           const status: 'healthy' | 'unhealthy' | 'joining' =
-            agent.is_healthy || agent.status === 'online' ? 'healthy' :
-            agent.status === 'starting' ? 'joining' : 'unhealthy'
+            agent.is_healthy || agent.status === 'online'
+              ? 'healthy'
+              : agent.status === 'starting'
+                ? 'joining'
+                : 'unhealthy'
           const role: 'leader' | 'follower' | 'learner' =
             index === 0 ? 'leader' : 'follower'
-          const uptimePercent = agent.uptime ? Math.min(100, Math.max(0, Math.round(agent.uptime / 36))) : 0
-          const load = typeof agent.current_load === 'number' ? agent.current_load : 0
-          const connections = agent.resource_usage && typeof agent.resource_usage.active_tasks === 'number'
-            ? agent.resource_usage.active_tasks
+          const uptimePercent = agent.uptime
+            ? Math.min(100, Math.max(0, Math.round(agent.uptime / 36)))
             : 0
+          const load =
+            typeof agent.current_load === 'number' ? agent.current_load : 0
+          const connections =
+            agent.resource_usage &&
+            typeof agent.resource_usage.active_tasks === 'number'
+              ? agent.resource_usage.active_tasks
+              : 0
 
           return {
             id: agent.agent_id,
@@ -293,11 +415,10 @@ const ServiceDiscoveryOverviewPage: React.FC<ServiceDiscoveryOverviewPageProps> 
             role,
             uptime: uptimePercent,
             load,
-            connections
+            connections,
           }
         })
       )
-
     } catch (err) {
       logger.error('加载服务发现数据失败:', err)
       setError((err as Error).message || '加载服务发现数据失败')
@@ -309,7 +430,7 @@ const ServiceDiscoveryOverviewPage: React.FC<ServiceDiscoveryOverviewPageProps> 
   const pieData = [
     { name: '健康服务', value: agentStats.healthy, color: '#52c41a' },
     { name: '异常服务', value: agentStats.unhealthy, color: '#ff4d4f' },
-    { name: '注册中', value: agentStats.registering, color: '#faad14' }
+    { name: '注册中', value: agentStats.registering, color: '#faad14' },
   ]
 
   const clusterColumns = [
@@ -321,14 +442,16 @@ const ServiceDiscoveryOverviewPage: React.FC<ServiceDiscoveryOverviewPageProps> 
         <Space>
           <Badge color={getStatusColor(record.status)} />
           <Text strong>{text}</Text>
-          <Tag color={getRoleColor(record.role)}>{record.role.toUpperCase()}</Tag>
+          <Tag color={getRoleColor(record.role)}>
+            {record.role.toUpperCase()}
+          </Tag>
         </Space>
-      )
+      ),
     },
     {
       title: '地址',
       key: 'address',
-      render: (_, record: ClusterNode) => `${record.ip}:${record.port}`
+      render: (_, record: ClusterNode) => `${record.ip}:${record.port}`,
     },
     {
       title: '运行时间',
@@ -336,18 +459,28 @@ const ServiceDiscoveryOverviewPage: React.FC<ServiceDiscoveryOverviewPageProps> 
       key: 'uptime',
       render: (uptime: number) => (
         <Space>
-          <Progress percent={uptime} size="small" status={uptime > 95 ? 'success' : uptime > 85 ? 'active' : 'exception'} />
+          <Progress
+            percent={uptime}
+            size="small"
+            status={
+              uptime > 95 ? 'success' : uptime > 85 ? 'active' : 'exception'
+            }
+          />
           <Text>{uptime}%</Text>
         </Space>
-      )
+      ),
     },
     {
       title: '系统负载',
       dataIndex: 'load',
       key: 'load',
       render: (load: number) => (
-        <Progress percent={load} size="small" status={load < 70 ? 'success' : load < 85 ? 'active' : 'exception'} />
-      )
+        <Progress
+          percent={load}
+          size="small"
+          status={load < 70 ? 'success' : load < 85 ? 'active' : 'exception'}
+        />
+      ),
     },
     {
       title: '连接数',
@@ -355,8 +488,8 @@ const ServiceDiscoveryOverviewPage: React.FC<ServiceDiscoveryOverviewPageProps> 
       key: 'connections',
       render: (connections: number) => (
         <Statistic value={connections} valueStyle={{ fontSize: '14px' }} />
-      )
-    }
+      ),
+    },
   ]
 
   useEffect(() => {
@@ -377,7 +510,14 @@ const ServiceDiscoveryOverviewPage: React.FC<ServiceDiscoveryOverviewPageProps> 
             基于etcd的分布式智能代理服务发现系统，提供服务注册、发现、负载均衡和健康监控功能。
           </Paragraph>
           <Space>
-            <Button type="primary" icon={<ReloadOutlined />} onClick={loadData} loading={loading}>刷新数据</Button>
+            <Button
+              type="primary"
+              icon={<ReloadOutlined />}
+              onClick={loadData}
+              loading={loading}
+            >
+              刷新数据
+            </Button>
             <Button icon={<SettingOutlined />}>系统配置</Button>
             <Button icon={<MonitorOutlined />}>监控面板</Button>
           </Space>
@@ -395,7 +535,13 @@ const ServiceDiscoveryOverviewPage: React.FC<ServiceDiscoveryOverviewPageProps> 
 
         {/* 系统状态告警 */}
         <Alert
-          message={systemStatus === 'healthy' ? '系统运行正常' : systemStatus === 'no_agents' ? '暂无已注册智能体' : `系统状态: ${systemStatus}`}
+          message={
+            systemStatus === 'healthy'
+              ? '系统运行正常'
+              : systemStatus === 'no_agents'
+                ? '暂无已注册智能体'
+                : `系统状态: ${systemStatus}`
+          }
           description={`已注册智能体: ${agentStats.total}，活跃: ${agentStats.healthy}，异常: ${agentStats.unhealthy}`}
           type={systemStatus === 'healthy' ? 'success' : 'warning'}
           icon={<CheckCircleOutlined />}
@@ -414,7 +560,9 @@ const ServiceDiscoveryOverviewPage: React.FC<ServiceDiscoveryOverviewPageProps> 
                 valueStyle={{ color: '#1890ff' }}
               />
               <div style={{ marginTop: '8px' }}>
-                <Text type="secondary">健康: {agentStats.healthy} | 异常: {agentStats.unhealthy}</Text>
+                <Text type="secondary">
+                  健康: {agentStats.healthy} | 异常: {agentStats.unhealthy}
+                </Text>
               </div>
             </Card>
           </Col>
@@ -427,7 +575,9 @@ const ServiceDiscoveryOverviewPage: React.FC<ServiceDiscoveryOverviewPageProps> 
                 valueStyle={{ color: '#52c41a' }}
               />
               <div style={{ marginTop: '8px' }}>
-                <Text type="secondary">QPS: {agentStats.throughputPerSecond}</Text>
+                <Text type="secondary">
+                  QPS: {agentStats.throughputPerSecond}
+                </Text>
               </div>
             </Card>
           </Col>
@@ -452,7 +602,9 @@ const ServiceDiscoveryOverviewPage: React.FC<ServiceDiscoveryOverviewPageProps> 
                 value={agentStats.uptime}
                 suffix="%"
                 prefix={<CheckCircleOutlined />}
-                valueStyle={{ color: agentStats.uptime > 99 ? '#52c41a' : '#faad14' }}
+                valueStyle={{
+                  color: agentStats.uptime > 99 ? '#52c41a' : '#faad14',
+                }}
               />
               <div style={{ marginTop: '8px' }}>
                 <Text type="secondary">SLA: 未配置</Text>
@@ -540,14 +692,23 @@ const ServiceDiscoveryOverviewPage: React.FC<ServiceDiscoveryOverviewPageProps> 
                   <Timeline.Item
                     key={index}
                     dot={
-                      event.status === 'success' ? <CheckCircleOutlined style={{ color: '#52c41a' }} /> :
-                      event.status === 'warning' ? <ExclamationCircleOutlined style={{ color: '#faad14' }} /> :
-                      event.status === 'processing' ? <SyncOutlined spin style={{ color: '#1890ff' }} /> :
-                      <ClockCircleOutlined style={{ color: '#d9d9d9' }} />
+                      event.status === 'success' ? (
+                        <CheckCircleOutlined style={{ color: '#52c41a' }} />
+                      ) : event.status === 'warning' ? (
+                        <ExclamationCircleOutlined
+                          style={{ color: '#faad14' }}
+                        />
+                      ) : event.status === 'processing' ? (
+                        <SyncOutlined spin style={{ color: '#1890ff' }} />
+                      ) : (
+                        <ClockCircleOutlined style={{ color: '#d9d9d9' }} />
+                      )
                     }
                   >
                     <div>
-                      <Text type="secondary" style={{ fontSize: '12px' }}>{event.time}</Text>
+                      <Text type="secondary" style={{ fontSize: '12px' }}>
+                        {event.time}
+                      </Text>
                       <br />
                       <Text style={{ fontSize: '13px' }}>{event.message}</Text>
                     </div>
@@ -568,9 +729,30 @@ const ServiceDiscoveryOverviewPage: React.FC<ServiceDiscoveryOverviewPageProps> 
                   <XAxis dataKey="timestamp" />
                   <YAxis />
                   <Tooltip />
-                  <Area type="monotone" dataKey="registrations" stackId="1" stroke="#1890ff" fill="#1890ff" fillOpacity={0.3} />
-                  <Area type="monotone" dataKey="discoveries" stackId="2" stroke="#52c41a" fill="#52c41a" fillOpacity={0.3} />
-                  <Area type="monotone" dataKey="healthChecks" stackId="3" stroke="#faad14" fill="#faad14" fillOpacity={0.3} />
+                  <Area
+                    type="monotone"
+                    dataKey="registrations"
+                    stackId="1"
+                    stroke="#1890ff"
+                    fill="#1890ff"
+                    fillOpacity={0.3}
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="discoveries"
+                    stackId="2"
+                    stroke="#52c41a"
+                    fill="#52c41a"
+                    fillOpacity={0.3}
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="healthChecks"
+                    stackId="3"
+                    stroke="#faad14"
+                    fill="#faad14"
+                    fillOpacity={0.3}
+                  />
                 </AreaChart>
               </ResponsiveContainer>
             </Card>
@@ -585,8 +767,22 @@ const ServiceDiscoveryOverviewPage: React.FC<ServiceDiscoveryOverviewPageProps> 
                   <YAxis yAxisId="left" />
                   <YAxis yAxisId="right" orientation="right" />
                   <Tooltip />
-                  <Line yAxisId="left" type="monotone" dataKey="responseTime" stroke="#1890ff" strokeWidth={2} name="响应时间 (ms)" />
-                  <Line yAxisId="right" type="monotone" dataKey="errors" stroke="#ff4d4f" strokeWidth={2} name="错误数" />
+                  <Line
+                    yAxisId="left"
+                    type="monotone"
+                    dataKey="responseTime"
+                    stroke="#1890ff"
+                    strokeWidth={2}
+                    name="响应时间 (ms)"
+                  />
+                  <Line
+                    yAxisId="right"
+                    type="monotone"
+                    dataKey="errors"
+                    stroke="#ff4d4f"
+                    strokeWidth={2}
+                    name="错误数"
+                  />
                 </LineChart>
               </ResponsiveContainer>
             </Card>
@@ -594,7 +790,11 @@ const ServiceDiscoveryOverviewPage: React.FC<ServiceDiscoveryOverviewPageProps> 
         </Row>
 
         {/* etcd集群状态 */}
-        <Card title="etcd集群状态" extra={<CloudServerOutlined />} style={{ marginBottom: '24px' }}>
+        <Card
+          title="etcd集群状态"
+          extra={<CloudServerOutlined />}
+          style={{ marginBottom: '24px' }}
+        >
           <Table
             columns={clusterColumns}
             dataSource={clusterNodes}

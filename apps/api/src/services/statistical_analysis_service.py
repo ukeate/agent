@@ -9,6 +9,9 @@ from datetime import datetime
 from src.core.utils.timezone_utils import utc_now, timezone
 from dataclasses import dataclass
 from enum import Enum
+from src.core.logging import get_logger
+
+logger = get_logger(__name__)
 
 class MetricType(str, Enum):
     """指标类型"""

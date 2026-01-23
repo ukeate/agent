@@ -1,22 +1,22 @@
 import React, { useState } from 'react'
-import { 
 import { logger } from '../../utils/logger'
-  Card, 
-  Row, 
-  Col, 
-  Button, 
-  Table, 
-  Tag, 
-  Progress, 
-  Space, 
-  Modal, 
-  Form, 
-  Select, 
-  Input, 
-  Statistic, 
+import {
+  Card,
+  Row,
+  Col,
+  Button,
+  Table,
+  Tag,
+  Progress,
+  Space,
+  Modal,
+  Form,
+  Select,
+  Input,
+  Statistic,
   Tooltip,
   Alert,
-  Descriptions
+  Descriptions,
 } from 'antd'
 import {
   RobotOutlined,
@@ -26,7 +26,7 @@ import {
   PlusOutlined,
   ThunderboltOutlined,
   LineChartOutlined,
-  SettingOutlined
+  SettingOutlined,
 } from '@ant-design/icons'
 
 const { Option } = Select
@@ -57,38 +57,51 @@ const QLearningAgentPanel: React.FC<QLearningAgentPanelProps> = ({
   onCreateAgent,
   onStartTraining,
   onSelectAgent,
-  selectedAgent
+  selectedAgent,
 }) => {
   const [createModalVisible, setCreateModalVisible] = useState(false)
   const [detailModalVisible, setDetailModalVisible] = useState(false)
   const [trainModalVisible, setTrainModalVisible] = useState(false)
-  const [selectedAgentDetail, setSelectedAgentDetail] = useState<AgentStats | null>(null)
+  const [selectedAgentDetail, setSelectedAgentDetail] =
+    useState<AgentStats | null>(null)
   const [form] = Form.useForm()
   const [trainForm] = Form.useForm()
 
   const getAlgorithmColor = (algorithm: string) => {
     switch (algorithm) {
-      case 'q_learning': return 'blue'
-      case 'dqn': return 'green'
-      case 'double_dqn': return 'orange'
-      case 'dueling_dqn': return 'purple'
-      default: return 'default'
+      case 'q_learning':
+        return 'blue'
+      case 'dqn':
+        return 'green'
+      case 'double_dqn':
+        return 'orange'
+      case 'dueling_dqn':
+        return 'purple'
+      default:
+        return 'default'
     }
   }
 
   const getAlgorithmName = (algorithm: string) => {
     switch (algorithm) {
-      case 'q_learning': return 'Classic Q-Learning'
-      case 'dqn': return 'Deep Q-Network'
-      case 'double_dqn': return 'Double DQN'  
-      case 'dueling_dqn': return 'Dueling DQN'
-      default: return algorithm
+      case 'q_learning':
+        return 'Classic Q-Learning'
+      case 'dqn':
+        return 'Deep Q-Network'
+      case 'double_dqn':
+        return 'Double DQN'
+      case 'dueling_dqn':
+        return 'Dueling DQN'
+      default:
+        return algorithm
     }
   }
 
   const getExplorationStatus = (epsilon: number) => {
-    if (epsilon > 0.5) return { status: 'active', color: 'orange', text: '高探索' }
-    if (epsilon > 0.1) return { status: 'normal', color: 'blue', text: '平衡探索' }
+    if (epsilon > 0.5)
+      return { status: 'active', color: 'orange', text: '高探索' }
+    if (epsilon > 0.1)
+      return { status: 'normal', color: 'blue', text: '平衡探索' }
     return { status: 'low', color: 'green', text: '低探索' }
   }
 
@@ -134,7 +147,7 @@ const QLearningAgentPanel: React.FC<QLearningAgentPanelProps> = ({
         <span style={{ fontFamily: 'monospace', fontSize: '12px' }}>
           {text}
         </span>
-      )
+      ),
     },
     {
       title: '算法类型',
@@ -145,7 +158,7 @@ const QLearningAgentPanel: React.FC<QLearningAgentPanelProps> = ({
         <Tag color={getAlgorithmColor(algorithm)}>
           {getAlgorithmName(algorithm)}
         </Tag>
-      )
+      ),
     },
     {
       title: '训练进度',
@@ -160,7 +173,7 @@ const QLearningAgentPanel: React.FC<QLearningAgentPanelProps> = ({
             {record.step_count.toLocaleString()} steps
           </div>
         </div>
-      )
+      ),
     },
     {
       title: '探索率',
@@ -179,7 +192,7 @@ const QLearningAgentPanel: React.FC<QLearningAgentPanelProps> = ({
             />
           </Tooltip>
         )
-      }
+      },
     },
     {
       title: '性能指标',
@@ -197,7 +210,7 @@ const QLearningAgentPanel: React.FC<QLearningAgentPanelProps> = ({
             总奖励: {record.total_reward.toFixed(1)}
           </div>
         </div>
-      )
+      ),
     },
     {
       title: '操作',
@@ -206,54 +219,51 @@ const QLearningAgentPanel: React.FC<QLearningAgentPanelProps> = ({
       render: (_, record: AgentStats) => (
         <Space>
           <Tooltip title="查看详情">
-            <Button 
-              type="text" 
-              icon={<EyeOutlined />} 
+            <Button
+              type="text"
+              icon={<EyeOutlined />}
               size="small"
               onClick={() => showAgentDetail(record)}
             />
           </Tooltip>
           <Tooltip title="开始训练">
-            <Button 
-              type="text" 
-              icon={<PlayCircleOutlined />} 
+            <Button
+              type="text"
+              icon={<PlayCircleOutlined />}
               size="small"
               onClick={() => showTrainingModal(record)}
             />
           </Tooltip>
           <Tooltip title="配置">
-            <Button 
-              type="text" 
-              icon={<SettingOutlined />} 
-              size="small"
-            />
+            <Button type="text" icon={<SettingOutlined />} size="small" />
           </Tooltip>
           <Tooltip title="删除">
-            <Button 
-              type="text" 
-              danger 
-              icon={<DeleteOutlined />} 
-              size="small"
-            />
+            <Button type="text" danger icon={<DeleteOutlined />} size="small" />
           </Tooltip>
         </Space>
-      )
-    }
+      ),
+    },
   ]
 
   return (
     <>
       <Row gutter={[16, 16]}>
         <Col span={24}>
-          <Space style={{ marginBottom: 16, width: '100%', justifyContent: 'space-between' }}>
+          <Space
+            style={{
+              marginBottom: 16,
+              width: '100%',
+              justifyContent: 'space-between',
+            }}
+          >
             <Space>
               <RobotOutlined style={{ fontSize: '16px', color: '#1890ff' }} />
               <span style={{ fontWeight: 'bold' }}>智能体管理</span>
               <Tag>{agents.length} 个智能体</Tag>
             </Space>
-            
-            <Button 
-              type="primary" 
+
+            <Button
+              type="primary"
               icon={<PlusOutlined />}
               onClick={() => setCreateModalVisible(true)}
             >
@@ -267,7 +277,7 @@ const QLearningAgentPanel: React.FC<QLearningAgentPanelProps> = ({
             <Alert
               message="暂无智能体"
               description="点击'创建新智能体'开始您的强化学习之旅"
-              variant="default"
+              type="info"
               showIcon
               style={{ textAlign: 'center', padding: '40px' }}
             />
@@ -279,12 +289,13 @@ const QLearningAgentPanel: React.FC<QLearningAgentPanelProps> = ({
               loading={loading}
               pagination={false}
               size="middle"
-              onRow={(record) => ({
+              onRow={record => ({
                 onClick: () => onSelectAgent(record.agent_id),
                 style: {
-                  backgroundColor: selectedAgent === record.agent_id ? '#f0f8ff' : undefined,
-                  cursor: 'pointer'
-                }
+                  backgroundColor:
+                    selectedAgent === record.agent_id ? '#f0f8ff' : undefined,
+                  cursor: 'pointer',
+                },
               })}
             />
           )}
@@ -340,11 +351,11 @@ const QLearningAgentPanel: React.FC<QLearningAgentPanelProps> = ({
               </Option>
             </Select>
           </Form.Item>
-          
+
           <Alert
             message="算法选择建议"
             description="初学者推荐从Classic Q-Learning开始，熟悉后可尝试DQN处理更复杂的环境"
-            variant="default"
+            type="info"
             showIcon
             style={{ marginTop: 16 }}
           />
@@ -370,7 +381,9 @@ const QLearningAgentPanel: React.FC<QLearningAgentPanelProps> = ({
               <code>{selectedAgentDetail.agent_id}</code>
             </Descriptions.Item>
             <Descriptions.Item label="算法类型">
-              <Tag color={getAlgorithmColor(selectedAgentDetail.algorithm_type)}>
+              <Tag
+                color={getAlgorithmColor(selectedAgentDetail.algorithm_type)}
+              >
                 {getAlgorithmName(selectedAgentDetail.algorithm_type)}
               </Tag>
             </Descriptions.Item>
@@ -391,11 +404,20 @@ const QLearningAgentPanel: React.FC<QLearningAgentPanelProps> = ({
             </Descriptions.Item>
             <Descriptions.Item label="最近奖励" span={2}>
               <Space wrap>
-                {selectedAgentDetail.recent_rewards.slice(-5).map((reward, index) => (
-                  <Tag key={index} color={reward > selectedAgentDetail.average_reward ? 'green' : 'orange'}>
-                    {reward.toFixed(1)}
-                  </Tag>
-                ))}
+                {selectedAgentDetail.recent_rewards
+                  .slice(-5)
+                  .map((reward, index) => (
+                    <Tag
+                      key={index}
+                      color={
+                        reward > selectedAgentDetail.average_reward
+                          ? 'green'
+                          : 'orange'
+                      }
+                    >
+                      {reward.toFixed(1)}
+                    </Tag>
+                  ))}
               </Space>
             </Descriptions.Item>
           </Descriptions>
@@ -425,13 +447,18 @@ const QLearningAgentPanel: React.FC<QLearningAgentPanelProps> = ({
             rules={[{ required: true, message: '请输入训练轮数' }]}
             initialValue={100}
           >
-            <Input type="number" placeholder="输入训练轮数" min={1} max={10000} />
+            <Input
+              type="number"
+              placeholder="输入训练轮数"
+              min={1}
+              max={10000}
+            />
           </Form.Item>
-          
+
           <Alert
             message={`即将开始训练智能体: ${selectedAgentDetail?.agent_id}`}
             description="训练过程将在后台进行，您可以在训练监控页面查看实时进度"
-            variant="default"
+            type="info"
             showIcon
           />
         </Form>

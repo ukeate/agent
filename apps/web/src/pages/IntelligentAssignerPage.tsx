@@ -1,6 +1,8 @@
-import React from 'react';
-import DistributedTaskCoordinationPage from './DistributedTaskCoordinationPage';
+import React from 'react'
+import DistributedTaskCoordinationPage from './DistributedTaskCoordinationPage'
 
-const IntelligentAssignerPage: React.FC = () => <DistributedTaskCoordinationPage />;
+const IntelligentAssignerPage: React.FC = () => (
+  <DistributedTaskCoordinationPage />
+)
 
-export default IntelligentAssignerPage;
+export default IntelligentAssignerPage

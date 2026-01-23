@@ -1,5 +1,16 @@
 import React, { useEffect, useState } from 'react'
-import { Alert, Card, Row, Col, Statistic, Typography, Space, Button, Tabs, Table } from 'antd'
+import {
+  Alert,
+  Card,
+  Row,
+  Col,
+  Statistic,
+  Typography,
+  Space,
+  Button,
+  Tabs,
+  Table,
+} from 'antd'
 import {
   DashboardOutlined,
   CloudServerOutlined,
@@ -9,7 +20,7 @@ import {
   DatabaseOutlined,
   ClockCircleOutlined,
   WifiOutlined,
-  ReloadOutlined
+  ReloadOutlined,
 } from '@ant-design/icons'
 import { healthService } from '../services/healthService'
 import { sparqlService } from '../services/sparqlService'
@@ -36,7 +47,7 @@ const KnowledgeGraphPerformanceMonitor: React.FC = () => {
     active_requests: null,
     query_response_time: null,
     throughput: null,
-    network_connections: null
+    network_connections: null,
   })
   const [performanceReport, setPerformanceReport] = useState<null | {
     performance_report: {
@@ -67,30 +78,40 @@ const KnowledgeGraphPerformanceMonitor: React.FC = () => {
       const [healthMetrics, performanceReport, cacheStats] = await Promise.all([
         healthService.getSystemMetrics(),
         sparqlService.getPerformanceReport(),
-        sparqlService.getCacheStats()
+        sparqlService.getCacheStats(),
       ])
       const system = (healthMetrics as any).system || {}
       const performance = (healthMetrics as any).performance || {}
-      const summary = performanceReport.performance_report?.performance_summary || {}
+      const summary =
+        performanceReport.performance_report?.performance_summary || {}
       const execStats = summary.execution_time || {}
       const queryCountStats = summary.query_count || {}
-      const windowMinutes = performanceReport.performance_report?.window_minutes || 60
+      const windowMinutes =
+        performanceReport.performance_report?.window_minutes || 60
       const throughput = queryCountStats.count
         ? queryCountStats.count / (windowMinutes * 60)
         : null
       const avgResponse = isNumber(execStats.mean)
         ? execStats.mean
-        : (performanceReport.sparql_engine_stats?.average_execution_time || null)
+        : performanceReport.sparql_engine_stats?.average_execution_time || null
 
       setSystemMetrics({
         cpu_usage: isNumber(system.cpu_percent) ? system.cpu_percent : null,
-        memory_usage: isNumber(system.memory_percent) ? system.memory_percent : null,
+        memory_usage: isNumber(system.memory_percent)
+          ? system.memory_percent
+          : null,
         disk_usage: isNumber(system.disk_percent) ? system.disk_percent : null,
-        cache_hit_rate: isNumber(cacheStats.cache_hit_rate) ? cacheStats.cache_hit_rate * 100 : null,
-        active_requests: isNumber(performance.active_requests) ? performance.active_requests : null,
+        cache_hit_rate: isNumber(cacheStats.cache_hit_rate)
+          ? cacheStats.cache_hit_rate * 100
+          : null,
+        active_requests: isNumber(performance.active_requests)
+          ? performance.active_requests
+          : null,
         query_response_time: isNumber(avgResponse) ? avgResponse : null,
         throughput: isNumber(throughput) ? throughput : null,
-        network_connections: isNumber(system.network_connections) ? system.network_connections : null
+        network_connections: isNumber(system.network_connections)
+          ? system.network_connections
+          : null,
       })
       setPerformanceReport(performanceReport)
       setCacheStats(cacheStats)
@@ -105,7 +126,8 @@ const KnowledgeGraphPerformanceMonitor: React.FC = () => {
     loadData()
   }, [])
 
-  const slowQueries = performanceReport?.performance_report?.top_slow_queries || []
+  const slowQueries =
+    performanceReport?.performance_report?.top_slow_queries || []
   const slowQueryColumns = [
     {
       title: '查询',
@@ -115,25 +137,25 @@ const KnowledgeGraphPerformanceMonitor: React.FC = () => {
         <Text type="secondary" style={{ fontSize: 12 }}>
           {text.length > 80 ? `${text.slice(0, 80)}...` : text}
         </Text>
-      )
+      ),
     },
     {
       title: '平均耗时(ms)',
       dataIndex: 'execution_time',
       key: 'execution_time',
-      render: (value: number) => value.toFixed(2)
+      render: (value: number) => value.toFixed(2),
     },
     {
       title: '最大耗时(ms)',
       dataIndex: 'max_time',
       key: 'max_time',
-      render: (value: number) => value.toFixed(2)
+      render: (value: number) => value.toFixed(2),
     },
     {
       title: '频次',
       dataIndex: 'frequency',
-      key: 'frequency'
-    }
+      key: 'frequency',
+    },
   ]
 
   const tabItems = [
@@ -151,7 +173,13 @@ const KnowledgeGraphPerformanceMonitor: React.FC = () => {
                   precision={1}
                   suffix="%"
                   prefix={<CloudServerOutlined />}
-                  valueStyle={{ color: isNumber(systemMetrics.cpu_usage) && systemMetrics.cpu_usage > 80 ? '#ff4d4f' : '#52c41a' }}
+                  valueStyle={{
+                    color:
+                      isNumber(systemMetrics.cpu_usage) &&
+                      systemMetrics.cpu_usage > 80
+                        ? '#ff4d4f'
+                        : '#52c41a',
+                  }}
                 />
               </Card>
             </Col>
@@ -163,7 +191,13 @@ const KnowledgeGraphPerformanceMonitor: React.FC = () => {
                   precision={1}
                   suffix="%"
                   prefix={<BankOutlined />}
-                  valueStyle={{ color: isNumber(systemMetrics.memory_usage) && systemMetrics.memory_usage > 80 ? '#ff4d4f' : '#52c41a' }}
+                  valueStyle={{
+                    color:
+                      isNumber(systemMetrics.memory_usage) &&
+                      systemMetrics.memory_usage > 80
+                        ? '#ff4d4f'
+                        : '#52c41a',
+                  }}
                 />
               </Card>
             </Col>
@@ -209,7 +243,13 @@ const KnowledgeGraphPerformanceMonitor: React.FC = () => {
                   value={systemMetrics.query_response_time ?? '-'}
                   suffix="ms"
                   prefix={<ClockCircleOutlined />}
-                  valueStyle={{ color: isNumber(systemMetrics.query_response_time) && systemMetrics.query_response_time > 500 ? '#ff4d4f' : '#52c41a' }}
+                  valueStyle={{
+                    color:
+                      isNumber(systemMetrics.query_response_time) &&
+                      systemMetrics.query_response_time > 500
+                        ? '#ff4d4f'
+                        : '#52c41a',
+                  }}
                 />
               </Card>
             </Col>
@@ -236,7 +276,7 @@ const KnowledgeGraphPerformanceMonitor: React.FC = () => {
             </Col>
           </Row>
         </div>
-      )
+      ),
     },
     {
       key: 'queries',
@@ -244,14 +284,17 @@ const KnowledgeGraphPerformanceMonitor: React.FC = () => {
       children: (
         <Card title="查询性能分析">
           <Table
-            dataSource={slowQueries.map((item, index) => ({ key: index, ...item }))}
+            dataSource={slowQueries.map((item, index) => ({
+              key: index,
+              ...item,
+            }))}
             columns={slowQueryColumns}
             pagination={false}
             size="small"
             locale={{ emptyText: '暂无慢查询数据' }}
           />
         </Card>
-      )
+      ),
     },
     {
       key: 'cache',
@@ -260,18 +303,32 @@ const KnowledgeGraphPerformanceMonitor: React.FC = () => {
         <Card title="缓存监控">
           <Row gutter={16}>
             <Col span={8}>
-              <Statistic title="缓存大小" value={cacheStats?.cache_stats?.size ?? '-'} />
+              <Statistic
+                title="缓存大小"
+                value={cacheStats?.cache_stats?.size ?? '-'}
+              />
             </Col>
             <Col span={8}>
-              <Statistic title="命中率" value={isNumber(cacheStats?.cache_hit_rate ?? null) ? (cacheStats?.cache_hit_rate as number) * 100 : '-'} suffix="%" />
+              <Statistic
+                title="命中率"
+                value={
+                  isNumber(cacheStats?.cache_hit_rate ?? null)
+                    ? (cacheStats?.cache_hit_rate as number) * 100
+                    : '-'
+                }
+                suffix="%"
+              />
             </Col>
             <Col span={8}>
-              <Statistic title="缓存查询数" value={cacheStats?.cached_queries ?? '-'} />
+              <Statistic
+                title="缓存查询数"
+                value={cacheStats?.cached_queries ?? '-'}
+              />
             </Col>
           </Row>
         </Card>
-      )
-    }
+      ),
+    },
   ]
 
   return (
@@ -281,18 +338,33 @@ const KnowledgeGraphPerformanceMonitor: React.FC = () => {
           <Col>
             <Space>
               <DashboardOutlined style={{ fontSize: '24px' }} />
-              <Title level={2} style={{ margin: 0 }}>性能监控</Title>
-              <Text type="secondary">监控知识图谱系统性能指标和系统资源使用情况</Text>
+              <Title level={2} style={{ margin: 0 }}>
+                性能监控
+              </Title>
+              <Text type="secondary">
+                监控知识图谱系统性能指标和系统资源使用情况
+              </Text>
             </Space>
           </Col>
           <Col>
-            <Button icon={<ReloadOutlined />} onClick={loadData} loading={loading}>刷新</Button>
+            <Button
+              icon={<ReloadOutlined />}
+              onClick={loadData}
+              loading={loading}
+            >
+              刷新
+            </Button>
           </Col>
         </Row>
       </Card>
 
       {error && (
-        <Alert type="error" message={error} showIcon style={{ marginBottom: 16 }} />
+        <Alert
+          type="error"
+          message={error}
+          showIcon
+          style={{ marginBottom: 16 }}
+        />
       )}
 
       <Tabs items={tabItems} />

@@ -1,7 +1,24 @@
 import React, { useState, useEffect } from 'react'
-import { Card, Row, Col, Progress, Button, Space, Switch, Typography, Table, Tag, Statistic, Alert, Timeline, Slider, message, Empty } from 'antd'
-import { 
+import {
+  Card,
+  Row,
+  Col,
+  Progress,
+  Button,
+  Space,
+  Switch,
+  Typography,
+  Table,
+  Tag,
+  Statistic,
+  Alert,
+  Timeline,
+  Slider,
+  message,
+  Empty,
+} from 'antd'
 import { logger } from '../utils/logger'
+import {
   BranchesOutlined,
   RiseOutlined,
   BulbOutlined,
@@ -12,7 +29,7 @@ import { logger } from '../utils/logger'
   AimOutlined,
   RobotOutlined,
   ThunderboltOutlined,
-  ClockCircleOutlined
+  ClockCircleOutlined,
 } from '@ant-design/icons'
 import { Line, Gauge } from '@ant-design/plots'
 import type { ColumnsType } from 'antd/es/table'
@@ -54,14 +71,15 @@ const PersonalizationLearningPage: React.FC = () => {
   const [sessions, setSessions] = useState<LearningSession[]>([])
   const [history, setHistory] = useState<LearningHistory[]>([])
   const [metrics, setMetrics] = useState<OnlineMetric[]>([])
-  const activeSession = sessions.find((session) => session.status === 'active') || sessions[0]
+  const activeSession =
+    sessions.find(session => session.status === 'active') || sessions[0]
   const hasConfig = Boolean(activeSession)
   const config = activeSession?.config || {}
   const learningRate = Number(config.learning_rate ?? 0)
   const explorationRate = Number(config.exploration_rate ?? 0)
   const batchSize = Number(config.batch_size ?? 0)
   const autoTuning = Boolean(config.auto_tuning ?? false)
-  const isLearning = sessions.some((session) => session.status === 'active')
+  const isLearning = sessions.some(session => session.status === 'active')
 
   const loadLearningData = async () => {
     try {
@@ -72,16 +90,20 @@ const PersonalizationLearningPage: React.FC = () => {
       const sessionData = await modelService.getLearningSessions()
       setSessions(sessionData)
 
-      const targetSession = sessionData.find((session) => session.status === 'active') || sessionData[0]
+      const targetSession =
+        sessionData.find(session => session.status === 'active') ||
+        sessionData[0]
       if (!targetSession) {
         setHistory([])
         setMetrics([])
         return
       }
 
-      const historyData = await modelService.getLearningHistory(targetSession.session_id)
+      const historyData = await modelService.getLearningHistory(
+        targetSession.session_id
+      )
       setHistory(historyData)
-      const nextMetrics = historyData.map((item) => {
+      const nextMetrics = historyData.map(item => {
         const ts = String(item.timestamp)
         const values = item.metrics || {}
         return {
@@ -110,34 +132,39 @@ const PersonalizationLearningPage: React.FC = () => {
       title: '模型',
       dataIndex: 'model_name',
       key: 'model_name',
-      render: (text, record) => <Text strong>{`${text} ${record.model_version}`}</Text>
+      render: (text, record) => (
+        <Text strong>{`${text} ${record.model_version}`}</Text>
+      ),
     },
     {
       title: '状态',
       dataIndex: 'status',
       key: 'status',
-      render: (status) => {
+      render: status => {
         const config = {
           active: { color: 'processing', text: '运行中' },
           paused: { color: 'warning', text: '已暂停' },
           completed: { color: 'success', text: '已完成' },
-          failed: { color: 'error', text: '失败' }
+          failed: { color: 'error', text: '失败' },
         }
-        const target = config[status] || { color: 'default', text: String(status) }
+        const target = config[status] || {
+          color: 'default',
+          text: String(status),
+        }
         return <Tag color={target.color}>{target.text}</Tag>
-      }
+      },
     },
     {
       title: '反馈数量',
       dataIndex: 'feedback_count',
       key: 'feedback_count',
-      render: (value) => Number(value || 0).toLocaleString()
+      render: value => Number(value || 0).toLocaleString(),
     },
     {
       title: '更新次数',
       dataIndex: 'update_count',
       key: 'update_count',
-      render: (value) => Number(value || 0).toLocaleString()
+      render: value => Number(value || 0).toLocaleString(),
     },
     {
       title: '最新损失',
@@ -153,14 +180,18 @@ const PersonalizationLearningPage: React.FC = () => {
             format={() => loss.toFixed(3)}
           />
         )
-      }
+      },
     },
     {
       title: '更新时间',
       dataIndex: 'updated_at',
       key: 'updated_at',
-      render: (text) => <Text type="secondary">{text ? new Date(text).toLocaleString() : '-'}</Text>
-    }
+      render: text => (
+        <Text type="secondary">
+          {text ? new Date(text).toLocaleString() : '-'}
+        </Text>
+      ),
+    },
   ]
 
   // 损失趋势配置
@@ -171,8 +202,8 @@ const PersonalizationLearningPage: React.FC = () => {
     smooth: true,
     color: '#ff4d4f',
     yAxis: {
-      title: { text: '损失值' }
-    }
+      title: { text: '损失值' },
+    },
   }
 
   // MSE趋势配置
@@ -183,13 +214,15 @@ const PersonalizationLearningPage: React.FC = () => {
     smooth: true,
     color: '#52c41a',
     yAxis: {
-      title: { text: 'MSE' }
-    }
+      title: { text: 'MSE' },
+    },
   }
 
   // 准确率仪表盘配置
   const latestMetric = metrics[metrics.length - 1]
-  const accuracyValue = latestMetric ? Math.max(0, Math.min(1, latestMetric.accuracy)) : 0
+  const accuracyValue = latestMetric
+    ? Math.max(0, Math.min(1, latestMetric.accuracy))
+    : 0
   const accuracyGaugeConfig = {
     percent: accuracyValue,
     range: {
@@ -197,14 +230,19 @@ const PersonalizationLearningPage: React.FC = () => {
     },
     statistic: {
       content: {
-        formatter: ({ percent }: any) => `准确率 ${(percent * 100).toFixed(1)}%`,
+        formatter: ({ percent }: any) =>
+          `准确率 ${(percent * 100).toFixed(1)}%`,
       },
     },
   }
 
   const handleToggleLearning = async () => {
-    const activeSessions = sessions.filter((session) => session.status === 'active')
-    const pausedSessions = sessions.filter((session) => session.status === 'paused')
+    const activeSessions = sessions.filter(
+      session => session.status === 'active'
+    )
+    const pausedSessions = sessions.filter(
+      session => session.status === 'paused'
+    )
     if (activeSessions.length === 0 && pausedSessions.length === 0) {
       message.info('暂无可操作的学习会话')
       return
@@ -212,9 +250,17 @@ const PersonalizationLearningPage: React.FC = () => {
 
     try {
       if (activeSessions.length > 0) {
-        await Promise.all(activeSessions.map((session) => modelService.pauseLearningSession(session.session_id)))
+        await Promise.all(
+          activeSessions.map(session =>
+            modelService.pauseLearningSession(session.session_id)
+          )
+        )
       } else {
-        await Promise.all(pausedSessions.map((session) => modelService.resumeLearningSession(session.session_id)))
+        await Promise.all(
+          pausedSessions.map(session =>
+            modelService.resumeLearningSession(session.session_id)
+          )
+        )
       }
       await loadLearningData()
     } catch (error) {
@@ -227,12 +273,19 @@ const PersonalizationLearningPage: React.FC = () => {
     loadLearningData()
   }
 
-  const totalFeedback = sessions.reduce((acc, session) => acc + (session.feedback_count || 0), 0)
-  const totalUpdates = sessions.reduce((acc, session) => acc + (session.update_count || 0), 0)
-  const efficiency = totalFeedback > 0 ? (totalUpdates / totalFeedback) * 100 : 0
+  const totalFeedback = sessions.reduce(
+    (acc, session) => acc + (session.feedback_count || 0),
+    0
+  )
+  const totalUpdates = sessions.reduce(
+    (acc, session) => acc + (session.update_count || 0),
+    0
+  )
+  const efficiency =
+    totalFeedback > 0 ? (totalUpdates / totalFeedback) * 100 : 0
 
   const timelineItems = [
-    ...history.map((item) => ({
+    ...history.map(item => ({
       key: `update-${item.update_count}-${item.timestamp}`,
       time: item.timestamp,
       title: `模型更新 #${item.update_count}`,
@@ -240,7 +293,7 @@ const PersonalizationLearningPage: React.FC = () => {
       color: 'blue',
       icon: <BulbOutlined />,
     })),
-    ...sessions.map((session) => ({
+    ...sessions.map(session => ({
       key: `start-${session.session_id}`,
       time: session.created_at,
       title: '学习会话开始',
@@ -249,8 +302,8 @@ const PersonalizationLearningPage: React.FC = () => {
       icon: <RobotOutlined />,
     })),
     ...sessions
-      .filter((session) => session.status === 'completed')
-      .map((session) => ({
+      .filter(session => session.status === 'completed')
+      .map(session => ({
         key: `complete-${session.session_id}`,
         time: session.updated_at,
         title: '学习会话完成',
@@ -275,24 +328,25 @@ const PersonalizationLearningPage: React.FC = () => {
           <Space>
             {isLearning ? <SyncOutlined spin /> : <PauseCircleOutlined />}
             <Text>学习状态: {isLearning ? '正在学习' : '已暂停'}</Text>
-            <Text type="secondary">| 活跃会话: {sessions.filter(s => s.status === 'active').length}</Text>
+            <Text type="secondary">
+              | 活跃会话: {sessions.filter(s => s.status === 'active').length}
+            </Text>
           </Space>
         }
         type={isLearning ? 'success' : 'warning'}
         style={{ marginBottom: 24 }}
         action={
           <Space>
-            <Button 
-              type="primary" 
-              icon={isLearning ? <PauseCircleOutlined /> : <PlayCircleOutlined />}
+            <Button
+              type="primary"
+              icon={
+                isLearning ? <PauseCircleOutlined /> : <PlayCircleOutlined />
+              }
               onClick={handleToggleLearning}
             >
               {isLearning ? '暂停' : '继续'}
             </Button>
-            <Button 
-              icon={<ReloadOutlined />}
-              onClick={handleRefresh}
-            >
+            <Button icon={<ReloadOutlined />} onClick={handleRefresh}>
               刷新
             </Button>
           </Space>
@@ -314,7 +368,7 @@ const PersonalizationLearningPage: React.FC = () => {
                 marks={{
                   0.001: '0.001',
                   0.01: '0.01',
-                  0.1: '0.1'
+                  0.1: '0.1',
                 }}
               />
             </Space>
@@ -331,7 +385,7 @@ const PersonalizationLearningPage: React.FC = () => {
                 marks={{
                   0.01: '1%',
                   0.1: '10%',
-                  0.5: '50%'
+                  0.5: '50%',
                 }}
               />
             </Space>
@@ -349,7 +403,7 @@ const PersonalizationLearningPage: React.FC = () => {
                   8: '8',
                   32: '32',
                   64: '64',
-                  128: '128'
+                  128: '128',
                 }}
               />
             </Space>
@@ -357,7 +411,7 @@ const PersonalizationLearningPage: React.FC = () => {
           <Col span={6}>
             <Space direction="vertical">
               <Text>自动调参</Text>
-              <Switch 
+              <Switch
                 checked={autoTuning}
                 disabled
                 checkedChildren="开启"
@@ -419,24 +473,36 @@ const PersonalizationLearningPage: React.FC = () => {
       <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
         <Col span={8}>
           <Card title="损失趋势">
-            {metrics.length > 0 ? <Line {...lossConfig} height={200} /> : <Empty description="暂无数据" />}
+            {metrics.length > 0 ? (
+              <Line {...lossConfig} height={200} />
+            ) : (
+              <Empty description="暂无数据" />
+            )}
           </Card>
         </Col>
         <Col span={8}>
           <Card title="MSE趋势">
-            {metrics.length > 0 ? <Line {...mseConfig} height={200} /> : <Empty description="暂无数据" />}
+            {metrics.length > 0 ? (
+              <Line {...mseConfig} height={200} />
+            ) : (
+              <Empty description="暂无数据" />
+            )}
           </Card>
         </Col>
         <Col span={8}>
           <Card title="当前准确率">
-            {metrics.length > 0 ? <Gauge {...accuracyGaugeConfig} height={200} /> : <Empty description="暂无数据" />}
+            {metrics.length > 0 ? (
+              <Gauge {...accuracyGaugeConfig} height={200} />
+            ) : (
+              <Empty description="暂无数据" />
+            )}
           </Card>
         </Col>
       </Row>
 
       {/* 学习会话表格 */}
       <Card title="学习会话" style={{ marginBottom: 24 }}>
-        <Table 
+        <Table
           columns={sessionColumns}
           dataSource={sessions}
           pagination={false}
@@ -452,12 +518,13 @@ const PersonalizationLearningPage: React.FC = () => {
               <Text type="secondary">暂无学习历史</Text>
             </Timeline.Item>
           ) : (
-            timelineItems.map((item) => (
+            timelineItems.map(item => (
               <Timeline.Item key={item.key} color={item.color} dot={item.icon}>
                 <Space direction="vertical" size="small">
                   <Text strong>{item.title}</Text>
                   <Text type="secondary">
-                    {item.time ? new Date(item.time).toLocaleString() : '-'} {item.detail ? `- ${item.detail}` : ''}
+                    {item.time ? new Date(item.time).toLocaleString() : '-'}{' '}
+                    {item.detail ? `- ${item.detail}` : ''}
                   </Text>
                 </Space>
               </Timeline.Item>

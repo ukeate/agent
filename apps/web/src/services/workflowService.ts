@@ -52,7 +52,11 @@ class WorkflowService {
     return response.data
   }
 
-  async listWorkflows(params?: { status?: string; limit?: number; offset?: number }): Promise<WorkflowResponse[]> {
+  async listWorkflows(params?: {
+    status?: string
+    limit?: number
+    offset?: number
+  }): Promise<WorkflowResponse[]> {
     const response = await apiClient.get(`${this.baseUrl}/`, { params })
     return response.data
   }
@@ -62,26 +66,41 @@ class WorkflowService {
     return response.data
   }
 
-  async startWorkflow(workflowId: string, request?: WorkflowExecuteRequest): Promise<WorkflowResponse> {
-    const response = await apiClient.post(`${this.baseUrl}/${workflowId}/start`, request || {})
+  async startWorkflow(
+    workflowId: string,
+    request?: WorkflowExecuteRequest
+  ): Promise<WorkflowResponse> {
+    const response = await apiClient.post(
+      `${this.baseUrl}/${workflowId}/start`,
+      request || {}
+    )
     return response.data
   }
 
-  async controlWorkflow(workflowId: string, request: WorkflowControlRequest): Promise<{ message: string; workflow_id: string }> {
-    const response = await apiClient.put(`${this.baseUrl}/${workflowId}/control`, request)
+  async controlWorkflow(
+    workflowId: string,
+    request: WorkflowControlRequest
+  ): Promise<{ message: string; workflow_id: string }> {
+    const response = await apiClient.put(
+      `${this.baseUrl}/${workflowId}/control`,
+      request
+    )
     return response.data
   }
 
-  async deleteWorkflow(workflowId: string): Promise<{ message: string; workflow_id: string }> {
+  async deleteWorkflow(
+    workflowId: string
+  ): Promise<{ message: string; workflow_id: string }> {
     const response = await apiClient.delete(`${this.baseUrl}/${workflowId}`)
     return response.data
   }
 
   async getCheckpoints(workflowId: string): Promise<CheckpointResponse[]> {
-    const response = await apiClient.get(`${this.baseUrl}/${workflowId}/checkpoints`)
+    const response = await apiClient.get(
+      `${this.baseUrl}/${workflowId}/checkpoints`
+    )
     return response.data
   }
 }
 
 export const workflowService = new WorkflowService()
-

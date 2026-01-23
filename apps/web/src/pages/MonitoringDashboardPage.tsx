@@ -1,14 +1,41 @@
 import React, { useState, useEffect } from 'react'
 import {
-  Card, Row, Col, Statistic, Progress, Table, Badge, Alert, Space, Button,
-  Tabs, List, Tag, Timeline, Descriptions, Select, Switch,
-  message, Tooltip
+  Card,
+  Row,
+  Col,
+  Statistic,
+  Progress,
+  Table,
+  Badge,
+  Alert,
+  Space,
+  Button,
+  Tabs,
+  List,
+  Tag,
+  Timeline,
+  Descriptions,
+  Select,
+  Switch,
+  message,
+  Tooltip,
 } from 'antd'
 import {
-  DashboardOutlined, MonitorOutlined, ClusterOutlined, DatabaseOutlined,
-  ApiOutlined, CloudServerOutlined, AlertOutlined, CheckCircleOutlined,
-  CloseCircleOutlined, SyncOutlined, ReloadOutlined, WarningOutlined,
-  ThunderboltOutlined, RocketOutlined, FieldTimeOutlined
+  DashboardOutlined,
+  MonitorOutlined,
+  ClusterOutlined,
+  DatabaseOutlined,
+  ApiOutlined,
+  CloudServerOutlined,
+  AlertOutlined,
+  CheckCircleOutlined,
+  CloseCircleOutlined,
+  SyncOutlined,
+  ReloadOutlined,
+  WarningOutlined,
+  ThunderboltOutlined,
+  RocketOutlined,
+  FieldTimeOutlined,
 } from '@ant-design/icons'
 import ReactECharts from 'echarts-for-react'
 import apiClient from '../services/apiClient'
@@ -54,7 +81,9 @@ const MonitoringDashboardPage: React.FC = () => {
   const [metrics, setMetrics] = useState<SystemMetrics | null>(null)
   const [alerts, setAlerts] = useState<AlertItem[]>([])
   const [performanceData, setPerformanceData] = useState<MetricData[]>([])
-  const [requestDistribution, setRequestDistribution] = useState<{ name: string; value: number }[]>([])
+  const [requestDistribution, setRequestDistribution] = useState<
+    { name: string; value: number }[]
+  >([])
   const [loading, setLoading] = useState(false)
   const [autoRefresh, setAutoRefresh] = useState(true)
   const [refreshInterval, setRefreshInterval] = useState(5000)
@@ -82,15 +111,25 @@ const MonitoringDashboardPage: React.FC = () => {
       const alertsResponse = await apiClient.get('/alerts')
 
       // 获取性能数据
-      const perfResponse = await apiClient.get('/metrics/performance').catch(() => ({ data: [] }))
-      const distributionResponse = await apiClient.get('/metrics/request-distribution').catch(() => ({ data: { distribution: [] } }))
+      const perfResponse = await apiClient
+        .get('/metrics/performance')
+        .catch(() => ({ data: [] }))
+      const distributionResponse = await apiClient
+        .get('/metrics/request-distribution')
+        .catch(() => ({ data: { distribution: [] } }))
 
       // 处理响应数据
       processHealthData(healthResponse.data)
       processMetricsData(metricsResponse.data)
       processAlertsData(alertsResponse.data)
-      setPerformanceData(Array.isArray(perfResponse.data) ? perfResponse.data : [])
-      setRequestDistribution(Array.isArray(distributionResponse.data?.distribution) ? distributionResponse.data.distribution : [])
+      setPerformanceData(
+        Array.isArray(perfResponse.data) ? perfResponse.data : []
+      )
+      setRequestDistribution(
+        Array.isArray(distributionResponse.data?.distribution)
+          ? distributionResponse.data.distribution
+          : []
+      )
     } catch (error) {
       message.error('获取监控数据失败')
       setServices([])
@@ -105,12 +144,14 @@ const MonitoringDashboardPage: React.FC = () => {
 
   // 处理健康数据
   const processHealthData = (data: any) => {
-    const healthServices: ServiceHealth[] = Object.entries(data.components || {}).map(([name, info]: any) => ({
+    const healthServices: ServiceHealth[] = Object.entries(
+      data.components || {}
+    ).map(([name, info]: any) => ({
       name,
       status: info.status || 'healthy',
       latency: info.response_time_ms || 0,
       uptime: info.uptime_percent || 0,
-      lastCheck: info.last_check || new Date().toISOString()
+      lastCheck: info.last_check || new Date().toISOString(),
     }))
     setServices(healthServices)
   }
@@ -123,7 +164,7 @@ const MonitoringDashboardPage: React.FC = () => {
       disk_usage: data.disk?.usage || 0,
       network_io: data.network?.throughput || 0,
       active_connections: data.connections || 0,
-      request_rate: data.requests?.rate || 0
+      request_rate: data.requests?.rate || 0,
     })
   }
 
@@ -139,7 +180,9 @@ const MonitoringDashboardPage: React.FC = () => {
       tooltip: { trigger: 'axis' },
       xAxis: {
         type: 'category',
-        data: performanceData.map(d => new Date(d.timestamp).toLocaleTimeString())
+        data: performanceData.map(d =>
+          new Date(d.timestamp).toLocaleTimeString()
+        ),
       },
       yAxis: { type: 'value', name: '使用率 (%)' },
       series: [
@@ -147,22 +190,22 @@ const MonitoringDashboardPage: React.FC = () => {
           name: 'CPU',
           type: 'line',
           data: performanceData.map(d => d.cpu ?? d.value ?? 0),
-          smooth: true
+          smooth: true,
         },
         {
           name: '内存',
           type: 'line',
           data: performanceData.map(d => d.memory ?? d.value ?? 0),
-          smooth: true
+          smooth: true,
         },
         {
           name: '磁盘',
           type: 'line',
           data: performanceData.map(d => d.disk ?? d.value ?? 0),
-          smooth: true
-        }
+          smooth: true,
+        },
       ],
-      legend: { bottom: 0 }
+      legend: { bottom: 0 },
     }
   }
 
@@ -175,9 +218,9 @@ const MonitoringDashboardPage: React.FC = () => {
         {
           type: 'pie',
           radius: ['40%', '70%'],
-          data: requestDistribution
-        }
-      ]
+          data: requestDistribution,
+        },
+      ],
     }
   }
 
@@ -192,7 +235,7 @@ const MonitoringDashboardPage: React.FC = () => {
           <DatabaseOutlined />
           {text}
         </Space>
-      )
+      ),
     },
     {
       title: '状态',
@@ -200,20 +243,35 @@ const MonitoringDashboardPage: React.FC = () => {
       key: 'status',
       render: (status: string) => {
         const statusConfig: any = {
-          healthy: { color: 'success', icon: <CheckCircleOutlined />, text: '健康' },
-          degraded: { color: 'warning', icon: <WarningOutlined />, text: '降级' },
-          unhealthy: { color: 'error', icon: <CloseCircleOutlined />, text: '异常' }
+          healthy: {
+            color: 'success',
+            icon: <CheckCircleOutlined />,
+            text: '健康',
+          },
+          degraded: {
+            color: 'warning',
+            icon: <WarningOutlined />,
+            text: '降级',
+          },
+          unhealthy: {
+            color: 'error',
+            icon: <CloseCircleOutlined />,
+            text: '异常',
+          },
         }
         const config = statusConfig[status]
         return (
-          <Badge status={config.color} text={
-            <Space>
-              {config.icon}
-              {config.text}
-            </Space>
-          } />
+          <Badge
+            status={config.color}
+            text={
+              <Space>
+                {config.icon}
+                {config.text}
+              </Space>
+            }
+          />
         )
-      }
+      },
     },
     {
       title: '延迟',
@@ -223,7 +281,7 @@ const MonitoringDashboardPage: React.FC = () => {
         <Tag color={latency < 50 ? 'green' : latency < 100 ? 'orange' : 'red'}>
           {latency}ms
         </Tag>
-      )
+      ),
     },
     {
       title: '可用性',
@@ -233,16 +291,18 @@ const MonitoringDashboardPage: React.FC = () => {
         <Progress
           percent={uptime}
           size="small"
-          status={uptime > 99 ? 'success' : uptime > 95 ? 'normal' : 'exception'}
+          status={
+            uptime > 99 ? 'success' : uptime > 95 ? 'normal' : 'exception'
+          }
         />
-      )
+      ),
     },
     {
       title: '最后检查',
       dataIndex: 'lastCheck',
       key: 'lastCheck',
-      render: (time: string) => new Date(time).toLocaleTimeString()
-    }
+      render: (time: string) => new Date(time).toLocaleTimeString(),
+    },
   ]
 
   // 告警列表渲染
@@ -251,7 +311,7 @@ const MonitoringDashboardPage: React.FC = () => {
       info: { color: 'blue', icon: <AlertOutlined /> },
       warning: { color: 'orange', icon: <WarningOutlined /> },
       error: { color: 'red', icon: <CloseCircleOutlined /> },
-      critical: { color: 'red', icon: <ThunderboltOutlined /> }
+      critical: { color: 'red', icon: <ThunderboltOutlined /> },
     }
     const config = levelConfig[alert.level]
 
@@ -316,7 +376,9 @@ const MonitoringDashboardPage: React.FC = () => {
                 value={metrics?.cpu_usage || 0}
                 precision={1}
                 suffix="%"
-                valueStyle={{ color: metrics?.cpu_usage! > 80 ? '#cf1322' : '#3f8600' }}
+                valueStyle={{
+                  color: metrics?.cpu_usage! > 80 ? '#cf1322' : '#3f8600',
+                }}
                 prefix={<MonitorOutlined />}
               />
             </Card>
@@ -328,7 +390,9 @@ const MonitoringDashboardPage: React.FC = () => {
                 value={metrics?.memory_usage || 0}
                 precision={1}
                 suffix="%"
-                valueStyle={{ color: metrics?.memory_usage! > 80 ? '#cf1322' : '#3f8600' }}
+                valueStyle={{
+                  color: metrics?.memory_usage! > 80 ? '#cf1322' : '#3f8600',
+                }}
                 prefix={<CloudServerOutlined />}
               />
             </Card>
@@ -381,12 +445,18 @@ const MonitoringDashboardPage: React.FC = () => {
             <Row gutter={16}>
               <Col span={12}>
                 <Card title="性能趋势">
-                  <ReactECharts option={getPerformanceChartOption()} style={{ height: 300 }} />
+                  <ReactECharts
+                    option={getPerformanceChartOption()}
+                    style={{ height: 300 }}
+                  />
                 </Card>
               </Col>
               <Col span={12}>
                 <Card title="请求分布">
-                  <ReactECharts option={getRequestDistributionOption()} style={{ height: 300 }} />
+                  <ReactECharts
+                    option={getRequestDistributionOption()}
+                    style={{ height: 300 }}
+                  />
                 </Card>
               </Col>
             </Row>
@@ -409,9 +479,15 @@ const MonitoringDashboardPage: React.FC = () => {
               title={`活动告警 (${alerts.filter(a => !a.resolved).length})`}
               extra={
                 <Space>
-                  <Tag color="blue">信息: {alerts.filter(a => a.level === 'info').length}</Tag>
-                  <Tag color="orange">警告: {alerts.filter(a => a.level === 'warning').length}</Tag>
-                  <Tag color="red">错误: {alerts.filter(a => a.level === 'error').length}</Tag>
+                  <Tag color="blue">
+                    信息: {alerts.filter(a => a.level === 'info').length}
+                  </Tag>
+                  <Tag color="orange">
+                    警告: {alerts.filter(a => a.level === 'warning').length}
+                  </Tag>
+                  <Tag color="red">
+                    错误: {alerts.filter(a => a.level === 'error').length}
+                  </Tag>
                 </Space>
               }
             >
@@ -428,10 +504,16 @@ const MonitoringDashboardPage: React.FC = () => {
               <Col span={12}>
                 <Card title="环境信息">
                   <Descriptions column={1}>
-                    <Descriptions.Item label="环境">Production</Descriptions.Item>
+                    <Descriptions.Item label="环境">
+                      Production
+                    </Descriptions.Item>
                     <Descriptions.Item label="版本">v1.0.0</Descriptions.Item>
-                    <Descriptions.Item label="部署时间">{new Date().toLocaleDateString()}</Descriptions.Item>
-                    <Descriptions.Item label="运行时长">15天 6小时</Descriptions.Item>
+                    <Descriptions.Item label="部署时间">
+                      {new Date().toLocaleDateString()}
+                    </Descriptions.Item>
+                    <Descriptions.Item label="运行时长">
+                      15天 6小时
+                    </Descriptions.Item>
                   </Descriptions>
                 </Card>
               </Col>

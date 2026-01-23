@@ -21,7 +21,7 @@ type TabType = 'overview' | 'tasks' | 'decisions' | 'metrics' | 'config'
 
 export const SupervisorDashboard: React.FC<SupervisorDashboardProps> = ({
   supervisorId = 'main_supervisor',
-  className = ''
+  className = '',
 }) => {
   const [activeTab, setActiveTab] = useState<TabType>('overview')
   const [showTaskForm, setShowTaskForm] = useState(false)
@@ -35,7 +35,7 @@ export const SupervisorDashboard: React.FC<SupervisorDashboardProps> = ({
     refreshInterval,
     setRefreshInterval,
     error,
-    clearError
+    clearError,
   } = useSupervisorStore()
 
   // 初始化Supervisor ID
@@ -98,7 +98,9 @@ export const SupervisorDashboard: React.FC<SupervisorDashboardProps> = ({
     { id: 'config' as TabType, name: '配置', icon: '⚙️' },
   ]
 
-  const handleRefreshIntervalChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
+  const handleRefreshIntervalChange = (
+    event: React.ChangeEvent<HTMLSelectElement>
+  ) => {
     const newInterval = parseInt(event.target.value)
     setRefreshInterval(newInterval)
   }
@@ -126,13 +128,17 @@ export const SupervisorDashboard: React.FC<SupervisorDashboardProps> = ({
       <div className="dashboard-header bg-white shadow-sm border-b p-4 mb-6">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-4">
-            <h1 className="text-2xl font-bold text-gray-900">Supervisor 监控面板</h1>
+            <h1 className="text-2xl font-bold text-gray-900">
+              Supervisor 监控面板
+            </h1>
             <div className="flex items-center space-x-2 text-sm text-gray-600">
               <span>Supervisor ID:</span>
-              <code className="bg-gray-100 px-2 py-1 rounded">{currentSupervisorId}</code>
+              <code className="bg-gray-100 px-2 py-1 rounded">
+                {currentSupervisorId}
+              </code>
             </div>
           </div>
-          
+
           <div className="flex items-center space-x-4">
             {/* 刷新控制 */}
             <div className="flex items-center space-x-2">
@@ -141,12 +147,12 @@ export const SupervisorDashboard: React.FC<SupervisorDashboardProps> = ({
                   type="checkbox"
                   name="autoRefresh"
                   checked={autoRefresh}
-                  onChange={(e) => setAutoRefresh(e.target.checked)}
+                  onChange={e => setAutoRefresh(e.target.checked)}
                   className="rounded"
                 />
                 <span className="text-sm text-gray-600">自动刷新</span>
               </label>
-              
+
               <select
                 value={refreshInterval}
                 onChange={handleRefreshIntervalChange}
@@ -160,7 +166,7 @@ export const SupervisorDashboard: React.FC<SupervisorDashboardProps> = ({
                 <option value={60000}>1分钟</option>
               </select>
             </div>
-            
+
             {/* 操作按钮 */}
             <button
               onClick={() => refreshAll()}
@@ -168,7 +174,7 @@ export const SupervisorDashboard: React.FC<SupervisorDashboardProps> = ({
             >
               手动刷新
             </button>
-            
+
             <button
               onClick={() => setShowTaskForm(true)}
               className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors"
@@ -177,7 +183,7 @@ export const SupervisorDashboard: React.FC<SupervisorDashboardProps> = ({
             </button>
           </div>
         </div>
-        
+
         {/* 错误提示 */}
         {error && (
           <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-md">
@@ -198,7 +204,7 @@ export const SupervisorDashboard: React.FC<SupervisorDashboardProps> = ({
       <div className="tab-navigation mb-6">
         <div className="border-b border-gray-200">
           <nav className="-mb-px flex space-x-8">
-            {tabs.map((tab) => (
+            {tabs.map(tab => (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
@@ -217,9 +223,7 @@ export const SupervisorDashboard: React.FC<SupervisorDashboardProps> = ({
       </div>
 
       {/* 标签页内容 */}
-      <div className="tab-content">
-        {renderTabContent()}
-      </div>
+      <div className="tab-content">{renderTabContent()}</div>
 
       {/* 任务提交表单模态框 */}
       {showTaskForm && (

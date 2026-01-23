@@ -21,8 +21,8 @@ const FaultTestingPage: React.FC = () => {
     setError(null);
     try {
       const [sRes, tRes, iRes] = await Promise.all([
-        apiFetch(buildApiUrl('/api/v1/fault-tolerance/faults'),
-        apiFetch(buildApiUrl('/api/v1/fault-tolerance/testing/tests'),
+        apiFetch(buildApiUrl('/api/v1/fault-tolerance/faults')),
+        apiFetch(buildApiUrl('/api/v1/fault-tolerance/testing/tests')),
         apiFetch(buildApiUrl('/api/v1/fault-tolerance/metrics'))
       ]);
       const sData = await sRes.json();

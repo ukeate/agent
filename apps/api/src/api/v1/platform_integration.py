@@ -19,6 +19,7 @@ from src.ai.platform_integration.models import (
     MonitoringConfig
 )
 from src.core.utils.timezone_utils import from_timestamp, utc_now
+from src.core.logging import get_logger
 from fastapi import Response
 
 logger = get_logger(__name__)
@@ -1048,4 +1049,3 @@ async def _generate_training_materials_background(doc_generator: DocumentationGe
         logger.error(f"Background training materials generation failed: {e}")
 
 # 导入Response类型
-from src.core.logging import get_logger

@@ -1,7 +1,7 @@
 import { buildApiUrl, apiFetch } from '../utils/apiBase'
-import React, { useState, useEffect } from 'react';
-import {
+import React, { useState, useEffect } from 'react'
 import { logger } from '../utils/logger'
+import {
   Card,
   Row,
   Col,
@@ -16,133 +16,136 @@ import { logger } from '../utils/logger'
   Input,
   message,
   Spin,
-  Alert
-} from 'antd';
+  Alert,
+} from 'antd'
 import {
   HeartOutlined,
   SearchOutlined,
   UserOutlined,
   CalendarOutlined,
   EnvironmentOutlined,
-  TagOutlined
-} from '@ant-design/icons';
+  TagOutlined,
+} from '@ant-design/icons'
 
-const { Title, Text } = Typography;
-const { Search } = Input;
+const { Title, Text } = Typography
+const { Search } = Input
 
 interface EmotionalMemoryItem {
-  id: string;
-  user_id: string;
-  content: string;
-  emotion: string;
-  intensity: number;
-  timestamp: string;
-  tags: string[];
+  id: string
+  user_id: string
+  content: string
+  emotion: string
+  intensity: number
+  timestamp: string
+  tags: string[]
   context?: {
-    location?: string;
-    activity?: string;
-  };
+    location?: string
+    activity?: string
+  }
 }
 
 interface MemorySearchResultItem {
   memory: {
-    id: string;
-    user_id: string;
-    timestamp: string;
-    emotion_type: string;
-    intensity: number;
-    content: string;
-    tags: string[];
-  };
-  relevance_score: number;
+    id: string
+    user_id: string
+    timestamp: string
+    emotion_type: string
+    intensity: number
+    content: string
+    tags: string[]
+  }
+  relevance_score: number
 }
 
 const EmotionalMemoryPage: React.FC = () => {
-  const [loading, setLoading] = useState(false);
-  const [memories, setMemories] = useState<EmotionalMemoryItem[]>([]);
-  const [searchQuery, setSearchQuery] = useState('');
+  const [loading, setLoading] = useState(false)
+  const [memories, setMemories] = useState<EmotionalMemoryItem[]>([])
+  const [searchQuery, setSearchQuery] = useState('')
   const [stats, setStats] = useState({
     total: 0,
-    emotions: new Map<string, number>()
-  });
+    emotions: new Map<string, number>(),
+  })
 
   // 加载初始数据
   useEffect(() => {
-    loadMemories('happiness');
-  }, []);
+    loadMemories('happiness')
+  }, [])
 
   const loadMemories = async (query: string = 'happiness') => {
-    setLoading(true);
+    setLoading(true)
     try {
-      const response = await apiFetch(buildApiUrl('/emotional-memory/memories/search'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          query: query,
-          limit: 10
-        })
-      });
-      
-      const data: MemorySearchResultItem[] = await response.json();
-      
+      const response = await apiFetch(
+        buildApiUrl('/emotional-memory/memories/search'),
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            query: query,
+            limit: 10,
+          }),
+        }
+      )
+
+      const data: MemorySearchResultItem[] = await response.json()
+
       if (Array.isArray(data)) {
-        const mapped = data.map((item) => ({
+        const mapped = data.map(item => ({
           id: item.memory.id,
           user_id: item.memory.user_id,
           content: item.memory.content,
           emotion: item.memory.emotion_type,
           intensity: item.memory.intensity,
           timestamp: item.memory.timestamp,
-          tags: item.memory.tags || []
-        }));
-        setMemories(mapped);
+          tags: item.memory.tags || [],
+        }))
+        setMemories(mapped)
         setStats({
           total: mapped.length,
-          emotions: countEmotions(mapped)
-        });
-        message.success(`找到 ${mapped.length} 条情感记忆`);
+          emotions: countEmotions(mapped),
+        })
+        message.success(`找到 ${mapped.length} 条情感记忆`)
       } else {
-        message.error('加载情感记忆失败');
+        message.error('加载情感记忆失败')
       }
     } catch (error) {
-      logger.error('API调用失败:', error);
-      message.error('连接服务器失败');
+      logger.error('API调用失败:', error)
+      message.error('连接服务器失败')
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
+  }
 
   const countEmotions = (memories: EmotionalMemoryItem[]) => {
-    const emotionCount = new Map<string, number>();
+    const emotionCount = new Map<string, number>()
     memories.forEach(memory => {
-      const count = emotionCount.get(memory.emotion) || 0;
-      emotionCount.set(memory.emotion, count + 1);
-    });
-    return emotionCount;
-  };
+      const count = emotionCount.get(memory.emotion) || 0
+      emotionCount.set(memory.emotion, count + 1)
+    })
+    return emotionCount
+  }
 
   const handleSearch = (value: string) => {
-    setSearchQuery(value);
+    setSearchQuery(value)
     if (value.trim()) {
-      loadMemories(value);
+      loadMemories(value)
     }
-  };
+  }
 
   const getEmotionColor = (emotion: string) => {
     const colors: { [key: string]: string } = {
-      'joy': 'orange',
-      'happiness': 'green',
-      'sadness': 'blue',
-      'anger': 'red',
-      'fear': 'purple',
-      'surprise': 'cyan'
-    };
-    return colors[emotion] || 'default';
-  };
+      joy: 'orange',
+      happiness: 'green',
+      sadness: 'blue',
+      anger: 'red',
+      fear: 'purple',
+      surprise: 'cyan',
+    }
+    return colors[emotion] || 'default'
+  }
 
   const formatIntensity = (intensity: number) => {
-    return `${(intensity * 100).toFixed(0)}%`;
-  };
+    return `${(intensity * 100).toFixed(0)}%`
+  }
 
   return (
     <div style={{ padding: '24px' }}>
@@ -164,7 +167,7 @@ const EmotionalMemoryPage: React.FC = () => {
           onSearch={handleSearch}
           style={{ marginBottom: '16px' }}
         />
-        
+
         {/* 统计信息 */}
         <Row gutter={16}>
           <Col span={8}>
@@ -191,7 +194,10 @@ const EmotionalMemoryPage: React.FC = () => {
             <Card size="small">
               <div style={{ textAlign: 'center' }}>
                 <Title level={3} style={{ margin: 0, color: '#f5222d' }}>
-                  {Array.from(stats.emotions.values()).reduce((a, b) => Math.max(a, b), 0)}
+                  {Array.from(stats.emotions.values()).reduce(
+                    (a, b) => Math.max(a, b),
+                    0
+                  )}
                 </Title>
                 <Text type="secondary">最频繁情感</Text>
               </div>
@@ -213,7 +219,7 @@ const EmotionalMemoryPage: React.FC = () => {
           <List
             itemLayout="vertical"
             dataSource={memories}
-            renderItem={(memory) => (
+            renderItem={memory => (
               <List.Item
                 key={memory.id}
                 extra={
@@ -249,9 +255,13 @@ const EmotionalMemoryPage: React.FC = () => {
                       </Space>
                       <Space>
                         <EnvironmentOutlined />
-                        {memory.context?.location || memory.context?.activity ? (
+                        {memory.context?.location ||
+                        memory.context?.activity ? (
                           <Text type="secondary">
-                            {memory.context?.location || ''} {memory.context?.activity ? `- ${memory.context.activity}` : ''}
+                            {memory.context?.location || ''}{' '}
+                            {memory.context?.activity
+                              ? `- ${memory.context.activity}`
+                              : ''}
                           </Text>
                         ) : (
                           <Text type="secondary">未提供上下文</Text>
@@ -260,7 +270,9 @@ const EmotionalMemoryPage: React.FC = () => {
                       <Space>
                         <TagOutlined />
                         {memory.tags.map((tag, index) => (
-                          <Tag key={index} size="small">{tag}</Tag>
+                          <Tag key={index} size="small">
+                            {tag}
+                          </Tag>
                         ))}
                       </Space>
                     </Space>
@@ -279,7 +291,10 @@ const EmotionalMemoryPage: React.FC = () => {
             {Array.from(stats.emotions.entries()).map(([emotion, count]) => (
               <Col key={emotion} span={6}>
                 <Card size="small" style={{ textAlign: 'center' }}>
-                  <Tag color={getEmotionColor(emotion)} style={{ marginBottom: '8px' }}>
+                  <Tag
+                    color={getEmotionColor(emotion)}
+                    style={{ marginBottom: '8px' }}
+                  >
                     {emotion}
                   </Tag>
                   <div>
@@ -293,7 +308,7 @@ const EmotionalMemoryPage: React.FC = () => {
         </Card>
       )}
     </div>
-  );
-};
+  )
+}
 
-export default EmotionalMemoryPage;
+export default EmotionalMemoryPage

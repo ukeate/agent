@@ -1,7 +1,23 @@
 import { buildApiUrl, apiFetch } from '../utils/apiBase'
 import React, { useState } from 'react'
-import { Card, Row, Col, Typography, Space, Button, Upload, Input, Alert, Spin, message } from 'antd'
-import { CloudUploadOutlined, ReloadOutlined, PlayCircleOutlined } from '@ant-design/icons'
+import {
+  Card,
+  Row,
+  Col,
+  Typography,
+  Space,
+  Button,
+  Upload,
+  Input,
+  Alert,
+  Spin,
+  message,
+} from 'antd'
+import {
+  CloudUploadOutlined,
+  ReloadOutlined,
+  PlayCircleOutlined,
+} from '@ant-design/icons'
 import type { UploadProps } from 'antd'
 
 const { Title } = Typography
@@ -26,10 +42,13 @@ const MultiModalEmotionFusionPage: React.FC = () => {
       const form = new FormData()
       if (text) form.append('text', text)
       if (file) form.append('file', file)
-      const res = await apiFetch(buildApiUrl('/api/v1/multimodal/emotion/fusion'), {
-        method: 'POST',
-        body: form
-      })
+      const res = await apiFetch(
+        buildApiUrl('/api/v1/multimodal/emotion/fusion'),
+        {
+          method: 'POST',
+          body: form,
+        }
+      )
       const data = await res.json()
       setResult(data)
     } catch (e: any) {
@@ -41,24 +60,39 @@ const MultiModalEmotionFusionPage: React.FC = () => {
 
   const uploadProps: UploadProps = {
     maxCount: 1,
-    beforeUpload: (f) => {
+    beforeUpload: f => {
       setFile(f)
       return false
-    }
+    },
   }
 
   return (
     <div style={{ padding: 24 }}>
       <Space direction="vertical" style={{ width: '100%' }} size="large">
-        <Space align="center" style={{ justifyContent: 'space-between', width: '100%' }}>
+        <Space
+          align="center"
+          style={{ justifyContent: 'space-between', width: '100%' }}
+        >
           <Title level={3} style={{ margin: 0 }}>
             多模态情感融合
           </Title>
           <Space>
-            <Button icon={<ReloadOutlined />} onClick={() => { setResult(null); setText(''); setFile(null); }}>
+            <Button
+              icon={<ReloadOutlined />}
+              onClick={() => {
+                setResult(null)
+                setText('')
+                setFile(null)
+              }}
+            >
               重置
             </Button>
-            <Button type="primary" icon={<PlayCircleOutlined />} onClick={analyze} loading={loading}>
+            <Button
+              type="primary"
+              icon={<PlayCircleOutlined />}
+              onClick={analyze}
+              loading={loading}
+            >
               分析
             </Button>
           </Space>
@@ -72,7 +106,7 @@ const MultiModalEmotionFusionPage: React.FC = () => {
               <TextArea
                 rows={6}
                 value={text}
-                onChange={(e) => setText(e.target.value)}
+                onChange={e => setText(e.target.value)}
                 placeholder="输入文本描述"
               />
             </Col>
@@ -91,7 +125,9 @@ const MultiModalEmotionFusionPage: React.FC = () => {
           {loading ? (
             <Spin />
           ) : result ? (
-            <pre style={{ whiteSpace: 'pre-wrap' }}>{JSON.stringify(result, null, 2)}</pre>
+            <pre style={{ whiteSpace: 'pre-wrap' }}>
+              {JSON.stringify(result, null, 2)}
+            </pre>
           ) : (
             <Alert type="info" message="提交后显示融合结果。" />
           )}

@@ -1,7 +1,11 @@
 import { buildApiUrl, apiFetch } from '../utils/apiBase'
 import React, { useEffect, useState } from 'react'
 import { Alert, Button, Card, Descriptions, Space, message } from 'antd'
-import { BookOutlined, FileTextOutlined, ReloadOutlined } from '@ant-design/icons'
+import {
+  BookOutlined,
+  FileTextOutlined,
+  ReloadOutlined,
+} from '@ant-design/icons'
 
 type DocStatus = {
   status?: string
@@ -22,7 +26,9 @@ const DocumentationManagementPage: React.FC = () => {
     setStatusLoading(true)
     setError(null)
     try {
-      const res = await apiFetch(buildApiUrl('/api/v1/platform/documentation/status'))
+      const res = await apiFetch(
+        buildApiUrl('/api/v1/platform/documentation/status')
+      )
       const data = await res.json()
       setDocStatus(data?.documentation || null)
     } catch (e: any) {
@@ -48,7 +54,9 @@ const DocumentationManagementPage: React.FC = () => {
           : '/api/v1/platform/documentation/training-materials'
       )
       const res = await apiFetch(url, { method: 'POST' })
-      message.success(type === 'documentation' ? '已启动文档生成' : '已启动培训材料生成')
+      message.success(
+        type === 'documentation' ? '已启动文档生成' : '已启动培训材料生成'
+      )
       await fetchStatus()
     } catch (e: any) {
       setError(e?.message || '启动失败')
@@ -71,25 +79,54 @@ const DocumentationManagementPage: React.FC = () => {
             >
               生成文档
             </Button>
-            <Button icon={<BookOutlined />} loading={loading} onClick={() => start('training')}>
+            <Button
+              icon={<BookOutlined />}
+              loading={loading}
+              onClick={() => start('training')}
+            >
               生成培训材料
             </Button>
-            <Button icon={<ReloadOutlined />} loading={statusLoading} onClick={fetchStatus}>
+            <Button
+              icon={<ReloadOutlined />}
+              loading={statusLoading}
+              onClick={fetchStatus}
+            >
               刷新状态
             </Button>
           </Space>
 
-          {error && <Alert style={{ marginTop: 12 }} type="error" message={error} />}
+          {error && (
+            <Alert style={{ marginTop: 12 }} type="error" message={error} />
+          )}
 
           <Descriptions size="small" column={1} style={{ marginTop: 12 }}>
-            <Descriptions.Item label="状态">{docStatus?.status || 'unknown'}</Descriptions.Item>
-            <Descriptions.Item label="开始时间">{docStatus?.started_at || '-'}</Descriptions.Item>
-            <Descriptions.Item label="结束时间">{docStatus?.completed_at || docStatus?.failed_at || '-'}</Descriptions.Item>
+            <Descriptions.Item label="状态">
+              {docStatus?.status || 'unknown'}
+            </Descriptions.Item>
+            <Descriptions.Item label="开始时间">
+              {docStatus?.started_at || '-'}
+            </Descriptions.Item>
+            <Descriptions.Item label="结束时间">
+              {docStatus?.completed_at || docStatus?.failed_at || '-'}
+            </Descriptions.Item>
           </Descriptions>
 
-          {docStatus?.error && <Alert style={{ marginTop: 12 }} type="error" message={docStatus.error} />}
+          {docStatus?.error && (
+            <Alert
+              style={{ marginTop: 12 }}
+              type="error"
+              message={docStatus.error}
+            />
+          )}
           {docStatus?.result && (
-            <pre style={{ marginTop: 12, background: '#fafafa', padding: 12, overflow: 'auto' }}>
+            <pre
+              style={{
+                marginTop: 12,
+                background: '#fafafa',
+                padding: 12,
+                overflow: 'auto',
+              }}
+            >
               {JSON.stringify(docStatus.result, null, 2)}
             </pre>
           )}

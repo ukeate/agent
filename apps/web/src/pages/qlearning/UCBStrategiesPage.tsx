@@ -31,7 +31,10 @@ const UCBStrategiesPage: React.FC = () => {
   return (
     <div style={{ padding: 24 }}>
       <Space direction="vertical" style={{ width: '100%' }} size="large">
-        <Space align="center" style={{ justifyContent: 'space-between', width: '100%' }}>
+        <Space
+          align="center"
+          style={{ justifyContent: 'space-between', width: '100%' }}
+        >
           <Title level={3} style={{ margin: 0 }}>
             <LineChartOutlined /> UCB 多臂老虎机策略状态
           </Title>
@@ -44,10 +47,13 @@ const UCBStrategiesPage: React.FC = () => {
           {loading ? (
             <Spin />
           ) : summary.sessions.length === 0 ? (
-            <Alert type="info" message="暂无Q-Learning会话，请先通过 /api/v1/qlearning 接口创建会话。" />
+            <Alert
+              type="info"
+              message="暂无Q-Learning会话，请先通过 /api/v1/qlearning 接口创建会话。"
+            />
           ) : (
             <Table
-              rowKey={(r) => r.session_id}
+              rowKey={r => r.session_id}
               dataSource={summary.sessions}
               columns={[
                 { title: '会话ID', dataIndex: 'session_id' },

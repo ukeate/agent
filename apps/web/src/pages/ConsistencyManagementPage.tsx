@@ -35,8 +35,8 @@ const ConsistencyManagementPage: React.FC = () => {
     setError(null);
     try {
       const [sRes, hRes, iRes] = await Promise.all([
-        apiFetch(buildApiUrl('/api/v1/fault-tolerance/consistency/statistics'),
-        apiFetch(buildApiUrl('/api/v1/fault-tolerance/consistency/checks'),
+        apiFetch(buildApiUrl('/api/v1/fault-tolerance/consistency/statistics')),
+        apiFetch(buildApiUrl('/api/v1/fault-tolerance/consistency/checks')),
         apiFetch(buildApiUrl('/api/v1/fault-tolerance/consistency/inconsistencies'))
       ]);
       setStats(await sRes.json());

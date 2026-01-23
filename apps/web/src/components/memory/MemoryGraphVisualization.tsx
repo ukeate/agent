@@ -5,12 +5,12 @@
 import React, { useEffect, useRef, useState } from 'react'
 import * as d3 from 'd3'
 import { Card, Select, Slider, Space, Tag, Button } from 'antd'
-import { 
 import { logger } from '../../utils/logger'
-  PartitionOutlined, 
-  ZoomInOutlined, 
+import {
+  PartitionOutlined,
+  ZoomInOutlined,
   ZoomOutOutlined,
-  ReloadOutlined 
+  ReloadOutlined,
 } from '@ant-design/icons'
 import { Memory, MemoryType } from '@/types/memory'
 import { memoryService } from '@/services/memoryService'
@@ -34,7 +34,10 @@ interface Props {
   onNodeClick?: (memory: Memory) => void
 }
 
-const MemoryGraphVisualization: React.FC<Props> = ({ memories, onNodeClick }) => {
+const MemoryGraphVisualization: React.FC<Props> = ({
+  memories,
+  onNodeClick,
+}) => {
   const svgRef = useRef<SVGSVGElement>(null)
   const [zoom, setZoom] = useState(1)
   const [minWeight, setMinWeight] = useState(0.3)
@@ -64,9 +67,10 @@ const MemoryGraphVisualization: React.FC<Props> = ({ memories, onNodeClick }) =>
     d3.select(svgRef.current).selectAll('*').remove()
 
     // 过滤记忆
-    const filteredMemories = selectedType === 'all' 
-      ? memories 
-      : memories.filter(m => m.type === selectedType)
+    const filteredMemories =
+      selectedType === 'all'
+        ? memories
+        : memories.filter(m => m.type === selectedType)
 
     // 构建节点和边
     const nodes: GraphNode[] = filteredMemories.map(m => ({
@@ -75,15 +79,20 @@ const MemoryGraphVisualization: React.FC<Props> = ({ memories, onNodeClick }) =>
       importance: m.importance,
       label: m.content.substring(0, 30) + '...',
       content: m.content,
-      access_count: m.access_count
+      access_count: m.access_count,
     }))
 
     const links: GraphLink[] = []
-    
+
     const similarityOf = (a?: string, b?: string) => {
       if (!a || !b) return 0
       const words = (s: string) =>
-        new Set(s.toLowerCase().split(/[^a-z0-9\u4e00-\u9fa5]+/i).filter(Boolean))
+        new Set(
+          s
+            .toLowerCase()
+            .split(/[^a-z0-9\u4e00-\u9fa5]+/i)
+            .filter(Boolean)
+        )
       const wa = words(a)
       const wb = words(b)
       if (!wa.size || !wb.size) return 0
@@ -102,7 +111,7 @@ const MemoryGraphVisualization: React.FC<Props> = ({ memories, onNodeClick }) =>
             source: nodes[i].id,
             target: nodes[j].id,
             weight: similarity,
-            type: 'similar'
+            type: 'similar',
           })
         }
       }
@@ -111,7 +120,8 @@ const MemoryGraphVisualization: React.FC<Props> = ({ memories, onNodeClick }) =>
     // 设置SVG尺寸
     const width = 800
     const height = 600
-    const svg = d3.select(svgRef.current)
+    const svg = d3
+      .select(svgRef.current)
       .attr('width', width)
       .attr('height', height)
 
@@ -119,9 +129,10 @@ const MemoryGraphVisualization: React.FC<Props> = ({ memories, onNodeClick }) =>
     const g = svg.append('g')
 
     // 设置缩放行为
-    const zoomBehavior = d3.zoom<SVGSVGElement, unknown>()
+    const zoomBehavior = d3
+      .zoom<SVGSVGElement, unknown>()
       .scaleExtent([0.1, 10])
-      .on('zoom', (event) => {
+      .on('zoom', event => {
         g.attr('transform', event.transform.toString())
         setZoom(event.transform.k)
       })
@@ -129,36 +140,52 @@ const MemoryGraphVisualization: React.FC<Props> = ({ memories, onNodeClick }) =>
     svg.call(zoomBehavior)
 
     // 创建力导向图
-    const simulation = d3.forceSimulation(nodes)
-      .force('link', d3.forceLink<GraphNode, GraphLink>(links)
-        .id(d => d.id)
-        .distance(d => 100 * (1 - d.weight))
-        .strength(d => d.weight))
+    const simulation = d3
+      .forceSimulation(nodes)
+      .force(
+        'link',
+        d3
+          .forceLink<GraphNode, GraphLink>(links)
+          .id(d => d.id)
+          .distance(d => 100 * (1 - d.weight))
+          .strength(d => d.weight)
+      )
       .force('charge', d3.forceManyBody().strength(-300))
       .force('center', d3.forceCenter(width / 2, height / 2))
-      .force('collision', d3.forceCollide().radius(d => getNodeRadius(d as GraphNode) + 5))
+      .force(
+        'collision',
+        d3.forceCollide().radius(d => getNodeRadius(d as GraphNode) + 5)
+      )
 
     // 创建边
-    const link = g.append('g')
+    const link = g
+      .append('g')
       .selectAll('line')
       .data(links)
-      .enter().append('line')
+      .enter()
+      .append('line')
       .attr('stroke', '#999')
       .attr('stroke-opacity', d => d.weight)
       .attr('stroke-width', d => d.weight * 3)
 
     // 创建节点组
-    const node = g.append('g')
+    const node = g
+      .append('g')
       .selectAll('g')
       .data(nodes)
-      .enter().append('g')
-      .call(d3.drag<SVGGElement, GraphNode>()
-        .on('start', dragstarted)
-        .on('drag', dragged)
-        .on('end', dragended))
+      .enter()
+      .append('g')
+      .call(
+        d3
+          .drag<SVGGElement, GraphNode>()
+          .on('start', dragstarted)
+          .on('drag', dragged)
+          .on('end', dragended)
+      )
 
     // 添加节点圆形
-    node.append('circle')
+    node
+      .append('circle')
       .attr('r', d => getNodeRadius(d))
       .attr('fill', d => getNodeColor(d.type))
       .attr('stroke', '#fff')
@@ -172,7 +199,8 @@ const MemoryGraphVisualization: React.FC<Props> = ({ memories, onNodeClick }) =>
       })
 
     // 添加节点标签
-    node.append('text')
+    node
+      .append('text')
       .text(d => d.label)
       .attr('x', 0)
       .attr('y', d => -getNodeRadius(d) - 5)
@@ -181,8 +209,12 @@ const MemoryGraphVisualization: React.FC<Props> = ({ memories, onNodeClick }) =>
       .style('fill', '#333')
 
     // 添加工具提示
-    node.append('title')
-      .text(d => `${d.content}\n重要性: ${d.importance}\n访问次数: ${d.access_count}`)
+    node
+      .append('title')
+      .text(
+        d =>
+          `${d.content}\n重要性: ${d.importance}\n访问次数: ${d.access_count}`
+      )
 
     // 更新位置
     simulation.on('tick', () => {
@@ -196,7 +228,9 @@ const MemoryGraphVisualization: React.FC<Props> = ({ memories, onNodeClick }) =>
     })
 
     // 拖拽函数
-    function dragstarted(event: d3.D3DragEvent<SVGGElement, GraphNode, GraphNode>) {
+    function dragstarted(
+      event: d3.D3DragEvent<SVGGElement, GraphNode, GraphNode>
+    ) {
       if (!event.active) simulation.alphaTarget(0.3).restart()
       event.subject.fx = event.subject.x
       event.subject.fy = event.subject.y
@@ -207,7 +241,9 @@ const MemoryGraphVisualization: React.FC<Props> = ({ memories, onNodeClick }) =>
       event.subject.fy = event.y
     }
 
-    function dragended(event: d3.D3DragEvent<SVGGElement, GraphNode, GraphNode>) {
+    function dragended(
+      event: d3.D3DragEvent<SVGGElement, GraphNode, GraphNode>
+    ) {
       if (!event.active) simulation.alphaTarget(0)
       event.subject.fx = null
       event.subject.fy = null
@@ -233,31 +269,28 @@ const MemoryGraphVisualization: React.FC<Props> = ({ memories, onNodeClick }) =>
 
   const handleZoomIn = () => {
     const svg = d3.select(svgRef.current)
-    svg.transition().call(
-      d3.zoom<SVGSVGElement, unknown>().scaleTo as any,
-      zoom * 1.2
-    )
+    svg
+      .transition()
+      .call(d3.zoom<SVGSVGElement, unknown>().scaleTo as any, zoom * 1.2)
   }
 
   const handleZoomOut = () => {
     const svg = d3.select(svgRef.current)
-    svg.transition().call(
-      d3.zoom<SVGSVGElement, unknown>().scaleTo as any,
-      zoom * 0.8
-    )
+    svg
+      .transition()
+      .call(d3.zoom<SVGSVGElement, unknown>().scaleTo as any, zoom * 0.8)
   }
 
   const handleReset = () => {
     const svg = d3.select(svgRef.current)
-    svg.transition().call(
-      d3.zoom<SVGSVGElement, unknown>().transform as any,
-      d3.zoomIdentity
-    )
+    svg
+      .transition()
+      .call(d3.zoom<SVGSVGElement, unknown>().transform as any, d3.zoomIdentity)
     setZoom(1)
   }
 
   return (
-    <Card 
+    <Card
       title={
         <span>
           <PartitionOutlined /> 记忆关联网络
@@ -325,12 +358,20 @@ const MemoryGraphVisualization: React.FC<Props> = ({ memories, onNodeClick }) =>
           <Tag color="green">工作记忆</Tag>
           <Tag color="blue">情景记忆</Tag>
           <Tag color="purple">语义记忆</Tag>
-          <span style={{ marginLeft: 16 }}>节点大小=重要性 | 边粗细=关联强度</span>
+          <span style={{ marginLeft: 16 }}>
+            节点大小=重要性 | 边粗细=关联强度
+          </span>
         </Space>
       </div>
 
       {/* SVG画布 */}
-      <div style={{ border: '1px solid #f0f0f0', borderRadius: 4, overflow: 'hidden' }}>
+      <div
+        style={{
+          border: '1px solid #f0f0f0',
+          borderRadius: 4,
+          overflow: 'hidden',
+        }}
+      >
         <svg ref={svgRef} style={{ width: '100%', height: 600 }} />
       </div>
 

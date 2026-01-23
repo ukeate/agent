@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
-import {
+import React, { useState, useEffect } from 'react'
 import { logger } from '../utils/logger'
+import {
   Card,
   Table,
   Button,
@@ -29,8 +29,8 @@ import { logger } from '../utils/logger'
   Spin,
   Descriptions,
   Result,
-  Steps
-} from 'antd';
+  Steps,
+} from 'antd'
 import {
   WarningOutlined,
   SafetyOutlined,
@@ -54,8 +54,8 @@ import {
   BugOutlined,
   RocketOutlined,
   CaretUpOutlined,
-  CaretDownOutlined
-} from '@ant-design/icons';
+  CaretDownOutlined,
+} from '@ant-design/icons'
 import {
   riskAssessmentService,
   RiskLevel,
@@ -67,191 +67,205 @@ import {
   RollbackExecution,
   RiskLevelInfo,
   RiskCategoryInfo,
-  RollbackStrategyInfo
-} from '../services/riskAssessmentService';
-import { Gauge, Line, Column, Pie } from '@ant-design/plots';
+  RollbackStrategyInfo,
+} from '../services/riskAssessmentService'
+import { Gauge, Line, Column, Pie } from '@ant-design/plots'
 
-const { TabPane } = Tabs;
-const { Option } = Select;
-const { TextArea } = Input;
-const { Step } = Steps;
+const { TabPane } = Tabs
+const { Option } = Select
+const { TextArea } = Input
+const { Step } = Steps
 
 const RiskAssessmentDashboard: React.FC = () => {
   // 状态管理
-  const [loading, setLoading] = useState(false);
-  const [currentAssessment, setCurrentAssessment] = useState<RiskAssessment | null>(null);
-  const [riskHistory, setRiskHistory] = useState<any[]>([]);
-  const [rollbackPlans, setRollbackPlans] = useState<any[]>([]);
-  const [rollbackExecutions, setRollbackExecutions] = useState<RollbackExecution[]>([]);
-  const [riskLevels, setRiskLevels] = useState<RiskLevelInfo[]>([]);
-  const [riskCategories, setRiskCategories] = useState<RiskCategoryInfo[]>([]);
-  const [rollbackStrategies, setRollbackStrategies] = useState<RollbackStrategyInfo[]>([]);
-  const [riskThresholds, setRiskThresholds] = useState<any>({});
-  
+  const [loading, setLoading] = useState(false)
+  const [currentAssessment, setCurrentAssessment] =
+    useState<RiskAssessment | null>(null)
+  const [riskHistory, setRiskHistory] = useState<any[]>([])
+  const [rollbackPlans, setRollbackPlans] = useState<any[]>([])
+  const [rollbackExecutions, setRollbackExecutions] = useState<
+    RollbackExecution[]
+  >([])
+  const [riskLevels, setRiskLevels] = useState<RiskLevelInfo[]>([])
+  const [riskCategories, setRiskCategories] = useState<RiskCategoryInfo[]>([])
+  const [rollbackStrategies, setRollbackStrategies] = useState<
+    RollbackStrategyInfo[]
+  >([])
+  const [riskThresholds, setRiskThresholds] = useState<any>({})
+
   // 弹窗状态
-  const [assessModalVisible, setAssessModalVisible] = useState(false);
-  const [rollbackModalVisible, setRollbackModalVisible] = useState(false);
-  const [monitorModalVisible, setMonitorModalVisible] = useState(false);
-  const [thresholdModalVisible, setThresholdModalVisible] = useState(false);
-  const [detailDrawerVisible, setDetailDrawerVisible] = useState(false);
-  
+  const [assessModalVisible, setAssessModalVisible] = useState(false)
+  const [rollbackModalVisible, setRollbackModalVisible] = useState(false)
+  const [monitorModalVisible, setMonitorModalVisible] = useState(false)
+  const [thresholdModalVisible, setThresholdModalVisible] = useState(false)
+  const [detailDrawerVisible, setDetailDrawerVisible] = useState(false)
+
   // 表单
-  const [assessForm] = Form.useForm();
-  const [rollbackForm] = Form.useForm();
-  const [monitorForm] = Form.useForm();
-  const [thresholdForm] = Form.useForm();
-  
+  const [assessForm] = Form.useForm()
+  const [rollbackForm] = Form.useForm()
+  const [monitorForm] = Form.useForm()
+  const [thresholdForm] = Form.useForm()
+
   // 其他状态
-  const [selectedExperimentId, setSelectedExperimentId] = useState<string>('');
-  const [selectedRollbackPlan, setSelectedRollbackPlan] = useState<any>(null);
-  const [activeTab, setActiveTab] = useState('assessment');
+  const [selectedExperimentId, setSelectedExperimentId] = useState<string>('')
+  const [selectedRollbackPlan, setSelectedRollbackPlan] = useState<any>(null)
+  const [activeTab, setActiveTab] = useState('assessment')
 
   // 初始化加载
   useEffect(() => {
-    loadInitialData();
-  }, []);
+    loadInitialData()
+  }, [])
 
   // 加载初始数据
   const loadInitialData = async () => {
-    setLoading(true);
+    setLoading(true)
     try {
       await Promise.all([
         loadRiskLevels(),
         loadRiskCategories(),
         loadRollbackStrategies(),
-        loadRiskThresholds()
-      ]);
+        loadRiskThresholds(),
+      ])
     } catch (error) {
-      message.error('加载初始数据失败');
+      message.error('加载初始数据失败')
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
+  }
 
   // 加载风险等级
   const loadRiskLevels = async () => {
     try {
-      const result = await riskAssessmentService.listRiskLevels();
+      const result = await riskAssessmentService.listRiskLevels()
       if (result.success) {
-        setRiskLevels(result.levels);
+        setRiskLevels(result.levels)
       }
     } catch (error) {
-      logger.error('加载风险等级失败:', error);
+      logger.error('加载风险等级失败:', error)
     }
-  };
+  }
 
   // 加载风险类别
   const loadRiskCategories = async () => {
     try {
-      const result = await riskAssessmentService.listRiskCategories();
+      const result = await riskAssessmentService.listRiskCategories()
       if (result.success) {
-        setRiskCategories(result.categories);
+        setRiskCategories(result.categories)
       }
     } catch (error) {
-      logger.error('加载风险类别失败:', error);
+      logger.error('加载风险类别失败:', error)
     }
-  };
+  }
 
   // 加载回滚策略
   const loadRollbackStrategies = async () => {
     try {
-      const result = await riskAssessmentService.listRollbackStrategies();
+      const result = await riskAssessmentService.listRollbackStrategies()
       if (result.success) {
-        setRollbackStrategies(result.strategies);
+        setRollbackStrategies(result.strategies)
       }
     } catch (error) {
-      logger.error('加载回滚策略失败:', error);
+      logger.error('加载回滚策略失败:', error)
     }
-  };
+  }
 
   // 加载风险阈值
   const loadRiskThresholds = async () => {
     try {
-      const result = await riskAssessmentService.getRiskThresholds();
+      const result = await riskAssessmentService.getRiskThresholds()
       if (result.success) {
-        setRiskThresholds(result.thresholds);
+        setRiskThresholds(result.thresholds)
       }
     } catch (error) {
-      logger.error('加载风险阈值失败:', error);
+      logger.error('加载风险阈值失败:', error)
     }
-  };
+  }
 
   // 评估风险
   const handleAssessRisk = async (values: any) => {
     try {
-      setLoading(true);
-      const result = await riskAssessmentService.assessRisk(values);
+      setLoading(true)
+      const result = await riskAssessmentService.assessRisk(values)
       if (result.success) {
-        setCurrentAssessment(result.assessment);
-        message.success('风险评估完成');
-        setAssessModalVisible(false);
-        assessForm.resetFields();
-        
+        setCurrentAssessment(result.assessment)
+        message.success('风险评估完成')
+        setAssessModalVisible(false)
+        assessForm.resetFields()
+
         // 加载历史记录
-        await loadRiskHistory(values.experiment_id);
+        await loadRiskHistory(values.experiment_id)
       }
     } catch (error) {
-      message.error('风险评估失败');
+      message.error('风险评估失败')
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
+  }
 
   // 加载风险历史
   const loadRiskHistory = async (experimentId: string) => {
     try {
-      const result = await riskAssessmentService.getRiskHistory(experimentId);
+      const result = await riskAssessmentService.getRiskHistory(experimentId)
       if (result.success) {
-        setRiskHistory(result.assessments);
+        setRiskHistory(result.assessments)
       }
     } catch (error) {
-      logger.error('加载风险历史失败:', error);
+      logger.error('加载风险历史失败:', error)
     }
-  };
+  }
 
   // 创建回滚计划
   const handleCreateRollbackPlan = async (values: any) => {
     try {
-      const result = await riskAssessmentService.createRollbackPlan(values);
+      const result = await riskAssessmentService.createRollbackPlan(values)
       if (result.success) {
-        message.success('回滚计划创建成功');
-        setRollbackModalVisible(false);
-        rollbackForm.resetFields();
-        
+        message.success('回滚计划创建成功')
+        setRollbackModalVisible(false)
+        rollbackForm.resetFields()
+
         // 添加到计划列表
-        setRollbackPlans([...rollbackPlans, { id: result.plan_id, ...result.plan }]);
+        setRollbackPlans([
+          ...rollbackPlans,
+          { id: result.plan_id, ...result.plan },
+        ])
       }
     } catch (error) {
-      message.error('创建回滚计划失败');
+      message.error('创建回滚计划失败')
     }
-  };
+  }
 
   // 执行回滚
-  const handleExecuteRollback = async (planId: string, force: boolean = false) => {
+  const handleExecuteRollback = async (
+    planId: string,
+    force: boolean = false
+  ) => {
     try {
-      const result = await riskAssessmentService.executeRollback({ plan_id: planId, force });
+      const result = await riskAssessmentService.executeRollback({
+        plan_id: planId,
+        force,
+      })
       if (result.success) {
-        message.success('回滚执行已启动');
-        setRollbackExecutions([...rollbackExecutions, result.execution]);
+        message.success('回滚执行已启动')
+        setRollbackExecutions([...rollbackExecutions, result.execution])
       }
     } catch (error) {
-      message.error('执行回滚失败');
+      message.error('执行回滚失败')
     }
-  };
+  }
 
   // 启动监控
   const handleStartMonitoring = async (values: any) => {
     try {
-      const result = await riskAssessmentService.startMonitoring(values);
+      const result = await riskAssessmentService.startMonitoring(values)
       if (result.success) {
-        message.success('风险监控已启动');
-        setMonitorModalVisible(false);
-        monitorForm.resetFields();
+        message.success('风险监控已启动')
+        setMonitorModalVisible(false)
+        monitorForm.resetFields()
       }
     } catch (error) {
-      message.error('启动监控失败');
+      message.error('启动监控失败')
     }
-  };
+  }
 
   // 更新阈值
   const handleUpdateThreshold = async (values: any) => {
@@ -260,58 +274,59 @@ const RiskAssessmentDashboard: React.FC = () => {
         values.category,
         values.metric,
         values.value
-      );
+      )
       if (result.success) {
-        message.success('阈值更新成功');
-        setThresholdModalVisible(false);
-        thresholdForm.resetFields();
-        await loadRiskThresholds();
+        message.success('阈值更新成功')
+        setThresholdModalVisible(false)
+        thresholdForm.resetFields()
+        await loadRiskThresholds()
       }
     } catch (error) {
-      message.error('更新阈值失败');
+      message.error('更新阈值失败')
     }
-  };
+  }
 
   // 获取风险等级颜色
   const getRiskLevelColor = (level: RiskLevel) => {
-    const levelInfo = riskLevels.find(l => l.value === level);
-    return levelInfo?.color || 'default';
-  };
+    const levelInfo = riskLevels.find(l => l.value === level)
+    return levelInfo?.color || 'default'
+  }
 
   // 获取风险等级图标
   const getRiskLevelIcon = (level: RiskLevel) => {
     switch (level) {
       case RiskLevel.MINIMAL:
-        return <CheckCircleOutlined style={{ color: '#52c41a' }} />;
+        return <CheckCircleOutlined style={{ color: '#52c41a' }} />
       case RiskLevel.LOW:
-        return <InfoCircleOutlined style={{ color: '#1890ff' }} />;
+        return <InfoCircleOutlined style={{ color: '#1890ff' }} />
       case RiskLevel.MEDIUM:
-        return <ExclamationCircleOutlined style={{ color: '#faad14' }} />;
+        return <ExclamationCircleOutlined style={{ color: '#faad14' }} />
       case RiskLevel.HIGH:
-        return <WarningOutlined style={{ color: '#ff7a45' }} />;
+        return <WarningOutlined style={{ color: '#ff7a45' }} />
       case RiskLevel.CRITICAL:
-        return <FireOutlined style={{ color: '#ff4d4f' }} />;
+        return <FireOutlined style={{ color: '#ff4d4f' }} />
       default:
-        return <InfoCircleOutlined />;
+        return <InfoCircleOutlined />
     }
-  };
+  }
 
   // 风险仪表盘配置
   const gaugeConfig = {
     percent: currentAssessment ? currentAssessment.overall_risk_score : 0,
     range: {
-      color: ['#52c41a', '#1890ff', '#faad14', '#ff7a45', '#ff4d4f']
+      color: ['#52c41a', '#1890ff', '#faad14', '#ff7a45', '#ff4d4f'],
     },
     indicator: {
       pointer: { style: { stroke: '#D0D0D0' } },
-      pin: { style: { stroke: '#D0D0D0' } }
+      pin: { style: { stroke: '#D0D0D0' } },
     },
     statistic: {
       content: {
-        formatter: ({ percent }: any) => `风险分数: ${(percent * 100).toFixed(1)}%`
-      }
-    }
-  };
+        formatter: ({ percent }: any) =>
+          `风险分数: ${(percent * 100).toFixed(1)}%`,
+      },
+    },
+  }
 
   // 风险因素表格列配置
   const riskFactorColumns = [
@@ -320,20 +335,20 @@ const RiskAssessmentDashboard: React.FC = () => {
       dataIndex: 'category',
       key: 'category',
       render: (category: RiskCategory) => {
-        const categoryInfo = riskCategories.find(c => c.value === category);
-        return <Tag>{categoryInfo?.name || category}</Tag>;
-      }
+        const categoryInfo = riskCategories.find(c => c.value === category)
+        return <Tag>{categoryInfo?.name || category}</Tag>
+      },
     },
     {
       title: '风险名称',
       dataIndex: 'name',
-      key: 'name'
+      key: 'name',
     },
     {
       title: '描述',
       dataIndex: 'description',
       key: 'description',
-      ellipsis: true
+      ellipsis: true,
     },
     {
       title: '风险分数',
@@ -343,27 +358,37 @@ const RiskAssessmentDashboard: React.FC = () => {
         <Progress
           percent={score * 100}
           size="small"
-          strokeColor={score > 0.7 ? '#ff4d4f' : score > 0.4 ? '#faad14' : '#52c41a'}
+          strokeColor={
+            score > 0.7 ? '#ff4d4f' : score > 0.4 ? '#faad14' : '#52c41a'
+          }
         />
-      )
+      ),
     },
     {
       title: '严重性',
       dataIndex: 'severity',
       key: 'severity',
       render: (severity: string) => (
-        <Tag color={severity === 'high' ? 'red' : severity === 'medium' ? 'orange' : 'green'}>
+        <Tag
+          color={
+            severity === 'high'
+              ? 'red'
+              : severity === 'medium'
+                ? 'orange'
+                : 'green'
+          }
+        >
           {severity}
         </Tag>
-      )
+      ),
     },
     {
       title: '缓解措施',
       dataIndex: 'mitigation',
       key: 'mitigation',
-      ellipsis: true
-    }
-  ];
+      ellipsis: true,
+    },
+  ]
 
   // 回滚计划表格列配置
   const rollbackPlanColumns = [
@@ -371,52 +396,56 @@ const RiskAssessmentDashboard: React.FC = () => {
       title: '计划ID',
       dataIndex: 'id',
       key: 'id',
-      ellipsis: true
+      ellipsis: true,
     },
     {
       title: '实验ID',
       dataIndex: 'experiment_id',
       key: 'experiment_id',
-      ellipsis: true
+      ellipsis: true,
     },
     {
       title: '策略',
       dataIndex: 'strategy',
       key: 'strategy',
       render: (strategy: RollbackStrategy) => {
-        const strategyInfo = rollbackStrategies.find(s => s.value === strategy);
+        const strategyInfo = rollbackStrategies.find(s => s.value === strategy)
         return (
-          <Tag color={
-            strategy === RollbackStrategy.IMMEDIATE ? 'red' :
-            strategy === RollbackStrategy.GRADUAL ? 'orange' :
-            strategy === RollbackStrategy.PARTIAL ? 'blue' : 'default'
-          }>
+          <Tag
+            color={
+              strategy === RollbackStrategy.IMMEDIATE
+                ? 'red'
+                : strategy === RollbackStrategy.GRADUAL
+                  ? 'orange'
+                  : strategy === RollbackStrategy.PARTIAL
+                    ? 'blue'
+                    : 'default'
+            }
+          >
             {strategyInfo?.name || strategy}
           </Tag>
-        );
-      }
+        )
+      },
     },
     {
       title: '预计时长',
       dataIndex: 'estimated_duration_minutes',
       key: 'duration',
-      render: (minutes: number) => `${minutes}分钟`
+      render: (minutes: number) => `${minutes}分钟`,
     },
     {
       title: '自动执行',
       dataIndex: 'auto_execute',
       key: 'auto_execute',
       render: (auto: boolean) => (
-        <Tag color={auto ? 'green' : 'default'}>
-          {auto ? '是' : '否'}
-        </Tag>
-      )
+        <Tag color={auto ? 'green' : 'default'}>{auto ? '是' : '否'}</Tag>
+      ),
     },
     {
       title: '创建时间',
       dataIndex: 'created_at',
       key: 'created_at',
-      render: (time: string) => new Date(time).toLocaleString()
+      render: (time: string) => new Date(time).toLocaleString(),
     },
     {
       title: '操作',
@@ -434,16 +463,16 @@ const RiskAssessmentDashboard: React.FC = () => {
             type="link"
             icon={<InfoCircleOutlined />}
             onClick={() => {
-              setSelectedRollbackPlan(record);
-              setDetailDrawerVisible(true);
+              setSelectedRollbackPlan(record)
+              setDetailDrawerVisible(true)
             }}
           >
             详情
           </Button>
         </Space>
-      )
-    }
-  ];
+      ),
+    },
+  ]
 
   return (
     <div style={{ padding: 24 }}>
@@ -502,8 +531,17 @@ const RiskAssessmentDashboard: React.FC = () => {
                   <Space direction="vertical">
                     <Space>
                       {getRiskLevelIcon(currentAssessment.overall_risk_level)}
-                      <Tag color={getRiskLevelColor(currentAssessment.overall_risk_level)}>
-                        {riskLevels.find(l => l.value === currentAssessment.overall_risk_level)?.name}
+                      <Tag
+                        color={getRiskLevelColor(
+                          currentAssessment.overall_risk_level
+                        )}
+                      >
+                        {
+                          riskLevels.find(
+                            l =>
+                              l.value === currentAssessment.overall_risk_level
+                          )?.name
+                        }
                       </Tag>
                     </Space>
                     {currentAssessment.requires_rollback && (
@@ -541,7 +579,9 @@ const RiskAssessmentDashboard: React.FC = () => {
                 <div>
                   <strong>回滚策略:</strong>
                   <Tag color="blue" style={{ marginLeft: 8 }}>
-                    {rollbackStrategies.find(s => s.value === currentAssessment.rollback_strategy)?.name || '无'}
+                    {rollbackStrategies.find(
+                      s => s.value === currentAssessment.rollback_strategy
+                    )?.name || '无'}
                   </Tag>
                 </div>
               </Card>
@@ -586,12 +626,16 @@ const RiskAssessmentDashboard: React.FC = () => {
                   <Timeline.Item
                     key={index}
                     color={getRiskLevelColor(assessment.risk_level)}
-                    label={new Date(assessment.assessment_time).toLocaleString()}
+                    label={new Date(
+                      assessment.assessment_time
+                    ).toLocaleString()}
                   >
                     <Space direction="vertical">
                       <Space>
                         {getRiskLevelIcon(assessment.risk_level)}
-                        <strong>风险分数: {(assessment.risk_score * 100).toFixed(1)}%</strong>
+                        <strong>
+                          风险分数: {(assessment.risk_score * 100).toFixed(1)}%
+                        </strong>
                       </Space>
                       <span>风险因素数量: {assessment.num_risk_factors}</span>
                       {assessment.requires_rollback && (
@@ -617,21 +661,25 @@ const RiskAssessmentDashboard: React.FC = () => {
 
           <TabPane tab="阈值配置" key="thresholds">
             <Row gutter={[16, 16]}>
-              {Object.entries(riskThresholds).map(([category, metrics]: [string, any]) => (
-                <Col span={8} key={category}>
-                  <Card title={category} size="small">
-                    <List
-                      size="small"
-                      dataSource={Object.entries(metrics)}
-                      renderItem={([metric, value]: [string, any]) => (
-                        <List.Item>
-                          <span>{metric}: {value}</span>
-                        </List.Item>
-                      )}
-                    />
-                  </Card>
-                </Col>
-              ))}
+              {Object.entries(riskThresholds).map(
+                ([category, metrics]: [string, any]) => (
+                  <Col span={8} key={category}>
+                    <Card title={category} size="small">
+                      <List
+                        size="small"
+                        dataSource={Object.entries(metrics)}
+                        renderItem={([metric, value]: [string, any]) => (
+                          <List.Item>
+                            <span>
+                              {metric}: {value}
+                            </span>
+                          </List.Item>
+                        )}
+                      />
+                    </Card>
+                  </Col>
+                )
+              )}
             </Row>
           </TabPane>
         </Tabs>
@@ -645,11 +693,7 @@ const RiskAssessmentDashboard: React.FC = () => {
         onOk={() => assessForm.submit()}
         width={500}
       >
-        <Form
-          form={assessForm}
-          layout="vertical"
-          onFinish={handleAssessRisk}
-        >
+        <Form form={assessForm} layout="vertical" onFinish={handleAssessRisk}>
           <Form.Item
             name="experiment_id"
             label="实验ID"
@@ -688,10 +732,7 @@ const RiskAssessmentDashboard: React.FC = () => {
           >
             <Input placeholder="请输入实验ID" />
           </Form.Item>
-          <Form.Item
-            name="strategy"
-            label="回滚策略"
-          >
+          <Form.Item name="strategy" label="回滚策略">
             <Select placeholder="请选择回滚策略">
               {rollbackStrategies.map(strategy => (
                 <Option key={strategy.value} value={strategy.value}>
@@ -798,11 +839,21 @@ const RiskAssessmentDashboard: React.FC = () => {
         {selectedRollbackPlan && (
           <Space direction="vertical" style={{ width: '100%' }} size="large">
             <Descriptions column={1} bordered>
-              <Descriptions.Item label="计划ID">{selectedRollbackPlan.id}</Descriptions.Item>
-              <Descriptions.Item label="实验ID">{selectedRollbackPlan.experiment_id}</Descriptions.Item>
-              <Descriptions.Item label="触发原因">{selectedRollbackPlan.trigger_reason}</Descriptions.Item>
+              <Descriptions.Item label="计划ID">
+                {selectedRollbackPlan.id}
+              </Descriptions.Item>
+              <Descriptions.Item label="实验ID">
+                {selectedRollbackPlan.experiment_id}
+              </Descriptions.Item>
+              <Descriptions.Item label="触发原因">
+                {selectedRollbackPlan.trigger_reason}
+              </Descriptions.Item>
               <Descriptions.Item label="策略">
-                {rollbackStrategies.find(s => s.value === selectedRollbackPlan.strategy)?.name}
+                {
+                  rollbackStrategies.find(
+                    s => s.value === selectedRollbackPlan.strategy
+                  )?.name
+                }
               </Descriptions.Item>
               <Descriptions.Item label="预计时长">
                 {selectedRollbackPlan.estimated_duration_minutes}分钟
@@ -811,19 +862,25 @@ const RiskAssessmentDashboard: React.FC = () => {
                 {selectedRollbackPlan.approval_required ? '是' : '否'}
               </Descriptions.Item>
             </Descriptions>
-            
+
             <Card title="执行步骤">
               <Steps direction="vertical" size="small">
-                {selectedRollbackPlan.steps?.map((step: string, index: number) => (
-                  <Step key={index} title={`步骤 ${index + 1}`} description={step} />
-                ))}
+                {selectedRollbackPlan.steps?.map(
+                  (step: string, index: number) => (
+                    <Step
+                      key={index}
+                      title={`步骤 ${index + 1}`}
+                      description={step}
+                    />
+                  )
+                )}
               </Steps>
             </Card>
           </Space>
         )}
       </Drawer>
     </div>
-  );
-};
+  )
+}
 
-export default RiskAssessmentDashboard;
+export default RiskAssessmentDashboard

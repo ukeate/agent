@@ -29,7 +29,7 @@ const SocialContextAdaptationPage: React.FC = () => {
     setLoading(true)
     try {
       const [sRes, hRes] = await Promise.all([
-        apiFetch(buildApiUrl('/api/v1/social-emotional/context-adaptation/strategies'),
+        apiFetch(buildApiUrl('/api/v1/social-emotional/context-adaptation/strategies')),
         apiFetch(buildApiUrl('/api/v1/social-emotional/context-adaptation/history'))
       ])
       setStrategies((await sRes.json())?.strategies || [])

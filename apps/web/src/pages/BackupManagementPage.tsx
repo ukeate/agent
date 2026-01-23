@@ -1,60 +1,81 @@
 import { buildApiUrl, apiFetch } from '../utils/apiBase'
-import React, { useEffect, useState } from 'react';
-import { Card, Table, Space, Typography, Button, Alert, Spin, Statistic, Tag } from 'antd';
-import { DatabaseOutlined, ReloadOutlined, CloudDownloadOutlined } from '@ant-design/icons';
+import React, { useEffect, useState } from 'react'
+import {
+  Card,
+  Table,
+  Space,
+  Typography,
+  Button,
+  Alert,
+  Spin,
+  Statistic,
+  Tag,
+} from 'antd'
+import {
+  DatabaseOutlined,
+  ReloadOutlined,
+  CloudDownloadOutlined,
+} from '@ant-design/icons'
 
 type BackupStats = {
-  total_backups: number;
-  total_size: number;
-  success_rate: number;
-  last_backup_time: string;
-  components?: Record<string, { backup_count: number; last_backup: string; total_size: number }>;
-};
+  total_backups: number
+  total_size: number
+  success_rate: number
+  last_backup_time: string
+  components?: Record<
+    string,
+    { backup_count: number; last_backup: string; total_size: number }
+  >
+}
 
 type BackupRecord = {
-  backup_id: string;
-  component_id: string;
-  backup_type: string;
-  created_at: string;
-  size: number;
-  checksum?: string;
-  storage_path?: string;
-  valid?: boolean;
-};
+  backup_id: string
+  component_id: string
+  backup_type: string
+  created_at: string
+  size: number
+  checksum?: string
+  storage_path?: string
+  valid?: boolean
+}
 
 const BackupManagementPage: React.FC = () => {
-  const [stats, setStats] = useState<BackupStats | null>(null);
-  const [records, setRecords] = useState<BackupRecord[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [stats, setStats] = useState<BackupStats | null>(null)
+  const [records, setRecords] = useState<BackupRecord[]>([])
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   const load = async () => {
-    setLoading(true);
-    setError(null);
+    setLoading(true)
+    setError(null)
     try {
-      const resStats = await apiFetch(buildApiUrl('/api/v1/fault-tolerance/backup/statistics'));
-      const dataStats = await resStats.json();
-      setStats(dataStats);
-
+      const resStats = await apiFetch(
+        buildApiUrl('/api/v1/fault-tolerance/backup/statistics')
+      )
+      const dataStats = await resStats.json()
+      setStats(dataStats)
     } catch (e: any) {
-      setError(e?.message || '加载失败');
-      setStats(null);
-      setRecords([]);
+      setError(e?.message || '加载失败')
+      setStats(null)
+      setRecords([])
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
+  }
 
   useEffect(() => {
-    load();
-  }, []);
+    load()
+  }, [])
 
-  const totalSizeGB = stats ? (stats.total_size || 0) / (1024 * 1024 * 1024) : 0;
+  const totalSizeGB = stats ? (stats.total_size || 0) / (1024 * 1024 * 1024) : 0
 
   return (
     <div style={{ padding: 24 }}>
       <Space direction="vertical" style={{ width: '100%' }} size="large">
-        <Space align="center" style={{ justifyContent: 'space-between', width: '100%' }}>
+        <Space
+          align="center"
+          style={{ justifyContent: 'space-between', width: '100%' }}
+        >
           <Space>
             <DatabaseOutlined />
             <Typography.Title level={3} style={{ margin: 0 }}>
@@ -75,11 +96,18 @@ const BackupManagementPage: React.FC = () => {
             <Space size="large">
               <Statistic title="备份总数" value={stats.total_backups} />
               <Statistic title="总大小(GB)" value={totalSizeGB.toFixed(2)} />
-              <Statistic title="成功率" value={(stats.success_rate || 0) * 100} suffix="%" />
+              <Statistic
+                title="成功率"
+                value={(stats.success_rate || 0) * 100}
+                suffix="%"
+              />
               <Statistic title="最近备份时间" value={stats.last_backup_time} />
             </Space>
           ) : (
-            <Alert type="info" message="暂无备份统计，请先触发 /api/v1/fault-tolerance/backup/manual。" />
+            <Alert
+              type="info"
+              message="暂无备份统计，请先触发 /api/v1/fault-tolerance/backup/manual。"
+            />
           )}
         </Card>
 
@@ -101,7 +129,9 @@ const BackupManagementPage: React.FC = () => {
                 {
                   title: '有效',
                   dataIndex: 'valid',
-                  render: (v) => <Tag color={v ? 'green' : 'red'}>{v ? '是' : '否'}</Tag>
+                  render: v => (
+                    <Tag color={v ? 'green' : 'red'}>{v ? '是' : '否'}</Tag>
+                  ),
                 },
               ]}
             />
@@ -116,7 +146,7 @@ const BackupManagementPage: React.FC = () => {
         />
       </Space>
     </div>
-  );
-};
+  )
+}
 
-export default BackupManagementPage;
+export default BackupManagementPage

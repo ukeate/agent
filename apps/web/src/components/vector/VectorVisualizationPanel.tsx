@@ -3,21 +3,35 @@
  * 展示t-SNE、UMAP、PCA等降维可视化功能
  */
 
-import React, { useState } from 'react';
-import { Card, Radio, Slider, Button, Space, Alert, Select, Row, Col } from 'antd';
-import { EyeOutlined, DotChartOutlined, BarChartOutlined } from '@ant-design/icons';
+import React, { useState } from 'react'
+import {
+  Card,
+  Radio,
+  Slider,
+  Button,
+  Space,
+  Alert,
+  Select,
+  Row,
+  Col,
+} from 'antd'
+import {
+  EyeOutlined,
+  DotChartOutlined,
+  BarChartOutlined,
+} from '@ant-design/icons'
 
 const VectorVisualizationPanel: React.FC = () => {
-  const [algorithm, setAlgorithm] = useState('tsne');
-  const [perplexity, setPerplexity] = useState(30);
-  const [dimensions, setDimensions] = useState(2);
+  const [algorithm, setAlgorithm] = useState('tsne')
+  const [perplexity, setPerplexity] = useState(30)
+  const [dimensions, setDimensions] = useState(2)
 
   return (
     <div>
       <Alert
         message="向量可视化"
         description="使用t-SNE、UMAP、PCA等算法将高维向量降维到2D/3D空间进行可视化，支持聚类着色和交互式探索。"
-        variant="default"
+        type="info"
         showIcon
         style={{ marginBottom: 24 }}
       />
@@ -28,7 +42,10 @@ const VectorVisualizationPanel: React.FC = () => {
             <Space direction="vertical" style={{ width: '100%' }}>
               <div>
                 <label>降维算法</label>
-                <Radio.Group value={algorithm} onChange={(e) => setAlgorithm(e.target.value)}>
+                <Radio.Group
+                  value={algorithm}
+                  onChange={e => setAlgorithm(e.target.value)}
+                >
                   <Radio value="tsne">t-SNE</Radio>
                   <Radio value="umap">UMAP</Radio>
                   <Radio value="pca">PCA</Radio>
@@ -50,7 +67,11 @@ const VectorVisualizationPanel: React.FC = () => {
 
               <div>
                 <label>输出维度</label>
-                <Select value={dimensions} onChange={setDimensions} style={{ width: '100%' }}>
+                <Select
+                  value={dimensions}
+                  onChange={setDimensions}
+                  style={{ width: '100%' }}
+                >
                   <Select.Option value={2}>2D</Select.Option>
                   <Select.Option value={3}>3D</Select.Option>
                 </Select>
@@ -75,14 +96,14 @@ const VectorVisualizationPanel: React.FC = () => {
 
         <Col span={16}>
           <Card title="向量分布可视化" size="small">
-            <div 
-              style={{ 
-                height: 400, 
-                backgroundColor: '#fafafa', 
-                display: 'flex', 
-                alignItems: 'center', 
+            <div
+              style={{
+                height: 400,
+                backgroundColor: '#fafafa',
+                display: 'flex',
+                alignItems: 'center',
                 justifyContent: 'center',
-                border: '2px dashed #d9d9d9'
+                border: '2px dashed #d9d9d9',
               }}
             >
               <Space direction="vertical" align="center">
@@ -97,7 +118,7 @@ const VectorVisualizationPanel: React.FC = () => {
         </Col>
       </Row>
     </div>
-  );
-};
+  )
+}
 
-export default VectorVisualizationPanel;
+export default VectorVisualizationPanel

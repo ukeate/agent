@@ -19,8 +19,8 @@ const KnowledgeGraphIncrementalUpdate: React.FC = () => {
     setError(null)
     try {
       const [jobRes, conflictRes, metricRes] = await Promise.all([
-        apiFetch(buildApiUrl('/api/v1/knowledge-graph/update/jobs'),
-        apiFetch(buildApiUrl('/api/v1/knowledge-graph/update/conflicts'),
+        apiFetch(buildApiUrl('/api/v1/knowledge-graph/update/jobs')),
+        apiFetch(buildApiUrl('/api/v1/knowledge-graph/update/conflicts')),
         apiFetch(buildApiUrl('/api/v1/knowledge-graph/update/metrics'))
       ])
       const jobData = await jobRes.json()

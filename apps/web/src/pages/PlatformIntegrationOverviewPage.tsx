@@ -14,7 +14,7 @@ import {
   Timeline,
   Avatar,
   Spin,
-  message
+  message,
 } from 'antd'
 import {
   RocketOutlined,
@@ -23,7 +23,7 @@ import {
   ClockCircleOutlined,
   ExclamationCircleOutlined,
   ApiOutlined,
-  SettingOutlined
+  SettingOutlined,
 } from '@ant-design/icons'
 import type { ColumnsType } from 'antd/es/table'
 
@@ -62,7 +62,11 @@ interface Workflow {
 
 interface RecentActivity {
   id: string
-  type: 'component_registered' | 'workflow_started' | 'workflow_completed' | 'alert_generated'
+  type:
+    | 'component_registered'
+    | 'workflow_started'
+    | 'workflow_completed'
+    | 'alert_generated'
   message: string
   timestamp: string
 }
@@ -82,44 +86,57 @@ const PlatformIntegrationOverviewPage: React.FC = () => {
 
   const fetchOverviewData = async () => {
     try {
-      const [healthRes, componentsRes, workflowsRes, metricsRes] = await Promise.allSettled([
-        apiFetch(buildApiUrl('/api/v1/platform/health')),
-        apiFetch(buildApiUrl('/api/v1/platform/components')),
-        apiFetch(buildApiUrl('/api/v1/platform/workflows?limit=10')),
-        apiFetch(buildApiUrl('/api/v1/platform/optimization/metrics'))
-      ])
+      const [healthRes, componentsRes, workflowsRes, metricsRes] =
+        await Promise.allSettled([
+          apiFetch(buildApiUrl('/api/v1/platform/health')),
+          apiFetch(buildApiUrl('/api/v1/platform/components')),
+          apiFetch(buildApiUrl('/api/v1/platform/workflows?limit=10')),
+          apiFetch(buildApiUrl('/api/v1/platform/optimization/metrics')),
+        ])
 
       let nextComponents: Component[] = []
       let nextWorkflows: Workflow[] = []
 
       if (componentsRes.status === 'fulfilled') {
         const componentsData = await componentsRes.value.json()
-        nextComponents = Object.values(componentsData.components || {}).map((c: any) => ({
-          component_id: String(c.component_id || ''),
-          name: String(c.name || ''),
-          component_type: String(c.component_type || ''),
-          version: String(c.version || ''),
-          status: c.status,
-          last_check: String(c.last_heartbeat || ''),
-          uptime: c.registered_at ? Math.max(0, (Date.now() - new Date(c.registered_at).getTime()) / 1000) : 0
-        }))
+        nextComponents = Object.values(componentsData.components || {}).map(
+          (c: any) => ({
+            component_id: String(c.component_id || ''),
+            name: String(c.name || ''),
+            component_type: String(c.component_type || ''),
+            version: String(c.version || ''),
+            status: c.status,
+            last_check: String(c.last_heartbeat || ''),
+            uptime: c.registered_at
+              ? Math.max(
+                  0,
+                  (Date.now() - new Date(c.registered_at).getTime()) / 1000
+                )
+              : 0,
+          })
+        )
         setComponents(nextComponents)
       }
 
       if (workflowsRes.status === 'fulfilled') {
         const workflowsData = await workflowsRes.value.json()
-        const list = Array.isArray(workflowsData.workflows) ? workflowsData.workflows : []
+        const list = Array.isArray(workflowsData.workflows)
+          ? workflowsData.workflows
+          : []
         nextWorkflows = list.map((w: any) => {
           const steps = Array.isArray(w.steps) ? w.steps : []
           const totalSteps = steps.length || Number(w.total_steps || 0)
-          const completedSteps = steps.filter((s: any) => s.status === 'completed').length
-          const progress = totalSteps > 0 ? Math.round((completedSteps / totalSteps) * 100) : 0
+          const completedSteps = steps.filter(
+            (s: any) => s.status === 'completed'
+          ).length
+          const progress =
+            totalSteps > 0 ? Math.round((completedSteps / totalSteps) * 100) : 0
           return {
             workflow_id: String(w.workflow_id || ''),
             name: String(w.workflow_type || ''),
             status: w.status,
             progress,
-            started_at: String(w.started_at || '')
+            started_at: String(w.started_at || ''),
           }
         })
         setWorkflows(nextWorkflows)
@@ -144,34 +161,38 @@ const PlatformIntegrationOverviewPage: React.FC = () => {
           total_components: total,
           healthy_components: healthy,
           unhealthy_components: Math.max(0, total - healthy),
-          active_workflows: nextWorkflows.filter((w) => w.status === 'running').length,
+          active_workflows: nextWorkflows.filter(w => w.status === 'running')
+            .length,
           system_health: healthData.overall_status,
           cpu_usage: cpu,
           memory_usage: mem,
-          disk_usage: disk
+          disk_usage: disk,
         })
       }
 
       const nextActivities: RecentActivity[] = []
-      nextComponents.forEach((c) => {
+      nextComponents.forEach(c => {
         if (!c.last_check) return
         nextActivities.push({
           id: `component:${c.component_id}`,
           type: 'component_registered',
           message: `组件已注册: ${c.name}`,
-          timestamp: c.last_check
+          timestamp: c.last_check,
         })
       })
-      nextWorkflows.forEach((w) => {
+      nextWorkflows.forEach(w => {
         if (!w.started_at) return
         nextActivities.push({
           id: `workflow:${w.workflow_id}`,
           type: 'workflow_started',
           message: `工作流启动: ${w.name || w.workflow_id}`,
-          timestamp: w.started_at
+          timestamp: w.started_at,
         })
       })
-      nextActivities.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+      nextActivities.sort(
+        (a, b) =>
+          new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+      )
       setActivities(nextActivities.slice(0, 20))
     } catch (error) {
       message.error('获取平台状态失败')
@@ -195,95 +216,144 @@ const PlatformIntegrationOverviewPage: React.FC = () => {
             </Text>
           </div>
         </Space>
-      )
+      ),
     },
     {
       title: '类型',
       dataIndex: 'component_type',
       key: 'component_type',
-      render: (type) => <Tag color="blue">{type}</Tag>
+      render: type => <Tag color="blue">{type}</Tag>,
     },
     {
       title: '版本',
       dataIndex: 'version',
-      key: 'version'
+      key: 'version',
     },
     {
       title: '状态',
       dataIndex: 'status',
       key: 'status',
-      render: (status) => (
+      render: status => (
         <Tag
           color={status === 'healthy' ? 'green' : 'red'}
-          icon={status === 'healthy' ? <CheckCircleOutlined /> : <ExclamationCircleOutlined />}
+          icon={
+            status === 'healthy' ? (
+              <CheckCircleOutlined />
+            ) : (
+              <ExclamationCircleOutlined />
+            )
+          }
         >
           {status === 'healthy' ? '健康' : '异常'}
         </Tag>
-      )
+      ),
     },
     {
       title: '运行时间',
       dataIndex: 'uptime',
       key: 'uptime',
-      render: (uptime) => `${Math.floor(uptime / 3600)}h ${Math.floor((uptime % 3600) / 60)}m`
-    }
+      render: uptime =>
+        `${Math.floor(uptime / 3600)}h ${Math.floor((uptime % 3600) / 60)}m`,
+    },
   ]
 
   const workflowColumns: ColumnsType<Workflow> = [
     {
       title: '工作流名称',
       dataIndex: 'name',
-      key: 'name'
+      key: 'name',
     },
     {
       title: '状态',
       dataIndex: 'status',
       key: 'status',
-      render: (status) => {
+      render: status => {
         const statusConfig = {
-          running: { color: 'processing', text: '运行中', icon: <ClockCircleOutlined /> },
-          completed: { color: 'success', text: '已完成', icon: <CheckCircleOutlined /> },
-          failed: { color: 'error', text: '失败', icon: <ExclamationCircleOutlined /> },
-          pending: { color: 'default', text: '待执行', icon: <ClockCircleOutlined /> },
-          cancelled: { color: 'default', text: '已取消', icon: <ClockCircleOutlined /> },
-          error: { color: 'error', text: '错误', icon: <ExclamationCircleOutlined /> }
+          running: {
+            color: 'processing',
+            text: '运行中',
+            icon: <ClockCircleOutlined />,
+          },
+          completed: {
+            color: 'success',
+            text: '已完成',
+            icon: <CheckCircleOutlined />,
+          },
+          failed: {
+            color: 'error',
+            text: '失败',
+            icon: <ExclamationCircleOutlined />,
+          },
+          pending: {
+            color: 'default',
+            text: '待执行',
+            icon: <ClockCircleOutlined />,
+          },
+          cancelled: {
+            color: 'default',
+            text: '已取消',
+            icon: <ClockCircleOutlined />,
+          },
+          error: {
+            color: 'error',
+            text: '错误',
+            icon: <ExclamationCircleOutlined />,
+          },
         }
-        const config = statusConfig[status] || { color: 'default', text: String(status), icon: <ClockCircleOutlined /> }
-        return <Tag color={config.color} icon={config.icon}>{config.text}</Tag>
-      }
+        const config = statusConfig[status] || {
+          color: 'default',
+          text: String(status),
+          icon: <ClockCircleOutlined />,
+        }
+        return (
+          <Tag color={config.color} icon={config.icon}>
+            {config.text}
+          </Tag>
+        )
+      },
     },
     {
       title: '进度',
       dataIndex: 'progress',
       key: 'progress',
-      render: (progress) => <Progress percent={progress} size="small" />
+      render: progress => <Progress percent={progress} size="small" />,
     },
     {
       title: '开始时间',
       dataIndex: 'started_at',
       key: 'started_at',
-      render: (time) => new Date(time).toLocaleString()
-    }
+      render: time => new Date(time).toLocaleString(),
+    },
   ]
 
   const getActivityIcon = (type: string) => {
     switch (type) {
-      case 'component_registered': return <ApiOutlined />
-      case 'workflow_started': return <RocketOutlined />
-      case 'workflow_completed': return <CheckCircleOutlined />
-      case 'alert_generated': return <ExclamationCircleOutlined />
-      default: return <SettingOutlined />
+      case 'component_registered':
+        return <ApiOutlined />
+      case 'workflow_started':
+        return <RocketOutlined />
+      case 'workflow_completed':
+        return <CheckCircleOutlined />
+      case 'alert_generated':
+        return <ExclamationCircleOutlined />
+      default:
+        return <SettingOutlined />
     }
   }
 
   if (loading) {
-    return <Spin size="large" style={{ display: 'block', textAlign: 'center', marginTop: 100 }} />
+    return (
+      <Spin
+        size="large"
+        style={{ display: 'block', textAlign: 'center', marginTop: 100 }}
+      />
+    )
   }
 
   return (
     <div style={{ padding: '24px' }}>
       <Title level={2}>平台集成总览</Title>
-      
+
       {status && (
         <>
           <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
@@ -323,7 +393,12 @@ const PlatformIntegrationOverviewPage: React.FC = () => {
                   title="系统健康度"
                   value={status.system_health}
                   prefix={<MonitorOutlined />}
-                  valueStyle={{ color: status.system_health === 'healthy' ? '#52c41a' : '#f5222d' }}
+                  valueStyle={{
+                    color:
+                      status.system_health === 'healthy'
+                        ? '#52c41a'
+                        : '#f5222d',
+                  }}
                 />
               </Card>
             </Col>
@@ -332,25 +407,43 @@ const PlatformIntegrationOverviewPage: React.FC = () => {
           <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
             <Col span={8}>
               <Card title="CPU使用率" size="small">
-                <Progress 
-                  percent={status.cpu_usage} 
-                  status={status.cpu_usage > 80 ? 'exception' : status.cpu_usage > 60 ? 'active' : 'success'}
+                <Progress
+                  percent={status.cpu_usage}
+                  status={
+                    status.cpu_usage > 80
+                      ? 'exception'
+                      : status.cpu_usage > 60
+                        ? 'active'
+                        : 'success'
+                  }
                 />
               </Card>
             </Col>
             <Col span={8}>
               <Card title="内存使用率" size="small">
-                <Progress 
+                <Progress
                   percent={status.memory_usage}
-                  status={status.memory_usage > 80 ? 'exception' : status.memory_usage > 60 ? 'active' : 'success'}
+                  status={
+                    status.memory_usage > 80
+                      ? 'exception'
+                      : status.memory_usage > 60
+                        ? 'active'
+                        : 'success'
+                  }
                 />
               </Card>
             </Col>
             <Col span={8}>
               <Card title="磁盘使用率" size="small">
-                <Progress 
+                <Progress
                   percent={status.disk_usage}
-                  status={status.disk_usage > 80 ? 'exception' : status.disk_usage > 60 ? 'active' : 'success'}
+                  status={
+                    status.disk_usage > 80
+                      ? 'exception'
+                      : status.disk_usage > 60
+                        ? 'active'
+                        : 'success'
+                  }
                 />
               </Card>
             </Col>

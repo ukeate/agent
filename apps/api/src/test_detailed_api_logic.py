@@ -211,8 +211,11 @@ class DetailedAPILogicTester:
             description="MCP系统指标"
         )
         
-        # 2.6 便捷接口测试 - 文件读取（使用查询参数）
-        response = self.client.post("/api/v1/mcp/tools/filesystem/read?path=/etc/hosts&encoding=utf-8")
+        # 2.6 便捷接口测试 - 文件读取
+        response = self.client.post(
+            "/api/v1/mcp/tools/filesystem/read",
+            json={"path": "/etc/hosts", "encoding": "utf-8"}
+        )
         self.total_tests += 1
         status = "✓" if 200 <= response.status_code < 500 else "✗"
         if status == "✓": self.passed_tests += 1
@@ -230,7 +233,10 @@ class DetailedAPILogicTester:
         logger.info(f"   {result}")
         
         # 2.8 便捷接口测试 - 数据库查询
-        response = self.client.post("/api/v1/mcp/tools/database/query?query=SELECT 1 as test_value")
+        response = self.client.post(
+            "/api/v1/mcp/tools/database/query",
+            json={"query": "SELECT 1 as test_value"}
+        )
         self.total_tests += 1
         status = "✓" if 200 <= response.status_code < 500 else "✗"
         if status == "✓": self.passed_tests += 1
@@ -239,7 +245,10 @@ class DetailedAPILogicTester:
         logger.info(f"   {result}")
         
         # 2.9 便捷接口测试 - 系统命令
-        response = self.client.post("/api/v1/mcp/tools/system/command?command=echo 'Hello MCP'&timeout=5")
+        response = self.client.post(
+            "/api/v1/mcp/tools/system/command",
+            json={"command": "echo 'Hello MCP'", "timeout": 5}
+        )
         self.total_tests += 1
         status = "✓" if 200 <= response.status_code < 500 else "✗"
         if status == "✓": self.passed_tests += 1

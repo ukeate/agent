@@ -30,7 +30,7 @@ const EntityRecognitionPage: React.FC = () => {
       const res = await apiFetch(buildApiUrl('/api/v1/knowledge-extraction/entities/search'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query: ''), limit: 50 })
+        body: JSON.stringify({ query: '', limit: 50 })
       })
       const data = await res.json()
       setEntities(Array.isArray(data?.entities) ? data.entities : [])
@@ -56,7 +56,7 @@ const EntityRecognitionPage: React.FC = () => {
       const res = await apiFetch(buildApiUrl('/api/v1/knowledge-extraction/ner'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text, model_name: model, return_context: true), link_entities: true })
+        body: JSON.stringify({ text, model_name: model, return_context: true, link_entities: true })
       })
       const data = await res.json()
       const list = Array.isArray(data?.entities) ? data.entities : []

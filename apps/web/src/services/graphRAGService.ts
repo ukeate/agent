@@ -13,17 +13,23 @@ type ApiEnvelope<T> = {
   [k: string]: any
 }
 
-type GraphRAGApiRetrievalMode = 'vector_only' | 'graph_only' | 'hybrid' | 'adaptive'
+type GraphRAGApiRetrievalMode =
+  | 'vector_only'
+  | 'graph_only'
+  | 'hybrid'
+  | 'adaptive'
 export type GraphRAGRetrievalMode = 'vector' | 'graph' | 'hybrid' | 'adaptive'
 
-const toApiRetrievalMode = (mode?: GraphRAGRetrievalMode): GraphRAGApiRetrievalMode | undefined => {
+const toApiRetrievalMode = (
+  mode?: GraphRAGRetrievalMode
+): GraphRAGApiRetrievalMode | undefined => {
   if (!mode) return undefined
   if (mode === 'vector') return 'vector_only'
   if (mode === 'graph') return 'graph_only'
   return mode
 }
 
-const unwrap = <T,>(payload: ApiEnvelope<T>): T => {
+const unwrap = <T>(payload: ApiEnvelope<T>): T => {
   if (!payload?.success) throw new Error(payload?.error || '请求失败')
   if (payload.data === undefined) throw new Error('后端未返回data')
   return payload.data
@@ -194,7 +200,10 @@ class GraphRAGService {
     return unwrap<GraphRAGResponse>(response.data)
   }
 
-  async analyzeQuery(query: string, queryType?: string): Promise<GraphRAGQueryAnalysis> {
+  async analyzeQuery(
+    query: string,
+    queryType?: string
+  ): Promise<GraphRAGQueryAnalysis> {
     const response = await apiClient.post(`${this.baseUrl}/query/analyze`, {
       query,
       query_type: queryType,
@@ -222,8 +231,13 @@ class GraphRAGService {
     return unwrap<any>(response.data)
   }
 
-  async multiSourceFusion(request: GraphRAGMultiSourceFusionRequest): Promise<GraphRAGMultiSourceFusionResult> {
-    const response = await apiClient.post(`${this.baseUrl}/fusion/multi-source`, request)
+  async multiSourceFusion(
+    request: GraphRAGMultiSourceFusionRequest
+  ): Promise<GraphRAGMultiSourceFusionResult> {
+    const response = await apiClient.post(
+      `${this.baseUrl}/fusion/multi-source`,
+      request
+    )
     return unwrap<GraphRAGMultiSourceFusionResult>(response.data)
   }
 
@@ -237,37 +251,58 @@ class GraphRAGService {
     conflicts?: any[]
     strategy?: string
   }): Promise<any> {
-    const response = await apiClient.post(`${this.baseUrl}/fusion/conflict-resolution`, request)
+    const response = await apiClient.post(
+      `${this.baseUrl}/fusion/conflict-resolution`,
+      request
+    )
     return unwrap<any>(response.data)
   }
 
-  async getConsistencyCheck(queryId?: string): Promise<GraphRAGConsistencyCheck> {
+  async getConsistencyCheck(
+    queryId?: string
+  ): Promise<GraphRAGConsistencyCheck> {
     const response = await apiClient.get(`${this.baseUrl}/fusion/consistency`, {
       params: queryId ? { query_id: queryId } : undefined,
     })
     return unwrap<GraphRAGConsistencyCheck>(response.data)
   }
 
-  async getPerformanceStats(startTime?: string, endTime?: string): Promise<GraphRAGPerformanceStats> {
+  async getPerformanceStats(
+    startTime?: string,
+    endTime?: string
+  ): Promise<GraphRAGPerformanceStats> {
     const params: any = {}
     if (startTime) params.start_time = startTime
     if (endTime) params.end_time = endTime
-    const response = await apiClient.get(`${this.baseUrl}/performance/stats`, { params })
+    const response = await apiClient.get(`${this.baseUrl}/performance/stats`, {
+      params,
+    })
     return unwrap<GraphRAGPerformanceStats>(response.data)
   }
 
-  async getPerformanceComparison(baselineDate: string, comparisonDate: string): Promise<GraphRAGPerformanceComparison> {
-    const response = await apiClient.get(`${this.baseUrl}/performance/comparison`, {
-      params: {
-        baseline_date: baselineDate,
-        comparison_date: comparisonDate,
-      },
-    })
+  async getPerformanceComparison(
+    baselineDate: string,
+    comparisonDate: string
+  ): Promise<GraphRAGPerformanceComparison> {
+    const response = await apiClient.get(
+      `${this.baseUrl}/performance/comparison`,
+      {
+        params: {
+          baseline_date: baselineDate,
+          comparison_date: comparisonDate,
+        },
+      }
+    )
     return unwrap<GraphRAGPerformanceComparison>(response.data)
   }
 
-  async runBenchmark(request: GraphRAGBenchmarkRequest): Promise<GraphRAGBenchmarkResult> {
-    const response = await apiClient.post(`${this.baseUrl}/performance/benchmark`, request)
+  async runBenchmark(
+    request: GraphRAGBenchmarkRequest
+  ): Promise<GraphRAGBenchmarkResult> {
+    const response = await apiClient.post(
+      `${this.baseUrl}/performance/benchmark`,
+      request
+    )
     return unwrap<GraphRAGBenchmarkResult>(response.data)
   }
 
@@ -285,16 +320,23 @@ class GraphRAGService {
     return unwrap<{ updated_config: any; message: string }>(response.data)
   }
 
-  async explainResult(request: { query: string; reasoning_paths: any[] }): Promise<GraphRAGExplainResult> {
-    const response = await apiClient.post(`${this.baseUrl}/debug/explain`, request)
+  async explainResult(request: {
+    query: string
+    reasoning_paths: any[]
+  }): Promise<GraphRAGExplainResult> {
+    const response = await apiClient.post(
+      `${this.baseUrl}/debug/explain`,
+      request
+    )
     return unwrap<GraphRAGExplainResult>(response.data)
   }
 
   async getDebugTrace(queryId: string): Promise<GraphRAGTraceResult> {
-    const response = await apiClient.get(`${this.baseUrl}/debug/trace/${queryId}`)
+    const response = await apiClient.get(
+      `${this.baseUrl}/debug/trace/${queryId}`
+    )
     return unwrap<GraphRAGTraceResult>(response.data)
   }
 }
 
 export const graphRAGService = new GraphRAGService()
-

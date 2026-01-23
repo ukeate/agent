@@ -1,6 +1,18 @@
 import { buildApiUrl, apiFetch } from '../utils/apiBase'
 import React, { useEffect, useState } from 'react'
-import { Card, Row, Col, Statistic, Table, Tag, Button, Space, Alert, Typography, Progress } from 'antd'
+import {
+  Card,
+  Row,
+  Col,
+  Statistic,
+  Table,
+  Tag,
+  Button,
+  Space,
+  Alert,
+  Typography,
+  Progress,
+} from 'antd'
 import { ReloadOutlined, HeartOutlined } from '@ant-design/icons'
 
 type Dashboard = {
@@ -21,7 +33,9 @@ const EmotionalHealthMonitoringDashboardPage: React.FC = () => {
     setLoading(true)
     setError(null)
     try {
-      const res = await apiFetch(buildApiUrl(`/api/v1/emotional-intelligence/health-dashboard/${userId}`))
+      const res = await apiFetch(
+        buildApiUrl(`/api/v1/emotional-intelligence/health-dashboard/${userId}`)
+      )
       const data = await res.json()
       setDashboard(data?.dashboard || null)
     } catch (e: any) {
@@ -44,7 +58,10 @@ const EmotionalHealthMonitoringDashboardPage: React.FC = () => {
   return (
     <div style={{ padding: 24 }}>
       <Space direction="vertical" style={{ width: '100%' }} size="large">
-        <Space align="center" style={{ justifyContent: 'space-between', width: '100%' }}>
+        <Space
+          align="center"
+          style={{ justifyContent: 'space-between', width: '100%' }}
+        >
           <Space>
             <HeartOutlined />
             <Typography.Title level={3} style={{ margin: 0 }}>
@@ -84,15 +101,23 @@ const EmotionalHealthMonitoringDashboardPage: React.FC = () => {
         <Card title="指标">
           <Table
             rowKey="key"
-            dataSource={Object.keys(metrics).map((k) => ({ key: k, name: k, value: metrics[k] }))}
+            dataSource={Object.keys(metrics).map(k => ({
+              key: k,
+              name: k,
+              value: metrics[k],
+            }))}
             loading={loading}
             columns={[
               { title: '名称', dataIndex: 'name' },
               {
                 title: '数值',
                 dataIndex: 'value',
-                render: (v) => <Progress percent={Math.min(100, Math.round((v || 0) * 100))} />
-              }
+                render: v => (
+                  <Progress
+                    percent={Math.min(100, Math.round((v || 0) * 100))}
+                  />
+                ),
+              },
             ]}
             locale={{ emptyText: '暂无指标' }}
           />
@@ -105,8 +130,12 @@ const EmotionalHealthMonitoringDashboardPage: React.FC = () => {
             loading={loading}
             columns={[
               { title: '目标', dataIndex: 'goal_type' },
-              { title: '状态', dataIndex: 'status', render: (s: string) => <Tag color="blue">{s}</Tag> },
-              { title: '截止', dataIndex: 'deadline' }
+              {
+                title: '状态',
+                dataIndex: 'status',
+                render: (s: string) => <Tag color="blue">{s}</Tag>,
+              },
+              { title: '截止', dataIndex: 'deadline' },
             ]}
             locale={{ emptyText: '暂无目标' }}
           />
@@ -120,7 +149,7 @@ const EmotionalHealthMonitoringDashboardPage: React.FC = () => {
             columns={[
               { title: '类型', dataIndex: 'alert_type' },
               { title: '严重性', dataIndex: 'severity' },
-              { title: '时间', dataIndex: 'timestamp' }
+              { title: '时间', dataIndex: 'timestamp' },
             ]}
             locale={{ emptyText: '暂无告警' }}
           />
@@ -134,7 +163,7 @@ const EmotionalHealthMonitoringDashboardPage: React.FC = () => {
             columns={[
               { title: '标题', dataIndex: 'title' },
               { title: '类别', dataIndex: 'category' },
-              { title: '优先级', dataIndex: 'priority' }
+              { title: '优先级', dataIndex: 'priority' },
             ]}
             locale={{ emptyText: '暂无建议' }}
           />

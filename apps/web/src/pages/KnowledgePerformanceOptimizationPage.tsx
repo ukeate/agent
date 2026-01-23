@@ -12,9 +12,7 @@ const KnowledgePerformanceOptimizationPage: React.FC = () => {
           <ThunderboltOutlined style={{ marginRight: 8 }} />
           性能优化中心
         </Title>
-        <Paragraph type="secondary">
-          知识图谱系统的性能监控和优化
-        </Paragraph>
+        <Paragraph type="secondary">知识图谱系统的性能监控和优化</Paragraph>
       </div>
 
       <Row gutter={[16, 16]}>

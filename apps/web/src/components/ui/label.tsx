@@ -1,2 +1,18 @@
-// 别名文件，指向真正的Label组件
-export { Label } from './llabel';
+import React from 'react'
+
+interface LabelProps extends React.LabelHTMLAttributes<HTMLLabelElement> {}
+
+export const Label: React.FC<LabelProps> = ({
+  className = '',
+  children,
+  ...props
+}) => {
+  return (
+    <label
+      className={`text-sm font-medium text-gray-700 ${className}`}
+      {...props}
+    >
+      {children}
+    </label>
+  )
+}

@@ -147,13 +147,21 @@ export class EmotionalMemoryService {
     return response.data as any
   }
 
-  async getEvents(userId: string, params?: { limit?: number; offset?: number }) {
-    const response = await apiClient.get(`${API_BASE}/events/${userId}`, { params })
+  async getEvents(
+    userId: string,
+    params?: { limit?: number; offset?: number }
+  ) {
+    const response = await apiClient.get(`${API_BASE}/events/${userId}`, {
+      params,
+    })
     return response.data as EmotionalEvent[]
   }
 
   async learnPreferences(feedback_data?: Record<string, any>) {
-    const response = await apiClient.post(`${API_BASE}/preferences/learn`, feedback_data ?? null)
+    const response = await apiClient.post(
+      `${API_BASE}/preferences/learn`,
+      feedback_data ?? null
+    )
     return response.data as any
   }
 
@@ -162,27 +170,42 @@ export class EmotionalMemoryService {
     return response.data as UserPreference
   }
 
-  async getTriggerPatterns(userId: string, params?: { confidence_min?: number }) {
-    const response = await apiClient.get(`${API_BASE}/patterns/${userId}`, { params })
+  async getTriggerPatterns(
+    userId: string,
+    params?: { confidence_min?: number }
+  ) {
+    const response = await apiClient.get(`${API_BASE}/patterns/${userId}`, {
+      params,
+    })
     return response.data as TriggerPattern[]
   }
 
   async listTriggerPatterns(params?: { min_frequency?: number }) {
-    const response = await apiClient.get(`${API_BASE}/patterns/triggers`, { params })
+    const response = await apiClient.get(`${API_BASE}/patterns/triggers`, {
+      params,
+    })
     return response.data as any[]
   }
 
   async identifyPatterns(userId: string, minFrequency: number = 3) {
-    const response = await apiClient.post(`${API_BASE}/patterns/identify`, null, {
-      params: { user_id: userId, min_frequency: minFrequency },
-    })
+    const response = await apiClient.post(
+      `${API_BASE}/patterns/identify`,
+      null,
+      {
+        params: { user_id: userId, min_frequency: minFrequency },
+      }
+    )
     return response.data as any[]
   }
 
   async predictRisk(userId: string, current_context: Record<string, any>) {
-    const response = await apiClient.post(`${API_BASE}/patterns/predict`, current_context, {
-      params: { user_id: userId },
-    })
+    const response = await apiClient.post(
+      `${API_BASE}/patterns/predict`,
+      current_context,
+      {
+        params: { user_id: userId },
+      }
+    )
     return response.data as Record<string, any>
   }
 
@@ -192,14 +215,20 @@ export class EmotionalMemoryService {
   }
 
   async deleteMemory(userId: string, memoryId: string) {
-    const response = await apiClient.delete(`${API_BASE}/memories/${userId}/${memoryId}`)
+    const response = await apiClient.delete(
+      `${API_BASE}/memories/${userId}/${memoryId}`
+    )
     return response.data as Record<string, any>
   }
 
   async exportMemories(userId: string, format: 'json' | 'csv' = 'json') {
-    const response = await apiClient.post(`${API_BASE}/memories/export/${userId}`, null, {
-      params: { format },
-    })
+    const response = await apiClient.post(
+      `${API_BASE}/memories/export/${userId}`,
+      null,
+      {
+        params: { format },
+      }
+    )
     return response.data as { data: any; format: string; count: number }
   }
 

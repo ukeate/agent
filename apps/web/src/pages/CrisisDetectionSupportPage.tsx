@@ -40,8 +40,8 @@ const CrisisDetectionSupportPage: React.FC = () => {
     setLoading(true)
     try {
       const [aRes, cRes, rRes] = await Promise.all([
-        apiFetch(buildApiUrl('/api/v1/social-emotion/crisis/assessments'),
-        apiFetch(buildApiUrl('/api/v1/social-emotion/crisis/contacts'),
+        apiFetch(buildApiUrl('/api/v1/social-emotion/crisis/assessments')),
+        apiFetch(buildApiUrl('/api/v1/social-emotion/crisis/contacts')),
         apiFetch(buildApiUrl('/api/v1/social-emotion/crisis/resources'))
       ])
       setAssessments((await aRes.json())?.assessments || [])

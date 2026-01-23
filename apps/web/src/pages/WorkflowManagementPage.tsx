@@ -1,14 +1,39 @@
 import React, { useState, useEffect } from 'react'
 import {
-  Card, Button, Table, Tag, Space, Modal, Form, Input, Select, Steps,
-  Row, Col, Statistic, Timeline, Alert, Badge, message, Drawer, List,
-  Divider, Progress, Descriptions
+  Card,
+  Button,
+  Table,
+  Tag,
+  Space,
+  Modal,
+  Form,
+  Input,
+  Select,
+  Steps,
+  Row,
+  Col,
+  Statistic,
+  Timeline,
+  Alert,
+  Badge,
+  message,
+  Drawer,
+  List,
+  Divider,
+  Progress,
+  Descriptions,
 } from 'antd'
 import {
-  BranchesOutlined, PlayCircleOutlined,
-  CheckCircleOutlined, SyncOutlined,
-  NodeIndexOutlined, ForkOutlined, ReloadOutlined, PlusOutlined,
-  DeleteOutlined, EditOutlined
+  BranchesOutlined,
+  PlayCircleOutlined,
+  CheckCircleOutlined,
+  SyncOutlined,
+  NodeIndexOutlined,
+  ForkOutlined,
+  ReloadOutlined,
+  PlusOutlined,
+  DeleteOutlined,
+  EditOutlined,
 } from '@ant-design/icons'
 import apiClient from '../services/apiClient'
 
@@ -46,8 +71,12 @@ interface Execution {
 const WorkflowManagementPage: React.FC = () => {
   const [workflows, setWorkflows] = useState<Workflow[]>([])
   const [executions, setExecutions] = useState<Execution[]>([])
-  const [selectedWorkflow, setSelectedWorkflow] = useState<Workflow | null>(null)
-  const [selectedExecution, setSelectedExecution] = useState<Execution | null>(null)
+  const [selectedWorkflow, setSelectedWorkflow] = useState<Workflow | null>(
+    null
+  )
+  const [selectedExecution, setSelectedExecution] = useState<Execution | null>(
+    null
+  )
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [showExecutionDrawer, setShowExecutionDrawer] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -63,14 +92,14 @@ const WorkflowManagementPage: React.FC = () => {
     try {
       const response = await apiClient.get('/workflows')
       const payload: any = response.data || {}
-      const list = Array.isArray(payload) ? payload : (payload.workflows || [])
+      const list = Array.isArray(payload) ? payload : payload.workflows || []
       const normalized = list.map((wf: any) => ({
         ...wf,
         status: wf.status || 'draft',
         steps: wf.steps || [],
         executions: wf.executions || 0,
         created_at: wf.created_at || new Date().toISOString(),
-        updated_at: wf.updated_at || wf.created_at || new Date().toISOString()
+        updated_at: wf.updated_at || wf.created_at || new Date().toISOString(),
       }))
       setWorkflows(normalized)
     } catch (error) {
@@ -84,14 +113,18 @@ const WorkflowManagementPage: React.FC = () => {
   // 启动工作流
   const startWorkflow = async (workflowId: string) => {
     try {
-      const response = await apiClient.post(`/workflows-simple/${workflowId}/start`)
+      const response = await apiClient.post(
+        `/workflows-simple/${workflowId}/start`
+      )
       const execution: Execution = {
         id: response.data.execution_id,
         workflow_id: workflowId,
         status: 'running',
         started_at: response.data.started_at,
         current_step: 0,
-        logs: response.data.started_at ? [`启动时间: ${new Date(response.data.started_at).toLocaleString()}`] : []
+        logs: response.data.started_at
+          ? [`启动时间: ${new Date(response.data.started_at).toLocaleString()}`]
+          : [],
       }
       setExecutions(prev => [execution, ...prev])
       setSelectedExecution(execution)
@@ -124,7 +157,7 @@ const WorkflowManagementPage: React.FC = () => {
       key: 'name',
       render: (text: string, record: Workflow) => (
         <a onClick={() => setSelectedWorkflow(record)}>{text}</a>
-      )
+      ),
     },
     {
       title: '状态',
@@ -136,27 +169,29 @@ const WorkflowManagementPage: React.FC = () => {
           active: { color: 'success', text: '活动' },
           running: { color: 'processing', text: '运行中' },
           completed: { color: 'success', text: '已完成' },
-          failed: { color: 'error', text: '失败' }
+          failed: { color: 'error', text: '失败' },
         }
-        return <Tag color={statusMap[status]?.color}>{statusMap[status]?.text}</Tag>
-      }
+        return (
+          <Tag color={statusMap[status]?.color}>{statusMap[status]?.text}</Tag>
+        )
+      },
     },
     {
       title: '步骤数',
       dataIndex: 'steps',
       key: 'steps',
-      render: (steps: WorkflowStep[]) => steps.length
+      render: (steps: WorkflowStep[]) => steps.length,
     },
     {
       title: '执行次数',
       dataIndex: 'executions',
-      key: 'executions'
+      key: 'executions',
     },
     {
       title: '更新时间',
       dataIndex: 'updated_at',
       key: 'updated_at',
-      render: (time: string) => new Date(time).toLocaleString()
+      render: (time: string) => new Date(time).toLocaleString(),
     },
     {
       title: '操作',
@@ -178,8 +213,8 @@ const WorkflowManagementPage: React.FC = () => {
             删除
           </Button>
         </Space>
-      )
-    }
+      ),
+    },
   ]
 
   // 渲染工作流步骤图标
@@ -189,7 +224,7 @@ const WorkflowManagementPage: React.FC = () => {
       action: <NodeIndexOutlined />,
       condition: <ForkOutlined />,
       parallel: <BranchesOutlined />,
-      end: <CheckCircleOutlined />
+      end: <CheckCircleOutlined />,
     }
     return iconMap[type] || <NodeIndexOutlined />
   }
@@ -197,19 +232,31 @@ const WorkflowManagementPage: React.FC = () => {
   const getStepProgress = (workflow: Workflow) => {
     const total = workflow.steps?.length || 0
     if (!total) return 0
-    const completed = workflow.steps.filter(step => step.status === 'completed').length
+    const completed = workflow.steps.filter(
+      step => step.status === 'completed'
+    ).length
     return Math.round((completed / total) * 100)
   }
 
   const getCurrentStepIndex = (workflow: Workflow) => {
-    const runningIndex = workflow.steps.findIndex(step => step.status === 'running')
+    const runningIndex = workflow.steps.findIndex(
+      step => step.status === 'running'
+    )
     if (runningIndex >= 0) return runningIndex
-    const completedCount = workflow.steps.filter(step => step.status === 'completed').length
+    const completedCount = workflow.steps.filter(
+      step => step.status === 'completed'
+    ).length
     return completedCount
   }
 
   const successRate = workflows.length
-    ? Number(((workflows.filter(w => w.status === 'completed').length / workflows.length) * 100).toFixed(1))
+    ? Number(
+        (
+          (workflows.filter(w => w.status === 'completed').length /
+            workflows.length) *
+          100
+        ).toFixed(1)
+      )
     : 0
 
   const workflowExecutions = selectedWorkflow
@@ -283,7 +330,10 @@ const WorkflowManagementPage: React.FC = () => {
         </Row>
 
         {selectedWorkflow ? (
-          <Card title={`工作流详情: ${selectedWorkflow.name}`} style={{ marginBottom: 16 }}>
+          <Card
+            title={`工作流详情: ${selectedWorkflow.name}`}
+            style={{ marginBottom: 16 }}
+          >
             <Steps current={getCurrentStepIndex(selectedWorkflow)}>
               {selectedWorkflow.steps.map(step => (
                 <Step
@@ -291,10 +341,13 @@ const WorkflowManagementPage: React.FC = () => {
                   title={step.name}
                   icon={getStepIcon(step.type)}
                   status={
-                    step.status === 'completed' ? 'finish' :
-                    step.status === 'running' ? 'process' :
-                    step.status === 'failed' ? 'error' :
-                    'wait'
+                    step.status === 'completed'
+                      ? 'finish'
+                      : step.status === 'running'
+                        ? 'process'
+                        : step.status === 'failed'
+                          ? 'error'
+                          : 'wait'
                   }
                 />
               ))}
@@ -322,17 +375,17 @@ const WorkflowManagementPage: React.FC = () => {
                 <h4>执行历史</h4>
                 {workflowExecutions.length ? (
                   <Timeline>
-                    {workflowExecutions
-                      .slice(0, 5)
-                      .map(execution => (
-                        <Timeline.Item
-                          key={execution.id}
-                          color={execution.status === 'completed' ? 'green' : 'blue'}
-                        >
-                          <p>{new Date(execution.started_at).toLocaleString()}</p>
-                          <p>状态: {execution.status}</p>
-                        </Timeline.Item>
-                      ))}
+                    {workflowExecutions.slice(0, 5).map(execution => (
+                      <Timeline.Item
+                        key={execution.id}
+                        color={
+                          execution.status === 'completed' ? 'green' : 'blue'
+                        }
+                      >
+                        <p>{new Date(execution.started_at).toLocaleString()}</p>
+                        <p>状态: {execution.status}</p>
+                      </Timeline.Item>
+                    ))}
                   </Timeline>
                 ) : (
                   <Alert message="暂无执行记录" type="info" showIcon />
@@ -340,9 +393,19 @@ const WorkflowManagementPage: React.FC = () => {
               </Col>
               <Col span={8}>
                 <h4>工作流统计</h4>
-                <Statistic title="总执行次数" value={selectedWorkflow.executions} />
-                <Statistic title="步骤完成度" value={getStepProgress(selectedWorkflow)} suffix="%" />
-                <Progress percent={getStepProgress(selectedWorkflow)} status="active" />
+                <Statistic
+                  title="总执行次数"
+                  value={selectedWorkflow.executions}
+                />
+                <Statistic
+                  title="步骤完成度"
+                  value={getStepProgress(selectedWorkflow)}
+                  suffix="%"
+                />
+                <Progress
+                  percent={getStepProgress(selectedWorkflow)}
+                  status="active"
+                />
               </Col>
             </Row>
           </Card>
@@ -367,11 +430,7 @@ const WorkflowManagementPage: React.FC = () => {
         }}
         width={600}
       >
-        <Form
-          form={form}
-          layout="vertical"
-          onFinish={handleCreateWorkflow}
-        >
+        <Form form={form} layout="vertical" onFinish={handleCreateWorkflow}>
           <Form.Item
             label="工作流名称"
             name="name"
@@ -380,18 +439,11 @@ const WorkflowManagementPage: React.FC = () => {
             <Input placeholder="输入工作流名称" />
           </Form.Item>
 
-          <Form.Item
-            label="描述"
-            name="description"
-          >
+          <Form.Item label="描述" name="description">
             <TextArea rows={3} placeholder="输入工作流描述" />
           </Form.Item>
 
-          <Form.Item
-            label="触发方式"
-            name="trigger"
-            initialValue="manual"
-          >
+          <Form.Item label="触发方式" name="trigger" initialValue="manual">
             <Select>
               <Select.Option value="manual">手动触发</Select.Option>
               <Select.Option value="schedule">定时触发</Select.Option>
@@ -399,11 +451,7 @@ const WorkflowManagementPage: React.FC = () => {
             </Select>
           </Form.Item>
 
-          <Form.Item
-            label="超时时间（分钟）"
-            name="timeout"
-            initialValue={30}
-          >
+          <Form.Item label="超时时间（分钟）" name="timeout" initialValue={30}>
             <Input type="number" />
           </Form.Item>
         </Form>
@@ -419,24 +467,50 @@ const WorkflowManagementPage: React.FC = () => {
         {selectedExecution && (
           <div>
             <Descriptions column={1}>
-              <Descriptions.Item label="执行ID">{selectedExecution.id}</Descriptions.Item>
-              <Descriptions.Item label="状态">
-                <Badge status={selectedExecution.status === 'running' ? 'processing' : 'success'} text={selectedExecution.status} />
+              <Descriptions.Item label="执行ID">
+                {selectedExecution.id}
               </Descriptions.Item>
-              <Descriptions.Item label="开始时间">{new Date(selectedExecution.started_at).toLocaleString()}</Descriptions.Item>
+              <Descriptions.Item label="状态">
+                <Badge
+                  status={
+                    selectedExecution.status === 'running'
+                      ? 'processing'
+                      : 'success'
+                  }
+                  text={selectedExecution.status}
+                />
+              </Descriptions.Item>
+              <Descriptions.Item label="开始时间">
+                {new Date(selectedExecution.started_at).toLocaleString()}
+              </Descriptions.Item>
               {selectedExecution.completed_at && (
-                <Descriptions.Item label="完成时间">{new Date(selectedExecution.completed_at).toLocaleString()}</Descriptions.Item>
+                <Descriptions.Item label="完成时间">
+                  {new Date(selectedExecution.completed_at).toLocaleString()}
+                </Descriptions.Item>
               )}
-              <Descriptions.Item label="当前步骤">{selectedExecution.current_step + 1}</Descriptions.Item>
+              <Descriptions.Item label="当前步骤">
+                {selectedExecution.current_step + 1}
+              </Descriptions.Item>
             </Descriptions>
 
             <Divider />
 
             <h4>执行日志</h4>
-            <div style={{ background: '#f5f5f5', padding: 12, borderRadius: 4, maxHeight: 400, overflow: 'auto' }}>
+            <div
+              style={{
+                background: '#f5f5f5',
+                padding: 12,
+                borderRadius: 4,
+                maxHeight: 400,
+                overflow: 'auto',
+              }}
+            >
               {selectedExecution.logs.length ? (
                 selectedExecution.logs.map((log, index) => (
-                  <div key={index} style={{ marginBottom: 8, fontFamily: 'monospace' }}>
+                  <div
+                    key={index}
+                    style={{ marginBottom: 8, fontFamily: 'monospace' }}
+                  >
                     [{index + 1}] {log}
                   </div>
                 ))

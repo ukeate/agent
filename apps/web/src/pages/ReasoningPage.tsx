@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react'
 import {
   Card,
   Row,
@@ -9,26 +9,26 @@ import {
   Typography,
   Divider,
   Alert,
-  Tag
-} from 'antd';
+  Tag,
+} from 'antd'
 import {
   BulbOutlined,
   ExperimentOutlined,
   ControlOutlined,
   HistoryOutlined,
-  BarChartOutlined
-} from '@ant-design/icons';
+  BarChartOutlined,
+} from '@ant-design/icons'
 
-import { ReasoningInput } from '../components/reasoning/ReasoningInput';
-import { ReasoningChainVisualization } from '../components/reasoning/ReasoningChainVisualization';
-import { ReasoningStrategiesComparison } from '../components/reasoning/ReasoningStrategiesComparison';
-import { ReasoningQualityControl } from '../components/reasoning/ReasoningQualityControl';
-import { ReasoningHistory } from '../components/reasoning/ReasoningHistory';
-import { ReasoningStats } from '../components/reasoning/ReasoningStats';
-import { useReasoningStore } from '../stores/reasoningStore';
+import { ReasoningInput } from '../components/reasoning/ReasoningInput'
+import { ReasoningChainVisualization } from '../components/reasoning/ReasoningChainVisualization'
+import { ReasoningStrategiesComparison } from '../components/reasoning/ReasoningStrategiesComparison'
+import { ReasoningQualityControl } from '../components/reasoning/ReasoningQualityControl'
+import { ReasoningHistory } from '../components/reasoning/ReasoningHistory'
+import { ReasoningStats } from '../components/reasoning/ReasoningStats'
+import { useReasoningStore } from '../stores/reasoningStore'
 
-const { Title, Text } = Typography;
-const { TabPane } = Tabs;
+const { Title, Text } = Typography
+const { TabPane } = Tabs
 
 const ReasoningPage: React.FC = () => {
   const {
@@ -40,20 +40,20 @@ const ReasoningPage: React.FC = () => {
     executeReasoning,
     streamReasoning,
     validateChain,
-    getReasoningHistory
-  } = useReasoningStore();
+    getReasoningHistory,
+  } = useReasoningStore()
 
-  const [activeTab, setActiveTab] = useState('input');
-  const [showTechnicalDetails, setShowTechnicalDetails] = useState(true);
+  const [activeTab, setActiveTab] = useState('input')
+  const [showTechnicalDetails, setShowTechnicalDetails] = useState(true)
 
   useEffect(() => {
     // 加载推理历史
-    getReasoningHistory();
-  }, []);
+    getReasoningHistory()
+  }, [])
 
   const handleReasoningComplete = (chainId: string) => {
-    setActiveTab('visualization');
-  };
+    setActiveTab('visualization')
+  }
 
   return (
     <div className="reasoning-page p-6 bg-gray-50 min-h-screen">
@@ -85,13 +85,21 @@ const ReasoningPage: React.FC = () => {
             message="技术架构说明"
             description={
               <div>
-                <p><strong>推理引擎：</strong>BaseCoTEngine + 三种策略实现</p>
-                <p><strong>质量控制：</strong>一致性验证、置信度检查、自我验证</p>
-                <p><strong>恢复机制：</strong>回溯、分支、重启、细化、替代路径</p>
-                <p><strong>状态管理：</strong>LangGraph集成，支持检查点和分支</p>
+                <p>
+                  <strong>推理引擎：</strong>BaseCoTEngine + 三种策略实现
+                </p>
+                <p>
+                  <strong>质量控制：</strong>一致性验证、置信度检查、自我验证
+                </p>
+                <p>
+                  <strong>恢复机制：</strong>回溯、分支、重启、细化、替代路径
+                </p>
+                <p>
+                  <strong>状态管理：</strong>LangGraph集成，支持检查点和分支
+                </p>
               </div>
             }
-            variant="default"
+            type="info"
             showIcon
             className="mb-4"
           />
@@ -128,7 +136,11 @@ const ReasoningPage: React.FC = () => {
                   <span>
                     <BulbOutlined />
                     推理可视化
-                    {currentChain && <Tag color="blue" className="ml-2">运行中</Tag>}
+                    {currentChain && (
+                      <Tag color="blue" className="ml-2">
+                        运行中
+                      </Tag>
+                    )}
                   </span>
                 }
                 key="visualization"
@@ -158,8 +170,8 @@ const ReasoningPage: React.FC = () => {
                     <ControlOutlined />
                     质量控制
                     {validationResults && (
-                      <Tag 
-                        color={validationResults.is_valid ? 'green' : 'red'} 
+                      <Tag
+                        color={validationResults.is_valid ? 'green' : 'red'}
                         className="ml-2"
                       >
                         {validationResults.is_valid ? '通过' : '失败'}
@@ -229,10 +241,9 @@ const ReasoningPage: React.FC = () => {
                 <Col span={6}>
                   <div className="text-center">
                     <div className="text-2xl font-bold text-orange-600">
-                      {currentChain?.confidence_score ? 
-                        `${(currentChain.confidence_score * 100).toFixed(1)}%` : 
-                        'N/A'
-                      }
+                      {currentChain?.confidence_score
+                        ? `${(currentChain.confidence_score * 100).toFixed(1)}%`
+                        : 'N/A'}
                     </div>
                     <div className="text-gray-500">平均置信度</div>
                   </div>
@@ -251,7 +262,7 @@ const ReasoningPage: React.FC = () => {
         </Row>
       )}
     </div>
-  );
-};
+  )
+}
 
-export default ReasoningPage;
+export default ReasoningPage

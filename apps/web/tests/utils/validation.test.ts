@@ -5,7 +5,7 @@ import {
   validateUrl,
   sanitizeInput,
   checkContentLength,
-  isEmptyContent
+  isEmptyContent,
 } from '../../src/utils/validation'
 
 describe('Validation Utils', () => {
@@ -35,22 +35,22 @@ describe('Validation Utils', () => {
       expect(result.error).toBe('消息长度不能超过2000个字符')
     })
 
-    it('rejects messages with script tags', () => {
+    it('允许包含 script 标签的内容用于代码讨论', () => {
       const result = validateMessage('<script>alert("xss")</script>')
-      expect(result.isValid).toBe(false)
-      expect(result.error).toBe('消息包含不允许的内容')
+      expect(result.isValid).toBe(true)
+      expect(result.error).toBeUndefined()
     })
 
-    it('rejects messages with javascript: protocol', () => {
+    it('允许包含 javascript: 协议的内容用于分析', () => {
       const result = validateMessage('javascript:alert("xss")')
-      expect(result.isValid).toBe(false)
-      expect(result.error).toBe('消息包含不允许的内容')
+      expect(result.isValid).toBe(true)
+      expect(result.error).toBeUndefined()
     })
 
-    it('rejects messages with event handlers', () => {
+    it('允许包含事件处理语句用于说明', () => {
       const result = validateMessage('onclick=alert("xss")')
-      expect(result.isValid).toBe(false)
-      expect(result.error).toBe('消息包含不允许的内容')
+      expect(result.isValid).toBe(true)
+      expect(result.error).toBeUndefined()
     })
 
     it('accepts messages at the length limit', () => {
@@ -113,7 +113,9 @@ describe('Validation Utils', () => {
   describe('sanitizeInput', () => {
     it('escapes HTML characters', () => {
       const result = sanitizeInput('<script>alert("xss")</script>')
-      expect(result).toBe('&lt;script&gt;alert(&quot;xss&quot;)&lt;&#x2F;script&gt;')
+      expect(result).toBe(
+        '&lt;script&gt;alert(&quot;xss&quot;)&lt;&#x2F;script&gt;'
+      )
     })
 
     it('trims whitespace', () => {
@@ -139,7 +141,7 @@ describe('Validation Utils', () => {
     it('uses default limit of 2000', () => {
       const content = 'a'.repeat(2000)
       expect(checkContentLength(content)).toBe(true)
-      
+
       const longContent = 'a'.repeat(2001)
       expect(checkContentLength(longContent)).toBe(false)
     })

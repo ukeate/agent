@@ -1,7 +1,7 @@
 import { buildApiUrl, apiFetch } from '../utils/apiBase'
 import React, { useState, useEffect } from 'react'
-import {
 import { logger } from '../utils/logger'
+import {
   Card,
   Row,
   Col,
@@ -11,7 +11,7 @@ import { logger } from '../utils/logger'
   Typography,
   Space,
   Tag,
-  message
+  message,
 } from 'antd'
 import {
   ThunderboltOutlined,
@@ -20,7 +20,7 @@ import {
   ReloadOutlined,
   CheckCircleOutlined,
   CloudServerOutlined,
-  PieChartOutlined
+  PieChartOutlined,
 } from '@ant-design/icons'
 import type { ColumnsType } from 'antd/es/table'
 import MetricChart from '../components/charts/MetricChart'
@@ -60,7 +60,9 @@ const PerformanceOptimizationPage: React.FC = () => {
 
   const fetchPerformanceData = async () => {
     try {
-      const res = await apiFetch(buildApiUrl('/api/v1/platform/optimization/metrics'))
+      const res = await apiFetch(
+        buildApiUrl('/api/v1/platform/optimization/metrics')
+      )
       const data = await res.json()
       const m = data.metrics
       if (!m) return
@@ -71,14 +73,18 @@ const PerformanceOptimizationPage: React.FC = () => {
       const recvBytes = Number(m.network_usage?.bytes_recv || 0)
       const ts = String(m.timestamp)
 
-      setMetrics((prev) => {
+      setMetrics(prev => {
         const last = prev[prev.length - 1]
-        const dt = last ? (new Date(ts).getTime() - new Date(last.timestamp).getTime()) / 1000 : 0
+        const dt = last
+          ? (new Date(ts).getTime() - new Date(last.timestamp).getTime()) / 1000
+          : 0
         const diskDelta = last
-          ? Math.max(0, readBytes - last.disk_read_bytes) + Math.max(0, writeBytes - last.disk_write_bytes)
+          ? Math.max(0, readBytes - last.disk_read_bytes) +
+            Math.max(0, writeBytes - last.disk_write_bytes)
           : 0
         const netDelta = last
-          ? Math.max(0, sentBytes - last.network_sent_bytes) + Math.max(0, recvBytes - last.network_recv_bytes)
+          ? Math.max(0, sentBytes - last.network_sent_bytes) +
+            Math.max(0, recvBytes - last.network_recv_bytes)
           : 0
 
         const next = [
@@ -94,8 +100,8 @@ const PerformanceOptimizationPage: React.FC = () => {
             network_mb_s: dt > 0 ? netDelta / (1024 * 1024) / dt : 0,
             bottlenecks: Array.isArray(m.bottlenecks) ? m.bottlenecks : [],
             timestamp: ts,
-            time: new Date(ts).toLocaleTimeString()
-          }
+            time: new Date(ts).toLocaleTimeString(),
+          },
         ]
         return next.slice(-60)
       })
@@ -106,7 +112,10 @@ const PerformanceOptimizationPage: React.FC = () => {
 
   const handleRunOptimization = async () => {
     try {
-      const response = await apiFetch(buildApiUrl('/api/v1/platform/optimization/run'), { method: 'POST' })
+      const response = await apiFetch(
+        buildApiUrl('/api/v1/platform/optimization/run'),
+        { method: 'POST' }
+      )
 
       message.success('优化任务已启动')
       const data = await response.json()
@@ -117,8 +126,12 @@ const PerformanceOptimizationPage: React.FC = () => {
       setOptimizations(
         list.map((item: any) => ({
           optimization: String(item.optimization || ''),
-          status: String(item.results?.status || data.optimization_results?.status || 'completed'),
-          timestamp: String(timestamp || '')
+          status: String(
+            item.results?.status ||
+              data.optimization_results?.status ||
+              'completed'
+          ),
+          timestamp: String(timestamp || ''),
         }))
       )
       fetchPerformanceData()
@@ -131,40 +144,54 @@ const PerformanceOptimizationPage: React.FC = () => {
     {
       title: '优化项',
       dataIndex: 'optimization',
-      key: 'optimization'
+      key: 'optimization',
     },
     {
       title: '状态',
       dataIndex: 'status',
       key: 'status',
-      render: (status) => {
+      render: status => {
         const statusConfig = {
           completed: { color: 'success', text: '已完成' },
           optimized: { color: 'success', text: '已优化' },
           disabled: { color: 'default', text: '未启用' },
-          error: { color: 'error', text: '失败' }
+          error: { color: 'error', text: '失败' },
         }
-        const config = statusConfig[status] || { color: 'default', text: String(status) }
+        const config = statusConfig[status] || {
+          color: 'default',
+          text: String(status),
+        }
         return <Tag color={config.color}>{config.text}</Tag>
-      }
+      },
     },
     {
       title: '时间',
       dataIndex: 'timestamp',
       key: 'timestamp',
-      render: (v) => (v ? new Date(v).toLocaleString() : '-')
-    }
+      render: v => (v ? new Date(v).toLocaleString() : '-'),
+    },
   ]
 
   return (
     <div style={{ padding: '24px' }}>
-      <div style={{ marginBottom: 24, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <div
+        style={{
+          marginBottom: 24,
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+        }}
+      >
         <Title level={2}>性能优化</Title>
         <Space>
           <Button icon={<ReloadOutlined />} onClick={fetchPerformanceData}>
             刷新
           </Button>
-          <Button type="primary" icon={<ThunderboltOutlined />} onClick={handleRunOptimization}>
+          <Button
+            type="primary"
+            icon={<ThunderboltOutlined />}
+            onClick={handleRunOptimization}
+          >
             运行优化
           </Button>
         </Space>
@@ -179,9 +206,13 @@ const PerformanceOptimizationPage: React.FC = () => {
                 value={currentMetrics.cpu_percent}
                 suffix="%"
                 prefix={<DashboardOutlined />}
-                valueStyle={{ 
-                  color: currentMetrics.cpu_percent > 80 ? '#f5222d' : 
-                         currentMetrics.cpu_percent > 60 ? '#faad14' : '#52c41a' 
+                valueStyle={{
+                  color:
+                    currentMetrics.cpu_percent > 80
+                      ? '#f5222d'
+                      : currentMetrics.cpu_percent > 60
+                        ? '#faad14'
+                        : '#52c41a',
                 }}
               />
             </Card>
@@ -193,9 +224,13 @@ const PerformanceOptimizationPage: React.FC = () => {
                 value={currentMetrics.memory_percent}
                 suffix="%"
                 prefix={<PieChartOutlined />}
-                valueStyle={{ 
-                  color: currentMetrics.memory_percent > 80 ? '#f5222d' : 
-                         currentMetrics.memory_percent > 60 ? '#faad14' : '#52c41a' 
+                valueStyle={{
+                  color:
+                    currentMetrics.memory_percent > 80
+                      ? '#f5222d'
+                      : currentMetrics.memory_percent > 60
+                        ? '#faad14'
+                        : '#52c41a',
                 }}
               />
             </Card>
@@ -231,8 +266,14 @@ const PerformanceOptimizationPage: React.FC = () => {
             <MetricChart
               type="line"
               series={[
-                { name: 'CPU', data: metrics.map((m) => ({ x: m.time, y: m.cpu_percent })) },
-                { name: '内存', data: metrics.map((m) => ({ x: m.time, y: m.memory_percent })) }
+                {
+                  name: 'CPU',
+                  data: metrics.map(m => ({ x: m.time, y: m.cpu_percent })),
+                },
+                {
+                  name: '内存',
+                  data: metrics.map(m => ({ x: m.time, y: m.memory_percent })),
+                },
               ]}
               config={{ height: 300 }}
             />
@@ -243,8 +284,14 @@ const PerformanceOptimizationPage: React.FC = () => {
             <MetricChart
               type="line"
               series={[
-                { name: '磁盘', data: metrics.map((m) => ({ x: m.time, y: m.disk_mb_s })) },
-                { name: '网络', data: metrics.map((m) => ({ x: m.time, y: m.network_mb_s })) }
+                {
+                  name: '磁盘',
+                  data: metrics.map(m => ({ x: m.time, y: m.disk_mb_s })),
+                },
+                {
+                  name: '网络',
+                  data: metrics.map(m => ({ x: m.time, y: m.network_mb_s })),
+                },
               ]}
               config={{ height: 300 }}
             />
@@ -257,15 +304,19 @@ const PerformanceOptimizationPage: React.FC = () => {
           <Card title="性能瓶颈" size="small">
             {(currentMetrics?.bottlenecks || []).length === 0 ? (
               <div style={{ textAlign: 'center', padding: '40px 0' }}>
-                <CheckCircleOutlined style={{ fontSize: 48, color: '#52c41a' }} />
+                <CheckCircleOutlined
+                  style={{ fontSize: 48, color: '#52c41a' }}
+                />
                 <div style={{ marginTop: 16 }}>
                   <Text>当前没有检测到性能瓶颈</Text>
                 </div>
               </div>
             ) : (
               <Space wrap>
-                {(currentMetrics?.bottlenecks || []).map((b) => (
-                  <Tag key={b} color="red">{b}</Tag>
+                {(currentMetrics?.bottlenecks || []).map(b => (
+                  <Tag key={b} color="red">
+                    {b}
+                  </Tag>
                 ))}
               </Space>
             )}
@@ -276,7 +327,7 @@ const PerformanceOptimizationPage: React.FC = () => {
             <Table
               columns={optimizationColumns}
               dataSource={optimizations}
-              rowKey={(record) => `${record.timestamp}:${record.optimization}`}
+              rowKey={record => `${record.timestamp}:${record.optimization}`}
               pagination={false}
               size="small"
             />

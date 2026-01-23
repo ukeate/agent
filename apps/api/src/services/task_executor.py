@@ -220,6 +220,8 @@ class TaskExecutor:
     async def execute_pending_tasks(self, limit: int = 5) -> List[Dict[str, Any]]:
         """批量执行pending任务"""
         results = []
+        if limit <= 0:
+            return results
         
         # 获取所有活跃supervisor的pending任务（使用缓存）
         try:
@@ -229,18 +231,28 @@ class TaskExecutor:
                 logger.debug("没有找到活跃的supervisors")
                 return results
                 
+            remaining = limit
             for supervisor in active_supervisors:
-                    pending_tasks = await self.get_pending_tasks(supervisor.id)
+                if remaining <= 0 or len(self._running_tasks) >= 10:
+                    break
+                
+                pending_tasks = await self.get_pending_tasks(supervisor.id)
+                if not pending_tasks:
+                    continue
+                
+                # 限制总执行任务数量
+                tasks_to_execute = pending_tasks[:remaining]
+                
+                for task_info in tasks_to_execute:
+                    if len(self._running_tasks) >= 10:
+                        break
                     
-                    # 限制同时执行的任务数量
-                    tasks_to_execute = pending_tasks[:limit]
+                    result = await self.execute_task(task_info["task_id"])
+                    results.append(result)
+                    remaining -= 1
                     
-                    for task_info in tasks_to_execute:
-                        if len(self._running_tasks) >= 10:  # 最大并发任务数
-                            break
-                        
-                        result = await self.execute_task(task_info["task_id"])
-                        results.append(result)
+                    if remaining <= 0:
+                        break
                 
         except Exception as e:
             logger.error("批量执行任务失败", error=str(e))

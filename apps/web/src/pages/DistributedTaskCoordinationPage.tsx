@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
-import {
+import React, { useState, useEffect } from 'react'
 import { logger } from '../utils/logger'
+import {
   Card,
   Row,
   Col,
@@ -20,8 +20,8 @@ import { logger } from '../utils/logger'
   Timeline,
   Descriptions,
   Typography,
-  Divider
-} from 'antd';
+  Divider,
+} from 'antd'
 import {
   PlayCircleOutlined,
   PauseCircleOutlined,
@@ -32,35 +32,40 @@ import {
   CheckCircleOutlined,
   ClockCircleOutlined,
   WarningOutlined,
-  SettingOutlined
-} from '@ant-design/icons';
-import { distributedTaskService, TaskSubmitRequest, SystemStats, ConflictInfo } from '../services/distributedTaskService';
+  SettingOutlined,
+} from '@ant-design/icons'
+import {
+  distributedTaskService,
+  TaskSubmitRequest,
+  SystemStats,
+  ConflictInfo,
+} from '../services/distributedTaskService'
 
-const { Title, Text, Paragraph } = Typography;
-const { TabPane } = Tabs;
-const { Option } = Select;
-const { TextArea } = Input;
-const { confirm } = Modal;
+const { Title, Text, Paragraph } = Typography
+const { TabPane } = Tabs
+const { Option } = Select
+const { TextArea } = Input
+const { confirm } = Modal
 
 interface TaskInfo {
-  task_id: string;
-  status: string;
-  assigned_to?: string;
-  created_at: string;
-  started_at?: string;
-  completed_at?: string;
-  result?: any;
-  error?: string;
+  task_id: string
+  status: string
+  assigned_to?: string
+  created_at: string
+  started_at?: string
+  completed_at?: string
+  result?: any
+  error?: string
 }
 
 const DistributedTaskCoordinationPage: React.FC = () => {
-  const [loading, setLoading] = useState(false);
-  const [engineInitialized, setEngineInitialized] = useState(false);
-  const [systemStats, setSystemStats] = useState<SystemStats | null>(null);
-  const [tasks, setTasks] = useState<TaskInfo[]>([]);
-  const [conflicts, setConflicts] = useState<ConflictInfo[]>([]);
-  const [taskForm] = Form.useForm();
-  const [initForm] = Form.useForm();
+  const [loading, setLoading] = useState(false)
+  const [engineInitialized, setEngineInitialized] = useState(false)
+  const [systemStats, setSystemStats] = useState<SystemStats | null>(null)
+  const [tasks, setTasks] = useState<TaskInfo[]>([])
+  const [conflicts, setConflicts] = useState<ConflictInfo[]>([])
+  const [taskForm] = Form.useForm()
+  const [initForm] = Form.useForm()
 
   // 任务优先级映射
   const priorityColors = {
@@ -68,8 +73,8 @@ const DistributedTaskCoordinationPage: React.FC = () => {
     high: 'orange',
     medium: 'blue',
     low: 'green',
-    background: 'gray'
-  };
+    background: 'gray',
+  }
 
   // 任务状态映射
   const statusColors = {
@@ -79,86 +84,101 @@ const DistributedTaskCoordinationPage: React.FC = () => {
     completed: 'success',
     failed: 'error',
     cancelled: 'warning',
-    decomposed: 'cyan'
-  };
+    decomposed: 'cyan',
+  }
 
   // Raft状态映射
   const raftStateColors = {
     leader: 'success',
     follower: 'processing',
-    candidate: 'warning'
-  };
+    candidate: 'warning',
+  }
 
   // 获取系统统计
   const fetchSystemStats = async () => {
     try {
-      const stats = await distributedTaskService.getSystemStats();
-      setSystemStats(stats);
-      setEngineInitialized(true);
+      const stats = await distributedTaskService.getSystemStats()
+      setSystemStats(stats)
+      setEngineInitialized(true)
     } catch (error) {
-      logger.error('获取系统统计失败:', error);
-      setEngineInitialized(false);
+      logger.error('获取系统统计失败:', error)
+      setEngineInitialized(false)
     }
-  };
+  }
 
   // 获取任务列表
   const fetchTasks = async () => {
-    const taskIds = tasks.map((t) => t.task_id);
-    if (!taskIds.length) return;
+    const taskIds = tasks.map(t => t.task_id)
+    if (!taskIds.length) return
 
-    const taskResults = await Promise.all(taskIds.map((id) => distributedTaskService.getTaskStatus(id).catch(() => null)));
-    setTasks(taskResults.filter(Boolean) as any);
-  };
+    const taskResults = await Promise.all(
+      taskIds.map(id =>
+        distributedTaskService.getTaskStatus(id).catch(() => null)
+      )
+    )
+    setTasks(taskResults.filter(Boolean) as any)
+  }
 
   // 获取冲突列表
   const fetchConflicts = async () => {
     try {
-      const conflictList = await distributedTaskService.detectConflicts();
-      setConflicts(conflictList);
+      const conflictList = await distributedTaskService.detectConflicts()
+      setConflicts(conflictList)
     } catch (error) {
-      logger.error('获取冲突列表失败:', error);
+      logger.error('获取冲突列表失败:', error)
     }
-  };
+  }
 
   // 初始化引擎
   const handleInitializeEngine = async (values: any) => {
-    setLoading(true);
+    setLoading(true)
     try {
-      await distributedTaskService.initializeEngine(values.nodeId, values.clusterNodes.split(',').map((s: string) => s.trim()));
-      message.success('引擎初始化成功');
-      await fetchSystemStats();
+      await distributedTaskService.initializeEngine(
+        values.nodeId,
+        values.clusterNodes.split(',').map((s: string) => s.trim())
+      )
+      message.success('引擎初始化成功')
+      await fetchSystemStats()
     } catch (error) {
-      message.error(`引擎初始化失败: ${error}`);
+      message.error(`引擎初始化失败: ${error}`)
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
+  }
 
   // 提交任务
   const handleSubmitTask = async (values: any) => {
-    setLoading(true);
+    setLoading(true)
     try {
       const request: TaskSubmitRequest = {
         task_type: values.taskType,
         task_data: JSON.parse(values.taskData || '{}'),
-        requirements: values.requirements ? JSON.parse(values.requirements) : undefined,
+        requirements: values.requirements
+          ? JSON.parse(values.requirements)
+          : undefined,
         priority: values.priority,
         decomposition_strategy: values.decompositionStrategy,
-        assignment_strategy: values.assignmentStrategy
-      };
-      
-      const result = await distributedTaskService.submitTask(request);
-      message.success(`任务提交成功: ${result.task_id}`);
-      taskForm.resetFields();
-      const status = await distributedTaskService.getTaskStatus(result.task_id).catch(() => null);
-      if (status) setTasks((prev) => [status as any, ...prev.filter((t) => t.task_id !== (status as any).task_id)]);
-      await fetchSystemStats();
+        assignment_strategy: values.assignmentStrategy,
+      }
+
+      const result = await distributedTaskService.submitTask(request)
+      message.success(`任务提交成功: ${result.task_id}`)
+      taskForm.resetFields()
+      const status = await distributedTaskService
+        .getTaskStatus(result.task_id)
+        .catch(() => null)
+      if (status)
+        setTasks(prev => [
+          status as any,
+          ...prev.filter(t => t.task_id !== (status as any).task_id),
+        ])
+      await fetchSystemStats()
     } catch (error) {
-      message.error(`任务提交失败: ${error}`);
+      message.error(`任务提交失败: ${error}`)
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
+  }
 
   // 取消任务
   const handleCancelTask = (taskId: string) => {
@@ -168,64 +188,67 @@ const DistributedTaskCoordinationPage: React.FC = () => {
       content: `确定要取消任务 ${taskId} 吗？`,
       onOk: async () => {
         try {
-          await distributedTaskService.cancelTask(taskId);
-          message.success('任务取消成功');
-          await fetchTasks();
-          await fetchSystemStats();
+          await distributedTaskService.cancelTask(taskId)
+          message.success('任务取消成功')
+          await fetchTasks()
+          await fetchSystemStats()
         } catch (error) {
-          message.error(`任务取消失败: ${error}`);
+          message.error(`任务取消失败: ${error}`)
         }
-      }
-    });
-  };
+      },
+    })
+  }
 
   // 解决冲突
-  const handleResolveConflict = (conflictId: string, strategy: string = 'priority_based') => {
+  const handleResolveConflict = (
+    conflictId: string,
+    strategy: string = 'priority_based'
+  ) => {
     confirm({
       title: '确认解决冲突',
       icon: <ExclamationCircleOutlined />,
       content: `确定要使用 ${strategy} 策略解决冲突 ${conflictId} 吗？`,
       onOk: async () => {
         try {
-          await distributedTaskService.resolveConflict(conflictId, strategy);
-          message.success('冲突解决成功');
-          await fetchConflicts();
+          await distributedTaskService.resolveConflict(conflictId, strategy)
+          message.success('冲突解决成功')
+          await fetchConflicts()
         } catch (error) {
-          message.error(`冲突解决失败: ${error}`);
+          message.error(`冲突解决失败: ${error}`)
         }
-      }
-    });
-  };
+      },
+    })
+  }
 
   // 创建检查点
   const handleCreateCheckpoint = () => {
-    const name = window.prompt('请输入检查点名称');
-    if (!name) return;
+    const name = window.prompt('请输入检查点名称')
+    if (!name) return
     distributedTaskService
       .createCheckpoint(name)
       .then(() => message.success(`检查点 ${name} 创建成功`))
-      .catch((e) => message.error(`检查点创建失败: ${e}`));
-  };
+      .catch(e => message.error(`检查点创建失败: ${e}`))
+  }
 
   // 回滚检查点
   const handleRollbackCheckpoint = () => {
-    const name = window.prompt('请输入要回滚的检查点名称');
-    if (!name) return;
+    const name = window.prompt('请输入要回滚的检查点名称')
+    if (!name) return
     confirm({
       title: '确认回滚',
       icon: <ExclamationCircleOutlined />,
       content: `确定要回滚到检查点 ${name} 吗？这将撤销之后的所有状态更改。`,
       onOk: async () => {
         try {
-          await distributedTaskService.rollbackCheckpoint(name);
-          message.success(`回滚到检查点 ${name} 成功`);
-          await fetchSystemStats();
+          await distributedTaskService.rollbackCheckpoint(name)
+          message.success(`回滚到检查点 ${name} 成功`)
+          await fetchSystemStats()
         } catch (error) {
-          message.error(`检查点回滚失败: ${error}`);
+          message.error(`检查点回滚失败: ${error}`)
         }
-      }
-    });
-  };
+      },
+    })
+  }
 
   // 关闭引擎
   const handleShutdownEngine = () => {
@@ -235,35 +258,35 @@ const DistributedTaskCoordinationPage: React.FC = () => {
       content: '确定要关闭分布式任务协调引擎吗？这将停止所有任务处理。',
       onOk: async () => {
         try {
-          await distributedTaskService.shutdownEngine();
-          message.success('引擎关闭成功');
-          setEngineInitialized(false);
-          setSystemStats(null);
-          setTasks([]);
-          setConflicts([]);
+          await distributedTaskService.shutdownEngine()
+          message.success('引擎关闭成功')
+          setEngineInitialized(false)
+          setSystemStats(null)
+          setTasks([])
+          setConflicts([])
         } catch (error) {
-          message.error(`引擎关闭失败: ${error}`);
+          message.error(`引擎关闭失败: ${error}`)
         }
-      }
-    });
-  };
+      },
+    })
+  }
 
   // 定期刷新数据
   useEffect(() => {
     if (engineInitialized) {
       const interval = setInterval(async () => {
-        await fetchSystemStats();
-        await fetchConflicts();
-      }, 5000);
-      
-      return () => clearInterval(interval);
+        await fetchSystemStats()
+        await fetchConflicts()
+      }, 5000)
+
+      return () => clearInterval(interval)
     }
-  }, [engineInitialized]);
+  }, [engineInitialized])
 
   // 初始化时检查引擎状态
   useEffect(() => {
-    fetchSystemStats();
-  }, []);
+    fetchSystemStats()
+  }, [])
 
   // 任务表格列定义
   const taskColumns = [
@@ -275,29 +298,31 @@ const DistributedTaskCoordinationPage: React.FC = () => {
         <Text code copyable={{ text: taskId }}>
           {taskId.substring(0, 8)}...
         </Text>
-      )
+      ),
     },
     {
       title: '状态',
       dataIndex: 'status',
       key: 'status',
       render: (status: string) => (
-        <Tag color={statusColors[status as keyof typeof statusColors] || 'default'}>
+        <Tag
+          color={statusColors[status as keyof typeof statusColors] || 'default'}
+        >
           {status.toUpperCase()}
         </Tag>
-      )
+      ),
     },
     {
       title: '分配给',
       dataIndex: 'assigned_to',
       key: 'assigned_to',
-      render: (agentId: string) => agentId ? <Tag>{agentId}</Tag> : '-'
+      render: (agentId: string) => (agentId ? <Tag>{agentId}</Tag> : '-'),
     },
     {
       title: '创建时间',
       dataIndex: 'created_at',
       key: 'created_at',
-      render: (time: string) => new Date(time).toLocaleString()
+      render: (time: string) => new Date(time).toLocaleString(),
     },
     {
       title: '操作',
@@ -309,14 +334,16 @@ const DistributedTaskCoordinationPage: React.FC = () => {
             icon={<DeleteOutlined />}
             danger
             onClick={() => handleCancelTask(record.task_id)}
-            disabled={['completed', 'failed', 'cancelled'].includes(record.status)}
+            disabled={['completed', 'failed', 'cancelled'].includes(
+              record.status
+            )}
           >
             取消
           </Button>
         </Space>
-      )
-    }
-  ];
+      ),
+    },
+  ]
 
   // 冲突表格列定义
   const conflictColumns = [
@@ -328,24 +355,24 @@ const DistributedTaskCoordinationPage: React.FC = () => {
         <Text code copyable={{ text: conflictId }}>
           {conflictId.substring(0, 8)}...
         </Text>
-      )
+      ),
     },
     {
       title: '类型',
       dataIndex: 'conflict_type',
       key: 'conflict_type',
-      render: (type: string) => <Tag color="orange">{type}</Tag>
+      render: (type: string) => <Tag color="orange">{type}</Tag>,
     },
     {
       title: '描述',
       dataIndex: 'description',
-      key: 'description'
+      key: 'description',
     },
     {
       title: '涉及任务',
       dataIndex: 'involved_tasks',
       key: 'involved_tasks',
-      render: (tasks: string[]) => tasks.length
+      render: (tasks: string[]) => tasks.length,
     },
     {
       title: '状态',
@@ -355,7 +382,7 @@ const DistributedTaskCoordinationPage: React.FC = () => {
         <Tag color={resolved ? 'success' : 'error'}>
           {resolved ? '已解决' : '待解决'}
         </Tag>
-      )
+      ),
     },
     {
       title: '操作',
@@ -365,22 +392,26 @@ const DistributedTaskCoordinationPage: React.FC = () => {
           <Button
             size="small"
             type="primary"
-            onClick={() => handleResolveConflict(record.conflict_id, 'priority_based')}
+            onClick={() =>
+              handleResolveConflict(record.conflict_id, 'priority_based')
+            }
             disabled={record.resolved}
           >
             优先级解决
           </Button>
           <Button
             size="small"
-            onClick={() => handleResolveConflict(record.conflict_id, 'load_balancing')}
+            onClick={() =>
+              handleResolveConflict(record.conflict_id, 'load_balancing')
+            }
             disabled={record.resolved}
           >
             负载均衡解决
           </Button>
         </Space>
-      )
-    }
-  ];
+      ),
+    },
+  ]
 
   return (
     <div style={{ padding: '24px', background: '#f5f5f5', minHeight: '100vh' }}>
@@ -441,17 +472,20 @@ const DistributedTaskCoordinationPage: React.FC = () => {
           <Card title="系统状态" style={{ marginBottom: 24 }}>
             <Row gutter={16}>
               <Col span={6}>
-                <Statistic
-                  title="节点ID"
-                  value={systemStats?.node_id || '-'}
-                />
+                <Statistic title="节点ID" value={systemStats?.node_id || '-'} />
               </Col>
               <Col span={6}>
                 <Statistic
                   title="Raft状态"
                   value={systemStats?.raft_state || '-'}
                   prefix={
-                    <Tag color={raftStateColors[systemStats?.raft_state as keyof typeof raftStateColors] || 'default'}>
+                    <Tag
+                      color={
+                        raftStateColors[
+                          systemStats?.raft_state as keyof typeof raftStateColors
+                        ] || 'default'
+                      }
+                    >
                       {systemStats?.raft_state?.toUpperCase()}
                     </Tag>
                   }
@@ -506,10 +540,7 @@ const DistributedTaskCoordinationPage: React.FC = () => {
             </Row>
             <Divider />
             <Space>
-              <Button
-                icon={<ReloadOutlined />}
-                onClick={fetchSystemStats}
-              >
+              <Button icon={<ReloadOutlined />} onClick={fetchSystemStats}>
                 刷新状态
               </Button>
               <Button
@@ -541,10 +572,7 @@ const DistributedTaskCoordinationPage: React.FC = () => {
                 title="提交新任务"
                 style={{ marginBottom: 16 }}
                 extra={
-                  <Button
-                    icon={<ReloadOutlined />}
-                    onClick={fetchTasks}
-                  >
+                  <Button icon={<ReloadOutlined />} onClick={fetchTasks}>
                     刷新任务列表
                   </Button>
                 }
@@ -586,10 +614,7 @@ const DistributedTaskCoordinationPage: React.FC = () => {
                       </Form.Item>
                     </Col>
                     <Col span={8}>
-                      <Form.Item
-                        label="分解策略"
-                        name="decompositionStrategy"
-                      >
+                      <Form.Item label="分解策略" name="decompositionStrategy">
                         <Select placeholder="选择分解策略" allowClear>
                           <Option value="parallel">并行分解</Option>
                           <Option value="sequential">序列分解</Option>
@@ -608,15 +633,17 @@ const DistributedTaskCoordinationPage: React.FC = () => {
                           { required: true, message: '请输入任务数据' },
                           {
                             validator: (_, value) => {
-                              if (!value) return Promise.resolve();
+                              if (!value) return Promise.resolve()
                               try {
-                                JSON.parse(value);
-                                return Promise.resolve();
+                                JSON.parse(value)
+                                return Promise.resolve()
                               } catch {
-                                return Promise.reject(new Error('请输入有效的JSON格式'));
+                                return Promise.reject(
+                                  new Error('请输入有效的JSON格式')
+                                )
                               }
-                            }
-                          }
+                            },
+                          },
                         ]}
                       >
                         <TextArea
@@ -626,10 +653,7 @@ const DistributedTaskCoordinationPage: React.FC = () => {
                       </Form.Item>
                     </Col>
                     <Col span={12}>
-                      <Form.Item
-                        label="任务需求 (JSON)"
-                        name="requirements"
-                      >
+                      <Form.Item label="任务需求 (JSON)" name="requirements">
                         <TextArea
                           rows={4}
                           placeholder='{"cpu": 0.5, "memory": 1024, "timeout": 3600}'
@@ -678,10 +702,7 @@ const DistributedTaskCoordinationPage: React.FC = () => {
               <Card
                 title="系统冲突"
                 extra={
-                  <Button
-                    icon={<ReloadOutlined />}
-                    onClick={fetchConflicts}
-                  >
+                  <Button icon={<ReloadOutlined />} onClick={fetchConflicts}>
                     刷新冲突列表
                   </Button>
                 }
@@ -707,22 +728,50 @@ const DistributedTaskCoordinationPage: React.FC = () => {
             <TabPane tab="系统详情" key="details">
               <Card title="详细统计信息">
                 <Descriptions bordered column={2}>
-                  <Descriptions.Item label="节点ID">{systemStats?.node_id}</Descriptions.Item>
-                  <Descriptions.Item label="Raft状态">{systemStats?.raft_state}</Descriptions.Item>
-                  <Descriptions.Item label="Leader节点">{systemStats?.leader_id || '未知'}</Descriptions.Item>
-                  <Descriptions.Item label="活跃任务数">{systemStats?.active_tasks}</Descriptions.Item>
-                  <Descriptions.Item label="完成任务数">{systemStats?.completed_tasks}</Descriptions.Item>
-                  <Descriptions.Item label="排队任务数">{systemStats?.queued_tasks}</Descriptions.Item>
-                  <Descriptions.Item label="提交总数">{systemStats?.stats?.tasks_submitted}</Descriptions.Item>
-                  <Descriptions.Item label="失败总数">{systemStats?.stats?.tasks_failed}</Descriptions.Item>
-                  <Descriptions.Item label="取消总数">{systemStats?.stats?.tasks_cancelled}</Descriptions.Item>
-                  <Descriptions.Item label="平均处理时间">{systemStats?.stats?.average_processing_time}秒</Descriptions.Item>
+                  <Descriptions.Item label="节点ID">
+                    {systemStats?.node_id}
+                  </Descriptions.Item>
+                  <Descriptions.Item label="Raft状态">
+                    {systemStats?.raft_state}
+                  </Descriptions.Item>
+                  <Descriptions.Item label="Leader节点">
+                    {systemStats?.leader_id || '未知'}
+                  </Descriptions.Item>
+                  <Descriptions.Item label="活跃任务数">
+                    {systemStats?.active_tasks}
+                  </Descriptions.Item>
+                  <Descriptions.Item label="完成任务数">
+                    {systemStats?.completed_tasks}
+                  </Descriptions.Item>
+                  <Descriptions.Item label="排队任务数">
+                    {systemStats?.queued_tasks}
+                  </Descriptions.Item>
+                  <Descriptions.Item label="提交总数">
+                    {systemStats?.stats?.tasks_submitted}
+                  </Descriptions.Item>
+                  <Descriptions.Item label="失败总数">
+                    {systemStats?.stats?.tasks_failed}
+                  </Descriptions.Item>
+                  <Descriptions.Item label="取消总数">
+                    {systemStats?.stats?.tasks_cancelled}
+                  </Descriptions.Item>
+                  <Descriptions.Item label="平均处理时间">
+                    {systemStats?.stats?.average_processing_time}秒
+                  </Descriptions.Item>
                 </Descriptions>
 
                 {systemStats?.state_summary && (
                   <>
-                    <Title level={4} style={{ marginTop: 24 }}>状态摘要</Title>
-                    <pre style={{ background: '#f5f5f5', padding: 16, borderRadius: 4 }}>
+                    <Title level={4} style={{ marginTop: 24 }}>
+                      状态摘要
+                    </Title>
+                    <pre
+                      style={{
+                        background: '#f5f5f5',
+                        padding: 16,
+                        borderRadius: 4,
+                      }}
+                    >
                       {JSON.stringify(systemStats.state_summary, null, 2)}
                     </pre>
                   </>
@@ -733,7 +782,7 @@ const DistributedTaskCoordinationPage: React.FC = () => {
         </>
       )}
     </div>
-  );
-};
+  )
+}
 
-export default DistributedTaskCoordinationPage;
+export default DistributedTaskCoordinationPage

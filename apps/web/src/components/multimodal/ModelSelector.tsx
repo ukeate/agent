@@ -1,28 +1,38 @@
-import React from 'react';
-import { Select, Radio, Space, Card, Tag, Tooltip, Row, Col, Typography } from 'antd';
-import { 
-  DollarOutlined, 
-  RocketOutlined, 
+import React from 'react'
+import {
+  Select,
+  Radio,
+  Space,
+  Card,
+  Tag,
+  Tooltip,
+  Row,
+  Col,
+  Typography,
+} from 'antd'
+import {
+  DollarOutlined,
+  RocketOutlined,
   ThunderboltOutlined,
   BankOutlined,
   CrownOutlined,
-  SafetyCertificateOutlined
-} from '@ant-design/icons';
+  SafetyCertificateOutlined,
+} from '@ant-design/icons'
 
-const { Option } = Select;
-const { Text } = Typography;
+const { Option } = Select
+const { Text } = Typography
 
 interface ModelConfig {
-  name: string;
-  displayName: string;
-  capabilities: string[];
-  maxTokens: number;
-  costPerKTokens: { input: number; output: number };
-  bestFor: string[];
-  supportsVision: boolean;
-  supportsFileUpload: boolean;
-  color: string;
-  icon: React.ReactNode;
+  name: string
+  displayName: string
+  capabilities: string[]
+  maxTokens: number
+  costPerKTokens: { input: number; output: number }
+  bestFor: string[]
+  supportsVision: boolean
+  supportsFileUpload: boolean
+  color: string
+  icon: React.ReactNode
 }
 
 const modelConfigs: Record<string, ModelConfig> = {
@@ -36,7 +46,7 @@ const modelConfigs: Record<string, ModelConfig> = {
     supportsVision: true,
     supportsFileUpload: true,
     color: 'blue',
-    icon: <CrownOutlined />
+    icon: <CrownOutlined />,
   },
   'gpt-4o-mini': {
     name: 'gpt-4o-mini',
@@ -48,7 +58,7 @@ const modelConfigs: Record<string, ModelConfig> = {
     supportsVision: true,
     supportsFileUpload: true,
     color: 'green',
-    icon: <DollarOutlined />
+    icon: <DollarOutlined />,
   },
   'gpt-4o-2024-11-20': {
     name: 'gpt-4o-2024-11-20',
@@ -60,7 +70,7 @@ const modelConfigs: Record<string, ModelConfig> = {
     supportsVision: true,
     supportsFileUpload: true,
     color: 'purple',
-    icon: <RocketOutlined />
+    icon: <RocketOutlined />,
   },
   'gpt-5': {
     name: 'gpt-5',
@@ -72,7 +82,7 @@ const modelConfigs: Record<string, ModelConfig> = {
     supportsVision: true,
     supportsFileUpload: true,
     color: 'gold',
-    icon: <SafetyCertificateOutlined />
+    icon: <SafetyCertificateOutlined />,
   },
   'gpt-5-mini': {
     name: 'gpt-5-mini',
@@ -84,7 +94,7 @@ const modelConfigs: Record<string, ModelConfig> = {
     supportsVision: true,
     supportsFileUpload: true,
     color: 'orange',
-    icon: <BankOutlined />
+    icon: <BankOutlined />,
   },
   'gpt-5-nano': {
     name: 'gpt-5-nano',
@@ -96,17 +106,17 @@ const modelConfigs: Record<string, ModelConfig> = {
     supportsVision: true,
     supportsFileUpload: false,
     color: 'cyan',
-    icon: <ThunderboltOutlined />
-  }
-};
+    icon: <ThunderboltOutlined />,
+  },
+}
 
 interface ModelSelectorProps {
-  selectedModel: string;
-  onModelChange: (model: string) => void;
-  priority: string;
-  onPriorityChange: (priority: string) => void;
-  complexity: string;
-  onComplexityChange: (complexity: string) => void;
+  selectedModel: string
+  onModelChange: (model: string) => void
+  priority: string
+  onPriorityChange: (priority: string) => void
+  complexity: string
+  onComplexityChange: (complexity: string) => void
 }
 
 const ModelSelector: React.FC<ModelSelectorProps> = ({
@@ -115,15 +125,17 @@ const ModelSelector: React.FC<ModelSelectorProps> = ({
   priority,
   onPriorityChange,
   complexity,
-  onComplexityChange
+  onComplexityChange,
 }) => {
-  const currentModel = modelConfigs[selectedModel] || modelConfigs['gpt-4o'];
+  const currentModel = modelConfigs[selectedModel] || modelConfigs['gpt-4o']
 
   return (
     <div className="space-y-4">
       {/* 模型选择 */}
       <div>
-        <Text strong className="mb-2 block">选择模型：</Text>
+        <Text strong className="mb-2 block">
+          选择模型：
+        </Text>
         <Select
           value={selectedModel}
           onChange={onModelChange}
@@ -139,7 +151,11 @@ const ModelSelector: React.FC<ModelSelectorProps> = ({
                 </span>
                 <div>
                   {model.capabilities.map(cap => (
-                    <Tag key={cap} color={model.color} style={{ marginLeft: 4 }}>
+                    <Tag
+                      key={cap}
+                      color={model.color}
+                      style={{ marginLeft: 4 }}
+                    >
                       {cap}
                     </Tag>
                   ))}
@@ -184,29 +200,43 @@ const ModelSelector: React.FC<ModelSelectorProps> = ({
 
       {/* 优先级选择 */}
       <div>
-        <Text strong className="mb-2 block">处理优先级：</Text>
-        <Radio.Group 
-          value={priority} 
-          onChange={(e) => onPriorityChange(e.target.value)}
+        <Text strong className="mb-2 block">
+          处理优先级：
+        </Text>
+        <Radio.Group
+          value={priority}
+          onChange={e => onPriorityChange(e.target.value)}
           buttonStyle="solid"
           style={{ width: '100%' }}
         >
-          <Radio.Button value="cost" style={{ width: '25%', textAlign: 'center' }}>
+          <Radio.Button
+            value="cost"
+            style={{ width: '25%', textAlign: 'center' }}
+          >
             <Tooltip title="最低成本，使用经济型模型">
               <DollarOutlined /> 成本
             </Tooltip>
           </Radio.Button>
-          <Radio.Button value="quality" style={{ width: '25%', textAlign: 'center' }}>
+          <Radio.Button
+            value="quality"
+            style={{ width: '25%', textAlign: 'center' }}
+          >
             <Tooltip title="最高质量，使用顶级模型">
               <CrownOutlined /> 质量
             </Tooltip>
           </Radio.Button>
-          <Radio.Button value="speed" style={{ width: '25%', textAlign: 'center' }}>
+          <Radio.Button
+            value="speed"
+            style={{ width: '25%', textAlign: 'center' }}
+          >
             <Tooltip title="最快速度，使用轻量模型">
               <ThunderboltOutlined /> 速度
             </Tooltip>
           </Radio.Button>
-          <Radio.Button value="balanced" style={{ width: '25%', textAlign: 'center' }}>
+          <Radio.Button
+            value="balanced"
+            style={{ width: '25%', textAlign: 'center' }}
+          >
             <Tooltip title="平衡各项指标">
               <BankOutlined /> 平衡
             </Tooltip>
@@ -216,10 +246,12 @@ const ModelSelector: React.FC<ModelSelectorProps> = ({
 
       {/* 复杂度选择 */}
       <div>
-        <Text strong className="mb-2 block">任务复杂度：</Text>
-        <Radio.Group 
-          value={complexity} 
-          onChange={(e) => onComplexityChange(e.target.value)}
+        <Text strong className="mb-2 block">
+          任务复杂度：
+        </Text>
+        <Radio.Group
+          value={complexity}
+          onChange={e => onComplexityChange(e.target.value)}
           style={{ width: '100%' }}
         >
           <Radio value="simple">简单（基础识别和提取）</Radio>
@@ -229,8 +261,8 @@ const ModelSelector: React.FC<ModelSelectorProps> = ({
       </div>
 
       {/* 智能推荐 */}
-      <Card 
-        size="small" 
+      <Card
+        size="small"
         className="bg-blue-50 border-blue-200"
         title={
           <Text type="secondary">
@@ -240,14 +272,28 @@ const ModelSelector: React.FC<ModelSelectorProps> = ({
       >
         <Text>
           基于您选择的
-          <Tag color="blue">{priority === 'cost' ? '成本优先' : priority === 'quality' ? '质量优先' : priority === 'speed' ? '速度优先' : '平衡模式'}</Tag>
+          <Tag color="blue">
+            {priority === 'cost'
+              ? '成本优先'
+              : priority === 'quality'
+                ? '质量优先'
+                : priority === 'speed'
+                  ? '速度优先'
+                  : '平衡模式'}
+          </Tag>
           和
-          <Tag color="orange">{complexity === 'simple' ? '简单任务' : complexity === 'complex' ? '复杂任务' : '中等任务'}</Tag>
+          <Tag color="orange">
+            {complexity === 'simple'
+              ? '简单任务'
+              : complexity === 'complex'
+                ? '复杂任务'
+                : '中等任务'}
+          </Tag>
           ，系统将自动选择最适合的模型进行处理。
         </Text>
       </Card>
     </div>
-  );
-};
+  )
+}
 
-export default ModelSelector;
+export default ModelSelector

@@ -1,150 +1,173 @@
-import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
-import { Badge } from '../components/ui/badge';
-import { Button } from '../components/ui/button';
-import { Progress } from '../components/ui/progress';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
-import { 
-  Clock, GitBranch, ArrowRight, AlertTriangle, CheckCircle,
-  Activity, Zap, RefreshCw, Timer, Hash, TrendingUp,
-  Network, ArrowUpDown, GitMerge, Eye, Code, Play, Pause
-} from 'lucide-react';
+import React, { useState, useEffect } from 'react'
+import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
+import { Badge } from '../components/ui/badge'
+import { Button } from '../components/ui/button'
+import { Progress } from '../components/ui/progress'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs'
+import {
+  Clock,
+  GitBranch,
+  ArrowRight,
+  AlertTriangle,
+  CheckCircle,
+  Activity,
+  Zap,
+  RefreshCw,
+  Timer,
+  Hash,
+  TrendingUp,
+  Network,
+  ArrowUpDown,
+  GitMerge,
+  Eye,
+  Code,
+  Play,
+  Pause,
+} from 'lucide-react'
 
 // 向量时钟数据结构 - 直接展示算法实现
 interface VectorClock {
-  node_id: string;
-  clock: Record<string, number>;
+  node_id: string
+  clock: Record<string, number>
 }
 
 // 算法步骤
 interface AlgorithmStep {
-  id: string;
-  node_id: string;
-  operation: 'local_event' | 'send_message' | 'receive_message';
-  description: string;
-  before_clock: VectorClock;
-  after_clock: VectorClock;
-  explanation: string;
-  code_snippet: string;
+  id: string
+  node_id: string
+  operation: 'local_event' | 'send_message' | 'receive_message'
+  description: string
+  before_clock: VectorClock
+  after_clock: VectorClock
+  explanation: string
+  code_snippet: string
 }
 
 // 因果关系比较结果
 interface CausalRelation {
-  clock1: VectorClock;
-  clock2: VectorClock;
-  relation: 'before' | 'after' | 'concurrent' | 'equal';
-  algorithm_steps: string[];
+  clock1: VectorClock
+  clock2: VectorClock
+  relation: 'before' | 'after' | 'concurrent' | 'equal'
+  algorithm_steps: string[]
 }
 
 const VectorClockAlgorithmPage: React.FC = () => {
-  const [nodes, setNodes] = useState<VectorClock[]>([]);
-  const [algorithmSteps, setAlgorithmSteps] = useState<AlgorithmStep[]>([]);
-  const [currentStep, setCurrentStep] = useState(0);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [selectedClocks, setSelectedClocks] = useState<VectorClock[]>([]);
-  const [causalComparison, setCausalComparison] = useState<CausalRelation | null>(null);
-  const [activeTab, setActiveTab] = useState('algorithm');
+  const [nodes, setNodes] = useState<VectorClock[]>([])
+  const [algorithmSteps, setAlgorithmSteps] = useState<AlgorithmStep[]>([])
+  const [currentStep, setCurrentStep] = useState(0)
+  const [isPlaying, setIsPlaying] = useState(false)
+  const [selectedClocks, setSelectedClocks] = useState<VectorClock[]>([])
+  const [causalComparison, setCausalComparison] =
+    useState<CausalRelation | null>(null)
+  const [activeTab, setActiveTab] = useState('algorithm')
 
   // 向量时钟算法实现 - 教学版本
   const VectorClockAlgorithm = {
     // 本地事件处理
     handleLocalEvent: (clock: VectorClock): VectorClock => {
-      const newClock = { ...clock, clock: { ...clock.clock } };
-      newClock.clock[clock.node_id] = (newClock.clock[clock.node_id] || 0) + 1;
-      return newClock;
+      const newClock = { ...clock, clock: { ...clock.clock } }
+      newClock.clock[clock.node_id] = (newClock.clock[clock.node_id] || 0) + 1
+      return newClock
     },
 
     // 发送消息时的时钟处理
     handleSendMessage: (clock: VectorClock): VectorClock => {
-      const newClock = { ...clock, clock: { ...clock.clock } };
-      newClock.clock[clock.node_id] = (newClock.clock[clock.node_id] || 0) + 1;
-      return newClock;
+      const newClock = { ...clock, clock: { ...clock.clock } }
+      newClock.clock[clock.node_id] = (newClock.clock[clock.node_id] || 0) + 1
+      return newClock
     },
 
     // 接收消息时的时钟处理
-    handleReceiveMessage: (localClock: VectorClock, messageClock: VectorClock): VectorClock => {
-      const newClock = { ...localClock, clock: {} };
-      
+    handleReceiveMessage: (
+      localClock: VectorClock,
+      messageClock: VectorClock
+    ): VectorClock => {
+      const newClock = { ...localClock, clock: {} }
+
       // 获取所有节点
       const allNodes = new Set([
         ...Object.keys(localClock.clock),
-        ...Object.keys(messageClock.clock)
-      ]);
+        ...Object.keys(messageClock.clock),
+      ])
 
       // 对每个节点取最大值
       for (const node of allNodes) {
-        const localValue = localClock.clock[node] || 0;
-        const messageValue = messageClock.clock[node] || 0;
-        newClock.clock[node] = Math.max(localValue, messageValue);
+        const localValue = localClock.clock[node] || 0
+        const messageValue = messageClock.clock[node] || 0
+        newClock.clock[node] = Math.max(localValue, messageValue)
       }
 
       // 递增本地节点时钟
-      newClock.clock[localClock.node_id] = (newClock.clock[localClock.node_id] || 0) + 1;
-      
-      return newClock;
+      newClock.clock[localClock.node_id] =
+        (newClock.clock[localClock.node_id] || 0) + 1
+
+      return newClock
     },
 
     // 比较两个向量时钟
-    compareClocks: (clock1: VectorClock, clock2: VectorClock): CausalRelation => {
+    compareClocks: (
+      clock1: VectorClock,
+      clock2: VectorClock
+    ): CausalRelation => {
       const allNodes = new Set([
         ...Object.keys(clock1.clock),
-        ...Object.keys(clock2.clock)
-      ]);
+        ...Object.keys(clock2.clock),
+      ])
 
-      let clock1Less = true;
-      let clock2Less = true;
-      const steps: string[] = [];
+      let clock1Less = true
+      let clock2Less = true
+      const steps: string[] = []
 
-      steps.push(`比较向量时钟 ${clock1.node_id} 和 ${clock2.node_id}:`);
-      steps.push(`节点集合: [${Array.from(allNodes).join(', ')}]`);
+      steps.push(`比较向量时钟 ${clock1.node_id} 和 ${clock2.node_id}:`)
+      steps.push(`节点集合: [${Array.from(allNodes).join(', ')}]`)
 
       for (const node of allNodes) {
-        const val1 = clock1.clock[node] || 0;
-        const val2 = clock2.clock[node] || 0;
+        const val1 = clock1.clock[node] || 0
+        const val2 = clock2.clock[node] || 0
 
-        steps.push(`节点 ${node}: Clock1[${val1}] vs Clock2[${val2}]`);
+        steps.push(`节点 ${node}: Clock1[${val1}] vs Clock2[${val2}]`)
 
         if (val1 > val2) {
-          clock2Less = false;
-          steps.push(`  -> Clock1 > Clock2 for ${node}, Clock2 不能 ≤ Clock1`);
+          clock2Less = false
+          steps.push(`  -> Clock1 > Clock2 for ${node}, Clock2 不能 ≤ Clock1`)
         } else if (val1 < val2) {
-          clock1Less = false;
-          steps.push(`  -> Clock1 < Clock2 for ${node}, Clock1 不能 ≤ Clock2`);
+          clock1Less = false
+          steps.push(`  -> Clock1 < Clock2 for ${node}, Clock1 不能 ≤ Clock2`)
         } else {
-          steps.push(`  -> Clock1 = Clock2 for ${node}`);
+          steps.push(`  -> Clock1 = Clock2 for ${node}`)
         }
       }
 
-      let relation: 'before' | 'after' | 'concurrent' | 'equal';
+      let relation: 'before' | 'after' | 'concurrent' | 'equal'
       if (clock1Less && !clock2Less) {
-        relation = 'before';
-        steps.push('结果: Clock1 → Clock2 (Clock1 发生在 Clock2 之前)');
+        relation = 'before'
+        steps.push('结果: Clock1 → Clock2 (Clock1 发生在 Clock2 之前)')
       } else if (!clock1Less && clock2Less) {
-        relation = 'after';
-        steps.push('结果: Clock1 ← Clock2 (Clock1 发生在 Clock2 之后)');
+        relation = 'after'
+        steps.push('结果: Clock1 ← Clock2 (Clock1 发生在 Clock2 之后)')
       } else if (clock1Less && clock2Less) {
-        relation = 'equal';
-        steps.push('结果: Clock1 = Clock2 (两个时钟相等)');
+        relation = 'equal'
+        steps.push('结果: Clock1 = Clock2 (两个时钟相等)')
       } else {
-        relation = 'concurrent';
-        steps.push('结果: Clock1 || Clock2 (两个事件并发)');
+        relation = 'concurrent'
+        steps.push('结果: Clock1 || Clock2 (两个事件并发)')
       }
 
-      return { clock1, clock2, relation, algorithm_steps: steps };
-    }
-  };
+      return { clock1, clock2, relation, algorithm_steps: steps }
+    },
+  }
 
   // 生成算法演示数据
   const generateAlgorithmDemo = () => {
-    const nodeA: VectorClock = { node_id: 'A', clock: {} };
-    const nodeB: VectorClock = { node_id: 'B', clock: {} };
-    const nodeC: VectorClock = { node_id: 'C', clock: {} };
+    const nodeA: VectorClock = { node_id: 'A', clock: {} }
+    const nodeB: VectorClock = { node_id: 'B', clock: {} }
+    const nodeC: VectorClock = { node_id: 'C', clock: {} }
 
-    const steps: AlgorithmStep[] = [];
+    const steps: AlgorithmStep[] = []
 
     // 步骤1: Node A 本地事件
-    const step1_before = { ...nodeA };
-    const step1_after = VectorClockAlgorithm.handleLocalEvent(nodeA);
+    const step1_before = { ...nodeA }
+    const step1_after = VectorClockAlgorithm.handleLocalEvent(nodeA)
     steps.push({
       id: 'step-1',
       node_id: 'A',
@@ -155,12 +178,12 @@ const VectorClockAlgorithmPage: React.FC = () => {
       explanation: '本地事件：递增自己的时钟值',
       code_snippet: `// 本地事件处理
 clock['A'] = clock['A'] + 1  // 0 + 1 = 1
-result: A[1]`
-    });
+result: A[1]`,
+    })
 
     // 步骤2: Node B 本地事件
-    const step2_before = { ...nodeB };
-    const step2_after = VectorClockAlgorithm.handleLocalEvent(nodeB);
+    const step2_before = { ...nodeB }
+    const step2_after = VectorClockAlgorithm.handleLocalEvent(nodeB)
     steps.push({
       id: 'step-2',
       node_id: 'B',
@@ -171,12 +194,12 @@ result: A[1]`
       explanation: '本地事件：递增自己的时钟值',
       code_snippet: `// 本地事件处理
 clock['B'] = clock['B'] + 1  // 0 + 1 = 1
-result: B[1]`
-    });
+result: B[1]`,
+    })
 
     // 步骤3: Node A 发送消息给 B
-    const step3_before = { ...step1_after };
-    const step3_after = VectorClockAlgorithm.handleSendMessage(step1_after);
+    const step3_before = { ...step1_after }
+    const step3_after = VectorClockAlgorithm.handleSendMessage(step1_after)
     steps.push({
       id: 'step-3',
       node_id: 'A',
@@ -188,12 +211,15 @@ result: B[1]`
       code_snippet: `// 发送消息处理
 clock['A'] = clock['A'] + 1  // 1 + 1 = 2
 send_message(to: B, vector_clock: A[2])
-result: A[2]`
-    });
+result: A[2]`,
+    })
 
     // 步骤4: Node B 接收来自 A 的消息
-    const step4_before = { ...step2_after };
-    const step4_after = VectorClockAlgorithm.handleReceiveMessage(step2_after, step3_after);
+    const step4_before = { ...step2_after }
+    const step4_after = VectorClockAlgorithm.handleReceiveMessage(
+      step2_after,
+      step3_after
+    )
     steps.push({
       id: 'step-4',
       node_id: 'B',
@@ -212,12 +238,12 @@ clock['B'] = max(1, 0) = 1
 
 // 递增本地时钟
 clock['B'] = clock['B'] + 1 = 2
-result: A[2], B[2]`
-    });
+result: A[2], B[2]`,
+    })
 
     // 步骤5: Node C 本地事件（并发）
-    const step5_before = { ...nodeC };
-    const step5_after = VectorClockAlgorithm.handleLocalEvent(nodeC);
+    const step5_before = { ...nodeC }
+    const step5_after = VectorClockAlgorithm.handleLocalEvent(nodeC)
     steps.push({
       id: 'step-5',
       node_id: 'C',
@@ -229,114 +255,137 @@ result: A[2], B[2]`
       code_snippet: `// 本地事件处理（并发）
 clock['C'] = clock['C'] + 1  // 0 + 1 = 1
 // 注意：C 不知道 A,B 的时钟状态
-result: C[1]`
-    });
+result: C[1]`,
+    })
 
-    setAlgorithmSteps(steps);
-    
+    setAlgorithmSteps(steps)
+
     // 设置最终的节点状态
     setNodes([
-      step4_after,  // A[2], B[2]
-      step5_after   // C[1]
-    ]);
-  };
+      step4_after, // A[2], B[2]
+      step5_after, // C[1]
+    ])
+  }
 
   // 自动播放算法步骤
   useEffect(() => {
     if (isPlaying && currentStep < algorithmSteps.length - 1) {
       const timer = setTimeout(() => {
-        setCurrentStep(currentStep + 1);
-      }, 3000);
-      return () => clearTimeout(timer);
+        setCurrentStep(currentStep + 1)
+      }, 3000)
+      return () => clearTimeout(timer)
     } else if (currentStep >= algorithmSteps.length - 1) {
-      setIsPlaying(false);
+      setIsPlaying(false)
     }
-  }, [isPlaying, currentStep, algorithmSteps.length]);
+  }, [isPlaying, currentStep, algorithmSteps.length])
 
   // 比较选中的时钟
   const compareSelectedClocks = () => {
     if (selectedClocks.length === 2) {
-      const comparison = VectorClockAlgorithm.compareClocks(selectedClocks[0], selectedClocks[1]);
-      setCausalComparison(comparison);
+      const comparison = VectorClockAlgorithm.compareClocks(
+        selectedClocks[0],
+        selectedClocks[1]
+      )
+      setCausalComparison(comparison)
     }
-  };
+  }
 
   // 选择时钟进行比较
   const toggleClockSelection = (clock: VectorClock) => {
     setSelectedClocks(prev => {
-      const isSelected = prev.some(c => c.node_id === clock.node_id);
+      const isSelected = prev.some(c => c.node_id === clock.node_id)
       if (isSelected) {
-        return prev.filter(c => c.node_id !== clock.node_id);
+        return prev.filter(c => c.node_id !== clock.node_id)
       } else if (prev.length < 2) {
-        return [...prev, clock];
+        return [...prev, clock]
       } else {
-        return [prev[1], clock];
+        return [prev[1], clock]
       }
-    });
-  };
+    })
+  }
 
   const formatClock = (clock: VectorClock) => {
     return Object.entries(clock.clock)
       .map(([node, value]) => `${node}[${value}]`)
-      .join(', ');
-  };
+      .join(', ')
+  }
 
   const getOperationIcon = (operation: string) => {
     switch (operation) {
-      case 'local_event': return <Activity className="h-4 w-4" />;
-      case 'send_message': return <ArrowRight className="h-4 w-4" />;
-      case 'receive_message': return <ArrowUpDown className="h-4 w-4" />;
-      default: return <Clock className="h-4 w-4" />;
+      case 'local_event':
+        return <Activity className="h-4 w-4" />
+      case 'send_message':
+        return <ArrowRight className="h-4 w-4" />
+      case 'receive_message':
+        return <ArrowUpDown className="h-4 w-4" />
+      default:
+        return <Clock className="h-4 w-4" />
     }
-  };
+  }
 
   const getOperationColor = (operation: string) => {
     switch (operation) {
-      case 'local_event': return 'bg-blue-500';
-      case 'send_message': return 'bg-orange-500';
-      case 'receive_message': return 'bg-green-500';
-      default: return 'bg-gray-500';
+      case 'local_event':
+        return 'bg-blue-500'
+      case 'send_message':
+        return 'bg-orange-500'
+      case 'receive_message':
+        return 'bg-green-500'
+      default:
+        return 'bg-gray-500'
     }
-  };
+  }
 
   const getRelationColor = (relation: string) => {
     switch (relation) {
-      case 'before': return 'text-blue-600';
-      case 'after': return 'text-green-600';
-      case 'concurrent': return 'text-orange-600';
-      case 'equal': return 'text-purple-600';
-      default: return 'text-gray-600';
+      case 'before':
+        return 'text-blue-600'
+      case 'after':
+        return 'text-green-600'
+      case 'concurrent':
+        return 'text-orange-600'
+      case 'equal':
+        return 'text-purple-600'
+      default:
+        return 'text-gray-600'
     }
-  };
+  }
 
   useEffect(() => {
-    generateAlgorithmDemo();
-  }, []);
+    generateAlgorithmDemo()
+  }, [])
 
   useEffect(() => {
     if (selectedClocks.length === 2) {
-      compareSelectedClocks();
+      compareSelectedClocks()
     } else {
-      setCausalComparison(null);
+      setCausalComparison(null)
     }
-  }, [selectedClocks]);
+  }, [selectedClocks])
 
   return (
     <div className="container mx-auto p-6 space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold">向量时钟算法学习</h1>
         <div className="flex space-x-2">
-          <Button 
-            onClick={() => setIsPlaying(!isPlaying)} 
-            variant="outline" 
+          <Button
+            onClick={() => setIsPlaying(!isPlaying)}
+            variant="outline"
             size="sm"
           >
-            {isPlaying ? <Pause className="h-4 w-4 mr-2" /> : <Play className="h-4 w-4 mr-2" />}
+            {isPlaying ? (
+              <Pause className="h-4 w-4 mr-2" />
+            ) : (
+              <Play className="h-4 w-4 mr-2" />
+            )}
             {isPlaying ? '暂停' : '播放'}
           </Button>
-          <Button 
-            onClick={() => { setCurrentStep(0); setIsPlaying(false); }} 
-            variant="outline" 
+          <Button
+            onClick={() => {
+              setCurrentStep(0)
+              setIsPlaying(false)
+            }}
+            variant="outline"
             size="sm"
           >
             <RefreshCw className="h-4 w-4 mr-2" />
@@ -355,14 +404,18 @@ result: C[1]`
         </CardHeader>
         <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="bg-blue-50 border border-blue-200 rounded p-4">
-            <h4 className="font-medium text-blue-800 mb-2">偏序关系 (Happens-Before)</h4>
+            <h4 className="font-medium text-blue-800 mb-2">
+              偏序关系 (Happens-Before)
+            </h4>
             <p className="text-sm text-blue-600">
               事件 A → 事件 B：当且仅当对所有节点 i，VC(A)[i] ≤ VC(B)[i]，
               且存在节点 j 使得 VC(A)[j] &lt; VC(B)[j]
             </p>
           </div>
           <div className="bg-green-50 border border-green-200 rounded p-4">
-            <h4 className="font-medium text-green-800 mb-2">并发关系 (Concurrent)</h4>
+            <h4 className="font-medium text-green-800 mb-2">
+              并发关系 (Concurrent)
+            </h4>
             <p className="text-sm text-green-600">
               事件 A || 事件 B：当 A 不先于 B，且 B 不先于 A 时，
               两个事件为并发关系
@@ -371,8 +424,8 @@ result: C[1]`
           <div className="bg-purple-50 border border-purple-200 rounded p-4">
             <h4 className="font-medium text-purple-800 mb-2">时钟更新规则</h4>
             <p className="text-sm text-purple-600">
-              本地事件：VC[i]++；发送消息：VC[i]++，附带时钟；
-              接收消息：VC[j] = max(VC[j], received_VC[j])，然后 VC[i]++
+              本地事件：VC[i]++；发送消息：VC[i]++，附带时钟； 接收消息：VC[j] =
+              max(VC[j], received_VC[j])，然后 VC[i]++
             </p>
           </div>
         </CardContent>
@@ -397,18 +450,25 @@ result: C[1]`
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                <Progress value={((currentStep + 1) / algorithmSteps.length) * 100} className="w-full" />
-                
+                <Progress
+                  value={((currentStep + 1) / algorithmSteps.length) * 100}
+                  className="w-full"
+                />
+
                 <div className="flex justify-center space-x-2">
-                  <Button 
+                  <Button
                     onClick={() => setCurrentStep(Math.max(0, currentStep - 1))}
                     disabled={currentStep === 0}
                     size="sm"
                   >
                     上一步
                   </Button>
-                  <Button 
-                    onClick={() => setCurrentStep(Math.min(algorithmSteps.length - 1, currentStep + 1))}
+                  <Button
+                    onClick={() =>
+                      setCurrentStep(
+                        Math.min(algorithmSteps.length - 1, currentStep + 1)
+                      )
+                    }
                     disabled={currentStep === algorithmSteps.length - 1}
                     size="sm"
                   >
@@ -420,10 +480,18 @@ result: C[1]`
                   <div className="border rounded-lg p-4 bg-gray-50">
                     <div className="flex items-center justify-between mb-3">
                       <div className="flex items-center space-x-2">
-                        {getOperationIcon(algorithmSteps[currentStep].operation)}
-                        <h4 className="font-medium">{algorithmSteps[currentStep].description}</h4>
+                        {getOperationIcon(
+                          algorithmSteps[currentStep].operation
+                        )}
+                        <h4 className="font-medium">
+                          {algorithmSteps[currentStep].description}
+                        </h4>
                       </div>
-                      <Badge className={getOperationColor(algorithmSteps[currentStep].operation)}>
+                      <Badge
+                        className={getOperationColor(
+                          algorithmSteps[currentStep].operation
+                        )}
+                      >
                         {algorithmSteps[currentStep].operation}
                       </Badge>
                     </div>
@@ -433,7 +501,9 @@ result: C[1]`
                         <p className="text-sm font-medium mb-2">执行前:</p>
                         <div className="bg-white border rounded p-2">
                           <span className="font-mono text-sm">
-                            {formatClock(algorithmSteps[currentStep].before_clock) || '初始状态'}
+                            {formatClock(
+                              algorithmSteps[currentStep].before_clock
+                            ) || '初始状态'}
                           </span>
                         </div>
                       </div>
@@ -441,7 +511,9 @@ result: C[1]`
                         <p className="text-sm font-medium mb-2">执行后:</p>
                         <div className="bg-white border rounded p-2">
                           <span className="font-mono text-sm">
-                            {formatClock(algorithmSteps[currentStep].after_clock)}
+                            {formatClock(
+                              algorithmSteps[currentStep].after_clock
+                            )}
                           </span>
                         </div>
                       </div>
@@ -449,7 +521,9 @@ result: C[1]`
 
                     <div className="mt-4">
                       <p className="text-sm font-medium mb-2">算法解释:</p>
-                      <p className="text-sm text-gray-600">{algorithmSteps[currentStep].explanation}</p>
+                      <p className="text-sm text-gray-600">
+                        {algorithmSteps[currentStep].explanation}
+                      </p>
                     </div>
 
                     <div className="mt-4">
@@ -477,13 +551,18 @@ result: C[1]`
               <div className="space-y-4">
                 <div>
                   <p className="text-sm font-medium mb-2">
-                    选择两个向量时钟进行因果关系比较 (已选择: {selectedClocks.length}/2)
+                    选择两个向量时钟进行因果关系比较 (已选择:{' '}
+                    {selectedClocks.length}/2)
                   </p>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
                     {nodes.map((clock, index) => (
                       <Button
                         key={index}
-                        variant={selectedClocks.some(c => c.node_id === clock.node_id) ? "default" : "outline"}
+                        variant={
+                          selectedClocks.some(c => c.node_id === clock.node_id)
+                            ? 'default'
+                            : 'outline'
+                        }
                         onClick={() => toggleClockSelection(clock)}
                         className="justify-start"
                       >
@@ -497,8 +576,12 @@ result: C[1]`
                 {causalComparison && (
                   <div className="border rounded-lg p-4">
                     <div className="flex items-center space-x-2 mb-4">
-                      <GitBranch className={`h-5 w-5 ${getRelationColor(causalComparison.relation)}`} />
-                      <h4 className={`font-medium ${getRelationColor(causalComparison.relation)}`}>
+                      <GitBranch
+                        className={`h-5 w-5 ${getRelationColor(causalComparison.relation)}`}
+                      />
+                      <h4
+                        className={`font-medium ${getRelationColor(causalComparison.relation)}`}
+                      >
                         因果关系: {causalComparison.relation.toUpperCase()}
                       </h4>
                     </div>
@@ -506,11 +589,15 @@ result: C[1]`
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                       <div className="bg-blue-50 rounded p-3">
                         <h5 className="font-medium text-blue-800">时钟 1</h5>
-                        <p className="font-mono text-sm">{formatClock(causalComparison.clock1)}</p>
+                        <p className="font-mono text-sm">
+                          {formatClock(causalComparison.clock1)}
+                        </p>
                       </div>
                       <div className="bg-green-50 rounded p-3">
                         <h5 className="font-medium text-green-800">时钟 2</h5>
-                        <p className="font-mono text-sm">{formatClock(causalComparison.clock2)}</p>
+                        <p className="font-mono text-sm">
+                          {formatClock(causalComparison.clock2)}
+                        </p>
                       </div>
                     </div>
 
@@ -518,7 +605,10 @@ result: C[1]`
                       <h5 className="font-medium mb-2">算法比较步骤:</h5>
                       <div className="space-y-1">
                         {causalComparison.algorithm_steps.map((step, index) => (
-                          <p key={index} className="text-xs font-mono text-gray-700">
+                          <p
+                            key={index}
+                            className="text-xs font-mono text-gray-700"
+                          >
                             {step}
                           </p>
                         ))}
@@ -544,7 +634,7 @@ result: C[1]`
                 <div>
                   <h4 className="font-medium mb-2">向量时钟数据结构</h4>
                   <pre className="bg-gray-800 text-green-400 p-4 rounded text-sm overflow-x-auto">
-{`interface VectorClock {
+                    {`interface VectorClock {
   node_id: string;
   clock: Record<string, number>;
 }
@@ -638,43 +728,82 @@ class VectorClockManager {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-4">
                   <div className="bg-blue-50 border border-blue-200 rounded p-4">
-                    <h4 className="font-medium text-blue-800 mb-2">时间复杂度</h4>
+                    <h4 className="font-medium text-blue-800 mb-2">
+                      时间复杂度
+                    </h4>
                     <ul className="text-sm text-blue-600 space-y-1">
-                      <li>• <strong>本地事件:</strong> O(1)</li>
-                      <li>• <strong>发送消息:</strong> O(1)</li>
-                      <li>• <strong>接收消息:</strong> O(n) - n为节点数</li>
-                      <li>• <strong>时钟比较:</strong> O(n) - n为节点数</li>
+                      <li>
+                        • <strong>本地事件:</strong> O(1)
+                      </li>
+                      <li>
+                        • <strong>发送消息:</strong> O(1)
+                      </li>
+                      <li>
+                        • <strong>接收消息:</strong> O(n) - n为节点数
+                      </li>
+                      <li>
+                        • <strong>时钟比较:</strong> O(n) - n为节点数
+                      </li>
                     </ul>
                   </div>
 
                   <div className="bg-green-50 border border-green-200 rounded p-4">
-                    <h4 className="font-medium text-green-800 mb-2">空间复杂度</h4>
+                    <h4 className="font-medium text-green-800 mb-2">
+                      空间复杂度
+                    </h4>
                     <ul className="text-sm text-green-600 space-y-1">
-                      <li>• <strong>每个节点:</strong> O(n) - 存储n个节点的时钟</li>
-                      <li>• <strong>消息开销:</strong> O(n) - 每条消息携带向量时钟</li>
-                      <li>• <strong>总空间:</strong> O(n²) - n个节点各自维护n维向量</li>
+                      <li>
+                        • <strong>每个节点:</strong> O(n) - 存储n个节点的时钟
+                      </li>
+                      <li>
+                        • <strong>消息开销:</strong> O(n) - 每条消息携带向量时钟
+                      </li>
+                      <li>
+                        • <strong>总空间:</strong> O(n²) -
+                        n个节点各自维护n维向量
+                      </li>
                     </ul>
                   </div>
                 </div>
 
                 <div className="space-y-4">
                   <div className="bg-orange-50 border border-orange-200 rounded p-4">
-                    <h4 className="font-medium text-orange-800 mb-2">优化策略</h4>
+                    <h4 className="font-medium text-orange-800 mb-2">
+                      优化策略
+                    </h4>
                     <ul className="text-sm text-orange-600 space-y-1">
-                      <li>• <strong>时钟压缩:</strong> 移除非活跃节点的时钟条目</li>
-                      <li>• <strong>增量传输:</strong> 只发送变化的时钟条目</li>
-                      <li>• <strong>批量更新:</strong> 批量处理多个事件的时钟更新</li>
-                      <li>• <strong>层次化时钟:</strong> 使用树形结构减少维度</li>
+                      <li>
+                        • <strong>时钟压缩:</strong> 移除非活跃节点的时钟条目
+                      </li>
+                      <li>
+                        • <strong>增量传输:</strong> 只发送变化的时钟条目
+                      </li>
+                      <li>
+                        • <strong>批量更新:</strong> 批量处理多个事件的时钟更新
+                      </li>
+                      <li>
+                        • <strong>层次化时钟:</strong> 使用树形结构减少维度
+                      </li>
                     </ul>
                   </div>
 
                   <div className="bg-purple-50 border border-purple-200 rounded p-4">
-                    <h4 className="font-medium text-purple-800 mb-2">应用场景</h4>
+                    <h4 className="font-medium text-purple-800 mb-2">
+                      应用场景
+                    </h4>
                     <ul className="text-sm text-purple-600 space-y-1">
-                      <li>• <strong>分布式数据库:</strong> 事务排序和一致性</li>
-                      <li>• <strong>版本控制:</strong> Git等系统的分支合并</li>
-                      <li>• <strong>消息系统:</strong> 保证消息的因果顺序</li>
-                      <li>• <strong>协作系统:</strong> 实时编辑冲突检测</li>
+                      <li>
+                        • <strong>分布式数据库:</strong> 事务排序和一致性
+                      </li>
+                      <li>
+                        • <strong>版本控制:</strong> Git等系统的分支合并
+                      </li>
+                      <li>
+                        • <strong>消息系统:</strong> 保证消息的因果顺序
+                      </li>
+                      <li>
+                        • <strong>协作系统:</strong> 实时编辑冲突检测
+                      </li>
                     </ul>
                   </div>
                 </div>
@@ -708,7 +837,7 @@ class VectorClockManager {
         </TabsContent>
       </Tabs>
     </div>
-  );
-};
+  )
+}
 
-export default VectorClockAlgorithmPage;
+export default VectorClockAlgorithmPage

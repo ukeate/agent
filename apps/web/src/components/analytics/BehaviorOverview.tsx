@@ -1,67 +1,70 @@
-import React from 'react';
-import { Card } from '../ui/card';
-import { Progress } from '../ui/lprogress';
-import { Badge } from '../ui/badge';
+import React from 'react'
+import { Card } from '../ui/card'
+import { Progress } from '../ui/progress'
+import { Badge } from '../ui/badge'
 
 interface BehaviorOverviewProps {
   data: {
-    total_events?: number;
-    unique_users?: number;
-    unique_sessions?: number;
-    events_per_minute?: number;
-    event_type_distribution?: Record<string, number>;
-    hourly_distribution?: Record<string, number>;
-    most_active_hour?: number;
-  };
+    total_events?: number
+    unique_users?: number
+    unique_sessions?: number
+    events_per_minute?: number
+    event_type_distribution?: Record<string, number>
+    hourly_distribution?: Record<string, number>
+    most_active_hour?: number
+  }
   realtime: {
-    event_count: number;
-    active_users: number;
-    events_per_minute: number;
-  };
+    event_count: number
+    active_users: number
+    events_per_minute: number
+  }
 }
 
-export const BehaviorOverview: React.FC<BehaviorOverviewProps> = ({ data, realtime }) => {
+export const BehaviorOverview: React.FC<BehaviorOverviewProps> = ({
+  data,
+  realtime,
+}) => {
   // 格式化数字
   const formatNumber = (num: number) => {
     if (num >= 1000000) {
-      return (num / 1000000).toFixed(1) + 'M';
+      return (num / 1000000).toFixed(1) + 'M'
     }
     if (num >= 1000) {
-      return (num / 1000).toFixed(1) + 'K';
+      return (num / 1000).toFixed(1) + 'K'
     }
-    return num.toString();
-  };
+    return num.toString()
+  }
 
   // 获取最活跃的事件类型
   const getTopEventTypes = () => {
-    if (!data.event_type_distribution) return [];
-    
+    if (!data.event_type_distribution) return []
+
     return Object.entries(data.event_type_distribution)
-      .sort(([,a], [,b]) => b - a)
+      .sort(([, a], [, b]) => b - a)
       .slice(0, 5)
       .map(([type, count]) => ({
         type,
         count,
-        percentage: ((count / (data.total_events || 1)) * 100).toFixed(1)
-      }));
-  };
+        percentage: ((count / (data.total_events || 1)) * 100).toFixed(1),
+      }))
+  }
 
   // 获取时段分布数据
   const getHourlyData = () => {
-    if (!data.hourly_distribution) return [];
-    
+    if (!data.hourly_distribution) return []
+
     return Object.entries(data.hourly_distribution)
       .map(([hour, count]) => ({
         hour: parseInt(hour),
         count,
-        label: `${hour}:00`
+        label: `${hour}:00`,
       }))
-      .sort((a, b) => a.hour - b.hour);
-  };
+      .sort((a, b) => a.hour - b.hour)
+  }
 
-  const topEventTypes = getTopEventTypes();
-  const hourlyData = getHourlyData();
-  const maxHourlyCount = Math.max(...hourlyData.map(h => h.count));
+  const topEventTypes = getTopEventTypes()
+  const hourlyData = getHourlyData()
+  const maxHourlyCount = Math.max(...hourlyData.map(h => h.count))
 
   return (
     <div className="space-y-6">
@@ -140,7 +143,10 @@ export const BehaviorOverview: React.FC<BehaviorOverviewProps> = ({ data, realti
           </h3>
           <div className="space-y-4">
             {topEventTypes.map((event, index) => (
-              <div key={event.type} className="flex items-center justify-between">
+              <div
+                key={event.type}
+                className="flex items-center justify-between"
+              >
                 <div className="flex items-center space-x-3">
                   <div className="flex-shrink-0">
                     <Badge variant={index < 3 ? 'default' : 'secondary'}>
@@ -161,8 +167,8 @@ export const BehaviorOverview: React.FC<BehaviorOverviewProps> = ({ data, realti
                     {event.percentage}%
                   </p>
                   <div className="w-16 mt-1">
-                    <Progress 
-                      value={parseFloat(event.percentage)} 
+                    <Progress
+                      value={parseFloat(event.percentage)}
                       max={100}
                       className="h-2"
                     />
@@ -179,7 +185,7 @@ export const BehaviorOverview: React.FC<BehaviorOverviewProps> = ({ data, realti
             24小时活跃度分布
           </h3>
           <div className="space-y-2">
-            {hourlyData.map((hour) => (
+            {hourlyData.map(hour => (
               <div key={hour.hour} className="flex items-center space-x-3">
                 <div className="w-12 text-xs text-gray-600 flex-shrink-0">
                   {hour.label}
@@ -219,9 +225,7 @@ export const BehaviorOverview: React.FC<BehaviorOverviewProps> = ({ data, realti
 
       {/* 实时状态 */}
       <Card className="p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">
-          实时状态
-        </h3>
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">实时状态</h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="text-center p-4 bg-green-50 rounded-md">
             <p className="text-2xl font-bold text-green-600">
@@ -244,5 +248,5 @@ export const BehaviorOverview: React.FC<BehaviorOverviewProps> = ({ data, realti
         </div>
       </Card>
     </div>
-  );
-};
+  )
+}

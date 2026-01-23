@@ -1,6 +1,6 @@
 /**
  * RAG索引状态监控组件
- * 
+ *
  * 功能包括：
  * - 显示向量数据库连接状态和实时性能指标
  * - 实现索引统计信息展示（文档数量、向量维度、存储大小）
@@ -8,7 +8,7 @@
  * - 实现索引健康状态检查和错误诊断提示
  */
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react'
 import {
   Card,
   Row,
@@ -25,7 +25,7 @@ import {
   Upload,
   Input,
   message,
-} from 'antd';
+} from 'antd'
 import {
   DatabaseOutlined,
   CloudServerOutlined,
@@ -37,30 +37,30 @@ import {
   FolderAddOutlined,
   DeleteOutlined,
   UploadOutlined,
-} from '@ant-design/icons';
-import { useRagStore } from '../../stores/ragStore';
-import { ragService } from '../../services/ragService';
+} from '@ant-design/icons'
+import { useRagStore } from '../../stores/ragStore'
+import { ragService } from '../../services/ragService'
 
-const { Text, Title } = Typography;
-const { Dragger } = Upload;
+const { Text, Title } = Typography
+const { Dragger } = Upload
 
 // ==================== 组件props类型 ====================
 
 interface RagIndexStatusProps {
-  autoRefresh?: boolean;
-  refreshInterval?: number;
-  className?: string;
+  autoRefresh?: boolean
+  refreshInterval?: number
+  className?: string
 }
 
 // ==================== 辅助类型 ====================
 
 interface IndexingProgress {
-  isIndexing: boolean;
-  progress: number;
-  currentFile: string;
-  processed: number;
-  total: number;
-  errors: string[];
+  isIndexing: boolean
+  progress: number
+  currentFile: string
+  processed: number
+  total: number
+  errors: string[]
 }
 
 // ==================== 主组件 ====================
@@ -71,26 +71,26 @@ const RagIndexStatus: React.FC<RagIndexStatusProps> = ({
   className = '',
 }) => {
   // ==================== 状态管理 ====================
-  
+
   const {
     indexStatus,
     updateIndexStatus,
     setIndexLoading,
     setError,
     clearErrors,
-  } = useRagStore();
+  } = useRagStore()
 
   // ==================== 本地状态 ====================
-  
+
   const [healthCheck, setHealthCheck] = useState<{
-    status: 'healthy' | 'unhealthy' | 'checking';
-    lastCheck: Date | null;
-    details: any;
+    status: 'healthy' | 'unhealthy' | 'checking'
+    lastCheck: Date | null
+    details: any
   }>({
     status: 'checking',
     lastCheck: null,
     details: null,
-  });
+  })
 
   const [indexingProgress, setIndexingProgress] = useState<IndexingProgress>({
     isIndexing: false,
@@ -99,77 +99,79 @@ const RagIndexStatus: React.FC<RagIndexStatusProps> = ({
     processed: 0,
     total: 0,
     errors: [],
-  });
+  })
 
-  const [showIndexModal, setShowIndexModal] = useState(false);
-  const [indexPath, setIndexPath] = useState('');
-  const [indexRecursive, setIndexRecursive] = useState(true);
-  const [showResetModal, setShowResetModal] = useState(false);
-  const refreshingRef = useRef(false);
+  const [showIndexModal, setShowIndexModal] = useState(false)
+  const [indexPath, setIndexPath] = useState('')
+  const [indexRecursive, setIndexRecursive] = useState(true)
+  const [showResetModal, setShowResetModal] = useState(false)
+  const refreshingRef = useRef(false)
 
   // ==================== 自动刷新逻辑 ====================
-  
+
   const fetchIndexStats = useCallback(async () => {
     try {
-      setIndexLoading(true);
-      clearErrors();
-      
-      const stats = await ragService.getIndexStats();
-      updateIndexStatus(stats);
-      
-      return stats.success;
+      setIndexLoading(true)
+      clearErrors()
+
+      const stats = await ragService.getIndexStats()
+      updateIndexStatus(stats)
+
+      return stats.success
     } catch (error: any) {
-      setError(error.message || '获取索引状态失败');
-      return false;
+      setError(error.message || '获取索引状态失败')
+      return false
     } finally {
-      setIndexLoading(false);
+      setIndexLoading(false)
     }
-  }, [updateIndexStatus, setIndexLoading, setError, clearErrors]);
+  }, [updateIndexStatus, setIndexLoading, setError, clearErrors])
 
   const performHealthCheck = useCallback(async () => {
-    setHealthCheck(prev => ({ ...prev, status: 'checking' }));
-    
+    setHealthCheck(prev => ({ ...prev, status: 'checking' }))
+
     try {
-      const result = await ragService.healthCheck();
-      
+      const result = await ragService.healthCheck()
+
       setHealthCheck({
         status: result.status === 'healthy' ? 'healthy' : 'unhealthy',
         lastCheck: new Date(),
         details: result,
-      });
-      
-      return result.status === 'healthy';
+      })
+
+      return result.status === 'healthy'
     } catch (error) {
       setHealthCheck({
         status: 'unhealthy',
         lastCheck: new Date(),
-        details: { error: error instanceof Error ? error.message : '健康检查失败' },
-      });
-      
-      return false;
+        details: {
+          error: error instanceof Error ? error.message : '健康检查失败',
+        },
+      })
+
+      return false
     }
-  }, []);
+  }, [])
 
   const refreshStatus = useCallback(async () => {
-    if (refreshingRef.current) return;
-    refreshingRef.current = true;
+    if (refreshingRef.current) return
+    refreshingRef.current = true
     try {
-      const statsSuccess = await fetchIndexStats();
-      const healthSuccess = await performHealthCheck();
+      const statsSuccess = await fetchIndexStats()
+      const healthSuccess = await performHealthCheck()
       if (statsSuccess && healthSuccess) {
-        message.success('状态更新成功');
+        message.success('状态更新成功')
       }
     } finally {
-      refreshingRef.current = false;
+      refreshingRef.current = false
     }
-  }, [fetchIndexStats, performHealthCheck]);
+  }, [fetchIndexStats, performHealthCheck])
 
   // ==================== 索引操作 ====================
-  
+
   const handleIndexDirectory = useCallback(async () => {
     if (!indexPath.trim()) {
-      message.error('请输入目录路径');
-      return;
+      message.error('请输入目录路径')
+      return
     }
 
     try {
@@ -180,120 +182,122 @@ const RagIndexStatus: React.FC<RagIndexStatusProps> = ({
         processed: 0,
         total: 0,
         errors: [],
-      });
+      })
 
       const result = await ragService.indexDirectory(
         indexPath.trim(),
         indexRecursive,
         false // force
-      );
+      )
 
       if (result.success) {
-        message.success(`成功索引 ${result.indexed_files} 个文件`);
-        await refreshStatus();
+        message.success(`成功索引 ${result.indexed_files} 个文件`)
+        await refreshStatus()
       } else {
-        throw new Error(result.error || '索引失败');
+        throw new Error(result.error || '索引失败')
       }
-
     } catch (error: any) {
-      message.error(error.message || '索引目录失败');
+      message.error(error.message || '索引目录失败')
       setIndexingProgress(prev => ({
         ...prev,
         errors: [...prev.errors, error.message || '索引失败'],
-      }));
+      }))
     } finally {
       setIndexingProgress(prev => ({
         ...prev,
         isIndexing: false,
         progress: 100,
         currentFile: '索引完成',
-      }));
-      
-      setShowIndexModal(false);
-      setIndexPath('');
+      }))
+
+      setShowIndexModal(false)
+      setIndexPath('')
     }
-  }, [indexPath, indexRecursive, refreshStatus]);
+  }, [indexPath, indexRecursive, refreshStatus])
 
   const handleResetIndex = useCallback(async () => {
     try {
-      setIndexLoading(true);
-      const result = await ragService.resetIndex();
-      
+      setIndexLoading(true)
+      const result = await ragService.resetIndex()
+
       if (result.success) {
-        message.success('索引重置成功');
-        await refreshStatus();
+        message.success('索引重置成功')
+        await refreshStatus()
       } else {
-        throw new Error(result.error || '重置失败');
+        throw new Error(result.error || '重置失败')
       }
-      
     } catch (error: any) {
-      message.error(error.message || '重置索引失败');
+      message.error(error.message || '重置索引失败')
     } finally {
-      setIndexLoading(false);
-      setShowResetModal(false);
+      setIndexLoading(false)
+      setShowResetModal(false)
     }
-  }, [setIndexLoading, refreshStatus]);
+  }, [setIndexLoading, refreshStatus])
 
   const handleFileUpload = useCallback(async (_file: File) => {
     // 这里应该实现文件上传到服务器并索引的逻辑
-    message.info('文件上传功能需要后端支持');
-    return false; // 阻止默认上传行为
-  }, []);
+    message.info('文件上传功能需要后端支持')
+    return false // 阻止默认上传行为
+  }, [])
 
   // ==================== 生命周期 ====================
-  
+
   useEffect(() => {
     // 组件加载时获取初始状态
-    refreshStatus();
-  }, [refreshStatus]);
+    refreshStatus()
+  }, [refreshStatus])
 
   useEffect(() => {
     // 自动刷新逻辑
-    if (!autoRefresh) return;
+    if (!autoRefresh) return
 
-    const interval = setInterval(refreshStatus, refreshInterval);
-    return () => clearInterval(interval);
-  }, [autoRefresh, refreshInterval, refreshStatus]);
+    const interval = setInterval(refreshStatus, refreshInterval)
+    return () => clearInterval(interval)
+  }, [autoRefresh, refreshInterval, refreshStatus])
 
   // ==================== 辅助函数 ====================
-  
+
   const formatBytes = useCallback((bytes: number) => {
-    if (bytes === 0) return '0 B';
-    
-    const k = 1024;
-    const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-  }, []);
+    if (bytes === 0) return '0 B'
+
+    const k = 1024
+    const sizes = ['B', 'KB', 'MB', 'GB', 'TB']
+    const i = Math.floor(Math.log(bytes) / Math.log(k))
+
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
+  }, [])
 
   const getStatusBadge = useCallback(() => {
     if (indexStatus.is_loading || healthCheck.status === 'checking') {
-      return <Badge status="processing" text="检查中..." />;
+      return <Badge status="processing" text="检查中..." />
     }
-    
+
     if (indexStatus.status === 'healthy' && healthCheck.status === 'healthy') {
-      return <Badge status="success" text="正常" />;
+      return <Badge status="success" text="正常" />
     }
-    
-    if (indexStatus.status === 'unhealthy' || healthCheck.status === 'unhealthy') {
-      return <Badge status="error" text="异常" />;
+
+    if (
+      indexStatus.status === 'unhealthy' ||
+      healthCheck.status === 'unhealthy'
+    ) {
+      return <Badge status="error" text="异常" />
     }
-    
-    return <Badge status="default" text="未知" />;
-  }, [indexStatus, healthCheck]);
+
+    return <Badge status="default" text="未知" />
+  }, [indexStatus, healthCheck])
 
   // ==================== 渲染组件 ====================
 
   return (
     <div className={`rag-index-status ${className}`}>
-      
       {/* 主状态卡片 */}
-      <Card 
+      <Card
         title={
           <Space>
             <DatabaseOutlined />
-            <Title level={4} style={{ margin: 0 }}>索引状态</Title>
+            <Title level={4} style={{ margin: 0 }}>
+              索引状态
+            </Title>
             {getStatusBadge()}
           </Space>
         }
@@ -347,9 +351,10 @@ const RagIndexStatus: React.FC<RagIndexStatusProps> = ({
           <Col span={6}>
             <Statistic
               title="最后更新"
-              value={indexStatus.last_updated ? 
-                new Date(indexStatus.last_updated).toLocaleDateString() : 
-                '未知'
+              value={
+                indexStatus.last_updated
+                  ? new Date(indexStatus.last_updated).toLocaleDateString()
+                  : '未知'
               }
               prefix={<ClockCircleOutlined />}
               valueStyle={{ color: '#fa8c16' }}
@@ -371,9 +376,12 @@ const RagIndexStatus: React.FC<RagIndexStatusProps> = ({
               </Space>
             }
             type={healthCheck.status === 'healthy' ? 'success' : 'warning'}
-            icon={healthCheck.status === 'healthy' ? 
-              <CheckCircleOutlined /> : 
-              <WarningOutlined />
+            icon={
+              healthCheck.status === 'healthy' ? (
+                <CheckCircleOutlined />
+              ) : (
+                <WarningOutlined />
+              )
             }
             showIcon
             style={{ marginBottom: 16 }}
@@ -386,7 +394,9 @@ const RagIndexStatus: React.FC<RagIndexStatusProps> = ({
             <Space direction="vertical" style={{ width: '100%' }}>
               <Progress
                 percent={indexingProgress.progress}
-                status={indexingProgress.errors.length > 0 ? 'exception' : 'active'}
+                status={
+                  indexingProgress.errors.length > 0 ? 'exception' : 'active'
+                }
               />
               <Text type="secondary">
                 当前文件: {indexingProgress.currentFile}
@@ -399,7 +409,7 @@ const RagIndexStatus: React.FC<RagIndexStatusProps> = ({
               {indexingProgress.errors.length > 0 && (
                 <Alert
                   message={`发现 ${indexingProgress.errors.length} 个错误`}
-                  variant="destructive"
+                  type="error"
                 />
               )}
             </Space>
@@ -456,8 +466,8 @@ const RagIndexStatus: React.FC<RagIndexStatusProps> = ({
         open={showIndexModal}
         onOk={handleIndexDirectory}
         onCancel={() => {
-          setShowIndexModal(false);
-          setIndexPath('');
+          setShowIndexModal(false)
+          setIndexPath('')
         }}
         confirmLoading={indexingProgress.isIndexing}
       >
@@ -466,18 +476,18 @@ const RagIndexStatus: React.FC<RagIndexStatusProps> = ({
             <Text strong>目录路径:</Text>
             <Input
               value={indexPath}
-              onChange={(e) => setIndexPath(e.target.value)}
+              onChange={e => setIndexPath(e.target.value)}
               placeholder="请输入要索引的目录路径，例如: /path/to/documents"
               style={{ marginTop: 8 }}
             />
           </div>
-          
+
           <div>
             <Space>
               <input
                 type="checkbox"
                 checked={indexRecursive}
-                onChange={(e) => setIndexRecursive(e.target.checked)}
+                onChange={e => setIndexRecursive(e.target.checked)}
               />
               <Text>递归索引子目录</Text>
             </Space>
@@ -486,7 +496,7 @@ const RagIndexStatus: React.FC<RagIndexStatusProps> = ({
           <Alert
             message="提示"
             description="索引过程可能需要一些时间，请耐心等待。大量文件的索引会消耗较多系统资源。"
-            variant="default"
+            type="info"
             showIcon
           />
         </Space>
@@ -507,15 +517,14 @@ const RagIndexStatus: React.FC<RagIndexStatusProps> = ({
           <Alert
             message="警告"
             description="此操作将删除所有已建立的索引数据，包括向量数据和元数据。此操作不可撤销！"
-            variant="warning"
+            type="warning"
             showIcon
           />
           <Text>请确认您要重置所有索引数据。</Text>
         </Space>
       </Modal>
-
     </div>
-  );
-};
+  )
+}
 
-export default RagIndexStatus;
+export default RagIndexStatus

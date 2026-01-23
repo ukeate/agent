@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
-import {
 import { logger } from '../utils/logger'
+import {
   Card,
   Table,
   Tag,
@@ -16,8 +16,10 @@ import { logger } from '../utils/logger'
   Alert,
   Tooltip,
   Empty,
-  message
+  message,
+  Dropdown,
 } from 'antd'
+import type { MenuProps } from 'antd'
 import {
   ReloadOutlined,
   ExportOutlined,
@@ -26,10 +28,16 @@ import {
   CheckCircleOutlined,
   CloseCircleOutlined,
   InfoCircleOutlined,
-  WifiOutlined
+  WifiOutlined,
 } from '@ant-design/icons'
 import dayjs from 'dayjs'
-import eventService, { Event, EventStats, ClusterStatus } from '../services/eventService'
+import eventService, {
+  Event,
+  EventStats,
+  ClusterStatus,
+  EventStreamStatus,
+} from '../services/eventService'
+import { analyticsServiceEnhanced } from '../services/analyticsServiceEnhanced'
 
 const { Option } = Select
 
@@ -48,10 +56,12 @@ const EventDashboardPage: React.FC = () => {
     success: 0,
     critical: 0,
     by_source: {},
-    by_type: {}
+    by_type: {},
   })
   const [clusterStatus, setClusterStatus] = useState<ClusterStatus | null>(null)
-  const [wsConnected, setWsConnected] = useState(false)
+  const [connectionStatus, setConnectionStatus] =
+    useState<EventStreamStatus | null>(null)
+  const [exporting, setExporting] = useState(false)
 
   // 加载事件数据
   const loadEvents = async () => {
@@ -60,9 +70,9 @@ const EventDashboardPage: React.FC = () => {
       const [eventsData, statsData, clusterData] = await Promise.all([
         eventService.getEvents({ limit: 100 }),
         eventService.getEventStats(24),
-        eventService.getClusterStatus()
+        eventService.getClusterStatus(),
       ])
-      
+
       setEvents(eventsData)
       setStats(statsData)
       setClusterStatus(clusterData)
@@ -81,85 +91,144 @@ const EventDashboardPage: React.FC = () => {
   // 过滤事件
   useEffect(() => {
     let filtered = events
-    
+
     if (filterType !== 'all') {
       filtered = filtered.filter(event => event.type === filterType)
     }
-    
+
     if (filterSeverity !== 'all') {
       filtered = filtered.filter(event => event.severity === filterSeverity)
     }
-    
+
     setFilteredEvents(filtered)
   }, [events, filterType, filterSeverity])
 
   // WebSocket连接管理
   useEffect(() => {
-    if (autoRefresh) {
-      // 连接WebSocket事件流
-      const handleNewEvent = (event: Event) => {
-        setEvents(prev => [event, ...prev].slice(0, 100)) // 保留最新100条
-        
-        // 更新统计信息
-        setStats(prev => ({
-          ...prev,
-          total: prev.total + 1,
-          [event.type]: (prev[event.type as keyof EventStats] as number || 0) + 1,
-          critical: event.severity === 'critical' ? prev.critical + 1 : prev.critical
-        }))
+    if (!autoRefresh) {
+      setConnectionStatus(null)
+      return
+    }
+    // 连接WebSocket事件流
+    const handleNewEvent = (event: Event) => {
+      setEvents(prev => [event, ...prev].slice(0, 100)) // 保留最新100条
+
+      // 更新统计信息
+      setStats(prev => ({
+        ...prev,
+        total: prev.total + 1,
+        [event.type]:
+          ((prev[event.type as keyof EventStats] as number) || 0) + 1,
+        critical:
+          event.severity === 'critical' ? prev.critical + 1 : prev.critical,
+      }))
+    }
+
+    const unsubscribe = eventService.subscribeConnectionStatus(status => {
+      setConnectionStatus(status)
+    })
+    eventService.connectEventStream(handleNewEvent)
+
+    // 定期刷新统计和集群状态
+    const refreshInterval = setInterval(async () => {
+      try {
+        const [statsData, clusterData] = await Promise.all([
+          eventService.getEventStats(24),
+          eventService.getClusterStatus(),
+        ])
+        setStats(statsData)
+        setClusterStatus(clusterData)
+      } catch (error) {
+        logger.error('刷新数据失败:', error)
       }
-      
-      eventService.connectEventStream(handleNewEvent)
-      setWsConnected(true)
-      
-      // 定期刷新统计和集群状态
-      const refreshInterval = setInterval(async () => {
-        try {
-          const [statsData, clusterData] = await Promise.all([
-            eventService.getEventStats(24),
-            eventService.getClusterStatus()
-          ])
-          setStats(statsData)
-          setClusterStatus(clusterData)
-        } catch (error) {
-          logger.error('刷新数据失败:', error)
-        }
-      }, 30000) // 每30秒刷新一次
-      
-      return () => {
-        eventService.disconnectEventStream()
-        setWsConnected(false)
-        clearInterval(refreshInterval)
-      }
+    }, 30000) // 每30秒刷新一次
+
+    return () => {
+      eventService.removeEventHandler(handleNewEvent)
+      unsubscribe()
+      clearInterval(refreshInterval)
     }
   }, [autoRefresh])
 
   const typeColors = {
     info: 'blue',
-    warning: 'orange', 
+    warning: 'orange',
     error: 'red',
-    success: 'green'
+    success: 'green',
   }
 
   const typeIcons = {
     info: <InfoCircleOutlined />,
     warning: <WarningOutlined />,
     error: <CloseCircleOutlined />,
-    success: <CheckCircleOutlined />
+    success: <CheckCircleOutlined />,
   }
 
   const severityColors = {
     low: 'default',
     medium: 'warning',
     high: 'error',
-    critical: 'error'
+    critical: 'error',
   }
 
   const severityTexts = {
     low: '低',
     medium: '中',
     high: '高',
-    critical: '严重'
+    critical: '严重',
+  }
+
+  const renderConnectionTag = () => {
+    if (!autoRefresh || !connectionStatus) return null
+    const { state, attempts, lastError } = connectionStatus
+    const config: Record<
+      EventStreamStatus['state'],
+      { color: 'success' | 'processing' | 'warning' | 'default'; text: string; icon: React.ReactNode }
+    > = {
+      connected: { color: 'success', text: '实时连接', icon: <WifiOutlined /> },
+      connecting: { color: 'processing', text: '连接中', icon: <WifiOutlined /> },
+      reconnecting: {
+        color: 'warning',
+        text: attempts > 0 ? `重连中 ${attempts}次` : '重连中',
+        icon: <ReloadOutlined />,
+      },
+      offline: { color: 'warning', text: '网络离线', icon: <WarningOutlined /> },
+      disconnected: { color: 'default', text: '已断开', icon: <CloseCircleOutlined /> },
+    }
+    const { color, text, icon } = config[state]
+    const tag = (
+      <Tag icon={icon} color={color}>
+        {text}
+      </Tag>
+    )
+    return lastError ? <Tooltip title={lastError}>{tag}</Tooltip> : tag
+  }
+
+  const exportMenuItems: MenuProps['items'] = [
+    { key: 'csv', label: '导出 CSV' },
+    { key: 'json', label: '导出 JSON' },
+    { key: 'xlsx', label: '导出 XLSX' },
+  ]
+
+  const handleExport = async (format: 'csv' | 'json' | 'xlsx') => {
+    if (exporting) return
+    setExporting(true)
+    try {
+      const blob = await analyticsServiceEnhanced.exportEventData({ format })
+      const url = window.URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `events_${dayjs().format('YYYYMMDD_HHmmss')}.${format}`
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      window.URL.revokeObjectURL(url)
+      message.success('事件导出已开始')
+    } catch (error) {
+      message.error('导出事件失败')
+    } finally {
+      setExporting(false)
+    }
   }
 
   const columns = [
@@ -172,7 +241,7 @@ const EventDashboardPage: React.FC = () => {
         <div className="text-xs text-gray-600">
           {dayjs(time).format('YYYY-MM-DD HH:mm:ss')}
         </div>
-      )
+      ),
     },
     {
       title: '类型',
@@ -183,7 +252,7 @@ const EventDashboardPage: React.FC = () => {
         <Tag color={typeColors[type]} icon={typeIcons[type]}>
           {type.toUpperCase()}
         </Tag>
-      )
+      ),
     },
     {
       title: '严重程度',
@@ -191,44 +260,42 @@ const EventDashboardPage: React.FC = () => {
       key: 'severity',
       width: 100,
       render: (severity: keyof typeof severityColors) => (
-        <Tag color={severityColors[severity]}>
-          {severityTexts[severity]}
-        </Tag>
-      )
+        <Tag color={severityColors[severity]}>{severityTexts[severity]}</Tag>
+      ),
     },
     {
       title: '来源',
       dataIndex: 'source',
       key: 'source',
-      width: 120
+      width: 120,
     },
     {
       title: '智能体',
       dataIndex: 'agent',
       key: 'agent',
       width: 120,
-      render: (agent: string) => agent ? <Tag>{agent}</Tag> : '-'
+      render: (agent: string) => (agent ? <Tag>{agent}</Tag> : '-'),
     },
     {
       title: '标题',
       dataIndex: 'title',
       key: 'title',
       width: 200,
-      render: (title: string) => <strong>{title}</strong>
+      render: (title: string) => <strong>{title}</strong>,
     },
     {
       title: '消息',
       dataIndex: 'message',
       key: 'message',
       ellipsis: {
-        showTitle: false
+        showTitle: false,
       },
       render: (message: string) => (
         <Tooltip title={message}>
           <div className="text-gray-600">{message}</div>
         </Tooltip>
-      )
-    }
+      ),
+    },
   ]
 
   const recentEvents = events.slice(0, 10)
@@ -240,7 +307,7 @@ const EventDashboardPage: React.FC = () => {
         event_type: 'MESSAGE_SENT',
         source: 'Test',
         message: '这是一个测试事件',
-        priority: 'normal'
+        priority: 'normal',
       })
       message.success('测试事件已提交')
       loadEvents()
@@ -255,35 +322,36 @@ const EventDashboardPage: React.FC = () => {
         <div className="flex justify-between items-center mb-4">
           <div className="flex items-center gap-3">
             <h1 className="text-2xl font-bold">事件监控仪表板</h1>
-            {wsConnected && (
-              <Tag icon={<WifiOutlined />} color="success">
-                实时连接
-              </Tag>
-            )}
+            {renderConnectionTag()}
           </div>
           <Space>
-            <Button 
+            <Button
               icon={<BellOutlined />}
               onClick={() => setAutoRefresh(!autoRefresh)}
               type={autoRefresh ? 'primary' : 'default'}
             >
               {autoRefresh ? '关闭' : '开启'}实时监控
             </Button>
-            <Button 
-              icon={<ReloadOutlined />} 
+            <Button
+              icon={<ReloadOutlined />}
               onClick={loadEvents}
               loading={loading}
             >
               刷新
             </Button>
-            <Button 
-              onClick={submitTestEvent}
+            <Button onClick={submitTestEvent}>发送测试事件</Button>
+            <Dropdown
+              menu={{
+                items: exportMenuItems,
+                onClick: ({ key }) =>
+                  handleExport(key as 'csv' | 'json' | 'xlsx'),
+              }}
+              trigger={['click']}
             >
-              发送测试事件
-            </Button>
-            <Button icon={<ExportOutlined />}>
-              导出日志
-            </Button>
+              <Button icon={<ExportOutlined />} loading={exporting}>
+                导出日志
+              </Button>
+            </Dropdown>
           </Space>
         </div>
 
@@ -291,7 +359,7 @@ const EventDashboardPage: React.FC = () => {
           <Alert
             message="实时监控已开启"
             description="系统正在通过WebSocket接收实时事件，统计数据每30秒自动更新"
-            variant="default"
+            type="info"
             showIcon
             closable
             className="mb-4"
@@ -358,8 +426,8 @@ const EventDashboardPage: React.FC = () => {
 
       <Row gutter={16}>
         <Col span={16}>
-          <Card 
-            title="事件列表" 
+          <Card
+            title="事件列表"
             loading={loading}
             extra={
               <Space>
@@ -398,7 +466,7 @@ const EventDashboardPage: React.FC = () => {
                 pageSize: 10,
                 showSizeChanger: true,
                 showQuickJumper: true,
-                showTotal: (total) => `共 ${total} 条事件`
+                showTotal: total => `共 ${total} 条事件`,
               }}
               size="small"
             />
@@ -415,16 +483,28 @@ const EventDashboardPage: React.FC = () => {
                     <div>
                       <div className="flex items-center justify-between mb-1">
                         <span className="font-medium">{event.title}</span>
-                        <Tag color={severityColors[event.severity as keyof typeof severityColors]}>
-                          {severityTexts[event.severity as keyof typeof severityTexts]}
+                        <Tag
+                          color={
+                            severityColors[
+                              event.severity as keyof typeof severityColors
+                            ]
+                          }
+                        >
+                          {
+                            severityTexts[
+                              event.severity as keyof typeof severityTexts
+                            ]
+                          }
                         </Tag>
                       </div>
                       <div className="text-xs text-gray-500 mb-1">
                         {dayjs(event.timestamp).format('YYYY-MM-DD HH:mm:ss')}
                       </div>
-                      <div className="text-sm text-gray-600">{event.message}</div>
+                      <div className="text-sm text-gray-600">
+                        {event.message}
+                      </div>
                     </div>
-                  )
+                  ),
                 }))}
               />
             ) : (
@@ -441,7 +521,9 @@ const EventDashboardPage: React.FC = () => {
                 </div>
                 <div className="flex justify-between">
                   <span>角色</span>
-                  <Tag color={clusterStatus.role === 'leader' ? 'gold' : 'default'}>
+                  <Tag
+                    color={clusterStatus.role === 'leader' ? 'gold' : 'default'}
+                  >
                     {clusterStatus.role}
                   </Tag>
                 </div>
@@ -458,10 +540,10 @@ const EventDashboardPage: React.FC = () => {
                     <span>负载</span>
                     <span>{(clusterStatus.load * 100).toFixed(1)}%</span>
                   </div>
-                  <Progress 
-                    percent={clusterStatus.load * 100} 
-                    size="small" 
-                    status="active" 
+                  <Progress
+                    percent={clusterStatus.load * 100}
+                    size="small"
+                    status="active"
                   />
                 </div>
               </Space>
@@ -477,18 +559,23 @@ const EventDashboardPage: React.FC = () => {
                 </div>
                 <Progress percent={95} size="small" status="active" />
               </div>
-              
+
               <div>
                 <div className="flex justify-between items-center mb-2">
                   <span>错误率</span>
                   <span className="text-red-500">
-                    {stats.total > 0 ? ((stats.error / stats.total) * 100).toFixed(1) : 0}%
+                    {stats.total > 0
+                      ? ((stats.error / stats.total) * 100).toFixed(1)
+                      : 0}
+                    %
                   </span>
                 </div>
-                <Progress 
-                  percent={stats.total > 0 ? (stats.error / stats.total) * 100 : 0} 
-                  size="small" 
-                  strokeColor="#ff4d4f" 
+                <Progress
+                  percent={
+                    stats.total > 0 ? (stats.error / stats.total) * 100 : 0
+                  }
+                  size="small"
+                  strokeColor="#ff4d4f"
                 />
               </div>
 
@@ -496,13 +583,18 @@ const EventDashboardPage: React.FC = () => {
                 <div className="flex justify-between items-center mb-2">
                   <span>成功率</span>
                   <span className="text-green-500">
-                    {stats.total > 0 ? ((stats.success / stats.total) * 100).toFixed(1) : 0}%
+                    {stats.total > 0
+                      ? ((stats.success / stats.total) * 100).toFixed(1)
+                      : 0}
+                    %
                   </span>
                 </div>
-                <Progress 
-                  percent={stats.total > 0 ? (stats.success / stats.total) * 100 : 0} 
-                  size="small" 
-                  strokeColor="#52c41a" 
+                <Progress
+                  percent={
+                    stats.total > 0 ? (stats.success / stats.total) * 100 : 0
+                  }
+                  size="small"
+                  strokeColor="#52c41a"
                 />
               </div>
             </Space>

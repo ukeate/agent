@@ -32,7 +32,10 @@ const NetworkMonitorDetailPage: React.FC = () => {
   return (
     <div style={{ padding: 24 }}>
       <Space direction="vertical" style={{ width: '100%' }} size="large">
-        <Space align="center" style={{ justifyContent: 'space-between', width: '100%' }}>
+        <Space
+          align="center"
+          style={{ justifyContent: 'space-between', width: '100%' }}
+        >
           <Space>
             <WifiOutlined />
             <Typography.Title level={3} style={{ margin: 0 }}>
@@ -51,10 +54,22 @@ const NetworkMonitorDetailPage: React.FC = () => {
             <Spin />
           ) : data ? (
             <Space size="large">
-              <Statistic title="当前状态" value={metrics.current_status || '-'} />
-              <Statistic title="当前延迟(ms)" value={metrics.current_latency_ms || 0} />
-              <Statistic title="当前丢包率" value={metrics.current_packet_loss || 0} />
-              <Statistic title="连接质量" value={metrics.connection_quality || 0} />
+              <Statistic
+                title="当前状态"
+                value={metrics.current_status || '-'}
+              />
+              <Statistic
+                title="当前延迟(ms)"
+                value={metrics.current_latency_ms || 0}
+              />
+              <Statistic
+                title="当前丢包率"
+                value={metrics.current_packet_loss || 0}
+              />
+              <Statistic
+                title="连接质量"
+                value={metrics.connection_quality || 0}
+              />
             </Space>
           ) : (
             <Alert type="info" message="暂无数据，确保后端网络监控已运行。" />

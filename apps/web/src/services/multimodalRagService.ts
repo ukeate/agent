@@ -149,7 +149,7 @@ class MultimodalRagService {
         include_images: options?.includeImages ?? true,
         include_tables: options?.includeTables ?? true,
         top_k: options?.topK ?? 5,
-      },
+      }),
     })
 
     if (!response.body) {

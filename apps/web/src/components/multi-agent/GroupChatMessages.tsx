@@ -31,7 +31,7 @@ export const GroupChatMessages: React.FC<GroupChatMessagesProps> = ({
 
   return (
     <div className={`flex flex-col gap-4 ${className}`}>
-      {messages.map((message) => {
+      {messages.map(message => {
         const agent = getAgentBySender(message.sender)
         const isCurrentSpeaker = currentSpeaker === message.sender
         const isUserMessage = message.role === 'user'
@@ -41,9 +41,10 @@ export const GroupChatMessages: React.FC<GroupChatMessagesProps> = ({
             key={message.id}
             className={`
               flex gap-3 p-4 rounded-lg transition-all
-              ${isCurrentSpeaker
-                ? 'bg-blue-50 border-2 border-blue-200 shadow-md'
-                : 'bg-white border border-gray-200 hover:shadow-sm'
+              ${
+                isCurrentSpeaker
+                  ? 'bg-blue-50 border-2 border-blue-200 shadow-md'
+                  : 'bg-white border border-gray-200 hover:shadow-sm'
               }
               ${isUserMessage ? 'bg-gray-50' : ''}
             `}
@@ -78,13 +79,13 @@ export const GroupChatMessages: React.FC<GroupChatMessagesProps> = ({
                     />
                   )}
                 </div>
-                
+
                 {isCurrentSpeaker && (
                   <span className="text-xs bg-blue-100 text-blue-600 px-2 py-1 rounded-full">
                     正在发言
                   </span>
                 )}
-                
+
                 <span className="text-xs text-gray-500 ml-auto">
                   {formatTimestamp(message.timestamp)}
                 </span>
@@ -93,19 +94,30 @@ export const GroupChatMessages: React.FC<GroupChatMessagesProps> = ({
               {/* 消息正文 */}
               <div className="prose prose-sm max-w-none">
                 <MarkdownRenderer content={message.content} />
-                
+
                 {/* 流式消息打字机效果指示器 */}
                 {message.isStreaming && !message.streamingComplete && (
                   <div className="inline-flex items-center gap-1 ml-2">
                     <div className="flex space-x-1">
-                      <div className="w-1 h-1 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-                      <div className="w-1 h-1 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-                      <div className="w-1 h-1 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                      <div
+                        className="w-1 h-1 bg-blue-400 rounded-full animate-bounce"
+                        style={{ animationDelay: '0ms' }}
+                      />
+                      <div
+                        className="w-1 h-1 bg-blue-400 rounded-full animate-bounce"
+                        style={{ animationDelay: '150ms' }}
+                      />
+                      <div
+                        className="w-1 h-1 bg-blue-400 rounded-full animate-bounce"
+                        style={{ animationDelay: '300ms' }}
+                      />
                     </div>
-                    <span className="text-xs text-blue-500 ml-1">正在输入...</span>
+                    <span className="text-xs text-blue-500 ml-1">
+                      正在输入...
+                    </span>
                   </div>
                 )}
-                
+
                 {/* 流式消息完成指示器 */}
                 {message.streamingComplete && (
                   <div className="inline-flex items-center gap-1 ml-2 text-xs text-green-500">
@@ -146,42 +158,37 @@ export const AgentTurnIndicator: React.FC<AgentTurnIndicatorProps> = ({
   className = '',
 }) => {
   return (
-    <div className={`bg-white border border-gray-200 rounded-lg p-4 ${className}`}>
+    <div
+      className={`bg-white border border-gray-200 rounded-lg p-4 ${className}`}
+    >
       <div className="flex items-center justify-between mb-3">
         <h3 className="text-sm font-medium text-gray-900">参与者状态</h3>
-        <div className="text-xs text-gray-500">
-          第 {currentRound} 轮
-        </div>
+        <div className="text-xs text-gray-500">第 {currentRound} 轮</div>
       </div>
 
       <div className="space-y-2">
-        {agents.map((agent) => {
+        {agents.map(agent => {
           const isCurrent = currentSpeaker === agent.name
-          
+
           return (
             <div
               key={agent.id}
               className={`
                 flex items-center gap-3 p-2 rounded-md transition-all
-                ${isCurrent
-                  ? 'bg-blue-50 border border-blue-200'
-                  : 'hover:bg-gray-50'
+                ${
+                  isCurrent
+                    ? 'bg-blue-50 border border-blue-200'
+                    : 'hover:bg-gray-50'
                 }
               `}
             >
-              <AgentAvatar
-                agent={agent}
-                size="sm"
-                showStatus={true}
-              />
-              
+              <AgentAvatar agent={agent} size="sm" showStatus={true} />
+
               <div className="flex-1">
                 <div className="text-sm font-medium text-gray-900">
                   {agent.name}
                 </div>
-                <div className="text-xs text-gray-500">
-                  {agent.role}
-                </div>
+                <div className="text-xs text-gray-500">{agent.role}</div>
               </div>
 
               {isCurrent && (

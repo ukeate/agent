@@ -4,7 +4,7 @@
 """
 
 import uuid
-from typing import Dict, List, Optional, Any, AsyncGenerator
+from typing import Dict, List, Optional, Any, AsyncGenerator, Tuple
 from src.ai.agents.react_agent import ReActAgent, ReActStep, ReActStepType
 from src.services.conversation_service import get_conversation_service
 from src.core.config import get_settings
@@ -24,6 +24,21 @@ class AgentService:
         """初始化服务"""
         self.conversation_service = await get_conversation_service()
         logger.info("智能体服务初始化完成")
+
+    async def _ensure_conversation_access(
+        self,
+        conversation_id: str,
+        user_id: str
+    ) -> Dict[str, Any]:
+        if not self.conversation_service:
+            await self.initialize()
+        session = await self.conversation_service.get_conversation_for_user(
+            conversation_id,
+            user_id
+        )
+        if not session:
+            raise ValueError(f"对话会话不存在: {conversation_id}")
+        return session
 
     async def create_agent_session(
         self,
@@ -77,6 +92,21 @@ class AgentService:
             )
             raise
 
+    async def update_conversation_title(
+        self,
+        conversation_id: str,
+        user_id: str,
+        title: str
+    ) -> Dict[str, Any]:
+        """更新对话标题"""
+        if not self.conversation_service:
+            await self.initialize()
+        await self._ensure_conversation_access(conversation_id, user_id)
+        return await self.conversation_service.update_conversation_title(
+            conversation_id,
+            title
+        )
+
     def chat_with_agent(
         self,
         conversation_id: str,
@@ -100,6 +130,7 @@ class AgentService:
     ):
         """非流式对话处理"""
         try:
+            await self._ensure_conversation_access(conversation_id, user_id)
             # 获取智能体实例
             agent = await self._get_agent_for_conversation(conversation_id)
             if not agent:
@@ -139,6 +170,7 @@ class AgentService:
     ):
         """流式对话处理"""
         try:
+            await self._ensure_conversation_access(conversation_id, user_id)
             # 获取智能体实例
             agent = await self._get_agent_for_conversation(conversation_id)
             if not agent:
@@ -194,6 +226,7 @@ class AgentService:
             # 处理智能体的推理步骤
             response_content = []
             tool_calls = []
+            last_action_step: Optional[ReActStep] = None
 
             for step in react_session.steps:
                 if step.step_type == ReActStepType.THOUGHT:
@@ -212,9 +245,12 @@ class AgentService:
                     tool_call_info = {
                         "tool_name": step.tool_name,
                         "tool_args": step.tool_args,
-                        "step_id": step.step_id
+                        "step_id": step.step_id,
+                        "status": "pending",
+                        "timestamp": step.timestamp
                     }
                     tool_calls.append(tool_call_info)
+                    last_action_step = step
 
                     await self.conversation_service.add_message(
                         conversation_id=conversation_id,
@@ -234,6 +270,24 @@ class AgentService:
                         message_type="tool_result",
                         metadata={"step_id": step.step_id}
                     )
+                    if last_action_step:
+                        result = (
+                            last_action_step.tool_result
+                            if last_action_step.tool_result is not None
+                            else step.content
+                        )
+                        status = (
+                            "error"
+                            if isinstance(result, dict) and result.get("error")
+                            else "success"
+                        )
+                        await self.conversation_service.update_tool_call_result(
+                            conversation_id=conversation_id,
+                            step_id=last_action_step.step_id,
+                            result=result,
+                            status=status
+                        )
+                        last_action_step = None
 
                 elif step.step_type == ReActStepType.FINAL_ANSWER:
                     # 最终答案
@@ -289,6 +343,7 @@ class AgentService:
     ) -> AsyncGenerator[Dict[str, Any], None]:
         """处理流式对话"""
         try:
+            last_action_step: Optional[ReActStep] = None
             async for step in agent.run_streaming_session(
                 user_input=user_input,
                 session_id=conversation_id,
@@ -310,6 +365,7 @@ class AgentService:
                     })
 
                     # 记录工具调用
+                    last_action_step = step
                     await self.conversation_service.add_message(
                         conversation_id=conversation_id,
                         content=f"行动: {step.content}",
@@ -318,10 +374,32 @@ class AgentService:
                         tool_calls=[{
                             "tool_name": step.tool_name,
                             "tool_args": step.tool_args,
-                            "step_id": step.step_id
+                            "step_id": step.step_id,
+                            "status": "pending",
+                            "timestamp": step.timestamp
                         }],
                         metadata={"step_id": step.step_id}
                     )
+
+                elif step.step_type == ReActStepType.OBSERVATION:
+                    if last_action_step:
+                        result = (
+                            last_action_step.tool_result
+                            if last_action_step.tool_result is not None
+                            else step.content
+                        )
+                        status = (
+                            "error"
+                            if isinstance(result, dict) and result.get("error")
+                            else "success"
+                        )
+                        await self.conversation_service.update_tool_call_result(
+                            conversation_id=conversation_id,
+                            step_id=last_action_step.step_id,
+                            result=result,
+                            status=status
+                        )
+                        last_action_step = None
 
                 elif step.step_type == ReActStepType.FINAL_ANSWER:
                     # 记录最终答案
@@ -334,6 +412,18 @@ class AgentService:
                     )
 
                 yield step_data
+            summary = agent.get_session_summary(conversation_id)
+            if summary:
+                if not self.conversation_service:
+                    await self.initialize()
+                await self.conversation_service.update_conversation_context(
+                    conversation_id=conversation_id,
+                    context_updates={
+                        "last_react_session": summary.get("session_id"),
+                        "total_steps": summary.get("total_steps", 0),
+                        "completed": summary.get("completed", False),
+                    }
+                )
 
         except Exception as e:
             logger.error(
@@ -350,6 +440,7 @@ class AgentService:
     async def get_conversation_history(
         self,
         conversation_id: str,
+        user_id: str,
         limit: Optional[int] = None
     ) -> Dict[str, Any]:
         """获取对话历史"""
@@ -357,6 +448,7 @@ class AgentService:
             if not self.conversation_service:
                 await self.initialize()
 
+            await self._ensure_conversation_access(conversation_id, user_id)
             # 获取对话历史
             messages = await self.conversation_service.get_conversation_history(
                 conversation_id=conversation_id,
@@ -381,9 +473,10 @@ class AgentService:
             )
             raise
 
-    async def get_agent_status(self, conversation_id: str) -> Dict[str, Any]:
+    async def get_agent_status(self, conversation_id: str, user_id: str) -> Dict[str, Any]:
         """获取智能体状态"""
         try:
+            await self._ensure_conversation_access(conversation_id, user_id)
             agent = await self._get_agent_for_conversation(conversation_id)
             if not agent:
                 return {
@@ -415,12 +508,13 @@ class AgentService:
             )
             raise
 
-    async def close_agent_session(self, conversation_id: str) -> None:
+    async def close_agent_session(self, conversation_id: str, user_id: str) -> None:
         """关闭智能体会话"""
         try:
             if not self.conversation_service:
                 await self.initialize()
 
+            await self._ensure_conversation_access(conversation_id, user_id)
             # 清理智能体会话
             agent = await self._get_agent_for_conversation(conversation_id)
             if agent:
@@ -472,8 +566,9 @@ class AgentService:
         self,
         user_id: str,
         limit: int = 20,
-        offset: int = 0
-    ) -> List[Dict[str, Any]]:
+        offset: int = 0,
+        query: Optional[str] = None
+    ) -> Tuple[List[Dict[str, Any]], int]:
         """列出用户的对话会话"""
         try:
             # 确保服务已初始化
@@ -483,7 +578,8 @@ class AgentService:
             return await self.conversation_service.list_conversations(
                 user_id=user_id,
                 limit=limit,
-                offset=offset
+                offset=offset,
+                query=query
             )
 
         except Exception as e:

@@ -1,13 +1,13 @@
-import React, { useState, useEffect } from 'react';
-import { 
+import React, { useState, useEffect } from 'react'
 import { logger } from '../utils/logger'
-  Card, 
-  Row, 
-  Col, 
-  Typography, 
-  Progress, 
-  Statistic, 
-  Table, 
+import {
+  Card,
+  Row,
+  Col,
+  Typography,
+  Progress,
+  Statistic,
+  Table,
   Button,
   Space,
   Tag,
@@ -26,8 +26,8 @@ import { logger } from '../utils/logger'
   InputNumber,
   message,
   Spin,
-  Divider
-} from 'antd';
+  Divider,
+} from 'antd'
 import {
   GoldOutlined,
   ThunderboltOutlined,
@@ -47,9 +47,9 @@ import {
   ExperimentOutlined,
   ReloadOutlined,
   StopOutlined,
-  SaveOutlined
-} from '@ant-design/icons';
-import { Line, Bar, Gauge } from '@ant-design/charts';
+  SaveOutlined,
+} from '@ant-design/icons'
+import { Line, Bar, Gauge } from '@ant-design/charts'
 import {
   loraTrainingService,
   type TrainingJob,
@@ -58,56 +58,57 @@ import {
   type ModelInfo,
   type CheckpointInfo,
   type LoRAConfig,
-  type TrainingConfig
-} from '../services/loraTrainingService';
+  type TrainingConfig,
+} from '../services/loraTrainingService'
 
-const { Title, Text } = Typography;
-const { TabPane } = Tabs;
-const { TextArea } = Input;
-const { Option } = Select;
+const { Title, Text } = Typography
+const { TabPane } = Tabs
+const { TextArea } = Input
+const { Option } = Select
 
 const LoRATrainingPage: React.FC = () => {
   // ==================== 状态管理 ====================
-  const [loading, setLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState('overview');
-  const [refreshing, setRefreshing] = useState(false);
-  const [autoRefresh, setAutoRefresh] = useState(true);
-  
+  const [loading, setLoading] = useState(false)
+  const [activeTab, setActiveTab] = useState('overview')
+  const [refreshing, setRefreshing] = useState(false)
+  const [autoRefresh, setAutoRefresh] = useState(true)
+
   // 数据状态
-  const [trainingJobs, setTrainingJobs] = useState<TrainingJob[]>([]);
-  const [selectedJob, setSelectedJob] = useState<TrainingJob | null>(null);
-  const [trainingProgress, setTrainingProgress] = useState<TrainingProgress | null>(null);
-  const [trainingMetrics, setTrainingMetrics] = useState<TrainingMetric[]>([]);
-  const [modelInfo, setModelInfo] = useState<ModelInfo | null>(null);
-  const [checkpoints, setCheckpoints] = useState<CheckpointInfo[]>([]);
-  
+  const [trainingJobs, setTrainingJobs] = useState<TrainingJob[]>([])
+  const [selectedJob, setSelectedJob] = useState<TrainingJob | null>(null)
+  const [trainingProgress, setTrainingProgress] =
+    useState<TrainingProgress | null>(null)
+  const [trainingMetrics, setTrainingMetrics] = useState<TrainingMetric[]>([])
+  const [modelInfo, setModelInfo] = useState<ModelInfo | null>(null)
+  const [checkpoints, setCheckpoints] = useState<CheckpointInfo[]>([])
+
   // 模态框状态
-  const [configModalVisible, setConfigModalVisible] = useState(false);
-  const [createJobModalVisible, setCreateJobModalVisible] = useState(false);
-  const [inferenceModalVisible, setInferenceModalVisible] = useState(false);
-  const [inferenceResult, setInferenceResult] = useState<any>(null);
+  const [configModalVisible, setConfigModalVisible] = useState(false)
+  const [createJobModalVisible, setCreateJobModalVisible] = useState(false)
+  const [inferenceModalVisible, setInferenceModalVisible] = useState(false)
+  const [inferenceResult, setInferenceResult] = useState<any>(null)
 
   // ==================== 数据加载 ====================
-  
+
   const loadTrainingJobs = async () => {
-    setLoading(true);
+    setLoading(true)
     try {
-      const jobs = await loraTrainingService.getTrainingJobs();
-      setTrainingJobs(jobs);
-      
+      const jobs = await loraTrainingService.getTrainingJobs()
+      setTrainingJobs(jobs)
+
       // 自动选择第一个运行中的任务
-      const runningJob = jobs.find(j => j.status === 'running');
+      const runningJob = jobs.find(j => j.status === 'running')
       if (runningJob && !selectedJob) {
-        setSelectedJob(runningJob);
-        await loadJobDetails(runningJob.job_id);
+        setSelectedJob(runningJob)
+        await loadJobDetails(runningJob.job_id)
       }
     } catch (error) {
-      logger.error('加载训练任务失败:', error);
-      message.error('加载训练任务失败');
+      logger.error('加载训练任务失败:', error)
+      message.error('加载训练任务失败')
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
+  }
 
   const loadJobDetails = async (jobId: string) => {
     try {
@@ -115,75 +116,77 @@ const LoRATrainingPage: React.FC = () => {
         loraTrainingService.getTrainingProgress(jobId),
         loraTrainingService.getTrainingMetrics(jobId),
         loraTrainingService.getModelInfo(jobId),
-        loraTrainingService.getCheckpoints(jobId)
-      ]);
-      
-      setTrainingProgress(progress);
-      setTrainingMetrics(metrics);
-      setModelInfo(info);
-      setCheckpoints(ckpts);
+        loraTrainingService.getCheckpoints(jobId),
+      ])
+
+      setTrainingProgress(progress)
+      setTrainingMetrics(metrics)
+      setModelInfo(info)
+      setCheckpoints(ckpts)
     } catch (error) {
-      logger.error('加载任务详情失败:', error);
+      logger.error('加载任务详情失败:', error)
     }
-  };
+  }
 
   const handleRefresh = async () => {
-    setRefreshing(true);
-    await loadTrainingJobs();
+    setRefreshing(true)
+    await loadTrainingJobs()
     if (selectedJob) {
-      await loadJobDetails(selectedJob.job_id);
+      await loadJobDetails(selectedJob.job_id)
     }
-    setRefreshing(false);
-    message.success('数据已刷新');
-  };
+    setRefreshing(false)
+    message.success('数据已刷新')
+  }
 
   // ==================== 任务控制 ====================
-  
+
   const handleJobControl = async (
     jobId: string,
     action: 'start' | 'pause' | 'resume' | 'stop'
   ) => {
     try {
-      let result;
+      let result
       switch (action) {
         case 'start':
-          result = await loraTrainingService.startTraining(jobId);
-          break;
+          result = await loraTrainingService.startTraining(jobId)
+          break
         case 'pause':
-          result = await loraTrainingService.pauseTraining(jobId);
-          break;
+          result = await loraTrainingService.pauseTraining(jobId)
+          break
         case 'resume':
-          result = await loraTrainingService.resumeTraining(jobId);
-          break;
+          result = await loraTrainingService.resumeTraining(jobId)
+          break
         case 'stop':
-          result = await loraTrainingService.stopTraining(jobId);
-          break;
+          result = await loraTrainingService.stopTraining(jobId)
+          break
       }
-      
+
       if (result?.success) {
-        message.success(result.message);
-        await loadTrainingJobs();
+        message.success(result.message)
+        await loadTrainingJobs()
       }
     } catch (error) {
-      message.error(`操作失败: ${error}`);
+      message.error(`操作失败: ${error}`)
     }
-  };
+  }
 
   const handleSaveCheckpoint = async () => {
-    if (!selectedJob) return;
-    
+    if (!selectedJob) return
+
     try {
-      const checkpoint = await loraTrainingService.saveCheckpoint(selectedJob.job_id);
-      message.success('检查点保存成功');
-      setCheckpoints([...checkpoints, checkpoint]);
+      const checkpoint = await loraTrainingService.saveCheckpoint(
+        selectedJob.job_id
+      )
+      message.success('检查点保存成功')
+      setCheckpoints([...checkpoints, checkpoint])
     } catch (error) {
-      message.error('保存检查点失败');
+      message.error('保存检查点失败')
     }
-  };
+  }
 
   const handleTestInference = async (values: any) => {
-    if (!selectedJob) return;
-    
+    if (!selectedJob) return
+
     try {
       const result = await loraTrainingService.testInference(
         selectedJob.job_id,
@@ -192,38 +195,38 @@ const LoRATrainingPage: React.FC = () => {
           max_new_tokens: values.max_new_tokens,
           temperature: values.temperature,
           top_p: values.top_p,
-          do_sample: values.do_sample
+          do_sample: values.do_sample,
         }
-      );
-      setInferenceResult(result);
+      )
+      setInferenceResult(result)
     } catch (error) {
-      message.error('推理测试失败');
+      message.error('推理测试失败')
     }
-  };
+  }
 
   // ==================== 生命周期 ====================
-  
-  useEffect(() => {
-    loadTrainingJobs();
-  }, []);
 
   useEffect(() => {
-    if (!autoRefresh || !selectedJob || selectedJob.status !== 'running') return;
-    
+    loadTrainingJobs()
+  }, [])
+
+  useEffect(() => {
+    if (!autoRefresh || !selectedJob || selectedJob.status !== 'running') return
+
     const timer = setInterval(() => {
-      loadJobDetails(selectedJob.job_id);
-    }, 5000);
-    
-    return () => clearInterval(timer);
-  }, [autoRefresh, selectedJob]);
+      loadJobDetails(selectedJob.job_id)
+    }, 5000)
+
+    return () => clearInterval(timer)
+  }, [autoRefresh, selectedJob])
 
   // ==================== 图表配置 ====================
-  
+
   const lossChartConfig = {
     data: trainingMetrics.map(m => ({
       step: m.step,
       trainLoss: m.train_loss,
-      evalLoss: m.eval_loss
+      evalLoss: m.eval_loss,
     })),
     xField: 'step',
     yField: ['trainLoss', 'evalLoss'],
@@ -232,59 +235,62 @@ const LoRATrainingPage: React.FC = () => {
       position: 'top-right',
     },
     yAxis: {
-      title: { text: '损失值' }
+      title: { text: '损失值' },
     },
     tooltip: {
       showCrosshairs: true,
-    }
-  };
+    },
+  }
 
   const learningRateConfig = {
     data: trainingMetrics.map(m => ({
       step: m.step,
-      lr: m.learning_rate
+      lr: m.learning_rate,
     })),
     xField: 'step',
     yField: 'lr',
     smooth: true,
     color: '#faad14',
     yAxis: {
-      title: { text: '学习率' }
-    }
-  };
+      title: { text: '学习率' },
+    },
+  }
 
   const gaugeConfig = {
     percent: (trainingProgress?.progress_percent || 0) / 100,
     range: {
-      color: '#52c41a'
+      color: '#52c41a',
     },
     indicator: {
       pointer: { style: { stroke: '#D0D0D0' } },
-      pin: { style: { stroke: '#D0D0D0' } }
+      pin: { style: { stroke: '#D0D0D0' } },
     },
     statistic: {
       content: {
         style: { fontSize: '24px', lineHeight: '24px' },
-        formatter: () => `${trainingProgress?.progress_percent.toFixed(1)}%`
-      }
-    }
-  };
+        formatter: () => `${trainingProgress?.progress_percent.toFixed(1)}%`,
+      },
+    },
+  }
 
   // ==================== 表格配置 ====================
-  
+
   const jobColumns = [
     {
       title: '任务名称',
       dataIndex: 'name',
       key: 'name',
       render: (text: string, record: TrainingJob) => (
-        <Button type="link" onClick={() => {
-          setSelectedJob(record);
-          loadJobDetails(record.job_id);
-        }}>
+        <Button
+          type="link"
+          onClick={() => {
+            setSelectedJob(record)
+            loadJobDetails(record.job_id)
+          }}
+        >
           {text}
         </Button>
-      )
+      ),
     },
     {
       title: '基础模型',
@@ -296,7 +302,7 @@ const LoRATrainingPage: React.FC = () => {
             {model.split('/').pop()}
           </Text>
         </Tooltip>
-      )
+      ),
     },
     {
       title: '状态',
@@ -309,21 +315,21 @@ const LoRATrainingPage: React.FC = () => {
           running: 'processing',
           completed: 'success',
           failed: 'error',
-          cancelled: 'default'
-        };
-        return <Tag color={colorMap[status]}>{status.toUpperCase()}</Tag>;
-      }
+          cancelled: 'default',
+        }
+        return <Tag color={colorMap[status]}>{status.toUpperCase()}</Tag>
+      },
     },
     {
       title: 'LoRA Rank',
       key: 'lora_rank',
-      render: (_, record: TrainingJob) => record.lora_config.r
+      render: (_, record: TrainingJob) => record.lora_config.r,
     },
     {
       title: '创建时间',
       dataIndex: 'created_at',
       key: 'created_at',
-      render: (date: string) => new Date(date).toLocaleString()
+      render: (date: string) => new Date(date).toLocaleString(),
     },
     {
       title: '操作',
@@ -364,9 +370,9 @@ const LoRATrainingPage: React.FC = () => {
             </Button>
           )}
         </Space>
-      )
-    }
-  ];
+      ),
+    },
+  ]
 
   const loraLayerColumns = [
     {
@@ -374,89 +380,92 @@ const LoRATrainingPage: React.FC = () => {
       dataIndex: 'layer_name',
       key: 'layer_name',
       render: (name: string) => (
-        <Text code style={{ fontSize: 12 }}>{name}</Text>
-      )
+        <Text code style={{ fontSize: 12 }}>
+          {name}
+        </Text>
+      ),
     },
     {
       title: 'Rank',
       dataIndex: 'rank',
-      key: 'rank'
+      key: 'rank',
     },
     {
       title: 'Alpha',
       dataIndex: 'alpha',
-      key: 'alpha'
+      key: 'alpha',
     },
     {
       title: 'Dropout',
       dataIndex: 'dropout',
-      key: 'dropout'
+      key: 'dropout',
     },
     {
       title: '参数量',
       dataIndex: 'param_count',
       key: 'param_count',
-      render: (count: number) => count.toLocaleString()
+      render: (count: number) => count.toLocaleString(),
     },
     {
       title: '权重范数',
       dataIndex: 'weight_norm',
       key: 'weight_norm',
-      render: (norm?: number) => norm ? norm.toFixed(4) : '-'
+      render: (norm?: number) => (norm ? norm.toFixed(4) : '-'),
     },
     {
       title: '梯度范数',
       dataIndex: 'gradient_norm',
       key: 'gradient_norm',
-      render: (norm?: number) => norm ? norm.toFixed(4) : '-'
-    }
-  ];
+      render: (norm?: number) => (norm ? norm.toFixed(4) : '-'),
+    },
+  ]
 
   const checkpointColumns = [
     {
       title: '检查点',
       dataIndex: 'checkpoint_id',
-      key: 'checkpoint_id'
+      key: 'checkpoint_id',
     },
     {
       title: '步数',
       dataIndex: 'step',
-      key: 'step'
+      key: 'step',
     },
     {
       title: '轮次',
       dataIndex: 'epoch',
-      key: 'epoch'
+      key: 'epoch',
     },
     {
       title: '训练损失',
       dataIndex: 'train_loss',
       key: 'train_loss',
-      render: (loss: number) => loss.toFixed(4)
+      render: (loss: number) => loss.toFixed(4),
     },
     {
       title: '验证损失',
       dataIndex: 'eval_loss',
       key: 'eval_loss',
-      render: (loss?: number) => loss ? loss.toFixed(4) : '-'
+      render: (loss?: number) => (loss ? loss.toFixed(4) : '-'),
     },
     {
       title: '最优',
       dataIndex: 'is_best',
       key: 'is_best',
-      render: (isBest: boolean) => isBest ? <CheckCircleOutlined style={{ color: '#52c41a' }} /> : null
+      render: (isBest: boolean) =>
+        isBest ? <CheckCircleOutlined style={{ color: '#52c41a' }} /> : null,
     },
     {
       title: '大小',
       dataIndex: 'file_size_mb',
       key: 'file_size_mb',
-      render: (size: number) => `${size.toFixed(1)} MB`
+      render: (size: number) => `${size.toFixed(1)} MB`,
     },
     {
       title: '创建时间',
       dataIndex: 'created_at',
       key: 'created_at',
-      render: (date: string) => new Date(date).toLocaleString()
+      render: (date: string) => new Date(date).toLocaleString(),
     },
     {
       title: '操作',
@@ -473,10 +482,13 @@ const LoRATrainingPage: React.FC = () => {
               size="small"
               onClick={async () => {
                 try {
-                  await loraTrainingService.loadCheckpoint(selectedJob.job_id, record.checkpoint_id);
-                  message.success('检查点加载成功');
+                  await loraTrainingService.loadCheckpoint(
+                    selectedJob.job_id,
+                    record.checkpoint_id
+                  )
+                  message.success('检查点加载成功')
                 } catch (error) {
-                  message.error('加载检查点失败');
+                  message.error('加载检查点失败')
                 }
               }}
             >
@@ -484,9 +496,9 @@ const LoRATrainingPage: React.FC = () => {
             </Button>
           )}
         </Space>
-      )
-    }
-  ];
+      ),
+    },
+  ]
 
   // ==================== 渲染 ====================
 
@@ -495,7 +507,7 @@ const LoRATrainingPage: React.FC = () => {
       <div style={{ padding: '24px', textAlign: 'center' }}>
         <Spin size="large" tip="加载训练任务..." />
       </div>
-    );
+    )
   }
 
   return (
@@ -508,7 +520,9 @@ const LoRATrainingPage: React.FC = () => {
               <GoldOutlined style={{ marginRight: 8, color: '#faad14' }} />
               LoRA训练管理
             </Title>
-            <Text type="secondary">高效参数微调(LoRA/QLoRA)训练任务管理与监控</Text>
+            <Text type="secondary">
+              高效参数微调(LoRA/QLoRA)训练任务管理与监控
+            </Text>
           </Col>
           <Col>
             <Space>
@@ -580,8 +594,11 @@ const LoRATrainingPage: React.FC = () => {
                 value={trainingProgress.gpu_utilization || 0}
                 suffix="%"
                 prefix={<ThunderboltOutlined />}
-                valueStyle={{ 
-                  color: trainingProgress.gpu_utilization > 90 ? '#ff4d4f' : '#52c41a'
+                valueStyle={{
+                  color:
+                    trainingProgress.gpu_utilization > 90
+                      ? '#ff4d4f'
+                      : '#52c41a',
                 }}
               />
             </Card>
@@ -599,31 +616,54 @@ const LoRATrainingPage: React.FC = () => {
               rowKey="job_id"
               size="middle"
             />
-            
+
             {selectedJob && (
-              <Card title={`任务详情: ${selectedJob.name}`} style={{ marginTop: 16 }}>
+              <Card
+                title={`任务详情: ${selectedJob.name}`}
+                style={{ marginTop: 16 }}
+              >
                 <Descriptions column={3} size="small">
-                  <Descriptions.Item label="任务ID">{selectedJob.job_id}</Descriptions.Item>
-                  <Descriptions.Item label="基础模型">{selectedJob.base_model}</Descriptions.Item>
+                  <Descriptions.Item label="任务ID">
+                    {selectedJob.job_id}
+                  </Descriptions.Item>
+                  <Descriptions.Item label="基础模型">
+                    {selectedJob.base_model}
+                  </Descriptions.Item>
                   <Descriptions.Item label="状态">
-                    <Tag color={selectedJob.status === 'running' ? 'processing' : 'default'}>
+                    <Tag
+                      color={
+                        selectedJob.status === 'running'
+                          ? 'processing'
+                          : 'default'
+                      }
+                    >
                       {selectedJob.status.toUpperCase()}
                     </Tag>
                   </Descriptions.Item>
-                  <Descriptions.Item label="LoRA Rank">{selectedJob.lora_config.r}</Descriptions.Item>
-                  <Descriptions.Item label="LoRA Alpha">{selectedJob.lora_config.lora_alpha}</Descriptions.Item>
-                  <Descriptions.Item label="Dropout">{selectedJob.lora_config.lora_dropout}</Descriptions.Item>
+                  <Descriptions.Item label="LoRA Rank">
+                    {selectedJob.lora_config.r}
+                  </Descriptions.Item>
+                  <Descriptions.Item label="LoRA Alpha">
+                    {selectedJob.lora_config.lora_alpha}
+                  </Descriptions.Item>
+                  <Descriptions.Item label="Dropout">
+                    {selectedJob.lora_config.lora_dropout}
+                  </Descriptions.Item>
                   <Descriptions.Item label="轮次">
-                    {trainingProgress ? `${trainingProgress.current_epoch}/${trainingProgress.total_epochs}` : '-'}
+                    {trainingProgress
+                      ? `${trainingProgress.current_epoch}/${trainingProgress.total_epochs}`
+                      : '-'}
                   </Descriptions.Item>
                   <Descriptions.Item label="步数">
-                    {trainingProgress ? `${trainingProgress.current_step}/${trainingProgress.total_steps}` : '-'}
+                    {trainingProgress
+                      ? `${trainingProgress.current_step}/${trainingProgress.total_steps}`
+                      : '-'}
                   </Descriptions.Item>
                   <Descriptions.Item label="剩余时间">
                     {trainingProgress?.estimated_time_remaining || '-'}
                   </Descriptions.Item>
                 </Descriptions>
-                
+
                 {trainingProgress && (
                   <div style={{ textAlign: 'center', marginTop: 24 }}>
                     <Gauge {...gaugeConfig} width={200} height={200} />
@@ -651,18 +691,21 @@ const LoRATrainingPage: React.FC = () => {
                     {trainingProgress && (
                       <Descriptions column={2} size="small">
                         <Descriptions.Item label="样本/秒">
-                          {trainingProgress.samples_per_second?.toFixed(2) || '-'}
+                          {trainingProgress.samples_per_second?.toFixed(2) ||
+                            '-'}
                         </Descriptions.Item>
                         <Descriptions.Item label="梯度范数">
                           {trainingProgress.grad_norm?.toFixed(4) || '-'}
                         </Descriptions.Item>
                         <Descriptions.Item label="GPU显存">
-                          {trainingProgress.memory_usage_gb ? 
-                            `${trainingProgress.memory_usage_gb.toFixed(1)} GB` : '-'}
+                          {trainingProgress.memory_usage_gb
+                            ? `${trainingProgress.memory_usage_gb.toFixed(1)} GB`
+                            : '-'}
                         </Descriptions.Item>
                         <Descriptions.Item label="训练时长">
-                          {trainingProgress.training_time_seconds ? 
-                            `${Math.floor(trainingProgress.training_time_seconds / 3600)}小时${Math.floor((trainingProgress.training_time_seconds % 3600) / 60)}分钟` : '-'}
+                          {trainingProgress.training_time_seconds
+                            ? `${Math.floor(trainingProgress.training_time_seconds / 3600)}小时${Math.floor((trainingProgress.training_time_seconds % 3600) / 60)}分钟`
+                            : '-'}
                         </Descriptions.Item>
                       </Descriptions>
                     )}
@@ -684,8 +727,12 @@ const LoRATrainingPage: React.FC = () => {
                 <Col span={24}>
                   <Card title="模型概览" size="small">
                     <Descriptions column={3} size="small">
-                      <Descriptions.Item label="基础模型">{modelInfo.base_model}</Descriptions.Item>
-                      <Descriptions.Item label="模型规模">{modelInfo.model_size}</Descriptions.Item>
+                      <Descriptions.Item label="基础模型">
+                        {modelInfo.base_model}
+                      </Descriptions.Item>
+                      <Descriptions.Item label="模型规模">
+                        {modelInfo.model_size}
+                      </Descriptions.Item>
                       <Descriptions.Item label="总参数量">
                         {(modelInfo.total_params / 1e9).toFixed(2)}B
                       </Descriptions.Item>
@@ -708,8 +755,8 @@ const LoRATrainingPage: React.FC = () => {
                   </Card>
                 </Col>
                 <Col span={24}>
-                  <Card 
-                    title="LoRA层详情" 
+                  <Card
+                    title="LoRA层详情"
                     size="small"
                     extra={
                       <Button
@@ -790,7 +837,7 @@ const LoRATrainingPage: React.FC = () => {
                         max_new_tokens: 128,
                         temperature: 0.7,
                         top_p: 0.9,
-                        do_sample: true
+                        do_sample: true,
                       }}
                     >
                       <Form.Item
@@ -803,7 +850,11 @@ const LoRATrainingPage: React.FC = () => {
                       <Row gutter={16}>
                         <Col span={12}>
                           <Form.Item name="max_new_tokens" label="最大生成长度">
-                            <InputNumber min={1} max={512} style={{ width: '100%' }} />
+                            <InputNumber
+                              min={1}
+                              max={512}
+                              style={{ width: '100%' }}
+                            />
                           </Form.Item>
                         </Col>
                         <Col span={12}>
@@ -819,7 +870,11 @@ const LoRATrainingPage: React.FC = () => {
                           </Form.Item>
                         </Col>
                         <Col span={12}>
-                          <Form.Item name="do_sample" label="采样" valuePropName="checked">
+                          <Form.Item
+                            name="do_sample"
+                            label="采样"
+                            valuePropName="checked"
+                          >
                             <Switch />
                           </Form.Item>
                         </Col>
@@ -841,7 +896,11 @@ const LoRATrainingPage: React.FC = () => {
                   <Card title="推理结果">
                     {inferenceResult ? (
                       <div>
-                        <Descriptions column={1} size="small" style={{ marginBottom: 16 }}>
+                        <Descriptions
+                          column={1}
+                          size="small"
+                          style={{ marginBottom: 16 }}
+                        >
                           <Descriptions.Item label="生成时间">
                             {inferenceResult.generation_time_ms} ms
                           </Descriptions.Item>
@@ -893,14 +952,17 @@ const LoRATrainingPage: React.FC = () => {
         <Form
           layout="vertical"
           initialValues={selectedJob?.lora_config}
-          onFinish={async (values) => {
-            if (!selectedJob) return;
+          onFinish={async values => {
+            if (!selectedJob) return
             try {
-              await loraTrainingService.updateLoRAConfig(selectedJob.job_id, values);
-              message.success('配置更新成功');
-              setConfigModalVisible(false);
+              await loraTrainingService.updateLoRAConfig(
+                selectedJob.job_id,
+                values
+              )
+              message.success('配置更新成功')
+              setConfigModalVisible(false)
             } catch (error) {
-              message.error('配置更新失败');
+              message.error('配置更新失败')
             }
           }}
         >
@@ -945,12 +1007,20 @@ const LoRATrainingPage: React.FC = () => {
           </Form.Item>
           <Row gutter={16}>
             <Col span={8}>
-              <Form.Item name="use_rslora" label="使用RSLoRA" valuePropName="checked">
+              <Form.Item
+                name="use_rslora"
+                label="使用RSLoRA"
+                valuePropName="checked"
+              >
                 <Switch />
               </Form.Item>
             </Col>
             <Col span={8}>
-              <Form.Item name="use_dora" label="使用DoRA" valuePropName="checked">
+              <Form.Item
+                name="use_dora"
+                label="使用DoRA"
+                valuePropName="checked"
+              >
                 <Switch />
               </Form.Item>
             </Col>
@@ -970,9 +1040,7 @@ const LoRATrainingPage: React.FC = () => {
               <Button type="primary" htmlType="submit">
                 保存配置
               </Button>
-              <Button onClick={() => setConfigModalVisible(false)}>
-                取消
-              </Button>
+              <Button onClick={() => setConfigModalVisible(false)}>取消</Button>
             </Space>
           </Form.Item>
         </Form>
@@ -995,7 +1063,7 @@ const LoRATrainingPage: React.FC = () => {
         />
         <Form
           layout="vertical"
-          onFinish={async (values) => {
+          onFinish={async values => {
             try {
               const job = await loraTrainingService.createTrainingJob({
                 name: values.name,
@@ -1005,7 +1073,7 @@ const LoRATrainingPage: React.FC = () => {
                   r: values.r,
                   lora_alpha: values.lora_alpha,
                   lora_dropout: values.lora_dropout,
-                  target_modules: values.target_modules
+                  target_modules: values.target_modules,
                 },
                 training_config: {
                   base_model: values.base_model,
@@ -1013,7 +1081,8 @@ const LoRATrainingPage: React.FC = () => {
                   num_train_epochs: values.num_train_epochs,
                   per_device_train_batch_size: values.batch_size,
                   per_device_eval_batch_size: values.batch_size,
-                  gradient_accumulation_steps: values.gradient_accumulation_steps,
+                  gradient_accumulation_steps:
+                    values.gradient_accumulation_steps,
                   learning_rate: values.learning_rate,
                   warmup_ratio: values.warmup_ratio,
                   lr_scheduler_type: values.lr_scheduler_type,
@@ -1029,15 +1098,15 @@ const LoRATrainingPage: React.FC = () => {
                   save_total_limit: 3,
                   load_best_model_at_end: true,
                   metric_for_best_model: 'eval_loss',
-                  greater_is_better: false
+                  greater_is_better: false,
                 },
-                use_qlora: values.use_qlora
-              });
-              message.success('训练任务创建成功');
-              setCreateJobModalVisible(false);
-              await loadTrainingJobs();
+                use_qlora: values.use_qlora,
+              })
+              message.success('训练任务创建成功')
+              setCreateJobModalVisible(false)
+              await loadTrainingJobs()
             } catch (error) {
-              message.error('创建任务失败');
+              message.error('创建任务失败')
             }
           }}
           initialValues={{
@@ -1057,7 +1126,7 @@ const LoRATrainingPage: React.FC = () => {
             eval_steps: 100,
             gradient_checkpointing: true,
             fp16: true,
-            use_qlora: false
+            use_qlora: false,
           }}
         >
           <Form.Item
@@ -1067,7 +1136,7 @@ const LoRATrainingPage: React.FC = () => {
           >
             <Input placeholder="例如: Llama2-7B 客服对话微调" />
           </Form.Item>
-          
+
           <Row gutter={16}>
             <Col span={12}>
               <Form.Item
@@ -1076,9 +1145,15 @@ const LoRATrainingPage: React.FC = () => {
                 rules={[{ required: true, message: '请选择基础模型' }]}
               >
                 <Select>
-                  <Option value="meta-llama/Llama-2-7b-chat-hf">Llama-2-7B-Chat</Option>
-                  <Option value="meta-llama/Llama-2-13b-chat-hf">Llama-2-13B-Chat</Option>
-                  <Option value="mistralai/Mistral-7B-Instruct-v0.2">Mistral-7B-Instruct</Option>
+                  <Option value="meta-llama/Llama-2-7b-chat-hf">
+                    Llama-2-7B-Chat
+                  </Option>
+                  <Option value="meta-llama/Llama-2-13b-chat-hf">
+                    Llama-2-13B-Chat
+                  </Option>
+                  <Option value="mistralai/Mistral-7B-Instruct-v0.2">
+                    Mistral-7B-Instruct
+                  </Option>
                   <Option value="Qwen/Qwen1.5-7B-Chat">Qwen1.5-7B-Chat</Option>
                 </Select>
               </Form.Item>
@@ -1099,7 +1174,7 @@ const LoRATrainingPage: React.FC = () => {
           </Row>
 
           <Divider>LoRA配置</Divider>
-          
+
           <Row gutter={16}>
             <Col span={6}>
               <Form.Item name="r" label="Rank">
@@ -1117,7 +1192,11 @@ const LoRATrainingPage: React.FC = () => {
               </Form.Item>
             </Col>
             <Col span={6}>
-              <Form.Item name="use_qlora" label="使用QLoRA" valuePropName="checked">
+              <Form.Item
+                name="use_qlora"
+                label="使用QLoRA"
+                valuePropName="checked"
+              >
                 <Switch />
               </Form.Item>
             </Col>
@@ -1133,7 +1212,7 @@ const LoRATrainingPage: React.FC = () => {
           </Form.Item>
 
           <Divider>训练配置</Divider>
-          
+
           <Row gutter={16}>
             <Col span={8}>
               <Form.Item name="num_train_epochs" label="训练轮次">
@@ -1194,7 +1273,11 @@ const LoRATrainingPage: React.FC = () => {
 
           <Row gutter={16}>
             <Col span={8}>
-              <Form.Item name="gradient_checkpointing" label="梯度检查点" valuePropName="checked">
+              <Form.Item
+                name="gradient_checkpointing"
+                label="梯度检查点"
+                valuePropName="checked"
+              >
                 <Switch />
               </Form.Item>
             </Col>
@@ -1217,7 +1300,11 @@ const LoRATrainingPage: React.FC = () => {
 
           <Form.Item>
             <Space>
-              <Button type="primary" htmlType="submit" icon={<PlayCircleOutlined />}>
+              <Button
+                type="primary"
+                htmlType="submit"
+                icon={<PlayCircleOutlined />}
+              >
                 创建并启动
               </Button>
               <Button onClick={() => setCreateJobModalVisible(false)}>
@@ -1228,7 +1315,7 @@ const LoRATrainingPage: React.FC = () => {
         </Form>
       </Modal>
     </div>
-  );
-};
+  )
+}
 
-export default LoRATrainingPage;
+export default LoRATrainingPage

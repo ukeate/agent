@@ -31,7 +31,7 @@ const EntityLinkingPage: React.FC = () => {
     setError(null)
     try {
       const [lRes, kbRes] = await Promise.all([
-        apiFetch(buildApiUrl('/api/v1/knowledge-graph/entity-linking/history'),
+        apiFetch(buildApiUrl('/api/v1/knowledge-graph/entity-linking/history')),
         apiFetch(buildApiUrl('/api/v1/knowledge-graph/knowledge-bases'))
       ])
       const lData = await lRes.json()

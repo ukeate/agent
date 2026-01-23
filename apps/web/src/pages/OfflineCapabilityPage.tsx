@@ -1,7 +1,7 @@
 import { buildApiUrl, apiFetch } from '../utils/apiBase'
 import React, { useState, useEffect } from 'react';
-import { 
 import { logger } from '../utils/logger'
+import { 
   Card, 
   Tabs, 
   Typography, 
@@ -133,7 +133,7 @@ const OfflineCapabilityPage: React.FC = () => {
       await apiFetch(buildApiUrl('/api/v1/offline/sync'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ force: true), batch_size: 100 })
+        body: JSON.stringify({ force: true, batch_size: 100 })
       });
       await fetchOfflineStatus();
     } catch (error) {

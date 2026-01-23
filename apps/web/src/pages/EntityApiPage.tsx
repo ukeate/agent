@@ -1,15 +1,15 @@
 import React, { useState, useCallback, useEffect } from 'react'
-import { 
 import { logger } from '../utils/logger'
-  Card, 
-  Typography, 
-  Row, 
-  Col, 
-  Space, 
-  Button, 
-  Table, 
-  Form, 
-  Input, 
+import {
+  Card,
+  Typography,
+  Row,
+  Col,
+  Space,
+  Button,
+  Table,
+  Form,
+  Input,
   Modal,
   Select,
   Tag,
@@ -20,13 +20,13 @@ import { logger } from '../utils/logger'
   Badge,
   Drawer,
   Timeline,
-  List
+  List,
 } from 'antd'
 import apiClient from '../services/apiClient'
-import { 
-  NodeIndexOutlined, 
-  PlusOutlined, 
-  EditOutlined, 
+import {
+  NodeIndexOutlined,
+  PlusOutlined,
+  EditOutlined,
   DeleteOutlined,
   EyeOutlined,
   SearchOutlined,
@@ -35,7 +35,7 @@ import {
   ExportOutlined,
   ImportOutlined,
   CheckCircleOutlined,
-  ClockCircleOutlined
+  ClockCircleOutlined,
 } from '@ant-design/icons'
 
 const { Title, Text, Paragraph } = Typography
@@ -120,21 +120,21 @@ const EntityApiPage: React.FC = () => {
       key: 'uri',
       ellipsis: true,
       render: (uri: string) => (
-        <Text code style={{ fontSize: '12px' }}>{uri}</Text>
-      )
+        <Text code style={{ fontSize: '12px' }}>
+          {uri}
+        </Text>
+      ),
     },
     {
       title: '类型',
       dataIndex: 'type',
       key: 'type',
-      render: (type: string) => (
-        <Tag color="blue">{type}</Tag>
-      )
+      render: (type: string) => <Tag color="blue">{type}</Tag>,
     },
     {
       title: '标签',
       dataIndex: 'label',
-      key: 'label'
+      key: 'label',
     },
     {
       title: '属性数',
@@ -142,22 +142,34 @@ const EntityApiPage: React.FC = () => {
       key: 'properties',
       render: (properties: Record<string, any>) => (
         <Badge count={Object.keys(properties).length} color="green" />
-      )
+      ),
     },
     {
       title: '状态',
       dataIndex: 'status',
       key: 'status',
       render: (status: string) => (
-        <Tag color={status === 'active' ? 'green' : status === 'inactive' ? 'red' : 'orange'}>
-          {status === 'active' ? '活跃' : status === 'inactive' ? '停用' : '待处理'}
+        <Tag
+          color={
+            status === 'active'
+              ? 'green'
+              : status === 'inactive'
+                ? 'red'
+                : 'orange'
+          }
+        >
+          {status === 'active'
+            ? '活跃'
+            : status === 'inactive'
+              ? '停用'
+              : '待处理'}
         </Tag>
-      )
+      ),
     },
     {
       title: '更新时间',
       dataIndex: 'updated',
-      key: 'updated'
+      key: 'updated',
     },
     {
       title: '操作',
@@ -188,8 +200,8 @@ const EntityApiPage: React.FC = () => {
             onClick={() => handleDeleteEntity(record.id)}
           />
         </Space>
-      )
-    }
+      ),
+    },
   ]
 
   const apiCallColumns = [
@@ -198,11 +210,20 @@ const EntityApiPage: React.FC = () => {
       dataIndex: 'method',
       key: 'method',
       render: (method: string) => (
-        <Tag color={method === 'GET' ? 'blue' : method === 'POST' ? 'green' : 
-                   method === 'PUT' ? 'orange' : 'red'}>
+        <Tag
+          color={
+            method === 'GET'
+              ? 'blue'
+              : method === 'POST'
+                ? 'green'
+                : method === 'PUT'
+                  ? 'orange'
+                  : 'red'
+          }
+        >
           {method}
         </Tag>
-      )
+      ),
     },
     {
       title: '端点',
@@ -210,13 +231,15 @@ const EntityApiPage: React.FC = () => {
       key: 'endpoint',
       ellipsis: true,
       render: (endpoint: string) => (
-        <Text code style={{ fontSize: '12px' }}>{endpoint}</Text>
-      )
+        <Text code style={{ fontSize: '12px' }}>
+          {endpoint}
+        </Text>
+      ),
     },
     {
       title: '时间戳',
       dataIndex: 'timestamp',
-      key: 'timestamp'
+      key: 'timestamp',
     },
     {
       title: '状态码',
@@ -226,109 +249,121 @@ const EntityApiPage: React.FC = () => {
         <Tag color={status < 300 ? 'green' : status < 400 ? 'orange' : 'red'}>
           {status}
         </Tag>
-      )
+      ),
     },
     {
       title: '响应时间',
       dataIndex: 'responseTime',
       key: 'responseTime',
-      render: (time: number) => `${time}ms`
+      render: (time: number) => `${time}ms`,
     },
     {
       title: '实体',
       dataIndex: 'entity',
       key: 'entity',
-      render: (entity: string) => entity && (
-        <Text code style={{ fontSize: '12px' }}>{entity}</Text>
-      )
-    }
+      render: (entity: string) =>
+        entity && (
+          <Text code style={{ fontSize: '12px' }}>
+            {entity}
+          </Text>
+        ),
+    },
   ]
 
-  const handleCreateEntity = useCallback(async (values: any) => {
-    setLoading(true)
-    try {
-      const entityData = {
-        uri: values.uri,
-        type: values.type,
-        label: values.label,
-        properties: JSON.parse(values.properties || '{}')
-      }
-      
-      if (selectedEntity) {
-        // 更新实体
-        const response = await apiClient.put(`/entities/${selectedEntity.id}`, entityData)
-        logger.log('更新实体成功:', response.data)
-        message.success('实体更新成功')
-      } else {
-        // 创建新实体
-        const response = await apiClient.post('/entities', entityData)
-        logger.log('创建实体成功:', response.data)
-        message.success('实体创建成功')
-      }
-      
-      // 重新加载实体列表
-      await loadEntities()
-      setModalVisible(false)
-      form.resetFields()
-      setSelectedEntity(null)
-    } catch (error) {
-      logger.error('实体操作失败:', error)
-      message.error(selectedEntity ? '实体更新失败' : '实体创建失败')
-    } finally {
-      setLoading(false)
-    }
-  }, [form, selectedEntity, loadEntities])
-
-  const handleDeleteEntity = useCallback(async (id: string) => {
-    Modal.confirm({
-      title: '确认删除',
-      content: '确定要删除这个实体吗？',
-      onOk: async () => {
-        try {
-          const response = await apiClient.delete(`/entities/${id}`)
-          logger.log('删除实体成功:', response.data)
-          message.success('实体删除成功')
-          // 重新加载实体列表
-          await loadEntities()
-        } catch (error) {
-          logger.error('删除实体失败:', error)
-          message.error('实体删除失败')
+  const handleCreateEntity = useCallback(
+    async (values: any) => {
+      setLoading(true)
+      try {
+        const entityData = {
+          uri: values.uri,
+          type: values.type,
+          label: values.label,
+          properties: JSON.parse(values.properties || '{}'),
         }
+
+        if (selectedEntity) {
+          // 更新实体
+          const response = await apiClient.put(
+            `/entities/${selectedEntity.id}`,
+            entityData
+          )
+          logger.log('更新实体成功:', response.data)
+          message.success('实体更新成功')
+        } else {
+          // 创建新实体
+          const response = await apiClient.post('/entities', entityData)
+          logger.log('创建实体成功:', response.data)
+          message.success('实体创建成功')
+        }
+
+        // 重新加载实体列表
+        await loadEntities()
+        setModalVisible(false)
+        form.resetFields()
+        setSelectedEntity(null)
+      } catch (error) {
+        logger.error('实体操作失败:', error)
+        message.error(selectedEntity ? '实体更新失败' : '实体创建失败')
+      } finally {
+        setLoading(false)
       }
-    })
-  }, [loadEntities])
+    },
+    [form, selectedEntity, loadEntities]
+  )
+
+  const handleDeleteEntity = useCallback(
+    async (id: string) => {
+      Modal.confirm({
+        title: '确认删除',
+        content: '确定要删除这个实体吗？',
+        onOk: async () => {
+          try {
+            const response = await apiClient.delete(`/entities/${id}`)
+            logger.log('删除实体成功:', response.data)
+            message.success('实体删除成功')
+            // 重新加载实体列表
+            await loadEntities()
+          } catch (error) {
+            logger.error('删除实体失败:', error)
+            message.error('实体删除失败')
+          }
+        },
+      })
+    },
+    [loadEntities]
+  )
 
   const apiEndpoints = [
     {
       method: 'GET',
       endpoint: '/api/v1/entities',
       description: '获取所有实体列表',
-      example: 'GET /api/v1/entities?type=foaf:Person&limit=10'
+      example: 'GET /api/v1/entities?type=foaf:Person&limit=10',
     },
     {
       method: 'POST',
       endpoint: '/api/v1/entities',
       description: '创建新实体',
-      example: 'POST /api/v1/entities'
+      example: 'POST /api/v1/entities',
     },
     {
       method: 'GET',
       endpoint: '/api/v1/entities/{id}',
       description: '获取指定实体详情',
-      example: 'GET /api/v1/entities/john-doe'
+      example: 'GET /api/v1/entities/john-doe',
     },
     {
       method: 'PUT',
       endpoint: '/api/v1/entities/{id}',
       description: '更新实体信息',
-      example: 'PUT /api/v1/entities/john-doe'
+      example: 'PUT /api/v1/entities/john-doe',
     },
     {
       method: 'DELETE',
       endpoint: '/api/v1/entities/{id}',
       description: '删除指定实体',
-      example: 'DELETE /api/v1/entities/john-doe'
-    }
+      example: 'DELETE /api/v1/entities/john-doe',
+    },
   ]
 
   return (
@@ -364,7 +399,10 @@ const EntityApiPage: React.FC = () => {
               <Col span={6}>
                 <Statistic
                   title="平均响应时间"
-                  value={apiCalls.reduce((sum, call) => sum + call.responseTime, 0) / apiCalls.length}
+                  value={
+                    apiCalls.reduce((sum, call) => sum + call.responseTime, 0) /
+                    apiCalls.length
+                  }
                   suffix="ms"
                   precision={0}
                 />
@@ -372,7 +410,11 @@ const EntityApiPage: React.FC = () => {
               <Col span={6}>
                 <Statistic
                   title="成功率"
-                  value={(apiCalls.filter(call => call.status < 400).length / apiCalls.length) * 100}
+                  value={
+                    (apiCalls.filter(call => call.status < 400).length /
+                      apiCalls.length) *
+                    100
+                  }
                   suffix="%"
                   precision={1}
                 />
@@ -384,7 +426,7 @@ const EntityApiPage: React.FC = () => {
         <Col span={16}>
           <Tabs defaultActiveKey="entities" size="small">
             <TabPane tab="实体管理" key="entities">
-              <Card 
+              <Card
                 size="small"
                 title="实体列表"
                 extra={
@@ -414,7 +456,7 @@ const EntityApiPage: React.FC = () => {
                   pagination={{
                     showSizeChanger: true,
                     showQuickJumper: true,
-                    showTotal: (total) => `共 ${total} 个实体`
+                    showTotal: total => `共 ${total} 个实体`,
                   }}
                 />
               </Card>
@@ -430,7 +472,7 @@ const EntityApiPage: React.FC = () => {
                   pagination={{
                     showSizeChanger: true,
                     showQuickJumper: true,
-                    showTotal: (total) => `共 ${total} 次调用`
+                    showTotal: total => `共 ${total} 次调用`,
                   }}
                 />
               </Card>
@@ -443,13 +485,30 @@ const EntityApiPage: React.FC = () => {
             <List
               size="small"
               dataSource={apiEndpoints}
-              renderItem={(endpoint) => (
+              renderItem={endpoint => (
                 <List.Item>
-                  <Space direction="vertical" size="small" style={{ width: '100%' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <Tag color={endpoint.method === 'GET' ? 'blue' : 
-                                 endpoint.method === 'POST' ? 'green' : 
-                                 endpoint.method === 'PUT' ? 'orange' : 'red'}>
+                  <Space
+                    direction="vertical"
+                    size="small"
+                    style={{ width: '100%' }}
+                  >
+                    <div
+                      style={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                      }}
+                    >
+                      <Tag
+                        color={
+                          endpoint.method === 'GET'
+                            ? 'blue'
+                            : endpoint.method === 'POST'
+                              ? 'green'
+                              : endpoint.method === 'PUT'
+                                ? 'orange'
+                                : 'red'
+                        }
+                      >
                         {endpoint.method}
                       </Tag>
                       <Text code style={{ fontSize: '12px' }}>
@@ -474,13 +533,28 @@ const EntityApiPage: React.FC = () => {
                 <Timeline.Item
                   key={call.id}
                   color={call.status < 300 ? 'green' : 'red'}
-                  dot={call.status < 300 ? <CheckCircleOutlined /> : <ClockCircleOutlined />}
+                  dot={
+                    call.status < 300 ? (
+                      <CheckCircleOutlined />
+                    ) : (
+                      <ClockCircleOutlined />
+                    )
+                  }
                 >
                   <div>
                     <Space>
-                      <Tag size="small" color={call.method === 'GET' ? 'blue' : 
-                                              call.method === 'POST' ? 'green' : 
-                                              call.method === 'PUT' ? 'orange' : 'red'}>
+                      <Tag
+                        size="small"
+                        color={
+                          call.method === 'GET'
+                            ? 'blue'
+                            : call.method === 'POST'
+                              ? 'green'
+                              : call.method === 'PUT'
+                                ? 'orange'
+                                : 'red'
+                        }
+                      >
                         {call.method}
                       </Tag>
                       <Text style={{ fontSize: '12px' }}>{call.endpoint}</Text>
@@ -504,11 +578,7 @@ const EntityApiPage: React.FC = () => {
         footer={null}
         width={600}
       >
-        <Form
-          form={form}
-          layout="vertical"
-          onFinish={handleCreateEntity}
-        >
+        <Form form={form} layout="vertical" onFinish={handleCreateEntity}>
           <Form.Item
             name="uri"
             label="实体URI"
@@ -538,13 +608,12 @@ const EntityApiPage: React.FC = () => {
             <Input placeholder="实体的可读名称" />
           </Form.Item>
 
-          <Form.Item
-            name="properties"
-            label="实体属性 (JSON格式)"
-          >
+          <Form.Item name="properties" label="实体属性 (JSON格式)">
             <TextArea
               rows={6}
-              placeholder={'{\n  "property1": "value1",\n  "property2": "value2"\n}'}
+              placeholder={
+                '{\n  "property1": "value1",\n  "property2": "value2"\n}'
+              }
             />
           </Form.Item>
 
@@ -553,9 +622,7 @@ const EntityApiPage: React.FC = () => {
               <Button type="primary" htmlType="submit" loading={loading}>
                 {selectedEntity ? '更新' : '创建'}
               </Button>
-              <Button onClick={() => setModalVisible(false)}>
-                取消
-              </Button>
+              <Button onClick={() => setModalVisible(false)}>取消</Button>
             </Space>
           </Form.Item>
         </Form>
@@ -586,7 +653,9 @@ const EntityApiPage: React.FC = () => {
                 </div>
                 <div>
                   <Text strong>状态: </Text>
-                  <Tag color={selectedEntity.status === 'active' ? 'green' : 'red'}>
+                  <Tag
+                    color={selectedEntity.status === 'active' ? 'green' : 'red'}
+                  >
                     {selectedEntity.status === 'active' ? '活跃' : '停用'}
                   </Tag>
                 </div>
@@ -595,12 +664,14 @@ const EntityApiPage: React.FC = () => {
 
             <Card size="small" title="属性信息">
               <Space direction="vertical" style={{ width: '100%' }}>
-                {Object.entries(selectedEntity.properties).map(([key, value]) => (
-                  <div key={key}>
-                    <Text strong>{key}: </Text>
-                    <Text>{String(value)}</Text>
-                  </div>
-                ))}
+                {Object.entries(selectedEntity.properties).map(
+                  ([key, value]) => (
+                    <div key={key}>
+                      <Text strong>{key}: </Text>
+                      <Text>{String(value)}</Text>
+                    </div>
+                  )
+                )}
               </Space>
             </Card>
 

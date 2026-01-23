@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
-import {
+import React, { useState, useEffect } from 'react'
 import { logger } from '../utils/logger'
+import {
   Card,
   Tabs,
   Table,
@@ -24,8 +24,8 @@ import { logger } from '../utils/logger'
   Spin,
   Descriptions,
   List,
-  Avatar
-} from 'antd';
+  Avatar,
+} from 'antd'
 import {
   PlusOutlined,
   UploadOutlined,
@@ -45,11 +45,11 @@ import {
   BarChartOutlined,
   LineChartOutlined,
   BulbOutlined,
-  SettingOutlined
-} from '@ant-design/icons';
-import type { ColumnsType } from 'antd/es/table';
-import type { UploadProps } from 'antd';
-import { Line, Column } from '@ant-design/charts';
+  SettingOutlined,
+} from '@ant-design/icons'
+import type { ColumnsType } from 'antd/es/table'
+import type { UploadProps } from 'antd'
+import { Line, Column } from '@ant-design/charts'
 import {
   modelService,
   type Model,
@@ -60,56 +60,60 @@ import {
   type Alert as ServiceAlert,
   type ModelStatistics,
   type PredictionRequest,
-  type DeploymentConfig
-} from '../services/modelService';
+  type DeploymentConfig,
+} from '../services/modelService'
 
-const { TabPane } = Tabs;
-const { Option } = Select;
-const { TextArea } = Input;
+const { TabPane } = Tabs
+const { Option } = Select
+const { TextArea } = Input
 
 const ModelServiceManagementPage: React.FC = () => {
   // ==================== 状态管理 ====================
-  const [loading, setLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState('models');
-  
+  const [loading, setLoading] = useState(false)
+  const [activeTab, setActiveTab] = useState('models')
+
   // 数据状态
-  const [models, setModels] = useState<Model[]>([]);
-  const [deployments, setDeployments] = useState<Deployment[]>([]);
-  const [learningSessions, setLearningSessions] = useState<LearningSession[]>([]);
-  const [abTests, setABTests] = useState<ABTest[]>([]);
-  const [monitoringOverview, setMonitoringOverview] = useState<MonitoringOverview | null>(null);
-  const [alerts, setAlerts] = useState<ServiceAlert[]>([]);
-  const [statistics, setStatistics] = useState<ModelStatistics | null>(null);
-  const [loadedModels, setLoadedModels] = useState<any[]>([]);
-  
+  const [models, setModels] = useState<Model[]>([])
+  const [deployments, setDeployments] = useState<Deployment[]>([])
+  const [learningSessions, setLearningSessions] = useState<LearningSession[]>(
+    []
+  )
+  const [abTests, setABTests] = useState<ABTest[]>([])
+  const [monitoringOverview, setMonitoringOverview] =
+    useState<MonitoringOverview | null>(null)
+  const [alerts, setAlerts] = useState<ServiceAlert[]>([])
+  const [statistics, setStatistics] = useState<ModelStatistics | null>(null)
+  const [loadedModels, setLoadedModels] = useState<any[]>([])
+
   // 模态框状态
-  const [uploadModalVisible, setUploadModalVisible] = useState(false);
-  const [hubModalVisible, setHubModalVisible] = useState(false);
-  const [deployModalVisible, setDeployModalVisible] = useState(false);
-  const [predictModalVisible, setPredictModalVisible] = useState(false);
-  const [learningModalVisible, setLearningModalVisible] = useState(false);
-  const [abTestModalVisible, setABTestModalVisible] = useState(false);
-  const [modelDetailModalVisible, setModelDetailModalVisible] = useState(false);
-  
+  const [uploadModalVisible, setUploadModalVisible] = useState(false)
+  const [hubModalVisible, setHubModalVisible] = useState(false)
+  const [deployModalVisible, setDeployModalVisible] = useState(false)
+  const [predictModalVisible, setPredictModalVisible] = useState(false)
+  const [learningModalVisible, setLearningModalVisible] = useState(false)
+  const [abTestModalVisible, setABTestModalVisible] = useState(false)
+  const [modelDetailModalVisible, setModelDetailModalVisible] = useState(false)
+
   // 选中项
-  const [selectedModel, setSelectedModel] = useState<Model | null>(null);
-  const [selectedDeployment, setSelectedDeployment] = useState<Deployment | null>(null);
-  
+  const [selectedModel, setSelectedModel] = useState<Model | null>(null)
+  const [selectedDeployment, setSelectedDeployment] =
+    useState<Deployment | null>(null)
+
   // 表单
-  const [uploadForm] = Form.useForm();
-  const [hubForm] = Form.useForm();
-  const [deployForm] = Form.useForm();
-  const [predictForm] = Form.useForm();
-  const [learningForm] = Form.useForm();
-  const [abTestForm] = Form.useForm();
-  
+  const [uploadForm] = Form.useForm()
+  const [hubForm] = Form.useForm()
+  const [deployForm] = Form.useForm()
+  const [predictForm] = Form.useForm()
+  const [learningForm] = Form.useForm()
+  const [abTestForm] = Form.useForm()
+
   // ==================== 数据获取 ====================
   useEffect(() => {
-    loadInitialData();
-  }, []);
+    loadInitialData()
+  }, [])
 
   const loadInitialData = async () => {
-    setLoading(true);
+    setLoading(true)
     try {
       await Promise.all([
         loadModels(),
@@ -118,144 +122,150 @@ const ModelServiceManagementPage: React.FC = () => {
         loadABTests(),
         loadMonitoringData(),
         loadStatistics(),
-        loadLoadedModels()
-      ]);
+        loadLoadedModels(),
+      ])
     } catch (error) {
-      message.error('加载数据失败');
-      logger.error('加载数据失败:', error);
+      message.error('加载数据失败')
+      logger.error('加载数据失败:', error)
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
+  }
 
   const loadModels = async () => {
     try {
-      const data = await modelService.getModels();
-      setModels(data);
+      const data = await modelService.getModels()
+      setModels(data)
     } catch (error) {
-      logger.error('加载模型列表失败:', error);
+      logger.error('加载模型列表失败:', error)
     }
-  };
+  }
 
   const loadDeployments = async () => {
     try {
-      const data = await modelService.listDeployments();
-      setDeployments(data);
+      const data = await modelService.listDeployments()
+      setDeployments(data)
     } catch (error) {
-      logger.error('加载部署列表失败:', error);
+      logger.error('加载部署列表失败:', error)
     }
-  };
+  }
 
   const loadLearningSessions = async () => {
     try {
-      const data = await modelService.getLearningSessions();
-      setLearningSessions(data);
+      const data = await modelService.getLearningSessions()
+      setLearningSessions(data)
     } catch (error) {
-      logger.error('加载学习会话失败:', error);
+      logger.error('加载学习会话失败:', error)
     }
-  };
+  }
 
   const loadABTests = async () => {
     try {
-      const data = await modelService.listABTests();
-      setABTests(data);
+      const data = await modelService.listABTests()
+      setABTests(data)
     } catch (error) {
-      logger.error('加载AB测试失败:', error);
+      logger.error('加载AB测试失败:', error)
     }
-  };
+  }
 
   const loadMonitoringData = async () => {
     try {
       const [overview, alertsData] = await Promise.all([
         modelService.getMonitoringOverview(),
-        modelService.getAlerts()
-      ]);
-      setMonitoringOverview(overview);
-      setAlerts(alertsData);
+        modelService.getAlerts(),
+      ])
+      setMonitoringOverview(overview)
+      setAlerts(alertsData)
     } catch (error) {
-      logger.error('加载监控数据失败:', error);
+      logger.error('加载监控数据失败:', error)
     }
-  };
+  }
 
   const loadStatistics = async () => {
     try {
-      const data = await modelService.getModelStatistics();
-      setStatistics(data);
+      const data = await modelService.getModelStatistics()
+      setStatistics(data)
     } catch (error) {
-      logger.error('加载统计信息失败:', error);
+      logger.error('加载统计信息失败:', error)
     }
-  };
+  }
 
   const loadLoadedModels = async () => {
     try {
-      const data = await modelService.getLoadedModels();
-      setLoadedModels(data);
+      const data = await modelService.getLoadedModels()
+      setLoadedModels(data)
     } catch (error) {
-      logger.error('加载已加载模型失败:', error);
+      logger.error('加载已加载模型失败:', error)
     }
-  };
+  }
 
   // ==================== 模型管理操作 ====================
   const handleUploadModel = async (values: any) => {
     try {
-      const formData = new FormData();
+      const formData = new FormData()
       if (values.model_file?.file) {
-        formData.append('model_file', values.model_file.file.originFileObj);
-        formData.append('name', values.name);
-        formData.append('version', values.version);
-        formData.append('type', values.type);
+        formData.append('model_file', values.model_file.file.originFileObj)
+        formData.append('name', values.name)
+        formData.append('version', values.version)
+        formData.append('type', values.type)
         if (values.description) {
-          formData.append('description', values.description);
+          formData.append('description', values.description)
         }
-        
-        await modelService.uploadModel(formData);
-        message.success('模型上传成功');
-        setUploadModalVisible(false);
-        uploadForm.resetFields();
-        loadModels();
+
+        await modelService.uploadModel(formData)
+        message.success('模型上传成功')
+        setUploadModalVisible(false)
+        uploadForm.resetFields()
+        loadModels()
       }
     } catch (error) {
-      message.error('模型上传失败');
-      logger.error('上传模型失败:', error);
+      message.error('模型上传失败')
+      logger.error('上传模型失败:', error)
     }
-  };
+  }
 
   const handleRegisterFromHub = async (values: any) => {
     try {
-      await modelService.registerModelFromHub(values);
-      message.success('模型注册成功');
-      setHubModalVisible(false);
-      hubForm.resetFields();
-      loadModels();
+      await modelService.registerModelFromHub(values)
+      message.success('模型注册成功')
+      setHubModalVisible(false)
+      hubForm.resetFields()
+      loadModels()
     } catch (error) {
-      message.error('模型注册失败');
-      logger.error('注册模型失败:', error);
+      message.error('模型注册失败')
+      logger.error('注册模型失败:', error)
     }
-  };
+  }
 
   const handleDeleteModel = async (modelName: string, version: string) => {
     try {
-      await modelService.deleteModelVersion(modelName, version);
-      message.success('模型删除成功');
-      loadModels();
+      await modelService.deleteModelVersion(modelName, version)
+      message.success('模型删除成功')
+      loadModels()
     } catch (error) {
-      message.error('模型删除失败');
-      logger.error('删除模型失败:', error);
+      message.error('模型删除失败')
+      logger.error('删除模型失败:', error)
     }
-  };
+  }
 
   const handleValidateModel = async (modelName: string, version: string) => {
     try {
-      const result = await modelService.validateModel(modelName, version);
+      const result = await modelService.validateModel(modelName, version)
       Modal.info({
         title: '模型验证结果',
         content: (
           <div>
-            <p><strong>验证结果:</strong> {result.valid ? '通过' : '失败'}</p>
-            <p><strong>验证分数:</strong> {result.validation_score}</p>
+            <p>
+              <strong>验证结果:</strong> {result.valid ? '通过' : '失败'}
+            </p>
+            <p>
+              <strong>验证分数:</strong> {result.validation_score}
+            </p>
             {result.issues.length > 0 && (
               <div>
-                <p><strong>问题:</strong></p>
+                <p>
+                  <strong>问题:</strong>
+                </p>
                 <ul>
                   {result.issues.map((issue, index) => (
                     <li key={index}>{issue}</li>
@@ -265,7 +275,9 @@ const ModelServiceManagementPage: React.FC = () => {
             )}
             {result.recommendations.length > 0 && (
               <div>
-                <p><strong>建议:</strong></p>
+                <p>
+                  <strong>建议:</strong>
+                </p>
                 <ul>
                   {result.recommendations.map((rec, index) => (
                     <li key={index}>{rec}</li>
@@ -275,94 +287,109 @@ const ModelServiceManagementPage: React.FC = () => {
             )}
           </div>
         ),
-      });
+      })
     } catch (error) {
-      message.error('模型验证失败');
-      logger.error('验证模型失败:', error);
+      message.error('模型验证失败')
+      logger.error('验证模型失败:', error)
     }
-  };
+  }
 
   const handleLoadModel = async (modelName: string, version?: string) => {
     try {
-      await modelService.loadModel(modelName, version);
-      message.success('模型加载中...');
-      loadLoadedModels();
+      await modelService.loadModel(modelName, version)
+      message.success('模型加载中...')
+      loadLoadedModels()
     } catch (error) {
-      message.error('模型加载失败');
-      logger.error('加载模型失败:', error);
+      message.error('模型加载失败')
+      logger.error('加载模型失败:', error)
     }
-  };
+  }
 
   const handleUnloadModel = async (modelName: string) => {
     try {
-      await modelService.unloadModel(modelName);
-      message.success('模型卸载成功');
-      loadLoadedModels();
+      await modelService.unloadModel(modelName)
+      message.success('模型卸载成功')
+      loadLoadedModels()
     } catch (error) {
-      message.error('模型卸载失败');
-      logger.error('卸载模型失败:', error);
+      message.error('模型卸载失败')
+      logger.error('卸载模型失败:', error)
     }
-  };
+  }
 
   // ==================== 部署管理操作 ====================
-  const handleDeployModel = async (values: DeploymentConfig & { environment_vars?: string }) => {
+  const handleDeployModel = async (
+    values: DeploymentConfig & { environment_vars?: string }
+  ) => {
     try {
-      let envVars: Record<string, string> | undefined = undefined;
-      if (typeof values.environment_vars === 'string' && values.environment_vars.trim()) {
+      let envVars: Record<string, string> | undefined = undefined
+      if (
+        typeof values.environment_vars === 'string' &&
+        values.environment_vars.trim()
+      ) {
         try {
-          envVars = JSON.parse(values.environment_vars);
+          envVars = JSON.parse(values.environment_vars)
         } catch (error) {
-          message.error('环境变量必须是合法的JSON对象');
-          return;
+          message.error('环境变量必须是合法的JSON对象')
+          return
         }
       }
       await modelService.deployModel({
         ...values,
         model_version: values.model_version || 'latest',
         environment_vars: envVars,
-      });
-      message.success('模型部署中...');
-      setDeployModalVisible(false);
-      deployForm.resetFields();
-      loadDeployments();
+      })
+      message.success('模型部署中...')
+      setDeployModalVisible(false)
+      deployForm.resetFields()
+      loadDeployments()
     } catch (error) {
-      message.error('模型部署失败');
-      logger.error('部署模型失败:', error);
+      message.error('模型部署失败')
+      logger.error('部署模型失败:', error)
     }
-  };
+  }
 
   const handleDeleteDeployment = async (deploymentId: string) => {
     try {
-      await modelService.deleteDeployment(deploymentId);
-      message.success('部署删除成功');
-      loadDeployments();
+      await modelService.deleteDeployment(deploymentId)
+      message.success('部署删除成功')
+      loadDeployments()
     } catch (error) {
-      message.error('部署删除失败');
-      logger.error('删除部署失败:', error);
+      message.error('部署删除失败')
+      logger.error('删除部署失败:', error)
     }
-  };
+  }
 
   // ==================== 预测操作 ====================
   const handlePredict = async (values: PredictionRequest) => {
     try {
-      const result = await modelService.predict(values);
-      message.success(`预测完成，置信度: ${result.confidence.toFixed(2)}`);
+      const result = await modelService.predict(values)
+      message.success(`预测完成，置信度: ${result.confidence.toFixed(2)}`)
       Modal.info({
         title: '预测结果',
         content: (
           <div>
-            <p><strong>预测结果:</strong> {JSON.stringify(result.prediction, null, 2)}</p>
-            <p><strong>置信度:</strong> {result.confidence}</p>
-            <p><strong>处理时间:</strong> {result.processing_time_ms}ms</p>
-            <p><strong>模型:</strong> {result.model_info.name} v{result.model_info.version}</p>
+            <p>
+              <strong>预测结果:</strong>{' '}
+              {JSON.stringify(result.prediction, null, 2)}
+            </p>
+            <p>
+              <strong>置信度:</strong> {result.confidence}
+            </p>
+            <p>
+              <strong>处理时间:</strong> {result.processing_time_ms}ms
+            </p>
+            <p>
+              <strong>模型:</strong> {result.model_info.name} v
+              {result.model_info.version}
+            </p>
           </div>
         ),
-      });
+      })
     } catch (error) {
-      message.error('预测失败');
-      logger.error('预测失败:', error);
+      message.error('预测失败')
+      logger.error('预测失败:', error)
     }
-  };
+  }
 
   // ==================== 学习会话操作 ====================
   const handleStartLearning = async (values: any) => {
@@ -371,31 +398,31 @@ const ModelServiceManagementPage: React.FC = () => {
         dataset_id: values.dataset_id,
         learning_rate: values.learning_rate,
         batch_size: values.batch_size,
-        epochs: values.epochs
-      });
-      message.success('学习会话开始');
-      setLearningModalVisible(false);
-      learningForm.resetFields();
-      loadLearningSessions();
+        epochs: values.epochs,
+      })
+      message.success('学习会话开始')
+      setLearningModalVisible(false)
+      learningForm.resetFields()
+      loadLearningSessions()
     } catch (error) {
-      message.error('启动学习会话失败');
-      logger.error('启动学习会话失败:', error);
+      message.error('启动学习会话失败')
+      logger.error('启动学习会话失败:', error)
     }
-  };
+  }
 
   // ==================== AB测试操作 ====================
   const handleCreateABTest = async (values: any) => {
     try {
-      await modelService.createABTest(values);
-      message.success('AB测试创建成功');
-      setABTestModalVisible(false);
-      abTestForm.resetFields();
-      loadABTests();
+      await modelService.createABTest(values)
+      message.success('AB测试创建成功')
+      setABTestModalVisible(false)
+      abTestForm.resetFields()
+      loadABTests()
     } catch (error) {
-      message.error('创建AB测试失败');
-      logger.error('创建AB测试失败:', error);
+      message.error('创建AB测试失败')
+      logger.error('创建AB测试失败:', error)
     }
-  };
+  }
 
   // ==================== 表格列定义 ====================
   const modelColumns: ColumnsType<Model> = [
@@ -404,10 +431,13 @@ const ModelServiceManagementPage: React.FC = () => {
       dataIndex: 'name',
       key: 'name',
       render: (text: string, record: Model) => (
-        <Button type="link" onClick={() => {
-          setSelectedModel(record);
-          setModelDetailModalVisible(true);
-        }}>
+        <Button
+          type="link"
+          onClick={() => {
+            setSelectedModel(record)
+            setModelDetailModalVisible(true)
+          }}
+        >
           {text}
         </Button>
       ),
@@ -433,9 +463,12 @@ const ModelServiceManagementPage: React.FC = () => {
           inactive: { color: 'red', text: '非活跃' },
           training: { color: 'orange', text: '训练中' },
           deployed: { color: 'blue', text: '已部署' },
-        };
-        const config = statusConfig[status as keyof typeof statusConfig] || { color: 'default', text: status };
-        return <Tag color={config.color}>{config.text}</Tag>;
+        }
+        const config = statusConfig[status as keyof typeof statusConfig] || {
+          color: 'default',
+          text: status,
+        }
+        return <Tag color={config.color}>{config.text}</Tag>
       },
     },
     {
@@ -448,7 +481,8 @@ const ModelServiceManagementPage: React.FC = () => {
       title: '准确率',
       dataIndex: 'accuracy',
       key: 'accuracy',
-      render: (accuracy?: number) => accuracy ? `${(accuracy * 100).toFixed(2)}%` : '-',
+      render: (accuracy?: number) =>
+        accuracy ? `${(accuracy * 100).toFixed(2)}%` : '-',
     },
     {
       title: '操作',
@@ -473,8 +507,8 @@ const ModelServiceManagementPage: React.FC = () => {
             size="small"
             icon={<RocketOutlined />}
             onClick={() => {
-              setSelectedModel(record);
-              setDeployModalVisible(true);
+              setSelectedModel(record)
+              setDeployModalVisible(true)
             }}
           >
             部署
@@ -488,7 +522,7 @@ const ModelServiceManagementPage: React.FC = () => {
                 title: '确认删除',
                 content: `确定要删除模型 ${record.name} v${record.version} 吗？`,
                 onOk: () => handleDeleteModel(record.name, record.version),
-              });
+              })
             }}
           >
             删除
@@ -496,7 +530,7 @@ const ModelServiceManagementPage: React.FC = () => {
         </Space>
       ),
     },
-  ];
+  ]
 
   const deploymentColumns: ColumnsType<Deployment> = [
     {
@@ -508,7 +542,8 @@ const ModelServiceManagementPage: React.FC = () => {
     {
       title: '模型',
       key: 'model',
-      render: (record: Deployment) => `${record.model_name} v${record.model_version}`,
+      render: (record: Deployment) =>
+        `${record.model_name} v${record.model_version}`,
     },
     {
       title: '类型',
@@ -527,9 +562,12 @@ const ModelServiceManagementPage: React.FC = () => {
           deployed: { color: 'green', text: '已部署' },
           failed: { color: 'red', text: '失败' },
           stopped: { color: 'default', text: '已停止' },
-        };
-        const config = statusConfig[status] || { color: 'default', text: status || '-' };
-        return <Tag color={config.color}>{config.text}</Tag>;
+        }
+        const config = statusConfig[status] || {
+          color: 'default',
+          text: status || '-',
+        }
+        return <Tag color={config.color}>{config.text}</Tag>
       },
     },
     {
@@ -542,7 +580,8 @@ const ModelServiceManagementPage: React.FC = () => {
       title: '创建时间',
       dataIndex: 'created_at',
       key: 'created_at',
-      render: (value: string) => (value ? new Date(value).toLocaleString() : '-'),
+      render: (value: string) =>
+        value ? new Date(value).toLocaleString() : '-',
     },
     {
       title: '操作',
@@ -553,7 +592,7 @@ const ModelServiceManagementPage: React.FC = () => {
             size="small"
             icon={<EyeOutlined />}
             onClick={() => {
-              setSelectedDeployment(record);
+              setSelectedDeployment(record)
             }}
           >
             详情
@@ -567,7 +606,7 @@ const ModelServiceManagementPage: React.FC = () => {
                 title: '确认删除',
                 content: `确定要删除部署 ${record.deployment_id} 吗？`,
                 onOk: () => handleDeleteDeployment(record.deployment_id),
-              });
+              })
             }}
           >
             删除
@@ -575,7 +614,7 @@ const ModelServiceManagementPage: React.FC = () => {
         </Space>
       ),
     },
-  ];
+  ]
 
   const learningSessionColumns: ColumnsType<LearningSession> = [
     {
@@ -599,9 +638,12 @@ const ModelServiceManagementPage: React.FC = () => {
           paused: { color: 'orange', text: '已暂停' },
           completed: { color: 'blue', text: '已完成' },
           failed: { color: 'red', text: '失败' },
-        };
-        const config = statusConfig[status as keyof typeof statusConfig] || { color: 'default', text: status };
-        return <Tag color={config.color}>{config.text}</Tag>;
+        }
+        const config = statusConfig[status as keyof typeof statusConfig] || {
+          color: 'default',
+          text: status,
+        }
+        return <Tag color={config.color}>{config.text}</Tag>
       },
     },
     {
@@ -614,8 +656,10 @@ const ModelServiceManagementPage: React.FC = () => {
       dataIndex: 'performance_metrics',
       key: 'current_accuracy',
       render: (_: Record<string, number>, record: LearningSession) => {
-        const accuracy = record.performance_metrics?.accuracy;
-        return typeof accuracy === 'number' ? `${(accuracy * 100).toFixed(2)}%` : '-';
+        const accuracy = record.performance_metrics?.accuracy
+        return typeof accuracy === 'number'
+          ? `${(accuracy * 100).toFixed(2)}%`
+          : '-'
       },
     },
     {
@@ -628,11 +672,12 @@ const ModelServiceManagementPage: React.FC = () => {
       title: '完成时间',
       dataIndex: 'updated_at',
       key: 'updated_at',
-      render: (time: string, record: LearningSession) => (
-        record.status === 'completed' && time ? new Date(time).toLocaleString() : '-'
-      ),
+      render: (time: string, record: LearningSession) =>
+        record.status === 'completed' && time
+          ? new Date(time).toLocaleString()
+          : '-',
     },
-  ];
+  ]
 
   const abTestColumns: ColumnsType<ABTest> = [
     {
@@ -655,17 +700,18 @@ const ModelServiceManagementPage: React.FC = () => {
       title: '实验模型',
       dataIndex: 'treatment_models',
       key: 'treatment_models',
-      render: (models: string[]) => (Array.isArray(models) ? models.join(', ') : '-'),
+      render: (models: string[]) =>
+        Array.isArray(models) ? models.join(', ') : '-',
     },
     {
       title: '流量分配',
       dataIndex: 'traffic_split',
       key: 'traffic_split',
       render: (split: Record<string, number>) => {
-        if (!split || typeof split !== 'object') return '-';
+        if (!split || typeof split !== 'object') return '-'
         return Object.entries(split)
           .map(([name, ratio]) => `${name}:${Math.round(Number(ratio) * 100)}%`)
-          .join(' ');
+          .join(' ')
       },
     },
     {
@@ -679,17 +725,17 @@ const ModelServiceManagementPage: React.FC = () => {
       dataIndex: 'sample_counts',
       key: 'sample_counts',
       render: (counts: Record<string, number>) => {
-        if (!counts || typeof counts !== 'object') return '-';
+        if (!counts || typeof counts !== 'object') return '-'
         return Object.entries(counts)
           .map(([name, count]) => `${name}:${count}`)
-          .join(' ');
+          .join(' ')
       },
     },
-  ];
+  ]
 
   // ==================== 渲染函数 ====================
   const renderOverviewStats = () => {
-    if (!statistics) return null;
+    if (!statistics) return null
 
     return (
       <Row gutter={[16, 16]}>
@@ -731,11 +777,11 @@ const ModelServiceManagementPage: React.FC = () => {
           </Card>
         </Col>
       </Row>
-    );
-  };
+    )
+  }
 
   const renderMonitoringDashboard = () => {
-    if (!monitoringOverview) return null;
+    if (!monitoringOverview) return null
 
     return (
       <div>
@@ -773,7 +819,9 @@ const ModelServiceManagementPage: React.FC = () => {
             <Card>
               <Statistic
                 title="CPU使用率"
-                value={monitoringOverview.resource_utilization.cpu_percent.toFixed(1)}
+                value={monitoringOverview.resource_utilization.cpu_percent.toFixed(
+                  1
+                )}
                 suffix="%"
                 prefix={<MonitorOutlined />}
               />
@@ -788,22 +836,39 @@ const ModelServiceManagementPage: React.FC = () => {
             <Card title="系统警报" size="small">
               <List
                 dataSource={alerts.slice(0, 5)}
-                renderItem={(alert) => (
+                renderItem={alert => (
                   <List.Item>
                     <List.Item.Meta
                       avatar={
                         <Avatar
-                          icon={alert.severity === 'critical' ? <ExclamationCircleOutlined /> : <BulbOutlined />}
+                          icon={
+                            alert.severity === 'critical' ? (
+                              <ExclamationCircleOutlined />
+                            ) : (
+                              <BulbOutlined />
+                            )
+                          }
                           style={{
-                            backgroundColor: alert.severity === 'critical' ? '#ff4d4f' : 
-                                             alert.severity === 'high' ? '#faad14' : '#52c41a'
+                            backgroundColor:
+                              alert.severity === 'critical'
+                                ? '#ff4d4f'
+                                : alert.severity === 'high'
+                                  ? '#faad14'
+                                  : '#52c41a',
                           }}
                         />
                       }
                       title={
                         <Space>
-                          <Tag color={alert.severity === 'critical' ? 'red' : 
-                                     alert.severity === 'high' ? 'orange' : 'blue'}>
+                          <Tag
+                            color={
+                              alert.severity === 'critical'
+                                ? 'red'
+                                : alert.severity === 'high'
+                                  ? 'orange'
+                                  : 'blue'
+                            }
+                          >
                             {alert.severity}
                           </Tag>
                           {alert.type}
@@ -820,7 +885,7 @@ const ModelServiceManagementPage: React.FC = () => {
             <Card title="已加载模型" size="small">
               <List
                 dataSource={loadedModels.slice(0, 5)}
-                renderItem={(model) => (
+                renderItem={model => (
                   <List.Item
                     actions={[
                       <Button
@@ -830,14 +895,18 @@ const ModelServiceManagementPage: React.FC = () => {
                         onClick={() => handleUnloadModel(model.name)}
                       >
                         卸载
-                      </Button>
+                      </Button>,
                     ]}
                   >
                     <List.Item.Meta
                       title={`${model.name} v${model.version}`}
                       description={
                         <Space>
-                          <Tag color={model.status === 'ready' ? 'green' : 'orange'}>
+                          <Tag
+                            color={
+                              model.status === 'ready' ? 'green' : 'orange'
+                            }
+                          >
                             {model.status}
                           </Tag>
                           <span>{model.memory_usage_mb}MB</span>
@@ -851,8 +920,8 @@ const ModelServiceManagementPage: React.FC = () => {
           </Col>
         </Row>
       </div>
-    );
-  };
+    )
+  }
 
   return (
     <div style={{ padding: 24 }}>
@@ -898,7 +967,7 @@ const ModelServiceManagementPage: React.FC = () => {
               <Table
                 columns={modelColumns}
                 dataSource={models}
-                rowKey={(record) => `${record.name}-${record.version}`}
+                rowKey={record => `${record.name}-${record.version}`}
                 pagination={{ pageSize: 10 }}
               />
             </Card>
@@ -1044,9 +1113,7 @@ const ModelServiceManagementPage: React.FC = () => {
               <Button type="primary" htmlType="submit">
                 上传
               </Button>
-              <Button onClick={() => setUploadModalVisible(false)}>
-                取消
-              </Button>
+              <Button onClick={() => setUploadModalVisible(false)}>取消</Button>
             </Space>
           </Form.Item>
         </Form>
@@ -1089,9 +1156,7 @@ const ModelServiceManagementPage: React.FC = () => {
               <Button type="primary" htmlType="submit">
                 注册
               </Button>
-              <Button onClick={() => setHubModalVisible(false)}>
-                取消
-              </Button>
+              <Button onClick={() => setHubModalVisible(false)}>取消</Button>
             </Space>
           </Form.Item>
         </Form>
@@ -1176,7 +1241,11 @@ const ModelServiceManagementPage: React.FC = () => {
             </Form.Item>
           </Form.Item>
           <Form.Item label="GPU配置">
-            <Form.Item name="gpu_required" valuePropName="checked" initialValue={false}>
+            <Form.Item
+              name="gpu_required"
+              valuePropName="checked"
+              initialValue={false}
+            >
               <Switch checkedChildren="需要GPU" unCheckedChildren="不需要GPU" />
             </Form.Item>
             <Form.Item name="gpu_count" label="GPU数量" initialValue={0}>
@@ -1194,9 +1263,7 @@ const ModelServiceManagementPage: React.FC = () => {
               <Button type="primary" htmlType="submit">
                 部署
               </Button>
-              <Button onClick={() => setDeployModalVisible(false)}>
-                取消
-              </Button>
+              <Button onClick={() => setDeployModalVisible(false)}>取消</Button>
             </Space>
           </Form.Item>
         </Form>
@@ -1225,10 +1292,7 @@ const ModelServiceManagementPage: React.FC = () => {
             label="输入数据"
             rules={[{ required: true, message: '请输入数据' }]}
           >
-            <TextArea 
-              placeholder="请输入JSON格式的数据" 
-              rows={4}
-            />
+            <TextArea placeholder="请输入JSON格式的数据" rows={4} />
           </Form.Item>
           <Form.Item label="选项（可选）">
             <Form.Item name={['options', 'temperature']} label="Temperature">
@@ -1258,7 +1322,11 @@ const ModelServiceManagementPage: React.FC = () => {
         onCancel={() => setLearningModalVisible(false)}
         footer={null}
       >
-        <Form form={learningForm} onFinish={handleStartLearning} layout="vertical">
+        <Form
+          form={learningForm}
+          onFinish={handleStartLearning}
+          layout="vertical"
+        >
           <Form.Item
             name="model_name"
             label="模型名称"
@@ -1269,25 +1337,13 @@ const ModelServiceManagementPage: React.FC = () => {
           <Form.Item name="dataset_id" label="数据集ID">
             <Input placeholder="训练数据集ID（可选）" />
           </Form.Item>
-          <Form.Item
-            name="learning_rate"
-            label="学习率"
-            initialValue={0.001}
-          >
+          <Form.Item name="learning_rate" label="学习率" initialValue={0.001}>
             <InputNumber min={0.0001} max={1} step={0.001} />
           </Form.Item>
-          <Form.Item
-            name="batch_size"
-            label="批次大小"
-            initialValue={32}
-          >
+          <Form.Item name="batch_size" label="批次大小" initialValue={32}>
             <InputNumber min={1} max={1000} />
           </Form.Item>
-          <Form.Item
-            name="epochs"
-            label="训练轮数"
-            initialValue={10}
-          >
+          <Form.Item name="epochs" label="训练轮数" initialValue={10}>
             <InputNumber min={1} max={1000} />
           </Form.Item>
           <Form.Item>
@@ -1360,15 +1416,13 @@ const ModelServiceManagementPage: React.FC = () => {
               <Button type="primary" htmlType="submit">
                 创建
               </Button>
-              <Button onClick={() => setABTestModalVisible(false)}>
-                取消
-              </Button>
+              <Button onClick={() => setABTestModalVisible(false)}>取消</Button>
             </Space>
           </Form.Item>
         </Form>
       </Modal>
     </div>
-  );
-};
+  )
+}
 
-export default ModelServiceManagementPage;
+export default ModelServiceManagementPage

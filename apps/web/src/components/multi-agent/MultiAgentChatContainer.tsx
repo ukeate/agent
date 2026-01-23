@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react'
-import { Button, Space } from 'antd'
-import { ClearOutlined } from '@ant-design/icons'
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react'
+import { Button, Space, Input } from 'antd'
+import { ClearOutlined, ReloadOutlined } from '@ant-design/icons'
 import { useMultiAgentStore } from '../../stores/multiAgentStore'
 import { useMultiAgentWebSocket } from '../../hooks/useMultiAgentWebSocket'
 import { useSmartAutoScroll } from '../../hooks/useSmartAutoScroll'
@@ -14,9 +14,9 @@ interface MultiAgentChatContainerProps {
   className?: string
 }
 
-export const MultiAgentChatContainer: React.FC<MultiAgentChatContainerProps> = ({
-  className = '',
-}) => {
+export const MultiAgentChatContainer: React.FC<
+  MultiAgentChatContainerProps
+> = ({ className = '' }) => {
   const {
     // 状态
     agents,
@@ -25,12 +25,13 @@ export const MultiAgentChatContainer: React.FC<MultiAgentChatContainerProps> = (
     currentSpeaker,
     loading,
     error,
-    
+
     // Actions
     setCurrentSession,
     clearMessages,
     setError,
     setAgents,
+    loadSessionHistory,
     createConversation,
     startConversation,
     pauseConversation,
@@ -40,11 +41,16 @@ export const MultiAgentChatContainer: React.FC<MultiAgentChatContainerProps> = (
 
   const [initialMessage, setInitialMessage] = useState('')
   const [selectedAgents, setSelectedAgents] = useState<string[]>([])
+  const [agentKeyword, setAgentKeyword] = useState('')
+  const [agentsLoading, setAgentsLoading] = useState(false)
+  const hasInitializedSelectionRef = useRef(false)
+  const isWebsocketSession = !!currentSession?.session_id?.startsWith('session-')
   // WebSocket集成
-  const { connected: wsConnected } = useMultiAgentWebSocket({
-    sessionId: currentSession?.session_id,
-    enabled: !!currentSession,
-  })
+  const { connected: wsConnected, sendMessage: sendWsMessage } =
+    useMultiAgentWebSocket({
+      sessionId: currentSession?.session_id,
+      enabled: !!currentSession && isWebsocketSession,
+    })
 
   // 智能自动滚动
   const { containerRef } = useSmartAutoScroll({
@@ -52,39 +58,41 @@ export const MultiAgentChatContainer: React.FC<MultiAgentChatContainerProps> = (
     enabled: !!currentSession,
     threshold: 100,
     behavior: 'smooth',
+    resetKey: currentSession?.session_id,
   })
 
   // 从API加载Agent
-  useEffect(() => {
-    const loadAgents = async () => {
-      try {
-        const agentList = await multiAgentService.listAgents()
-        logger.log('从API加载到Agent:', agentList)
-        
-        // 检查数据是否有变化，避免无效更新
-        if (JSON.stringify(agents) !== JSON.stringify(agentList)) {
-          // 设置Agent数据
-          setAgents(agentList)
-          
-          // 默认选择所有Agent
-          setSelectedAgents(agentList.map((a: any) => a.id))
+  const loadAgents = useCallback(async () => {
+    try {
+      setAgentsLoading(true)
+      const agentList = await multiAgentService.listAgents()
+      logger.log('从API加载到Agent:', agentList)
+      setAgents(agentList)
+      setSelectedAgents(prev => {
+        if (agentList.length === 0) return []
+        if (!hasInitializedSelectionRef.current) {
+          hasInitializedSelectionRef.current = true
+          return agentList.map(agent => agent.id)
         }
-      } catch (error) {
-        logger.error('加载Agent失败:', error)
-        setError(error instanceof Error ? error.message : '加载Agent失败')
-      }
+        return prev.filter(id => agentList.some(agent => agent.id === id))
+      })
+      setError(null)
+    } catch (error) {
+      logger.error('加载Agent失败:', error)
+      setError(error instanceof Error ? error.message : '加载Agent失败')
+    } finally {
+      setAgentsLoading(false)
     }
-
-    // 只在组件首次挂载时加载，忽略缓存
-    loadAgents()
   }, [setAgents, setError])
+
+  useEffect(() => {
+    loadAgents()
+  }, [loadAgents])
 
   // 加载会话消息历史
   const handleLoadConversationHistory = async (conversationId: string) => {
     try {
-      const messages = await multiAgentService.getMessages(conversationId)
-      logger.log('加载到对话历史:', messages)
-      // 这里可以显示消息历史，证明API在工作
+      await loadSessionHistory(conversationId)
     } catch (error) {
       logger.error('加载对话历史失败:', error)
     }
@@ -104,7 +112,7 @@ export const MultiAgentChatContainer: React.FC<MultiAgentChatContainerProps> = (
     try {
       await createConversation(selectedAgents, initialMessage)
       setInitialMessage('')
-      
+
       logger.log('对话创建完成，会话将自动启动流式响应...')
     } catch (error) {
       logger.error('创建对话失败:', error)
@@ -117,8 +125,30 @@ export const MultiAgentChatContainer: React.FC<MultiAgentChatContainerProps> = (
       return
     }
 
+    const trimmedMessage = initialMessage.trim()
+    const participants = Array.from(
+      new Set(
+        currentSession.participants
+          .map(participant => participant.role)
+          .filter(Boolean)
+      )
+    )
+    if (participants.length === 0) {
+      setError('未找到参与者角色')
+      return
+    }
+
+    const sent = sendWsMessage({
+      type: 'start_conversation',
+      data: {
+        message: trimmedMessage,
+        participants,
+      },
+    })
+    if (!sent) return
+
     try {
-      await startConversation(currentSession.session_id, initialMessage)
+      await startConversation(currentSession.session_id, trimmedMessage)
       setInitialMessage('')
     } catch (error) {
       logger.error('启动对话失败:', error)
@@ -128,19 +158,45 @@ export const MultiAgentChatContainer: React.FC<MultiAgentChatContainerProps> = (
   const handleClearConversation = () => {
     // 清空当前对话消息
     clearMessages()
-    
+
     // 如果有活跃会话，终止它
-    if (currentSession && (currentSession.status === 'active' || currentSession.status === 'paused')) {
+    if (
+      currentSession &&
+      (currentSession.status === 'active' || currentSession.status === 'paused')
+    ) {
       terminateConversation(currentSession.session_id, '用户清空对话')
     }
-    
+
     // 重置会话状态
     setCurrentSession(null)
     setError(null)
-    
+
     logger.log('对话已清空')
   }
 
+  const filteredAgents = useMemo(() => {
+    const normalized = agentKeyword.trim().toLowerCase()
+    if (!normalized) return agents
+    return agents.filter(agent => {
+      const combined = [
+        agent.name,
+        agent.role,
+        (agent.capabilities || []).join(' '),
+      ]
+        .join(' ')
+        .toLowerCase()
+      return combined.includes(normalized)
+    })
+  }, [agents, agentKeyword])
+
+  const handleSelectAllAgents = () => {
+    if (agents.length === 0) return
+    setSelectedAgents(agents.map(agent => agent.id))
+  }
+
+  const handleClearSelection = () => {
+    setSelectedAgents([])
+  }
 
   return (
     <div className={`flex flex-col h-full ${className}`}>
@@ -181,7 +237,11 @@ export const MultiAgentChatContainer: React.FC<MultiAgentChatContainerProps> = (
                   <Button
                     type="text"
                     size="small"
-                    onClick={() => handleLoadConversationHistory(currentSession.session_id)}
+                    onClick={() =>
+                      handleLoadConversationHistory(currentSession.session_id)
+                    }
+                    loading={loading}
+                    disabled={loading}
                     className="text-blue-500 hover:text-blue-700"
                   >
                     📜 加载历史
@@ -201,9 +261,9 @@ export const MultiAgentChatContainer: React.FC<MultiAgentChatContainerProps> = (
                 )}
               </Space>
             </div>
-            
+
             {/* 消息区域 */}
-            <div 
+            <div
               ref={containerRef}
               className="flex-1 overflow-y-auto p-4 bg-gray-50 custom-scrollbar"
             >
@@ -223,22 +283,65 @@ export const MultiAgentChatContainer: React.FC<MultiAgentChatContainerProps> = (
                 <h3 className="text-lg font-medium text-gray-900 mb-3">
                   创建多智能体对话 / 创建Multi-Agent对话
                 </h3>
-                
+
                 {/* 智能体选择 */}
                 <div className="mb-4">
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     选择参与Agent
                   </label>
+                  <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+                    <Input
+                      value={agentKeyword}
+                      onChange={e => setAgentKeyword(e.target.value)}
+                      placeholder="搜索智能体或能力"
+                      allowClear
+                      size="small"
+                      className="w-full sm:w-56"
+                    />
+                    <Space size={8} wrap>
+                      <Button
+                        size="small"
+                        onClick={handleSelectAllAgents}
+                        disabled={agentsLoading || agents.length === 0}
+                      >
+                        全选
+                      </Button>
+                      <Button
+                        size="small"
+                        onClick={handleClearSelection}
+                        disabled={agentsLoading || selectedAgents.length === 0}
+                      >
+                        清空
+                      </Button>
+                      <Button
+                        size="small"
+                        icon={<ReloadOutlined />}
+                        onClick={loadAgents}
+                        loading={agentsLoading}
+                        disabled={agentsLoading}
+                      >
+                        刷新
+                      </Button>
+                    </Space>
+                  </div>
+                  {filteredAgents.length === 0 ? (
+                    <div className="text-sm text-gray-500">
+                      {agentsLoading
+                        ? '正在加载智能体...'
+                        : '未找到匹配的智能体'}
+                    </div>
+                  ) : (
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                    {agents.map((agent) => (
+                    {filteredAgents.map(agent => (
                       <label
                         key={agent.id}
                         className={`
                           flex flex-col gap-2 p-3 rounded-lg border cursor-pointer
                           transition-colors
-                          ${selectedAgents.includes(agent.id)
-                            ? 'border-blue-500 bg-blue-50'
-                            : 'border-gray-200 hover:bg-gray-50'
+                          ${
+                            selectedAgents.includes(agent.id)
+                              ? 'border-blue-500 bg-blue-50'
+                              : 'border-gray-200 hover:bg-gray-50'
                           }
                         `}
                       >
@@ -246,52 +349,69 @@ export const MultiAgentChatContainer: React.FC<MultiAgentChatContainerProps> = (
                           <input
                             type="checkbox"
                             checked={selectedAgents.includes(agent.id)}
-                            onChange={(e) => {
+                            onChange={e => {
                               if (e.target.checked) {
                                 setSelectedAgents([...selectedAgents, agent.id])
                               } else {
-                                setSelectedAgents(selectedAgents.filter(id => id !== agent.id))
+                                setSelectedAgents(
+                                  selectedAgents.filter(id => id !== agent.id)
+                                )
                               }
                             }}
                             className="text-blue-600"
                           />
                           <AgentAvatar agent={agent} size="sm" />
                           <div className="flex-1 min-w-0">
-                            <div className="text-sm font-medium">{agent.name}</div>
-                            <div className="text-xs text-gray-500">{agent.role}</div>
-                          </div>
-                          {/* 状态指示器 */}
-                          <div className={`w-2 h-2 rounded-full ${
-                            agent.status === 'active' ? 'bg-green-400' : 'bg-gray-400'
-                          }`} />
-                        </div>
-                        
-                        {/* 能力展示 */}
-                        {agent.capabilities && agent.capabilities.length > 0 && (
-                          <div className="mt-1">
-                            <div className="text-xs text-gray-600 mb-1">能力:</div>
-                            <div className="flex flex-wrap gap-1">
-                              {agent.capabilities.map((capability, idx) => (
-                                <span
-                                  key={idx}
-                                  className="inline-block px-2 py-0.5 text-xs bg-gray-100 text-gray-700 rounded"
-                                >
-                                  {capability}
-                                </span>
-                              ))}
+                            <div className="text-sm font-medium">
+                              {agent.name}
+                            </div>
+                            <div className="text-xs text-gray-500">
+                              {agent.role}
                             </div>
                           </div>
-                        )}
-                        
+                          {/* 状态指示器 */}
+                          <div
+                            className={`w-2 h-2 rounded-full ${
+                              agent.status === 'active'
+                                ? 'bg-green-400'
+                                : 'bg-gray-400'
+                            }`}
+                          />
+                        </div>
+
+                        {/* 能力展示 */}
+                        {agent.capabilities &&
+                          agent.capabilities.length > 0 && (
+                            <div className="mt-1">
+                              <div className="text-xs text-gray-600 mb-1">
+                                能力:
+                              </div>
+                              <div className="flex flex-wrap gap-1">
+                                {agent.capabilities.map((capability, idx) => (
+                                  <span
+                                    key={idx}
+                                    className="inline-block px-2 py-0.5 text-xs bg-gray-100 text-gray-700 rounded"
+                                  >
+                                    {capability}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
                         {/* 最后活跃时间 */}
                         {agent.last_active && (
                           <div className="text-xs text-gray-500">
-                            最后活跃: {new Date(agent.last_active).toLocaleString('zh-CN')}
+                            最后活跃:{' '}
+                            {new Date(agent.last_active).toLocaleString(
+                              'zh-CN'
+                            )}
                           </div>
                         )}
                       </label>
                     ))}
                   </div>
+                  )}
                 </div>
 
                 {/* 初始话题 */}
@@ -301,7 +421,7 @@ export const MultiAgentChatContainer: React.FC<MultiAgentChatContainerProps> = (
                   </label>
                   <textarea
                     value={initialMessage}
-                    onChange={(e) => setInitialMessage(e.target.value)}
+                    onChange={e => setInitialMessage(e.target.value)}
                     placeholder="请输入要讨论的话题或问题..."
                     rows={3}
                     className="
@@ -314,7 +434,12 @@ export const MultiAgentChatContainer: React.FC<MultiAgentChatContainerProps> = (
 
                 <button
                   onClick={handleCreateConversation}
-                  disabled={loading || selectedAgents.length === 0 || !initialMessage.trim()}
+                  disabled={
+                    loading ||
+                    agentsLoading ||
+                    selectedAgents.length === 0 ||
+                    !initialMessage.trim()
+                  }
                   className="
                     w-full bg-blue-500 hover:bg-blue-600 text-white
                     px-4 py-2 rounded-md font-medium
@@ -334,7 +459,7 @@ export const MultiAgentChatContainer: React.FC<MultiAgentChatContainerProps> = (
                 <div className="flex gap-2">
                   <textarea
                     value={initialMessage}
-                    onChange={(e) => setInitialMessage(e.target.value)}
+                    onChange={e => setInitialMessage(e.target.value)}
                     placeholder="输入消息开始对话..."
                     rows={2}
                     className="
@@ -374,9 +499,14 @@ export const MultiAgentChatContainer: React.FC<MultiAgentChatContainerProps> = (
                   <div className="flex items-center gap-2 text-gray-600">
                     <div className="w-2 h-2 bg-gray-400 rounded-full" />
                     <span className="font-medium">
-                      对话已{currentSession.status === 'completed' ? '完成' : 
-                             currentSession.status === 'paused' ? '暂停' : 
-                             currentSession.status === 'terminated' ? '终止' : '结束'}
+                      对话已
+                      {currentSession.status === 'completed'
+                        ? '完成'
+                        : currentSession.status === 'paused'
+                          ? '暂停'
+                          : currentSession.status === 'terminated'
+                            ? '终止'
+                            : '结束'}
                     </span>
                   </div>
                   <button
@@ -417,16 +547,22 @@ export const MultiAgentChatContainer: React.FC<MultiAgentChatContainerProps> = (
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-gray-600">选中代理:</span>
-                <span className="font-medium text-blue-600">{selectedAgents.length}</span>
+                <span className="font-medium text-blue-600">
+                  {selectedAgents.length}
+                </span>
               </div>
             </div>
-            
+
             {/* 代理能力统计 */}
             {agents.length > 0 && (
               <div className="mt-4">
-                <div className="text-sm font-medium text-gray-700 mb-2">系统能力覆盖</div>
+                <div className="text-sm font-medium text-gray-700 mb-2">
+                  系统能力覆盖
+                </div>
                 <div className="flex flex-wrap gap-1">
-                  {Array.from(new Set(agents.flatMap(a => a.capabilities || []))).map((capability, idx) => (
+                  {Array.from(
+                    new Set(agents.flatMap(a => a.capabilities || []))
+                  ).map((capability, idx) => (
                     <span
                       key={idx}
                       className="inline-block px-2 py-1 text-xs bg-blue-100 text-blue-700 rounded"
@@ -441,9 +577,10 @@ export const MultiAgentChatContainer: React.FC<MultiAgentChatContainerProps> = (
 
           {/* 参与者状态 */}
           <AgentTurnIndicator
-            agents={agents.filter(a => 
-              currentSession?.participants.some(p => p.name === a.name) ||
-              selectedAgents.includes(a.id)
+            agents={agents.filter(
+              a =>
+                currentSession?.participants.some(p => p.name === a.name) ||
+                selectedAgents.includes(a.id)
             )}
             currentSpeaker={currentSpeaker || undefined}
             currentRound={currentSession?.round_count}
@@ -456,32 +593,37 @@ export const MultiAgentChatContainer: React.FC<MultiAgentChatContainerProps> = (
               loading={loading}
               onPause={() => pauseConversation(currentSession.session_id)}
               onResume={() => resumeConversation(currentSession.session_id)}
-              onTerminate={(reason) => terminateConversation(currentSession.session_id, reason)}
+              onTerminate={reason =>
+                terminateConversation(currentSession.session_id, reason)
+              }
             />
           )}
 
           {/* WebSocket状态 */}
           <div className="bg-white border border-gray-200 rounded-lg p-3">
             <div className="flex items-center gap-2 text-sm">
-              <div className={`w-2 h-2 rounded-full ${
-                !currentSession
-                  ? 'bg-gray-400'
-                  : currentSession.status === 'completed' || currentSession.status === 'terminated'
-                    ? 'bg-gray-400'
-                  : wsConnected 
-                    ? 'bg-green-400' 
-                    : 'bg-orange-400'
-              }`} />
-              <span className="text-gray-600">
-                实时连接: {
+              <div
+                className={`w-2 h-2 rounded-full ${
                   !currentSession
-                    ? '待机中'
-                    : currentSession.status === 'completed' || currentSession.status === 'terminated'
-                      ? '已断开'
-                    : wsConnected 
-                      ? '已连接' 
-                      : '连接中...'
-                }
+                    ? 'bg-gray-400'
+                    : currentSession.status === 'completed' ||
+                        currentSession.status === 'terminated'
+                      ? 'bg-gray-400'
+                      : wsConnected
+                        ? 'bg-green-400'
+                        : 'bg-orange-400'
+                }`}
+              />
+              <span className="text-gray-600">
+                实时连接:{' '}
+                {!currentSession
+                  ? '待机中'
+                  : currentSession.status === 'completed' ||
+                      currentSession.status === 'terminated'
+                    ? '已断开'
+                    : wsConnected
+                      ? '已连接'
+                      : '连接中...'}
               </span>
             </div>
             {currentSession && !wsConnected && (

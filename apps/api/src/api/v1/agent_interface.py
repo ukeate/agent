@@ -126,7 +126,7 @@ async def chat_with_agent(
         finally:
             # 清理临时会话
             try:
-                await agent_service.close_agent_session(conversation_id)
+                await agent_service.close_agent_session(conversation_id, current_user)
             except Exception as cleanup_error:
                 logger.warning(
                     "清理临时会话失败",
@@ -245,7 +245,7 @@ async def _handle_stream_chat(
             # 清理临时会话
             if conversation_id:
                 try:
-                    await agent_service.close_agent_session(conversation_id)
+                    await agent_service.close_agent_session(conversation_id, current_user)
                 except Exception:
                     logger.exception("关闭会话失败", exc_info=True)
             
@@ -380,7 +380,7 @@ async def execute_agent_task(
         finally:
             # 清理任务会话
             try:
-                await agent_service.close_agent_session(conversation_id)
+                await agent_service.close_agent_session(conversation_id, current_user)
             except Exception as cleanup_error:
                 logger.warning(
                     "清理任务会话失败",

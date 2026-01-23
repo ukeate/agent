@@ -27,7 +27,7 @@ const FeedbackQualityMonitorPage: React.FC = () => {
     setError(null)
     try {
       const [mRes, sRes] = await Promise.all([
-        apiFetch(buildApiUrl('/api/v1/feedback/overview'),
+        apiFetch(buildApiUrl('/api/v1/feedback/overview')),
         apiFetch(buildApiUrl('/api/v1/feedback/quality/score'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },

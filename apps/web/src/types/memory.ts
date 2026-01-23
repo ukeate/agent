@@ -3,16 +3,16 @@
  */
 
 export enum MemoryType {
-  WORKING = 'working',    // 工作记忆
-  EPISODIC = 'episodic',  // 情景记忆
-  SEMANTIC = 'semantic'   // 语义记忆
+  WORKING = 'working', // 工作记忆
+  EPISODIC = 'episodic', // 情景记忆
+  SEMANTIC = 'semantic', // 语义记忆
 }
 
 export enum MemoryStatus {
   ACTIVE = 'active',
   ARCHIVED = 'archived',
   COMPRESSED = 'compressed',
-  DELETED = 'deleted'
+  DELETED = 'deleted',
 }
 
 export interface Memory {
@@ -111,12 +111,15 @@ export interface MemoryTrend {
     end_date: string
     total_days: number
   }
-  daily_trends: Record<string, {
-    memory_count: number
-    avg_importance: number
-    total_access: number
-    type_distribution: Record<string, number>
-  }>
+  daily_trends: Record<
+    string,
+    {
+      memory_count: number
+      avg_importance: number
+      total_access: number
+      type_distribution: Record<string, number>
+    }
+  >
   summary: {
     total_memories: number
     avg_daily_creation: number

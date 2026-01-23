@@ -3,24 +3,24 @@
  * 支持1-5星评分，包含动画效果和样式
  */
 
-import React, { useState, useCallback } from 'react';
-import { feedbackService } from '../../services/feedbackService';
+import React, { useState, useCallback } from 'react'
+import { feedbackService } from '../../services/feedbackService'
 
 import { logger } from '../../utils/logger'
-interface RatingComponentProps {
-  itemId?: string;
-  userId: string;
-  sessionId: string;
-  initialRating?: number;
-  size?: 'small' | 'medium' | 'large';
-  disabled?: boolean;
-  showLabel?: boolean;
-  onRatingChange?: (rating: number) => void;
-  onSubmitSuccess?: (rating: number) => void;
-  onSubmitError?: (error: Error) => void;
+export interface RatingComponentProps {
+  itemId?: string
+  userId: string
+  sessionId: string
+  initialRating?: number
+  size?: 'small' | 'medium' | 'large'
+  disabled?: boolean
+  showLabel?: boolean
+  onRatingChange?: (rating: number) => void
+  onSubmitSuccess?: (rating: number) => void
+  onSubmitError?: (error: Error) => void
 }
 
-const RATING_LABELS = ['极差', '较差', '一般', '较好', '极好'];
+const RATING_LABELS = ['极差', '较差', '一般', '较好', '极好']
 
 export const RatingComponent: React.FC<RatingComponentProps> = ({
   itemId,
@@ -32,91 +32,112 @@ export const RatingComponent: React.FC<RatingComponentProps> = ({
   showLabel = true,
   onRatingChange,
   onSubmitSuccess,
-  onSubmitError
+  onSubmitError,
 }) => {
-  const [currentRating, setCurrentRating] = useState(initialRating);
-  const [hoverRating, setHoverRating] = useState(0);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [hasSubmitted, setHasSubmitted] = useState(false);
+  const [currentRating, setCurrentRating] = useState(initialRating)
+  const [hoverRating, setHoverRating] = useState(0)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [hasSubmitted, setHasSubmitted] = useState(false)
 
   // 获取星星大小样式
   const getStarSize = () => {
     switch (size) {
-      case 'small': return 'w-4 h-4';
-      case 'large': return 'w-8 h-8';
-      default: return 'w-6 h-6';
+      case 'small':
+        return 'w-4 h-4'
+      case 'large':
+        return 'w-8 h-8'
+      default:
+        return 'w-6 h-6'
     }
-  };
+  }
 
   // 处理评分点击
-  const handleRatingClick = useCallback(async (rating: number) => {
-    if (disabled || isSubmitting) return;
+  const handleRatingClick = useCallback(
+    async (rating: number) => {
+      if (disabled || isSubmitting) return
 
-    setCurrentRating(rating);
-    onRatingChange?.(rating);
+      setCurrentRating(rating)
+      onRatingChange?.(rating)
 
-    // 提交评分
-    try {
-      setIsSubmitting(true);
-      
-      await feedbackService.submitRating(
-        userId,
-        itemId || 'unknown',
-        rating,
-        sessionId,
-        {
-          component: 'RatingComponent',
-          timestamp: Date.now(),
-          previousRating: currentRating
-        }
-      );
+      // 提交评分
+      try {
+        setIsSubmitting(true)
 
-      setHasSubmitted(true);
-      onSubmitSuccess?.(rating);
-    } catch (error) {
-      logger.error('提交评分失败:', error);
-      onSubmitError?.(error as Error);
-      // 回滚评分
-      setCurrentRating(initialRating);
-    } finally {
-      setIsSubmitting(false);
-    }
-  }, [disabled, isSubmitting, userId, itemId, sessionId, currentRating, initialRating, onRatingChange, onSubmitSuccess, onSubmitError]);
+        await feedbackService.submitRating(
+          userId,
+          itemId || 'unknown',
+          rating,
+          sessionId,
+          {
+            component: 'RatingComponent',
+            timestamp: Date.now(),
+            previousRating: currentRating,
+          }
+        )
+
+        setHasSubmitted(true)
+        onSubmitSuccess?.(rating)
+      } catch (error) {
+        logger.error('提交评分失败:', error)
+        onSubmitError?.(error as Error)
+        // 回滚评分
+        setCurrentRating(initialRating)
+      } finally {
+        setIsSubmitting(false)
+      }
+    },
+    [
+      disabled,
+      isSubmitting,
+      userId,
+      itemId,
+      sessionId,
+      currentRating,
+      initialRating,
+      onRatingChange,
+      onSubmitSuccess,
+      onSubmitError,
+    ]
+  )
 
   // 处理鼠标悬停
-  const handleMouseEnter = useCallback((rating: number) => {
-    if (!disabled) {
-      setHoverRating(rating);
-    }
-  }, [disabled]);
+  const handleMouseEnter = useCallback(
+    (rating: number) => {
+      if (!disabled) {
+        setHoverRating(rating)
+      }
+    },
+    [disabled]
+  )
 
   // 处理鼠标离开
   const handleMouseLeave = useCallback(() => {
     if (!disabled) {
-      setHoverRating(0);
+      setHoverRating(0)
     }
-  }, [disabled]);
+  }, [disabled])
 
   // 获取显示的评分（悬停优先于当前评分）
-  const displayRating = hoverRating || currentRating;
+  const displayRating = hoverRating || currentRating
 
   return (
     <div className="flex flex-col items-start space-y-2">
       {/* 星星评分 */}
-      <div 
+      <div
         className="flex items-center space-x-1"
         onMouseLeave={handleMouseLeave}
       >
-        {[1, 2, 3, 4, 5].map((star) => (
+        {[1, 2, 3, 4, 5].map(star => (
           <button
             key={star}
             type="button"
             className={`
               ${getStarSize()}
               transition-all duration-200 ease-in-out
-              ${disabled 
-                ? 'cursor-not-allowed opacity-50' 
-                : 'cursor-pointer hover:scale-110'
+              ${
+                disabled
+                  ? 'cursor-not-allowed opacity-50'
+                  : 'cursor-pointer hover:scale-110'
               }
               ${isSubmitting ? 'animate-pulse' : ''}
             `}
@@ -128,9 +149,10 @@ export const RatingComponent: React.FC<RatingComponentProps> = ({
             <svg
               className={`
                 w-full h-full transition-colors duration-200
-                ${star <= displayRating
-                  ? 'text-yellow-400 fill-current'
-                  : 'text-gray-300 hover:text-yellow-200'
+                ${
+                  star <= displayRating
+                    ? 'text-yellow-400 fill-current'
+                    : 'text-gray-300 hover:text-yellow-200'
                 }
               `}
               viewBox="0 0 24 24"
@@ -145,14 +167,16 @@ export const RatingComponent: React.FC<RatingComponentProps> = ({
             </svg>
           </button>
         ))}
-        
+
         {/* 评分文本 */}
         {showLabel && displayRating > 0 && (
-          <span className={`
+          <span
+            className={`
             ml-3 text-sm transition-opacity duration-200
             ${size === 'small' ? 'text-xs' : size === 'large' ? 'text-base' : 'text-sm'}
             ${isSubmitting ? 'opacity-50' : 'opacity-100'}
-          `}>
+          `}
+          >
             {RATING_LABELS[displayRating - 1]}
           </span>
         )}
@@ -181,7 +205,7 @@ export const RatingComponent: React.FC<RatingComponentProps> = ({
             <span>提交中...</span>
           </span>
         )}
-        
+
         {hasSubmitted && !isSubmitting && (
           <span className="text-green-600 flex items-center space-x-1">
             <svg className="h-3 w-3" fill="currentColor" viewBox="0 0 20 20">
@@ -194,15 +218,13 @@ export const RatingComponent: React.FC<RatingComponentProps> = ({
             <span>已评分</span>
           </span>
         )}
-        
+
         {currentRating > 0 && !isSubmitting && (
-          <span className="text-gray-500">
-            当前: {currentRating}/5
-          </span>
+          <span className="text-gray-500">当前: {currentRating}/5</span>
         )}
       </div>
     </div>
-  );
-};
+  )
+}
 
-export default RatingComponent;
+export default RatingComponent

@@ -1,5 +1,14 @@
 import React, { useState } from 'react'
-import { Button, Card, Form, Input, Space, Table, Typography, message } from 'antd'
+import {
+  Button,
+  Card,
+  Form,
+  Input,
+  Space,
+  Table,
+  Typography,
+  message,
+} from 'antd'
 import type { ColumnsType } from 'antd/es/table'
 import apiClient from '../services/apiClient'
 
@@ -19,8 +28,14 @@ type BenchmarkRow = {
 }
 
 const parseIntList = (value?: string) => {
-  const parts = (value || '').split(',').map(s => s.trim()).filter(Boolean)
-  const nums = parts.map(p => Number(p)).filter(n => Number.isFinite(n)).map(n => Math.trunc(n))
+  const parts = (value || '')
+    .split(',')
+    .map(s => s.trim())
+    .filter(Boolean)
+  const nums = parts
+    .map(p => Number(p))
+    .filter(n => Number.isFinite(n))
+    .map(n => Math.trunc(n))
   return nums.length ? nums : undefined
 }
 
@@ -34,11 +49,36 @@ const ModelPerformanceBenchmarkPage: React.FC = () => {
     { title: '类型', dataIndex: 'device_type', key: 'device_type' },
     { title: 'batch', dataIndex: 'batch_size', key: 'batch_size' },
     { title: 'seq', dataIndex: 'sequence_length', key: 'sequence_length' },
-    { title: '吞吐(tokens/s)', dataIndex: 'throughput', key: 'throughput', render: (v: number) => v.toFixed(2) },
-    { title: 'P50(ms)', dataIndex: 'latency_p50', key: 'latency_p50', render: (v: number) => v.toFixed(2) },
-    { title: 'P95(ms)', dataIndex: 'latency_p95', key: 'latency_p95', render: (v: number) => v.toFixed(2) },
-    { title: 'P99(ms)', dataIndex: 'latency_p99', key: 'latency_p99', render: (v: number) => v.toFixed(2) },
-    { title: '内存(MB)', dataIndex: 'memory_usage', key: 'memory_usage', render: (v: number) => v.toFixed(2) },
+    {
+      title: '吞吐(tokens/s)',
+      dataIndex: 'throughput',
+      key: 'throughput',
+      render: (v: number) => v.toFixed(2),
+    },
+    {
+      title: 'P50(ms)',
+      dataIndex: 'latency_p50',
+      key: 'latency_p50',
+      render: (v: number) => v.toFixed(2),
+    },
+    {
+      title: 'P95(ms)',
+      dataIndex: 'latency_p95',
+      key: 'latency_p95',
+      render: (v: number) => v.toFixed(2),
+    },
+    {
+      title: 'P99(ms)',
+      dataIndex: 'latency_p99',
+      key: 'latency_p99',
+      render: (v: number) => v.toFixed(2),
+    },
+    {
+      title: '内存(MB)',
+      dataIndex: 'memory_usage',
+      key: 'memory_usage',
+      render: (v: number) => v.toFixed(2),
+    },
   ]
 
   const run = async (values: any) => {
@@ -53,7 +93,10 @@ const ModelPerformanceBenchmarkPage: React.FC = () => {
       if (seqs) payload.sequence_lengths = seqs
       if (batches) payload.batch_sizes = batches
 
-      const resp = await apiClient.post<BenchmarkRow[]>('/model-compression/benchmark', payload)
+      const resp = await apiClient.post<BenchmarkRow[]>(
+        '/model-compression/benchmark',
+        payload
+      )
       setRows(Array.isArray(resp.data) ? resp.data : [])
       message.success('基准测试完成')
     } catch (e: any) {
@@ -66,7 +109,9 @@ const ModelPerformanceBenchmarkPage: React.FC = () => {
 
   return (
     <div style={{ padding: 24 }}>
-      <Title level={2} style={{ margin: 0 }}>性能基准测试</Title>
+      <Title level={2} style={{ margin: 0 }}>
+        性能基准测试
+      </Title>
       <Paragraph style={{ marginTop: 8 }}>
         调用 `/api/v1/model-compression/benchmark` 执行硬件基准测试。
       </Paragraph>
@@ -76,9 +121,16 @@ const ModelPerformanceBenchmarkPage: React.FC = () => {
           form={form}
           layout="vertical"
           onFinish={run}
-          initialValues={{ sequence_lengths: '128,256,512', batch_sizes: '1,2,4' }}
+          initialValues={{
+            sequence_lengths: '128,256,512',
+            batch_sizes: '1,2,4',
+          }}
         >
-          <Form.Item name="model_path" label="模型路径" rules={[{ required: true, message: '请输入模型路径' }]}>
+          <Form.Item
+            name="model_path"
+            label="模型路径"
+            rules={[{ required: true, message: '请输入模型路径' }]}
+          >
             <Input placeholder="/abs/path/to/model.pt" />
           </Form.Item>
           <Form.Item name="device_name" label="设备名称（可选）">
@@ -91,8 +143,12 @@ const ModelPerformanceBenchmarkPage: React.FC = () => {
             <Input placeholder="1,2,4" />
           </Form.Item>
           <Space>
-            <Button type="primary" htmlType="submit" loading={loading}>开始测试</Button>
-            <Button onClick={() => form.resetFields()} disabled={loading}>重置</Button>
+            <Button type="primary" htmlType="submit" loading={loading}>
+              开始测试
+            </Button>
+            <Button onClick={() => form.resetFields()} disabled={loading}>
+              重置
+            </Button>
           </Space>
         </Form>
         <Text type="secondary" style={{ fontSize: 12 }}>
@@ -102,7 +158,9 @@ const ModelPerformanceBenchmarkPage: React.FC = () => {
 
       <Card title="测试结果">
         <Table
-          rowKey={(r, i) => `${r.device_name}-${r.batch_size}-${r.sequence_length}-${i}`}
+          rowKey={(r, i) =>
+            `${r.device_name}-${r.batch_size}-${r.sequence_length}-${i}`
+          }
           dataSource={rows}
           columns={columns}
           pagination={{ pageSize: 20 }}

@@ -32,6 +32,7 @@ from src.ai.model_service.registry import (
     ModelMetadata,
 )
 from src.core.dependencies import get_current_user
+from src.core.logging import get_logger
 
 logger = get_logger(__name__)
 
@@ -1006,4 +1007,3 @@ async def get_system_statistics():
     except Exception as e:
         logger.error(f"获取系统统计失败: {e}")
         raise HTTPException(status_code=500, detail=f"获取系统统计失败: {str(e)}")
-from src.core.logging import get_logger

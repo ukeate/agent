@@ -42,7 +42,7 @@ export interface SortOptions {
 export interface FilterOptions {
   field: string;
   operator: 'eq' | 'ne' | 'gt' | 'gte' | 'lt' | 'lte' | 'in' | 'like';
-  value: any;
+  value: unknown;
 }
 
 // 搜索参数
@@ -54,10 +54,10 @@ export interface SearchParams {
 }
 
 // 键值对类型
-export type KeyValue<T = any> = Record<string, T>;
+export type KeyValue<T = unknown> = Record<string, T>;
 
 // 选项接口
-export interface Option<T = any> {
+export interface Option<T = unknown> {
   label: string;
   value: T;
   disabled?: boolean;

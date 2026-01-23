@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
-import {
+import React, { useState, useEffect } from 'react'
 import { logger } from '../utils/logger'
+import {
   Card,
   Button,
   Table,
@@ -20,8 +20,8 @@ import { logger } from '../utils/logger'
   Badge,
   notification,
   Tooltip,
-  Switch
-} from 'antd';
+  Switch,
+} from 'antd'
 import {
   Database,
   Users,
@@ -34,80 +34,82 @@ import {
   Clock,
   CheckCircle,
   AlertTriangle,
-  TrendingUp
-} from 'lucide-react';
+  TrendingUp,
+} from 'lucide-react'
 import assignmentCacheService, {
   CachedAssignment,
   CreateAssignmentRequest,
   CacheMetrics,
-  HealthCheckResponse
-} from '../services/assignmentCacheService';
+  HealthCheckResponse,
+} from '../services/assignmentCacheService'
 
-const { Title, Text, Paragraph } = Typography;
-const { TabPane } = Tabs;
-const { Option } = Select;
+const { Title, Text, Paragraph } = Typography
+const { TabPane } = Tabs
+const { Option } = Select
 
 interface AssignmentTableData {
-  key: string;
-  user_id: string;
-  experiment_id: string;
-  variant_id: string;
-  assigned_at: string;
-  cache_status: string;
-  assignment_context: Record<string, any>;
+  key: string
+  user_id: string
+  experiment_id: string
+  variant_id: string
+  assigned_at: string
+  cache_status: string
+  assignment_context: Record<string, any>
 }
 
 const AssignmentCacheManagementPage: React.FC = () => {
-  const [loading, setLoading] = useState(false);
-  const [metrics, setMetrics] = useState<CacheMetrics | null>(null);
-  const [healthStatus, setHealthStatus] = useState<HealthCheckResponse | null>(null);
-  const [assignments, setAssignments] = useState<AssignmentTableData[]>([]);
-  const [selectedUser, setSelectedUser] = useState<string>('');
-  const [selectedExperiment, setSelectedExperiment] = useState<string>('');
-  const [createModalVisible, setCreateModalVisible] = useState(false);
-  const [batchModalVisible, setBatchModalVisible] = useState(false);
-  const [autoRefresh, setAutoRefresh] = useState(false);
-  const [form] = Form.useForm();
-  const [batchForm] = Form.useForm();
+  const [loading, setLoading] = useState(false)
+  const [metrics, setMetrics] = useState<CacheMetrics | null>(null)
+  const [healthStatus, setHealthStatus] = useState<HealthCheckResponse | null>(
+    null
+  )
+  const [assignments, setAssignments] = useState<AssignmentTableData[]>([])
+  const [selectedUser, setSelectedUser] = useState<string>('')
+  const [selectedExperiment, setSelectedExperiment] = useState<string>('')
+  const [createModalVisible, setCreateModalVisible] = useState(false)
+  const [batchModalVisible, setBatchModalVisible] = useState(false)
+  const [autoRefresh, setAutoRefresh] = useState(false)
+  const [form] = Form.useForm()
+  const [batchForm] = Form.useForm()
 
   // 加载数据
   const loadData = async () => {
-    setLoading(true);
+    setLoading(true)
     try {
       const [metricsData, healthData] = await Promise.all([
         assignmentCacheService.getCacheMetrics(),
-        assignmentCacheService.healthCheck()
-      ]);
-      setMetrics(metricsData);
-      setHealthStatus(healthData);
+        assignmentCacheService.healthCheck(),
+      ])
+      setMetrics(metricsData)
+      setHealthStatus(healthData)
     } catch (error) {
-      logger.error('加载数据失败:', error);
+      logger.error('加载数据失败:', error)
       notification.error({
         message: '数据加载失败',
-        description: '无法获取缓存数据，请检查服务连接'
-      });
+        description: '无法获取缓存数据，请检查服务连接',
+      })
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
+  }
 
   // 查询用户分配
   const searchUserAssignment = async () => {
     if (!selectedUser || !selectedExperiment) {
       notification.warning({
         message: '参数不完整',
-        description: '请输入用户ID和实验ID'
-      });
-      return;
+        description: '请输入用户ID和实验ID',
+      })
+      return
     }
 
     try {
-      setLoading(true);
+      setLoading(true)
       const result = await assignmentCacheService.getUserAssignment(
-        selectedUser, 
+        selectedUser,
         selectedExperiment
-      );
-      
+      )
+
       if (result.variant_id) {
         const assignment: AssignmentTableData = {
           key: `${result.user_id}-${result.experiment_id}`,
@@ -116,41 +118,44 @@ const AssignmentCacheManagementPage: React.FC = () => {
           variant_id: result.variant_id,
           assigned_at: result.assigned_at || new Date().toISOString(),
           cache_status: result.cache_status,
-          assignment_context: result.assignment_context || {}
-        };
-        setAssignments([assignment]);
-        
+          assignment_context: result.assignment_context || {},
+        }
+        setAssignments([assignment])
+
         notification.success({
           message: '查询成功',
-          description: `找到用户 ${selectedUser} 在实验 ${selectedExperiment} 中的分配`
-        });
+          description: `找到用户 ${selectedUser} 在实验 ${selectedExperiment} 中的分配`,
+        })
       } else {
-        setAssignments([]);
+        setAssignments([])
         notification.info({
           message: '未找到分配',
-          description: result.message || '该用户在指定实验中没有分配记录'
-        });
+          description: result.message || '该用户在指定实验中没有分配记录',
+        })
       }
     } catch (error) {
-      logger.error('查询失败:', error);
+      logger.error('查询失败:', error)
       notification.error({
         message: '查询失败',
-        description: '无法查询用户分配，请检查输入参数'
-      });
+        description: '无法查询用户分配，请检查输入参数',
+      })
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
+  }
 
   // 加载用户所有分配
   const loadUserAllAssignments = async (userId: string) => {
     try {
-      setLoading(true);
-      const result = await assignmentCacheService.getUserAllAssignments(userId);
+      setLoading(true)
+      const result = await assignmentCacheService.getUserAllAssignments(userId)
 
       const assignmentData: AssignmentTableData[] = await Promise.all(
         result.assignments.map(async (assignment, index) => {
-          const detail = await assignmentCacheService.getUserAssignment(userId, assignment.experiment_id);
+          const detail = await assignmentCacheService.getUserAssignment(
+            userId,
+            assignment.experiment_id
+          )
           return {
             key: `${userId}-${assignment.experiment_id}-${index}`,
             user_id: userId,
@@ -159,59 +164,60 @@ const AssignmentCacheManagementPage: React.FC = () => {
             assigned_at: assignment.assigned_at,
             cache_status: detail.cache_status,
             assignment_context: assignment.assignment_context,
-          };
+          }
         })
-      );
+      )
 
-      setAssignments(assignmentData);
+      setAssignments(assignmentData)
       notification.success({
         message: '加载成功',
-        description: `用户 ${userId} 共有 ${result.total_assignments} 个分配记录`
-      });
+        description: `用户 ${userId} 共有 ${result.total_assignments} 个分配记录`,
+      })
     } catch (error) {
-      logger.error('加载用户分配失败:', error);
+      logger.error('加载用户分配失败:', error)
       notification.error({
         message: '加载失败',
-        description: '无法加载用户的所有分配记录'
-      });
+        description: '无法加载用户的所有分配记录',
+      })
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
+  }
 
   // 创建分配
   const createAssignment = async (values: any) => {
     try {
-      setLoading(true);
+      setLoading(true)
       const request: CreateAssignmentRequest = {
         user_id: values.user_id,
         experiment_id: values.experiment_id,
         variant_id: values.variant_id,
-        assignment_context: values.assignment_context ? 
-          JSON.parse(values.assignment_context) : {},
-        ttl: values.ttl ? parseInt(values.ttl) : undefined
-      };
+        assignment_context: values.assignment_context
+          ? JSON.parse(values.assignment_context)
+          : {},
+        ttl: values.ttl ? parseInt(values.ttl) : undefined,
+      }
 
-      await assignmentCacheService.createAssignment(request);
-      
+      await assignmentCacheService.createAssignment(request)
+
       notification.success({
         message: '创建成功',
-        description: `成功为用户 ${request.user_id} 创建分配`
-      });
-      
-      setCreateModalVisible(false);
-      form.resetFields();
-      await loadData();
+        description: `成功为用户 ${request.user_id} 创建分配`,
+      })
+
+      setCreateModalVisible(false)
+      form.resetFields()
+      await loadData()
     } catch (error) {
-      logger.error('创建分配失败:', error);
+      logger.error('创建分配失败:', error)
       notification.error({
         message: '创建失败',
-        description: '无法创建用户分配，请检查输入数据'
-      });
+        description: '无法创建用户分配，请检查输入数据',
+      })
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
+  }
 
   // 清空所有缓存
   const clearAllCache = () => {
@@ -223,69 +229,69 @@ const AssignmentCacheManagementPage: React.FC = () => {
       okType: 'danger',
       onOk: async () => {
         try {
-          await assignmentCacheService.clearAllCache();
+          await assignmentCacheService.clearAllCache()
           notification.success({
             message: '缓存清空成功',
-            description: '所有用户分配缓存已清空'
-          });
-          await loadData();
-          setAssignments([]);
+            description: '所有用户分配缓存已清空',
+          })
+          await loadData()
+          setAssignments([])
         } catch (error) {
-          logger.error('清空缓存失败:', error);
+          logger.error('清空缓存失败:', error)
           notification.error({
             message: '清空失败',
-            description: '无法清空缓存，请稍后重试'
-          });
+            description: '无法清空缓存，请稍后重试',
+          })
         }
-      }
-    });
-  };
+      },
+    })
+  }
 
   // 预热缓存
   const warmupCache = async () => {
     try {
       const userIds = selectedUser
         .split(',')
-        .map((s) => s.trim())
-        .filter(Boolean);
+        .map(s => s.trim())
+        .filter(Boolean)
       if (userIds.length === 0) {
         notification.warning({
           message: '请输入用户ID',
-          description: '支持用逗号分隔多个用户ID'
-        });
-        return;
+          description: '支持用逗号分隔多个用户ID',
+        })
+        return
       }
-      await assignmentCacheService.warmupCache(userIds);
-      
+      await assignmentCacheService.warmupCache(userIds)
+
       notification.success({
         message: '缓存预热已启动',
-        description: `正在为 ${userIds.length} 个用户预热缓存`
-      });
+        description: `正在为 ${userIds.length} 个用户预热缓存`,
+      })
     } catch (error) {
-      logger.error('缓存预热失败:', error);
+      logger.error('缓存预热失败:', error)
       notification.error({
         message: '预热失败',
-        description: '无法启动缓存预热'
-      });
+        description: '无法启动缓存预热',
+      })
     }
-  };
+  }
 
   // 自动刷新
   useEffect(() => {
-    let interval: ReturnType<typeof setTimeout>;
+    let interval: ReturnType<typeof setTimeout>
     if (autoRefresh) {
       interval = setInterval(() => {
-        loadData();
-      }, 10000); // 10秒刷新一次
+        loadData()
+      }, 10000) // 10秒刷新一次
     }
     return () => {
-      if (interval) clearInterval(interval);
-    };
-  }, [autoRefresh]);
+      if (interval) clearInterval(interval)
+    }
+  }, [autoRefresh])
 
   useEffect(() => {
-    loadData();
-  }, []);
+    loadData()
+  }, [])
 
   // 表格列定义
   const columns = [
@@ -293,19 +299,19 @@ const AssignmentCacheManagementPage: React.FC = () => {
       title: '用户ID',
       dataIndex: 'user_id',
       key: 'user_id',
-      render: (text: string) => <Text code>{text}</Text>
+      render: (text: string) => <Text code>{text}</Text>,
     },
     {
       title: '实验ID',
       dataIndex: 'experiment_id',
       key: 'experiment_id',
-      render: (text: string) => <Text code>{text}</Text>
+      render: (text: string) => <Text code>{text}</Text>,
     },
     {
       title: '变体ID',
       dataIndex: 'variant_id',
       key: 'variant_id',
-      render: (text: string) => <Badge color="blue" text={text} />
+      render: (text: string) => <Badge color="blue" text={text} />,
     },
     {
       title: '分配时间',
@@ -315,18 +321,20 @@ const AssignmentCacheManagementPage: React.FC = () => {
         <Tooltip title={text}>
           <Text>{new Date(text).toLocaleString()}</Text>
         </Tooltip>
-      )
+      ),
     },
     {
       title: '缓存状态',
       dataIndex: 'cache_status',
       key: 'cache_status',
       render: (status: string) => (
-        <Badge 
-          color={status === 'hit' ? 'green' : status === 'miss' ? 'orange' : 'red'}
+        <Badge
+          color={
+            status === 'hit' ? 'green' : status === 'miss' ? 'orange' : 'red'
+          }
           text={status.toUpperCase()}
         />
-      )
+      ),
     },
     {
       title: '上下文',
@@ -334,9 +342,9 @@ const AssignmentCacheManagementPage: React.FC = () => {
       key: 'assignment_context',
       render: (context: Record<string, any>) => (
         <Text code>{JSON.stringify(context)}</Text>
-      )
-    }
-  ];
+      ),
+    },
+  ]
 
   return (
     <div style={{ padding: '24px', background: '#f5f5f5', minHeight: '100vh' }}>
@@ -354,11 +362,20 @@ const AssignmentCacheManagementPage: React.FC = () => {
 
         {/* 控制面板 */}
         <Card style={{ marginBottom: '24px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-            <Title level={4} style={{ margin: 0 }}>操作面板</Title>
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              marginBottom: '16px',
+            }}
+          >
+            <Title level={4} style={{ margin: 0 }}>
+              操作面板
+            </Title>
             <Space>
               <Text>自动刷新:</Text>
-              <Switch 
+              <Switch
                 checked={autoRefresh}
                 onChange={setAutoRefresh}
                 checkedChildren="开启"
@@ -366,9 +383,9 @@ const AssignmentCacheManagementPage: React.FC = () => {
               />
             </Space>
           </div>
-          
+
           <Space size="middle" wrap>
-            <Button 
+            <Button
               type="primary"
               icon={<RefreshCw size={16} />}
               loading={loading}
@@ -376,26 +393,19 @@ const AssignmentCacheManagementPage: React.FC = () => {
             >
               刷新数据
             </Button>
-            
-            <Button 
+
+            <Button
               icon={<Plus size={16} />}
               onClick={() => setCreateModalVisible(true)}
             >
               创建分配
             </Button>
 
-            <Button 
-              icon={<TrendingUp size={16} />}
-              onClick={warmupCache}
-            >
+            <Button icon={<TrendingUp size={16} />} onClick={warmupCache}>
               预热缓存
             </Button>
 
-            <Button 
-              danger
-              icon={<Trash2 size={16} />}
-              onClick={clearAllCache}
-            >
+            <Button danger icon={<Trash2 size={16} />} onClick={clearAllCache}>
               清空缓存
             </Button>
           </Space>
@@ -429,8 +439,11 @@ const AssignmentCacheManagementPage: React.FC = () => {
                   value={metrics?.cache_hit_rate || 0}
                   precision={1}
                   suffix="%"
-                  valueStyle={{ 
-                    color: (metrics?.cache_hit_rate || 0) > 80 ? '#3f8600' : '#faad14' 
+                  valueStyle={{
+                    color:
+                      (metrics?.cache_hit_rate || 0) > 80
+                        ? '#3f8600'
+                        : '#faad14',
                   }}
                 />
               </Card>
@@ -460,26 +473,28 @@ const AssignmentCacheManagementPage: React.FC = () => {
                   <Input
                     placeholder="用户ID"
                     value={selectedUser}
-                    onChange={(e) => setSelectedUser(e.target.value)}
+                    onChange={e => setSelectedUser(e.target.value)}
                     name="assignment-filter-user"
                     style={{ width: 200 }}
                   />
                   <Input
                     placeholder="实验ID"
                     value={selectedExperiment}
-                    onChange={(e) => setSelectedExperiment(e.target.value)}
+                    onChange={e => setSelectedExperiment(e.target.value)}
                     name="assignment-filter-experiment"
                     style={{ width: 200 }}
                   />
-                  <Button 
+                  <Button
                     type="primary"
                     onClick={searchUserAssignment}
                     loading={loading}
                   >
                     查询分配
                   </Button>
-                  <Button 
-                    onClick={() => selectedUser && loadUserAllAssignments(selectedUser)}
+                  <Button
+                    onClick={() =>
+                      selectedUser && loadUserAllAssignments(selectedUser)
+                    }
                     disabled={!selectedUser}
                   >
                     查询用户所有分配
@@ -495,7 +510,7 @@ const AssignmentCacheManagementPage: React.FC = () => {
                   pageSize: 10,
                   showSizeChanger: true,
                   showQuickJumper: true,
-                  showTotal: (total) => `共 ${total} 条记录`
+                  showTotal: total => `共 ${total} 条记录`,
                 }}
                 scroll={{ x: 1000 }}
               />
@@ -506,30 +521,57 @@ const AssignmentCacheManagementPage: React.FC = () => {
           <TabPane tab="缓存监控" key="monitor">
             <Row gutter={[16, 16]}>
               <Col xs={24} lg={12}>
-                <Card title="健康状态" extra={
-                  <Badge 
-                    color={healthStatus?.status === 'healthy' ? 'green' : 'red'}
-                    text={healthStatus?.status?.toUpperCase() || 'UNKNOWN'}
-                  />
-                }>
+                <Card
+                  title="健康状态"
+                  extra={
+                    <Badge
+                      color={
+                        healthStatus?.status === 'healthy' ? 'green' : 'red'
+                      }
+                      text={healthStatus?.status?.toUpperCase() || 'UNKNOWN'}
+                    />
+                  }
+                >
                   {healthStatus && (
                     <Space direction="vertical" style={{ width: '100%' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <div
+                        style={{
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                        }}
+                      >
                         <Text>Redis连接:</Text>
-                        <Badge 
-                          color={healthStatus.redis_connection ? 'green' : 'red'}
+                        <Badge
+                          color={
+                            healthStatus.redis_connection ? 'green' : 'red'
+                          }
                           text={healthStatus.redis_connection ? '正常' : '异常'}
                         />
                       </div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <div
+                        style={{
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                        }}
+                      >
                         <Text>缓存大小:</Text>
                         <Text>{healthStatus.cache_size}</Text>
                       </div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <div
+                        style={{
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                        }}
+                      >
                         <Text>活跃键数:</Text>
                         <Text>{healthStatus.active_keys}</Text>
                       </div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <div
+                        style={{
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                        }}
+                      >
                         <Text>内存使用:</Text>
                         <Text>{healthStatus.memory_usage}</Text>
                       </div>
@@ -544,28 +586,38 @@ const AssignmentCacheManagementPage: React.FC = () => {
                     <Space direction="vertical" style={{ width: '100%' }}>
                       <div>
                         <Text>命中率</Text>
-                        <Progress 
-                          percent={Math.round(metrics.cache_hit_rate)} 
+                        <Progress
+                          percent={Math.round(metrics.cache_hit_rate)}
                           strokeColor={{
                             '0%': '#ff4d4f',
-                            '50%': '#faad14', 
-                            '100%': '#52c41a'
+                            '50%': '#faad14',
+                            '100%': '#52c41a',
                           }}
                         />
                       </div>
                       <div>
                         <Text>失效率</Text>
-                        <Progress 
-                          percent={Math.round(metrics.cache_miss_rate)} 
+                        <Progress
+                          percent={Math.round(metrics.cache_miss_rate)}
                           strokeColor="#ff4d4f"
                         />
                       </div>
                       <Divider />
-                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <div
+                        style={{
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                        }}
+                      >
                         <Text>过期分配:</Text>
                         <Text strong>{metrics.expired_assignments}</Text>
                       </div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <div
+                        style={{
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                        }}
+                      >
                         <Text>最近分配:</Text>
                         <Text strong>{metrics.recent_assignments}</Text>
                       </div>
@@ -573,7 +625,6 @@ const AssignmentCacheManagementPage: React.FC = () => {
                   )}
                 </Card>
               </Col>
-
             </Row>
           </TabPane>
         </Tabs>
@@ -585,11 +636,7 @@ const AssignmentCacheManagementPage: React.FC = () => {
           onCancel={() => setCreateModalVisible(false)}
           footer={null}
         >
-          <Form
-            form={form}
-            layout="vertical"
-            onFinish={createAssignment}
-          >
+          <Form form={form} layout="vertical" onFinish={createAssignment}>
             <Form.Item
               label="用户ID"
               name="user_id"
@@ -603,7 +650,10 @@ const AssignmentCacheManagementPage: React.FC = () => {
               name="experiment_id"
               rules={[{ required: true, message: '请输入实验ID' }]}
             >
-              <Input placeholder="例如: exp_button_color" name="assignment-experiment-id" />
+              <Input
+                placeholder="例如: exp_button_color"
+                name="assignment-experiment-id"
+              />
             </Form.Item>
 
             <Form.Item
@@ -611,25 +661,22 @@ const AssignmentCacheManagementPage: React.FC = () => {
               name="variant_id"
               rules={[{ required: true, message: '请输入变体ID' }]}
             >
-              <Input placeholder="例如: blue_button" name="assignment-variant-id" />
+              <Input
+                placeholder="例如: blue_button"
+                name="assignment-variant-id"
+              />
             </Form.Item>
 
-            <Form.Item
-              label="分配上下文 (JSON格式)"
-              name="assignment_context"
-            >
-              <Input.TextArea 
+            <Form.Item label="分配上下文 (JSON格式)" name="assignment_context">
+              <Input.TextArea
                 placeholder='{"device": "mobile", "source": "web"}'
                 name="assignment-context"
                 rows={3}
               />
             </Form.Item>
 
-            <Form.Item
-              label="TTL (秒)"
-              name="ttl"
-            >
-              <Input 
+            <Form.Item label="TTL (秒)" name="ttl">
+              <Input
                 type="number"
                 placeholder="3600"
                 addonAfter="秒"
@@ -651,7 +698,7 @@ const AssignmentCacheManagementPage: React.FC = () => {
         </Modal>
       </div>
     </div>
-  );
-};
+  )
+}
 
-export default AssignmentCacheManagementPage;
+export default AssignmentCacheManagementPage

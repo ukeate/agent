@@ -1,6 +1,6 @@
 /**
  * 混合搜索面板
- * 
+ *
  * 展示语义搜索与关键词搜索的融合功能：
  * - 纯语义向量搜索
  * - BM25关键词搜索
@@ -8,8 +8,8 @@
  * - 查询扩展和重排序
  */
 
-import React, { useState } from 'react';
-import { pgvectorApi } from '../../services/pgvectorApi';
+import React, { useState } from 'react'
+import { pgvectorApi } from '../../services/pgvectorApi'
 import {
   Card,
   Row,
@@ -27,60 +27,62 @@ import {
   Typography,
   message,
   Statistic,
-  Divider
-} from 'antd';
+  Divider,
+} from 'antd'
 import {
   SearchOutlined,
   ThunderboltOutlined,
   FileTextOutlined,
   MergeOutlined,
   RobotOutlined,
-  StarOutlined
-} from '@ant-design/icons';
+  StarOutlined,
+} from '@ant-design/icons'
 
-const { TextArea } = Input;
-const { Text, Title } = Typography;
+const { TextArea } = Input
+const { Text, Title } = Typography
 
 interface SearchResult {
-  id: string;
-  title: string;
-  content: string;
-  semantic_score: number;
-  keyword_score: number;
-  final_score: number;
-  rank: number;
-  source: 'semantic' | 'keyword' | 'hybrid';
+  id: string
+  title: string
+  content: string
+  semantic_score: number
+  keyword_score: number
+  final_score: number
+  rank: number
+  source: 'semantic' | 'keyword' | 'hybrid'
 }
 
 interface SearchStats {
-  total_time_ms: number;
-  semantic_time_ms: number;
-  keyword_time_ms: number;
-  fusion_time_ms: number;
-  total_candidates: number;
-  semantic_candidates: number;
-  keyword_candidates: number;
+  total_time_ms: number
+  semantic_time_ms: number
+  keyword_time_ms: number
+  fusion_time_ms: number
+  total_candidates: number
+  semantic_candidates: number
+  keyword_candidates: number
 }
 
 const HybridSearchPanel: React.FC = () => {
-  const [searchMode, setSearchMode] = useState<'pg_only' | 'qdrant_only' | 'hybrid'>('hybrid');
-  const [query, setQuery] = useState('');
-  const [semanticWeight, setSemanticWeight] = useState(0.7);
-  const [enableExpansion, setEnableExpansion] = useState(true);
-  const [enableReranking, setEnableReranking] = useState(true);
-  const [fusionMethod, setFusionMethod] = useState<'rrf' | 'linear'>('rrf');
-  
-  const [results, setResults] = useState<SearchResult[]>([]);
-  const [searchStats, setSearchStats] = useState<SearchStats | null>(null);
-  const [searching, setSearching] = useState(false);
+  const [searchMode, setSearchMode] = useState<
+    'pg_only' | 'qdrant_only' | 'hybrid'
+  >('hybrid')
+  const [query, setQuery] = useState('')
+  const [semanticWeight, setSemanticWeight] = useState(0.7)
+  const [enableExpansion, setEnableExpansion] = useState(true)
+  const [enableReranking, setEnableReranking] = useState(true)
+  const [fusionMethod, setFusionMethod] = useState<'rrf' | 'linear'>('rrf')
+
+  const [results, setResults] = useState<SearchResult[]>([])
+  const [searchStats, setSearchStats] = useState<SearchStats | null>(null)
+  const [searching, setSearching] = useState(false)
 
   const handleSearch = async () => {
     if (!query.trim()) {
-      message.warning('请输入搜索查询');
-      return;
+      message.warning('请输入搜索查询')
+      return
     }
 
-    setSearching(true);
+    setSearching(true)
     try {
       const { results, metrics } = await pgvectorApi.hybridSearch({
         query,
@@ -89,35 +91,41 @@ const HybridSearchPanel: React.FC = () => {
         qdrant_weight: 1 - semanticWeight,
         use_cache: true,
         quantize: true,
-        search_mode: searchMode
-      });
-      setResults(results.map((r: any, idx: number) => ({
-        id: r.id || String(idx + 1),
-        title: r.content?.slice(0, 50) || '无标题',
-        content: r.content || '',
-        semantic_score: r.vector_distance ? 1 / (1 + r.vector_distance) : 0,
-        keyword_score: r.text_score || 0,
-        final_score: r.combined_score || 0,
-        rank: idx + 1,
-        source: r.sources?.includes('qdrant') ? 'hybrid' : 'semantic'
-      })));
-      setSearchStats(metrics);
-      message.success('搜索完成');
+        search_mode: searchMode,
+      })
+      setResults(
+        results.map((r: any, idx: number) => ({
+          id: r.id || String(idx + 1),
+          title: r.content?.slice(0, 50) || '无标题',
+          content: r.content || '',
+          semantic_score: r.vector_distance ? 1 / (1 + r.vector_distance) : 0,
+          keyword_score: r.text_score || 0,
+          final_score: r.combined_score || 0,
+          rank: idx + 1,
+          source: r.sources?.includes('qdrant') ? 'hybrid' : 'semantic',
+        }))
+      )
+      setSearchStats(metrics)
+      message.success('搜索完成')
     } catch (error) {
-      message.error('搜索失败');
+      message.error('搜索失败')
     } finally {
-      setSearching(false);
+      setSearching(false)
     }
-  };
+  }
 
   const getSourceColor = (source: string) => {
     switch (source) {
-      case 'semantic': return 'blue';
-      case 'keyword': return 'green';
-      case 'hybrid': return 'purple';
-      default: return 'default';
+      case 'semantic':
+        return 'blue'
+      case 'keyword':
+        return 'green'
+      case 'hybrid':
+        return 'purple'
+      default:
+        return 'default'
     }
-  };
+  }
 
   const renderSearchConfig = () => (
     <Card title="搜索配置" size="small">
@@ -125,9 +133,9 @@ const HybridSearchPanel: React.FC = () => {
         {/* 搜索模式 */}
         <div>
           <Text strong>搜索模式</Text>
-          <Radio.Group 
-            value={searchMode} 
-            onChange={(e) => setSearchMode(e.target.value)}
+          <Radio.Group
+            value={searchMode}
+            onChange={e => setSearchMode(e.target.value)}
             style={{ marginTop: 8 }}
           >
             <Radio.Button value="pg_only">
@@ -160,9 +168,9 @@ const HybridSearchPanel: React.FC = () => {
 
             <div>
               <Text strong>融合方法</Text>
-              <Radio.Group 
-                value={fusionMethod} 
-                onChange={(e) => setFusionMethod(e.target.value)}
+              <Radio.Group
+                value={fusionMethod}
+                onChange={e => setFusionMethod(e.target.value)}
                 style={{ marginTop: 8 }}
               >
                 <Radio value="rrf">RRF (推荐)</Radio>
@@ -179,16 +187,16 @@ const HybridSearchPanel: React.FC = () => {
           <Space direction="vertical" style={{ width: '100%' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
               <Text>查询扩展</Text>
-              <Switch 
-                checked={enableExpansion} 
+              <Switch
+                checked={enableExpansion}
                 onChange={setEnableExpansion}
                 size="small"
               />
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
               <Text>结果重排序</Text>
-              <Switch 
-                checked={enableReranking} 
+              <Switch
+                checked={enableReranking}
                 onChange={setEnableReranking}
                 size="small"
               />
@@ -197,10 +205,10 @@ const HybridSearchPanel: React.FC = () => {
         </div>
       </Space>
     </Card>
-  );
+  )
 
   const renderSearchStats = () => {
-    if (!searchStats) return null;
+    if (!searchStats) return null
 
     return (
       <Card title="搜索统计" size="small">
@@ -221,27 +229,35 @@ const HybridSearchPanel: React.FC = () => {
             />
           </Col>
           <Col span={12}>
-            <Text type="secondary">语义搜索: {searchStats.semantic_time_ms}ms</Text>
-            <Progress 
-              percent={(searchStats.semantic_time_ms / searchStats.total_time_ms) * 100} 
-              size="small" 
+            <Text type="secondary">
+              语义搜索: {searchStats.semantic_time_ms}ms
+            </Text>
+            <Progress
+              percent={
+                (searchStats.semantic_time_ms / searchStats.total_time_ms) * 100
+              }
+              size="small"
               strokeColor="#1890ff"
               showInfo={false}
             />
           </Col>
           <Col span={12}>
-            <Text type="secondary">关键词搜索: {searchStats.keyword_time_ms}ms</Text>
-            <Progress 
-              percent={(searchStats.keyword_time_ms / searchStats.total_time_ms) * 100} 
-              size="small" 
+            <Text type="secondary">
+              关键词搜索: {searchStats.keyword_time_ms}ms
+            </Text>
+            <Progress
+              percent={
+                (searchStats.keyword_time_ms / searchStats.total_time_ms) * 100
+              }
+              size="small"
               strokeColor="#52c41a"
               showInfo={false}
             />
           </Col>
         </Row>
       </Card>
-    );
-  };
+    )
+  }
 
   const columns = [
     {
@@ -250,7 +266,9 @@ const HybridSearchPanel: React.FC = () => {
       key: 'rank',
       width: 60,
       render: (rank: number) => (
-        <Text strong style={{ fontSize: 16 }}>{rank}</Text>
+        <Text strong style={{ fontSize: 16 }}>
+          {rank}
+        </Text>
       ),
     },
     {
@@ -261,8 +279,11 @@ const HybridSearchPanel: React.FC = () => {
         <Space direction="vertical" size="small">
           <Text strong>{title}</Text>
           <Tag color={getSourceColor(record.source)}>
-            {record.source === 'semantic' ? '语义' : 
-             record.source === 'keyword' ? '关键词' : '混合'}
+            {record.source === 'semantic'
+              ? '语义'
+              : record.source === 'keyword'
+                ? '关键词'
+                : '混合'}
           </Tag>
         </Space>
       ),
@@ -305,11 +326,13 @@ const HybridSearchPanel: React.FC = () => {
           type="circle"
           percent={score * 100}
           width={50}
-          strokeColor={score > 0.8 ? '#52c41a' : score > 0.6 ? '#1890ff' : '#faad14'}
+          strokeColor={
+            score > 0.8 ? '#52c41a' : score > 0.6 ? '#1890ff' : '#faad14'
+          }
         />
       ),
     },
-  ];
+  ]
 
   return (
     <div>
@@ -317,7 +340,7 @@ const HybridSearchPanel: React.FC = () => {
       <Alert
         message="混合搜索引擎"
         description="结合语义向量搜索和BM25关键词搜索的优势，使用RRF融合算法和智能重排序，提供更准确的搜索结果。"
-        variant="default"
+        type="info"
         showIcon
         style={{ marginBottom: 24 }}
       />
@@ -332,12 +355,12 @@ const HybridSearchPanel: React.FC = () => {
                 <TextArea
                   placeholder="输入搜索查询，支持自然语言和关键词"
                   value={query}
-                  onChange={(e) => setQuery(e.target.value)}
+                  onChange={e => setQuery(e.target.value)}
                   rows={3}
                 />
-                <Button 
-                  type="primary" 
-                  icon={<SearchOutlined />} 
+                <Button
+                  type="primary"
+                  icon={<SearchOutlined />}
                   onClick={handleSearch}
                   loading={searching}
                   block
@@ -357,7 +380,7 @@ const HybridSearchPanel: React.FC = () => {
 
         {/* 右侧：搜索结果 */}
         <Col span={16}>
-          <Card 
+          <Card
             title={
               <Space>
                 <SearchOutlined />
@@ -393,7 +416,9 @@ const HybridSearchPanel: React.FC = () => {
               <Col span={8}>
                 <Card size="small" style={{ backgroundColor: '#f0f9ff' }}>
                   <Space direction="vertical" align="center">
-                    <ThunderboltOutlined style={{ fontSize: 24, color: '#1890ff' }} />
+                    <ThunderboltOutlined
+                      style={{ fontSize: 24, color: '#1890ff' }}
+                    />
                     <Text strong>语义搜索</Text>
                     <Text type="secondary">基于向量相似度</Text>
                     <Text type="secondary">理解查询意图</Text>
@@ -403,7 +428,9 @@ const HybridSearchPanel: React.FC = () => {
               <Col span={8}>
                 <Card size="small" style={{ backgroundColor: '#f6ffed' }}>
                   <Space direction="vertical" align="center">
-                    <FileTextOutlined style={{ fontSize: 24, color: '#52c41a' }} />
+                    <FileTextOutlined
+                      style={{ fontSize: 24, color: '#52c41a' }}
+                    />
                     <Text strong>关键词搜索</Text>
                     <Text type="secondary">BM25算法</Text>
                     <Text type="secondary">精确匹配</Text>
@@ -425,7 +452,7 @@ const HybridSearchPanel: React.FC = () => {
         </Col>
       </Row>
     </div>
-  );
-};
+  )
+}
 
-export default HybridSearchPanel;
+export default HybridSearchPanel

@@ -2,8 +2,8 @@
  * 批处理系统页面
  */
 
-import React from 'react';
-import { BatchProcessingDashboard } from '../components/batch/BatchProcessingDashboard';
+import React from 'react'
+import { BatchProcessingDashboard } from '../components/batch/BatchProcessingDashboard'
 
 const BatchProcessingPage: React.FC = () => {
   return (
@@ -14,10 +14,10 @@ const BatchProcessingPage: React.FC = () => {
           管理和监控批处理作业，实时追踪任务执行状态和系统性能指标
         </p>
       </div>
-      
+
       <BatchProcessingDashboard />
     </div>
-  );
-};
+  )
+}
 
-export default BatchProcessingPage;
+export default BatchProcessingPage

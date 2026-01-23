@@ -27,7 +27,7 @@ import {
   Drawer,
   Steps,
   Collapse,
-  Descriptions
+  Descriptions,
 } from 'antd'
 import {
   SafetyCertificateOutlined,
@@ -57,7 +57,7 @@ import {
   ApiOutlined,
   LineChartOutlined,
   BellOutlined,
-  FileTextOutlined
+  FileTextOutlined,
 } from '@ant-design/icons'
 
 const { Title, Text, Paragraph } = Typography
@@ -158,20 +158,24 @@ const MessageReliabilityManagementPage: React.FC = () => {
   const [guaranteeModalVisible, setGuaranteeModalVisible] = useState(false)
   const [backupModalVisible, setBackupModalVisible] = useState(false)
   const [deadLetterDrawerVisible, setDeadLetterDrawerVisible] = useState(false)
-  const [selectedGuarantee, setSelectedGuarantee] = useState<DeliveryGuarantee | null>(null)
-  
-  const [reliabilityMetrics, setReliabilityMetrics] = useState<ReliabilityMetrics>({
-    deliveryRate: 99.7,
-    messageIntegrity: 99.95,
-    averageRetries: 0.8,
-    duplicateRate: 0.03,
-    orderingAccuracy: 98.9,
-    deadLetterCount: 23,
-    backupStatus: 'healthy',
-    lastBackupTime: '2025-08-26 02:00:00'
-  })
+  const [selectedGuarantee, setSelectedGuarantee] =
+    useState<DeliveryGuarantee | null>(null)
 
-  const [deliveryGuarantees, setDeliveryGuarantees] = useState<DeliveryGuarantee[]>([
+  const [reliabilityMetrics, setReliabilityMetrics] =
+    useState<ReliabilityMetrics>({
+      deliveryRate: 99.7,
+      messageIntegrity: 99.95,
+      averageRetries: 0.8,
+      duplicateRate: 0.03,
+      orderingAccuracy: 98.9,
+      deadLetterCount: 23,
+      backupStatus: 'healthy',
+      lastBackupTime: '2025-08-26 02:00:00',
+    })
+
+  const [deliveryGuarantees, setDeliveryGuarantees] = useState<
+    DeliveryGuarantee[]
+  >([
     {
       id: 'guarantee-001',
       name: '任务消息精确传递',
@@ -184,16 +188,16 @@ const MessageReliabilityManagementPage: React.FC = () => {
         maxRetries: 3,
         retryDelay: 1000,
         duplicateDetectionWindow: 300000,
-        persistentStorage: true
+        persistentStorage: true,
       },
       metrics: {
         messagesProcessed: 15642,
         successRate: 99.8,
         duplicatesDetected: 12,
-        retriesPerformed: 89
+        retriesPerformed: 89,
       },
       status: 'active',
-      lastUpdated: '2025-08-26 12:30:00'
+      lastUpdated: '2025-08-26 12:30:00',
     },
     {
       id: 'guarantee-002',
@@ -207,16 +211,16 @@ const MessageReliabilityManagementPage: React.FC = () => {
         maxRetries: 5,
         retryDelay: 500,
         duplicateDetectionWindow: 0,
-        persistentStorage: true
+        persistentStorage: true,
       },
       metrics: {
         messagesProcessed: 28945,
         successRate: 99.5,
         duplicatesDetected: 145,
-        retriesPerformed: 234
+        retriesPerformed: 234,
       },
       status: 'active',
-      lastUpdated: '2025-08-26 12:15:00'
+      lastUpdated: '2025-08-26 12:15:00',
     },
     {
       id: 'guarantee-003',
@@ -230,17 +234,17 @@ const MessageReliabilityManagementPage: React.FC = () => {
         maxRetries: 0,
         retryDelay: 0,
         duplicateDetectionWindow: 0,
-        persistentStorage: false
+        persistentStorage: false,
       },
       metrics: {
         messagesProcessed: 45632,
         successRate: 97.8,
         duplicatesDetected: 0,
-        retriesPerformed: 0
+        retriesPerformed: 0,
       },
       status: 'active',
-      lastUpdated: '2025-08-26 12:00:00'
-    }
+      lastUpdated: '2025-08-26 12:00:00',
+    },
   ])
 
   const [messageBackups, setMessageBackups] = useState<MessageBackup[]>([
@@ -258,7 +262,7 @@ const MessageReliabilityManagementPage: React.FC = () => {
       nextRun: '2025-08-27 02:00:00',
       backupSize: 2048576000,
       messagesCount: 1250847,
-      destination: 's3://message-backups/full/'
+      destination: 's3://message-backups/full/',
     },
     {
       id: 'backup-002',
@@ -274,7 +278,7 @@ const MessageReliabilityManagementPage: React.FC = () => {
       nextRun: '2025-08-26 13:00:00',
       backupSize: 67108864,
       messagesCount: 4562,
-      destination: 's3://message-backups/incremental/'
+      destination: 's3://message-backups/incremental/',
     },
     {
       id: 'backup-003',
@@ -290,11 +294,13 @@ const MessageReliabilityManagementPage: React.FC = () => {
       nextRun: '2025-08-26 12:45:00',
       backupSize: 33554432,
       messagesCount: 892,
-      destination: 's3://message-backups/tasks/'
-    }
+      destination: 's3://message-backups/tasks/',
+    },
   ])
 
-  const [deadLetterMessages, setDeadLetterMessages] = useState<DeadLetterMessage[]>([
+  const [deadLetterMessages, setDeadLetterMessages] = useState<
+    DeadLetterMessage[]
+  >([
     {
       id: 'dl-001',
       originalMessageId: 'msg-abc123',
@@ -307,7 +313,7 @@ const MessageReliabilityManagementPage: React.FC = () => {
       firstFailureTime: '2025-08-26 10:30:00',
       lastFailureTime: '2025-08-26 11:45:00',
       status: 'quarantined',
-      tags: ['timeout', 'offline-agent']
+      tags: ['timeout', 'offline-agent'],
     },
     {
       id: 'dl-002',
@@ -321,8 +327,8 @@ const MessageReliabilityManagementPage: React.FC = () => {
       firstFailureTime: '2025-08-26 09:15:00',
       lastFailureTime: '2025-08-26 12:00:00',
       status: 'reprocessing',
-      tags: ['format-error', 'validation-failed']
-    }
+      tags: ['format-error', 'validation-failed'],
+    },
   ])
 
   const [circuitBreakers, setCircuitBreakers] = useState<CircuitBreaker[]>([
@@ -338,7 +344,7 @@ const MessageReliabilityManagementPage: React.FC = () => {
       currentFailures: 2,
       totalRequests: 1567,
       failureRate: 0.13,
-      enabled: true
+      enabled: true,
     },
     {
       id: 'cb-002',
@@ -354,8 +360,8 @@ const MessageReliabilityManagementPage: React.FC = () => {
       failureRate: 1.28,
       lastFailureTime: '2025-08-26 12:30:00',
       nextRetryTime: '2025-08-26 12:46:00',
-      enabled: true
-    }
+      enabled: true,
+    },
   ])
 
   const guaranteeColumns = [
@@ -365,22 +371,40 @@ const MessageReliabilityManagementPage: React.FC = () => {
       width: 300,
       render: (record: DeliveryGuarantee) => (
         <div>
-          <div style={{ display: 'flex', alignItems: 'center', marginBottom: '4px' }}>
-            <Badge 
-              status={record.status === 'active' ? 'success' : record.status === 'error' ? 'error' : 'default'} 
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              marginBottom: '4px',
+            }}
+          >
+            <Badge
+              status={
+                record.status === 'active'
+                  ? 'success'
+                  : record.status === 'error'
+                    ? 'error'
+                    : 'default'
+              }
             />
-            <Text strong style={{ marginLeft: '8px', fontSize: '13px' }}>{record.name}</Text>
-            <Tag 
+            <Text strong style={{ marginLeft: '8px', fontSize: '13px' }}>
+              {record.name}
+            </Text>
+            <Tag
               color={
-                record.level === 'exactly-once' ? 'red' :
-                record.level === 'at-least-once' ? 'orange' : 'blue'
+                record.level === 'exactly-once'
+                  ? 'red'
+                  : record.level === 'at-least-once'
+                    ? 'orange'
+                    : 'blue'
               }
               style={{ marginLeft: '8px', fontSize: '10px' }}
             >
-              {
-                record.level === 'exactly-once' ? '精确一次' :
-                record.level === 'at-least-once' ? '至少一次' : '最多一次'
-              }
+              {record.level === 'exactly-once'
+                ? '精确一次'
+                : record.level === 'at-least-once'
+                  ? '至少一次'
+                  : '最多一次'}
             </Tag>
           </div>
           <Text type="secondary" style={{ fontSize: '11px' }}>
@@ -388,7 +412,10 @@ const MessageReliabilityManagementPage: React.FC = () => {
           </Text>
           <div style={{ marginTop: '4px' }}>
             {record.subjects.slice(0, 2).map((subject, index) => (
-              <Tag key={index} style={{ fontSize: '10px', marginBottom: '2px' }}>
+              <Tag
+                key={index}
+                style={{ fontSize: '10px', marginBottom: '2px' }}
+              >
                 {subject}
               </Tag>
             ))}
@@ -399,7 +426,7 @@ const MessageReliabilityManagementPage: React.FC = () => {
             )}
           </div>
         </div>
-      )
+      ),
     },
     {
       title: '配置参数',
@@ -408,22 +435,28 @@ const MessageReliabilityManagementPage: React.FC = () => {
       render: (record: DeliveryGuarantee) => (
         <div>
           <div style={{ marginBottom: '2px' }}>
-            <Text style={{ fontSize: '11px' }}>ACK超时: {record.config.acknowledgmentTimeout}ms</Text>
+            <Text style={{ fontSize: '11px' }}>
+              ACK超时: {record.config.acknowledgmentTimeout}ms
+            </Text>
           </div>
           <div style={{ marginBottom: '2px' }}>
-            <Text style={{ fontSize: '11px' }}>最大重试: {record.config.maxRetries}</Text>
+            <Text style={{ fontSize: '11px' }}>
+              最大重试: {record.config.maxRetries}
+            </Text>
           </div>
           <div style={{ marginBottom: '2px' }}>
-            <Text style={{ fontSize: '11px' }}>重试延迟: {record.config.retryDelay}ms</Text>
+            <Text style={{ fontSize: '11px' }}>
+              重试延迟: {record.config.retryDelay}ms
+            </Text>
           </div>
           <div>
-            <Badge 
+            <Badge
               status={record.config.persistentStorage ? 'success' : 'default'}
               text={record.config.persistentStorage ? '持久存储' : '内存存储'}
             />
           </div>
         </div>
-      )
+      ),
     },
     {
       title: '性能指标',
@@ -432,28 +465,41 @@ const MessageReliabilityManagementPage: React.FC = () => {
       render: (record: DeliveryGuarantee) => (
         <div>
           <div style={{ marginBottom: '2px' }}>
-            <Text style={{ fontSize: '11px' }}>处理: {record.metrics.messagesProcessed.toLocaleString()}</Text>
+            <Text style={{ fontSize: '11px' }}>
+              处理: {record.metrics.messagesProcessed.toLocaleString()}
+            </Text>
           </div>
           <div style={{ marginBottom: '2px' }}>
-            <Text style={{ fontSize: '11px', color: record.metrics.successRate > 99 ? '#52c41a' : '#ff4d4f' }}>
+            <Text
+              style={{
+                fontSize: '11px',
+                color: record.metrics.successRate > 99 ? '#52c41a' : '#ff4d4f',
+              }}
+            >
               成功率: {record.metrics.successRate}%
             </Text>
           </div>
           <div style={{ marginBottom: '2px' }}>
-            <Text style={{ fontSize: '11px' }}>重试: {record.metrics.retriesPerformed}</Text>
+            <Text style={{ fontSize: '11px' }}>
+              重试: {record.metrics.retriesPerformed}
+            </Text>
           </div>
           <div>
-            <Text style={{ fontSize: '11px' }}>重复: {record.metrics.duplicatesDetected}</Text>
+            <Text style={{ fontSize: '11px' }}>
+              重复: {record.metrics.duplicatesDetected}
+            </Text>
           </div>
         </div>
-      )
+      ),
     },
     {
       title: '最后更新',
       dataIndex: 'lastUpdated',
       key: 'lastUpdated',
       width: 120,
-      render: (text: string) => <Text style={{ fontSize: '11px' }}>{text}</Text>
+      render: (text: string) => (
+        <Text style={{ fontSize: '11px' }}>{text}</Text>
+      ),
     },
     {
       title: '操作',
@@ -462,29 +508,29 @@ const MessageReliabilityManagementPage: React.FC = () => {
       render: (record: DeliveryGuarantee) => (
         <Space>
           <Tooltip title="查看详情">
-            <Button 
-              type="text" 
-              size="small" 
+            <Button
+              type="text"
+              size="small"
               icon={<EyeOutlined />}
               onClick={() => handleViewGuarantee(record)}
             />
           </Tooltip>
           <Tooltip title="编辑配置">
-            <Button 
-              type="text" 
-              size="small" 
+            <Button
+              type="text"
+              size="small"
               icon={<EditOutlined />}
               onClick={() => handleEditGuarantee(record)}
             />
           </Tooltip>
-          <Switch 
-            size="small" 
+          <Switch
+            size="small"
             checked={record.enabled}
-            onChange={(checked) => handleToggleGuarantee(record.id, checked)}
+            onChange={checked => handleToggleGuarantee(record.id, checked)}
           />
         </Space>
-      )
-    }
+      ),
+    },
   ]
 
   const backupColumns = [
@@ -493,33 +539,49 @@ const MessageReliabilityManagementPage: React.FC = () => {
       key: 'backup',
       render: (record: MessageBackup) => (
         <div>
-          <div style={{ display: 'flex', alignItems: 'center', marginBottom: '4px' }}>
-            <Badge 
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              marginBottom: '4px',
+            }}
+          >
+            <Badge
               status={
-                record.status === 'completed' ? 'success' :
-                record.status === 'running' ? 'processing' :
-                record.status === 'failed' ? 'error' : 'default'
+                record.status === 'completed'
+                  ? 'success'
+                  : record.status === 'running'
+                    ? 'processing'
+                    : record.status === 'failed'
+                      ? 'error'
+                      : 'default'
               }
             />
-            <Text strong style={{ marginLeft: '8px' }}>{record.name}</Text>
-            <Tag 
+            <Text strong style={{ marginLeft: '8px' }}>
+              {record.name}
+            </Text>
+            <Tag
               color={
-                record.type === 'full' ? 'red' :
-                record.type === 'incremental' ? 'orange' : 'blue'
+                record.type === 'full'
+                  ? 'red'
+                  : record.type === 'incremental'
+                    ? 'orange'
+                    : 'blue'
               }
               style={{ marginLeft: '8px', fontSize: '10px' }}
             >
-              {
-                record.type === 'full' ? '全量' :
-                record.type === 'incremental' ? '增量' : '流专用'
-              }
+              {record.type === 'full'
+                ? '全量'
+                : record.type === 'incremental'
+                  ? '增量'
+                  : '流专用'}
             </Tag>
           </div>
           <Text type="secondary" style={{ fontSize: '11px' }}>
             {record.description}
           </Text>
         </div>
-      )
+      ),
     },
     {
       title: '调度配置',
@@ -536,7 +598,7 @@ const MessageReliabilityManagementPage: React.FC = () => {
             <Text style={{ fontSize: '11px' }}>保留: {record.retention}天</Text>
           </div>
         </div>
-      )
+      ),
     },
     {
       title: '备份统计',
@@ -544,13 +606,17 @@ const MessageReliabilityManagementPage: React.FC = () => {
       render: (record: MessageBackup) => (
         <div>
           <div style={{ marginBottom: '2px' }}>
-            <Text style={{ fontSize: '11px' }}>大小: {(record.backupSize / 1024 / 1024).toFixed(1)}MB</Text>
+            <Text style={{ fontSize: '11px' }}>
+              大小: {(record.backupSize / 1024 / 1024).toFixed(1)}MB
+            </Text>
           </div>
           <div>
-            <Text style={{ fontSize: '11px' }}>消息: {record.messagesCount.toLocaleString()}</Text>
+            <Text style={{ fontSize: '11px' }}>
+              消息: {record.messagesCount.toLocaleString()}
+            </Text>
           </div>
         </div>
-      )
+      ),
     },
     {
       title: '时间信息',
@@ -564,7 +630,7 @@ const MessageReliabilityManagementPage: React.FC = () => {
             <Text style={{ fontSize: '11px' }}>下次: {record.nextRun}</Text>
           </div>
         </div>
-      )
+      ),
     },
     {
       title: '特性',
@@ -572,13 +638,19 @@ const MessageReliabilityManagementPage: React.FC = () => {
       render: (record: MessageBackup) => (
         <div>
           <div style={{ marginBottom: '2px' }}>
-            <Badge status={record.compression ? 'success' : 'default'} text="压缩" />
+            <Badge
+              status={record.compression ? 'success' : 'default'}
+              text="压缩"
+            />
           </div>
           <div>
-            <Badge status={record.encryption ? 'success' : 'default'} text="加密" />
+            <Badge
+              status={record.encryption ? 'success' : 'default'}
+              text="加密"
+            />
           </div>
         </div>
-      )
+      ),
     },
     {
       title: '操作',
@@ -589,8 +661,8 @@ const MessageReliabilityManagementPage: React.FC = () => {
           <Button type="text" size="small" icon={<PlayCircleOutlined />} />
           <Button type="text" size="small" icon={<EditOutlined />} />
         </Space>
-      )
-    }
+      ),
+    },
   ]
 
   const deadLetterColumns = [
@@ -600,18 +672,25 @@ const MessageReliabilityManagementPage: React.FC = () => {
       render: (record: DeadLetterMessage) => (
         <div>
           <div style={{ marginBottom: '2px' }}>
-            <Text strong style={{ fontSize: '12px' }}>{record.subject}</Text>
+            <Text strong style={{ fontSize: '12px' }}>
+              {record.subject}
+            </Text>
           </div>
-          <Text code style={{ fontSize: '11px' }}>{record.originalMessageId}</Text>
+          <Text code style={{ fontSize: '11px' }}>
+            {record.originalMessageId}
+          </Text>
           <div style={{ marginTop: '4px' }}>
             {record.tags.map((tag, index) => (
-              <Tag key={index} style={{ fontSize: '10px', marginBottom: '2px' }}>
+              <Tag
+                key={index}
+                style={{ fontSize: '10px', marginBottom: '2px' }}
+              >
                 {tag}
               </Tag>
             ))}
           </div>
         </div>
-      )
+      ),
     },
     {
       title: '通信方',
@@ -625,7 +704,7 @@ const MessageReliabilityManagementPage: React.FC = () => {
             <Text style={{ fontSize: '11px' }}>接收: {record.receiver}</Text>
           </div>
         </div>
-      )
+      ),
     },
     {
       title: '失败信息',
@@ -633,33 +712,45 @@ const MessageReliabilityManagementPage: React.FC = () => {
       render: (record: DeadLetterMessage) => (
         <div>
           <div style={{ marginBottom: '2px' }}>
-            <Text style={{ fontSize: '11px' }}>次数: {record.failureCount}</Text>
+            <Text style={{ fontSize: '11px' }}>
+              次数: {record.failureCount}
+            </Text>
           </div>
           <div style={{ marginBottom: '2px' }}>
-            <Text style={{ fontSize: '11px' }}>首次: {record.firstFailureTime}</Text>
+            <Text style={{ fontSize: '11px' }}>
+              首次: {record.firstFailureTime}
+            </Text>
           </div>
           <div>
-            <Text style={{ fontSize: '11px' }}>最后: {record.lastFailureTime}</Text>
+            <Text style={{ fontSize: '11px' }}>
+              最后: {record.lastFailureTime}
+            </Text>
           </div>
         </div>
-      )
+      ),
     },
     {
       title: '状态',
       dataIndex: 'status',
       key: 'status',
       render: (status: string) => (
-        <Badge 
+        <Badge
           status={
-            status === 'quarantined' ? 'error' :
-            status === 'reprocessing' ? 'processing' : 'default'
+            status === 'quarantined'
+              ? 'error'
+              : status === 'reprocessing'
+                ? 'processing'
+                : 'default'
           }
           text={
-            status === 'quarantined' ? '隔离' :
-            status === 'reprocessing' ? '重处理' : '丢弃'
+            status === 'quarantined'
+              ? '隔离'
+              : status === 'reprocessing'
+                ? '重处理'
+                : '丢弃'
           }
         />
-      )
+      ),
     },
     {
       title: '操作',
@@ -670,8 +761,8 @@ const MessageReliabilityManagementPage: React.FC = () => {
           <Button type="text" size="small" icon={<RedoOutlined />} />
           <Button type="text" size="small" icon={<DeleteOutlined />} danger />
         </Space>
-      )
-    }
+      ),
+    },
   ]
 
   const circuitBreakerColumns = [
@@ -680,34 +771,51 @@ const MessageReliabilityManagementPage: React.FC = () => {
       key: 'breaker',
       render: (record: CircuitBreaker) => (
         <div>
-          <div style={{ display: 'flex', alignItems: 'center', marginBottom: '4px' }}>
-            <Badge 
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              marginBottom: '4px',
+            }}
+          >
+            <Badge
               status={
-                record.state === 'closed' ? 'success' :
-                record.state === 'open' ? 'error' : 'warning'
+                record.state === 'closed'
+                  ? 'success'
+                  : record.state === 'open'
+                    ? 'error'
+                    : 'warning'
               }
             />
-            <Text strong style={{ marginLeft: '8px' }}>{record.name}</Text>
-            <Tag 
+            <Text strong style={{ marginLeft: '8px' }}>
+              {record.name}
+            </Text>
+            <Tag
               color={
-                record.state === 'closed' ? 'green' :
-                record.state === 'open' ? 'red' : 'orange'
+                record.state === 'closed'
+                  ? 'green'
+                  : record.state === 'open'
+                    ? 'red'
+                    : 'orange'
               }
               style={{ marginLeft: '8px', fontSize: '10px' }}
             >
-              {
-                record.state === 'closed' ? '关闭' :
-                record.state === 'open' ? '开启' : '半开'
-              }
+              {record.state === 'closed'
+                ? '关闭'
+                : record.state === 'open'
+                  ? '开启'
+                  : '半开'}
             </Tag>
           </div>
           <Text type="secondary" style={{ fontSize: '11px' }}>
             {record.description}
           </Text>
           <br />
-          <Text code style={{ fontSize: '11px' }}>{record.subject}</Text>
+          <Text code style={{ fontSize: '11px' }}>
+            {record.subject}
+          </Text>
         </div>
-      )
+      ),
     },
     {
       title: '阈值配置',
@@ -715,16 +823,22 @@ const MessageReliabilityManagementPage: React.FC = () => {
       render: (record: CircuitBreaker) => (
         <div>
           <div style={{ marginBottom: '2px' }}>
-            <Text style={{ fontSize: '11px' }}>失败阈值: {record.failureThreshold}</Text>
+            <Text style={{ fontSize: '11px' }}>
+              失败阈值: {record.failureThreshold}
+            </Text>
           </div>
           <div style={{ marginBottom: '2px' }}>
-            <Text style={{ fontSize: '11px' }}>恢复超时: {record.recoveryTimeout / 1000}s</Text>
+            <Text style={{ fontSize: '11px' }}>
+              恢复超时: {record.recoveryTimeout / 1000}s
+            </Text>
           </div>
           <div>
-            <Text style={{ fontSize: '11px' }}>请求超时: {record.requestTimeout / 1000}s</Text>
+            <Text style={{ fontSize: '11px' }}>
+              请求超时: {record.requestTimeout / 1000}s
+            </Text>
           </div>
         </div>
-      )
+      ),
     },
     {
       title: '当前状态',
@@ -737,18 +851,22 @@ const MessageReliabilityManagementPage: React.FC = () => {
             </Text>
           </div>
           <div style={{ marginBottom: '2px' }}>
-            <Text style={{ fontSize: '11px' }}>总请求: {record.totalRequests}</Text>
+            <Text style={{ fontSize: '11px' }}>
+              总请求: {record.totalRequests}
+            </Text>
           </div>
           <div>
-            <Text style={{ 
-              fontSize: '11px', 
-              color: record.failureRate > 1 ? '#ff4d4f' : '#52c41a' 
-            }}>
+            <Text
+              style={{
+                fontSize: '11px',
+                color: record.failureRate > 1 ? '#ff4d4f' : '#52c41a',
+              }}
+            >
               失败率: {record.failureRate.toFixed(2)}%
             </Text>
           </div>
         </div>
-      )
+      ),
     },
     {
       title: '时间信息',
@@ -757,16 +875,20 @@ const MessageReliabilityManagementPage: React.FC = () => {
         <div>
           {record.lastFailureTime && (
             <div style={{ marginBottom: '2px' }}>
-              <Text style={{ fontSize: '11px' }}>上次失败: {record.lastFailureTime}</Text>
+              <Text style={{ fontSize: '11px' }}>
+                上次失败: {record.lastFailureTime}
+              </Text>
             </div>
           )}
           {record.nextRetryTime && (
             <div>
-              <Text style={{ fontSize: '11px' }}>下次重试: {record.nextRetryTime}</Text>
+              <Text style={{ fontSize: '11px' }}>
+                下次重试: {record.nextRetryTime}
+              </Text>
             </div>
           )}
         </div>
-      )
+      ),
     },
     {
       title: '操作',
@@ -777,8 +899,8 @@ const MessageReliabilityManagementPage: React.FC = () => {
           <Button type="text" size="small" icon={<SettingOutlined />} />
           <Switch size="small" checked={record.enabled} />
         </Space>
-      )
-    }
+      ),
+    },
   ]
 
   const handleViewGuarantee = (guarantee: DeliveryGuarantee) => {
@@ -791,26 +913,39 @@ const MessageReliabilityManagementPage: React.FC = () => {
             <Descriptions.Item label="保证ID">{guarantee.id}</Descriptions.Item>
             <Descriptions.Item label="名称">{guarantee.name}</Descriptions.Item>
             <Descriptions.Item label="保证级别">
-              <Tag color={
-                guarantee.level === 'exactly-once' ? 'red' :
-                guarantee.level === 'at-least-once' ? 'orange' : 'blue'
-              }>
-                {
-                  guarantee.level === 'exactly-once' ? '精确一次' :
-                  guarantee.level === 'at-least-once' ? '至少一次' : '最多一次'
+              <Tag
+                color={
+                  guarantee.level === 'exactly-once'
+                    ? 'red'
+                    : guarantee.level === 'at-least-once'
+                      ? 'orange'
+                      : 'blue'
                 }
+              >
+                {guarantee.level === 'exactly-once'
+                  ? '精确一次'
+                  : guarantee.level === 'at-least-once'
+                    ? '至少一次'
+                    : '最多一次'}
               </Tag>
             </Descriptions.Item>
             <Descriptions.Item label="状态">
-              <Badge status={guarantee.status === 'active' ? 'success' : 'error'} text={guarantee.status} />
+              <Badge
+                status={guarantee.status === 'active' ? 'success' : 'error'}
+                text={guarantee.status}
+              />
             </Descriptions.Item>
-            <Descriptions.Item label="描述" span={2}>{guarantee.description}</Descriptions.Item>
+            <Descriptions.Item label="描述" span={2}>
+              {guarantee.description}
+            </Descriptions.Item>
           </Descriptions>
 
           <Divider>应用主题</Divider>
           <div>
             {guarantee.subjects.map((subject, index) => (
-              <Tag key={index} style={{ marginBottom: '4px' }}>{subject}</Tag>
+              <Tag key={index} style={{ marginBottom: '4px' }}>
+                {subject}
+              </Tag>
             ))}
           </div>
 
@@ -834,28 +969,45 @@ const MessageReliabilityManagementPage: React.FC = () => {
             </Col>
             <Col span={12}>
               <Text strong>持久存储: </Text>
-              <Badge status={guarantee.config.persistentStorage ? 'success' : 'default'} 
-                     text={guarantee.config.persistentStorage ? '启用' : '禁用'} />
+              <Badge
+                status={
+                  guarantee.config.persistentStorage ? 'success' : 'default'
+                }
+                text={guarantee.config.persistentStorage ? '启用' : '禁用'}
+              />
             </Col>
           </Row>
 
           <Divider>性能指标</Divider>
           <Row gutter={[16, 8]}>
             <Col span={6}>
-              <Statistic title="处理消息" value={guarantee.metrics.messagesProcessed} />
+              <Statistic
+                title="处理消息"
+                value={guarantee.metrics.messagesProcessed}
+              />
             </Col>
             <Col span={6}>
-              <Statistic title="成功率" value={guarantee.metrics.successRate} suffix="%" />
+              <Statistic
+                title="成功率"
+                value={guarantee.metrics.successRate}
+                suffix="%"
+              />
             </Col>
             <Col span={6}>
-              <Statistic title="重复检测" value={guarantee.metrics.duplicatesDetected} />
+              <Statistic
+                title="重复检测"
+                value={guarantee.metrics.duplicatesDetected}
+              />
             </Col>
             <Col span={6}>
-              <Statistic title="重试执行" value={guarantee.metrics.retriesPerformed} />
+              <Statistic
+                title="重试执行"
+                value={guarantee.metrics.retriesPerformed}
+              />
             </Col>
           </Row>
         </div>
-      )
+      ),
     })
   }
 
@@ -866,12 +1018,12 @@ const MessageReliabilityManagementPage: React.FC = () => {
   }
 
   const handleToggleGuarantee = (guaranteeId: string, enabled: boolean) => {
-    setDeliveryGuarantees(prev => prev.map(g =>
-      g.id === guaranteeId ? { ...g, enabled } : g
-    ))
+    setDeliveryGuarantees(prev =>
+      prev.map(g => (g.id === guaranteeId ? { ...g, enabled } : g))
+    )
     notification.success({
       message: enabled ? '保证已启用' : '保证已禁用',
-      description: '传递保证状态已更新'
+      description: '传递保证状态已更新',
     })
   }
 
@@ -879,7 +1031,7 @@ const MessageReliabilityManagementPage: React.FC = () => {
     setLoading(true)
     notification.success({
       message: '刷新成功',
-      description: '已请求最新可靠性数据'
+      description: '已请求最新可靠性数据',
     })
     setLoading(false)
   }
@@ -894,7 +1046,9 @@ const MessageReliabilityManagementPage: React.FC = () => {
     <div style={{ padding: '24px', background: '#f5f5f5', minHeight: '100vh' }}>
       <div style={{ marginBottom: '24px' }}>
         <Title level={2}>
-          <SafetyCertificateOutlined style={{ marginRight: '12px', color: '#1890ff' }} />
+          <SafetyCertificateOutlined
+            style={{ marginRight: '12px', color: '#1890ff' }}
+          />
           消息可靠性管理
         </Title>
         <Paragraph>
@@ -920,7 +1074,10 @@ const MessageReliabilityManagementPage: React.FC = () => {
           type="error"
           showIcon
           action={
-            <Button size="small" onClick={() => setDeadLetterDrawerVisible(true)}>
+            <Button
+              size="small"
+              onClick={() => setDeadLetterDrawerVisible(true)}
+            >
               查看详情
             </Button>
           }
@@ -937,20 +1094,26 @@ const MessageReliabilityManagementPage: React.FC = () => {
               value={reliabilityMetrics.deliveryRate}
               precision={2}
               suffix="%"
-              valueStyle={{ color: getReliabilityColor(reliabilityMetrics.deliveryRate) }}
+              valueStyle={{
+                color: getReliabilityColor(reliabilityMetrics.deliveryRate),
+              }}
               prefix={<CheckCircleOutlined />}
             />
             <div style={{ marginTop: '8px' }}>
-              <Progress 
-                percent={reliabilityMetrics.deliveryRate} 
-                size="small" 
+              <Progress
+                percent={reliabilityMetrics.deliveryRate}
+                size="small"
                 showInfo={false}
-                status={reliabilityMetrics.deliveryRate >= 99 ? 'success' : 'exception'}
+                status={
+                  reliabilityMetrics.deliveryRate >= 99
+                    ? 'success'
+                    : 'exception'
+                }
               />
             </div>
           </Card>
         </Col>
-        
+
         <Col xs={12} sm={6}>
           <Card>
             <Statistic
@@ -958,35 +1121,45 @@ const MessageReliabilityManagementPage: React.FC = () => {
               value={reliabilityMetrics.messageIntegrity}
               precision={2}
               suffix="%"
-              valueStyle={{ color: getReliabilityColor(reliabilityMetrics.messageIntegrity) }}
+              valueStyle={{
+                color: getReliabilityColor(reliabilityMetrics.messageIntegrity),
+              }}
               prefix={<SecurityScanOutlined />}
             />
           </Card>
         </Col>
-        
+
         <Col xs={12} sm={6}>
           <Card>
             <Statistic
               title="平均重试次数"
               value={reliabilityMetrics.averageRetries}
               precision={1}
-              valueStyle={{ color: reliabilityMetrics.averageRetries < 1 ? '#52c41a' : '#ff4d4f' }}
+              valueStyle={{
+                color:
+                  reliabilityMetrics.averageRetries < 1 ? '#52c41a' : '#ff4d4f',
+              }}
               prefix={<SyncOutlined />}
             />
           </Card>
         </Col>
-        
+
         <Col xs={12} sm={6}>
           <Card>
             <Statistic
               title="死信消息"
               value={reliabilityMetrics.deadLetterCount}
-              valueStyle={{ color: reliabilityMetrics.deadLetterCount < 10 ? '#52c41a' : '#ff4d4f' }}
+              valueStyle={{
+                color:
+                  reliabilityMetrics.deadLetterCount < 10
+                    ? '#52c41a'
+                    : '#ff4d4f',
+              }}
               prefix={<AlertOutlined />}
             />
             <div style={{ marginTop: '8px' }}>
-              <Button 
-                type="link" 
+              <Button
+                type="link"
                 size="small"
                 onClick={() => setDeadLetterDrawerVisible(true)}
               >
@@ -999,10 +1172,17 @@ const MessageReliabilityManagementPage: React.FC = () => {
 
       {/* 主管理界面 */}
       <Card>
-        <div style={{ marginBottom: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div
+          style={{
+            marginBottom: '16px',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+          }}
+        >
           <Space>
-            <Button 
-              type="primary" 
+            <Button
+              type="primary"
               icon={<SafetyCertificateOutlined />}
               onClick={() => {
                 setSelectedGuarantee(null)
@@ -1012,7 +1192,7 @@ const MessageReliabilityManagementPage: React.FC = () => {
             >
               创建传递保证
             </Button>
-            <Button 
+            <Button
               icon={<ReloadOutlined />}
               loading={loading}
               onClick={refreshData}
@@ -1020,12 +1200,18 @@ const MessageReliabilityManagementPage: React.FC = () => {
               刷新状态
             </Button>
           </Space>
-          
+
           <Space>
-            <Button icon={<DatabaseOutlined />} onClick={() => setBackupModalVisible(true)}>
+            <Button
+              icon={<DatabaseOutlined />}
+              onClick={() => setBackupModalVisible(true)}
+            >
               备份管理
             </Button>
-            <Button icon={<AlertOutlined />} onClick={() => setDeadLetterDrawerVisible(true)}>
+            <Button
+              icon={<AlertOutlined />}
+              onClick={() => setDeadLetterDrawerVisible(true)}
+            >
               死信处理
             </Button>
             <Button icon={<SettingOutlined />}>可靠性配置</Button>
@@ -1033,7 +1219,11 @@ const MessageReliabilityManagementPage: React.FC = () => {
         </div>
 
         <Tabs activeKey={activeTab} onChange={setActiveTab}>
-          <TabPane tab="传递保证" key="guarantees" icon={<CheckCircleOutlined />}>
+          <TabPane
+            tab="传递保证"
+            key="guarantees"
+            icon={<CheckCircleOutlined />}
+          >
             <Table
               columns={guaranteeColumns}
               dataSource={deliveryGuarantees}
@@ -1043,7 +1233,7 @@ const MessageReliabilityManagementPage: React.FC = () => {
               scroll={{ x: 1000 }}
             />
           </TabPane>
-          
+
           <TabPane tab="消息备份" key="backups" icon={<DatabaseOutlined />}>
             <div style={{ marginBottom: '16px' }}>
               <Space>
@@ -1051,10 +1241,14 @@ const MessageReliabilityManagementPage: React.FC = () => {
                   创建备份任务
                 </Button>
                 <Text type="secondary">
-                  备份状态: 
-                  <Badge 
-                    status={reliabilityMetrics.backupStatus === 'healthy' ? 'success' : 'error'} 
-                    text={reliabilityMetrics.backupStatus} 
+                  备份状态:
+                  <Badge
+                    status={
+                      reliabilityMetrics.backupStatus === 'healthy'
+                        ? 'success'
+                        : 'error'
+                    }
+                    text={reliabilityMetrics.backupStatus}
                     style={{ marginLeft: '8px' }}
                   />
                 </Text>
@@ -1068,8 +1262,12 @@ const MessageReliabilityManagementPage: React.FC = () => {
               pagination={false}
             />
           </TabPane>
-          
-          <TabPane tab="熔断保护" key="circuit-breakers" icon={<RestOutlined />}>
+
+          <TabPane
+            tab="熔断保护"
+            key="circuit-breakers"
+            icon={<RestOutlined />}
+          >
             <div style={{ marginBottom: '16px' }}>
               <Button type="primary" icon={<RestOutlined />}>
                 创建熔断器
@@ -1083,7 +1281,7 @@ const MessageReliabilityManagementPage: React.FC = () => {
               pagination={false}
             />
           </TabPane>
-          
+
           <TabPane tab="质量监控" key="quality" icon={<MonitorOutlined />}>
             <Row gutter={[16, 16]}>
               <Col span={12}>
@@ -1114,29 +1312,41 @@ const MessageReliabilityManagementPage: React.FC = () => {
                   </div>
                 </Card>
               </Col>
-              
+
               <Col span={24}>
                 <Card title="可靠性健康检查" size="small">
                   <Steps current={2} status="process" size="small">
-                    <Step 
-                      title="消息传递" 
+                    <Step
+                      title="消息传递"
                       description={`${reliabilityMetrics.deliveryRate.toFixed(1)}% 成功率`}
-                      status={reliabilityMetrics.deliveryRate >= 99 ? 'finish' : 'error'}
+                      status={
+                        reliabilityMetrics.deliveryRate >= 99
+                          ? 'finish'
+                          : 'error'
+                      }
                     />
-                    <Step 
-                      title="完整性验证" 
+                    <Step
+                      title="完整性验证"
                       description={`${reliabilityMetrics.messageIntegrity.toFixed(2)}% 完整性`}
-                      status={reliabilityMetrics.messageIntegrity >= 99.9 ? 'finish' : 'error'}
+                      status={
+                        reliabilityMetrics.messageIntegrity >= 99.9
+                          ? 'finish'
+                          : 'error'
+                      }
                     />
-                    <Step 
-                      title="顺序保证" 
+                    <Step
+                      title="顺序保证"
                       description={`${reliabilityMetrics.orderingAccuracy.toFixed(1)}% 顺序准确`}
                       status="process"
                     />
-                    <Step 
-                      title="备份恢复" 
+                    <Step
+                      title="备份恢复"
                       description={`${reliabilityMetrics.backupStatus} 状态`}
-                      status={reliabilityMetrics.backupStatus === 'healthy' ? 'finish' : 'wait'}
+                      status={
+                        reliabilityMetrics.backupStatus === 'healthy'
+                          ? 'finish'
+                          : 'wait'
+                      }
                     />
                   </Steps>
                 </Card>
@@ -1162,7 +1372,7 @@ const MessageReliabilityManagementPage: React.FC = () => {
             showIcon
           />
         </div>
-        
+
         <Table
           columns={deadLetterColumns}
           dataSource={deadLetterMessages}

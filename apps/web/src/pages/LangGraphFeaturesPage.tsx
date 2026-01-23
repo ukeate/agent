@@ -24,7 +24,7 @@ const LangGraphFeaturesPage: React.FC = () => {
     setError(null)
     try {
       const [cacheRes, hookRes] = await Promise.all([
-        apiFetch(buildApiUrl('/api/v1/langgraph/cache/stats'),
+        apiFetch(buildApiUrl('/api/v1/langgraph/cache/stats')),
         apiFetch(buildApiUrl('/api/v1/langgraph/hooks/status'))
       ])
       setCacheStats(await cacheRes.json())
@@ -49,7 +49,7 @@ const LangGraphFeaturesPage: React.FC = () => {
       const res = await apiFetch(buildApiUrl('/api/v1/langgraph/context-api/demo'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message, use_new_api: true, user_id: 'demo_user'), session_id: 'demo_session' })
+        body: JSON.stringify({ message, use_new_api: true, user_id: 'demo_user', session_id: 'demo_session' })
       })
       const data = await res.json()
       setContextResult(data)

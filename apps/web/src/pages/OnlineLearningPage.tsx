@@ -1,19 +1,19 @@
 import { buildApiUrl, apiFetch } from '../utils/apiBase'
-import React, { useState, useEffect } from 'react';
-import { 
-  Card, 
-  Row, 
-  Col, 
-  Table, 
-  Button, 
-  Modal, 
-  Form, 
-  Input, 
-  Select, 
-  Progress, 
-  Statistic, 
-  Tabs, 
-  Timeline, 
+import React, { useState, useEffect } from 'react'
+import {
+  Card,
+  Row,
+  Col,
+  Table,
+  Button,
+  Modal,
+  Form,
+  Input,
+  Select,
+  Progress,
+  Statistic,
+  Tabs,
+  Timeline,
   Badge,
   Space,
   Alert,
@@ -27,24 +27,24 @@ import {
   List,
   Avatar,
   Divider,
-  Empty
-} from 'antd';
-import { 
-  LineChart, 
-  Line, 
-  XAxis, 
-  YAxis, 
-  CartesianGrid, 
-  Tooltip as RechartsTooltip, 
-  Legend, 
+  Empty,
+} from 'antd'
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip as RechartsTooltip,
+  Legend,
   ResponsiveContainer,
   BarChart,
   Bar,
   PieChart,
   Pie,
-  Cell
-} from 'recharts';
-import { 
+  Cell,
+} from 'recharts'
+import {
   ExperimentOutlined,
   RocketOutlined,
   StopOutlined,
@@ -55,115 +55,132 @@ import {
   BulbOutlined,
   FireOutlined,
   CheckCircleOutlined,
-  ClockCircleOutlined
-} from '@ant-design/icons';
+  ClockCircleOutlined,
+} from '@ant-design/icons'
 
-const { TabPane } = Tabs;
-const { Option } = Select;
-const { TextArea } = Input;
+const { TabPane } = Tabs
+const { Option } = Select
+const { TextArea } = Input
 
 interface ABTest {
-  id: string;
-  name: string;
-  description: string;
-  model_a_id: string;
-  model_a_name: string;
-  model_b_id: string;
-  model_b_name: string;
-  traffic_split: number;
-  status: 'pending' | 'running' | 'completed' | 'paused';
-  start_time: string;
-  end_time?: string;
-  total_requests: number;
-  model_a_requests: number;
-  model_b_requests: number;
+  id: string
+  name: string
+  description: string
+  model_a_id: string
+  model_a_name: string
+  model_b_id: string
+  model_b_name: string
+  traffic_split: number
+  status: 'pending' | 'running' | 'completed' | 'paused'
+  start_time: string
+  end_time?: string
+  total_requests: number
+  model_a_requests: number
+  model_b_requests: number
   model_a_performance: {
-    accuracy: number;
-    latency: number;
-    error_rate: number;
-  };
+    accuracy: number
+    latency: number
+    error_rate: number
+  }
   model_b_performance: {
-    accuracy: number;
-    latency: number;
-    error_rate: number;
-  };
-  statistical_significance: number;
-  winner?: 'A' | 'B' | 'tie';
+    accuracy: number
+    latency: number
+    error_rate: number
+  }
+  statistical_significance: number
+  winner?: 'A' | 'B' | 'tie'
 }
 
 interface LearningJob {
-  id: string;
-  name: string;
-  model_id: string;
-  model_name: string;
-  learning_type: 'lora' | 'qlora' | 'full' | 'prefix' | 'p_tuning';
-  status: 'pending' | 'running' | 'completed' | 'failed';
-  progress: number;
-  batch_size: number;
-  start_time: string;
-  estimated_completion: string;
+  id: string
+  name: string
+  model_id: string
+  model_name: string
+  learning_type: 'lora' | 'qlora' | 'full' | 'prefix' | 'p_tuning'
+  status: 'pending' | 'running' | 'completed' | 'failed'
+  progress: number
+  batch_size: number
+  start_time: string
+  estimated_completion: string
   metrics: {
-    current_loss: number;
-    best_loss: number;
-  };
+    current_loss: number
+    best_loss: number
+  }
 }
 
 interface FeedbackData {
-  id: string;
-  model_id: string;
-  prediction: any;
-  ground_truth: any;
-  feedback_score: number;
-  user_feedback: string;
-  timestamp: string;
-  processed: boolean;
+  id: string
+  model_id: string
+  prediction: any
+  ground_truth: any
+  feedback_score: number
+  user_feedback: string
+  timestamp: string
+  processed: boolean
 }
 
 const OnlineLearningPage: React.FC = () => {
-  const [abTests, setAbTests] = useState<ABTest[]>([]);
-  const [learningJobs, setLearningJobs] = useState<LearningJob[]>([]);
-  const [feedbackData, setFeedbackData] = useState<FeedbackData[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [testModalVisible, setTestModalVisible] = useState(false);
-  const [jobModalVisible, setJobModalVisible] = useState(false);
-  const [selectedTest, setSelectedTest] = useState<ABTest | null>(null);
-  const [testForm] = Form.useForm();
-  const [jobForm] = Form.useForm();
+  const [abTests, setAbTests] = useState<ABTest[]>([])
+  const [learningJobs, setLearningJobs] = useState<LearningJob[]>([])
+  const [feedbackData, setFeedbackData] = useState<FeedbackData[]>([])
+  const [loading, setLoading] = useState(false)
+  const [testModalVisible, setTestModalVisible] = useState(false)
+  const [jobModalVisible, setJobModalVisible] = useState(false)
+  const [selectedTest, setSelectedTest] = useState<ABTest | null>(null)
+  const [testForm] = Form.useForm()
+  const [jobForm] = Form.useForm()
 
   const systemStats = {
     active_tests: abTests.filter(t => t.status === 'running').length,
     active_jobs: learningJobs.filter(j => j.status === 'running').length,
     total_feedback: feedbackData.length,
-    avg_loss: learningJobs.length > 0
-      ? learningJobs.reduce((sum, job) => sum + (job.metrics?.current_loss || 0), 0) / learningJobs.length
-      : 0
-  };
+    avg_loss:
+      learningJobs.length > 0
+        ? learningJobs.reduce(
+            (sum, job) => sum + (job.metrics?.current_loss || 0),
+            0
+          ) / learningJobs.length
+        : 0,
+  }
 
   const performanceTrendData = learningJobs.map(job => ({
-    time: job.start_time ? new Date(job.start_time).toLocaleDateString() : job.name,
+    time: job.start_time
+      ? new Date(job.start_time).toLocaleDateString()
+      : job.name,
     best_loss: job.metrics?.best_loss || 0,
-    current_loss: job.metrics?.current_loss || 0
-  }));
+    current_loss: job.metrics?.current_loss || 0,
+  }))
 
   useEffect(() => {
-    fetchABTests();
-    fetchLearningJobs();
-    fetchFeedbackData();
-  }, []);
+    fetchABTests()
+    fetchLearningJobs()
+    fetchFeedbackData()
+  }, [])
 
   const fetchABTests = async () => {
-    setLoading(true);
+    setLoading(true)
     try {
-      const res = await apiFetch(buildApiUrl('/api/v1/experiments'));
-      const data = await res.json();
-      const experiments = Array.isArray(data?.experiments) ? data.experiments : Array.isArray(data) ? data : [];
+      const res = await apiFetch(buildApiUrl('/api/v1/experiments'))
+      const data = await res.json()
+      const experiments = Array.isArray(data?.experiments)
+        ? data.experiments
+        : Array.isArray(data)
+          ? data
+          : []
       const mapped = experiments.map((exp: any) => {
-        const variants = Array.isArray(exp.variants) ? exp.variants : [];
-        const control = variants.find((v: any) => v.isControl) || variants[0] || {};
-        const treatment = variants.find((v: any) => !v.isControl) || variants[1] || {};
-        const controlRate = Number(control.conversionRate || 0);
-        const treatmentRate = Number(treatment.conversionRate || 0);
-        const winner = treatmentRate === controlRate ? 'tie' : (treatmentRate > controlRate ? 'B' : 'A');
+        const variants = Array.isArray(exp.variants) ? exp.variants : []
+        const control =
+          variants.find((v: any) => v.isControl) || variants[0] || {}
+        const treatment =
+          variants.find((v: any) => !v.isControl) || variants[1] || {}
+        const controlRate = Number(control.conversionRate || 0)
+        const treatmentRate = Number(treatment.conversionRate || 0)
+        const winner =
+          treatmentRate === controlRate
+            ? 'tie'
+            : treatmentRate > controlRate
+              ? 'B'
+              : 'A'
         return {
           id: String(exp.id),
           name: String(exp.name || ''),
@@ -176,52 +193,59 @@ const OnlineLearningPage: React.FC = () => {
           status: exp.status || 'pending',
           start_time: exp.startDate || exp.created_at || '',
           end_time: exp.endDate || exp.updated_at || '',
-          total_requests: Number(exp.participants || exp.sampleSize?.current || 0),
+          total_requests: Number(
+            exp.participants || exp.sampleSize?.current || 0
+          ),
           model_a_requests: Number(control.sampleSize || 0),
           model_b_requests: Number(treatment.sampleSize || 0),
           model_a_performance: {
             accuracy: controlRate,
             latency: 0,
-            error_rate: Math.max(0, 1 - controlRate)
+            error_rate: Math.max(0, 1 - controlRate),
           },
           model_b_performance: {
             accuracy: treatmentRate,
             latency: 0,
-            error_rate: Math.max(0, 1 - treatmentRate)
+            error_rate: Math.max(0, 1 - treatmentRate),
           },
           statistical_significance: Math.abs(Number(exp.lift || 0)),
-          winner
-        } as ABTest;
-      });
-      setAbTests(mapped);
+          winner,
+        } as ABTest
+      })
+      setAbTests(mapped)
     } catch (error) {
-      message.error('加载A/B测试失败');
-      setAbTests([]);
+      message.error('加载A/B测试失败')
+      setAbTests([])
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
+  }
 
   const fetchLearningJobs = async () => {
     try {
-      const res = await apiFetch(buildApiUrl('/api/v1/fine-tuning/jobs'));
-      const data = await res.json();
-      const jobs = Array.isArray(data) ? data : Array.isArray(data?.jobs) ? data.jobs : [];
+      const res = await apiFetch(buildApiUrl('/api/v1/fine-tuning/jobs'))
+      const data = await res.json()
+      const jobs = Array.isArray(data)
+        ? data
+        : Array.isArray(data?.jobs)
+          ? data.jobs
+          : []
       const mapped = jobs.map((job: any) => {
-        const config = job.config || {};
-        const status = String(job.status || 'pending');
-        const trainingMode = String(config.training_mode || '').toLowerCase();
-        const learningType = trainingMode === 'qlora'
-          ? 'qlora'
-          : trainingMode === 'full'
-            ? 'full'
-            : trainingMode === 'prefix'
-              ? 'prefix'
-              : trainingMode === 'p_tuning'
-                ? 'p_tuning'
-                : 'lora';
-        const currentLoss = Number(job.current_loss ?? 0);
-        const bestLoss = Number(job.best_loss ?? 0);
+        const config = job.config || {}
+        const status = String(job.status || 'pending')
+        const trainingMode = String(config.training_mode || '').toLowerCase()
+        const learningType =
+          trainingMode === 'qlora'
+            ? 'qlora'
+            : trainingMode === 'full'
+              ? 'full'
+              : trainingMode === 'prefix'
+                ? 'prefix'
+                : trainingMode === 'p_tuning'
+                  ? 'p_tuning'
+                  : 'lora'
+        const currentLoss = Number(job.current_loss ?? 0)
+        const bestLoss = Number(job.best_loss ?? 0)
         return {
           id: String(job.job_id || ''),
           name: String(job.job_name || job.job_id || ''),
@@ -232,19 +256,20 @@ const OnlineLearningPage: React.FC = () => {
           progress: Number(job.progress || 0),
           batch_size: Number(config.per_device_train_batch_size || 0),
           start_time: job.started_at || job.created_at || '',
-          estimated_completion: job.completed_at || job.started_at || job.created_at || '',
+          estimated_completion:
+            job.completed_at || job.started_at || job.created_at || '',
           metrics: {
             current_loss: currentLoss,
-            best_loss: bestLoss
-          }
-        } as LearningJob;
-      });
-      setLearningJobs(mapped);
+            best_loss: bestLoss,
+          },
+        } as LearningJob
+      })
+      setLearningJobs(mapped)
     } catch (error) {
-      message.error('加载学习任务失败');
-      setLearningJobs([]);
+      message.error('加载学习任务失败')
+      setLearningJobs([])
     }
-  };
+  }
 
   const fetchFeedbackData = async () => {
     try {
@@ -252,18 +277,18 @@ const OnlineLearningPage: React.FC = () => {
         .split(';')
         .map(item => item.trim())
         .find(item => item.startsWith('client_id='))
-        ?.split('=')[1];
-      const userId = cookieId ? decodeURIComponent(cookieId) : '';
+        ?.split('=')[1]
+      const userId = cookieId ? decodeURIComponent(cookieId) : ''
       if (!userId) {
-        setFeedbackData([]);
-        return;
+        setFeedbackData([])
+        return
       }
-      const res = await apiFetch(buildApiUrl(`/api/v1/feedback/user/${userId}`));
-      const data = await res.json();
-      const items = Array.isArray(data?.data?.items) ? data.data.items : [];
+      const res = await apiFetch(buildApiUrl(`/api/v1/feedback/user/${userId}`))
+      const data = await res.json()
+      const items = Array.isArray(data?.data?.items) ? data.data.items : []
       const mapped = items.map((item: any) => {
-        const value = item.value;
-        const score = typeof value === 'number' ? value : 0;
+        const value = item.value
+        const score = typeof value === 'number' ? value : 0
         return {
           id: String(item.event_id || ''),
           model_id: String(item.item_id || ''),
@@ -272,43 +297,51 @@ const OnlineLearningPage: React.FC = () => {
           feedback_score: score,
           user_feedback: item.metadata?.comment || item.feedback_type || '',
           timestamp: item.timestamp || new Date().toISOString(),
-          processed: false
-        } as FeedbackData;
-      });
-      setFeedbackData(mapped);
+          processed: false,
+        } as FeedbackData
+      })
+      setFeedbackData(mapped)
     } catch (error) {
-      message.error('加载反馈数据失败');
-      setFeedbackData([]);
+      message.error('加载反馈数据失败')
+      setFeedbackData([])
     }
-  };
+  }
 
   const handleCreateTest = async (values: any) => {
     try {
-      const traffic = Number(values.traffic_split || 50);
+      const traffic = Number(values.traffic_split || 50)
       const payload = {
         name: values.name,
         description: values.description || values.name,
         type: 'A/B Testing',
         status: 'draft',
         variants: [
-          { name: values.model_a_name || 'Control', traffic: 100 - traffic, isControl: true },
-          { name: values.model_b_name || 'Treatment', traffic: traffic, isControl: false }
+          {
+            name: values.model_a_name || 'Control',
+            traffic: 100 - traffic,
+            isControl: true,
+          },
+          {
+            name: values.model_b_name || 'Treatment',
+            traffic: traffic,
+            isControl: false,
+          },
         ],
-        metrics: ['conversion_rate']
-      };
+        metrics: ['conversion_rate'],
+      }
       const res = await apiFetch(buildApiUrl('/api/v1/experiments'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-      await fetchABTests();
-      setTestModalVisible(false);
-      testForm.resetFields();
-      message.success('A/B测试已创建');
+        body: JSON.stringify(payload),
+      })
+      await fetchABTests()
+      setTestModalVisible(false)
+      testForm.resetFields()
+      message.success('A/B测试已创建')
     } catch (error) {
-      message.error('创建A/B测试失败');
+      message.error('创建A/B测试失败')
     }
-  };
+  }
 
   const handleCreateJob = async (values: any) => {
     try {
@@ -316,32 +349,44 @@ const OnlineLearningPage: React.FC = () => {
         job_name: values.name,
         model_name: values.model_name,
         dataset_path: values.dataset_path,
-        training_mode: values.learning_type
-      };
+        training_mode: values.learning_type,
+      }
       const res = await apiFetch(buildApiUrl('/api/v1/fine-tuning/jobs'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-      await fetchLearningJobs();
-      setJobModalVisible(false);
-      jobForm.resetFields();
-      message.success('学习任务已创建');
+        body: JSON.stringify(payload),
+      })
+      await fetchLearningJobs()
+      setJobModalVisible(false)
+      jobForm.resetFields()
+      message.success('学习任务已创建')
     } catch (error) {
-      message.error('创建学习任务失败');
+      message.error('创建学习任务失败')
     }
-  };
+  }
 
-  const handleTestAction = async (testId: string, action: 'start' | 'pause' | 'stop' | 'resume') => {
+  const handleTestAction = async (
+    testId: string,
+    action: 'start' | 'pause' | 'stop' | 'resume'
+  ) => {
     try {
-      await apiFetch(buildApiUrl(`/api/v1/experiments/${testId}/${action}`), { method: 'POST' });
-      await fetchABTests();
-      const actionText = action === 'start' ? '启动' : action === 'pause' ? '暂停' : action === 'resume' ? '恢复' : '停止';
-      message.success(`A/B测试已${actionText}`);
+      await apiFetch(buildApiUrl(`/api/v1/experiments/${testId}/${action}`), {
+        method: 'POST',
+      })
+      await fetchABTests()
+      const actionText =
+        action === 'start'
+          ? '启动'
+          : action === 'pause'
+            ? '暂停'
+            : action === 'resume'
+              ? '恢复'
+              : '停止'
+      message.success(`A/B测试已${actionText}`)
     } catch (error) {
-      message.error('操作失败');
+      message.error('操作失败')
     }
-  };
+  }
 
   const getStatusColor = (status: string) => {
     const colors = {
@@ -349,10 +394,10 @@ const OnlineLearningPage: React.FC = () => {
       running: 'green',
       completed: 'blue',
       paused: 'default',
-      failed: 'red'
-    };
-    return colors[status as keyof typeof colors] || 'default';
-  };
+      failed: 'red',
+    }
+    return colors[status as keyof typeof colors] || 'default'
+  }
 
   const getStatusText = (status: string) => {
     const texts = {
@@ -360,10 +405,10 @@ const OnlineLearningPage: React.FC = () => {
       running: '运行中',
       completed: '已完成',
       paused: '已暂停',
-      failed: '失败'
-    };
-    return texts[status as keyof typeof texts] || status;
-  };
+      failed: '失败',
+    }
+    return texts[status as keyof typeof texts] || status
+  }
 
   const getLearningTypeText = (type: string) => {
     const texts = {
@@ -371,10 +416,10 @@ const OnlineLearningPage: React.FC = () => {
       qlora: 'QLoRA',
       full: '全量微调',
       prefix: 'Prefix Tuning',
-      p_tuning: 'P-Tuning'
-    };
-    return texts[type as keyof typeof texts] || type;
-  };
+      p_tuning: 'P-Tuning',
+    }
+    return texts[type as keyof typeof texts] || type
+  }
 
   const testColumns = [
     {
@@ -388,10 +433,12 @@ const OnlineLearningPage: React.FC = () => {
           </Avatar>
           <div>
             <div>{text}</div>
-            <div style={{ fontSize: '12px', color: '#999' }}>{record.description}</div>
+            <div style={{ fontSize: '12px', color: '#999' }}>
+              {record.description}
+            </div>
           </div>
         </Space>
-      )
+      ),
     },
     {
       title: '模型对比',
@@ -401,7 +448,7 @@ const OnlineLearningPage: React.FC = () => {
           <div>A: {record.model_a_name}</div>
           <div>B: {record.model_b_name}</div>
         </div>
-      )
+      ),
     },
     {
       title: '流量分配',
@@ -412,30 +459,38 @@ const OnlineLearningPage: React.FC = () => {
           <div>A: {100 - split}%</div>
           <div>B: {split}%</div>
         </div>
-      )
+      ),
     },
     {
       title: '状态',
       dataIndex: 'status',
       key: 'status',
       render: (status: string) => (
-        <Badge status={getStatusColor(status) as any} text={getStatusText(status)} />
-      )
+        <Badge
+          status={getStatusColor(status) as any}
+          text={getStatusText(status)}
+        />
+      ),
     },
     {
       title: '总请求数',
       dataIndex: 'total_requests',
       key: 'total_requests',
-      render: (requests: number) => requests.toLocaleString()
+      render: (requests: number) => requests.toLocaleString(),
     },
     {
       title: '胜出模型',
       key: 'winner',
       render: (_, record: ABTest) => {
-        if (!record.winner) return <Tag>待确定</Tag>;
-        const winner = record.winner === 'A' ? record.model_a_name : record.model_b_name;
-        return <Tag color="gold" icon={<TrophyOutlined />}>{winner}</Tag>;
-      }
+        if (!record.winner) return <Tag>待确定</Tag>
+        const winner =
+          record.winner === 'A' ? record.model_a_name : record.model_b_name
+        return (
+          <Tag color="gold" icon={<TrophyOutlined />}>
+            {winner}
+          </Tag>
+        )
+      },
     },
     {
       title: '操作',
@@ -443,34 +498,39 @@ const OnlineLearningPage: React.FC = () => {
       render: (_, record: ABTest) => (
         <Space>
           {record.status === 'running' ? (
-            <Button 
-              icon={<StopOutlined />} 
+            <Button
+              icon={<StopOutlined />}
               size="small"
               onClick={() => handleTestAction(record.id, 'pause')}
             >
               暂停
             </Button>
           ) : (
-            <Button 
-              icon={<PlayCircleOutlined />} 
-              size="small" 
+            <Button
+              icon={<PlayCircleOutlined />}
+              size="small"
               type="primary"
-              onClick={() => handleTestAction(record.id, record.status === 'paused' ? 'resume' : 'start')}
+              onClick={() =>
+                handleTestAction(
+                  record.id,
+                  record.status === 'paused' ? 'resume' : 'start'
+                )
+              }
             >
               {record.status === 'paused' ? '恢复' : '启动'}
             </Button>
           )}
-          <Button 
-            icon={<BarChartOutlined />} 
+          <Button
+            icon={<BarChartOutlined />}
             size="small"
             onClick={() => setSelectedTest(record)}
           >
             详情
           </Button>
         </Space>
-      )
-    }
-  ];
+      ),
+    },
+  ]
 
   const jobColumns = [
     {
@@ -484,28 +544,45 @@ const OnlineLearningPage: React.FC = () => {
           </Avatar>
           <div>
             <div>{text}</div>
-            <div style={{ fontSize: '12px', color: '#999' }}>{record.model_name}</div>
+            <div style={{ fontSize: '12px', color: '#999' }}>
+              {record.model_name}
+            </div>
           </div>
         </Space>
-      )
+      ),
     },
     {
       title: '学习类型',
       dataIndex: 'learning_type',
       key: 'learning_type',
       render: (type: string) => (
-        <Tag color={type === 'lora' ? 'blue' : type === 'qlora' ? 'green' : type === 'full' ? 'purple' : type === 'prefix' ? 'orange' : 'cyan'}>
+        <Tag
+          color={
+            type === 'lora'
+              ? 'blue'
+              : type === 'qlora'
+                ? 'green'
+                : type === 'full'
+                  ? 'purple'
+                  : type === 'prefix'
+                    ? 'orange'
+                    : 'cyan'
+          }
+        >
           {getLearningTypeText(type)}
         </Tag>
-      )
+      ),
     },
     {
       title: '状态',
       dataIndex: 'status',
       key: 'status',
       render: (status: string) => (
-        <Badge status={getStatusColor(status) as any} text={getStatusText(status)} />
-      )
+        <Badge
+          status={getStatusColor(status) as any}
+          text={getStatusText(status)}
+        />
+      ),
     },
     {
       title: '进度',
@@ -513,46 +590,50 @@ const OnlineLearningPage: React.FC = () => {
       key: 'progress',
       render: (progress: number) => (
         <Progress percent={progress} size="small" />
-      )
+      ),
     },
     {
       title: '批次大小',
       dataIndex: 'batch_size',
       key: 'batch_size',
-      render: (batchSize: number) => batchSize.toLocaleString()
+      render: (batchSize: number) => batchSize.toLocaleString(),
     },
     {
       title: '当前Loss',
       key: 'current_loss',
       render: (_, record: LearningJob) => (
-        <div style={{ color: (record.metrics?.current_loss || 0) > 0 ? '#52c41a' : '#999' }}>
+        <div
+          style={{
+            color: (record.metrics?.current_loss || 0) > 0 ? '#52c41a' : '#999',
+          }}
+        >
           {(record.metrics?.current_loss || 0).toFixed(4)}
         </div>
-      )
+      ),
     },
     {
       title: '最近时间',
       dataIndex: 'estimated_completion',
       key: 'estimated_completion',
       render: (time: string) => {
-        if (!time) return '-';
-        const now = new Date();
-        const timeDate = new Date(time);
-        const diffMs = now.getTime() - timeDate.getTime();
-        const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
-        const diffDays = Math.floor(diffHours / 24);
-        
+        if (!time) return '-'
+        const now = new Date()
+        const timeDate = new Date(time)
+        const diffMs = now.getTime() - timeDate.getTime()
+        const diffHours = Math.floor(diffMs / (1000 * 60 * 60))
+        const diffDays = Math.floor(diffHours / 24)
+
         if (diffDays > 0) {
-          return `${diffDays}天前`;
+          return `${diffDays}天前`
         } else if (diffHours > 0) {
-          return `${diffHours}小时前`;
+          return `${diffHours}小时前`
         } else {
-          const diffMinutes = Math.floor(diffMs / (1000 * 60));
-          return `${Math.max(1, diffMinutes)}分钟前`;
+          const diffMinutes = Math.floor(diffMs / (1000 * 60))
+          return `${Math.max(1, diffMinutes)}分钟前`
         }
-      }
-    }
-  ];
+      },
+    },
+  ]
 
   // 生成性能对比数据
   const generatePerformanceData = (test: ABTest) => {
@@ -560,15 +641,15 @@ const OnlineLearningPage: React.FC = () => {
       {
         metric: '转化率(%)',
         modelA: (test.model_a_performance.accuracy || 0) * 100,
-        modelB: (test.model_b_performance.accuracy || 0) * 100
+        modelB: (test.model_b_performance.accuracy || 0) * 100,
       },
       {
         metric: '样本量',
         modelA: test.model_a_requests,
-        modelB: test.model_b_requests
-      }
-    ];
-  };
+        modelB: test.model_b_requests,
+      },
+    ]
+  }
 
   return (
     <div style={{ padding: '24px' }}>
@@ -621,8 +702,8 @@ const OnlineLearningPage: React.FC = () => {
           <Card
             title="A/B测试管理"
             extra={
-              <Button 
-                type="primary" 
+              <Button
+                type="primary"
                 icon={<ExperimentOutlined />}
                 onClick={() => setTestModalVisible(true)}
               >
@@ -643,8 +724,8 @@ const OnlineLearningPage: React.FC = () => {
           <Card
             title="在线学习任务"
             extra={
-              <Button 
-                type="primary" 
+              <Button
+                type="primary"
                 icon={<BulbOutlined />}
                 onClick={() => setJobModalVisible(true)}
               >
@@ -669,16 +750,21 @@ const OnlineLearningPage: React.FC = () => {
                   itemLayout="horizontal"
                   dataSource={feedbackData}
                   renderItem={feedback => (
-                    <List.Item
-                    >
+                    <List.Item>
                       <List.Item.Meta
                         avatar={
-                          <Avatar 
-                            style={{ 
-                              backgroundColor: feedback.processed ? '#52c41a' : '#faad14' 
+                          <Avatar
+                            style={{
+                              backgroundColor: feedback.processed
+                                ? '#52c41a'
+                                : '#faad14',
                             }}
                           >
-                            {feedback.processed ? <CheckCircleOutlined /> : <ClockCircleOutlined />}
+                            {feedback.processed ? (
+                              <CheckCircleOutlined />
+                            ) : (
+                              <ClockCircleOutlined />
+                            )}
                           </Avatar>
                         }
                         title={
@@ -687,7 +773,15 @@ const OnlineLearningPage: React.FC = () => {
                             <span>→</span>
                             <span>实际: {String(feedback.ground_truth)}</span>
                             {feedback.feedback_score > 0 ? (
-                              <Tag color={feedback.feedback_score >= 4 ? 'green' : feedback.feedback_score >= 3 ? 'orange' : 'red'}>
+                              <Tag
+                                color={
+                                  feedback.feedback_score >= 4
+                                    ? 'green'
+                                    : feedback.feedback_score >= 3
+                                      ? 'orange'
+                                      : 'red'
+                                }
+                              >
                                 评分: {feedback.feedback_score}/5
                               </Tag>
                             ) : (
@@ -698,15 +792,24 @@ const OnlineLearningPage: React.FC = () => {
                         description={
                           <div>
                             <div>{feedback.user_feedback}</div>
-                            <div style={{ fontSize: '12px', color: '#999', marginTop: '4px' }}>
-                              {new Date(feedback.timestamp).toLocaleString('zh-CN', {
-                                year: 'numeric',
-                                month: '2-digit', 
-                                day: '2-digit',
-                                hour: '2-digit',
-                                minute: '2-digit',
-                                second: '2-digit'
-                              })}
+                            <div
+                              style={{
+                                fontSize: '12px',
+                                color: '#999',
+                                marginTop: '4px',
+                              }}
+                            >
+                              {new Date(feedback.timestamp).toLocaleString(
+                                'zh-CN',
+                                {
+                                  year: 'numeric',
+                                  month: '2-digit',
+                                  day: '2-digit',
+                                  hour: '2-digit',
+                                  minute: '2-digit',
+                                  second: '2-digit',
+                                }
+                              )}
                             </div>
                           </div>
                         }
@@ -726,12 +829,15 @@ const OnlineLearningPage: React.FC = () => {
                 />
                 <Statistic
                   title="平均评分"
-                  value={feedbackData.reduce((sum, f) => sum + f.feedback_score, 0) / feedbackData.length || 0}
+                  value={
+                    feedbackData.reduce((sum, f) => sum + f.feedback_score, 0) /
+                      feedbackData.length || 0
+                  }
                   precision={1}
                   suffix="/5"
                 />
               </Card>
-              
+
               <Card title="反馈导入" style={{ marginTop: '16px' }}>
                 <Alert
                   type="info"
@@ -755,16 +861,16 @@ const OnlineLearningPage: React.FC = () => {
                       <YAxis />
                       <RechartsTooltip />
                       <Legend />
-                      <Line 
-                        type="monotone" 
-                        dataKey="best_loss" 
-                        stroke="#faad14" 
+                      <Line
+                        type="monotone"
+                        dataKey="best_loss"
+                        stroke="#faad14"
                         name="最优Loss"
                       />
-                      <Line 
-                        type="monotone" 
-                        dataKey="current_loss" 
-                        stroke="#52c41a" 
+                      <Line
+                        type="monotone"
+                        dataKey="current_loss"
+                        stroke="#52c41a"
                         name="当前Loss"
                       />
                     </LineChart>
@@ -778,18 +884,24 @@ const OnlineLearningPage: React.FC = () => {
               <Card title="学习效果统计">
                 {learningJobs.length > 0 ? (
                   <ResponsiveContainer width="100%" height={300}>
-                    <BarChart data={learningJobs.map(job => ({
-                      name: job.name,
-                      best_loss: job.metrics?.best_loss || 0,
-                      current_loss: job.metrics?.current_loss || 0
-                    }))}>
+                    <BarChart
+                      data={learningJobs.map(job => ({
+                        name: job.name,
+                        best_loss: job.metrics?.best_loss || 0,
+                        current_loss: job.metrics?.current_loss || 0,
+                      }))}
+                    >
                       <CartesianGrid strokeDasharray="3 3" />
                       <XAxis dataKey="name" />
                       <YAxis />
                       <RechartsTooltip />
                       <Legend />
                       <Bar dataKey="best_loss" fill="#faad14" name="最优Loss" />
-                      <Bar dataKey="current_loss" fill="#52c41a" name="当前Loss" />
+                      <Bar
+                        dataKey="current_loss"
+                        fill="#52c41a"
+                        name="当前Loss"
+                      />
                     </BarChart>
                   </ResponsiveContainer>
                 ) : (
@@ -809,11 +921,7 @@ const OnlineLearningPage: React.FC = () => {
         footer={null}
         width={600}
       >
-        <Form
-          form={testForm}
-          layout="vertical"
-          onFinish={handleCreateTest}
-        >
+        <Form form={testForm} layout="vertical" onFinish={handleCreateTest}>
           <Form.Item
             name="name"
             label="测试名称"
@@ -822,10 +930,7 @@ const OnlineLearningPage: React.FC = () => {
             <Input placeholder="请输入测试名称" />
           </Form.Item>
 
-          <Form.Item
-            name="description"
-            label="测试描述"
-          >
+          <Form.Item name="description" label="测试描述">
             <TextArea rows={3} placeholder="请输入测试描述" />
           </Form.Item>
 
@@ -855,9 +960,9 @@ const OnlineLearningPage: React.FC = () => {
             label="流量分配 (模型B的流量百分比)"
             initialValue={50}
           >
-            <Slider 
-              min={10} 
-              max={90} 
+            <Slider
+              min={10}
+              max={90}
               marks={{ 10: '10%', 50: '50%', 90: '90%' }}
             />
           </Form.Item>
@@ -867,9 +972,7 @@ const OnlineLearningPage: React.FC = () => {
               <Button type="primary" htmlType="submit">
                 创建测试
               </Button>
-              <Button onClick={() => setTestModalVisible(false)}>
-                取消
-              </Button>
+              <Button onClick={() => setTestModalVisible(false)}>取消</Button>
             </Space>
           </Form.Item>
         </Form>
@@ -883,11 +986,7 @@ const OnlineLearningPage: React.FC = () => {
         footer={null}
         width={600}
       >
-        <Form
-          form={jobForm}
-          layout="vertical"
-          onFinish={handleCreateJob}
-        >
+        <Form form={jobForm} layout="vertical" onFinish={handleCreateJob}>
           <Form.Item
             name="name"
             label="任务名称"
@@ -931,9 +1030,7 @@ const OnlineLearningPage: React.FC = () => {
               <Button type="primary" htmlType="submit">
                 创建任务
               </Button>
-              <Button onClick={() => setJobModalVisible(false)}>
-                取消
-              </Button>
+              <Button onClick={() => setJobModalVisible(false)}>取消</Button>
             </Space>
           </Form.Item>
         </Form>
@@ -951,19 +1048,40 @@ const OnlineLearningPage: React.FC = () => {
           <Tabs defaultActiveKey="overview">
             <TabPane tab="测试概览" key="overview">
               <Descriptions bordered column={2}>
-                <Descriptions.Item label="测试名称">{selectedTest.name}</Descriptions.Item>
-                <Descriptions.Item label="状态">{getStatusText(selectedTest.status)}</Descriptions.Item>
-                <Descriptions.Item label="开始时间">{selectedTest.start_time ? new Date(selectedTest.start_time).toLocaleString('zh-CN', {
-                  year: 'numeric',
-                  month: '2-digit',
-                  day: '2-digit', 
-                  hour: '2-digit',
-                  minute: '2-digit',
-                  second: '2-digit'
-                }) : '-'}</Descriptions.Item>
-                <Descriptions.Item label="总请求数">{selectedTest.total_requests.toLocaleString()}</Descriptions.Item>
-                <Descriptions.Item label="提升幅度">{(selectedTest.statistical_significance * 100).toFixed(1)}%</Descriptions.Item>
-                <Descriptions.Item label="胜出模型">{selectedTest.winner ? (selectedTest.winner === 'A' ? selectedTest.model_a_name : selectedTest.model_b_name) : '待确定'}</Descriptions.Item>
+                <Descriptions.Item label="测试名称">
+                  {selectedTest.name}
+                </Descriptions.Item>
+                <Descriptions.Item label="状态">
+                  {getStatusText(selectedTest.status)}
+                </Descriptions.Item>
+                <Descriptions.Item label="开始时间">
+                  {selectedTest.start_time
+                    ? new Date(selectedTest.start_time).toLocaleString(
+                        'zh-CN',
+                        {
+                          year: 'numeric',
+                          month: '2-digit',
+                          day: '2-digit',
+                          hour: '2-digit',
+                          minute: '2-digit',
+                          second: '2-digit',
+                        }
+                      )
+                    : '-'}
+                </Descriptions.Item>
+                <Descriptions.Item label="总请求数">
+                  {selectedTest.total_requests.toLocaleString()}
+                </Descriptions.Item>
+                <Descriptions.Item label="提升幅度">
+                  {(selectedTest.statistical_significance * 100).toFixed(1)}%
+                </Descriptions.Item>
+                <Descriptions.Item label="胜出模型">
+                  {selectedTest.winner
+                    ? selectedTest.winner === 'A'
+                      ? selectedTest.model_a_name
+                      : selectedTest.model_b_name
+                    : '待确定'}
+                </Descriptions.Item>
               </Descriptions>
             </TabPane>
             <TabPane tab="性能对比" key="comparison">
@@ -974,8 +1092,16 @@ const OnlineLearningPage: React.FC = () => {
                   <YAxis />
                   <RechartsTooltip />
                   <Legend />
-                  <Bar dataKey="modelA" fill="#1890ff" name={selectedTest.model_a_name} />
-                  <Bar dataKey="modelB" fill="#52c41a" name={selectedTest.model_b_name} />
+                  <Bar
+                    dataKey="modelA"
+                    fill="#1890ff"
+                    name={selectedTest.model_a_name}
+                  />
+                  <Bar
+                    dataKey="modelB"
+                    fill="#52c41a"
+                    name={selectedTest.model_b_name}
+                  />
                 </BarChart>
               </ResponsiveContainer>
             </TabPane>
@@ -983,7 +1109,7 @@ const OnlineLearningPage: React.FC = () => {
         )}
       </Modal>
     </div>
-  );
-};
+  )
+}
 
-export default OnlineLearningPage;
+export default OnlineLearningPage

@@ -39,8 +39,8 @@ const InterventionStrategyManagementPage: React.FC = () => {
     setError(null);
     try {
       const [sRes, pRes, oRes] = await Promise.all([
-        apiFetch(buildApiUrl('/api/v1/emotional-intelligence/strategies'),
-        apiFetch(buildApiUrl('/api/v1/emotional-intelligence/plans'),
+        apiFetch(buildApiUrl('/api/v1/emotional-intelligence/strategies')),
+        apiFetch(buildApiUrl('/api/v1/emotional-intelligence/plans')),
         apiFetch(buildApiUrl('/api/v1/emotional-intelligence/outcomes'))
       ]);
       setStrategies((await sRes.json())?.strategies || []);

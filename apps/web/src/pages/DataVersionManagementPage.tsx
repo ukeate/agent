@@ -1,6 +1,15 @@
 import { buildApiUrl, apiFetch } from '../utils/apiBase'
 import React, { useEffect, useState } from 'react'
-import { Card, Space, Typography, Button, Alert, Select, Table, Spin } from 'antd'
+import {
+  Card,
+  Space,
+  Typography,
+  Button,
+  Alert,
+  Select,
+  Table,
+  Spin,
+} from 'antd'
 import { ReloadOutlined, DatabaseOutlined } from '@ant-design/icons'
 
 type Dataset = { name: string }
@@ -39,7 +48,9 @@ const DataVersionManagementPage: React.FC = () => {
     setLoading(true)
     setError(null)
     try {
-      const res = await apiFetch(buildApiUrl(`/api/v1/training-data/datasets/${dataset}/versions`))
+      const res = await apiFetch(
+        buildApiUrl(`/api/v1/training-data/datasets/${dataset}/versions`)
+      )
       const data = await res.json()
       setVersions(data?.versions || [])
     } catch (e: any) {
@@ -61,14 +72,21 @@ const DataVersionManagementPage: React.FC = () => {
   return (
     <div style={{ padding: 24 }}>
       <Space direction="vertical" style={{ width: '100%' }} size="large">
-        <Space align="center" style={{ justifyContent: 'space-between', width: '100%' }}>
+        <Space
+          align="center"
+          style={{ justifyContent: 'space-between', width: '100%' }}
+        >
           <Space>
             <DatabaseOutlined />
             <Typography.Title level={3} style={{ margin: 0 }}>
               数据版本管理
             </Typography.Title>
           </Space>
-          <Button icon={<ReloadOutlined />} onClick={loadDatasets} loading={loading}>
+          <Button
+            icon={<ReloadOutlined />}
+            onClick={loadDatasets}
+            loading={loading}
+          >
             刷新
           </Button>
         </Space>
@@ -82,7 +100,10 @@ const DataVersionManagementPage: React.FC = () => {
             value={selected}
             onChange={setSelected}
             loading={loading}
-            options={(datasets || []).map((d) => ({ label: d.name || d, value: d.name || d }))}
+            options={(datasets || []).map(d => ({
+              label: d.name || d,
+              value: d.name || d,
+            }))}
           />
         </Card>
 

@@ -4,6 +4,7 @@ from typing import Optional
 from qdrant_client import QdrantClient
 from qdrant_client.models import Distance, VectorParams
 from .config import get_settings
+from src.core.logging import get_logger
 
 logger = get_logger(__name__)
 
@@ -100,4 +101,3 @@ qdrant_manager = QdrantManager()
 def get_qdrant_client() -> QdrantClient:
     """获取Qdrant客户端依赖"""
     return qdrant_manager.get_client()
-from src.core.logging import get_logger

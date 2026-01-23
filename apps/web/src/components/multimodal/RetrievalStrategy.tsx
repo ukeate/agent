@@ -3,7 +3,7 @@
  * 展示智能检索策略的决策过程和权重分配
  */
 
-import React from 'react';
+import React from 'react'
 import {
   Card,
   Progress,
@@ -14,35 +14,35 @@ import {
   Empty,
   Row,
   Col,
-  Badge
-} from 'antd';
+  Badge,
+} from 'antd'
 import {
   SearchOutlined,
   FileTextOutlined,
   FileImageOutlined,
   TableOutlined,
   MergeCellsOutlined,
-  ThunderboltOutlined
-} from '@ant-design/icons';
+  ThunderboltOutlined,
+} from '@ant-design/icons'
 
-const { Text } = Typography;
+const { Text } = Typography
 
 interface RetrievalWeights {
-  text: number;
-  image: number;
-  table: number;
+  text: number
+  image: number
+  table: number
 }
 
 interface StrategyData {
-  strategy: 'text' | 'visual' | 'document' | 'hybrid';
-  weights: RetrievalWeights;
-  reranking: boolean;
-  top_k: number;
-  similarity_threshold: number;
+  strategy: 'text' | 'visual' | 'document' | 'hybrid'
+  weights: RetrievalWeights
+  reranking: boolean
+  top_k: number
+  similarity_threshold: number
 }
 
 interface RetrievalStrategyProps {
-  strategy: StrategyData | null;
+  strategy: StrategyData | null
 }
 
 const RetrievalStrategy: React.FC<RetrievalStrategyProps> = ({ strategy }) => {
@@ -51,56 +51,56 @@ const RetrievalStrategy: React.FC<RetrievalStrategyProps> = ({ strategy }) => {
       <Card title="检索策略决策" size="small">
         <Empty description="等待查询分析..." />
       </Card>
-    );
+    )
   }
 
   const getStrategyIcon = () => {
     switch (strategy.strategy) {
       case 'text':
-        return <FileTextOutlined />;
+        return <FileTextOutlined />
       case 'visual':
-        return <FileImageOutlined />;
+        return <FileImageOutlined />
       case 'document':
-        return <TableOutlined />;
+        return <TableOutlined />
       case 'hybrid':
-        return <MergeCellsOutlined />;
+        return <MergeCellsOutlined />
       default:
-        return <SearchOutlined />;
+        return <SearchOutlined />
     }
-  };
+  }
 
   const getStrategyColor = () => {
     switch (strategy.strategy) {
       case 'text':
-        return 'blue';
+        return 'blue'
       case 'visual':
-        return 'purple';
+        return 'purple'
       case 'document':
-        return 'green';
+        return 'green'
       case 'hybrid':
-        return 'orange';
+        return 'orange'
       default:
-        return 'default';
+        return 'default'
     }
-  };
+  }
 
   const getStrategyDescription = () => {
     switch (strategy.strategy) {
       case 'text':
-        return '纯文本向量相似度检索';
+        return '纯文本向量相似度检索'
       case 'visual':
-        return '多模态图像嵌入检索';
+        return '多模态图像嵌入检索'
       case 'document':
-        return '结构化文档和表格检索';
+        return '结构化文档和表格检索'
       case 'hybrid':
-        return '多路召回融合检索';
+        return '多路召回融合检索'
       default:
-        return '未知策略';
+        return '未知策略'
     }
-  };
+  }
 
   return (
-    <Card 
+    <Card
       title={
         <span>
           <ThunderboltOutlined className="mr-2" />
@@ -114,8 +114,8 @@ const RetrievalStrategy: React.FC<RetrievalStrategyProps> = ({ strategy }) => {
         <div>
           <Text type="secondary">选定策略:</Text>
           <div className="mt-2">
-            <Tag 
-              icon={getStrategyIcon()} 
+            <Tag
+              icon={getStrategyIcon()}
               color={getStrategyColor()}
               style={{ fontSize: 14, padding: '4px 12px' }}
             >
@@ -169,7 +169,10 @@ const RetrievalStrategy: React.FC<RetrievalStrategyProps> = ({ strategy }) => {
         {/* 技术参数 */}
         <Descriptions size="small" column={2}>
           <Descriptions.Item label="Top-K">
-            <Badge count={strategy.top_k} style={{ backgroundColor: '#52c41a' }} />
+            <Badge
+              count={strategy.top_k}
+              style={{ backgroundColor: '#52c41a' }}
+            />
           </Descriptions.Item>
           <Descriptions.Item label="相似度阈值">
             <Text code>{strategy.similarity_threshold}</Text>
@@ -184,7 +187,7 @@ const RetrievalStrategy: React.FC<RetrievalStrategyProps> = ({ strategy }) => {
         </Descriptions>
       </Space>
     </Card>
-  );
-};
+  )
+}
 
-export default RetrievalStrategy;
+export default RetrievalStrategy

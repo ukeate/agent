@@ -11,11 +11,6 @@ class TimeoutConstants:
     CONVERSATION_TIMEOUT_SECONDS = 1800
     AGENT_RESPONSE_TIMEOUT_SECONDS = 1800
     OPENAI_CLIENT_TIMEOUT_SECONDS = 1800
-    
-    # 旧的超时时间（保留用于兼容性检查）
-    LEGACY_WEBSOCKET_TIMEOUT_SECONDS = 300
-    LEGACY_AGENT_RESPONSE_TIMEOUT_SECONDS = 30
-    LEGACY_OPENAI_CLIENT_TIMEOUT_SECONDS = 30
 
 # 前端超时常量（毫秒）
 class FrontendTimeoutConstants:
@@ -26,9 +21,6 @@ class FrontendTimeoutConstants:
     
     # WebSocket相关超时
     WEBSOCKET_TIMEOUT_MS = 1800000
-    
-    # 旧的超时时间（保留用于兼容性检查）
-    LEGACY_API_CLIENT_TIMEOUT_MS = 30000
 
 # 对话配置常量
 class ConversationConstants:

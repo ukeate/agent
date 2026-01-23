@@ -30,7 +30,7 @@ const PrivacyEthicsPage: React.FC = () => {
     setError(null)
     try {
       const [pRes, aRes] = await Promise.all([
-        apiFetch(buildApiUrl('/api/v1/security/config'),
+        apiFetch(buildApiUrl('/api/v1/security/config')),
         apiFetch(buildApiUrl('/api/v1/security/mcp-tools/audit?limit=100'))
       ])
       const pData = await pRes.json()

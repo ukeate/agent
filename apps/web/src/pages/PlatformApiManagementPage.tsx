@@ -1,53 +1,69 @@
-import React, { useEffect, useState } from 'react';
-import { Button, Card, Form, Input, Modal, Select, Space, Table, Tabs, Tag, Typography, message } from 'antd';
+import React, { useEffect, useState } from 'react'
+import {
+  Button,
+  Card,
+  Form,
+  Input,
+  Modal,
+  Select,
+  Space,
+  Table,
+  Tabs,
+  Tag,
+  Typography,
+  message,
+} from 'antd'
 import platformService, {
   type PlatformComponentInfo,
   type PlatformHealthStatus,
   type RegisterComponentRequest,
   type WorkflowRunRequest,
-} from '../services/platformService';
+} from '../services/platformService'
 
-const { Title, Paragraph, Text } = Typography;
-const { TabPane } = Tabs;
-const { TextArea } = Input;
+const { Title, Paragraph, Text } = Typography
+const { TabPane } = Tabs
+const { TextArea } = Input
 
 type WorkflowItem = {
-  workflow_id: string;
-  workflow_type: string;
-  last_status?: any;
-};
+  workflow_id: string
+  workflow_type: string
+  last_status?: any
+}
 
 const PlatformApiManagementPage: React.FC = () => {
-  const [loading, setLoading] = useState(false);
-  const [health, setHealth] = useState<PlatformHealthStatus | null>(null);
-  const [components, setComponents] = useState<PlatformComponentInfo[]>([]);
-  const [workflows, setWorkflows] = useState<WorkflowItem[]>([]);
+  const [loading, setLoading] = useState(false)
+  const [health, setHealth] = useState<PlatformHealthStatus | null>(null)
+  const [components, setComponents] = useState<PlatformComponentInfo[]>([])
+  const [workflows, setWorkflows] = useState<WorkflowItem[]>([])
 
-  const [registerOpen, setRegisterOpen] = useState(false);
-  const [registerForm] = Form.useForm<RegisterComponentRequest>();
+  const [registerOpen, setRegisterOpen] = useState(false)
+  const [registerForm] = Form.useForm<RegisterComponentRequest>()
 
   const [workflowForm] = Form.useForm<{
-    workflow_type: string;
-    parameters_json: string;
-    priority: number;
-  }>();
+    workflow_type: string
+    parameters_json: string
+    priority: number
+  }>()
 
   const load = async () => {
-    setLoading(true);
+    setLoading(true)
     try {
-      const [h, c] = await Promise.all([platformService.getHealth(), platformService.getComponents()]);
-      setHealth(h);
-      setComponents(c);
+      const [h, c] = await Promise.all([
+        platformService.getHealth(),
+        platformService.getComponents(),
+      ])
+      setHealth(h)
+      setComponents(c)
     } catch (e) {
-      message.error((e as Error).message || '加载平台数据失败');
+      message.error((e as Error).message || '加载平台数据失败')
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
+  }
 
   useEffect(() => {
-    void load();
-  }, []);
+    void load()
+  }, [])
 
   const handleOpenRegister = () => {
     registerForm.setFieldsValue({
@@ -57,14 +73,16 @@ const PlatformApiManagementPage: React.FC = () => {
       health_endpoint: '',
       api_endpoint: '',
       metadata: {},
-    } as any);
-    setRegisterOpen(true);
-  };
+    } as any)
+    setRegisterOpen(true)
+  }
 
   const handleRegister = async (values: any) => {
-    setLoading(true);
+    setLoading(true)
     try {
-      const metadata = values.metadata_json ? JSON.parse(values.metadata_json) : {};
+      const metadata = values.metadata_json
+        ? JSON.parse(values.metadata_json)
+        : {}
       const payload: RegisterComponentRequest = {
         component_id: values.component_id,
         component_type: values.component_type,
@@ -73,17 +91,17 @@ const PlatformApiManagementPage: React.FC = () => {
         health_endpoint: values.health_endpoint,
         api_endpoint: values.api_endpoint,
         metadata,
-      };
-      const result = await platformService.registerComponent(payload);
-      message.success(result.message || '组件注册成功');
-      setRegisterOpen(false);
-      await load();
+      }
+      const result = await platformService.registerComponent(payload)
+      message.success(result.message || '组件注册成功')
+      setRegisterOpen(false)
+      await load()
     } catch (e) {
-      message.error((e as Error).message || '组件注册失败');
+      message.error((e as Error).message || '组件注册失败')
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
+  }
 
   const handleDeleteComponent = (componentId: string) => {
     Modal.confirm({
@@ -93,57 +111,78 @@ const PlatformApiManagementPage: React.FC = () => {
       okType: 'danger',
       cancelText: '取消',
       onOk: async () => {
-        setLoading(true);
+        setLoading(true)
         try {
-          const result = await platformService.deleteComponent(componentId);
-          message.success(result.message || '组件已删除');
-          await load();
+          const result = await platformService.deleteComponent(componentId)
+          message.success(result.message || '组件已删除')
+          await load()
         } catch (e) {
-          message.error((e as Error).message || '删除组件失败');
+          message.error((e as Error).message || '删除组件失败')
         } finally {
-          setLoading(false);
+          setLoading(false)
         }
       },
-    });
-  };
+    })
+  }
 
   const handleRunWorkflow = async (values: any) => {
-    setLoading(true);
+    setLoading(true)
     try {
-      const parameters = values.parameters_json ? JSON.parse(values.parameters_json) : {};
+      const parameters = values.parameters_json
+        ? JSON.parse(values.parameters_json)
+        : {}
       const payload: WorkflowRunRequest = {
         workflow_type: values.workflow_type,
         parameters,
         priority: Number(values.priority) || 0,
-      };
-      const result = await platformService.runWorkflow(payload);
-      message.success(result.message || '工作流已启动');
-      setWorkflows((prev) => [{ workflow_id: result.workflow_id, workflow_type: result.workflow_type }, ...prev]);
-      workflowForm.resetFields(['parameters_json']);
+      }
+      const result = await platformService.runWorkflow(payload)
+      message.success(result.message || '工作流已启动')
+      setWorkflows(prev => [
+        {
+          workflow_id: result.workflow_id,
+          workflow_type: result.workflow_type,
+        },
+        ...prev,
+      ])
+      workflowForm.resetFields(['parameters_json'])
     } catch (e) {
-      message.error((e as Error).message || '启动工作流失败');
+      message.error((e as Error).message || '启动工作流失败')
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
+  }
 
   const handleRefreshWorkflow = async (workflowId: string) => {
-    setLoading(true);
+    setLoading(true)
     try {
-      const status = await platformService.getWorkflowStatus(workflowId);
-      setWorkflows((prev) =>
-        prev.map((w) => (w.workflow_id === workflowId ? { ...w, last_status: status } : w))
-      );
+      const status = await platformService.getWorkflowStatus(workflowId)
+      setWorkflows(prev =>
+        prev.map(w =>
+          w.workflow_id === workflowId ? { ...w, last_status: status } : w
+        )
+      )
     } catch (e) {
-      message.error((e as Error).message || '获取工作流状态失败');
+      message.error((e as Error).message || '获取工作流状态失败')
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
+  }
 
   const componentColumns = [
-    { title: 'ID', dataIndex: 'component_id', key: 'component_id', width: 220, ellipsis: true },
-    { title: '类型', dataIndex: 'component_type', key: 'component_type', render: (v: string) => <Tag>{v}</Tag> },
+    {
+      title: 'ID',
+      dataIndex: 'component_id',
+      key: 'component_id',
+      width: 220,
+      ellipsis: true,
+    },
+    {
+      title: '类型',
+      dataIndex: 'component_type',
+      key: 'component_type',
+      render: (v: string) => <Tag>{v}</Tag>,
+    },
     { title: '名称', dataIndex: 'name', key: 'name' },
     { title: '版本', dataIndex: 'version', key: 'version', width: 100 },
     {
@@ -152,34 +191,73 @@ const PlatformApiManagementPage: React.FC = () => {
       key: 'status',
       width: 120,
       render: (v: string) => (
-        <Tag color={v === 'healthy' ? 'green' : v === 'unhealthy' || v === 'error' ? 'red' : 'orange'}>{v}</Tag>
+        <Tag
+          color={
+            v === 'healthy'
+              ? 'green'
+              : v === 'unhealthy' || v === 'error'
+                ? 'red'
+                : 'orange'
+          }
+        >
+          {v}
+        </Tag>
       ),
     },
-    { title: '健康检查', dataIndex: 'health_endpoint', key: 'health_endpoint', ellipsis: true },
-    { title: 'API端点', dataIndex: 'api_endpoint', key: 'api_endpoint', ellipsis: true },
-    { title: '最后心跳', dataIndex: 'last_heartbeat', key: 'last_heartbeat', width: 200 },
+    {
+      title: '健康检查',
+      dataIndex: 'health_endpoint',
+      key: 'health_endpoint',
+      ellipsis: true,
+    },
+    {
+      title: 'API端点',
+      dataIndex: 'api_endpoint',
+      key: 'api_endpoint',
+      ellipsis: true,
+    },
+    {
+      title: '最后心跳',
+      dataIndex: 'last_heartbeat',
+      key: 'last_heartbeat',
+      width: 200,
+    },
     {
       title: '操作',
       key: 'actions',
       width: 120,
       render: (_: unknown, record: PlatformComponentInfo) => (
-        <Button danger size="small" onClick={() => handleDeleteComponent(record.component_id)}>
+        <Button
+          danger
+          size="small"
+          onClick={() => handleDeleteComponent(record.component_id)}
+        >
           删除
         </Button>
       ),
     },
-  ];
+  ]
 
   const workflowColumns = [
-    { title: '工作流ID', dataIndex: 'workflow_id', key: 'workflow_id', ellipsis: true },
-    { title: '类型', dataIndex: 'workflow_type', key: 'workflow_type', width: 180 },
+    {
+      title: '工作流ID',
+      dataIndex: 'workflow_id',
+      key: 'workflow_id',
+      ellipsis: true,
+    },
+    {
+      title: '类型',
+      dataIndex: 'workflow_type',
+      key: 'workflow_type',
+      width: 180,
+    },
     {
       title: '状态',
       key: 'status',
       render: (_: unknown, record: WorkflowItem) => {
-        const w = record.last_status?.workflow;
-        const status = w?.status || record.last_status?.status;
-        return <Text>{status || '-'}</Text>;
+        const w = record.last_status?.workflow
+        const status = w?.status || record.last_status?.status
+        return <Text>{status || '-'}</Text>
       },
     },
     {
@@ -187,17 +265,23 @@ const PlatformApiManagementPage: React.FC = () => {
       key: 'actions',
       width: 120,
       render: (_: unknown, record: WorkflowItem) => (
-        <Button size="small" onClick={() => handleRefreshWorkflow(record.workflow_id)} loading={loading}>
+        <Button
+          size="small"
+          onClick={() => handleRefreshWorkflow(record.workflow_id)}
+          loading={loading}
+        >
           刷新
         </Button>
       ),
     },
-  ];
+  ]
 
   return (
     <div style={{ padding: 24 }}>
       <Title level={2}>平台集成 API</Title>
-      <Paragraph type="secondary">覆盖 /api/v1/platform 的健康检查、组件注册/注销、工作流执行与状态接口。</Paragraph>
+      <Paragraph type="secondary">
+        覆盖 /api/v1/platform 的健康检查、组件注册/注销、工作流执行与状态接口。
+      </Paragraph>
 
       <Space style={{ marginBottom: 16 }}>
         <Button onClick={load} loading={loading}>
@@ -216,14 +300,20 @@ const PlatformApiManagementPage: React.FC = () => {
                 总体状态: <Text strong>{health?.overall_status || '-'}</Text>
               </Text>
               <Text>
-                组件健康: {health?.healthy_components ?? '-'} / {health?.total_components ?? '-'}
+                组件健康: {health?.healthy_components ?? '-'} /{' '}
+                {health?.total_components ?? '-'}
               </Text>
               <Text>时间: {health?.timestamp || '-'}</Text>
             </Space>
           </TabPane>
 
           <TabPane tab="组件" key="components">
-            <Table columns={componentColumns} dataSource={components} rowKey="component_id" size="small" />
+            <Table
+              columns={componentColumns}
+              dataSource={components}
+              rowKey="component_id"
+              size="small"
+            />
           </TabPane>
 
           <TabPane tab="工作流" key="workflows">
@@ -232,14 +322,30 @@ const PlatformApiManagementPage: React.FC = () => {
                 form={workflowForm}
                 layout="vertical"
                 onFinish={handleRunWorkflow}
-                initialValues={{ workflow_type: 'full_fine_tuning', parameters_json: '{}', priority: 0 }}
+                initialValues={{
+                  workflow_type: 'full_fine_tuning',
+                  parameters_json: '{}',
+                  priority: 0,
+                }}
               >
-                <Form.Item label="工作流类型" name="workflow_type" rules={[{ required: true, message: '请选择工作流类型' }]}>
+                <Form.Item
+                  label="工作流类型"
+                  name="workflow_type"
+                  rules={[{ required: true, message: '请选择工作流类型' }]}
+                >
                   <Select>
-                    <Select.Option value="full_fine_tuning">full_fine_tuning</Select.Option>
-                    <Select.Option value="model_optimization">model_optimization</Select.Option>
-                    <Select.Option value="evaluation_only">evaluation_only</Select.Option>
-                    <Select.Option value="data_processing">data_processing</Select.Option>
+                    <Select.Option value="full_fine_tuning">
+                      full_fine_tuning
+                    </Select.Option>
+                    <Select.Option value="model_optimization">
+                      model_optimization
+                    </Select.Option>
+                    <Select.Option value="evaluation_only">
+                      evaluation_only
+                    </Select.Option>
+                    <Select.Option value="data_processing">
+                      data_processing
+                    </Select.Option>
                   </Select>
                 </Form.Item>
                 <Form.Item label="参数(JSON)" name="parameters_json">
@@ -257,38 +363,81 @@ const PlatformApiManagementPage: React.FC = () => {
             </Card>
 
             <Card title="工作流列表" size="small">
-              <Table columns={workflowColumns} dataSource={workflows} rowKey="workflow_id" size="small" />
+              <Table
+                columns={workflowColumns}
+                dataSource={workflows}
+                rowKey="workflow_id"
+                size="small"
+              />
             </Card>
           </TabPane>
         </Tabs>
       </Card>
 
-      <Modal title="注册组件" open={registerOpen} onCancel={() => setRegisterOpen(false)} footer={null} destroyOnClose>
-        <Form layout="vertical" onFinish={handleRegister} initialValues={{ component_type: 'custom', metadata_json: '{}' }}>
-          <Form.Item label="组件ID" name="component_id" rules={[{ required: true, message: '请输入组件ID' }]}>
+      <Modal
+        title="注册组件"
+        open={registerOpen}
+        onCancel={() => setRegisterOpen(false)}
+        footer={null}
+        destroyOnClose
+      >
+        <Form
+          layout="vertical"
+          onFinish={handleRegister}
+          initialValues={{ component_type: 'custom', metadata_json: '{}' }}
+        >
+          <Form.Item
+            label="组件ID"
+            name="component_id"
+            rules={[{ required: true, message: '请输入组件ID' }]}
+          >
             <Input />
           </Form.Item>
-          <Form.Item label="组件类型" name="component_type" rules={[{ required: true, message: '请选择组件类型' }]}>
+          <Form.Item
+            label="组件类型"
+            name="component_type"
+            rules={[{ required: true, message: '请选择组件类型' }]}
+          >
             <Select>
               <Select.Option value="fine_tuning">fine_tuning</Select.Option>
               <Select.Option value="compression">compression</Select.Option>
-              <Select.Option value="hyperparameter">hyperparameter</Select.Option>
+              <Select.Option value="hyperparameter">
+                hyperparameter
+              </Select.Option>
               <Select.Option value="evaluation">evaluation</Select.Option>
-              <Select.Option value="data_management">data_management</Select.Option>
+              <Select.Option value="data_management">
+                data_management
+              </Select.Option>
               <Select.Option value="model_service">model_service</Select.Option>
               <Select.Option value="custom">custom</Select.Option>
             </Select>
           </Form.Item>
-          <Form.Item label="名称" name="name" rules={[{ required: true, message: '请输入名称' }]}>
+          <Form.Item
+            label="名称"
+            name="name"
+            rules={[{ required: true, message: '请输入名称' }]}
+          >
             <Input />
           </Form.Item>
-          <Form.Item label="版本" name="version" rules={[{ required: true, message: '请输入版本' }]}>
+          <Form.Item
+            label="版本"
+            name="version"
+            rules={[{ required: true, message: '请输入版本' }]}
+          >
             <Input />
           </Form.Item>
-          <Form.Item label="健康检查端点" name="health_endpoint" rules={[{ required: true, message: '请输入健康检查端点' }]}>
+          <Form.Item
+            label="健康检查端点"
+            name="health_endpoint"
+            rules={[{ required: true, message: '请输入健康检查端点' }]}
+          >
             <Input />
           </Form.Item>
-          <Form.Item label="API端点" name="api_endpoint" rules={[{ required: true, message: '请输入API端点' }]}>
+          <Form.Item
+            label="API端点"
+            name="api_endpoint"
+            rules={[{ required: true, message: '请输入API端点' }]}
+          >
             <Input />
           </Form.Item>
           <Form.Item label="元数据(JSON)" name="metadata_json">
@@ -302,8 +451,7 @@ const PlatformApiManagementPage: React.FC = () => {
         </Form>
       </Modal>
     </div>
-  );
-};
+  )
+}
 
-export default PlatformApiManagementPage;
-
+export default PlatformApiManagementPage

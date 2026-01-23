@@ -1,6 +1,16 @@
 import { buildApiUrl, apiFetch } from '../utils/apiBase'
 import React, { useEffect, useState } from 'react'
-import { Card, Table, Button, Space, Typography, Drawer, Tag, message, Select } from 'antd'
+import {
+  Card,
+  Table,
+  Button,
+  Space,
+  Typography,
+  Drawer,
+  Tag,
+  message,
+  Select,
+} from 'antd'
 import { ReloadOutlined } from '@ant-design/icons'
 
 type Job = {
@@ -29,7 +39,9 @@ const EvaluationTasksMonitorPage: React.FC = () => {
     try {
       const params = new URLSearchParams({ limit: '50', offset: '0' })
       if (status !== 'all') params.set('status', status)
-      const res = await apiFetch(buildApiUrl(`/api/v1/model-evaluation/jobs?${params.toString()}`))
+      const res = await apiFetch(
+        buildApiUrl(`/api/v1/model-evaluation/jobs?${params.toString()}`)
+      )
       const data = await res.json().catch(() => null)
       setJobs(Array.isArray(data?.jobs) ? data.jobs : [])
     } catch (e: any) {
@@ -49,7 +61,10 @@ const EvaluationTasksMonitorPage: React.FC = () => {
   const cancelJob = async (jobId: string) => {
     setLoading(true)
     try {
-      const res = await apiFetch(buildApiUrl(`/api/v1/model-evaluation/jobs/${jobId}`), { method: 'DELETE' })
+      const res = await apiFetch(
+        buildApiUrl(`/api/v1/model-evaluation/jobs/${jobId}`),
+        { method: 'DELETE' }
+      )
       const data = await res.json().catch(() => null)
       message.success('任务已取消')
       await load()
@@ -75,7 +90,10 @@ const EvaluationTasksMonitorPage: React.FC = () => {
   return (
     <div style={{ padding: 24 }}>
       <Space direction="vertical" style={{ width: '100%' }} size="large">
-        <Space align="center" style={{ justifyContent: 'space-between', width: '100%' }}>
+        <Space
+          align="center"
+          style={{ justifyContent: 'space-between', width: '100%' }}
+        >
           <Typography.Title level={3} style={{ margin: 0 }}>
             评估任务监控
           </Typography.Title>
@@ -107,17 +125,37 @@ const EvaluationTasksMonitorPage: React.FC = () => {
             pagination={{ pageSize: 20 }}
             columns={[
               { title: 'Job ID', dataIndex: 'job_id' },
-              { title: '状态', dataIndex: 'status', render: (v: string) => statusTag(v) },
+              {
+                title: '状态',
+                dataIndex: 'status',
+                render: (v: string) => statusTag(v),
+              },
               {
                 title: '进度',
                 dataIndex: 'progress',
                 render: (v: number) => `${Math.round((v || 0) * 100)}%`,
               },
-              { title: '当前任务', dataIndex: 'current_task', render: (v: string) => v || '-' },
+              {
+                title: '当前任务',
+                dataIndex: 'current_task',
+                render: (v: string) => v || '-',
+              },
               { title: '创建时间', dataIndex: 'created_at' },
-              { title: '开始时间', dataIndex: 'started_at', render: (v: string) => v || '-' },
-              { title: '完成时间', dataIndex: 'completed_at', render: (v: string) => v || '-' },
-              { title: '错误', dataIndex: 'error', render: (v: string) => v || '-' },
+              {
+                title: '开始时间',
+                dataIndex: 'started_at',
+                render: (v: string) => v || '-',
+              },
+              {
+                title: '完成时间',
+                dataIndex: 'completed_at',
+                render: (v: string) => v || '-',
+              },
+              {
+                title: '错误',
+                dataIndex: 'error',
+                render: (v: string) => v || '-',
+              },
               {
                 title: '操作',
                 render: (_, r: Job) => (
@@ -153,7 +191,9 @@ const EvaluationTasksMonitorPage: React.FC = () => {
           width={720}
           destroyOnClose
         >
-          <pre style={{ whiteSpace: 'pre-wrap' }}>{selected ? JSON.stringify(selected, null, 2) : ''}</pre>
+          <pre style={{ whiteSpace: 'pre-wrap' }}>
+            {selected ? JSON.stringify(selected, null, 2) : ''}
+          </pre>
         </Drawer>
       </Space>
     </div>

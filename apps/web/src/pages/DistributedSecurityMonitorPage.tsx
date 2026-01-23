@@ -1,17 +1,32 @@
-import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
-import { Badge } from '../components/ui/badge';
-import { Button } from '../components/ui/button';
-import { Alert, AlertDescription } from '../components/ui/alert';
-import { LineChart, Line, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell } from 'recharts';
-import { 
+import React, { useState, useEffect } from 'react'
+import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs'
+import { Badge } from '../components/ui/badge'
+import { Button } from '../components/ui/button'
+import { Alert, AlertDescription } from '../components/ui/alert'
+import {
+  LineChart,
+  Line,
+  AreaChart,
+  Area,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+  PieChart,
+  Pie,
+  Cell,
+} from 'recharts'
 import { logger } from '../utils/logger'
-  Shield, 
-  AlertTriangle, 
-  Users, 
-  Lock, 
-  Activity, 
+import {
+  Shield,
+  AlertTriangle,
+  Users,
+  Lock,
+  Activity,
   TrendingUp,
   Eye,
   Key,
@@ -21,82 +36,98 @@ import { logger } from '../utils/logger'
   Clock,
   Globe,
   Server,
-  Database
-} from 'lucide-react';
-import { distributedSecurityService, type SecurityMetrics, type SecurityAlert, type AgentIdentity } from '../services/distributedSecurityService';
-import { message } from 'antd';
+  Database,
+} from 'lucide-react'
+import {
+  distributedSecurityService,
+  type SecurityMetrics,
+  type SecurityAlert,
+  type AgentIdentity,
+} from '../services/distributedSecurityService'
+import { message } from 'antd'
 
 const DistributedSecurityMonitorPage: React.FC = () => {
-  const [activeTab, setActiveTab] = useState('overview');
-  const [metrics, setMetrics] = useState<SecurityMetrics | null>(null);
-  const [alerts, setAlerts] = useState<SecurityAlert[]>([]);
-  const [agents, setAgents] = useState<AgentIdentity[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [metricsHistory, setMetricsHistory] = useState<SecurityMetrics[]>([]);
+  const [activeTab, setActiveTab] = useState('overview')
+  const [metrics, setMetrics] = useState<SecurityMetrics | null>(null)
+  const [alerts, setAlerts] = useState<SecurityAlert[]>([])
+  const [agents, setAgents] = useState<AgentIdentity[]>([])
+  const [loading, setLoading] = useState(true)
+  const [metricsHistory, setMetricsHistory] = useState<SecurityMetrics[]>([])
 
   // 加载数据
   useEffect(() => {
     const loadData = async () => {
-      setLoading(true);
-      
-      try {
-        const now = new Date();
-        const start = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-        const [metricsData, alertsData, agentsData, historyData] = await Promise.all([
-          distributedSecurityService.getMetrics(),
-          distributedSecurityService.getAlerts({ limit: 10 }),
-          distributedSecurityService.getAgents(),
-          distributedSecurityService.getMetricsHistory({
-            start: start.toISOString(),
-            end: now.toISOString()
-          })
-        ]);
-        
-        setMetrics(metricsData);
-        setAlerts(alertsData);
-        setAgents(agentsData);
-        setMetricsHistory(historyData || []);
-      } catch (error) {
-        logger.error('加载安全数据失败:', error);
-        message.error('加载安全监控数据失败');
-        setMetrics(null);
-        setAlerts([]);
-        setAgents([]);
-        setMetricsHistory([]);
-      } finally {
-        setLoading(false);
-      }
-    };
+      setLoading(true)
 
-    loadData();
-  }, []);
+      try {
+        const now = new Date()
+        const start = new Date(now.getTime() - 24 * 60 * 60 * 1000)
+        const [metricsData, alertsData, agentsData, historyData] =
+          await Promise.all([
+            distributedSecurityService.getMetrics(),
+            distributedSecurityService.getAlerts({ limit: 10 }),
+            distributedSecurityService.getAgents(),
+            distributedSecurityService.getMetricsHistory({
+              start: start.toISOString(),
+              end: now.toISOString(),
+            }),
+          ])
+
+        setMetrics(metricsData)
+        setAlerts(alertsData)
+        setAgents(agentsData)
+        setMetricsHistory(historyData || [])
+      } catch (error) {
+        logger.error('加载安全数据失败:', error)
+        message.error('加载安全监控数据失败')
+        setMetrics(null)
+        setAlerts([])
+        setAgents([])
+        setMetricsHistory([])
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    loadData()
+  }, [])
 
   // 安全等级颜色映射
   const getThreatLevelColor = (level: string) => {
     switch (level) {
-      case 'critical': return 'bg-red-100 text-red-800 border-red-200';
-      case 'high': return 'bg-orange-100 text-orange-800 border-orange-200';
-      case 'medium': return 'bg-yellow-100 text-yellow-800 border-yellow-200';
-      case 'low': return 'bg-blue-100 text-blue-800 border-blue-200';
-      default: return 'bg-gray-100 text-gray-800 border-gray-200';
+      case 'critical':
+        return 'bg-red-100 text-red-800 border-red-200'
+      case 'high':
+        return 'bg-orange-100 text-orange-800 border-orange-200'
+      case 'medium':
+        return 'bg-yellow-100 text-yellow-800 border-yellow-200'
+      case 'low':
+        return 'bg-blue-100 text-blue-800 border-blue-200'
+      default:
+        return 'bg-gray-100 text-gray-800 border-gray-200'
     }
-  };
+  }
 
   // 状态颜色映射
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'active': return 'bg-red-100 text-red-800';
-      case 'acknowledged': return 'bg-yellow-100 text-yellow-800';
-      case 'resolved': return 'bg-green-100 text-green-800';
-      default: return 'bg-gray-100 text-gray-800';
+      case 'active':
+        return 'bg-red-100 text-red-800'
+      case 'acknowledged':
+        return 'bg-yellow-100 text-yellow-800'
+      case 'resolved':
+        return 'bg-green-100 text-green-800'
+      default:
+        return 'bg-gray-100 text-gray-800'
     }
-  };
+  }
 
-  const trendData = (metricsHistory && metricsHistory.length > 0
-    ? metricsHistory
-    : metrics
-      ? [metrics]
-      : []
+  const trendData = (
+    metricsHistory && metricsHistory.length > 0
+      ? metricsHistory
+      : metrics
+        ? [metrics]
+        : []
   ).map((item, index) => ({
     time: `${index}`,
     auth_success: item.authentication.successful_attempts_24h,
@@ -104,15 +135,15 @@ const DistributedSecurityMonitorPage: React.FC = () => {
     access_granted: item.access_control.granted_requests_24h,
     access_denied: item.access_control.denied_requests_24h,
     threats: item.threat_detection.threats_detected_24h,
-    sessions: item.communication.active_sessions
-  }));
+    sessions: item.communication.active_sessions,
+  }))
 
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="text-lg">加载安全监控数据中...</div>
       </div>
-    );
+    )
   }
 
   return (
@@ -143,7 +174,9 @@ const DistributedSecurityMonitorPage: React.FC = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">活跃智能体</CardTitle>
+                <CardTitle className="text-sm font-medium">
+                  活跃智能体
+                </CardTitle>
                 <Users className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
@@ -158,12 +191,17 @@ const DistributedSecurityMonitorPage: React.FC = () => {
 
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">认证成功率</CardTitle>
+                <CardTitle className="text-sm font-medium">
+                  认证成功率
+                </CardTitle>
                 <CheckCircle className="h-4 w-4 text-green-600" />
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">
-                  {((metrics?.authentication.success_rate || 0) * 100).toFixed(1)}%
+                  {((metrics?.authentication.success_rate || 0) * 100).toFixed(
+                    1
+                  )}
+                  %
                 </div>
                 <p className="text-xs text-muted-foreground">
                   24小时内 {metrics?.authentication.total_attempts_24h} 次尝试
@@ -180,9 +218,7 @@ const DistributedSecurityMonitorPage: React.FC = () => {
                 <div className="text-2xl font-bold">
                   {metrics?.communication.active_sessions}
                 </div>
-                <p className="text-xs text-muted-foreground">
-                  加密通信会话
-                </p>
+                <p className="text-xs text-muted-foreground">加密通信会话</p>
               </CardContent>
             </Card>
 
@@ -195,9 +231,7 @@ const DistributedSecurityMonitorPage: React.FC = () => {
                 <div className="text-2xl font-bold">
                   {alerts.filter(a => a.status === 'active').length}
                 </div>
-                <p className="text-xs text-muted-foreground">
-                  活跃告警
-                </p>
+                <p className="text-xs text-muted-foreground">活跃告警</p>
               </CardContent>
             </Card>
           </div>
@@ -279,11 +313,16 @@ const DistributedSecurityMonitorPage: React.FC = () => {
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {alerts.slice(0, 5).map((alert) => (
-                  <div key={alert.id} className="flex items-center justify-between p-4 border rounded-lg">
+                {alerts.slice(0, 5).map(alert => (
+                  <div
+                    key={alert.id}
+                    className="flex items-center justify-between p-4 border rounded-lg"
+                  >
                     <div className="flex items-center gap-4">
                       <div className="flex items-center gap-2">
-                        <Badge className={getThreatLevelColor(alert.threat_level)}>
+                        <Badge
+                          className={getThreatLevelColor(alert.threat_level)}
+                        >
                           {alert.threat_level.toUpperCase()}
                         </Badge>
                         <Badge className={getStatusColor(alert.status)}>
@@ -293,8 +332,8 @@ const DistributedSecurityMonitorPage: React.FC = () => {
                       <div>
                         <h4 className="font-semibold">{alert.title}</h4>
                         <p className="text-sm text-gray-600">
-                          智能体: {alert.agent_id} | 
-                          时间: {new Date(alert.created_at).toLocaleString()}
+                          智能体: {alert.agent_id} | 时间:{' '}
+                          {new Date(alert.created_at).toLocaleString()}
                         </p>
                       </div>
                     </div>
@@ -324,19 +363,36 @@ const DistributedSecurityMonitorPage: React.FC = () => {
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  {agents.map((agent) => (
-                    <div key={agent.id} className="flex items-center justify-between p-4 border rounded-lg">
+                  {agents.map(agent => (
+                    <div
+                      key={agent.id}
+                      className="flex items-center justify-between p-4 border rounded-lg"
+                    >
                       <div className="flex items-center gap-4">
-                        <div className={`w-3 h-3 rounded-full ${agent.is_locked ? 'bg-red-500' : 'bg-green-500'}`} />
+                        <div
+                          className={`w-3 h-3 rounded-full ${agent.is_locked ? 'bg-red-500' : 'bg-green-500'}`}
+                        />
                         <div>
-                          <h4 className="font-semibold">{agent.display_name}</h4>
-                          <p className="text-sm text-gray-600">ID: {agent.agent_id}</p>
+                          <h4 className="font-semibold">
+                            {agent.display_name}
+                          </h4>
+                          <p className="text-sm text-gray-600">
+                            ID: {agent.agent_id}
+                          </p>
                         </div>
                       </div>
                       <div className="text-right">
                         <div className="flex items-center gap-2 mb-1">
                           <span className="text-sm">信任分数:</span>
-                          <Badge variant={agent.trust_score >= 90 ? "default" : agent.trust_score >= 80 ? "secondary" : "destructive"}>
+                          <Badge
+                            variant={
+                              agent.trust_score >= 90
+                                ? 'default'
+                                : agent.trust_score >= 80
+                                  ? 'secondary'
+                                  : 'destructive'
+                            }
+                          >
                             {agent.trust_score.toFixed(1)}
                           </Badge>
                         </div>
@@ -361,13 +417,13 @@ const DistributedSecurityMonitorPage: React.FC = () => {
                       data={[
                         { name: 'PKI证书', value: 65, fill: '#3b82f6' },
                         { name: 'MFA', value: 25, fill: '#10b981' },
-                        { name: '生物识别', value: 10, fill: '#f59e0b' }
+                        { name: '生物识别', value: 10, fill: '#f59e0b' },
                       ]}
                       cx="50%"
                       cy="50%"
                       outerRadius={80}
                       dataKey="value"
-                      label={({name, value}) => `${name}: ${value}%`}
+                      label={({ name, value }) => `${name}: ${value}%`}
                     />
                     <Tooltip />
                   </PieChart>
@@ -406,11 +462,15 @@ const DistributedSecurityMonitorPage: React.FC = () => {
                 <div className="space-y-4">
                   <div className="flex justify-between items-center p-3 bg-green-50 rounded-lg">
                     <span className="font-medium">RBAC策略</span>
-                    <Badge className="bg-green-100 text-green-800">75% 匹配</Badge>
+                    <Badge className="bg-green-100 text-green-800">
+                      75% 匹配
+                    </Badge>
                   </div>
                   <div className="flex justify-between items-center p-3 bg-blue-50 rounded-lg">
                     <span className="font-medium">ABAC策略</span>
-                    <Badge className="bg-blue-100 text-blue-800">20% 匹配</Badge>
+                    <Badge className="bg-blue-100 text-blue-800">
+                      20% 匹配
+                    </Badge>
                   </div>
                   <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
                     <span className="font-medium">默认拒绝</span>
@@ -469,14 +529,18 @@ const DistributedSecurityMonitorPage: React.FC = () => {
                     <Pie
                       data={[
                         { name: 'AES-256-GCM', value: 85, fill: '#3b82f6' },
-                        { name: 'ChaCha20-Poly1305', value: 12, fill: '#10b981' },
-                        { name: '其他', value: 3, fill: '#f59e0b' }
+                        {
+                          name: 'ChaCha20-Poly1305',
+                          value: 12,
+                          fill: '#10b981',
+                        },
+                        { name: '其他', value: 3, fill: '#f59e0b' },
                       ]}
                       cx="50%"
                       cy="50%"
                       outerRadius={80}
                       dataKey="value"
-                      label={({name, value}) => `${name}: ${value}%`}
+                      label={({ name, value }) => `${name}: ${value}%`}
                     />
                     <Tooltip />
                   </PieChart>
@@ -546,15 +610,19 @@ const DistributedSecurityMonitorPage: React.FC = () => {
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {alerts.map((alert) => (
+                {alerts.map(alert => (
                   <div key={alert.id} className="p-4 border rounded-lg">
                     <div className="flex items-start justify-between mb-2">
                       <div>
                         <h4 className="font-semibold">{alert.title}</h4>
-                        <p className="text-sm text-gray-600">类型: {alert.alert_type}</p>
+                        <p className="text-sm text-gray-600">
+                          类型: {alert.alert_type}
+                        </p>
                       </div>
                       <div className="flex gap-2">
-                        <Badge className={getThreatLevelColor(alert.threat_level)}>
+                        <Badge
+                          className={getThreatLevelColor(alert.threat_level)}
+                        >
                           {alert.threat_level}
                         </Badge>
                         <Badge className={getStatusColor(alert.status)}>
@@ -577,7 +645,7 @@ const DistributedSecurityMonitorPage: React.FC = () => {
         </TabsContent>
       </Tabs>
     </div>
-  );
-};
+  )
+}
 
-export default DistributedSecurityMonitorPage;
+export default DistributedSecurityMonitorPage

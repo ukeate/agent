@@ -1,31 +1,43 @@
-import React, { useState } from 'react';
-import { Card, Table, Button, Select, Space, Alert, Statistic, Row, Col, message } from 'antd';
-import { LineChartOutlined } from '@ant-design/icons';
-import { pgvectorApi } from '../../services/pgvectorApi';
+import React, { useState } from 'react'
+import {
+  Card,
+  Table,
+  Button,
+  Select,
+  Space,
+  Alert,
+  Statistic,
+  Row,
+  Col,
+  message,
+} from 'antd'
+import { LineChartOutlined } from '@ant-design/icons'
+import { pgvectorApi } from '../../services/pgvectorApi'
 
 interface QueryPerformance {
-  total_queries: number;
-  average_execution_time_ms: number;
-  min_execution_time_ms: number;
-  max_execution_time_ms: number;
+  total_queries: number
+  average_execution_time_ms: number
+  min_execution_time_ms: number
+  max_execution_time_ms: number
 }
 
 const TemporalVectorPanel: React.FC = () => {
-  const [timeRange, setTimeRange] = useState<'1h' | '6h' | '24h'>('24h');
-  const [metrics, setMetrics] = useState<QueryPerformance | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [timeRange, setTimeRange] = useState<'1h' | '6h' | '24h'>('24h')
+  const [metrics, setMetrics] = useState<QueryPerformance | null>(null)
+  const [loading, setLoading] = useState(false)
 
   const loadMetrics = async () => {
-    setLoading(true);
+    setLoading(true)
     try {
-      const { query_performance } = await pgvectorApi.getPerformanceMetrics(timeRange);
-      setMetrics(query_performance);
+      const { query_performance } =
+        await pgvectorApi.getPerformanceMetrics(timeRange)
+      setMetrics(query_performance)
     } catch (e) {
-      message.error('获取向量性能指标失败');
+      message.error('获取向量性能指标失败')
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
+  }
 
   const rows = metrics
     ? [
@@ -37,14 +49,14 @@ const TemporalVectorPanel: React.FC = () => {
           max: metrics.max_execution_time_ms,
         },
       ]
-    : [];
+    : []
 
   const columns = [
     { title: '总查询数', dataIndex: 'total', key: 'total' },
     { title: '平均耗时(ms)', dataIndex: 'avg', key: 'avg' },
     { title: '最小耗时(ms)', dataIndex: 'min', key: 'min' },
     { title: '最大耗时(ms)', dataIndex: 'max', key: 'max' },
-  ];
+  ]
 
   return (
     <div>
@@ -60,12 +72,21 @@ const TemporalVectorPanel: React.FC = () => {
         <Col span={8}>
           <Card title="查询窗口" size="small">
             <Space direction="vertical" style={{ width: '100%' }}>
-              <Select value={timeRange} onChange={setTimeRange} options={[
-                { label: '最近1小时', value: '1h' },
-                { label: '最近6小时', value: '6h' },
-                { label: '最近24小时', value: '24h' },
-              ]} />
-              <Button type="primary" block onClick={loadMetrics} loading={loading}>
+              <Select
+                value={timeRange}
+                onChange={setTimeRange}
+                options={[
+                  { label: '最近1小时', value: '1h' },
+                  { label: '最近6小时', value: '6h' },
+                  { label: '最近24小时', value: '24h' },
+                ]}
+              />
+              <Button
+                type="primary"
+                block
+                onClick={loadMetrics}
+                loading={loading}
+              >
                 拉取性能数据
               </Button>
             </Space>
@@ -74,10 +95,16 @@ const TemporalVectorPanel: React.FC = () => {
           <Card title="关键指标" size="small" style={{ marginTop: 16 }}>
             <Row gutter={16}>
               <Col span={12}>
-                <Statistic title="总查询数" value={metrics?.total_queries ?? 0} />
+                <Statistic
+                  title="总查询数"
+                  value={metrics?.total_queries ?? 0}
+                />
               </Col>
               <Col span={12}>
-                <Statistic title="平均耗时(ms)" value={metrics?.average_execution_time_ms ?? 0} />
+                <Statistic
+                  title="平均耗时(ms)"
+                  value={metrics?.average_execution_time_ms ?? 0}
+                />
               </Col>
             </Row>
           </Card>
@@ -85,7 +112,12 @@ const TemporalVectorPanel: React.FC = () => {
 
         <Col span={16}>
           <Card title="查询统计" size="small">
-            <Table columns={columns} dataSource={rows} pagination={false} size="small" />
+            <Table
+              columns={columns}
+              dataSource={rows}
+              pagination={false}
+              size="small"
+            />
           </Card>
 
           <Card title="时序图占位" size="small" style={{ marginTop: 16 }}>
@@ -108,7 +140,7 @@ const TemporalVectorPanel: React.FC = () => {
         </Col>
       </Row>
     </div>
-  );
-};
+  )
+}
 
-export default TemporalVectorPanel;
+export default TemporalVectorPanel

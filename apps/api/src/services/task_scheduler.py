@@ -4,12 +4,10 @@
 """
 
 import asyncio
-from datetime import datetime
-from datetime import timedelta
-from src.core.utils.timezone_utils import utc_now
-
-from src.core.utils.async_utils import create_task_with_logging
 from typing import Optional
+
+from src.core.utils.timezone_utils import utc_now
+from src.core.utils.async_utils import create_task_with_logging
 from src.services.task_executor import task_executor
 
 from src.core.logging import get_logger
@@ -47,7 +45,7 @@ class TaskScheduler:
             try:
                 await self._task
             except asyncio.CancelledError:
-                pass
+                logger.debug("任务调度器任务已取消")
             self._task = None
         
         logger.info("任务调度器已停止")

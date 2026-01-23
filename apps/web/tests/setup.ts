@@ -26,10 +26,10 @@ global.ResizeObserver = vi.fn().mockImplementation(() => ({
 // Mock antd responsive observer with proper implementation
 vi.mock('antd/lib/_util/responsiveObserver', () => ({
   default: {
-    subscribe: vi.fn().mockImplementation((callback) => {
+    subscribe: vi.fn().mockImplementation(callback => {
       // 立即调用回调，模拟屏幕尺寸检测
-      callback({ matches: true }); 
-      return vi.fn(); // 返回 unsubscribe 函数
+      callback({ matches: true })
+      return vi.fn() // 返回 unsubscribe 函数
     }),
     unsubscribe: vi.fn(),
     register: vi.fn().mockReturnValue(null),
@@ -40,8 +40,8 @@ vi.mock('antd/lib/_util/responsiveObserver', () => ({
       lg: '(min-width: 992px)',
       xl: '(min-width: 1200px)',
       xxl: '(min-width: 1600px)',
-    }
-  }
+    },
+  },
 }))
 
 // Mock rc-util getScrollBarSize to avoid JSdom computedStyle issues
@@ -83,17 +83,17 @@ const mockComputedStyle = {
   position: 'static',
   visibility: 'visible',
   overflow: 'visible',
-};
+}
 
 // Mock both getComputedStyle and computedStyle
-window.getComputedStyle = vi.fn().mockImplementation(() => mockComputedStyle);
-window.computedStyle = vi.fn().mockImplementation(() => mockComputedStyle);
+window.getComputedStyle = vi.fn().mockImplementation(() => mockComputedStyle)
+window.computedStyle = vi.fn().mockImplementation(() => mockComputedStyle)
 
 // Mock requestAnimationFrame for smooth animations in tests
-global.requestAnimationFrame = vi.fn().mockImplementation((cb) => {
-  return setTimeout(cb, 16);
-});
+global.requestAnimationFrame = vi.fn().mockImplementation(cb => {
+  return setTimeout(cb, 16)
+})
 
-global.cancelAnimationFrame = vi.fn().mockImplementation((id) => {
-  return clearTimeout(id);
-});
+global.cancelAnimationFrame = vi.fn().mockImplementation(id => {
+  return clearTimeout(id)
+})

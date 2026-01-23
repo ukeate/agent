@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
-import {
+import React, { useState, useEffect } from 'react'
 import { logger } from '../utils/logger'
+import {
   Card,
   Tabs,
   Upload,
@@ -26,8 +26,8 @@ import { logger } from '../utils/logger'
   Divider,
   Badge,
   Timeline,
-  Alert
-} from 'antd';
+  Alert,
+} from 'antd'
 import {
   InboxOutlined,
   FileTextOutlined,
@@ -47,115 +47,132 @@ import {
   FilePdfOutlined,
   FileWordOutlined,
   FileExcelOutlined,
-  CodeOutlined
-} from '@ant-design/icons';
-import { documentsService } from '../services/documentsService';
+  CodeOutlined,
+} from '@ant-design/icons'
+import { documentsService } from '../services/documentsService'
 
-const { TabPane } = Tabs;
-const { Dragger } = Upload;
-const { TextArea } = Input;
-const { Option } = Select;
-const { Title, Text, Paragraph } = Typography;
+const { TabPane } = Tabs
+const { Dragger } = Upload
+const { TextArea } = Input
+const { Option } = Select
+const { Title, Text, Paragraph } = Typography
 
 interface DocumentInfo {
-  doc_id: string;
-  title: string;
-  file_type: string;
-  file_size?: number;
-  created_at: string;
+  doc_id: string
+  title: string
+  file_type: string
+  file_size?: number
+  created_at: string
   processing_info?: {
     chunks?: Array<{
-      chunk_id: string;
-      content: string;
-      type: string;
-      index: number;
-    }>;
+      chunk_id: string
+      content: string
+      type: string
+      index: number
+    }>
     auto_tags?: Array<{
-      tag: string;
-      category: string;
-      confidence: number;
-    }>;
-    total_chunks?: number;
-  };
+      tag: string
+      category: string
+      confidence: number
+    }>
+    total_chunks?: number
+  }
   version?: {
-    version_id: string;
-    version_number: number;
-  };
+    version_id: string
+    version_number: number
+  }
 }
 
 interface DocumentVersion {
-  version_id: string;
-  version_number: number;
-  created_at: string;
-  change_summary: string;
-  is_current: boolean;
+  version_id: string
+  version_number: number
+  created_at: string
+  change_summary: string
+  is_current: boolean
 }
 
 interface DocumentRelationship {
-  source: string;
-  target: string;
-  type: string;
-  confidence: number;
+  source: string
+  target: string
+  type: string
+  confidence: number
 }
 
 const DocumentManagementPageComplete: React.FC = () => {
-  const [documents, setDocuments] = useState<DocumentInfo[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [uploading, setUploading] = useState(false);
-  const [selectedDocument, setSelectedDocument] = useState<DocumentInfo | null>(null);
-  const [documentVersions, setDocumentVersions] = useState<DocumentVersion[]>([]);
-  const [documentRelationships, setDocumentRelationships] = useState<DocumentRelationship[]>([]);
-  const [supportedFormats, setSupportedFormats] = useState<any>({});
-  const [activeTab, setActiveTab] = useState('upload');
-  
+  const [documents, setDocuments] = useState<DocumentInfo[]>([])
+  const [loading, setLoading] = useState(false)
+  const [uploading, setUploading] = useState(false)
+  const [selectedDocument, setSelectedDocument] = useState<DocumentInfo | null>(
+    null
+  )
+  const [documentVersions, setDocumentVersions] = useState<DocumentVersion[]>(
+    []
+  )
+  const [documentRelationships, setDocumentRelationships] = useState<
+    DocumentRelationship[]
+  >([])
+  const [supportedFormats, setSupportedFormats] = useState<any>({})
+  const [activeTab, setActiveTab] = useState('upload')
+
   // 模态框状态
-  const [uploadModalVisible, setUploadModalVisible] = useState(false);
-  const [detailModalVisible, setDetailModalVisible] = useState(false);
-  const [versionsModalVisible, setVersionsModalVisible] = useState(false);
-  const [relationshipsModalVisible, setRelationshipsModalVisible] = useState(false);
-  const [tagsModalVisible, setTagsModalVisible] = useState(false);
-  
+  const [uploadModalVisible, setUploadModalVisible] = useState(false)
+  const [detailModalVisible, setDetailModalVisible] = useState(false)
+  const [versionsModalVisible, setVersionsModalVisible] = useState(false)
+  const [relationshipsModalVisible, setRelationshipsModalVisible] =
+    useState(false)
+  const [tagsModalVisible, setTagsModalVisible] = useState(false)
+
   // 表单和输入状态
   const [uploadOptions, setUploadOptions] = useState({
     enableOcr: false,
     extractImages: true,
     autoTag: true,
-    chunkStrategy: 'semantic'
-  });
-  const [tagForm] = Form.useForm();
-  const [batchUploadProgress, setBatchUploadProgress] = useState(0);
+    chunkStrategy: 'semantic',
+  })
+  const [tagForm] = Form.useForm()
+  const [batchUploadProgress, setBatchUploadProgress] = useState(0)
 
   useEffect(() => {
-    loadSupportedFormats();
-  }, []);
+    loadSupportedFormats()
+  }, [])
 
   // 加载支持的文档格式
   const loadSupportedFormats = async () => {
     try {
-      const formats = await documentsService.getSupportedFormats();
-      setSupportedFormats(formats);
+      const formats = await documentsService.getSupportedFormats()
+      setSupportedFormats(formats)
     } catch (error) {
-      logger.error('加载支持格式失败:', error);
+      logger.error('加载支持格式失败:', error)
     }
-  };
+  }
 
   // 获取文件类型图标
   const getFileIcon = (fileType: string) => {
-    if (fileType.includes('pdf')) return <FilePdfOutlined style={{ color: '#ff4d4f' }} />;
-    if (fileType.includes('word') || fileType.includes('docx')) return <FileWordOutlined style={{ color: '#1890ff' }} />;
-    if (fileType.includes('excel') || fileType.includes('xlsx')) return <FileExcelOutlined style={{ color: '#52c41a' }} />;
-    if (fileType.includes('image')) return <FileImageOutlined style={{ color: '#722ed1' }} />;
-    if (fileType.includes('markdown')) return <FileMarkdownOutlined style={{ color: '#13c2c2' }} />;
-    if (fileType.includes('code') || fileType.includes('javascript') || fileType.includes('python')) return <CodeOutlined style={{ color: '#fa8c16' }} />;
-    return <FileTextOutlined />;
-  };
+    if (fileType.includes('pdf'))
+      return <FilePdfOutlined style={{ color: '#ff4d4f' }} />
+    if (fileType.includes('word') || fileType.includes('docx'))
+      return <FileWordOutlined style={{ color: '#1890ff' }} />
+    if (fileType.includes('excel') || fileType.includes('xlsx'))
+      return <FileExcelOutlined style={{ color: '#52c41a' }} />
+    if (fileType.includes('image'))
+      return <FileImageOutlined style={{ color: '#722ed1' }} />
+    if (fileType.includes('markdown'))
+      return <FileMarkdownOutlined style={{ color: '#13c2c2' }} />
+    if (
+      fileType.includes('code') ||
+      fileType.includes('javascript') ||
+      fileType.includes('python')
+    )
+      return <CodeOutlined style={{ color: '#fa8c16' }} />
+    return <FileTextOutlined />
+  }
 
   // 单文档上传
   const handleSingleUpload = async (file: File) => {
-    setUploading(true);
+    setUploading(true)
     try {
-      const result = await documentsService.uploadDocument(file, uploadOptions);
-      
+      const result = await documentsService.uploadDocument(file, uploadOptions)
+
       const newDoc: DocumentInfo = {
         doc_id: result.doc_id || `doc_${Date.now()}`,
         title: result.source_file || file.name,
@@ -164,31 +181,31 @@ const DocumentManagementPageComplete: React.FC = () => {
         processing_info: {
           total_chunks: result.num_text_chunks || 0,
           chunks: result.chunks || [],
-          auto_tags: result.auto_tags || []
-        }
-      };
-      
-      setDocuments(prev => [...prev, newDoc]);
-      message.success(`文档上传成功: ${file.name}`);
+          auto_tags: result.auto_tags || [],
+        },
+      }
+
+      setDocuments(prev => [...prev, newDoc])
+      message.success(`文档上传成功: ${file.name}`)
     } catch (error) {
-      logger.error('单文档上传失败:', error);
-      message.error(`上传失败: ${file.name}`);
+      logger.error('单文档上传失败:', error)
+      message.error(`上传失败: ${file.name}`)
     } finally {
-      setUploading(false);
+      setUploading(false)
     }
-  };
+  }
 
   // 批量文档上传
   const handleBatchUpload = async (files: File[]) => {
-    setUploading(true);
-    setBatchUploadProgress(0);
-    
+    setUploading(true)
+    setBatchUploadProgress(0)
+
     try {
       const result = await documentsService.batchUploadDocuments(files, {
         concurrentLimit: 3,
-        continueOnError: true
-      });
-      
+        continueOnError: true,
+      })
+
       if (result.results) {
         const newDocs: DocumentInfo[] = result.results
           .filter((r: any) => r.success)
@@ -196,78 +213,81 @@ const DocumentManagementPageComplete: React.FC = () => {
             doc_id: r.doc_id,
             title: r.filename,
             file_type: 'unknown',
-            created_at: new Date().toISOString()
-          }));
-        
-        setDocuments(prev => [...prev, ...newDocs]);
-        message.success(`批量上传完成: ${result.success}/${result.total} 成功`);
+            created_at: new Date().toISOString(),
+          }))
+
+        setDocuments(prev => [...prev, ...newDocs])
+        message.success(`批量上传完成: ${result.success}/${result.total} 成功`)
       }
     } catch (error) {
-      logger.error('批量上传失败:', error);
-      message.error('批量上传失败');
+      logger.error('批量上传失败:', error)
+      message.error('批量上传失败')
     } finally {
-      setUploading(false);
-      setBatchUploadProgress(0);
+      setUploading(false)
+      setBatchUploadProgress(0)
     }
-  };
+  }
 
   // 分析文档关系
   const analyzeDocumentRelationships = async (docId: string) => {
-    setLoading(true);
+    setLoading(true)
     try {
       const relatedDocIds = documents
         .filter(doc => doc.doc_id !== docId)
         .slice(0, 5)
-        .map(doc => doc.doc_id);
-      
-      const result = await documentsService.analyzeDocumentRelationships(docId, relatedDocIds);
-      setDocumentRelationships(result.relationships || []);
-      setRelationshipsModalVisible(true);
+        .map(doc => doc.doc_id)
+
+      const result = await documentsService.analyzeDocumentRelationships(
+        docId,
+        relatedDocIds
+      )
+      setDocumentRelationships(result.relationships || [])
+      setRelationshipsModalVisible(true)
     } catch (error) {
-      logger.error('关系分析失败:', error);
-      message.error('关系分析失败');
+      logger.error('关系分析失败:', error)
+      message.error('关系分析失败')
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
+  }
 
   // 生成文档标签
   const generateDocumentTags = async (docId: string, content: string) => {
     try {
-      const result = await documentsService.generateDocumentTags(docId, content);
-      return result.tags || [];
+      const result = await documentsService.generateDocumentTags(docId, content)
+      return result.tags || []
     } catch (error) {
-      logger.error('标签生成失败:', error);
-      return [];
+      logger.error('标签生成失败:', error)
+      return []
     }
-  };
+  }
 
   // 获取文档版本历史
   const getDocumentVersions = async (docId: string) => {
-    setLoading(true);
+    setLoading(true)
     try {
-      const result = await documentsService.getDocumentVersionHistory(docId);
-      setDocumentVersions(result.versions || []);
-      setVersionsModalVisible(true);
+      const result = await documentsService.getDocumentVersionHistory(docId)
+      setDocumentVersions(result.versions || [])
+      setVersionsModalVisible(true)
     } catch (error) {
-      logger.error('获取版本历史失败:', error);
-      message.error('获取版本历史失败');
+      logger.error('获取版本历史失败:', error)
+      message.error('获取版本历史失败')
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
+  }
 
   // 回滚文档版本
   const rollbackDocumentVersion = async (docId: string, versionId: string) => {
     try {
-      await documentsService.rollbackDocumentVersion(docId, versionId);
-      message.success('版本回滚成功');
-      setVersionsModalVisible(false);
+      await documentsService.rollbackDocumentVersion(docId, versionId)
+      message.success('版本回滚成功')
+      setVersionsModalVisible(false)
     } catch (error) {
-      logger.error('版本回滚失败:', error);
-      message.error('版本回滚失败');
+      logger.error('版本回滚失败:', error)
+      message.error('版本回滚失败')
     }
-  };
+  }
 
   // 文档表格列定义
   const documentColumns = [
@@ -292,14 +312,20 @@ const DocumentManagementPageComplete: React.FC = () => {
       title: '分块数',
       key: 'chunks',
       render: (record: DocumentInfo) => (
-        <Badge count={record.processing_info?.total_chunks || 0} color="#52c41a" />
+        <Badge
+          count={record.processing_info?.total_chunks || 0}
+          color="#52c41a"
+        />
       ),
     },
     {
       title: '标签数',
       key: 'tags',
       render: (record: DocumentInfo) => (
-        <Badge count={record.processing_info?.auto_tags?.length || 0} color="#1890ff" />
+        <Badge
+          count={record.processing_info?.auto_tags?.length || 0}
+          color="#1890ff"
+        />
       ),
     },
     {
@@ -318,8 +344,8 @@ const DocumentManagementPageComplete: React.FC = () => {
               type="text"
               icon={<EyeOutlined />}
               onClick={() => {
-                setSelectedDocument(record);
-                setDetailModalVisible(true);
+                setSelectedDocument(record)
+                setDetailModalVisible(true)
               }}
             />
           </Tooltip>
@@ -342,16 +368,18 @@ const DocumentManagementPageComplete: React.FC = () => {
               type="text"
               icon={<TagsOutlined />}
               onClick={() => {
-                setSelectedDocument(record);
-                setTagsModalVisible(true);
+                setSelectedDocument(record)
+                setTagsModalVisible(true)
               }}
             />
           </Tooltip>
           <Popconfirm
             title="确定删除这个文档吗？"
             onConfirm={() => {
-              setDocuments(prev => prev.filter(doc => doc.doc_id !== record.doc_id));
-              message.success('文档删除成功');
+              setDocuments(prev =>
+                prev.filter(doc => doc.doc_id !== record.doc_id)
+              )
+              message.success('文档删除成功')
             }}
           >
             <Button type="text" danger icon={<DeleteOutlined />} />
@@ -359,7 +387,7 @@ const DocumentManagementPageComplete: React.FC = () => {
         </Space>
       ),
     },
-  ];
+  ]
 
   return (
     <div style={{ padding: '24px' }}>
@@ -378,17 +406,21 @@ const DocumentManagementPageComplete: React.FC = () => {
                 <Card title="单文档上传" size="small">
                   <Dragger
                     multiple={false}
-                    beforeUpload={(file) => {
-                      handleSingleUpload(file);
-                      return false;
+                    beforeUpload={file => {
+                      handleSingleUpload(file)
+                      return false
                     }}
-                    accept={Object.values(supportedFormats.categories || {}).flat().join(',')}
+                    accept={Object.values(supportedFormats.categories || {})
+                      .flat()
+                      .join(',')}
                     style={{ marginBottom: 16 }}
                   >
                     <p className="ant-upload-drag-icon">
                       <InboxOutlined />
                     </p>
-                    <p className="ant-upload-text">点击或拖拽文件到此区域上传</p>
+                    <p className="ant-upload-text">
+                      点击或拖拽文件到此区域上传
+                    </p>
                     <p className="ant-upload-hint">
                       支持 PDF, Word, Excel, PowerPoint, Markdown, 代码文件等
                     </p>
@@ -400,11 +432,13 @@ const DocumentManagementPageComplete: React.FC = () => {
                     <Upload
                       multiple
                       beforeUpload={() => false}
-                      onChange={(info) => {
+                      onChange={info => {
                         if (info.fileList.length > 0) {
-                          const files = info.fileList.map(file => file.originFileObj).filter(Boolean) as File[];
+                          const files = info.fileList
+                            .map(file => file.originFileObj)
+                            .filter(Boolean) as File[]
                           if (files.length > 0) {
-                            handleBatchUpload(files);
+                            handleBatchUpload(files)
                           }
                         }
                       }}
@@ -415,7 +449,10 @@ const DocumentManagementPageComplete: React.FC = () => {
                       </Button>
                     </Upload>
                     {batchUploadProgress > 0 && (
-                      <Progress percent={batchUploadProgress} style={{ marginTop: 16 }} />
+                      <Progress
+                        percent={batchUploadProgress}
+                        style={{ marginTop: 16 }}
+                      />
                     )}
                   </Card>
                 </Card>
@@ -427,35 +464,47 @@ const DocumentManagementPageComplete: React.FC = () => {
                     <Form.Item label="启用OCR识别">
                       <Switch
                         checked={uploadOptions.enableOcr}
-                        onChange={(checked) => 
-                          setUploadOptions(prev => ({ ...prev, enableOcr: checked }))
+                        onChange={checked =>
+                          setUploadOptions(prev => ({
+                            ...prev,
+                            enableOcr: checked,
+                          }))
                         }
                       />
                     </Form.Item>
-                    
+
                     <Form.Item label="提取图像">
                       <Switch
                         checked={uploadOptions.extractImages}
-                        onChange={(checked) => 
-                          setUploadOptions(prev => ({ ...prev, extractImages: checked }))
+                        onChange={checked =>
+                          setUploadOptions(prev => ({
+                            ...prev,
+                            extractImages: checked,
+                          }))
                         }
                       />
                     </Form.Item>
-                    
+
                     <Form.Item label="自动生成标签">
                       <Switch
                         checked={uploadOptions.autoTag}
-                        onChange={(checked) => 
-                          setUploadOptions(prev => ({ ...prev, autoTag: checked }))
+                        onChange={checked =>
+                          setUploadOptions(prev => ({
+                            ...prev,
+                            autoTag: checked,
+                          }))
                         }
                       />
                     </Form.Item>
-                    
+
                     <Form.Item label="分块策略">
                       <Select
                         value={uploadOptions.chunkStrategy}
-                        onChange={(value) => 
-                          setUploadOptions(prev => ({ ...prev, chunkStrategy: value }))
+                        onChange={value =>
+                          setUploadOptions(prev => ({
+                            ...prev,
+                            chunkStrategy: value,
+                          }))
                         }
                       >
                         <Option value="semantic">语义分块</Option>
@@ -469,16 +518,20 @@ const DocumentManagementPageComplete: React.FC = () => {
                 </Card>
 
                 <Card title="支持格式" size="small" style={{ marginTop: 16 }}>
-                  {Object.entries(supportedFormats.categories || {}).map(([category, formats]: [string, any]) => (
-                    <div key={category} style={{ marginBottom: 8 }}>
-                      <Text strong>{category}:</Text>
-                      <div>
-                        {formats.map((format: string) => (
-                          <Tag key={format} size="small">{format}</Tag>
-                        ))}
+                  {Object.entries(supportedFormats.categories || {}).map(
+                    ([category, formats]: [string, any]) => (
+                      <div key={category} style={{ marginBottom: 8 }}>
+                        <Text strong>{category}:</Text>
+                        <div>
+                          {formats.map((format: string) => (
+                            <Tag key={format} size="small">
+                              {format}
+                            </Tag>
+                          ))}
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    )
+                  )}
                 </Card>
               </Col>
             </Row>
@@ -490,7 +543,7 @@ const DocumentManagementPageComplete: React.FC = () => {
                 icon={<ReloadOutlined />}
                 onClick={() => {
                   // 这里可以添加刷新文档列表的逻辑
-                  message.info('刷新文档列表');
+                  message.info('刷新文档列表')
                 }}
               >
                 刷新
@@ -499,7 +552,7 @@ const DocumentManagementPageComplete: React.FC = () => {
                 icon={<DownloadOutlined />}
                 onClick={() => {
                   // 这里可以添加导出功能
-                  message.info('导出文档列表');
+                  message.info('导出文档列表')
                 }}
               >
                 导出列表
@@ -515,7 +568,7 @@ const DocumentManagementPageComplete: React.FC = () => {
                 pageSize: 10,
                 showSizeChanger: true,
                 showQuickJumper: true,
-                showTotal: (total) => `共 ${total} 个文档`,
+                showTotal: total => `共 ${total} 个文档`,
               }}
             />
           </TabPane>
@@ -535,7 +588,11 @@ const DocumentManagementPageComplete: React.FC = () => {
                 <Card>
                   <Statistic
                     title="总分块数"
-                    value={documents.reduce((sum, doc) => sum + (doc.processing_info?.total_chunks || 0), 0)}
+                    value={documents.reduce(
+                      (sum, doc) =>
+                        sum + (doc.processing_info?.total_chunks || 0),
+                      0
+                    )}
                     prefix={<BranchesOutlined />}
                   />
                 </Card>
@@ -544,7 +601,11 @@ const DocumentManagementPageComplete: React.FC = () => {
                 <Card>
                   <Statistic
                     title="标签总数"
-                    value={documents.reduce((sum, doc) => sum + (doc.processing_info?.auto_tags?.length || 0), 0)}
+                    value={documents.reduce(
+                      (sum, doc) =>
+                        sum + (doc.processing_info?.auto_tags?.length || 0),
+                      0
+                    )}
                     prefix={<TagsOutlined />}
                   />
                 </Card>
@@ -553,9 +614,13 @@ const DocumentManagementPageComplete: React.FC = () => {
                 <Card>
                   <Statistic
                     title="今日上传"
-                    value={documents.filter(doc => 
-                      new Date(doc.created_at).toDateString() === new Date().toDateString()
-                    ).length}
+                    value={
+                      documents.filter(
+                        doc =>
+                          new Date(doc.created_at).toDateString() ===
+                          new Date().toDateString()
+                      ).length
+                    }
                     prefix={<UploadOutlined />}
                   />
                 </Card>
@@ -565,10 +630,13 @@ const DocumentManagementPageComplete: React.FC = () => {
             <Card title="文档类型分布" style={{ marginTop: 24 }}>
               <List
                 dataSource={Object.entries(
-                  documents.reduce((acc, doc) => {
-                    acc[doc.file_type] = (acc[doc.file_type] || 0) + 1;
-                    return acc;
-                  }, {} as Record<string, number>)
+                  documents.reduce(
+                    (acc, doc) => {
+                      acc[doc.file_type] = (acc[doc.file_type] || 0) + 1
+                      return acc
+                    },
+                    {} as Record<string, number>
+                  )
                 )}
                 renderItem={([type, count]) => (
                   <List.Item>
@@ -598,15 +666,26 @@ const DocumentManagementPageComplete: React.FC = () => {
                 {getFileIcon(selectedDocument.file_type)}
                 <Title level={4}>{selectedDocument.title}</Title>
               </Space>
-              
+
               <Row gutter={16}>
                 <Col span={12}>
-                  <p><strong>文件类型:</strong> {selectedDocument.file_type}</p>
-                  <p><strong>创建时间:</strong> {new Date(selectedDocument.created_at).toLocaleString()}</p>
+                  <p>
+                    <strong>文件类型:</strong> {selectedDocument.file_type}
+                  </p>
+                  <p>
+                    <strong>创建时间:</strong>{' '}
+                    {new Date(selectedDocument.created_at).toLocaleString()}
+                  </p>
                 </Col>
                 <Col span={12}>
-                  <p><strong>分块数量:</strong> {selectedDocument.processing_info?.total_chunks || 0}</p>
-                  <p><strong>标签数量:</strong> {selectedDocument.processing_info?.auto_tags?.length || 0}</p>
+                  <p>
+                    <strong>分块数量:</strong>{' '}
+                    {selectedDocument.processing_info?.total_chunks || 0}
+                  </p>
+                  <p>
+                    <strong>标签数量:</strong>{' '}
+                    {selectedDocument.processing_info?.auto_tags?.length || 0}
+                  </p>
                 </Col>
               </Row>
 
@@ -614,11 +693,13 @@ const DocumentManagementPageComplete: React.FC = () => {
                 <div style={{ marginTop: 16 }}>
                   <Title level={5}>自动标签</Title>
                   <Space wrap>
-                    {selectedDocument.processing_info.auto_tags.map((tag, index) => (
-                      <Tag key={index} color="blue">
-                        {tag.tag} ({Math.round(tag.confidence * 100)}%)
-                      </Tag>
-                    ))}
+                    {selectedDocument.processing_info.auto_tags.map(
+                      (tag, index) => (
+                        <Tag key={index} color="blue">
+                          {tag.tag} ({Math.round(tag.confidence * 100)}%)
+                        </Tag>
+                      )
+                    )}
                   </Space>
                 </div>
               )}
@@ -627,12 +708,18 @@ const DocumentManagementPageComplete: React.FC = () => {
                 <div style={{ marginTop: 16 }}>
                   <Title level={5}>内容分块 (前5个)</Title>
                   <List
-                    dataSource={selectedDocument.processing_info.chunks.slice(0, 5)}
+                    dataSource={selectedDocument.processing_info.chunks.slice(
+                      0,
+                      5
+                    )}
                     renderItem={(chunk, index) => (
                       <List.Item>
                         <List.Item.Meta
                           title={`分块 ${chunk.index + 1}`}
-                          description={chunk.content.substring(0, 200) + (chunk.content.length > 200 ? '...' : '')}
+                          description={
+                            chunk.content.substring(0, 200) +
+                            (chunk.content.length > 200 ? '...' : '')
+                          }
                         />
                       </List.Item>
                     )}
@@ -652,7 +739,7 @@ const DocumentManagementPageComplete: React.FC = () => {
           width={600}
         >
           <Timeline>
-            {documentVersions.map((version) => (
+            {documentVersions.map(version => (
               <Timeline.Item
                 key={version.version_id}
                 color={version.is_current ? 'green' : 'blue'}
@@ -670,7 +757,12 @@ const DocumentManagementPageComplete: React.FC = () => {
                     <Button
                       size="small"
                       icon={<RollbackOutlined />}
-                      onClick={() => rollbackDocumentVersion(selectedDocument?.doc_id || '', version.version_id)}
+                      onClick={() =>
+                        rollbackDocumentVersion(
+                          selectedDocument?.doc_id || '',
+                          version.version_id
+                        )
+                      }
                     >
                       回滚到此版本
                     </Button>
@@ -692,7 +784,7 @@ const DocumentManagementPageComplete: React.FC = () => {
           {documentRelationships.length > 0 ? (
             <List
               dataSource={documentRelationships}
-              renderItem={(rel) => (
+              renderItem={rel => (
                 <List.Item>
                   <Space>
                     <span>{rel.source}</span>
@@ -725,8 +817,8 @@ const DocumentManagementPageComplete: React.FC = () => {
                     const tags = await generateDocumentTags(
                       selectedDocument.doc_id,
                       '示例文档内容用于标签生成'
-                    );
-                    message.success(`生成了 ${tags.length} 个标签`);
+                    )
+                    message.success(`生成了 ${tags.length} 个标签`)
                   }
                 }}
               >
@@ -737,7 +829,7 @@ const DocumentManagementPageComplete: React.FC = () => {
         </Modal>
       </Card>
     </div>
-  );
-};
+  )
+}
 
-export default DocumentManagementPageComplete;
+export default DocumentManagementPageComplete

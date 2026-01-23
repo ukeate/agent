@@ -2,8 +2,8 @@
  * 智能调度监控页面
  */
 
-import React from 'react';
-import SchedulingMonitor from '../components/batch/SchedulingMonitor';
+import React from 'react'
+import SchedulingMonitor from '../components/batch/SchedulingMonitor'
 
 const IntelligentSchedulingPage: React.FC = () => {
   return (
@@ -14,10 +14,10 @@ const IntelligentSchedulingPage: React.FC = () => {
           实时监控智能调度系统性能，包括工作者状态、SLA合规性和预测性调度建议
         </p>
       </div>
-      
+
       <SchedulingMonitor />
     </div>
-  );
-};
+  )
+}
 
-export default IntelligentSchedulingPage;
+export default IntelligentSchedulingPage

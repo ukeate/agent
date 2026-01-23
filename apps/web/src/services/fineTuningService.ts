@@ -94,12 +94,16 @@ export const fineTuningService = {
     return response.data
   },
 
-  async getTrainingJobs(status?: string, limit = 50, offset = 0): Promise<TrainingJob[]> {
+  async getTrainingJobs(
+    status?: string,
+    limit = 50,
+    offset = 0
+  ): Promise<TrainingJob[]> {
     const params = new URLSearchParams()
     if (status) params.append('status', status)
     params.append('limit', limit.toString())
     params.append('offset', offset.toString())
-    
+
     const response = await apiClient.get(`/fine-tuning/jobs?${params}`)
     return response.data
   },
@@ -130,8 +134,13 @@ export const fineTuningService = {
   },
 
   // 监控和日志
-  async getTrainingLogs(jobId: string, lines = 100): Promise<{ logs: string[] }> {
-    const response = await apiClient.get(`/fine-tuning/jobs/${jobId}/logs?lines=${lines}`)
+  async getTrainingLogs(
+    jobId: string,
+    lines = 100
+  ): Promise<{ logs: string[] }> {
+    const response = await apiClient.get(
+      `/fine-tuning/jobs/${jobId}/logs?lines=${lines}`
+    )
     return response.data
   },
 
@@ -151,8 +160,13 @@ export const fineTuningService = {
     return response.data
   },
 
-  async validateModelConfig(config: TrainingJobRequest): Promise<ValidationResult> {
-    const response = await apiClient.post('/fine-tuning/models/validate', config)
+  async validateModelConfig(
+    config: TrainingJobRequest
+  ): Promise<ValidationResult> {
+    const response = await apiClient.post(
+      '/fine-tuning/models/validate',
+      config
+    )
     return response.data
   },
 
@@ -161,8 +175,13 @@ export const fineTuningService = {
     return response.data
   },
 
-  async validateTrainingConfig(config: TrainingJobRequest): Promise<{ valid: boolean; errors: string[] }> {
-    const response = await apiClient.post('/fine-tuning/configs/validate', config)
+  async validateTrainingConfig(
+    config: TrainingJobRequest
+  ): Promise<{ valid: boolean; errors: string[] }> {
+    const response = await apiClient.post(
+      '/fine-tuning/configs/validate',
+      config
+    )
     return response.data
   },
 
@@ -191,9 +210,11 @@ export const fineTuningService = {
   },
 
   async validateDatasetFormat(datasetId: string): Promise<any> {
-    const response = await apiClient.post(`/fine-tuning/datasets/${datasetId}/validate`)
+    const response = await apiClient.post(
+      `/fine-tuning/datasets/${datasetId}/validate`
+    )
     return response.data
-  }
+  },
 }
 
 export default fineTuningService

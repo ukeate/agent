@@ -12,7 +12,7 @@ import {
   Alert,
   Tabs,
   Progress,
-  Tooltip
+  Tooltip,
 } from 'antd'
 import {
   ThunderboltOutlined,
@@ -22,7 +22,7 @@ import {
   ReloadOutlined,
   MonitorOutlined,
   RocketOutlined,
-  DatabaseOutlined
+  DatabaseOutlined,
 } from '@ant-design/icons'
 import { useNavigate } from 'react-router-dom'
 import { modelRegistryService } from '../services/modelRegistryService'
@@ -48,7 +48,10 @@ const TensorFlowManagementPage: React.FC = () => {
   const [models, setModels] = useState<TensorFlowModel[]>([])
 
   const [loading, setLoading] = useState(false)
-  const [systemMetrics, setSystemMetrics] = useState<{ cpu?: number; memory?: number }>({})
+  const [systemMetrics, setSystemMetrics] = useState<{
+    cpu?: number
+    memory?: number
+  }>({})
   const navigate = useNavigate()
 
   const statusColors = {
@@ -56,21 +59,21 @@ const TensorFlowManagementPage: React.FC = () => {
     deployed: 'green',
     stopped: 'red',
     loading: 'orange',
-    unknown: 'default'
+    unknown: 'default',
   }
 
   const typeColors = {
     DNN: 'purple',
     CNN: 'cyan',
     RNN: 'geekblue',
-    Transformer: 'gold'
+    Transformer: 'gold',
   }
 
   const columns = [
     {
       title: '模型名称',
       dataIndex: 'name',
-      key: 'name'
+      key: 'name',
     },
     {
       title: '类型',
@@ -78,7 +81,7 @@ const TensorFlowManagementPage: React.FC = () => {
       key: 'type',
       render: (type: string) => (
         <Tag color={typeColors[type as keyof typeof typeColors]}>{type}</Tag>
-      )
+      ),
     },
     {
       title: '状态',
@@ -88,54 +91,52 @@ const TensorFlowManagementPage: React.FC = () => {
         <Tag color={statusColors[status as keyof typeof statusColors]}>
           {status.toUpperCase()}
         </Tag>
-      )
+      ),
     },
     {
       title: 'TensorFlow版本',
       dataIndex: 'version',
-      key: 'version'
+      key: 'version',
     },
     {
       title: '准确率',
       dataIndex: 'accuracy',
       key: 'accuracy',
-      render: (accuracy?: number) => (
+      render: (accuracy?: number) =>
         accuracy !== undefined ? (
           <Tooltip title={`准确率: ${accuracy}%`}>
-            <Progress 
-              percent={accuracy} 
-              size="small" 
+            <Progress
+              percent={accuracy}
+              size="small"
               status={accuracy > 90 ? 'success' : 'active'}
             />
           </Tooltip>
         ) : (
           <Text type="secondary">-</Text>
-        )
-      ),
+        ),
     },
     {
       title: '损失值',
       dataIndex: 'loss',
       key: 'loss',
-      render: (loss?: number) => (
+      render: (loss?: number) =>
         loss !== undefined ? (
           <Text type={loss < 0.1 ? 'success' : 'warning'}>{loss}</Text>
         ) : (
           <Text type="secondary">-</Text>
-        )
-      )
+        ),
     },
     {
       title: 'Epochs',
       dataIndex: 'epochs',
       key: 'epochs',
-      render: (value?: number) => (value !== undefined ? value : '-')
+      render: (value?: number) => (value !== undefined ? value : '-'),
     },
     {
       title: '创建时间',
       dataIndex: 'createdAt',
       key: 'createdAt',
-      render: (value?: string) => value || '-'
+      render: (value?: string) => value || '-',
     },
     {
       title: '操作',
@@ -143,15 +144,26 @@ const TensorFlowManagementPage: React.FC = () => {
       render: (record: TensorFlowModel) => (
         <Space>
           {record.status === 'loading' && (
-            <Button size="small" icon={<PauseCircleOutlined />} disabled>加载中</Button>
+            <Button size="small" icon={<PauseCircleOutlined />} disabled>
+              加载中
+            </Button>
           )}
           {record.status === 'stopped' && (
-            <Button size="small" icon={<PlayCircleOutlined />} type="primary" disabled>启动</Button>
+            <Button
+              size="small"
+              icon={<PlayCircleOutlined />}
+              type="primary"
+              disabled
+            >
+              启动
+            </Button>
           )}
-          <Button size="small" icon={<MonitorOutlined />} disabled>监控</Button>
+          <Button size="small" icon={<MonitorOutlined />} disabled>
+            监控
+          </Button>
         </Space>
-      )
-    }
+      ),
+    },
   ]
 
   const handleCreateModel = () => {
@@ -163,31 +175,39 @@ const TensorFlowManagementPage: React.FC = () => {
     try {
       const [entries, loadedModels] = await Promise.all([
         modelRegistryService.listModels(),
-        modelService.getLoadedModels()
+        modelService.getLoadedModels(),
       ])
-      const loadedMap = new Map(loadedModels.map((item) => [`${item.name}:${item.version}`, item]))
+      const loadedMap = new Map(
+        loadedModels.map(item => [`${item.name}:${item.version}`, item])
+      )
       const nextModels = entries
-        .filter((entry) => {
+        .filter(entry => {
           const format = String(entry.metadata?.format || '').toLowerCase()
-          const framework = String(entry.metadata?.training_framework || '').toLowerCase()
+          const framework = String(
+            entry.metadata?.training_framework || ''
+          ).toLowerCase()
           return format === 'tensorflow' || framework.includes('tensorflow')
         })
-        .map((entry) => {
+        .map(entry => {
           const metadata = entry.metadata
           const metrics = metadata?.performance_metrics || {}
           const modelKey = `${metadata?.name}:${metadata?.version}`
           const loaded = loadedMap.get(modelKey)
-          const status = loaded?.status === 'loading'
-            ? 'loading'
-            : loaded?.status === 'ready'
-              ? 'deployed'
-              : 'stopped'
+          const status =
+            loaded?.status === 'loading'
+              ? 'loading'
+              : loaded?.status === 'ready'
+                ? 'deployed'
+                : 'stopped'
           const modelType = String(metadata?.model_type || '').toLowerCase()
           const type: TensorFlowModel['type'] =
-            modelType === 'cnn' ? 'CNN'
-            : modelType === 'rnn' ? 'RNN'
-            : modelType === 'transformer' ? 'Transformer'
-            : 'DNN'
+            modelType === 'cnn'
+              ? 'CNN'
+              : modelType === 'rnn'
+                ? 'RNN'
+                : modelType === 'transformer'
+                  ? 'Transformer'
+                  : 'DNN'
           const accuracy = metrics.accuracy ?? metrics.acc ?? metrics.f1_score
           const loss = metrics.loss ?? metrics.train_loss
           return {
@@ -216,7 +236,7 @@ const TensorFlowManagementPage: React.FC = () => {
       const data = response.data
       setSystemMetrics({
         cpu: data?.cpu?.usage,
-        memory: data?.memory?.usage
+        memory: data?.memory?.usage,
       })
     } catch (error) {
       setSystemMetrics({})
@@ -231,10 +251,11 @@ const TensorFlowManagementPage: React.FC = () => {
   }, [])
 
   const accuracyValues = models
-    .map((m) => m.accuracy)
+    .map(m => m.accuracy)
     .filter((value): value is number => typeof value === 'number')
   const avgAccuracy = accuracyValues.length
-    ? accuracyValues.reduce((acc, value) => acc + value, 0) / accuracyValues.length
+    ? accuracyValues.reduce((acc, value) => acc + value, 0) /
+      accuracyValues.length
     : 0
 
   return (
@@ -248,7 +269,11 @@ const TensorFlowManagementPage: React.FC = () => {
           <Card>
             <Statistic
               title="运行中模型"
-              value={models.filter(m => m.status === 'training' || m.status === 'deployed').length}
+              value={
+                models.filter(
+                  m => m.status === 'training' || m.status === 'deployed'
+                ).length
+              }
               prefix={<RocketOutlined />}
               valueStyle={{ color: '#1890ff' }}
             />
@@ -302,14 +327,16 @@ const TensorFlowManagementPage: React.FC = () => {
             children: (
               <Card>
                 <Space style={{ marginBottom: '16px' }}>
-                  <Button 
-                    type="primary" 
+                  <Button
+                    type="primary"
                     icon={<ThunderboltOutlined />}
                     onClick={handleCreateModel}
                   >
                     前往模型注册
                   </Button>
-                  <Button icon={<ReloadOutlined />} onClick={loadModels}>刷新</Button>
+                  <Button icon={<ReloadOutlined />} onClick={loadModels}>
+                    刷新
+                  </Button>
                 </Space>
                 <Table
                   columns={columns}
@@ -318,7 +345,7 @@ const TensorFlowManagementPage: React.FC = () => {
                   loading={loading}
                 />
               </Card>
-            )
+            ),
           },
           {
             key: '2',
@@ -328,20 +355,26 @@ const TensorFlowManagementPage: React.FC = () => {
                 <Row gutter={[16, 16]}>
                   <Col span={12}>
                     <Card size="small" title="CPU 使用率">
-                      <Progress percent={systemMetrics.cpu ?? 0} status="active" />
+                      <Progress
+                        percent={systemMetrics.cpu ?? 0}
+                        status="active"
+                      />
                       <Text type="secondary">来自 /api/v1/metrics</Text>
                     </Card>
                   </Col>
                   <Col span={12}>
                     <Card size="small" title="内存使用率">
-                      <Progress percent={systemMetrics.memory ?? 0} status="active" />
+                      <Progress
+                        percent={systemMetrics.memory ?? 0}
+                        status="active"
+                      />
                       <Text type="secondary">来自 /api/v1/metrics</Text>
                     </Card>
                   </Col>
                 </Row>
               </Card>
-            )
-          }
+            ),
+          },
         ]}
       />
     </div>

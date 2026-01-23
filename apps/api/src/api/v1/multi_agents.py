@@ -701,22 +701,46 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
                     
                     logger.info(f"启动对话 - 消息: '{initial_message}' (长度: {len(initial_message)}), 参与者: {participants}")
                     
-                    # 将参与者ID转换为AgentRole
-                    from src.ai.autogen.config import AgentRole
+                    if not isinstance(participants, list):
+                        await manager.send_personal_message(
+                            json.dumps({
+                                "type": "error",
+                                "data": {"message": "参与者格式不正确"},
+                                "timestamp": utc_now().isoformat()
+                            }),
+                            session_id
+                        )
+                        continue
+
                     agent_roles = []
+                    invalid_roles = []
                     for participant_id in participants:
-                        if "code_expert" in participant_id:
-                            agent_roles.append(AgentRole.CODE_EXPERT)
-                        elif "architect" in participant_id:
-                            agent_roles.append(AgentRole.ARCHITECT)
-                        elif "doc_expert" in participant_id:
-                            agent_roles.append(AgentRole.DOC_EXPERT)
-                        elif "supervisor" in participant_id:
-                            agent_roles.append(AgentRole.SUPERVISOR)
-                    
-                    # 如果没有指定参与者，使用默认组合
+                        try:
+                            agent_roles.append(AgentRole(participant_id))
+                        except ValueError:
+                            invalid_roles.append(participant_id)
+
+                    if invalid_roles:
+                        await manager.send_personal_message(
+                            json.dumps({
+                                "type": "error",
+                                "data": {"message": f"未知智能体角色: {', '.join(invalid_roles)}"},
+                                "timestamp": utc_now().isoformat()
+                            }),
+                            session_id
+                        )
+                        continue
+
                     if not agent_roles:
-                        agent_roles = [AgentRole.CODE_EXPERT, AgentRole.ARCHITECT]
+                        await manager.send_personal_message(
+                            json.dumps({
+                                "type": "error",
+                                "data": {"message": "未指定参与的智能体"},
+                                "timestamp": utc_now().isoformat()
+                            }),
+                            session_id
+                        )
+                        continue
                     
                     logger.info(f"转换后的角色: {agent_roles}")
                     

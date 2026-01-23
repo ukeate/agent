@@ -1,13 +1,13 @@
-import React, { useState, useEffect } from 'react';
-import { 
+import React, { useState, useEffect } from 'react'
 import { logger } from '../utils/logger'
-  Card, 
-  Typography, 
-  Row, 
-  Col, 
-  Statistic, 
-  Progress, 
-  Descriptions, 
+import {
+  Card,
+  Typography,
+  Row,
+  Col,
+  Statistic,
+  Progress,
+  Descriptions,
   Table,
   Button,
   Space,
@@ -23,11 +23,11 @@ import { logger } from '../utils/logger'
   Modal,
   Form,
   InputNumber,
-  Divider
-} from 'antd';
-import { 
-  ClusterOutlined, 
-  ThunderboltOutlined, 
+  Divider,
+} from 'antd'
+import {
+  ClusterOutlined,
+  ThunderboltOutlined,
   DatabaseOutlined,
   PlayCircleOutlined,
   PauseOutlined,
@@ -38,127 +38,134 @@ import {
   SyncOutlined,
   WarningOutlined,
   CheckCircleOutlined,
-  RocketOutlined
-} from '@ant-design/icons';
-import { Line, Column, Gauge } from '@ant-design/charts';
-import { 
+  RocketOutlined,
+} from '@ant-design/icons'
+import { Line, Column, Gauge } from '@ant-design/charts'
+import {
   distributedTrainingService,
   type ClusterStatus,
   type GPUNode,
   type TrainingJob,
   type DeepSpeedConfig,
-  type TrainingMetrics
-} from '../services/distributedTrainingService';
+  type TrainingMetrics,
+} from '../services/distributedTrainingService'
 
-const { Title, Text } = Typography;
-const { TabPane } = Tabs;
+const { Title, Text } = Typography
+const { TabPane } = Tabs
 
 const DistributedTrainingPage: React.FC = () => {
   // ==================== 状态管理 ====================
-  const [loading, setLoading] = useState(false);
-  const [refreshing, setRefreshing] = useState(false);
-  const [activeTab, setActiveTab] = useState('overview');
-  
+  const [loading, setLoading] = useState(false)
+  const [refreshing, setRefreshing] = useState(false)
+  const [activeTab, setActiveTab] = useState('overview')
+
   // 集群数据
-  const [clusterStatus, setClusterStatus] = useState<ClusterStatus | null>(null);
-  const [gpuNodes, setGPUNodes] = useState<GPUNode[]>([]);
-  const [trainingJobs, setTrainingJobs] = useState<TrainingJob[]>([]);
-  const [selectedJob, setSelectedJob] = useState<TrainingJob | null>(null);
-  const [deepSpeedConfig, setDeepSpeedConfig] = useState<DeepSpeedConfig | null>(null);
-  const [trainingMetrics, setTrainingMetrics] = useState<TrainingMetrics[]>([]);
-  
+  const [clusterStatus, setClusterStatus] = useState<ClusterStatus | null>(null)
+  const [gpuNodes, setGPUNodes] = useState<GPUNode[]>([])
+  const [trainingJobs, setTrainingJobs] = useState<TrainingJob[]>([])
+  const [selectedJob, setSelectedJob] = useState<TrainingJob | null>(null)
+  const [deepSpeedConfig, setDeepSpeedConfig] =
+    useState<DeepSpeedConfig | null>(null)
+  const [trainingMetrics, setTrainingMetrics] = useState<TrainingMetrics[]>([])
+
   // 控制状态
-  const [configModalVisible, setConfigModalVisible] = useState(false);
-  const [autoRefresh, setAutoRefresh] = useState(true);
-  const [refreshInterval, setRefreshInterval] = useState(5000);
+  const [configModalVisible, setConfigModalVisible] = useState(false)
+  const [autoRefresh, setAutoRefresh] = useState(true)
+  const [refreshInterval, setRefreshInterval] = useState(5000)
 
   // ==================== 数据加载 ====================
-  
+
   const loadClusterData = async () => {
-    setLoading(true);
+    setLoading(true)
     try {
       const [status, nodes, jobs] = await Promise.all([
         distributedTrainingService.getClusterStatus(),
         distributedTrainingService.getGPUNodes(),
-        distributedTrainingService.getTrainingJobs()
-      ]);
-      
-      setClusterStatus(status);
-      setGPUNodes(nodes);
-      setTrainingJobs(jobs);
-      
+        distributedTrainingService.getTrainingJobs(),
+      ])
+
+      setClusterStatus(status)
+      setGPUNodes(nodes)
+      setTrainingJobs(jobs)
+
       // 选择第一个运行中的任务
-      const runningJob = jobs.find(j => j.status === 'running');
+      const runningJob = jobs.find(j => j.status === 'running')
       if (runningJob && !selectedJob) {
-        setSelectedJob(runningJob);
-        await loadJobDetails(runningJob.job_id);
+        setSelectedJob(runningJob)
+        await loadJobDetails(runningJob.job_id)
       }
     } catch (error) {
-      logger.error('加载集群数据失败:', error);
-      message.error('加载集群数据失败');
+      logger.error('加载集群数据失败:', error)
+      message.error('加载集群数据失败')
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
+  }
 
   const loadJobDetails = async (jobId: string) => {
     try {
       const [config, metrics] = await Promise.all([
         distributedTrainingService.getDeepSpeedConfig(jobId),
-        distributedTrainingService.getTrainingMetrics(jobId)
-      ]);
-      
-      setDeepSpeedConfig(config);
-      setTrainingMetrics(metrics);
+        distributedTrainingService.getTrainingMetrics(jobId),
+      ])
+
+      setDeepSpeedConfig(config)
+      setTrainingMetrics(metrics)
     } catch (error) {
-      logger.error('加载任务详情失败:', error);
+      logger.error('加载任务详情失败:', error)
     }
-  };
+  }
 
   const handleRefresh = async () => {
-    setRefreshing(true);
-    await loadClusterData();
-    setRefreshing(false);
-    message.success('数据已刷新');
-  };
+    setRefreshing(true)
+    await loadClusterData()
+    setRefreshing(false)
+    message.success('数据已刷新')
+  }
 
   // ==================== 任务控制 ====================
-  
-  const handleJobControl = async (jobId: string, action: 'start' | 'pause' | 'resume' | 'stop') => {
+
+  const handleJobControl = async (
+    jobId: string,
+    action: 'start' | 'pause' | 'resume' | 'stop'
+  ) => {
     try {
-      const result = await distributedTrainingService.controlTrainingJob(jobId, action);
+      const result = await distributedTrainingService.controlTrainingJob(
+        jobId,
+        action
+      )
       if (result.success) {
-        message.success(result.message);
-        await loadClusterData();
+        message.success(result.message)
+        await loadClusterData()
       }
     } catch (error) {
-      message.error(`操作失败: ${error}`);
+      message.error(`操作失败: ${error}`)
     }
-  };
+  }
 
   // ==================== 生命周期 ====================
-  
-  useEffect(() => {
-    loadClusterData();
-  }, []);
 
   useEffect(() => {
-    if (!autoRefresh) return;
-    
+    loadClusterData()
+  }, [])
+
+  useEffect(() => {
+    if (!autoRefresh) return
+
     const timer = setInterval(() => {
-      loadClusterData();
-    }, refreshInterval);
-    
-    return () => clearInterval(timer);
-  }, [autoRefresh, refreshInterval]);
+      loadClusterData()
+    }, refreshInterval)
+
+    return () => clearInterval(timer)
+  }, [autoRefresh, refreshInterval])
 
   // ==================== 图表配置 ====================
-  
+
   const lossChartConfig = {
     data: trainingMetrics.map(m => ({
       time: new Date(m.timestamp).toLocaleTimeString(),
       loss: m.loss,
-      accuracy: m.accuracy || 0
+      accuracy: m.accuracy || 0,
     })),
     xField: 'time',
     yField: 'loss',
@@ -166,64 +173,75 @@ const DistributedTrainingPage: React.FC = () => {
     color: '#1890ff',
     point: { size: 3 },
     yAxis: {
-      title: { text: '训练损失' }
-    }
-  };
+      title: { text: '训练损失' },
+    },
+  }
 
   const gpuUtilizationConfig = {
     data: gpuNodes.map(node => ({
       name: node.name,
       usage: node.usage_percent,
-      status: node.status
+      status: node.status,
     })),
     xField: 'name',
     yField: 'usage',
     color: ({ status }) => {
-      return status === 'training' ? '#52c41a' : status === 'idle' ? '#1890ff' : '#ff4d4f';
+      return status === 'training'
+        ? '#52c41a'
+        : status === 'idle'
+          ? '#1890ff'
+          : '#ff4d4f'
     },
     label: {
       position: 'top',
-      formatter: (v) => `${v.usage.toFixed(1)}%`
+      formatter: v => `${v.usage.toFixed(1)}%`,
     },
     yAxis: {
       title: { text: 'GPU使用率 (%)' },
-      max: 100
-    }
-  };
+      max: 100,
+    },
+  }
 
   const efficiencyGaugeConfig = {
     percent: (clusterStatus?.cluster_efficiency || 0) / 100,
     range: {
-      color: clusterStatus?.cluster_efficiency >= 80 ? '#52c41a' : 
-             clusterStatus?.cluster_efficiency >= 60 ? '#faad14' : '#ff4d4f'
+      color:
+        clusterStatus?.cluster_efficiency >= 80
+          ? '#52c41a'
+          : clusterStatus?.cluster_efficiency >= 60
+            ? '#faad14'
+            : '#ff4d4f',
     },
     indicator: {
       pointer: { style: { stroke: '#D0D0D0' } },
-      pin: { style: { stroke: '#D0D0D0' } }
+      pin: { style: { stroke: '#D0D0D0' } },
     },
     statistic: {
       content: {
         style: { fontSize: '24px', lineHeight: '24px' },
-        formatter: () => `${clusterStatus?.cluster_efficiency.toFixed(1)}%`
-      }
-    }
-  };
+        formatter: () => `${clusterStatus?.cluster_efficiency.toFixed(1)}%`,
+      },
+    },
+  }
 
   // ==================== 表格配置 ====================
-  
+
   const jobColumns = [
     {
       title: '任务名称',
       dataIndex: 'name',
       key: 'name',
       render: (text: string, record: TrainingJob) => (
-        <Button type="link" onClick={() => {
-          setSelectedJob(record);
-          loadJobDetails(record.job_id);
-        }}>
+        <Button
+          type="link"
+          onClick={() => {
+            setSelectedJob(record)
+            loadJobDetails(record.job_id)
+          }}
+        >
           {text}
         </Button>
-      )
+      ),
     },
     {
       title: '状态',
@@ -235,10 +253,10 @@ const DistributedTrainingPage: React.FC = () => {
           pending: 'default',
           completed: 'success',
           failed: 'error',
-          paused: 'warning'
-        };
-        return <Tag color={colorMap[status]}>{status.toUpperCase()}</Tag>;
-      }
+          paused: 'warning',
+        }
+        return <Tag color={colorMap[status]}>{status.toUpperCase()}</Tag>
+      },
     },
     {
       title: '策略',
@@ -246,7 +264,7 @@ const DistributedTrainingPage: React.FC = () => {
       key: 'strategy',
       render: (strategy: string) => (
         <Tag color="blue">{strategy.replace('_', ' ').toUpperCase()}</Tag>
-      )
+      ),
     },
     {
       title: '进度',
@@ -254,23 +272,32 @@ const DistributedTrainingPage: React.FC = () => {
       key: 'progress',
       render: (progress: number) => (
         <Progress percent={progress} size="small" style={{ width: 100 }} />
-      )
+      ),
     },
     {
       title: 'GPU数',
       dataIndex: 'num_workers',
       key: 'num_workers',
-      render: (num: number) => `${num} GPUs`
+      render: (num: number) => `${num} GPUs`,
     },
     {
       title: '同步效率',
       dataIndex: 'sync_efficiency',
       key: 'sync_efficiency',
       render: (efficiency: number) => (
-        <span style={{ color: efficiency >= 85 ? '#52c41a' : efficiency >= 70 ? '#faad14' : '#ff4d4f' }}>
+        <span
+          style={{
+            color:
+              efficiency >= 85
+                ? '#52c41a'
+                : efficiency >= 70
+                  ? '#faad14'
+                  : '#ff4d4f',
+          }}
+        >
           {efficiency.toFixed(1)}%
         </span>
-      )
+      ),
     },
     {
       title: '操作',
@@ -313,9 +340,9 @@ const DistributedTrainingPage: React.FC = () => {
             />
           </Tooltip>
         </Space>
-      )
-    }
-  ];
+      ),
+    },
+  ]
 
   const gpuColumns = [
     {
@@ -324,16 +351,23 @@ const DistributedTrainingPage: React.FC = () => {
       key: 'name',
       render: (name: string, record: GPUNode) => (
         <Space>
-          <Badge status={record.status === 'training' ? 'processing' : 
-                        record.status === 'idle' ? 'success' : 'error'} />
+          <Badge
+            status={
+              record.status === 'training'
+                ? 'processing'
+                : record.status === 'idle'
+                  ? 'success'
+                  : 'error'
+            }
+          />
           {name}
         </Space>
-      )
+      ),
     },
     {
       title: '节点',
       dataIndex: 'node_id',
-      key: 'node_id'
+      key: 'node_id',
     },
     {
       title: '状态',
@@ -344,53 +378,61 @@ const DistributedTrainingPage: React.FC = () => {
           idle: 'success',
           training: 'processing',
           error: 'error',
-          offline: 'default'
-        };
-        return <Tag color={colorMap[status]}>{status.toUpperCase()}</Tag>;
-      }
+          offline: 'default',
+        }
+        return <Tag color={colorMap[status]}>{status.toUpperCase()}</Tag>
+      },
     },
     {
       title: '使用率',
       dataIndex: 'usage_percent',
       key: 'usage',
       render: (usage: number) => (
-        <Progress 
-          percent={usage} 
-          size="small" 
-          strokeColor={usage > 90 ? '#ff4d4f' : usage > 70 ? '#faad14' : '#52c41a'}
+        <Progress
+          percent={usage}
+          size="small"
+          strokeColor={
+            usage > 90 ? '#ff4d4f' : usage > 70 ? '#faad14' : '#52c41a'
+          }
         />
-      )
+      ),
     },
     {
       title: '显存',
       key: 'memory',
       render: (_, record: GPUNode) => (
-        <span>{record.memory_used_gb.toFixed(1)}/{record.memory_total_gb}GB</span>
-      )
+        <span>
+          {record.memory_used_gb.toFixed(1)}/{record.memory_total_gb}GB
+        </span>
+      ),
     },
     {
       title: '温度',
       dataIndex: 'temperature_celsius',
       key: 'temperature',
       render: (temp: number) => (
-        <span style={{ color: temp > 80 ? '#ff4d4f' : temp > 70 ? '#faad14' : '#52c41a' }}>
+        <span
+          style={{
+            color: temp > 80 ? '#ff4d4f' : temp > 70 ? '#faad14' : '#52c41a',
+          }}
+        >
           {temp.toFixed(1)}°C
         </span>
-      )
+      ),
     },
     {
       title: '功率',
       dataIndex: 'power_watts',
       key: 'power',
-      render: (power: number) => `${power.toFixed(0)}W`
+      render: (power: number) => `${power.toFixed(0)}W`,
     },
     {
       title: '当前任务',
       dataIndex: 'current_task',
       key: 'current_task',
-      render: (task?: string) => task || '-'
-    }
-  ];
+      render: (task?: string) => task || '-',
+    },
+  ]
 
   // ==================== 渲染 ====================
 
@@ -399,7 +441,7 @@ const DistributedTrainingPage: React.FC = () => {
       <div style={{ padding: '24px', textAlign: 'center' }}>
         <Spin size="large" tip="加载集群数据..." />
       </div>
-    );
+    )
   }
 
   return (
@@ -422,7 +464,7 @@ const DistributedTrainingPage: React.FC = () => {
                 checkedChildren="自动刷新"
                 unCheckedChildren="手动"
               />
-              <Button 
+              <Button
                 icon={<ReloadOutlined spin={refreshing} />}
                 onClick={handleRefresh}
                 loading={refreshing}
@@ -445,8 +487,8 @@ const DistributedTrainingPage: React.FC = () => {
       <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
         <Col xs={24} sm={12} md={6}>
           <Card>
-            <Statistic 
-              title="活跃节点" 
+            <Statistic
+              title="活跃节点"
               value={clusterStatus?.active_nodes || 0}
               suffix={`/ ${clusterStatus?.total_nodes || 0}`}
               prefix={<CloudServerOutlined />}
@@ -456,9 +498,13 @@ const DistributedTrainingPage: React.FC = () => {
         </Col>
         <Col xs={24} sm={12} md={6}>
           <Card>
-            <Statistic 
-              title="GPU使用" 
-              value={clusterStatus ? clusterStatus.total_gpus - clusterStatus.available_gpus : 0}
+            <Statistic
+              title="GPU使用"
+              value={
+                clusterStatus
+                  ? clusterStatus.total_gpus - clusterStatus.available_gpus
+                  : 0
+              }
               suffix={`/ ${clusterStatus?.total_gpus || 0}`}
               prefix={<ThunderboltOutlined />}
               valueStyle={{ color: '#1890ff' }}
@@ -467,8 +513,8 @@ const DistributedTrainingPage: React.FC = () => {
         </Col>
         <Col xs={24} sm={12} md={6}>
           <Card>
-            <Statistic 
-              title="总显存" 
+            <Statistic
+              title="总显存"
               value={clusterStatus?.used_memory_gb || 0}
               suffix={`/ ${clusterStatus?.total_memory_gb || 0} GB`}
               prefix={<DatabaseOutlined />}
@@ -478,14 +524,18 @@ const DistributedTrainingPage: React.FC = () => {
         </Col>
         <Col xs={24} sm={12} md={6}>
           <Card>
-            <Statistic 
-              title="集群效率" 
+            <Statistic
+              title="集群效率"
               value={clusterStatus?.cluster_efficiency || 0}
               suffix="%"
               prefix={<SyncOutlined />}
-              valueStyle={{ 
-                color: clusterStatus?.cluster_efficiency >= 80 ? '#52c41a' : 
-                       clusterStatus?.cluster_efficiency >= 60 ? '#faad14' : '#ff4d4f'
+              valueStyle={{
+                color:
+                  clusterStatus?.cluster_efficiency >= 80
+                    ? '#52c41a'
+                    : clusterStatus?.cluster_efficiency >= 60
+                      ? '#faad14'
+                      : '#ff4d4f',
               }}
             />
           </Card>
@@ -509,12 +559,20 @@ const DistributedTrainingPage: React.FC = () => {
                 </Card>
               </Col>
               <Col span={8}>
-                <Card title="GPU使用率分布" size="small" style={{ marginBottom: 16 }}>
+                <Card
+                  title="GPU使用率分布"
+                  size="small"
+                  style={{ marginBottom: 16 }}
+                >
                   <Column {...gpuUtilizationConfig} height={200} />
                 </Card>
                 <Card title="集群效率" size="small">
                   <div style={{ textAlign: 'center', padding: '20px 0' }}>
-                    <Gauge {...efficiencyGaugeConfig} width={200} height={200} />
+                    <Gauge
+                      {...efficiencyGaugeConfig}
+                      width={200}
+                      height={200}
+                    />
                   </div>
                   <Divider />
                   <Descriptions column={1} size="small">
@@ -549,17 +607,28 @@ const DistributedTrainingPage: React.FC = () => {
               size="middle"
             />
             {selectedJob && (
-              <Card title={`任务详情: ${selectedJob.name}`} style={{ marginTop: 16 }}>
+              <Card
+                title={`任务详情: ${selectedJob.name}`}
+                style={{ marginTop: 16 }}
+              >
                 <Row gutter={16}>
                   <Col span={12}>
                     <Descriptions column={1} size="small">
-                      <Descriptions.Item label="任务ID">{selectedJob.job_id}</Descriptions.Item>
-                      <Descriptions.Item label="分布策略">{selectedJob.strategy}</Descriptions.Item>
-                      <Descriptions.Item label="工作节点">{selectedJob.num_workers}</Descriptions.Item>
+                      <Descriptions.Item label="任务ID">
+                        {selectedJob.job_id}
+                      </Descriptions.Item>
+                      <Descriptions.Item label="分布策略">
+                        {selectedJob.strategy}
+                      </Descriptions.Item>
+                      <Descriptions.Item label="工作节点">
+                        {selectedJob.num_workers}
+                      </Descriptions.Item>
                       <Descriptions.Item label="当前轮次">
                         {selectedJob.current_epoch}/{selectedJob.total_epochs}
                       </Descriptions.Item>
-                      <Descriptions.Item label="当前损失">{selectedJob.current_loss.toFixed(4)}</Descriptions.Item>
+                      <Descriptions.Item label="当前损失">
+                        {selectedJob.current_loss.toFixed(4)}
+                      </Descriptions.Item>
                       <Descriptions.Item label="预计剩余">
                         {selectedJob.estimated_time_remaining || '计算中...'}
                       </Descriptions.Item>
@@ -585,7 +654,9 @@ const DistributedTrainingPage: React.FC = () => {
                   <Col span={12}>
                     <Card title="当前配置" size="small">
                       <Descriptions column={1} size="small">
-                        <Descriptions.Item label="ZeRO Stage">{deepSpeedConfig.zero_stage}</Descriptions.Item>
+                        <Descriptions.Item label="ZeRO Stage">
+                          {deepSpeedConfig.zero_stage}
+                        </Descriptions.Item>
                         <Descriptions.Item label="优化器卸载">
                           {deepSpeedConfig.offload_optimizer ? '启用' : '禁用'}
                         </Descriptions.Item>
@@ -593,7 +664,9 @@ const DistributedTrainingPage: React.FC = () => {
                           {deepSpeedConfig.offload_params ? '启用' : '禁用'}
                         </Descriptions.Item>
                         <Descriptions.Item label="梯度压缩">
-                          {deepSpeedConfig.gradient_compression ? '启用' : '禁用'}
+                          {deepSpeedConfig.gradient_compression
+                            ? '启用'
+                            : '禁用'}
                         </Descriptions.Item>
                         <Descriptions.Item label="通信后端">
                           {deepSpeedConfig.communication_backend.toUpperCase()}
@@ -617,12 +690,12 @@ const DistributedTrainingPage: React.FC = () => {
                     </Card>
                   </Col>
                   <Col span={12}>
-                    <Card 
-                      title="优化建议" 
+                    <Card
+                      title="优化建议"
                       size="small"
                       extra={
-                        <Button 
-                          size="small" 
+                        <Button
+                          size="small"
                           icon={<SettingOutlined />}
                           onClick={() => setConfigModalVisible(true)}
                         >
@@ -634,7 +707,10 @@ const DistributedTrainingPage: React.FC = () => {
                         message="配置优化建议"
                         description={
                           <ul style={{ margin: '8px 0', paddingLeft: 20 }}>
-                            <li>当前使用ZeRO-{deepSpeedConfig.zero_stage}，适合中等规模模型</li>
+                            <li>
+                              当前使用ZeRO-{deepSpeedConfig.zero_stage}
+                              ，适合中等规模模型
+                            </li>
                             <li>已启用FP16混合精度训练，可显著提升训练速度</li>
                             <li>梯度压缩已启用，可减少通信开销</li>
                             <li>建议根据显存使用情况调整批次大小</li>
@@ -646,9 +722,9 @@ const DistributedTrainingPage: React.FC = () => {
                         type="success"
                         showIcon
                       />
-                      
+
                       <Divider />
-                      
+
                       <Title level={5}>性能指标</Title>
                       <Row gutter={8}>
                         <Col span={12}>
@@ -695,7 +771,10 @@ const DistributedTrainingPage: React.FC = () => {
                         <Card size="small">
                           <Statistic
                             title="吞吐量"
-                            value={trainingMetrics[trainingMetrics.length - 1]?.throughput_samples_per_sec || 0}
+                            value={
+                              trainingMetrics[trainingMetrics.length - 1]
+                                ?.throughput_samples_per_sec || 0
+                            }
                             suffix="samples/s"
                             prefix={<ThunderboltOutlined />}
                           />
@@ -705,7 +784,10 @@ const DistributedTrainingPage: React.FC = () => {
                         <Card size="small">
                           <Statistic
                             title="网络带宽"
-                            value={trainingMetrics[trainingMetrics.length - 1]?.network_bandwidth_mbps || 0}
+                            value={
+                              trainingMetrics[trainingMetrics.length - 1]
+                                ?.network_bandwidth_mbps || 0
+                            }
                             suffix="Mbps"
                             prefix={<CloudServerOutlined />}
                           />
@@ -715,7 +797,10 @@ const DistributedTrainingPage: React.FC = () => {
                         <Card size="small">
                           <Statistic
                             title="同步时间"
-                            value={trainingMetrics[trainingMetrics.length - 1]?.sync_time_ms || 0}
+                            value={
+                              trainingMetrics[trainingMetrics.length - 1]
+                                ?.sync_time_ms || 0
+                            }
                             suffix="ms"
                             prefix={<SyncOutlined />}
                           />
@@ -732,7 +817,7 @@ const DistributedTrainingPage: React.FC = () => {
                         gpu0: m.gpu_utilization_percent[0] || 0,
                         gpu1: m.gpu_utilization_percent[1] || 0,
                         gpu2: m.gpu_utilization_percent[2] || 0,
-                        gpu3: m.gpu_utilization_percent[3] || 0
+                        gpu3: m.gpu_utilization_percent[3] || 0,
                       }))}
                       xField="time"
                       yField={['gpu0', 'gpu1', 'gpu2', 'gpu3']}
@@ -740,7 +825,7 @@ const DistributedTrainingPage: React.FC = () => {
                       height={300}
                       yAxis={{
                         title: { text: 'GPU使用率 (%)' },
-                        max: 100
+                        max: 100,
                       }}
                     />
                   </Card>
@@ -774,16 +859,19 @@ const DistributedTrainingPage: React.FC = () => {
         <Form
           layout="vertical"
           initialValues={deepSpeedConfig}
-          onFinish={async (values) => {
+          onFinish={async values => {
             try {
               if (selectedJob) {
-                await distributedTrainingService.updateDeepSpeedConfig(selectedJob.job_id, values);
-                message.success('配置更新成功');
-                setConfigModalVisible(false);
-                setDeepSpeedConfig(values);
+                await distributedTrainingService.updateDeepSpeedConfig(
+                  selectedJob.job_id,
+                  values
+                )
+                message.success('配置更新成功')
+                setConfigModalVisible(false)
+                setDeepSpeedConfig(values)
               }
             } catch (error) {
-              message.error('配置更新失败');
+              message.error('配置更新失败')
             }
           }}
         >
@@ -792,8 +880,12 @@ const DistributedTrainingPage: React.FC = () => {
               <Form.Item name="zero_stage" label="ZeRO Stage">
                 <Select>
                   <Select.Option value={0}>ZeRO-0 (禁用)</Select.Option>
-                  <Select.Option value={1}>ZeRO-1 (优化器状态分片)</Select.Option>
-                  <Select.Option value={2}>ZeRO-2 (优化器+梯度分片)</Select.Option>
+                  <Select.Option value={1}>
+                    ZeRO-1 (优化器状态分片)
+                  </Select.Option>
+                  <Select.Option value={2}>
+                    ZeRO-2 (优化器+梯度分片)
+                  </Select.Option>
                   <Select.Option value={3}>ZeRO-3 (全部分片)</Select.Option>
                 </Select>
               </Form.Item>
@@ -810,34 +902,57 @@ const DistributedTrainingPage: React.FC = () => {
           </Row>
           <Row gutter={16}>
             <Col span={8}>
-              <Form.Item name="offload_optimizer" label="优化器卸载" valuePropName="checked">
+              <Form.Item
+                name="offload_optimizer"
+                label="优化器卸载"
+                valuePropName="checked"
+              >
                 <Switch />
               </Form.Item>
             </Col>
             <Col span={8}>
-              <Form.Item name="offload_params" label="参数卸载" valuePropName="checked">
+              <Form.Item
+                name="offload_params"
+                label="参数卸载"
+                valuePropName="checked"
+              >
                 <Switch />
               </Form.Item>
             </Col>
             <Col span={8}>
-              <Form.Item name="gradient_compression" label="梯度压缩" valuePropName="checked">
+              <Form.Item
+                name="gradient_compression"
+                label="梯度压缩"
+                valuePropName="checked"
+              >
                 <Switch />
               </Form.Item>
             </Col>
           </Row>
           <Row gutter={16}>
             <Col span={8}>
-              <Form.Item name="fp16_enabled" label="FP16精度" valuePropName="checked">
+              <Form.Item
+                name="fp16_enabled"
+                label="FP16精度"
+                valuePropName="checked"
+              >
                 <Switch />
               </Form.Item>
             </Col>
             <Col span={8}>
-              <Form.Item name="bf16_enabled" label="BF16精度" valuePropName="checked">
+              <Form.Item
+                name="bf16_enabled"
+                label="BF16精度"
+                valuePropName="checked"
+              >
                 <Switch />
               </Form.Item>
             </Col>
             <Col span={8}>
-              <Form.Item name="gradient_accumulation_steps" label="梯度累积步数">
+              <Form.Item
+                name="gradient_accumulation_steps"
+                label="梯度累积步数"
+              >
                 <InputNumber min={1} max={32} />
               </Form.Item>
             </Col>
@@ -849,7 +964,10 @@ const DistributedTrainingPage: React.FC = () => {
               </Form.Item>
             </Col>
             <Col span={12}>
-              <Form.Item name="train_micro_batch_size_per_gpu" label="单GPU批次大小">
+              <Form.Item
+                name="train_micro_batch_size_per_gpu"
+                label="单GPU批次大小"
+              >
                 <InputNumber min={1} max={128} />
               </Form.Item>
             </Col>
@@ -859,15 +977,13 @@ const DistributedTrainingPage: React.FC = () => {
               <Button type="primary" htmlType="submit">
                 保存配置
               </Button>
-              <Button onClick={() => setConfigModalVisible(false)}>
-                取消
-              </Button>
+              <Button onClick={() => setConfigModalVisible(false)}>取消</Button>
             </Space>
           </Form.Item>
         </Form>
       </Modal>
     </div>
-  );
-};
+  )
+}
 
-export default DistributedTrainingPage;
+export default DistributedTrainingPage

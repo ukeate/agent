@@ -11,7 +11,7 @@ export { default as SupervisorConfig } from './SupervisorConfig'
 export { default as TaskSubmissionForm } from './TaskSubmissionForm'
 
 // 类型导出
-export type { 
+export type {
   SupervisorStatusResponse,
   SupervisorTask,
   SupervisorDecision,
@@ -19,5 +19,5 @@ export type {
   SupervisorConfig as SupervisorConfigType,
   AgentLoadMetrics,
   TaskSubmissionRequest,
-  TaskAssignmentResponse
+  TaskAssignmentResponse,
 } from '../../types/supervisor'

@@ -1,7 +1,7 @@
 import { buildApiUrl, apiFetch } from '../utils/apiBase'
 import React, { useState, useEffect } from 'react'
-import {
 import { logger } from '../utils/logger'
+import {
   Card,
   Row,
   Col,
@@ -22,7 +22,7 @@ import { logger } from '../utils/logger'
   Input,
   InputNumber,
   message,
-  Tooltip
+  Tooltip,
 } from 'antd'
 import {
   MonitorOutlined,
@@ -38,9 +38,20 @@ import {
   CheckCircleOutlined,
   ExclamationCircleOutlined,
   CloseCircleOutlined,
-  SyncOutlined
+  SyncOutlined,
 } from '@ant-design/icons'
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts'
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip as RechartsTooltip,
+  ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell,
+} from 'recharts'
 import type { ColumnsType } from 'antd/es/table'
 
 const { Title, Text } = Typography
@@ -119,12 +130,13 @@ const SystemMonitoringPage: React.FC = () => {
   const fetchMonitoringData = async () => {
     setLoading(true)
     try {
-      const [metricsRes, alertsRes, rulesRes, servicesRes] = await Promise.allSettled([
-        apiFetch(buildApiUrl('/api/v1/platform/monitoring/metrics')),
-        apiFetch(buildApiUrl('/api/v1/platform/monitoring/alerts')),
-        apiFetch(buildApiUrl('/api/v1/platform/monitoring/rules')),
-        apiFetch(buildApiUrl('/api/v1/platform/monitoring/services'))
-      ])
+      const [metricsRes, alertsRes, rulesRes, servicesRes] =
+        await Promise.allSettled([
+          apiFetch(buildApiUrl('/api/v1/platform/monitoring/metrics')),
+          apiFetch(buildApiUrl('/api/v1/platform/monitoring/alerts')),
+          apiFetch(buildApiUrl('/api/v1/platform/monitoring/rules')),
+          apiFetch(buildApiUrl('/api/v1/platform/monitoring/services')),
+        ])
 
       if (metricsRes.status === 'fulfilled') {
         const data = await metricsRes.value.json()
@@ -154,11 +166,14 @@ const SystemMonitoringPage: React.FC = () => {
 
   const handleCreateRule = async (values: any) => {
     try {
-      const response = await apiFetch(buildApiUrl('/api/v1/platform/monitoring/rules'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(values)
-      })
+      const response = await apiFetch(
+        buildApiUrl('/api/v1/platform/monitoring/rules'),
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(values),
+        }
+      )
       await response.json().catch(() => null)
       message.success('监控规则创建成功')
       setRuleModalVisible(false)
@@ -171,11 +186,14 @@ const SystemMonitoringPage: React.FC = () => {
 
   const handleToggleRule = async (ruleId: string, enabled: boolean) => {
     try {
-      const response = await apiFetch(buildApiUrl(`/api/v1/platform/monitoring/rules/${ruleId}`), {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ enabled })
-      })
+      const response = await apiFetch(
+        buildApiUrl(`/api/v1/platform/monitoring/rules/${ruleId}`),
+        {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ enabled }),
+        }
+      )
       await response.json().catch(() => null)
       message.success(enabled ? '规则已启用' : '规则已禁用')
       fetchMonitoringData()
@@ -186,9 +204,12 @@ const SystemMonitoringPage: React.FC = () => {
 
   const handleResolveAlert = async (alertId: string) => {
     try {
-      const response = await apiFetch(buildApiUrl(`/api/v1/platform/monitoring/alerts/${alertId}/resolve`), {
-        method: 'POST'
-      })
+      const response = await apiFetch(
+        buildApiUrl(`/api/v1/platform/monitoring/alerts/${alertId}/resolve`),
+        {
+          method: 'POST',
+        }
+      )
       await response.json().catch(() => null)
       message.success('告警已解决')
       fetchMonitoringData()
@@ -202,7 +223,7 @@ const SystemMonitoringPage: React.FC = () => {
       info: 'blue',
       warning: 'orange',
       error: 'red',
-      critical: 'purple'
+      critical: 'purple',
     }
     return colors[severity] || 'default'
   }
@@ -214,7 +235,7 @@ const SystemMonitoringPage: React.FC = () => {
       unhealthy: 'error',
       active: 'error',
       resolved: 'success',
-      silenced: 'default'
+      silenced: 'default',
     }
     return colors[status] || 'default'
   }
@@ -223,36 +244,46 @@ const SystemMonitoringPage: React.FC = () => {
     {
       title: '告警名称',
       dataIndex: 'name',
-      key: 'name'
+      key: 'name',
     },
     {
       title: '严重程度',
       dataIndex: 'severity',
       key: 'severity',
-      render: (severity) => (
-        <Tag color={getSeverityColor(severity)}>
-          {severity.toUpperCase()}
-        </Tag>
-      )
+      render: severity => (
+        <Tag color={getSeverityColor(severity)}>{severity.toUpperCase()}</Tag>
+      ),
     },
     {
       title: '状态',
       dataIndex: 'status',
       key: 'status',
-      render: (status) => {
+      render: status => {
         const statusConfig = {
           active: { color: 'error', text: '活跃', icon: <AlertOutlined /> },
-          resolved: { color: 'success', text: '已解决', icon: <CheckCircleOutlined /> },
-          silenced: { color: 'default', text: '已静默', icon: <CloseCircleOutlined /> }
+          resolved: {
+            color: 'success',
+            text: '已解决',
+            icon: <CheckCircleOutlined />,
+          },
+          silenced: {
+            color: 'default',
+            text: '已静默',
+            icon: <CloseCircleOutlined />,
+          },
         }
         const config = statusConfig[status]
-        return <Tag color={config.color} icon={config.icon}>{config.text}</Tag>
-      }
+        return (
+          <Tag color={config.color} icon={config.icon}>
+            {config.text}
+          </Tag>
+        )
+      },
     },
     {
       title: '组件',
       dataIndex: 'component',
-      key: 'component'
+      key: 'component',
     },
     {
       title: '当前值',
@@ -264,13 +295,13 @@ const SystemMonitoringPage: React.FC = () => {
             阈值: {record.threshold_value}
           </Text>
         </div>
-      )
+      ),
     },
     {
       title: '触发时间',
       dataIndex: 'triggered_at',
       key: 'triggered_at',
-      render: (time) => new Date(time).toLocaleString()
+      render: time => new Date(time).toLocaleString(),
     },
     {
       title: '操作',
@@ -287,41 +318,39 @@ const SystemMonitoringPage: React.FC = () => {
             </Button>
           )}
         </Space>
-      )
-    }
+      ),
+    },
   ]
 
   const ruleColumns: ColumnsType<MonitoringRule> = [
     {
       title: '规则名称',
       dataIndex: 'name',
-      key: 'name'
+      key: 'name',
     },
     {
       title: '监控指标',
       dataIndex: 'metric',
-      key: 'metric'
+      key: 'metric',
     },
     {
       title: '条件',
       key: 'condition',
-      render: (_, record) => `${record.operator} ${record.threshold}`
+      render: (_, record) => `${record.operator} ${record.threshold}`,
     },
     {
       title: '持续时间',
       dataIndex: 'duration',
       key: 'duration',
-      render: (duration) => `${duration}s`
+      render: duration => `${duration}s`,
     },
     {
       title: '严重程度',
       dataIndex: 'severity',
       key: 'severity',
-      render: (severity) => (
-        <Tag color={getSeverityColor(severity)}>
-          {severity.toUpperCase()}
-        </Tag>
-      )
+      render: severity => (
+        <Tag color={getSeverityColor(severity)}>{severity.toUpperCase()}</Tag>
+      ),
     },
     {
       title: '状态',
@@ -331,10 +360,10 @@ const SystemMonitoringPage: React.FC = () => {
         <Switch
           size="small"
           checked={enabled}
-          onChange={(checked) => handleToggleRule(record.rule_id, checked)}
+          onChange={checked => handleToggleRule(record.rule_id, checked)}
         />
-      )
-    }
+      ),
+    },
   ]
 
   const serviceColumns: ColumnsType<ServiceHealth> = [
@@ -342,75 +371,112 @@ const SystemMonitoringPage: React.FC = () => {
       title: '服务名称',
       dataIndex: 'service_name',
       key: 'service_name',
-      render: (name) => (
+      render: name => (
         <Space>
           <ApiOutlined />
           <span>{name}</span>
         </Space>
-      )
+      ),
     },
     {
       title: '健康状态',
       dataIndex: 'status',
       key: 'status',
-      render: (status) => {
+      render: status => {
         const statusConfig = {
-          healthy: { color: 'success', text: '健康', icon: <CheckCircleOutlined /> },
-          degraded: { color: 'warning', text: '降级', icon: <ExclamationCircleOutlined /> },
-          unhealthy: { color: 'error', text: '异常', icon: <CloseCircleOutlined /> }
+          healthy: {
+            color: 'success',
+            text: '健康',
+            icon: <CheckCircleOutlined />,
+          },
+          degraded: {
+            color: 'warning',
+            text: '降级',
+            icon: <ExclamationCircleOutlined />,
+          },
+          unhealthy: {
+            color: 'error',
+            text: '异常',
+            icon: <CloseCircleOutlined />,
+          },
         }
         const config = statusConfig[status]
-        return <Tag color={config.color} icon={config.icon}>{config.text}</Tag>
-      }
+        return (
+          <Tag color={config.color} icon={config.icon}>
+            {config.text}
+          </Tag>
+        )
+      },
     },
     {
       title: '响应时间',
       dataIndex: 'response_time',
       key: 'response_time',
-      render: (time) => `${time}ms`
+      render: time => `${time}ms`,
     },
     {
       title: '运行时间',
       dataIndex: 'uptime',
       key: 'uptime',
-      render: (uptime) => {
+      render: uptime => {
         const hours = Math.floor(uptime / 3600)
         const minutes = Math.floor((uptime % 3600) / 60)
         return `${hours}h ${minutes}m`
-      }
+      },
     },
     {
       title: '错误率',
       dataIndex: 'error_rate',
       key: 'error_rate',
-      render: (rate) => `${rate}%`
+      render: rate => `${rate}%`,
     },
     {
       title: '最后检查',
       dataIndex: 'last_check',
       key: 'last_check',
-      render: (time) => new Date(time).toLocaleString()
-    }
+      render: time => new Date(time).toLocaleString(),
+    },
   ]
 
   const currentMetrics = metrics.length > 0 ? metrics[metrics.length - 1] : null
   const activeAlerts = alerts.filter(alert => alert.status === 'active')
-  const criticalAlerts = activeAlerts.filter(alert => alert.severity === 'critical')
+  const criticalAlerts = activeAlerts.filter(
+    alert => alert.severity === 'critical'
+  )
 
   const chartData = metrics.slice(-20).map(metric => ({
     ...metric,
-    time: new Date(metric.timestamp).toLocaleTimeString()
+    time: new Date(metric.timestamp).toLocaleTimeString(),
   }))
 
   const serviceStatusData = [
-    { name: '健康', value: services.filter(s => s.status === 'healthy').length, fill: '#52c41a' },
-    { name: '降级', value: services.filter(s => s.status === 'degraded').length, fill: '#faad14' },
-    { name: '异常', value: services.filter(s => s.status === 'unhealthy').length, fill: '#f5222d' }
+    {
+      name: '健康',
+      value: services.filter(s => s.status === 'healthy').length,
+      fill: '#52c41a',
+    },
+    {
+      name: '降级',
+      value: services.filter(s => s.status === 'degraded').length,
+      fill: '#faad14',
+    },
+    {
+      name: '异常',
+      value: services.filter(s => s.status === 'unhealthy').length,
+      fill: '#f5222d',
+    },
   ]
 
   return (
     <div style={{ padding: '24px' }}>
-      <div style={{ marginBottom: 24, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <div
+        style={{
+          marginBottom: 24,
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+        }}
+      >
         <Title level={2}>系统监控</Title>
         <Space>
           <Text>实时模式:</Text>
@@ -420,10 +486,18 @@ const SystemMonitoringPage: React.FC = () => {
             checkedChildren="开"
             unCheckedChildren="关"
           />
-          <Button icon={<ReloadOutlined />} onClick={fetchMonitoringData} loading={loading}>
+          <Button
+            icon={<ReloadOutlined />}
+            onClick={fetchMonitoringData}
+            loading={loading}
+          >
             刷新
           </Button>
-          <Button type="primary" icon={<SettingOutlined />} onClick={() => setRuleModalVisible(true)}>
+          <Button
+            type="primary"
+            icon={<SettingOutlined />}
+            onClick={() => setRuleModalVisible(true)}
+          >
             添加规则
           </Button>
         </Space>
@@ -449,14 +523,18 @@ const SystemMonitoringPage: React.FC = () => {
                 value={currentMetrics.cpu_usage}
                 suffix="%"
                 prefix={<DashboardOutlined />}
-                valueStyle={{ 
-                  color: currentMetrics.cpu_usage > 80 ? '#f5222d' : 
-                         currentMetrics.cpu_usage > 60 ? '#faad14' : '#52c41a' 
+                valueStyle={{
+                  color:
+                    currentMetrics.cpu_usage > 80
+                      ? '#f5222d'
+                      : currentMetrics.cpu_usage > 60
+                        ? '#faad14'
+                        : '#52c41a',
                 }}
               />
-              <Progress 
-                percent={currentMetrics.cpu_usage} 
-                size="small" 
+              <Progress
+                percent={currentMetrics.cpu_usage}
+                size="small"
                 showInfo={false}
                 status={currentMetrics.cpu_usage > 80 ? 'exception' : 'active'}
               />
@@ -469,16 +547,22 @@ const SystemMonitoringPage: React.FC = () => {
                 value={currentMetrics.memory_usage}
                 suffix="%"
                 prefix={<DatabaseOutlined />}
-                valueStyle={{ 
-                  color: currentMetrics.memory_usage > 80 ? '#f5222d' : 
-                         currentMetrics.memory_usage > 60 ? '#faad14' : '#52c41a' 
+                valueStyle={{
+                  color:
+                    currentMetrics.memory_usage > 80
+                      ? '#f5222d'
+                      : currentMetrics.memory_usage > 60
+                        ? '#faad14'
+                        : '#52c41a',
                 }}
               />
-              <Progress 
-                percent={currentMetrics.memory_usage} 
-                size="small" 
+              <Progress
+                percent={currentMetrics.memory_usage}
+                size="small"
                 showInfo={false}
-                status={currentMetrics.memory_usage > 80 ? 'exception' : 'active'}
+                status={
+                  currentMetrics.memory_usage > 80 ? 'exception' : 'active'
+                }
               />
             </Card>
           </Col>
@@ -489,14 +573,18 @@ const SystemMonitoringPage: React.FC = () => {
                 value={currentMetrics.disk_usage}
                 suffix="%"
                 prefix={<CloudServerOutlined />}
-                valueStyle={{ 
-                  color: currentMetrics.disk_usage > 80 ? '#f5222d' : 
-                         currentMetrics.disk_usage > 60 ? '#faad14' : '#52c41a' 
+                valueStyle={{
+                  color:
+                    currentMetrics.disk_usage > 80
+                      ? '#f5222d'
+                      : currentMetrics.disk_usage > 60
+                        ? '#faad14'
+                        : '#52c41a',
                 }}
               />
-              <Progress 
-                percent={currentMetrics.disk_usage} 
-                size="small" 
+              <Progress
+                percent={currentMetrics.disk_usage}
+                size="small"
                 showInfo={false}
                 status={currentMetrics.disk_usage > 80 ? 'exception' : 'active'}
               />
@@ -519,9 +607,13 @@ const SystemMonitoringPage: React.FC = () => {
                 value={currentMetrics.response_time}
                 suffix="ms"
                 prefix={<LineChartOutlined />}
-                valueStyle={{ 
-                  color: currentMetrics.response_time > 1000 ? '#f5222d' : 
-                         currentMetrics.response_time > 500 ? '#faad14' : '#52c41a' 
+                valueStyle={{
+                  color:
+                    currentMetrics.response_time > 1000
+                      ? '#f5222d'
+                      : currentMetrics.response_time > 500
+                        ? '#faad14'
+                        : '#52c41a',
                 }}
               />
             </Card>
@@ -532,8 +624,8 @@ const SystemMonitoringPage: React.FC = () => {
                 title="错误数量"
                 value={currentMetrics.error_count}
                 prefix={<ExclamationCircleOutlined />}
-                valueStyle={{ 
-                  color: currentMetrics.error_count > 0 ? '#f5222d' : '#52c41a' 
+                valueStyle={{
+                  color: currentMetrics.error_count > 0 ? '#f5222d' : '#52c41a',
                 }}
               />
             </Card>
@@ -550,9 +642,24 @@ const SystemMonitoringPage: React.FC = () => {
                 <XAxis dataKey="time" />
                 <YAxis />
                 <RechartsTooltip />
-                <Line type="monotone" dataKey="cpu_usage" stroke="#8884d8" name="CPU%" />
-                <Line type="monotone" dataKey="memory_usage" stroke="#82ca9d" name="内存%" />
-                <Line type="monotone" dataKey="response_time" stroke="#ffc658" name="响应时间" />
+                <Line
+                  type="monotone"
+                  dataKey="cpu_usage"
+                  stroke="#8884d8"
+                  name="CPU%"
+                />
+                <Line
+                  type="monotone"
+                  dataKey="memory_usage"
+                  stroke="#82ca9d"
+                  name="内存%"
+                />
+                <Line
+                  type="monotone"
+                  dataKey="response_time"
+                  stroke="#ffc658"
+                  name="响应时间"
+                />
               </LineChart>
             </ResponsiveContainer>
           </Card>
@@ -581,7 +688,9 @@ const SystemMonitoringPage: React.FC = () => {
               {serviceStatusData.map((item, index) => (
                 <div key={index} style={{ marginBottom: 4 }}>
                   <span style={{ color: item.fill, marginRight: 8 }}>●</span>
-                  <Text>{item.name}: {item.value}</Text>
+                  <Text>
+                    {item.name}: {item.value}
+                  </Text>
                 </div>
               ))}
             </div>
@@ -629,11 +738,7 @@ const SystemMonitoringPage: React.FC = () => {
         footer={null}
         width={600}
       >
-        <Form
-          form={form}
-          layout="vertical"
-          onFinish={handleCreateRule}
-        >
+        <Form form={form} layout="vertical" onFinish={handleCreateRule}>
           <Form.Item
             name="name"
             label="规则名称"
@@ -678,10 +783,7 @@ const SystemMonitoringPage: React.FC = () => {
                 label="阈值"
                 rules={[{ required: true, message: '请输入阈值' }]}
               >
-                <InputNumber
-                  style={{ width: '100%' }}
-                  placeholder="阈值"
-                />
+                <InputNumber style={{ width: '100%' }} placeholder="阈值" />
               </Form.Item>
             </Col>
             <Col span={8}>
@@ -712,19 +814,18 @@ const SystemMonitoringPage: React.FC = () => {
             </Select>
           </Form.Item>
 
-          <Form.Item
-            name="description"
-            label="描述"
-          >
+          <Form.Item name="description" label="描述">
             <Input.TextArea rows={3} placeholder="规则描述" />
           </Form.Item>
 
           <Form.Item style={{ marginBottom: 0 }}>
             <Space style={{ width: '100%', justifyContent: 'flex-end' }}>
-              <Button onClick={() => {
-                setRuleModalVisible(false)
-                form.resetFields()
-              }}>
+              <Button
+                onClick={() => {
+                  setRuleModalVisible(false)
+                  form.resetFields()
+                }}
+              >
                 取消
               </Button>
               <Button type="primary" htmlType="submit">

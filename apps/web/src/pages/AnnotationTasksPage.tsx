@@ -1,7 +1,20 @@
 import { buildApiUrl, apiFetch } from '../utils/apiBase'
 import React, { useEffect, useState } from 'react'
-import { Box, Card, CardContent, Typography, Button, Grid, LinearProgress, Chip, Alert } from '@mui/material'
-import { Refresh as RefreshIcon, Assignment as AssignmentIcon } from '@mui/icons-material'
+import {
+  Box,
+  Card,
+  CardContent,
+  Typography,
+  Button,
+  Grid,
+  LinearProgress,
+  Chip,
+  Alert,
+} from '@mui/material'
+import {
+  Refresh as RefreshIcon,
+  Assignment as AssignmentIcon,
+} from '@mui/icons-material'
 
 interface TaskRow {
   task_id: string
@@ -24,7 +37,9 @@ export default function AnnotationTasksPage() {
     setLoading(true)
     setError(null)
     try {
-      const res = await apiFetch(buildApiUrl('/api/v1/training-data/annotation-tasks'))
+      const res = await apiFetch(
+        buildApiUrl('/api/v1/training-data/annotation-tasks')
+      )
       const data = await res.json()
       setTasks(Array.isArray(data?.tasks) ? data.tasks : [])
     } catch (e: any) {
@@ -41,7 +56,12 @@ export default function AnnotationTasksPage() {
 
   return (
     <Box sx={{ p: 3 }}>
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
+      <Box
+        display="flex"
+        justifyContent="space-between"
+        alignItems="center"
+        mb={2}
+      >
         <Typography variant="h4">标注任务</Typography>
         <Button startIcon={<RefreshIcon />} onClick={load} disabled={loading}>
           刷新
@@ -53,10 +73,12 @@ export default function AnnotationTasksPage() {
       <Grid container spacing={3}>
         {tasks.length === 0 ? (
           <Grid item xs={12}>
-            <Alert severity="info">暂无任务，先通过 /api/v1/training-data/annotation-tasks 创建。</Alert>
+            <Alert severity="info">
+              暂无任务，先通过 /api/v1/training-data/annotation-tasks 创建。
+            </Alert>
           </Grid>
         ) : (
-          tasks.map((task) => (
+          tasks.map(task => (
             <Grid item xs={12} md={6} key={task.task_id}>
               <Card>
                 <CardContent>
@@ -70,19 +92,30 @@ export default function AnnotationTasksPage() {
                   </Typography>
                   {typeof task.progress === 'number' && (
                     <Box mt={2}>
-                      <LinearProgress variant="determinate" value={task.progress} />
+                      <LinearProgress
+                        variant="determinate"
+                        value={task.progress}
+                      />
                       <Typography variant="caption" color="text.secondary">
                         进度 {task.progress}%
                       </Typography>
                     </Box>
                   )}
                   <Box display="flex" justifyContent="space-between" mt={2}>
-                    <Typography variant="body2">总数 {task.total_records ?? '-'}</Typography>
-                    <Typography variant="body2">已完成 {task.completed_records ?? '-'}</Typography>
+                    <Typography variant="body2">
+                      总数 {task.total_records ?? '-'}
+                    </Typography>
+                    <Typography variant="body2">
+                      已完成 {task.completed_records ?? '-'}
+                    </Typography>
                   </Box>
                   <Box display="flex" justifyContent="space-between" mt={1}>
-                    <Typography variant="body2">创建 {task.created_at || '-'}</Typography>
-                    <Typography variant="body2">截止 {task.deadline || '-'}</Typography>
+                    <Typography variant="body2">
+                      创建 {task.created_at || '-'}
+                    </Typography>
+                    <Typography variant="body2">
+                      截止 {task.deadline || '-'}
+                    </Typography>
                   </Box>
                 </CardContent>
               </Card>

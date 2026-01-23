@@ -3,12 +3,13 @@ RAG系统业务逻辑层
 """
 
 from typing import Dict, List, Optional
-from src.ai.rag.embeddings import embedding_service
+from src.ai.rag.embeddings import embedding_service, text_chunker
 from src.ai.rag.hybrid_search import get_hybrid_search_engine, SearchStrategy
 from src.ai.rag.retriever import hybrid_retriever, query_classifier, semantic_retriever
 from src.ai.rag.vectorizer import file_vectorizer
 from src.core.config import get_settings
 from src.core.qdrant import qdrant_manager
+from src.core.utils.timezone_utils import utc_now
 
 from src.core.logging import get_logger
 logger = get_logger(__name__)
@@ -281,43 +282,94 @@ class RAGService:
     async def add_document(self, doc_id: str, text: str, metadata: Dict = None) -> Dict:
         """添加文档到向量存储"""
         try:
-            if metadata is None:
+            if not text or not text.strip():
+                return {"success": False, "error": "document_text_empty"}
+            if metadata is None or not isinstance(metadata, dict):
                 metadata = {}
-            
-            # 创建嵌入
-            embeddings = await embedding_service.create_embedding(text)
-            
-            # 准备点数据
-            point_data = {
-                "id": doc_id,
-                "vector": embeddings,
-                "payload": {
-                    "content": text,
+
+            chunks = text_chunker.chunk_text(text)
+            if not chunks:
+                return {"success": False, "error": "document_chunk_empty"}
+
+            valid_chunks = [
+                chunk
+                for chunk in chunks
+                if chunk.get("content") and chunk["content"].strip()
+            ]
+            if not valid_chunks:
+                return {"success": False, "error": "document_chunk_empty"}
+
+            chunk_texts = [chunk["content"] for chunk in valid_chunks]
+            embeddings = await embedding_service.embed_batch(chunk_texts)
+
+            from qdrant_client.models import PointStruct
+
+            points = []
+            for index, (chunk, embedding) in enumerate(zip(valid_chunks, embeddings)):
+                payload = {
+                    "content": chunk["content"],
                     "metadata": metadata,
                     "doc_id": doc_id,
-                    "type": "document"
+                    "chunk_index": index,
+                    "type": "document",
+                    "file_path": metadata.get("filename", doc_id),
+                    "created_at": utc_now().isoformat(),
                 }
-            }
-            
-            # 添加到Qdrant
+                if "start" in chunk:
+                    payload["start"] = chunk["start"]
+                if "end" in chunk:
+                    payload["end"] = chunk["end"]
+
+                points.append(
+                    PointStruct(
+                        id=f"{doc_id}:{index}",
+                        vector=embedding,
+                        payload=payload,
+                    )
+                )
+
             client = qdrant_manager.get_client()
-            from qdrant_client.models import PointStruct
-            
-            point = PointStruct(**point_data)
-            client.upsert(
-                collection_name="documents",
-                points=[point]
-            )
-            
-            logger.info(f"Document {doc_id} added successfully")
+            client.upsert(collection_name="documents", points=points)
+
+            logger.info(f"Document {doc_id} added successfully", chunks=len(points))
             return {
                 "success": True,
                 "document_id": doc_id,
-                "message": "Document added successfully"
+                "message": "文档已成功添加到索引",
+                "chunks": len(points),
+                "text_length": len(text),
+                "metadata": metadata,
             }
-            
+
         except Exception as e:
             logger.error(f"Failed to add document {doc_id}: {e}")
+            if isinstance(e, RuntimeError):
+                return self._qdrant_unavailable(e)
+            return {
+                "success": False,
+                "error": str(e)
+            }
+
+    async def delete_document(self, doc_id: str) -> Dict:
+        """删除文档"""
+        try:
+            from qdrant_client.models import Filter, FieldCondition, MatchValue
+
+            client = qdrant_manager.get_client()
+            client.delete(
+                collection_name="documents",
+                points_selector=Filter(
+                    must=[FieldCondition(key="doc_id", match=MatchValue(value=doc_id))]
+                ),
+            )
+            logger.info(f"Document {doc_id} deleted successfully")
+            return {
+                "success": True,
+                "document_id": doc_id,
+                "message": "文档删除成功"
+            }
+        except Exception as e:
+            logger.error(f"Failed to delete document {doc_id}: {e}")
             if isinstance(e, RuntimeError):
                 return self._qdrant_unavailable(e)
             return {

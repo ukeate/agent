@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
-import {
+import React, { useState, useEffect } from 'react'
 import { logger } from '../utils/logger'
+import {
   Card,
   Typography,
   Tabs,
@@ -22,8 +22,8 @@ import { logger } from '../utils/logger'
   Empty,
   InputNumber,
   Descriptions,
-  Spin
-} from 'antd';
+  Spin,
+} from 'antd'
 import {
   UploadOutlined,
   FileOutlined,
@@ -39,116 +39,120 @@ import {
   FileExcelOutlined,
   VideoCameraOutlined,
   AudioOutlined,
-  InboxOutlined
-} from '@ant-design/icons';
-import type { UploadProps, UploadFile } from 'antd';
-import { filesService } from '../services/filesService';
-import type { BatchUploadResponse } from '../services/filesService';
+  InboxOutlined,
+} from '@ant-design/icons'
+import type { UploadProps, UploadFile } from 'antd'
+import { filesService } from '../services/filesService'
+import type { BatchUploadResponse } from '../services/filesService'
 
-const { Title, Text, Paragraph } = Typography;
-const { TabPane } = Tabs;
-const { Dragger } = Upload;
-const { Search } = Input;
-const { Option } = Select;
+const { Title, Text, Paragraph } = Typography
+const { TabPane } = Tabs
+const { Dragger } = Upload
+const { Search } = Input
+const { Option } = Select
 
 interface FileInfo {
-  file_id: string;
-  filename: string;
-  file_size: number;
-  content_type?: string;
-  created_at: number;
-  modified_at: number;
-  file_path: string;
+  file_id: string
+  filename: string
+  file_size: number
+  content_type?: string
+  created_at: number
+  modified_at: number
+  file_path: string
 }
 
 interface FileStats {
-  total_files: number;
-  total_size: number;
-  total_size_mb: number;
-  file_types: Record<string, number>;
-  upload_path: string;
+  total_files: number
+  total_size: number
+  total_size_mb: number
+  file_types: Record<string, number>
+  upload_path: string
 }
 
 const FileManagementPageComplete: React.FC = () => {
-  const [activeTab, setActiveTab] = useState('upload');
-  const [files, setFiles] = useState<FileInfo[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [uploading, setUploading] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(0);
-  const [stats, setStats] = useState<FileStats | null>(null);
-  const [searchText, setSearchText] = useState('');
-  const [selectedFileType, setSelectedFileType] = useState<string>('all');
-  const [infoModalVisible, setInfoModalVisible] = useState(false);
-  const [infoLoading, setInfoLoading] = useState(false);
-  const [selectedFileInfo, setSelectedFileInfo] = useState<Record<string, any> | null>(null);
-  const [batchFileList, setBatchFileList] = useState<UploadFile[]>([]);
-  const [batchUploading, setBatchUploading] = useState(false);
-  const [batchUploadResult, setBatchUploadResult] = useState<BatchUploadResponse | null>(null);
-  const [cleanupDays, setCleanupDays] = useState<number>(7);
-  const [cleanupLoading, setCleanupLoading] = useState(false);
-  const [cleanupMessage, setCleanupMessage] = useState('');
+  const [activeTab, setActiveTab] = useState('upload')
+  const [files, setFiles] = useState<FileInfo[]>([])
+  const [loading, setLoading] = useState(false)
+  const [uploading, setUploading] = useState(false)
+  const [uploadProgress, setUploadProgress] = useState(0)
+  const [stats, setStats] = useState<FileStats | null>(null)
+  const [searchText, setSearchText] = useState('')
+  const [selectedFileType, setSelectedFileType] = useState<string>('all')
+  const [infoModalVisible, setInfoModalVisible] = useState(false)
+  const [infoLoading, setInfoLoading] = useState(false)
+  const [selectedFileInfo, setSelectedFileInfo] = useState<Record<
+    string,
+    any
+  > | null>(null)
+  const [batchFileList, setBatchFileList] = useState<UploadFile[]>([])
+  const [batchUploading, setBatchUploading] = useState(false)
+  const [batchUploadResult, setBatchUploadResult] =
+    useState<BatchUploadResponse | null>(null)
+  const [cleanupDays, setCleanupDays] = useState<number>(7)
+  const [cleanupLoading, setCleanupLoading] = useState(false)
+  const [cleanupMessage, setCleanupMessage] = useState('')
 
   // 获取文件列表
   const fetchFiles = async () => {
-    setLoading(true);
+    setLoading(true)
     try {
-      const result = await filesService.listFiles({ limit: 100 });
+      const result = await filesService.listFiles({ limit: 100 })
       if (result.success) {
-        setFiles(result.data.files || []);
+        setFiles(result.data.files || [])
       } else {
-        setFiles([]);
-        message.error('获取文件列表失败');
+        setFiles([])
+        message.error('获取文件列表失败')
       }
     } catch (error) {
-      logger.error('获取文件列表失败:', error);
-      message.error('获取文件列表失败');
+      logger.error('获取文件列表失败:', error)
+      message.error('获取文件列表失败')
       // 使用空数组作为后备
-      setFiles([]);
+      setFiles([])
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
+  }
 
   // 获取文件统计
   const fetchStats = async () => {
     try {
-      const result = await filesService.getFileStats();
+      const result = await filesService.getFileStats()
       if (result.success) {
-        setStats(result.data);
+        setStats(result.data)
       }
     } catch (error) {
-      logger.error('获取文件统计失败:', error);
+      logger.error('获取文件统计失败:', error)
     }
-  };
+  }
 
   useEffect(() => {
-    fetchFiles();
-    fetchStats();
-  }, []);
+    fetchFiles()
+    fetchStats()
+  }, [])
 
   const handleViewFileInfo = async (fileId: string) => {
-    setInfoLoading(true);
-    setSelectedFileInfo(null);
-    setInfoModalVisible(true);
+    setInfoLoading(true)
+    setSelectedFileInfo(null)
+    setInfoModalVisible(true)
     try {
-      const result = await filesService.getFileInfo(fileId);
+      const result = await filesService.getFileInfo(fileId)
       if (result.success) {
-        setSelectedFileInfo(result.data);
+        setSelectedFileInfo(result.data)
       } else {
-        message.error('获取文件信息失败');
+        message.error('获取文件信息失败')
       }
     } catch (error) {
-      message.error('获取文件信息失败');
-      logger.error('获取文件信息失败:', error);
+      message.error('获取文件信息失败')
+      logger.error('获取文件信息失败:', error)
     } finally {
-      setInfoLoading(false);
+      setInfoLoading(false)
     }
-  };
+  }
 
   const handleCloseInfoModal = () => {
-    setInfoModalVisible(false);
-    setSelectedFileInfo(null);
-  };
+    setInfoModalVisible(false)
+    setSelectedFileInfo(null)
+  }
 
   // 文件上传配置
   const uploadProps: UploadProps = {
@@ -156,44 +160,44 @@ const FileManagementPageComplete: React.FC = () => {
     multiple: true,
     customRequest: async ({ file, onProgress, onSuccess, onError }) => {
       try {
-        setUploading(true);
-        setUploadProgress(0);
-        const response = await filesService.uploadFile(file as File);
+        setUploading(true)
+        setUploadProgress(0)
+        const response = await filesService.uploadFile(file as File)
         if (response.success) {
-          onSuccess?.(response.data);
-          setUploadProgress(100);
-          onProgress?.({ percent: 100 } as any);
-          message.success(`${file.name} 上传成功`);
-          fetchFiles();
-          fetchStats();
+          onSuccess?.(response.data)
+          setUploadProgress(100)
+          onProgress?.({ percent: 100 } as any)
+          message.success(`${file.name} 上传成功`)
+          fetchFiles()
+          fetchStats()
         } else {
-          onError?.(new Error(response.message));
-          message.error(`${file.name} 上传失败: ${response.message}`);
+          onError?.(new Error(response.message))
+          message.error(`${file.name} 上传失败: ${response.message}`)
         }
       } catch (error) {
-        onError?.(error as Error);
-        message.error(`${file.name} 上传失败`);
+        onError?.(error as Error)
+        message.error(`${file.name} 上传失败`)
       } finally {
-        setUploading(false);
-        setUploadProgress(0);
+        setUploading(false)
+        setUploadProgress(0)
       }
     },
-    beforeUpload: (file) => {
-      const isLt100M = file.size / 1024 / 1024 < 100;
+    beforeUpload: file => {
+      const isLt100M = file.size / 1024 / 1024 < 100
       if (!isLt100M) {
-        message.error('文件大小不能超过 100MB!');
+        message.error('文件大小不能超过 100MB!')
       }
-      return isLt100M;
+      return isLt100M
     },
-  };
+  }
 
   const batchUploadProps: UploadProps<UploadFile> = {
     multiple: true,
     fileList: batchFileList,
-    beforeUpload: (file) => {
+    beforeUpload: file => {
       setBatchFileList(prev => {
         if (prev.some(item => item.uid === file.uid)) {
-          return prev;
+          return prev
         }
         const uploadFile: UploadFile = {
           uid: file.uid,
@@ -201,162 +205,166 @@ const FileManagementPageComplete: React.FC = () => {
           size: file.size,
           type: file.type,
           originFileObj: file,
-          status: 'done'
-        };
-        return [...prev, uploadFile];
-      });
-      return false;
+          status: 'done',
+        }
+        return [...prev, uploadFile]
+      })
+      return false
     },
-    onRemove: (file) => {
-      setBatchFileList(prev => prev.filter(item => item.uid !== file.uid));
-    }
-  };
+    onRemove: file => {
+      setBatchFileList(prev => prev.filter(item => item.uid !== file.uid))
+    },
+  }
 
   const handleBatchUpload = async () => {
     if (batchFileList.length === 0) {
-      message.warning('请先选择需要上传的文件');
-      return;
+      message.warning('请先选择需要上传的文件')
+      return
     }
 
     const filesToUpload = batchFileList
       .map(item => item.originFileObj)
-      .filter((item): item is File => !!item);
+      .filter((item): item is File => !!item)
 
     if (filesToUpload.length === 0) {
-      message.error('文件选择无效，请重新选择');
-      return;
+      message.error('文件选择无效，请重新选择')
+      return
     }
 
-    setBatchUploading(true);
-    setBatchUploadResult(null);
+    setBatchUploading(true)
+    setBatchUploadResult(null)
     try {
-      const result = await filesService.uploadMultipleFiles(filesToUpload);
-      setBatchUploadResult(result);
+      const result = await filesService.uploadMultipleFiles(filesToUpload)
+      setBatchUploadResult(result)
       if (result.success) {
-        message.success(`批量上传完成，成功 ${result.uploaded_count} 个文件`);
+        message.success(`批量上传完成，成功 ${result.uploaded_count} 个文件`)
       } else {
-        message.warning('批量上传部分文件失败，请查看详情');
+        message.warning('批量上传部分文件失败，请查看详情')
       }
-      setBatchFileList([]);
-      fetchFiles();
-      fetchStats();
+      setBatchFileList([])
+      fetchFiles()
+      fetchStats()
     } catch (error) {
-      message.error('批量上传失败');
-      logger.error('批量上传失败:', error);
+      message.error('批量上传失败')
+      logger.error('批量上传失败:', error)
     } finally {
-      setBatchUploading(false);
+      setBatchUploading(false)
     }
-  };
+  }
 
   const handleCleanup = async () => {
-    setCleanupLoading(true);
-    setCleanupMessage('');
+    setCleanupLoading(true)
+    setCleanupMessage('')
     try {
-      const result = await filesService.cleanupOldFiles(cleanupDays);
-      setCleanupMessage(result.message);
+      const result = await filesService.cleanupOldFiles(cleanupDays)
+      setCleanupMessage(result.message)
       if (result.success) {
-        message.success(result.message);
+        message.success(result.message)
       } else {
-        message.warning('文件清理完成，请检查结果');
+        message.warning('文件清理完成，请检查结果')
       }
-      fetchFiles();
-      fetchStats();
+      fetchFiles()
+      fetchStats()
     } catch (error) {
-      message.error('文件清理失败');
-      logger.error('文件清理失败:', error);
+      message.error('文件清理失败')
+      logger.error('文件清理失败:', error)
     } finally {
-      setCleanupLoading(false);
+      setCleanupLoading(false)
     }
-  };
+  }
 
   // 删除文件
   const handleDeleteFile = async (fileId: string) => {
     try {
-      const result = await filesService.deleteFile(fileId);
+      const result = await filesService.deleteFile(fileId)
       if (result.success) {
-        message.success('文件删除成功');
-        fetchFiles();
-        fetchStats();
+        message.success('文件删除成功')
+        fetchFiles()
+        fetchStats()
       } else {
-        message.error('文件删除失败');
+        message.error('文件删除失败')
       }
     } catch (error) {
-      message.error('文件删除失败');
+      message.error('文件删除失败')
     }
-  };
+  }
 
   // 下载文件
   const handleDownloadFile = async (fileId: string, filename: string) => {
     try {
-      const blob = await filesService.downloadFile(fileId);
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = filename;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
-      message.success('文件下载成功');
+      const blob = await filesService.downloadFile(fileId)
+      const url = window.URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = filename
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      window.URL.revokeObjectURL(url)
+      message.success('文件下载成功')
     } catch (error) {
-      message.error('文件下载失败');
-      logger.error('下载文件失败:', error);
+      message.error('文件下载失败')
+      logger.error('下载文件失败:', error)
     }
-  };
+  }
 
   // 获取文件图标
   const getFileIcon = (filename: string) => {
-    const ext = filename.split('.').pop()?.toLowerCase();
+    const ext = filename.split('.').pop()?.toLowerCase()
     switch (ext) {
       case 'pdf':
-        return <FilePdfOutlined style={{ color: '#ff4d4f' }} />;
+        return <FilePdfOutlined style={{ color: '#ff4d4f' }} />
       case 'doc':
       case 'docx':
-        return <FileWordOutlined style={{ color: '#1890ff' }} />;
+        return <FileWordOutlined style={{ color: '#1890ff' }} />
       case 'xls':
       case 'xlsx':
-        return <FileExcelOutlined style={{ color: '#52c41a' }} />;
+        return <FileExcelOutlined style={{ color: '#52c41a' }} />
       case 'jpg':
       case 'jpeg':
       case 'png':
       case 'gif':
       case 'bmp':
       case 'webp':
-        return <FileImageOutlined style={{ color: '#722ed1' }} />;
+        return <FileImageOutlined style={{ color: '#722ed1' }} />
       case 'mp4':
       case 'avi':
       case 'mov':
       case 'mkv':
-        return <VideoCameraOutlined style={{ color: '#eb2f96' }} />;
+        return <VideoCameraOutlined style={{ color: '#eb2f96' }} />
       case 'mp3':
       case 'wav':
       case 'aac':
-        return <AudioOutlined style={{ color: '#fa8c16' }} />;
+        return <AudioOutlined style={{ color: '#fa8c16' }} />
       default:
-        return <FileOutlined />;
+        return <FileOutlined />
     }
-  };
+  }
 
   // 格式化文件大小
   const formatFileSize = (size: number) => {
-    if (size < 1024) return `${size} B`;
-    if (size < 1024 * 1024) return `${(size / 1024).toFixed(2)} KB`;
-    if (size < 1024 * 1024 * 1024) return `${(size / (1024 * 1024)).toFixed(2)} MB`;
-    return `${(size / (1024 * 1024 * 1024)).toFixed(2)} GB`;
-  };
+    if (size < 1024) return `${size} B`
+    if (size < 1024 * 1024) return `${(size / 1024).toFixed(2)} KB`
+    if (size < 1024 * 1024 * 1024)
+      return `${(size / (1024 * 1024)).toFixed(2)} MB`
+    return `${(size / (1024 * 1024 * 1024)).toFixed(2)} GB`
+  }
 
   // 格式化时间
   const formatTime = (timestamp: number) => {
-    return new Date(timestamp * 1000).toLocaleString();
-  };
+    return new Date(timestamp * 1000).toLocaleString()
+  }
 
   // 过滤文件
   const filteredFiles = files.filter(file => {
-    const matchesSearch = file.filename.toLowerCase().includes(searchText.toLowerCase());
-    const matchesType = selectedFileType === 'all' || 
-      file.filename.toLowerCase().endsWith(selectedFileType);
-    return matchesSearch && matchesType;
-  });
+    const matchesSearch = file.filename
+      .toLowerCase()
+      .includes(searchText.toLowerCase())
+    const matchesType =
+      selectedFileType === 'all' ||
+      file.filename.toLowerCase().endsWith(selectedFileType)
+    return matchesSearch && matchesType
+  })
 
   // 文件表格列配置
   const columns = [
@@ -410,18 +418,14 @@ const FileManagementPageComplete: React.FC = () => {
             okText="确定"
             cancelText="取消"
           >
-            <Button
-              type="text"
-              danger
-              icon={<DeleteOutlined />}
-            >
+            <Button type="text" danger icon={<DeleteOutlined />}>
               删除
             </Button>
           </Popconfirm>
         </Space>
       ),
     },
-  ];
+  ]
 
   return (
     <div style={{ padding: '24px' }}>
@@ -471,7 +475,11 @@ const FileManagementPageComplete: React.FC = () => {
             <Card>
               <Statistic
                 title="平均大小"
-                value={stats.total_files > 0 ? (stats.total_size_mb / stats.total_files) : 0}
+                value={
+                  stats.total_files > 0
+                    ? stats.total_size_mb / stats.total_files
+                    : 0
+                }
                 suffix="MB"
                 precision={2}
                 prefix={<FileOutlined />}
@@ -483,18 +491,23 @@ const FileManagementPageComplete: React.FC = () => {
 
       <Tabs activeKey={activeTab} onChange={setActiveTab} size="large">
         <TabPane
-          tab={<span><UploadOutlined />文件上传</span>}
+          tab={
+            <span>
+              <UploadOutlined />
+              文件上传
+            </span>
+          }
           key="upload"
         >
           <Card>
             <Alert
               message="支持的文件格式"
               description="图片 (JPG, PNG, GIF, BMP, WEBP)、文档 (PDF, DOC, DOCX, TXT)、表格 (XLS, XLSX, CSV)、演示 (PPT, PPTX)、音频 (MP3, WAV, AAC)、视频 (MP4, AVI, MOV)"
-              variant="default"
+              type="info"
               showIcon
               style={{ marginBottom: 16 }}
             />
-            
+
             <Dragger {...uploadProps}>
               <p className="ant-upload-drag-icon">
                 <InboxOutlined />
@@ -515,14 +528,19 @@ const FileManagementPageComplete: React.FC = () => {
         </TabPane>
 
         <TabPane
-          tab={<span><CloudUploadOutlined />批量上传</span>}
+          tab={
+            <span>
+              <CloudUploadOutlined />
+              批量上传
+            </span>
+          }
           key="batch"
         >
           <Card>
             <Alert
               message="批量上传"
               description="选择多个文件后点击开始上传，可一次性上传最大10个文件。"
-              variant="default"
+              type="info"
               showIcon
               style={{ marginBottom: 16 }}
             />
@@ -546,8 +564,8 @@ const FileManagementPageComplete: React.FC = () => {
               </Button>
               <Button
                 onClick={() => {
-                  setBatchFileList([]);
-                  setBatchUploadResult(null);
+                  setBatchFileList([])
+                  setBatchUploadResult(null)
                 }}
               >
                 清空列表
@@ -565,8 +583,10 @@ const FileManagementPageComplete: React.FC = () => {
                       message="失败详情"
                       description={
                         <Space direction="vertical">
-                          {batchUploadResult.errors.map((item) => (
-                            <Text key={item.filename}>{`${item.filename}: ${item.error}`}</Text>
+                          {batchUploadResult.errors.map(item => (
+                            <Text
+                              key={item.filename}
+                            >{`${item.filename}: ${item.error}`}</Text>
                           ))}
                         </Space>
                       }
@@ -580,7 +600,12 @@ const FileManagementPageComplete: React.FC = () => {
         </TabPane>
 
         <TabPane
-          tab={<span><FileOutlined />文件管理</span>}
+          tab={
+            <span>
+              <FileOutlined />
+              文件管理
+            </span>
+          }
           key="management"
         >
           <Card>
@@ -591,7 +616,7 @@ const FileManagementPageComplete: React.FC = () => {
                     placeholder="搜索文件名"
                     allowClear
                     value={searchText}
-                    onChange={(e) => setSearchText(e.target.value)}
+                    onChange={e => setSearchText(e.target.value)}
                     style={{ width: '100%' }}
                   />
                 </Col>
@@ -633,7 +658,7 @@ const FileManagementPageComplete: React.FC = () => {
                   pageSize: 10,
                   showSizeChanger: true,
                   showQuickJumper: true,
-                  showTotal: (total) => `共 ${total} 个文件`,
+                  showTotal: total => `共 ${total} 个文件`,
                 }}
               />
             ) : (
@@ -643,7 +668,12 @@ const FileManagementPageComplete: React.FC = () => {
         </TabPane>
 
         <TabPane
-          tab={<span><EyeOutlined />文件统计</span>}
+          tab={
+            <span>
+              <EyeOutlined />
+              文件统计
+            </span>
+          }
           key="statistics"
         >
           <Card title="存储统计" style={{ marginBottom: 16 }}>
@@ -654,7 +684,13 @@ const FileManagementPageComplete: React.FC = () => {
                     <Title level={4}>文件类型分布</Title>
                     <Space direction="vertical" style={{ width: '100%' }}>
                       {Object.entries(stats.file_types).map(([ext, count]) => (
-                        <div key={ext} style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <div
+                          key={ext}
+                          style={{
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                          }}
+                        >
                           <span>{ext || '无扩展名'}</span>
                           <Tag color="blue">{count} 个</Tag>
                         </div>
@@ -676,7 +712,10 @@ const FileManagementPageComplete: React.FC = () => {
                     </Paragraph>
                     <Paragraph>
                       <Text strong>平均文件大小:</Text>{' '}
-                      {stats.total_files > 0 ? (stats.total_size_mb / stats.total_files).toFixed(2) : 0} MB
+                      {stats.total_files > 0
+                        ? (stats.total_size_mb / stats.total_files).toFixed(2)
+                        : 0}{' '}
+                      MB
                     </Paragraph>
                   </div>
                 </Col>
@@ -694,9 +733,9 @@ const FileManagementPageComplete: React.FC = () => {
                   min={1}
                   max={365}
                   value={cleanupDays}
-                  onChange={(value) => {
+                  onChange={value => {
                     if (typeof value === 'number') {
-                      setCleanupDays(value);
+                      setCleanupDays(value)
                     }
                   }}
                 />
@@ -735,17 +774,25 @@ const FileManagementPageComplete: React.FC = () => {
           </div>
         ) : selectedFileInfo ? (
           <Descriptions column={1} bordered>
-            <Descriptions.Item label="文件ID">{selectedFileInfo.file_id || 'N/A'}</Descriptions.Item>
-            <Descriptions.Item label="文件大小">{formatFileSize(selectedFileInfo.file_size || 0)}</Descriptions.Item>
-            <Descriptions.Item label="创建时间">{selectedFileInfo.created_at || 'N/A'}</Descriptions.Item>
-            <Descriptions.Item label="存储路径">{selectedFileInfo.file_path || 'N/A'}</Descriptions.Item>
+            <Descriptions.Item label="文件ID">
+              {selectedFileInfo.file_id || 'N/A'}
+            </Descriptions.Item>
+            <Descriptions.Item label="文件大小">
+              {formatFileSize(selectedFileInfo.file_size || 0)}
+            </Descriptions.Item>
+            <Descriptions.Item label="创建时间">
+              {selectedFileInfo.created_at || 'N/A'}
+            </Descriptions.Item>
+            <Descriptions.Item label="存储路径">
+              {selectedFileInfo.file_path || 'N/A'}
+            </Descriptions.Item>
           </Descriptions>
         ) : (
           <Alert type="error" message="未找到文件信息" showIcon />
         )}
       </Modal>
     </div>
-  );
-};
+  )
+}
 
-export default FileManagementPageComplete;
+export default FileManagementPageComplete

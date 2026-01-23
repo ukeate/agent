@@ -1,97 +1,110 @@
 import { buildApiUrl, apiFetch } from '../utils/apiBase'
-import React, { useState, useEffect } from 'react';
-import { 
+import React, { useState, useEffect } from 'react'
 import { logger } from '../utils/logger'
-  Card, 
-  Tabs, 
-  Typography, 
-  Row, 
-  Col, 
-  Button, 
-  Alert, 
+import {
+  Card,
+  Tabs,
+  Typography,
+  Row,
+  Col,
+  Button,
+  Alert,
   Tag,
   Statistic,
   Space,
-  Divider
-} from 'antd';
-import { 
-  ClockCircleOutlined, 
-  BranchesOutlined, 
-  DatabaseOutlined, 
-  ReloadOutlined, 
+  Divider,
+} from 'antd'
+import {
+  ClockCircleOutlined,
+  BranchesOutlined,
+  DatabaseOutlined,
+  ReloadOutlined,
   LoadingOutlined,
   NodeIndexOutlined,
-  ThunderboltOutlined
-} from '@ant-design/icons';
+  ThunderboltOutlined,
+} from '@ant-design/icons'
 
-const { Title, Text } = Typography;
-const { TabPane } = Tabs;
+const { Title, Text } = Typography
+const { TabPane } = Tabs
 
 interface VectorClockNode {
-  node_id: string;
-  current_clock: Record<string, number>;
-  last_updated: string;
-  status: 'active' | 'inactive' | 'syncing';
-  pending_operations: number;
+  node_id: string
+  current_clock: Record<string, number>
+  last_updated: string
+  status: 'active' | 'inactive' | 'syncing'
+  pending_operations: number
 }
 
 interface VectorClockEvent {
-  event_id: string;
-  node_id: string;
-  timestamp: string;
-  event_type: 'local_update' | 'remote_sync' | 'conflict_detected' | 'conflict_resolved';
-  vector_clock: Record<string, number>;
-  data: Record<string, any>;
+  event_id: string
+  node_id: string
+  timestamp: string
+  event_type:
+    | 'local_update'
+    | 'remote_sync'
+    | 'conflict_detected'
+    | 'conflict_resolved'
+  vector_clock: Record<string, number>
+  data: Record<string, any>
 }
 
 const VectorClockVisualizationPage: React.FC = () => {
-  const [nodes, setNodes] = useState<VectorClockNode[]>([]);
-  const [events, setEvents] = useState<VectorClockEvent[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [nodes, setNodes] = useState<VectorClockNode[]>([])
+  const [events, setEvents] = useState<VectorClockEvent[]>([])
+  const [loading, setLoading] = useState(true)
 
   const fetchVectorClockData = async () => {
     try {
-      const res = await apiFetch(buildApiUrl('/api/v1/offline/vector-clocks'));
-      const data = await res.json();
-      setNodes(Array.isArray(data?.nodes) ? data.nodes : []);
-      setEvents(Array.isArray(data?.events) ? data.events : []);
+      const res = await apiFetch(buildApiUrl('/api/v1/offline/vector-clocks'))
+      const data = await res.json()
+      setNodes(Array.isArray(data?.nodes) ? data.nodes : [])
+      setEvents(Array.isArray(data?.events) ? data.events : [])
     } catch (error) {
-      logger.error('获取向量时钟数据失败:', error);
-      setNodes([]);
-      setEvents([]);
+      logger.error('获取向量时钟数据失败:', error)
+      setNodes([])
+      setEvents([])
     }
-  };
+  }
 
   useEffect(() => {
     const loadData = async () => {
-      setLoading(true);
-      await fetchVectorClockData();
-      setLoading(false);
-    };
+      setLoading(true)
+      await fetchVectorClockData()
+      setLoading(false)
+    }
 
-    loadData();
-    const interval = setInterval(loadData, 5000);
-    return () => clearInterval(interval);
-  }, []);
+    loadData()
+    const interval = setInterval(loadData, 5000)
+    return () => clearInterval(interval)
+  }, [])
 
   const getNodeStatusColor = (status: string) => {
     switch (status) {
-      case 'active': return 'success';
-      case 'syncing': return 'processing';
-      case 'inactive': return 'error';
-      default: return 'default';
+      case 'active':
+        return 'success'
+      case 'syncing':
+        return 'processing'
+      case 'inactive':
+        return 'error'
+      default:
+        return 'default'
     }
-  };
+  }
 
   const getEventTypeColor = (type: string) => {
     switch (type) {
-      case 'local_update': return 'blue';
-      case 'remote_sync': return 'green';
-      case 'conflict_detected': return 'error';
-      case 'conflict_resolved': return 'success';
-      default: return 'default';
+      case 'local_update':
+        return 'blue'
+      case 'remote_sync':
+        return 'green'
+      case 'conflict_detected':
+        return 'error'
+      case 'conflict_resolved':
+        return 'success'
+      default:
+        return 'default'
     }
-  };
+  }
 
   if (loading) {
     return (
@@ -99,18 +112,28 @@ const VectorClockVisualizationPage: React.FC = () => {
         <LoadingOutlined style={{ fontSize: 24 }} />
         <div style={{ marginTop: 16 }}>加载向量时钟数据中...</div>
       </div>
-    );
+    )
   }
 
   return (
     <div style={{ padding: '24px' }}>
-      <div style={{ marginBottom: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <div
+        style={{
+          marginBottom: '24px',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+        }}
+      >
         <Title level={2}>
           <ClockCircleOutlined style={{ marginRight: '12px' }} />
           向量时钟可视化
         </Title>
         <Space>
-          <Button onClick={() => window.location.reload()} icon={<ReloadOutlined />}>
+          <Button
+            onClick={() => window.location.reload()}
+            icon={<ReloadOutlined />}
+          >
             刷新
           </Button>
         </Space>
@@ -161,14 +184,23 @@ const VectorClockVisualizationPage: React.FC = () => {
           <Row gutter={16}>
             {nodes.length === 0 ? (
               <Col span={24}>
-                <Alert type="info" message="暂无节点数据，待离线操作产生后再查看。" />
+                <Alert
+                  type="info"
+                  message="暂无节点数据，待离线操作产生后再查看。"
+                />
               </Col>
             ) : (
-              nodes.map((node) => (
+              nodes.map(node => (
                 <Col key={node.node_id} span={8}>
                   <Card
                     title={
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <div
+                        style={{
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                        }}
+                      >
                         <Text strong>{node.node_id}</Text>
                         <Tag color={getNodeStatusColor(node.status)}>
                           {node.status}
@@ -179,13 +211,15 @@ const VectorClockVisualizationPage: React.FC = () => {
                   >
                     <div style={{ marginBottom: '12px' }}>
                       <Text strong>向量时钟:</Text>
-                      <div style={{ 
-                        marginTop: '4px',
-                        fontFamily: 'monospace',
-                        backgroundColor: '#f5f5f5',
-                        padding: '8px',
-                        borderRadius: '4px'
-                      }}>
+                      <div
+                        style={{
+                          marginTop: '4px',
+                          fontFamily: 'monospace',
+                          backgroundColor: '#f5f5f5',
+                          padding: '8px',
+                          borderRadius: '4px',
+                        }}
+                      >
                         {JSON.stringify(node.current_clock, null, 2)}
                       </div>
                     </div>
@@ -215,11 +249,26 @@ const VectorClockVisualizationPage: React.FC = () => {
           }
           key="events"
         >
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            {events.map((event) => (
+          <div
+            style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}
+          >
+            {events.map(event => (
               <Card key={event.event_id} size="small">
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <div
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    marginBottom: '8px',
+                  }}
+                >
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                    }}
+                  >
                     <Text strong>{event.event_id}</Text>
                     <Tag>{event.node_id}</Tag>
                     <Tag color={getEventTypeColor(event.event_type)}>
@@ -234,27 +283,31 @@ const VectorClockVisualizationPage: React.FC = () => {
                 <Row gutter={16}>
                   <Col span={12}>
                     <Text strong>向量时钟:</Text>
-                    <div style={{ 
-                      marginTop: '4px',
-                      fontFamily: 'monospace',
-                      backgroundColor: '#f0f9ff',
-                      padding: '6px',
-                      borderRadius: '4px',
-                      fontSize: '12px'
-                    }}>
+                    <div
+                      style={{
+                        marginTop: '4px',
+                        fontFamily: 'monospace',
+                        backgroundColor: '#f0f9ff',
+                        padding: '6px',
+                        borderRadius: '4px',
+                        fontSize: '12px',
+                      }}
+                    >
                       {JSON.stringify(event.vector_clock)}
                     </div>
                   </Col>
                   <Col span={12}>
                     <Text strong>事件数据:</Text>
-                    <div style={{ 
-                      marginTop: '4px',
-                      fontFamily: 'monospace',
-                      backgroundColor: '#f6ffed',
-                      padding: '6px',
-                      borderRadius: '4px',
-                      fontSize: '12px'
-                    }}>
+                    <div
+                      style={{
+                        marginTop: '4px',
+                        fontFamily: 'monospace',
+                        backgroundColor: '#f6ffed',
+                        padding: '6px',
+                        borderRadius: '4px',
+                        fontSize: '12px',
+                      }}
+                    >
                       {JSON.stringify(event.data)}
                     </div>
                   </Col>
@@ -276,59 +329,79 @@ const VectorClockVisualizationPage: React.FC = () => {
           <Alert
             message="向量时钟比较"
             description="向量时钟用于确定事件的因果关系。如果时钟A在所有维度上都小于等于时钟B，且至少有一个维度严格小于，则A发生在B之前。"
-            variant="default"
+            type="info"
             showIcon
             style={{ marginBottom: '16px' }}
           />
 
           <Row gutter={16}>
-            {nodes.map((node1, i) => 
+            {nodes.map((node1, i) =>
               nodes.map((node2, j) => {
-                if (i >= j) return null;
-                
+                if (i >= j) return null
+
                 // 简单的向量时钟比较逻辑
-                const clock1 = node1.current_clock;
-                const clock2 = node2.current_clock;
-                const allKeys = new Set([...Object.keys(clock1), ...Object.keys(clock2)]);
-                
-                let relation = 'concurrent';
-                let node1Before = true;
-                let node2Before = true;
-                
+                const clock1 = node1.current_clock
+                const clock2 = node2.current_clock
+                const allKeys = new Set([
+                  ...Object.keys(clock1),
+                  ...Object.keys(clock2),
+                ])
+
+                let relation = 'concurrent'
+                let node1Before = true
+                let node2Before = true
+
                 for (const key of allKeys) {
-                  const val1 = clock1[key] || 0;
-                  const val2 = clock2[key] || 0;
-                  
-                  if (val1 > val2) node2Before = false;
-                  if (val2 > val1) node1Before = false;
+                  const val1 = clock1[key] || 0
+                  const val2 = clock2[key] || 0
+
+                  if (val1 > val2) node2Before = false
+                  if (val2 > val1) node1Before = false
                 }
-                
-                if (node1Before && !node2Before) relation = `${node1.node_id} → ${node2.node_id}`;
-                else if (node2Before && !node1Before) relation = `${node2.node_id} → ${node1.node_id}`;
-                else if (!node1Before && !node2Before) relation = 'concurrent';
-                else relation = 'equal';
+
+                if (node1Before && !node2Before)
+                  relation = `${node1.node_id} → ${node2.node_id}`
+                else if (node2Before && !node1Before)
+                  relation = `${node2.node_id} → ${node1.node_id}`
+                else if (!node1Before && !node2Before) relation = 'concurrent'
+                else relation = 'equal'
 
                 return (
                   <Col key={`${i}-${j}`} span={12}>
                     <Card size="small" style={{ marginBottom: '12px' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <div
+                        style={{
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                        }}
+                      >
                         <div>
-                          <Text strong>{node1.node_id}</Text> vs <Text strong>{node2.node_id}</Text>
+                          <Text strong>{node1.node_id}</Text> vs{' '}
+                          <Text strong>{node2.node_id}</Text>
                         </div>
-                        <Tag color={relation === 'concurrent' ? 'orange' : relation === 'equal' ? 'blue' : 'green'}>
+                        <Tag
+                          color={
+                            relation === 'concurrent'
+                              ? 'orange'
+                              : relation === 'equal'
+                                ? 'blue'
+                                : 'green'
+                          }
+                        >
                           {relation}
                         </Tag>
                       </div>
                     </Card>
                   </Col>
-                );
+                )
               })
             )}
           </Row>
         </TabPane>
       </Tabs>
     </div>
-  );
-};
+  )
+}
 
-export default VectorClockVisualizationPage;
+export default VectorClockVisualizationPage

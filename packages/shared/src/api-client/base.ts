@@ -3,7 +3,7 @@
  */
 
 import type { ApiResponse, HttpMethod, RequestConfig } from '../types/api';
-import { HTTP_STATUS, TIMEOUT_CONFIG, RETRY_CONFIG } from '../constants/api';
+import { TIMEOUT_CONFIG, RETRY_CONFIG } from '../constants/api';
 
 export interface ApiClientConfig {
   baseURL: string;
@@ -16,7 +16,7 @@ export interface ApiClientConfig {
 }
 
 export class ApiClient {
-  private config: ApiClientConfig;
+  protected config: ApiClientConfig;
 
   constructor(config: ApiClientConfig) {
     this.config = {
@@ -26,10 +26,10 @@ export class ApiClient {
     };
   }
 
-  async request<T = any>(
+  async request<T = unknown>(
     method: HttpMethod,
     endpoint: string,
-    data?: any,
+    data?: unknown,
     options?: RequestConfig
   ): Promise<ApiResponse<T>> {
     const url = this.buildUrl(endpoint);
@@ -64,23 +64,23 @@ export class ApiClient {
     throw lastError ?? new Error('请求失败');
   }
 
-  async get<T = any>(endpoint: string, options?: RequestConfig): Promise<ApiResponse<T>> {
+  async get<T = unknown>(endpoint: string, options?: RequestConfig): Promise<ApiResponse<T>> {
     return this.request<T>('GET', endpoint, undefined, options);
   }
 
-  async post<T = any>(endpoint: string, data?: any, options?: RequestConfig): Promise<ApiResponse<T>> {
+  async post<T = unknown>(endpoint: string, data?: unknown, options?: RequestConfig): Promise<ApiResponse<T>> {
     return this.request<T>('POST', endpoint, data, options);
   }
 
-  async put<T = any>(endpoint: string, data?: any, options?: RequestConfig): Promise<ApiResponse<T>> {
+  async put<T = unknown>(endpoint: string, data?: unknown, options?: RequestConfig): Promise<ApiResponse<T>> {
     return this.request<T>('PUT', endpoint, data, options);
   }
 
-  async patch<T = any>(endpoint: string, data?: any, options?: RequestConfig): Promise<ApiResponse<T>> {
+  async patch<T = unknown>(endpoint: string, data?: unknown, options?: RequestConfig): Promise<ApiResponse<T>> {
     return this.request<T>('PATCH', endpoint, data, options);
   }
 
-  async delete<T = any>(endpoint: string, options?: RequestConfig): Promise<ApiResponse<T>> {
+  async delete<T = unknown>(endpoint: string, options?: RequestConfig): Promise<ApiResponse<T>> {
     return this.request<T>('DELETE', endpoint, undefined, options);
   }
 
@@ -90,7 +90,7 @@ export class ApiClient {
     return `${baseURL}${path}`;
   }
 
-  private buildRequestConfig(method: HttpMethod, data?: any, options?: RequestConfig): RequestInit {
+  private buildRequestConfig(method: HttpMethod, data?: unknown, options?: RequestConfig): RequestInit {
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
       ...this.config.headers,
@@ -139,7 +139,7 @@ export class ApiClient {
     const contentType = response.headers.get('content-type');
     const isJson = contentType?.includes('application/json');
 
-    let data: any;
+    let data: unknown;
     try {
       data = isJson ? await response.json() : await response.text();
     } catch (error) {
@@ -147,10 +147,13 @@ export class ApiClient {
     }
 
     if (!response.ok) {
-      const message = typeof data === 'object' && data
-        ? (data.error || data.message || `HTTP ${response.status}: ${response.statusText}`)
-        : `HTTP ${response.status}: ${response.statusText}`;
-      throw new ApiError(message, response.status, data);
+      const errorPayload =
+        typeof data === 'object' && data ? (data as Record<string, unknown>) : null;
+      const errorMessage =
+        (errorPayload && typeof errorPayload.error === 'string' && errorPayload.error) ||
+        (errorPayload && typeof errorPayload.message === 'string' && errorPayload.message) ||
+        `HTTP ${response.status}: ${response.statusText}`;
+      throw new ApiError(errorMessage, response.status, data);
     }
 
     return {
@@ -182,9 +185,9 @@ export class ApiClient {
 
 export class ApiError extends Error {
   public status: number;
-  public data?: any;
+  public data?: unknown;
 
-  constructor(message: string, status: number, data?: any) {
+  constructor(message: string, status: number, data?: unknown) {
     super(message);
     this.name = 'ApiError';
     this.status = status;

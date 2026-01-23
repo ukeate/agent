@@ -1,6 +1,6 @@
-import React from 'react';
-import FineTuningJobsPage from './FineTuningJobsPage';
+import React from 'react'
+import FineTuningJobsPage from './FineTuningJobsPage'
 
-const FineTuningPage: React.FC = () => <FineTuningJobsPage />;
+const FineTuningPage: React.FC = () => <FineTuningJobsPage />
 
-export default FineTuningPage;
+export default FineTuningPage

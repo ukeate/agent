@@ -1,7 +1,7 @@
 /**
  * 实验卡片组件
  */
-import React from 'react';
+import React from 'react'
 import {
   Card,
   CardContent,
@@ -17,7 +17,7 @@ import {
   Avatar,
   AvatarGroup,
   // Grid  // 暂时注释未使用的导入
-} from '@mui/material';
+} from '@mui/material'
 import {
   PlayArrow as PlayIcon,
   Pause as PauseIcon,
@@ -30,104 +30,104 @@ import {
   Science as ScienceIcon,
   CheckCircle as CheckCircleIcon,
   Warning as WarningIcon,
-  Error as ErrorIcon
-} from '@mui/icons-material';
-import { /* format, */ formatDistanceToNow } from 'date-fns'; // 暂时注释未使用的format
-import { zhCN } from 'date-fns/locale';
+  Error as ErrorIcon,
+} from '@mui/icons-material'
+import { /* format, */ formatDistanceToNow } from 'date-fns' // 暂时注释未使用的format
+import { zhCN } from 'date-fns/locale'
 
 export interface ExperimentData {
-  id: string;
-  name: string;
-  description: string;
-  type: string;
-  status: 'draft' | 'active' | 'paused' | 'completed' | 'archived';
-  startDate?: Date;
-  endDate?: Date;
+  id: string
+  name: string
+  description: string
+  type: string
+  status: 'draft' | 'active' | 'paused' | 'completed' | 'archived'
+  startDate?: Date
+  endDate?: Date
   variants: {
-    id: string;
-    name: string;
-    traffic: number;
-    isControl: boolean;
-  }[];
+    id: string
+    name: string
+    traffic: number
+    isControl: boolean
+  }[]
   metrics: {
-    name: string;
-    type: 'primary' | 'secondary' | 'guardrail';
-    currentValue?: number;
-    baselineValue?: number;
-    improvement?: number;
-    pValue?: number;
-    significant?: boolean;
-  }[];
+    name: string
+    type: 'primary' | 'secondary' | 'guardrail'
+    currentValue?: number
+    baselineValue?: number
+    improvement?: number
+    pValue?: number
+    significant?: boolean
+  }[]
   sampleSize?: {
-    current: number;
-    required: number;
-  };
-  owners?: string[];
-  tags?: string[];
-  healthStatus?: 'healthy' | 'warning' | 'error';
-  healthMessage?: string;
+    current: number
+    required: number
+  }
+  owners?: string[]
+  tags?: string[]
+  healthStatus?: 'healthy' | 'warning' | 'error'
+  healthMessage?: string
 }
 
 interface ExperimentCardProps {
-  experiment: ExperimentData;
-  onAction?: (action: string, experimentId: string) => void;
-  showDetails?: boolean;
-  compact?: boolean;
+  experiment: ExperimentData
+  onAction?: (action: string, experimentId: string) => void
+  showDetails?: boolean
+  compact?: boolean
 }
 
 const ExperimentCard: React.FC<ExperimentCardProps> = ({
   experiment,
   onAction,
   showDetails = true,
-  compact = false
+  compact = false,
 }) => {
   // 获取状态颜色
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'active':
-        return 'success';
+        return 'success'
       case 'paused':
-        return 'warning';
+        return 'warning'
       case 'completed':
-        return 'info';
+        return 'info'
       case 'archived':
-        return 'default';
+        return 'default'
       default:
-        return 'default';
+        return 'default'
     }
-  };
+  }
 
   // 获取状态标签
   const getStatusLabel = (status: string) => {
     switch (status) {
       case 'draft':
-        return '草稿';
+        return '草稿'
       case 'active':
-        return '运行中';
+        return '运行中'
       case 'paused':
-        return '已暂停';
+        return '已暂停'
       case 'completed':
-        return '已完成';
+        return '已完成'
       case 'archived':
-        return '已归档';
+        return '已归档'
       default:
-        return status;
+        return status
     }
-  };
+  }
 
   // 获取健康状态图标
   const getHealthIcon = () => {
     switch (experiment.healthStatus) {
       case 'healthy':
-        return <CheckCircleIcon color="success" fontSize="small" />;
+        return <CheckCircleIcon color="success" fontSize="small" />
       case 'warning':
-        return <WarningIcon color="warning" fontSize="small" />;
+        return <WarningIcon color="warning" fontSize="small" />
       case 'error':
-        return <ErrorIcon color="error" fontSize="small" />;
+        return <ErrorIcon color="error" fontSize="small" />
       default:
-        return null;
+        return null
     }
-  };
+  }
 
   // 计算实验进度
   const getProgress = () => {
@@ -135,18 +135,19 @@ const ExperimentCard: React.FC<ExperimentCardProps> = ({
       return Math.min(
         (experiment.sampleSize.current / experiment.sampleSize.required) * 100,
         100
-      );
+      )
     }
     if (experiment.startDate && experiment.endDate) {
-      const total = experiment.endDate.getTime() - experiment.startDate.getTime();
-      const current = Date.now() - experiment.startDate.getTime();
-      return Math.min((current / total) * 100, 100);
+      const total =
+        experiment.endDate.getTime() - experiment.startDate.getTime()
+      const current = Date.now() - experiment.startDate.getTime()
+      return Math.min((current / total) * 100, 100)
     }
-    return 0;
-  };
+    return 0
+  }
 
   // 获取主要指标
-  const primaryMetric = experiment.metrics.find(m => m.type === 'primary');
+  const primaryMetric = experiment.metrics.find(m => m.type === 'primary')
 
   return (
     <Card
@@ -156,8 +157,8 @@ const ExperimentCard: React.FC<ExperimentCardProps> = ({
         flexDirection: 'column',
         position: 'relative',
         '&:hover': {
-          boxShadow: 3
-        }
+          boxShadow: 3,
+        },
       }}
     >
       {/* 状态标签 */}
@@ -202,7 +203,11 @@ const ExperimentCard: React.FC<ExperimentCardProps> = ({
           />
           {experiment.startDate && (
             <Typography variant="caption" color="text.secondary">
-              开始于 {formatDistanceToNow(experiment.startDate, { locale: zhCN, addSuffix: true })}
+              开始于{' '}
+              {formatDistanceToNow(experiment.startDate, {
+                locale: zhCN,
+                addSuffix: true,
+              })}
             </Typography>
           )}
         </Stack>
@@ -237,16 +242,25 @@ const ExperimentCard: React.FC<ExperimentCardProps> = ({
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                     <Typography
                       variant="h6"
-                      color={primaryMetric.improvement > 0 ? 'success.main' : 'error.main'}
+                      color={
+                        primaryMetric.improvement > 0
+                          ? 'success.main'
+                          : 'error.main'
+                      }
                     >
-                      {primaryMetric.improvement > 0 ? '+' : ''}{primaryMetric.improvement.toFixed(2)}%
+                      {primaryMetric.improvement > 0 ? '+' : ''}
+                      {primaryMetric.improvement.toFixed(2)}%
                     </Typography>
                     {primaryMetric.pValue !== undefined && (
                       <Chip
                         label={`p=${primaryMetric.pValue.toFixed(3)}`}
                         size="small"
-                        color={primaryMetric.significant ? 'success' : 'default'}
-                        variant={primaryMetric.significant ? 'filled' : 'outlined'}
+                        color={
+                          primaryMetric.significant ? 'success' : 'default'
+                        }
+                        variant={
+                          primaryMetric.significant ? 'filled' : 'outlined'
+                        }
                       />
                     )}
                   </Box>
@@ -257,13 +271,20 @@ const ExperimentCard: React.FC<ExperimentCardProps> = ({
             {/* 进度条 */}
             {experiment.status === 'active' && (
               <Box sx={{ mb: 2 }}>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                <Box
+                  sx={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    mb: 1,
+                  }}
+                >
                   <Typography variant="body2" color="text.secondary">
                     实验进度
                   </Typography>
                   {experiment.sampleSize && (
                     <Typography variant="body2" color="text.secondary">
-                      {experiment.sampleSize.current.toLocaleString()} / {experiment.sampleSize.required.toLocaleString()}
+                      {experiment.sampleSize.current.toLocaleString()} /{' '}
+                      {experiment.sampleSize.required.toLocaleString()}
                     </Typography>
                   )}
                 </Box>
@@ -277,7 +298,12 @@ const ExperimentCard: React.FC<ExperimentCardProps> = ({
 
             {/* 标签 */}
             {experiment.tags && experiment.tags.length > 0 && (
-              <Stack direction="row" spacing={0.5} flexWrap="wrap" sx={{ mb: 1 }}>
+              <Stack
+                direction="row"
+                spacing={0.5}
+                flexWrap="wrap"
+                sx={{ mb: 1 }}
+              >
                 {experiment.tags.map(tag => (
                   <Chip
                     key={tag}
@@ -294,7 +320,16 @@ const ExperimentCard: React.FC<ExperimentCardProps> = ({
             {experiment.owners && experiment.owners.length > 0 && (
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                 <GroupIcon fontSize="small" color="action" />
-                <AvatarGroup max={3} sx={{ '& .MuiAvatar-root': { width: 24, height: 24, fontSize: 12 } }}>
+                <AvatarGroup
+                  max={3}
+                  sx={{
+                    '& .MuiAvatar-root': {
+                      width: 24,
+                      height: 24,
+                      fontSize: 12,
+                    },
+                  }}
+                >
                   {experiment.owners.map((owner, index) => (
                     <Avatar key={index} sx={{ bgcolor: 'primary.main' }}>
                       {owner[0].toUpperCase()}
@@ -343,7 +378,8 @@ const ExperimentCard: React.FC<ExperimentCardProps> = ({
                 恢复
               </Button>
             )}
-            {(experiment.status === 'active' || experiment.status === 'paused') && (
+            {(experiment.status === 'active' ||
+              experiment.status === 'paused') && (
               <Button
                 size="small"
                 startIcon={<StopIcon />}
@@ -393,7 +429,7 @@ const ExperimentCard: React.FC<ExperimentCardProps> = ({
         </CardActions>
       )}
     </Card>
-  );
-};
+  )
+}
 
-export default ExperimentCard;
+export default ExperimentCard

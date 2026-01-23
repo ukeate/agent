@@ -1,6 +1,6 @@
-import React from 'react';
-import ExperimentsPlatformPage from '../ExperimentsPlatformPage';
+import React from 'react'
+import ExperimentsPlatformPage from '../ExperimentsPlatformPage'
 
-const AdvancedAlgorithmsPage: React.FC = () => <ExperimentsPlatformPage />;
+const AdvancedAlgorithmsPage: React.FC = () => <ExperimentsPlatformPage />
 
-export default AdvancedAlgorithmsPage;
+export default AdvancedAlgorithmsPage
