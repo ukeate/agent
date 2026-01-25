@@ -1,4 +1,4 @@
-import React, { useDeferredValue, useEffect, useMemo, useState } from 'react'
+import React, { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
 import {
   Empty,
   Button,
@@ -73,8 +73,15 @@ const MessageList: React.FC<MessageListProps> = ({
 }) => {
   const [keyword, setKeyword] = useState('')
   const deferredKeyword = useDeferredValue(keyword)
+  const searchScrollRef = useRef<{
+    top: number
+    messageCount: number
+  } | null>(null)
   useEffect(() => {
     setKeyword('')
+  }, [conversationId])
+  useEffect(() => {
+    searchScrollRef.current = null
   }, [conversationId])
   const searchTokens = useMemo(
     () => splitSearchTokens(deferredKeyword),
@@ -100,6 +107,32 @@ const MessageList: React.FC<MessageListProps> = ({
     resetKey: conversationId,
     enabled: !hasKeyword,
   })
+  useEffect(() => {
+    const container = containerRef.current
+    if (!container) return
+    if (hasKeyword) {
+      if (!searchScrollRef.current) {
+        searchScrollRef.current = {
+          top: container.scrollTop,
+          messageCount: messages.length,
+        }
+        requestAnimationFrame(() => {
+          container.scrollTop = 0
+        })
+      }
+      return
+    }
+    if (!searchScrollRef.current) return
+    const { top, messageCount } = searchScrollRef.current
+    searchScrollRef.current = null
+    requestAnimationFrame(() => {
+      if (messages.length > messageCount) {
+        scrollToBottom()
+        return
+      }
+      container.scrollTop = top
+    })
+  }, [containerRef, hasKeyword, messages.length, scrollToBottom])
   const showScrollToBottom = !isAtBottom && displayMessages.length > 0
   const hasMessages = messages.length > 0
   const showDeleteAction = hasMessages && !!onClearHistory

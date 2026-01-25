@@ -5,6 +5,8 @@ import {
   HttpError,
   normalizeHttpErrorMessage,
   extractApiErrorMessage,
+  API_PREFIX,
+  normalizeApiBaseUrl,
 } from '../utils/apiBase'
 import {
   clearStoredTokens,
@@ -25,9 +27,9 @@ class ApiClient {
   private refreshTokenPromise?: Promise<string | null>
 
   constructor() {
-    const baseUrl = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '')
+    const baseUrl = normalizeApiBaseUrl(import.meta.env.VITE_API_BASE_URL || '')
     this.client = axios.create({
-      baseURL: `${baseUrl}/api/v1`,
+      baseURL: `${baseUrl}${API_PREFIX}`,
       timeout: FRONTEND_TIMEOUT_CONSTANTS.API_CLIENT_TIMEOUT_MS,
       withCredentials: true,
       headers: {

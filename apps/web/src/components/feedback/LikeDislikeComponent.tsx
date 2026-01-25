@@ -165,7 +165,7 @@ export const LikeDislikeComponent: React.FC<LikeDislikeComponentProps> = ({
     `
 
     if (currentState === 'like') {
-      return `${baseStyle} bg-blue-100 text-blue-600 ring-2 ring-blue-300`
+      return `${baseStyle} bg-blue-100 text-blue-600 ring-2 ring-blue-300 active`
     }
     return `${baseStyle} bg-gray-100 text-gray-600 hover:bg-blue-50 hover:text-blue-600`
   }
@@ -181,7 +181,7 @@ export const LikeDislikeComponent: React.FC<LikeDislikeComponentProps> = ({
     `
 
     if (currentState === 'dislike') {
-      return `${baseStyle} bg-red-100 text-red-600 ring-2 ring-red-300`
+      return `${baseStyle} bg-red-100 text-red-600 ring-2 ring-red-300 active`
     }
     return `${baseStyle} bg-gray-100 text-gray-600 hover:bg-red-50 hover:text-red-600`
   }
@@ -196,6 +196,7 @@ export const LikeDislikeComponent: React.FC<LikeDislikeComponentProps> = ({
         onClick={() => handleAction('like')}
         aria-label={currentState === 'like' ? '取消点赞' : '点赞'}
         title={currentState === 'like' ? '取消点赞' : '点赞'}
+        data-testid="like-button"
       >
         <svg
           className={`${getIconSize()} transition-transform duration-200 ${
@@ -230,6 +231,7 @@ export const LikeDislikeComponent: React.FC<LikeDislikeComponentProps> = ({
         onClick={() => handleAction('dislike')}
         aria-label={currentState === 'dislike' ? '取消踩' : '踩'}
         title={currentState === 'dislike' ? '取消踩' : '踩'}
+        data-testid="dislike-button"
       >
         <svg
           className={`${getIconSize()} transition-transform duration-200 transform rotate-180 ${

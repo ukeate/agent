@@ -6,6 +6,7 @@ from typing import Dict, List, Optional, Any, AsyncGenerator
 from datetime import datetime
 from src.core.utils.timezone_utils import utc_now, timezone
 import json
+import re
 from src.ai.autogen import (
     GroupChatManager,
     ConversationSession,
@@ -67,7 +68,7 @@ class MultiAgentService:
                 participant_count=len(participants),
                 initial_message_length=len(initial_message),
             )
-            
+
             return {
                 "conversation_id": session.session_id,
                 "status": "active",  # 立即返回active状态
@@ -85,7 +86,6 @@ class MultiAgentService:
                     "timeout_seconds": session.config.timeout_seconds,
                 },
                 "initial_status": result,
-                "messages": [session.messages[0]] if session.messages else [],  # 只返回初始消息
             }
             
         except Exception as e:
@@ -155,7 +155,8 @@ class MultiAgentService:
             raise ValueError(f"对话会话不存在: {conversation_id}")
         
         status = session.get_status()
-        status["conversation_id"] = status.get("session_id", conversation_id)
+        status.pop("session_id", None)
+        status["conversation_id"] = conversation_id
         
         # 添加实时统计信息
         status.update({
@@ -291,11 +292,108 @@ class MultiAgentService:
             "returned_count": len(messages),
             "offset": offset,
         }
+
+    async def get_conversation_summary(self, conversation_id: str) -> Dict[str, Any]:
+        """生成对话摘要"""
+        session = self._active_sessions.get(conversation_id)
+        if not session:
+            session = await self.group_chat_manager.get_session(conversation_id)
+        if not session:
+            raise ValueError(f"对话会话不存在: {conversation_id}")
+
+        messages = session.messages
+        key_points = self._collect_snippets(messages, 3)
+        decisions = self._collect_snippets(
+            messages,
+            3,
+            keywords=["决定", "结论", "建议", "需要", "should", "decide"],
+        )
+        action_items = self._collect_snippets(
+            messages,
+            3,
+            keywords=["行动", "下一步", "计划", "执行", "follow", "todo", "task"],
+        )
+        participants_summary = self._build_participants_summary(messages)
+
+        return {
+            "conversation_id": conversation_id,
+            "message_count": len(messages),
+            "round_count": session.round_count,
+            "key_points": key_points,
+            "decisions_made": decisions,
+            "action_items": action_items,
+            "participants_summary": participants_summary,
+        }
+
+    async def analyze_conversation(self, conversation_id: str) -> Dict[str, Any]:
+        """分析对话内容"""
+        session = self._active_sessions.get(conversation_id)
+        if not session:
+            session = await self.group_chat_manager.get_session(conversation_id)
+        if not session:
+            raise ValueError(f"对话会话不存在: {conversation_id}")
+
+        messages = session.messages
+        topic_distribution = self._build_topic_distribution(messages)
+        sentiment_analysis = self._build_sentiment_analysis(messages)
+        sender_counts = self._build_sender_counts(messages)
+        recommendations = self._build_recommendations(session, messages, sender_counts)
+
+        return {
+            "conversation_id": conversation_id,
+            "sentiment_analysis": sentiment_analysis,
+            "topic_distribution": topic_distribution,
+            "interaction_patterns": [
+                {
+                    "type": "message_count",
+                    "total_messages": len(messages),
+                    "by_sender": sender_counts,
+                }
+            ],
+            "recommendations": recommendations,
+        }
+
+    async def export_conversation(self, conversation_id: str) -> Dict[str, Any]:
+        """导出对话内容"""
+        session = self._active_sessions.get(conversation_id)
+        if not session:
+            session = await self.group_chat_manager.get_session(conversation_id)
+        if not session:
+            raise ValueError(f"对话会话不存在: {conversation_id}")
+
+        participants = [
+            {
+                "name": agent.config.name,
+                "role": agent.config.role,
+                "capabilities": agent.config.capabilities,
+            }
+            for agent in session.participants
+        ]
+
+        return {
+            "conversation_id": conversation_id,
+            "status": session.status.value,
+            "created_at": session.created_at.isoformat(),
+            "updated_at": session.updated_at.isoformat(),
+            "message_count": len(session.messages),
+            "round_count": session.round_count,
+            "participants": participants,
+            "config": {
+                "max_rounds": session.config.max_rounds,
+                "timeout_seconds": session.config.timeout_seconds,
+                "auto_reply": session.config.auto_reply,
+            },
+            "messages": session.messages,
+        }
     
-    async def list_active_conversations(self) -> List[Dict[str, Any]]:
+    async def list_active_conversations(
+        self,
+        limit: Optional[int] = None,
+        offset: int = 0,
+    ) -> List[Dict[str, Any]]:
         """列出所有活跃对话"""
         conversations = []
-        
+
         for session_id, session in self._active_sessions.items():
             status = session.get_status()
             conversations.append({
@@ -306,8 +404,178 @@ class MultiAgentService:
                 "round_count": status["round_count"],
                 "participants": status["participants"],
             })
-        
+
+        conversations.sort(
+            key=lambda item: item.get("created_at", ""),
+            reverse=True,
+        )
+        if offset > 0:
+            conversations = conversations[offset:]
+        if limit is not None:
+            conversations = conversations[:limit]
+
         return conversations
+
+    def _normalize_content(self, content: str) -> str:
+        return " ".join(content.strip().split())
+
+    def _to_snippet(self, content: str, limit: int = 160) -> str:
+        normalized = self._normalize_content(content)
+        if len(normalized) > limit:
+            return normalized[:limit].rstrip() + "..."
+        return normalized
+
+    def _collect_snippets(
+        self,
+        messages: List[Dict[str, Any]],
+        limit: int,
+        keywords: Optional[List[str]] = None,
+    ) -> List[str]:
+        snippets: List[str] = []
+        for message in reversed(messages):
+            content = message.get("content") or ""
+            normalized = self._normalize_content(content)
+            if not normalized:
+                continue
+            if keywords:
+                normalized_lower = normalized.lower()
+                if not any(keyword.lower() in normalized_lower for keyword in keywords):
+                    continue
+            snippet = self._to_snippet(normalized)
+            if snippet in snippets:
+                continue
+            snippets.append(snippet)
+            if len(snippets) >= limit:
+                break
+        return list(reversed(snippets))
+
+    def _build_participants_summary(
+        self,
+        messages: List[Dict[str, Any]],
+        limit: int = 8,
+    ) -> Dict[str, str]:
+        summary: Dict[str, str] = {}
+        for message in reversed(messages):
+            sender = message.get("sender")
+            if not sender or sender in summary:
+                continue
+            content = message.get("content") or ""
+            normalized = self._normalize_content(content)
+            if not normalized:
+                continue
+            summary[sender] = self._to_snippet(normalized)
+            if len(summary) >= limit:
+                break
+        return summary
+
+    def _extract_tokens(self, text: str) -> List[str]:
+        tokens: List[str] = []
+        for token in re.findall(r"[A-Za-z0-9_]+|[\\u4e00-\\u9fff]{2,}", text):
+            normalized = token.lower()
+            if len(normalized) < 2:
+                continue
+            tokens.append(normalized)
+        return tokens
+
+    def _build_topic_distribution(
+        self,
+        messages: List[Dict[str, Any]],
+        limit: int = 5,
+    ) -> Dict[str, float]:
+        counts: Dict[str, int] = {}
+        for message in messages:
+            content = message.get("content") or ""
+            for token in self._extract_tokens(content):
+                counts[token] = counts.get(token, 0) + 1
+        total = sum(counts.values())
+        if total == 0:
+            return {}
+        top = sorted(counts.items(), key=lambda item: item[1], reverse=True)[:limit]
+        return {token: count / total for token, count in top}
+
+    def _build_sentiment_analysis(
+        self,
+        messages: List[Dict[str, Any]],
+    ) -> Dict[str, float]:
+        positive_words = [
+            "成功",
+            "稳定",
+            "清晰",
+            "优秀",
+            "提升",
+            "满意",
+            "有效",
+            "完成",
+            "good",
+            "great",
+            "success",
+            "stable",
+        ]
+        negative_words = [
+            "失败",
+            "错误",
+            "问题",
+            "异常",
+            "风险",
+            "延迟",
+            "崩溃",
+            "不足",
+            "bug",
+            "error",
+            "fail",
+            "issue",
+        ]
+        positive = 0
+        negative = 0
+        for message in messages:
+            content = message.get("content") or ""
+            content_lower = content.lower()
+            for word in positive_words:
+                if word in content_lower:
+                    positive += 1
+            for word in negative_words:
+                if word in content_lower:
+                    negative += 1
+        total = positive + negative
+        if total == 0:
+            return {"neutral": 1.0}
+        return {
+            "positive": positive / total,
+            "negative": negative / total,
+        }
+
+    def _build_sender_counts(
+        self,
+        messages: List[Dict[str, Any]],
+    ) -> Dict[str, int]:
+        counts: Dict[str, int] = {}
+        for message in messages:
+            sender = message.get("sender") or "未知"
+            counts[sender] = counts.get(sender, 0) + 1
+        return counts
+
+    def _build_recommendations(
+        self,
+        session: ConversationSession,
+        messages: List[Dict[str, Any]],
+        sender_counts: Dict[str, int],
+    ) -> List[str]:
+        recommendations: List[str] = []
+        if not messages:
+            return ["暂无消息，建议先启动对话。"]
+        user_messages = [msg for msg in messages if msg.get("role") == "user"]
+        if not user_messages:
+            recommendations.append("建议补充用户目标或约束，便于智能体对齐。")
+        if sender_counts:
+            max_sender = max(sender_counts.items(), key=lambda item: item[1])
+            total_messages = sum(sender_counts.values())
+            if total_messages > 0 and max_sender[1] / total_messages > 0.6:
+                recommendations.append("建议引导其他智能体参与，避免单一观点主导。")
+        if session.config.max_rounds and session.round_count >= session.config.max_rounds:
+            recommendations.append("对话已接近最大轮次，可考虑收敛结论。")
+        if not recommendations:
+            recommendations.append("对话节奏正常，可继续推进任务拆解。")
+        return recommendations
     
     async def get_agent_statistics(self) -> Dict[str, Any]:
         """获取智能体统计信息"""

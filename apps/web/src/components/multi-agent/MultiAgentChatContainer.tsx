@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react'
-import { Button, Space, Input } from 'antd'
+import { Button, Space, Input, message } from 'antd'
 import { ClearOutlined, ReloadOutlined } from '@ant-design/icons'
 import { useMultiAgentStore } from '../../stores/multiAgentStore'
 import { useMultiAgentWebSocket } from '../../hooks/useMultiAgentWebSocket'
@@ -8,6 +8,7 @@ import { GroupChatMessages, AgentTurnIndicator } from './GroupChatMessages'
 import { SessionControls } from './SessionControls'
 import { AgentAvatar } from './AgentAvatar'
 import { multiAgentService } from '../../services/multiAgentService'
+import { copyToClipboard } from '../../utils/clipboard'
 
 import { logger } from '../../utils/logger'
 interface MultiAgentChatContainerProps {
@@ -43,14 +44,23 @@ export const MultiAgentChatContainer: React.FC<
   const [selectedAgents, setSelectedAgents] = useState<string[]>([])
   const [agentKeyword, setAgentKeyword] = useState('')
   const [agentsLoading, setAgentsLoading] = useState(false)
+  const [summaryLoading, setSummaryLoading] = useState(false)
+  const [analysisLoading, setAnalysisLoading] = useState(false)
+  const [summaryText, setSummaryText] = useState('')
+  const [analysisText, setAnalysisText] = useState('')
+  const [summaryError, setSummaryError] = useState('')
+  const [analysisError, setAnalysisError] = useState('')
   const hasInitializedSelectionRef = useRef(false)
   const isWebsocketSession = !!currentSession?.session_id?.startsWith('session-')
   // WebSocket集成
-  const { connected: wsConnected, sendMessage: sendWsMessage } =
-    useMultiAgentWebSocket({
-      sessionId: currentSession?.session_id,
-      enabled: !!currentSession && isWebsocketSession,
-    })
+  const {
+    connected: wsConnected,
+    sendMessage: sendWsMessage,
+    connect: reconnectWs,
+  } = useMultiAgentWebSocket({
+    sessionId: currentSession?.session_id,
+    enabled: !!currentSession && isWebsocketSession,
+  })
 
   // 智能自动滚动
   const { containerRef } = useSmartAutoScroll({
@@ -89,6 +99,15 @@ export const MultiAgentChatContainer: React.FC<
     loadAgents()
   }, [loadAgents])
 
+  useEffect(() => {
+    setSummaryText('')
+    setAnalysisText('')
+    setSummaryError('')
+    setAnalysisError('')
+    setSummaryLoading(false)
+    setAnalysisLoading(false)
+  }, [currentSession?.session_id])
+
   // 加载会话消息历史
   const handleLoadConversationHistory = async (conversationId: string) => {
     try {
@@ -119,13 +138,23 @@ export const MultiAgentChatContainer: React.FC<
     }
   }
 
-  const handleStartConversation = async () => {
-    if (!currentSession || !initialMessage.trim()) {
+  const handleStartConversation = async (overrideMessage?: string) => {
+    if (!currentSession) {
+      setError('当前没有可启动的会话')
+      return
+    }
+
+    const trimmedMessage = (overrideMessage ?? initialMessage).trim()
+    if (!trimmedMessage) {
       setError('请输入初始消息')
       return
     }
 
-    const trimmedMessage = initialMessage.trim()
+    if (!wsConnected) {
+      setError('实时连接未就绪，连接后将自动启动')
+      reconnectWs()
+      return
+    }
     const participants = Array.from(
       new Set(
         currentSession.participants
@@ -170,8 +199,169 @@ export const MultiAgentChatContainer: React.FC<
     // 重置会话状态
     setCurrentSession(null)
     setError(null)
+    setSummaryText('')
+    setAnalysisText('')
+    setSummaryError('')
+    setAnalysisError('')
+    setSummaryLoading(false)
+    setAnalysisLoading(false)
 
     logger.log('对话已清空')
+  }
+
+  const getConversationId = () => {
+    if (!currentSession) return ''
+    if (currentSession.conversation_id) return currentSession.conversation_id
+    if (!isWebsocketSession) return currentSession.session_id
+    return ''
+  }
+
+  const buildSummaryText = (summary: {
+    key_points?: string[]
+    decisions_made?: string[]
+    action_items?: string[]
+    participants_summary?: Record<string, string>
+  }) => {
+    const lines: string[] = []
+    if (summary.key_points?.length) {
+      lines.push(`关键点: ${summary.key_points.join('；')}`)
+    }
+    if (summary.decisions_made?.length) {
+      lines.push(`决策: ${summary.decisions_made.join('；')}`)
+    }
+    if (summary.action_items?.length) {
+      lines.push(`行动项: ${summary.action_items.join('；')}`)
+    }
+    if (summary.participants_summary) {
+      const entries = Object.entries(summary.participants_summary).map(
+        ([name, text]) => `${name}: ${text}`
+      )
+      if (entries.length) {
+        lines.push(`参与者总结: ${entries.join(' | ')}`)
+      }
+    }
+    return lines.join('\n')
+  }
+
+  const buildAnalysisText = (analysis: {
+    recommendations?: string[]
+    topic_distribution?: Record<string, number>
+    sentiment_analysis?: Record<string, number>
+  }) => {
+    const lines: string[] = []
+    if (analysis.recommendations?.length) {
+      lines.push(`建议: ${analysis.recommendations.join('；')}`)
+    }
+    if (analysis.topic_distribution) {
+      const topics = Object.entries(analysis.topic_distribution)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 5)
+        .map(([topic, score]) => `${topic} ${Number(score).toFixed(2)}`)
+      if (topics.length) {
+        lines.push(`主题: ${topics.join('，')}`)
+      }
+    }
+    if (analysis.sentiment_analysis) {
+      const sentiments = Object.entries(analysis.sentiment_analysis)
+        .sort((a, b) => b[1] - a[1])
+        .map(([label, score]) => `${label} ${Number(score).toFixed(2)}`)
+      if (sentiments.length) {
+        lines.push(`情感: ${sentiments.join('，')}`)
+      }
+    }
+    return lines.join('\n')
+  }
+
+  const handleFetchSummary = async () => {
+    const conversationId = getConversationId()
+    if (!conversationId) {
+      message.warning('会话尚未生成可用ID')
+      return
+    }
+    setSummaryLoading(true)
+    setSummaryError('')
+    try {
+      const summary = await multiAgentService.getConversationSummary(
+        conversationId
+      )
+      const text = buildSummaryText(summary)
+      setSummaryText(text || '暂无可用摘要')
+      message.success('摘要生成完成')
+    } catch (error) {
+      const errorText =
+        error instanceof Error ? error.message : '摘要生成失败'
+      setSummaryError(errorText)
+      message.error(errorText)
+    } finally {
+      setSummaryLoading(false)
+    }
+  }
+
+  const handleAnalyzeConversation = async () => {
+    const conversationId = getConversationId()
+    if (!conversationId) {
+      message.warning('会话尚未生成可用ID')
+      return
+    }
+    setAnalysisLoading(true)
+    setAnalysisError('')
+    try {
+      const analysis = await multiAgentService.analyzeConversation(
+        conversationId
+      )
+      const text = buildAnalysisText(analysis)
+      setAnalysisText(text || '暂无可用分析结果')
+      message.success('分析完成')
+    } catch (error) {
+      const errorText =
+        error instanceof Error ? error.message : '分析失败'
+      setAnalysisError(errorText)
+      message.error(errorText)
+    } finally {
+      setAnalysisLoading(false)
+    }
+  }
+
+  const handleExportConversation = async () => {
+    const conversationId = getConversationId()
+    if (!conversationId) {
+      message.warning('会话尚未生成可用ID')
+      return
+    }
+    try {
+      const blob = await multiAgentService.exportConversation(
+        conversationId,
+        'json'
+      )
+      if (typeof window === 'undefined') return
+      const url = window.URL.createObjectURL(blob)
+      const anchor = document.createElement('a')
+      anchor.href = url
+      anchor.download = `conversation-${conversationId}.json`
+      anchor.click()
+      window.URL.revokeObjectURL(url)
+      message.success('导出已开始')
+    } catch (error) {
+      const errorText =
+        error instanceof Error ? error.message : '导出失败'
+      message.error(errorText)
+    }
+  }
+
+  const handleCopyConversationId = async () => {
+    const conversationId = getConversationId()
+    if (!conversationId) {
+      message.warning('会话尚未生成可用ID')
+      return
+    }
+    try {
+      await copyToClipboard(conversationId)
+      message.success('会话ID已复制')
+    } catch (error) {
+      const errorText =
+        error instanceof Error ? error.message : '复制失败'
+      message.error(errorText)
+    }
   }
 
   const filteredAgents = useMemo(() => {
@@ -188,6 +378,19 @@ export const MultiAgentChatContainer: React.FC<
       return combined.includes(normalized)
     })
   }, [agents, agentKeyword])
+
+  const pendingStartMessage = useMemo(() => {
+    if (currentMessages.length === 0) return ''
+    for (let index = currentMessages.length - 1; index >= 0; index -= 1) {
+      const message = currentMessages[index]
+      if (message.role === 'user' && message.content?.trim()) {
+        return message.content.trim()
+      }
+    }
+    return ''
+  }, [currentMessages])
+  const hasPendingStartMessage = Boolean(pendingStartMessage)
+  const conversationId = getConversationId()
 
   const handleSelectAllAgents = () => {
     if (agents.length === 0) return
@@ -400,10 +603,10 @@ export const MultiAgentChatContainer: React.FC<
                           )}
 
                         {/* 最后活跃时间 */}
-                        {agent.last_active && (
+                        {agent.updated_at && (
                           <div className="text-xs text-gray-500">
-                            最后活跃:{' '}
-                            {new Date(agent.last_active).toLocaleString(
+                            最后更新:{' '}
+                            {new Date(agent.updated_at).toLocaleString(
                               'zh-CN'
                             )}
                           </div>
@@ -456,6 +659,24 @@ export const MultiAgentChatContainer: React.FC<
                 <h3 className="text-lg font-medium text-gray-900 mb-3">
                   启动对话
                 </h3>
+                {hasPendingStartMessage && !initialMessage.trim() && (
+                  <div className="mb-3 text-sm text-gray-600 space-y-2">
+                    <div>已生成启动消息，等待实时连接后自动开始。</div>
+                    <div className="bg-gray-50 border border-gray-200 rounded-md px-3 py-2 text-gray-700">
+                      {pendingStartMessage}
+                    </div>
+                    <div className="flex items-center gap-2 text-xs text-gray-500">
+                      <span>若未自动启动，可手动重试。</span>
+                      <button
+                        onClick={() => handleStartConversation(pendingStartMessage)}
+                        disabled={loading || !wsConnected}
+                        className="text-blue-600 hover:text-blue-700 disabled:text-gray-400"
+                      >
+                        重新发送启动
+                      </button>
+                    </div>
+                  </div>
+                )}
                 <div className="flex gap-2">
                   <textarea
                     value={initialMessage}
@@ -469,7 +690,7 @@ export const MultiAgentChatContainer: React.FC<
                     "
                   />
                   <button
-                    onClick={handleStartConversation}
+                    onClick={() => handleStartConversation()}
                     disabled={loading || !initialMessage.trim()}
                     className="
                       bg-green-500 hover:bg-green-600 text-white
@@ -599,6 +820,79 @@ export const MultiAgentChatContainer: React.FC<
             />
           )}
 
+          {currentSession && (
+            <div className="bg-white border border-gray-200 rounded-lg p-4">
+              <h3 className="text-sm font-medium text-gray-900 mb-3">
+                会话工具
+              </h3>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  size="small"
+                  onClick={handleFetchSummary}
+                  loading={summaryLoading}
+                  disabled={!conversationId || summaryLoading}
+                >
+                  生成摘要
+                </Button>
+                <Button
+                  size="small"
+                  onClick={handleAnalyzeConversation}
+                  loading={analysisLoading}
+                  disabled={!conversationId || analysisLoading}
+                >
+                  对话分析
+                </Button>
+                <Button
+                  size="small"
+                  onClick={handleExportConversation}
+                  disabled={!conversationId}
+                >
+                  导出JSON
+                </Button>
+                <Button
+                  size="small"
+                  onClick={handleCopyConversationId}
+                  disabled={!conversationId}
+                >
+                  复制ID
+                </Button>
+              </div>
+              {!conversationId && (
+                <div className="mt-2 text-xs text-gray-500">
+                  会话创建后自动生成可用ID
+                </div>
+              )}
+              {(summaryText || summaryError) && (
+                <div className="mt-3 space-y-2">
+                  <div className="text-xs font-medium text-gray-700">
+                    摘要
+                  </div>
+                  {summaryError ? (
+                    <div className="text-xs text-red-500">{summaryError}</div>
+                  ) : (
+                    <div className="text-xs text-gray-600 whitespace-pre-wrap">
+                      {summaryText}
+                    </div>
+                  )}
+                </div>
+              )}
+              {(analysisText || analysisError) && (
+                <div className="mt-3 space-y-2">
+                  <div className="text-xs font-medium text-gray-700">
+                    分析
+                  </div>
+                  {analysisError ? (
+                    <div className="text-xs text-red-500">{analysisError}</div>
+                  ) : (
+                    <div className="text-xs text-gray-600 whitespace-pre-wrap">
+                      {analysisText}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
           {/* WebSocket状态 */}
           <div className="bg-white border border-gray-200 rounded-lg p-3">
             <div className="flex items-center gap-2 text-sm">
@@ -627,8 +921,14 @@ export const MultiAgentChatContainer: React.FC<
               </span>
             </div>
             {currentSession && !wsConnected && (
-              <div className="text-xs text-orange-600 mt-1">
-                正在建立连接，请稍候...
+              <div className="text-xs text-orange-600 mt-1 flex items-center gap-2">
+                <span>正在建立连接，请稍候...</span>
+                <button
+                  onClick={reconnectWs}
+                  className="text-orange-700 hover:text-orange-800"
+                >
+                  重连
+                </button>
               </div>
             )}
           </div>

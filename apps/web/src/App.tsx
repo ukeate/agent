@@ -21,6 +21,7 @@ import {
   Tag,
   Tooltip,
   Input,
+  message,
   type InputRef,
 } from 'antd'
 import { useNavigate, useLocation } from 'react-router-dom'
@@ -28,6 +29,7 @@ import AppRoutes from './routes/AppRoutes'
 import {
   MENU_ITEMS,
   resolveMenuKey,
+  resolveMenuPath,
   getMenuLabelText,
 } from './routes/menuConfig'
 import {
@@ -38,17 +40,21 @@ import {
   type MenuItem,
 } from './routes/menuIndex'
 import {
-  buildMenuResults,
+  buildNavigationResults,
   collectMenuKeys,
   collectSubmenuKeys,
   filterMenuItems,
+  countMenuMatches,
+  countRouteMatches,
   getMenuMetaText,
+  getNavigationMetaText,
   getMenuItemIcon,
-  resolveDirectNavigationTarget,
+  resolveDirectNavigationMeta,
   resolveNavigationPath,
 } from './routes/menuSearch'
 import { renderHighlightedText } from './utils/highlightText'
 import { PALETTE_OPEN_EVENT } from './utils/palette'
+import { copyToClipboard } from './utils/clipboard'
 import {
   readStoredMenuCollapsed,
   readStoredMenuOpenKeys,
@@ -72,6 +78,7 @@ import {
   QuestionCircleOutlined,
   StarFilled,
   StarOutlined,
+  CopyOutlined,
 } from '@ant-design/icons'
 import {
   healthService,
@@ -89,6 +96,14 @@ const { Title, Text } = Typography
 
 const MENU_RECENTS_LIMIT = 6
 const MENU_SEARCH_RESULTS_LIMIT = 8
+
+const buildPageIndexPath = (query: string) => {
+  const trimmed = query.trim()
+  const params = new URLSearchParams()
+  if (trimmed) params.set('q', trimmed)
+  const suffix = params.toString()
+  return `/page-index${suffix ? `?${suffix}` : ''}`
+}
 
 const App: React.FC = () => {
   const [manualCollapsed, setManualCollapsed] = useState(() =>
@@ -133,23 +148,20 @@ const App: React.FC = () => {
   const {
     path: directMenuPath,
     targetPath: directMenuTargetPath,
-    isRegistered: directMenuRegistered,
-  } = resolveDirectNavigationTarget(menuFilter, MENU_KEY_SET)
+    label: directMenuLabel,
+  } = resolveDirectNavigationMeta(menuFilter, MENU_KEY_SET)
   const {
     path: directPalettePath,
     menuKey: directPaletteKey,
     targetPath: directPaletteTargetPath,
     isRegistered: directPaletteRegistered,
-  } = resolveDirectNavigationTarget(paletteQuery, MENU_KEY_SET)
+    known: directPaletteKnown,
+    label: directPaletteEntryLabel,
+  } = resolveDirectNavigationMeta(paletteQuery, MENU_KEY_SET)
   const directPaletteEntryKey = directPalettePath
     ? directPaletteRegistered
       ? directPaletteKey
       : directPaletteTargetPath
-    : ''
-  const directPaletteEntryLabel = directPalettePath
-    ? directPaletteRegistered
-      ? `直达 ${directPaletteTargetPath}`
-      : `直达 ${directPaletteTargetPath}（未收录）`
     : ''
   const {
     status: healthStatus,
@@ -440,7 +452,8 @@ const App: React.FC = () => {
   const hasPaletteQuery = normalizedPaletteQuery.length > 0
 
   useEffect(() => {
-    writeStoredLastRoute(location.pathname, menuKeySet)
+    const routePath = `${location.pathname}${location.search}${location.hash}`
+    writeStoredLastRoute(routePath, menuKeySet)
     const resolvedKey = resolveMenuKey(location.pathname)
     if (!menuKeySet.has(resolvedKey)) return
     setRecentKeys(prev => {
@@ -448,7 +461,13 @@ const App: React.FC = () => {
       const next = [resolvedKey, ...prev.filter(key => key !== resolvedKey)]
       return next.slice(0, MENU_RECENTS_LIMIT)
     })
-  }, [location.pathname, menuKeySet, setRecentKeys])
+  }, [
+    location.hash,
+    location.pathname,
+    location.search,
+    menuKeySet,
+    setRecentKeys,
+  ])
 
   const filteredMenuItems = useMemo(
     () =>
@@ -475,6 +494,7 @@ const App: React.FC = () => {
     selectedKey && currentMenuLabel
       ? getMenuTitleText(selectedKey, currentMenuLabel)
       : ''
+  const currentRoutePath = `${location.pathname}${location.search}${location.hash}`
   useEffect(() => {
     if (typeof document === 'undefined') return
     const baseTitle = 'AI Agent'
@@ -485,25 +505,51 @@ const App: React.FC = () => {
   const breadcrumbItems = selectedParentKeys.reduce(
     (acc, key) => {
       const item = MENU_INDEX.itemByKey.get(key)
-      if (item) {
-        acc.push({ title: getMenuLabelText(item.label) })
+      if (!item) return acc
+      const label = getMenuLabelText(item.label)
+      if (!label) return acc
+      if (menuKeySet.has(key)) {
+        acc.push({
+          title: (
+            <a
+              href={resolveMenuPath(key)}
+              onClick={event => {
+                event.preventDefault()
+                handleMenuNavigate(key)
+              }}
+            >
+              {label}
+            </a>
+          ),
+        })
+        return acc
       }
+      acc.push({ title: label })
       return acc
     },
-    [] as Array<{ title: string }>
+    [] as Array<{ title: React.ReactNode }>
   )
   const searchResults = useMemo(
     () =>
       hasMenuFilter
-        ? buildMenuResults(
+        ? buildNavigationResults(
             filteredMenuKeys,
-            normalizedMenuFilter,
+            menuFilterQuery,
             MENU_SEARCH_RESULTS_LIMIT,
             { favorites: favoriteKeySet, recents: recentKeys }
           )
         : [],
-    [favoriteKeySet, filteredMenuKeys, hasMenuFilter, normalizedMenuFilter, recentKeys]
+    [favoriteKeySet, filteredMenuKeys, hasMenuFilter, menuFilterQuery, recentKeys]
   )
+  const menuRouteMatchCount = useMemo(
+    () => (hasMenuFilter ? countRouteMatches(menuFilterQuery) : 0),
+    [hasMenuFilter, menuFilterQuery]
+  )
+  const menuMatchTotal = hasMenuFilter
+    ? countMenuMatches(filteredMenuKeys, menuFilterQuery) + menuRouteMatchCount
+    : 0
+  const showMenuSearchMore =
+    hasMenuFilter && menuMatchTotal > searchResults.length
   const paletteMenuKeys = useMemo(
     () =>
       hasPaletteQuery
@@ -511,12 +557,20 @@ const App: React.FC = () => {
         : [],
     [hasPaletteQuery, normalizedPaletteQuery]
   )
+  const paletteRouteMatchCount = useMemo(
+    () => (hasPaletteQuery ? countRouteMatches(paletteQueryText) : 0),
+    [hasPaletteQuery, paletteQueryText]
+  )
+  const paletteMatchTotal = hasPaletteQuery
+    ? countMenuMatches(paletteMenuKeys, paletteQueryText) +
+      paletteRouteMatchCount
+    : 0
   const paletteResults = useMemo(
     () => {
       const results = hasPaletteQuery
-        ? buildMenuResults(
+        ? buildNavigationResults(
             paletteMenuKeys,
-            normalizedPaletteQuery,
+            paletteQueryText,
             MENU_SEARCH_RESULTS_LIMIT,
             { favorites: favoriteKeySet, recents: recentKeys }
           )
@@ -539,11 +593,13 @@ const App: React.FC = () => {
       directPaletteEntryLabel,
       favoriteKeySet,
       hasPaletteQuery,
-      normalizedPaletteQuery,
+      paletteQueryText,
       paletteMenuKeys,
       recentKeys,
     ]
   )
+  const showPaletteSearchMore =
+    hasPaletteQuery && paletteMatchTotal > paletteResults.length
 
   useEffect(() => {
     setMenuSearchActiveIndex(index => {
@@ -598,6 +654,16 @@ const App: React.FC = () => {
   const handlePaletteNavigate = (menuKey: string) => {
     closePalette()
     handleMenuNavigate(menuKey)
+  }
+
+  const handleCopyPath = async (path: string) => {
+    if (!path) return
+    try {
+      await copyToClipboard(path)
+      message.success('路径已复制')
+    } catch {
+      message.error('复制失败')
+    }
   }
 
   const handleToggleCollapsed = () => {
@@ -674,7 +740,7 @@ const App: React.FC = () => {
               ref={searchInputRef}
               allowClear
               size="small"
-              placeholder="搜索功能或路由，或直接输入 /path (Ctrl+K)"
+              placeholder='搜索功能或路由，支持 "短语"，或输入 /path (Ctrl+K)'
               prefix={<SearchOutlined style={{ color: '#999' }} />}
               value={menuFilter}
               onChange={e => setMenuFilter(e.target.value)}
@@ -704,25 +770,18 @@ const App: React.FC = () => {
                   handleMenuNavigate(directMenuTargetPath)
                   return
                 }
-                const immediateQuery = normalizeSearchText(menuFilter)
-                if (!immediateQuery) return
-                const immediateItems = filterMenuItems(
-                  MENU_ITEMS,
-                  immediateQuery
-                )
-                const immediateKeys = collectMenuKeys(immediateItems)
-                const activeResults = buildMenuResults(
-                  immediateKeys,
-                  immediateQuery,
-                  MENU_SEARCH_RESULTS_LIMIT,
-                  { favorites: favoriteKeySet, recents: recentKeys }
-                )
+                if (searchResults.length === 0) {
+                  if (menuFilter.trim()) {
+                    setMenuFilter('')
+                    handleMenuNavigate(buildPageIndexPath(menuFilter))
+                  }
+                  return
+                }
                 const targetIndex = clampIndex(
                   menuSearchActiveIndex,
-                  activeResults.length
+                  searchResults.length
                 )
-                const target =
-                  activeResults[targetIndex] || activeResults[0]
+                const target = searchResults[targetIndex] || searchResults[0]
                 if (!target) return
                 setMenuFilter('')
                 handleMenuNavigate(String(target.key))
@@ -731,9 +790,9 @@ const App: React.FC = () => {
             {hasMenuFilter && (
               <div style={{ marginTop: '8px' }}>
                 <Text type="secondary" style={{ fontSize: '12px' }}>
-                  {filteredMenuKeys.length > 0
-                    ? `匹配 ${filteredMenuKeys.length} 项，↑↓ 选择后回车跳转`
-                    : '未找到匹配项'}
+                  {menuMatchTotal > 0
+                    ? `匹配 ${menuMatchTotal} 项，↑↓ 选择后回车跳转`
+                    : '未找到匹配项，回车打开页面索引'}
                 </Text>
                 {directMenuPath && (
                   <div style={{ marginTop: '6px' }}>
@@ -745,42 +804,148 @@ const App: React.FC = () => {
                         handleMenuNavigate(directMenuTargetPath)
                       }}
                     >
-                      {`直达 ${directMenuTargetPath}${
-                        directMenuRegistered ? '' : '（未收录）'
-                      }`}
+                      {directMenuLabel}
                     </Button>
                   </div>
                 )}
                 {searchResults.length > 0 && (
                   <div style={{ marginTop: '6px' }}>
-                    <Space size={[6, 6]} wrap>
-                {searchResults.map((item, index) => {
-                  const active = index === menuSearchActiveIndex
-                  const menuKey = String(item.key)
-                  return (
-                    <Button
-                  key={`search-${menuKey}`}
-                  size="small"
-                            type={active ? 'primary' : 'text'}
-                            icon={getMenuItemIcon(item)}
-                            title={getMenuMetaText(menuKey)}
-                            onClick={() => {
-                              setMenuFilter('')
-                              handleMenuNavigate(menuKey)
+                    <div
+                      style={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: 6,
+                      }}
+                    >
+                      {searchResults.map((item, index) => {
+                        const active = index === menuSearchActiveIndex
+                        const menuKey = String(item.key)
+                        const metaText = getNavigationMetaText(menuKey)
+                        const canFavorite = menuKeySet.has(menuKey)
+                        const isSearchFavorite =
+                          canFavorite && favoriteKeySet.has(menuKey)
+                        return (
+                          <div
+                            key={`search-${menuKey}`}
+                            style={{
+                              display: 'flex',
+                              alignItems: 'stretch',
+                              gap: 6,
                             }}
                             onMouseEnter={() =>
                               setMenuSearchActiveIndex(index)
                             }
-                            style={{ paddingInline: 4 }}
-                >
-                  {renderHighlightedText(
-                    getMenuLabelText(item.label),
-                    menuFilterQuery
-                  )}
-                </Button>
-              )
-            })}
-                    </Space>
+                          >
+                            <Button
+                              size="small"
+                              type={active ? 'primary' : 'text'}
+                              icon={getMenuItemIcon(item)}
+                              title={metaText}
+                              onClick={() => {
+                                setMenuFilter('')
+                                handleMenuNavigate(menuKey)
+                              }}
+                              style={{
+                                flex: 1,
+                                justifyContent: 'flex-start',
+                                textAlign: 'left',
+                                height: 'auto',
+                                padding: '6px 8px',
+                                whiteSpace: 'normal',
+                              }}
+                            >
+                              <div
+                                style={{
+                                  display: 'flex',
+                                  flexDirection: 'column',
+                                  alignItems: 'flex-start',
+                                  width: '100%',
+                                }}
+                              >
+                                <span>
+                                  {renderHighlightedText(
+                                    getMenuLabelText(item.label),
+                                    menuFilterQuery
+                                  )}
+                                </span>
+                                <Text
+                                  type={active ? undefined : 'secondary'}
+                                  style={{ fontSize: 11 }}
+                                >
+                                  {metaText}
+                                </Text>
+                              </div>
+                            </Button>
+                            {canFavorite && (
+                              <Tooltip
+                                title={
+                                  isSearchFavorite ? '取消收藏' : '收藏'
+                                }
+                              >
+                                <Button
+                                  type="text"
+                                  icon={
+                                    isSearchFavorite ? (
+                                      <StarFilled
+                                        style={{ color: '#fadb14' }}
+                                      />
+                                    ) : (
+                                      <StarOutlined />
+                                    )
+                                  }
+                                  onClick={event => {
+                                    event.preventDefault()
+                                    event.stopPropagation()
+                                    toggleFavorite(menuKey)
+                                  }}
+                                />
+                              </Tooltip>
+                            )}
+                            <Tooltip title="复制路径">
+                              <Button
+                                type="text"
+                                icon={<CopyOutlined />}
+                                onClick={event => {
+                                  event.preventDefault()
+                                  event.stopPropagation()
+                                  handleCopyPath(resolveNavigationPath(menuKey))
+                                }}
+                              />
+                            </Tooltip>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
+                {showMenuSearchMore && (
+                  <div style={{ marginTop: '6px' }}>
+                    <Button
+                      size="small"
+                      type="link"
+                      style={{ padding: 0 }}
+                      onClick={() => {
+                        setMenuFilter('')
+                        handleMenuNavigate(buildPageIndexPath(menuFilterQuery))
+                      }}
+                    >
+                      查看更多结果
+                    </Button>
+                  </div>
+                )}
+                {menuMatchTotal === 0 && (
+                  <div style={{ marginTop: '6px' }}>
+                    <Button
+                      size="small"
+                      type="link"
+                      style={{ padding: 0 }}
+                      onClick={() => {
+                        setMenuFilter('')
+                        handleMenuNavigate(buildPageIndexPath(menuFilterQuery))
+                      }}
+                    >
+                      打开页面索引
+                    </Button>
                   </div>
                 )}
               </div>
@@ -909,22 +1074,6 @@ const App: React.FC = () => {
 
   return (
     <Layout style={{ minHeight: '100vh' }}>
-      {/* 为E2E测试提供的反馈导航链接 */}
-      <div
-        data-testid="nav-feedback"
-        onClick={() => navigate('/feedback-system')}
-        style={{
-          position: 'fixed',
-          top: '10px',
-          left: '10px',
-          width: '10px',
-          height: '10px',
-          opacity: 0.01,
-          pointerEvents: 'auto',
-          zIndex: 9999,
-          backgroundColor: 'transparent',
-        }}
-      />
       {!hideSider && (
         <Sider
           data-testid="sidebar"
@@ -1014,6 +1163,15 @@ const App: React.FC = () => {
                       )
                     }
                     onClick={() => toggleFavorite(selectedKey)}
+                  />
+                </Tooltip>
+              )}
+              {currentRoutePath && (
+                <Tooltip title="复制当前路径">
+                  <Button
+                    type="text"
+                    icon={<CopyOutlined />}
+                    onClick={() => handleCopyPath(currentRoutePath)}
                   />
                 </Tooltip>
               )}
@@ -1119,7 +1277,7 @@ const App: React.FC = () => {
           <Input
             ref={paletteInputRef}
             allowClear
-            placeholder="搜索功能或路由，或直接输入 /path"
+            placeholder='搜索功能或路由，支持 "短语"，或输入 /path'
             prefix={<SearchOutlined style={{ color: '#999' }} />}
             value={paletteQuery}
             onChange={e => {
@@ -1147,36 +1305,17 @@ const App: React.FC = () => {
               }
             }}
             onPressEnter={() => {
-              const immediateQuery = normalizeSearchText(paletteQuery)
-              const immediateResults = immediateQuery
-                ? buildMenuResults(
-                    collectMenuKeys(
-                      filterMenuItems(MENU_ITEMS, immediateQuery)
-                    ),
-                    immediateQuery,
-                    MENU_SEARCH_RESULTS_LIMIT,
-                    { favorites: favoriteKeySet, recents: recentKeys }
-                  )
-                : defaultPaletteItems
-              const shouldInsertDirect =
-                directPaletteEntryKey &&
-                !immediateResults.some(
-                  item => String(item.key) === directPaletteEntryKey
-                )
-              const activeResults = shouldInsertDirect
-                ? ([
-                    {
-                      key: directPaletteEntryKey,
-                      label: directPaletteEntryLabel,
-                    },
-                    ...immediateResults,
-                  ] as MenuItem[])
-                : immediateResults
+              if (paletteResults.length === 0) {
+                if (paletteQuery.trim()) {
+                  handlePaletteNavigate(buildPageIndexPath(paletteQuery))
+                }
+                return
+              }
               const targetIndex = clampIndex(
                 paletteActiveIndex,
-                activeResults.length
+                paletteResults.length
               )
-              const target = activeResults[targetIndex] || activeResults[0]
+              const target = paletteResults[targetIndex] || paletteResults[0]
               if (target) {
                 const targetKey =
                   directPaletteRegistered &&
@@ -1201,11 +1340,15 @@ const App: React.FC = () => {
               >
                 {paletteResults.map((item, index) => {
                   const menuKey = String(item.key)
-                  const metaText = getMenuMetaText(menuKey)
+                  const metaText = getNavigationMetaText(menuKey)
                   const active = index === paletteActiveIndex
                   const canFavorite = menuKeySet.has(menuKey)
                   const isPaletteFavorite =
                     canFavorite && favoriteKeySet.has(menuKey)
+                  const copyPath =
+                    directPaletteKey && menuKey === directPaletteKey
+                      ? directPaletteTargetPath
+                      : resolveNavigationPath(menuKey)
                   return (
                     <div
                       key={`palette-${menuKey}`}
@@ -1279,16 +1422,43 @@ const App: React.FC = () => {
                           />
                         </Tooltip>
                       )}
+                      <Tooltip title="复制路径">
+                        <Button
+                          type="text"
+                          icon={<CopyOutlined />}
+                          onClick={event => {
+                            event.preventDefault()
+                            event.stopPropagation()
+                            handleCopyPath(copyPath)
+                          }}
+                        />
+                      </Tooltip>
                     </div>
                   )
                 })}
               </div>
             ) : (
-              <Text type="secondary">
-                {hasPaletteQuery
-                  ? '未找到匹配项'
-                  : '暂无最近访问，可输入 /path 直达'}
-              </Text>
+              <div>
+                <Text type="secondary">
+                  {hasPaletteQuery
+                    ? '未找到匹配项，回车打开页面索引'
+                    : '暂无最近访问，可输入 /path 直达'}
+                </Text>
+                {hasPaletteQuery && (
+                  <div style={{ marginTop: 8 }}>
+                    <Button
+                      size="small"
+                      type="link"
+                      style={{ padding: 0 }}
+                      onClick={() =>
+                        handlePaletteNavigate(buildPageIndexPath(paletteQueryText))
+                      }
+                    >
+                      打开页面索引
+                    </Button>
+                  </div>
+                )}
+              </div>
             )}
           </div>
           <div
@@ -1298,15 +1468,33 @@ const App: React.FC = () => {
               marginTop: 12,
             }}
           >
-            <Text type="secondary" style={{ fontSize: 12 }}>
-              {directPalettePath
-                ? `回车直达 ${directPaletteTargetPath}${
-                    directPaletteRegistered ? '' : '（未收录）'
-                  } · 匹配 ${paletteMenuKeys.length} 项`
-                : hasPaletteQuery
-                  ? `匹配 ${paletteMenuKeys.length} 项`
-                  : '使用 ↑↓ 选择，回车跳转'}
-            </Text>
+            <Space size={8}>
+              <Text type="secondary" style={{ fontSize: 12 }}>
+                {directPalettePath
+                  ? `回车直达 ${directPaletteTargetPath}${
+                      directPaletteRegistered
+                        ? ''
+                        : directPaletteKnown
+                          ? '（未收录）'
+                          : '（未注册）'
+                    } · 匹配 ${paletteMatchTotal} 项`
+                  : hasPaletteQuery
+                    ? `匹配 ${paletteMatchTotal} 项`
+                    : '使用 ↑↓ 选择，回车跳转'}
+              </Text>
+              {showPaletteSearchMore && (
+                <Button
+                  size="small"
+                  type="link"
+                  style={{ padding: 0 }}
+                  onClick={() =>
+                    handlePaletteNavigate(buildPageIndexPath(paletteQueryText))
+                  }
+                >
+                  查看更多
+                </Button>
+              )}
+            </Space>
             <Text type="secondary" style={{ fontSize: 12 }}>
               Esc 关闭
             </Text>

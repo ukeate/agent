@@ -122,7 +122,7 @@ export const BookmarkComponent: React.FC<BookmarkComponentProps> = ({
     `
 
     if (isBookmarked) {
-      return `${baseStyle} bg-yellow-100 text-yellow-600 ring-2 ring-yellow-300 hover:bg-yellow-200`
+      return `${baseStyle} bg-yellow-100 text-yellow-600 ring-2 ring-yellow-300 hover:bg-yellow-200 bookmarked`
     }
 
     if (isHovered) {
@@ -163,6 +163,7 @@ export const BookmarkComponent: React.FC<BookmarkComponentProps> = ({
         onMouseLeave={() => setIsHovered(false)}
         aria-label={isBookmarked ? '取消收藏' : '收藏'}
         title={isBookmarked ? '取消收藏' : '收藏'}
+        data-testid="bookmark-button"
       >
         {/* 收藏图标 */}
         <svg

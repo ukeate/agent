@@ -40,7 +40,7 @@ export const useAgentStore = create<AgentState>(set => ({
   },
 
   // Actions
-  setStatus: status => set({ status, error: null }),
+  setStatus: status => set({ status }),
 
   setConnected: connected => set({ connected }),
 

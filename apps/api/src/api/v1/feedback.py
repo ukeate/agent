@@ -15,7 +15,7 @@ from src.core.database import get_db, get_db_session
 from src.core.utils.async_utils import create_task_with_logging
 from src.models.schemas.feedback import FeedbackType, FeedbackEvent as FeedbackEventModel
 from src.services.reward_generator import FeedbackNormalizer
-from sqlalchemy import select, func, desc
+from sqlalchemy import select, func, desc, cast, Float
 from sqlalchemy.ext.asyncio import AsyncSession
 from src.api.base_model import ApiBaseModel
 from src.repositories.feedback_repository import FeedbackRepository
@@ -982,6 +982,37 @@ async def get_system_overview(
     )
     counts = {r.feedback_type: int(r.count) for r in type_result.all()}
 
+    rating_result = await db.execute(
+        select(
+            func.avg(cast(FeedbackEventModel.value, Float)).label("avg_rating"),
+            func.count(FeedbackEventModel.id).label("rating_count"),
+        ).where(
+            *filters,
+            FeedbackEventModel.feedback_type == FeedbackType.RATING.value
+        )
+    )
+    rating_stats = rating_result.one()
+    average_rating = (
+        float(rating_stats.avg_rating) if rating_stats.avg_rating is not None else None
+    )
+
+    like_result = await db.execute(
+        select(func.count(FeedbackEventModel.id)).where(
+            *filters,
+            FeedbackEventModel.feedback_type == FeedbackType.LIKE.value
+        )
+    )
+    dislike_result = await db.execute(
+        select(func.count(FeedbackEventModel.id)).where(
+            *filters,
+            FeedbackEventModel.feedback_type == FeedbackType.DISLIKE.value
+        )
+    )
+    like_count = int(like_result.scalar() or 0)
+    dislike_count = int(dislike_result.scalar() or 0)
+    like_total = like_count + dislike_count
+    positive_ratio = like_count / like_total if like_total > 0 else None
+
     item_filters = filters + [
         FeedbackEventModel.item_id.is_not(None),
         FeedbackEventModel.item_id != "",
@@ -1004,6 +1035,8 @@ async def get_system_overview(
         "feedback_types": counts,
         "unique_users": unique_users,
         "average_quality_score": None,
+        "average_rating": average_rating,
+        "positive_ratio": positive_ratio,
         "top_items": top_items
     }
 

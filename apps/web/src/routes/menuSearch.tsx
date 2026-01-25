@@ -1,12 +1,18 @@
 import type { MenuProps } from 'antd'
 import {
   MENU_INDEX,
+  MENU_KEY_SET,
   getMenuParentLabelPath,
   getMenuSearchText,
   type MenuItem,
 } from './menuIndex'
 import { resolveMenuKey, resolveMenuPath } from './menuConfig'
-import { normalizeSearchText } from '../utils/searchText'
+import { ROUTE_PATHS, isKnownRoutePath } from './routeCatalog'
+import {
+  buildSearchIndexText,
+  normalizeSearchText,
+  tokenizeSearchQuery,
+} from '../utils/searchText'
 
 const scoreMenuMatch = (
   searchText: string,
@@ -32,7 +38,7 @@ export const filterMenuItems = (
   if (!items) return items
   const normalizedQuery = normalizeSearchText(query)
   if (!normalizedQuery) return items
-  const tokens = normalizedQuery.split(' ').filter(Boolean)
+  const tokens = tokenizeSearchQuery(normalizedQuery)
   const filtered: MenuProps['items'] = []
 
   items.forEach(item => {
@@ -75,6 +81,27 @@ export type MenuSearchBoostOptions = {
   recentBoost?: number
 }
 
+type RouteSearchEntry = {
+  path: string
+  label: string
+  searchText: string
+  index: number
+}
+
+const ROUTE_SEARCH_ENTRIES: RouteSearchEntry[] = ROUTE_PATHS.map(
+  (path, index) => {
+    if (!path || path === '/') return null
+    const menuKey = resolveMenuKey(path)
+    if (MENU_KEY_SET.has(menuKey)) return null
+    return {
+      path,
+      label: path,
+      searchText: buildSearchIndexText(path),
+      index,
+    }
+  }
+).filter(Boolean) as RouteSearchEntry[]
+
 const getMenuBoostScore = (
   key: string,
   options?: MenuSearchBoostOptions
@@ -102,7 +129,7 @@ export const buildMenuResults = (
 ): MenuItem[] => {
   const normalizedQuery = normalizeSearchText(query)
   if (!normalizedQuery) return []
-  const tokens = normalizedQuery.split(' ').filter(Boolean)
+  const tokens = tokenizeSearchQuery(normalizedQuery)
   const scored = keys
     .map((key, index) => {
       const item = MENU_INDEX.itemByKey.get(key)
@@ -122,14 +149,147 @@ export const buildMenuResults = (
   return scored.slice(0, limit).map(entry => entry.item)
 }
 
+export const buildNavigationResults = (
+  keys: string[],
+  query: string,
+  limit: number,
+  options?: MenuSearchBoostOptions
+): MenuItem[] => {
+  const normalizedQuery = normalizeSearchText(query)
+  if (!normalizedQuery) return []
+  const tokens = tokenizeSearchQuery(normalizedQuery)
+  if (tokens.length === 0) return []
+  const scored: Array<{
+    item: MenuItem
+    score: number
+    index: number
+    source: number
+  }> = []
+
+  keys.forEach((key, index) => {
+    const item = MENU_INDEX.itemByKey.get(key)
+    const searchText = MENU_INDEX.searchTextByKey.get(key)
+    if (!item || !searchText) return
+    const rawScore = scoreMenuMatch(searchText, tokens, normalizedQuery)
+    if (rawScore < 0) return
+    const score = rawScore + getMenuBoostScore(key, options)
+    scored.push({ item, score, index, source: 0 })
+  })
+
+  ROUTE_SEARCH_ENTRIES.forEach(entry => {
+    const rawScore = scoreMenuMatch(
+      entry.searchText,
+      tokens,
+      normalizedQuery
+    )
+    if (rawScore < 0) return
+    scored.push({
+      item: { key: entry.path, label: entry.label } as MenuItem,
+      score: rawScore,
+      index: entry.index,
+      source: 1,
+    })
+  })
+
+  scored.sort(
+    (a, b) => b.score - a.score || a.source - b.source || a.index - b.index
+  )
+  return scored.slice(0, limit).map(entry => entry.item)
+}
+
+export const countMenuMatches = (keys: string[], query: string) => {
+  const normalizedQuery = normalizeSearchText(query)
+  if (!normalizedQuery) return 0
+  const tokens = tokenizeSearchQuery(normalizedQuery)
+  if (tokens.length === 0) return 0
+  return keys.reduce((count, key) => {
+    const searchText = MENU_INDEX.searchTextByKey.get(key)
+    if (!searchText) return count
+    return scoreMenuMatch(searchText, tokens, normalizedQuery) >= 0
+      ? count + 1
+      : count
+  }, 0)
+}
+
+export const countRouteMatches = (query: string) => {
+  const normalizedQuery = normalizeSearchText(query)
+  if (!normalizedQuery) return 0
+  const tokens = tokenizeSearchQuery(normalizedQuery)
+  if (tokens.length === 0) return 0
+  return ROUTE_SEARCH_ENTRIES.reduce((count, entry) => {
+    return scoreMenuMatch(entry.searchText, tokens, normalizedQuery) >= 0
+      ? count + 1
+      : count
+  }, 0)
+}
+
+const extractHashRoute = (value: string) => {
+  if (!value) return ''
+  const hashIndex = value.indexOf('#')
+  if (hashIndex < 0) return ''
+  const raw = value.slice(hashIndex + 1)
+  if (!raw) return ''
+  const cleaned = raw.startsWith('!') ? raw.slice(1) : raw
+  return cleaned.startsWith('/') ? cleaned : ''
+}
+
+const mergeHashRoute = (basePath: string, hashRoute: string) => {
+  if (!hashRoute) return basePath
+  const trimmedBase =
+    basePath && basePath !== '/' ? basePath.replace(/\/+$/, '') : ''
+  return `${trimmedBase}${hashRoute}`
+}
+
+const ensureHostPath = (value: string) => {
+  const separatorIndex = value.search(/[?#]/)
+  if (separatorIndex >= 0) {
+    return `${value.slice(0, separatorIndex)}/${value.slice(separatorIndex)}`
+  }
+  return `${value}/`
+}
+
+const extractPathFromUrl = (value: string) => {
+  if (!value) return ''
+  const isProtocolRelative = value.startsWith('//')
+  const hasScheme = value.includes('://')
+  let candidate = value
+  if (!isProtocolRelative && !hasScheme) {
+    const hasSlash = value.includes('/')
+    const host = hasSlash ? value.split('/')[0] ?? '' : value
+    const isLocalhost = host === 'localhost' || host.startsWith('localhost:')
+    const hasPort = /:\d+$/.test(host)
+    const isIpV4 = /^\d{1,3}(?:\.\d{1,3}){3}(?::\d+)?$/.test(host)
+    const looksLikeHost = isLocalhost || hasPort || isIpV4 || host.includes('.')
+    if (!looksLikeHost) return ''
+    candidate = `http://${hasSlash ? value : ensureHostPath(value)}`
+  }
+  try {
+    const url = new URL(isProtocolRelative ? `http:${value}` : candidate)
+    const hashRoute = extractHashRoute(url.hash)
+    if (hashRoute) {
+      return mergeHashRoute(url.pathname || '/', hashRoute)
+    }
+    const pathname = url.pathname || '/'
+    return `${pathname}${url.search}${url.hash}`
+  } catch {
+    return ''
+  }
+}
+
 export const normalizeDirectPath = (value: string) => {
   const trimmed = value.trim()
   if (!trimmed) return ''
-  const normalized = trimmed.replace(/\s+/g, '')
-  const withSlash = normalized.startsWith('/')
-    ? normalized
-    : normalized.includes('/')
-      ? `/${normalized}`
+  const compact = trimmed.replace(/\s+/g, '')
+  const fromUrl = extractPathFromUrl(compact)
+  const normalized = fromUrl || compact
+  const hashRoute = extractHashRoute(normalized)
+  const normalizedPath = hashRoute
+    ? mergeHashRoute(normalized.replace(/[?#].*$/, ''), hashRoute)
+    : normalized
+  const withSlash = normalizedPath.startsWith('/')
+    ? normalizedPath
+    : normalizedPath.includes('/')
+      ? `/${normalizedPath}`
       : ''
   if (!withSlash) return ''
   const separatorIndex = withSlash.search(/[?#]/)
@@ -151,6 +311,11 @@ export type DirectNavigationTarget = {
   menuKey: string
   targetPath: string
   isRegistered: boolean
+}
+
+export type DirectNavigationMeta = DirectNavigationTarget & {
+  known: boolean
+  label: string
 }
 
 export const resolveDirectNavigation = (
@@ -192,10 +357,45 @@ export const resolveDirectNavigationTarget = (
   return { path, menuKey: '', targetPath: path, isRegistered: false }
 }
 
+const buildDirectNavigationLabel = (
+  target: DirectNavigationTarget,
+  known: boolean
+) => {
+  if (!target.path) return ''
+  if (target.isRegistered) return `直达 ${target.targetPath}`
+  return `直达 ${target.targetPath}${known ? '（未收录）' : '（未注册）'}`
+}
+
+export const resolveDirectNavigationMeta = (
+  value: string,
+  validKeys: Set<string>
+): DirectNavigationMeta => {
+  const target = resolveDirectNavigationTarget(value, validKeys)
+  if (!target.path) {
+    return {
+      ...target,
+      known: false,
+      label: '',
+    }
+  }
+  const known = target.isRegistered || isKnownRoutePath(target.targetPath)
+  return {
+    ...target,
+    known,
+    label: buildDirectNavigationLabel(target, known),
+  }
+}
+
 export const getMenuMetaText = (menuKey: string) => {
   const parentPath = getMenuParentLabelPath(menuKey)
   const resolvedPath = resolveNavigationPath(menuKey)
   return parentPath ? `${parentPath} · ${resolvedPath}` : resolvedPath
+}
+
+export const getNavigationMetaText = (menuKey: string) => {
+  if (MENU_KEY_SET.has(menuKey)) return getMenuMetaText(menuKey)
+  if (menuKey.startsWith('/')) return `未收录 · ${menuKey}`
+  return getMenuMetaText(menuKey)
 }
 
 export const collectMenuKeys = (items: MenuProps['items']) => {

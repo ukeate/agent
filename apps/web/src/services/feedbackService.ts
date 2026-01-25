@@ -184,7 +184,7 @@ class FeedbackService {
     try {
       const response = await apiClient.post<
         ApiResponse<FeedbackQualityScore[]>
-      >('/feedback/quality/score', { feedback_ids: feedbackIds })
+      >('/feedback/quality/score', feedbackIds)
       return response.data
     } catch (error) {
       logger.error('[FeedbackService] 获取反馈质量评分失败:', error)

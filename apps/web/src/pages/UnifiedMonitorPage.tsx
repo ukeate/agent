@@ -4,7 +4,7 @@
  * 集成流式处理、批处理和性能分析的综合监控界面
  */
 
-import React, { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect, useMemo, useRef } from 'react'
 import { StreamingDashboard } from '../components/streaming/StreamingDashboard'
 import { StreamingSessionManager } from '../components/streaming/StreamingSessionManager'
 import { BatchProcessingDashboard } from '../components/batch/BatchProcessingDashboard'
@@ -12,7 +12,11 @@ import { PerformanceAnalyzer } from '../components/streaming/PerformanceAnalyzer
 import FaultToleranceMonitor from '../components/streaming/FaultToleranceMonitor'
 import CheckpointManager from '../components/batch/CheckpointManager'
 import SchedulingMonitor from '../components/batch/SchedulingMonitor'
-import { unifiedService, type ModulesStatus } from '../services/unifiedService'
+import {
+  unifiedService,
+  type ModulesStatus,
+  type ModuleStatusItem,
+} from '../services/unifiedService'
 import { streamingService } from '../services/streamingService'
 
 import { logger } from '../utils/logger'
@@ -27,6 +31,12 @@ type TabType =
   | 'checkpoints'
   | 'scheduling'
 
+type ModuleFilter = 'all' | 'active' | 'inactive' | 'unhealthy'
+type ModuleEntry = ModuleStatusItem & {
+  key: string
+  searchText: string
+}
+
 const UnifiedMonitorPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<TabType>('modules')
   const [unifiedMetrics, setUnifiedMetrics] = useState<any>(null)
@@ -34,6 +44,8 @@ const UnifiedMonitorPage: React.FC = () => {
   const [systemMetrics, setSystemMetrics] = useState<any>(null)
   const [monitoringSummary, setMonitoringSummary] = useState<any>(null)
   const [monitoringAlerts, setMonitoringAlerts] = useState<any>(null)
+  const [moduleQuery, setModuleQuery] = useState('')
+  const [moduleFilter, setModuleFilter] = useState<ModuleFilter>('all')
   const [loading, setLoading] = useState(true)
   const loadingRef = useRef(false)
 
@@ -142,6 +154,73 @@ const UnifiedMonitorPage: React.FC = () => {
     },
   ]
 
+  const moduleEntries = useMemo<ModuleEntry[]>(() => {
+    const entries = Object.entries(modulesStatus?.modules || {}).map(
+      ([key, module]) => {
+        const searchBase = [
+          key,
+          module.name,
+          module.import_path,
+          module.error || '',
+        ]
+          .join(' ')
+          .toLowerCase()
+        return {
+          key,
+          ...module,
+          searchText: searchBase,
+        }
+      }
+    )
+    const rank = (item: ModuleEntry) => {
+      if (item.health === 'unhealthy') return 0
+      if (item.status === 'inactive') return 1
+      return 2
+    }
+    return entries.sort((a, b) => {
+      const rankDiff = rank(a) - rank(b)
+      if (rankDiff !== 0) return rankDiff
+      return a.name.localeCompare(b.name)
+    })
+  }, [modulesStatus])
+
+  const moduleStats = useMemo(() => {
+    const total = moduleEntries.length
+    const active = moduleEntries.filter(
+      item => item.status === 'active'
+    ).length
+    const inactive = moduleEntries.filter(
+      item => item.status === 'inactive'
+    ).length
+    const unhealthy = moduleEntries.filter(
+      item => item.health === 'unhealthy'
+    ).length
+    return { total, active, inactive, unhealthy }
+  }, [moduleEntries])
+
+  const filteredModules = useMemo(() => {
+    const trimmedQuery = moduleQuery.trim().toLowerCase()
+    return moduleEntries.filter(item => {
+      if (moduleFilter === 'active' && item.status !== 'active') return false
+      if (moduleFilter === 'inactive' && item.status !== 'inactive')
+        return false
+      if (moduleFilter === 'unhealthy' && item.health !== 'unhealthy')
+        return false
+      if (!trimmedQuery) return true
+      return item.searchText.includes(trimmedQuery)
+    })
+  }, [moduleEntries, moduleFilter, moduleQuery])
+
+  const moduleFilters: Array<{ id: ModuleFilter; label: string }> = useMemo(
+    () => [
+      { id: 'all', label: `全部 (${moduleStats.total})` },
+      { id: 'active', label: `运行中 (${moduleStats.active})` },
+      { id: 'inactive', label: `停止 (${moduleStats.inactive})` },
+      { id: 'unhealthy', label: `异常 (${moduleStats.unhealthy})` },
+    ],
+    [moduleStats]
+  )
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* 页面头部 */}
@@ -248,66 +327,122 @@ const UnifiedMonitorPage: React.FC = () => {
                     </div>
                   </div>
 
-                  {Object.keys(modulesStatus.modules || {}).length > 0 ? (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                      {Object.entries(modulesStatus.modules || {}).map(
-                        ([key, module]) => (
-                          <div key={key} className="border rounded-lg p-4">
-                            <div className="flex items-center justify-between mb-2">
-                              <h3 className="text-lg font-medium text-gray-900">
-                                {module.name}
-                              </h3>
-                              <div
-                                className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                                  module.health === 'healthy'
-                                    ? 'bg-green-100 text-green-800'
-                                    : 'bg-red-100 text-red-800'
-                                }`}
-                              >
-                                {module.health === 'healthy'
-                                  ? '✅ 健康'
-                                  : '❌ 异常'}
-                              </div>
-                            </div>
-                            <div className="space-y-2 text-sm text-gray-600">
-                              <div>
-                                状态:{' '}
-                                <span
-                                  className={`font-medium ${
-                                    module.status === 'active'
-                                      ? 'text-green-600'
-                                      : 'text-red-600'
+                  {moduleEntries.length > 0 ? (
+                    <>
+                      <div className="flex flex-col lg:flex-row lg:items-center gap-3">
+                        <div className="flex-1">
+                          <input
+                            value={moduleQuery}
+                            onChange={event =>
+                              setModuleQuery(event.target.value)
+                            }
+                            placeholder="搜索模块名称、路径或错误信息"
+                            className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          />
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2">
+                          {moduleFilters.map(filter => (
+                            <button
+                              key={filter.id}
+                              onClick={() => setModuleFilter(filter.id)}
+                              className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors ${
+                                moduleFilter === filter.id
+                                  ? 'border-blue-500 bg-blue-50 text-blue-700'
+                                  : 'border-gray-300 text-gray-600 hover:text-gray-800'
+                              }`}
+                            >
+                              {filter.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div className="text-xs text-gray-500">
+                        筛选结果 {filteredModules.length} /{' '}
+                        {moduleEntries.length}
+                      </div>
+
+                      {filteredModules.length > 0 ? (
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                          {filteredModules.map(module => (
+                            <div
+                              key={module.key}
+                              className="border rounded-lg p-4"
+                            >
+                              <div className="flex items-center justify-between mb-2">
+                                <h3 className="text-lg font-medium text-gray-900">
+                                  {module.name}
+                                </h3>
+                                <div
+                                  className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                                    module.health === 'healthy'
+                                      ? 'bg-green-100 text-green-800'
+                                      : 'bg-red-100 text-red-800'
                                   }`}
                                 >
-                                  {module.status === 'active'
-                                    ? '运行中'
-                                    : '停止'}
-                                </span>
-                              </div>
-                              <div>
-                                版本:{' '}
-                                <span className="font-medium text-gray-900">
-                                  {module.version}
-                                </span>
-                              </div>
-                              <div>
-                                最后检查:{' '}
-                                <span className="font-medium text-gray-900">
-                                  {new Date(
-                                    module.last_check
-                                  ).toLocaleString()}
-                                </span>
-                              </div>
-                              {module.error ? (
-                                <div className="text-xs text-red-600 break-all">
-                                  错误: {module.error}
+                                  {module.health === 'healthy'
+                                    ? '✅ 健康'
+                                    : '❌ 异常'}
                                 </div>
-                              ) : null}
+                              </div>
+                              <div className="space-y-2 text-sm text-gray-600">
+                                <div>
+                                  标识:{' '}
+                                  <span className="font-medium text-gray-900 break-all">
+                                    {module.key}
+                                  </span>
+                                </div>
+                                <div>
+                                  状态:{' '}
+                                  <span
+                                    className={`font-medium ${
+                                      module.status === 'active'
+                                        ? 'text-green-600'
+                                        : 'text-red-600'
+                                    }`}
+                                  >
+                                    {module.status === 'active'
+                                      ? '运行中'
+                                      : '停止'}
+                                  </span>
+                                </div>
+                                <div>
+                                  路径:{' '}
+                                  <span className="font-medium text-gray-900 break-all">
+                                    {module.import_path}
+                                  </span>
+                                </div>
+                                <div>
+                                  版本:{' '}
+                                  <span className="font-medium text-gray-900">
+                                    {module.version}
+                                  </span>
+                                </div>
+                                <div>
+                                  最后检查:{' '}
+                                  <span className="font-medium text-gray-900">
+                                    {new Date(
+                                      module.last_check
+                                    ).toLocaleString()}
+                                  </span>
+                                </div>
+                                {module.error ? (
+                                  <div className="text-xs text-red-600 break-all">
+                                    错误: {module.error}
+                                  </div>
+                                ) : null}
+                              </div>
                             </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="text-center py-12">
+                          <div className="text-gray-500">
+                            当前筛选条件下暂无模块
                           </div>
-                        )
+                        </div>
                       )}
-                    </div>
+                    </>
                   ) : (
                     <div className="text-center py-12">
                       <div className="text-gray-500">暂无模块状态数据</div>

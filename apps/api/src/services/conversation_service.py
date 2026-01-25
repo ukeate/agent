@@ -827,6 +827,14 @@ class ConversationService:
                             name = tool_call.get("tool_name") or tool_call.get("name")
                             if name:
                                 push(name)
+                            result = (
+                                tool_call.get("result")
+                                or tool_call.get("tool_result")
+                                or tool_call.get("output")
+                                or tool_call.get("error")
+                            )
+                            if result:
+                                push(result)
 
                 return " ".join(parts)
 

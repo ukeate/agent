@@ -30,9 +30,7 @@ export const buildSearchIndexText = (value: string): string => {
 }
 
 export const splitSearchTokens = (value: string): string[] => {
-  const normalized = normalizeSearchText(value)
-  if (!normalized) return []
-  return normalized.split(' ').filter(Boolean)
+  return tokenizeSearchQuery(value)
 }
 
 export const resolveDeferredQuery = (
@@ -49,4 +47,17 @@ export const matchSearchTokens = (
 ): boolean => {
   if (tokens.length === 0) return true
   return tokens.every(token => searchText.includes(token))
+}
+
+export const tokenizeSearchQuery = (value: string): string[] => {
+  const normalized = normalizeSearchText(value)
+  if (!normalized) return []
+  const tokens: string[] = []
+  const pattern = /"([^"]+)"|([^\s]+)/g
+  let match: RegExpExecArray | null
+  while ((match = pattern.exec(normalized))) {
+    const token = (match[1] ?? match[2] ?? '').trim()
+    if (token) tokens.push(token)
+  }
+  return tokens
 }

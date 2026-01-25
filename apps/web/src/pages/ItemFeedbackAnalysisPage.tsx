@@ -1,144 +1,182 @@
-import { buildApiUrl, apiFetch } from '../utils/apiBase'
-import React, { useEffect, useState } from 'react'
+import React, { useCallback, useEffect, useState } from 'react'
 import {
-  Card,
-  Table,
+  Alert,
   Button,
+  Card,
+  Input,
   Space,
-  Typography,
   Tag,
-  Drawer,
-  Descriptions,
-  message,
+  Typography,
 } from 'antd'
-import { ReloadOutlined, SearchOutlined } from '@ant-design/icons'
+import { ReloadOutlined } from '@ant-design/icons'
+import {
+  apiFetch,
+  buildApiUrl,
+  extractApiErrorMessage,
+  normalizeHttpErrorMessage,
+} from '../utils/apiBase'
+
+const { Title, Text } = Typography
 
 type ItemAnalytics = {
   item_id: string
-  feedback_count?: number
-  avg_rating?: number
-  like_ratio?: number
-  last_feedback_time?: string
-  top_feedbacks?: any[]
+  total_feedbacks: number
+  average_rating?: number | null
+  like_ratio: number
+  engagement_metrics: Record<string, number>
+  feedback_distribution: Record<string, number>
+}
+
+type TopItem = {
+  item_id: string
+  feedback_count: number
 }
 
 const ItemFeedbackAnalysisPage: React.FC = () => {
-  const [items, setItems] = useState<ItemAnalytics[]>([])
+  const [items, setItems] = useState<TopItem[]>([])
   const [selected, setSelected] = useState<ItemAnalytics | null>(null)
-  const [drawerVisible, setDrawerVisible] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [searchId, setSearchId] = useState('demo-item')
 
-  const load = async () => {
+  const loadTopItems = useCallback(async () => {
+    const res = await apiFetch(buildApiUrl('/api/v1/feedback/overview'))
+    const payload = await res.json()
+    if (!res.ok || payload?.success === false) {
+      const message = extractApiErrorMessage(payload, '加载失败')
+      throw new Error(normalizeHttpErrorMessage(res.status, message))
+    }
+    const list = Array.isArray(payload?.data?.top_items)
+      ? payload.data.top_items.map((item: any) => ({
+          item_id: item.item_id,
+          feedback_count: item.feedback_count,
+        }))
+      : []
+    setItems(list)
+  }, [])
+
+  const loadItem = useCallback(async (itemId: string) => {
+    const res = await apiFetch(
+      buildApiUrl(`/api/v1/feedback/analytics/item/${encodeURIComponent(itemId)}`)
+    )
+    const payload = await res.json()
+    if (!res.ok || payload?.success === false) {
+      const message = extractApiErrorMessage(payload, '加载失败')
+      throw new Error(normalizeHttpErrorMessage(res.status, message))
+    }
+    setSelected(payload?.data || null)
+  }, [])
+
+  const load = useCallback(async () => {
     setLoading(true)
     setError(null)
     try {
-      const res = await apiFetch(buildApiUrl('/api/v1/feedback/overview'))
-      const data = await res.json()
-      const list = Array.isArray(data?.top_items)
-        ? data.top_items.map((t: any) => ({
-            item_id: t.item_id,
-            feedback_count: t.feedback_count,
-          }))
-        : []
-      setItems(list)
-    } catch (e: any) {
-      setError(e?.message || '加载失败')
+      await loadTopItems()
+    } catch (err: any) {
+      setError(err?.message || '加载失败')
       setItems([])
+    } finally {
+      setLoading(false)
+    }
+  }, [loadTopItems])
+
+  useEffect(() => {
+    load()
+  }, [load])
+
+  const handleSearch = async () => {
+    if (!searchId.trim()) return
+    setLoading(true)
+    setError(null)
+    try {
+      await loadItem(searchId.trim())
+    } catch (err: any) {
+      setError(err?.message || '加载失败')
+      setSelected(null)
     } finally {
       setLoading(false)
     }
   }
 
-  const loadItem = async (itemId: string) => {
-    try {
-      const res = await apiFetch(
-        buildApiUrl(`/api/v1/feedback/analytics/item/${itemId}`)
-      )
-      const data = await res.json()
-      setSelected(data)
-      setDrawerVisible(true)
-    } catch (e: any) {
-      message.error(e?.message || '加载详情失败')
-    }
-  }
-
-  useEffect(() => {
-    load()
-  }, [])
-
   return (
-    <div style={{ padding: 24 }}>
+    <div style={{ padding: 24 }} data-testid="item-feedback-page">
       <Space direction="vertical" style={{ width: '100%' }} size="large">
-        <Space
-          align="center"
-          style={{ justifyContent: 'space-between', width: '100%' }}
-        >
-          <Typography.Title level={3} style={{ margin: 0 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+          <Title level={3} style={{ margin: 0 }}>
             推荐项反馈分析
-          </Typography.Title>
+          </Title>
           <Button icon={<ReloadOutlined />} onClick={load} loading={loading}>
             刷新
           </Button>
+        </div>
+
+        <Space wrap>
+          <Input
+            value={searchId}
+            onChange={event => setSearchId(event.target.value)}
+            placeholder="输入物品ID"
+            style={{ width: 240 }}
+            data-testid="item-search"
+          />
+          <Button type="primary" onClick={handleSearch} data-testid="search-button">
+            查询
+          </Button>
         </Space>
 
-        {error && <Typography.Text type="danger">{error}</Typography.Text>}
+        {error && <Alert type="error" message={error} />}
 
-        <Card>
-          <Table
-            rowKey="item_id"
-            loading={loading}
-            dataSource={items}
-            locale={{ emptyText: '暂无数据' }}
-            columns={[
-              { title: 'Item', dataIndex: 'item_id' },
-              { title: '反馈数', dataIndex: 'feedback_count' },
-              {
-                title: '操作',
-                render: (_, record) => (
-                  <Button
-                    icon={<SearchOutlined />}
-                    size="small"
-                    onClick={() => loadItem(record.item_id)}
-                  >
-                    查看
-                  </Button>
-                ),
-              },
-            ]}
-          />
+        {selected && (
+          <Card title="物品反馈汇总" data-testid="item-feedback-summary">
+            <Space wrap>
+              <Text>
+                物品：<strong>{selected.item_id}</strong>
+              </Text>
+              <Text data-testid="feedback-count">
+                反馈数：{selected.total_feedbacks}
+              </Text>
+              <Text data-testid="item-rating">
+                平均评分：{selected.average_rating ?? '-'}
+              </Text>
+              <Text>
+                好评率：{Math.round((selected.like_ratio || 0) * 100)}%
+              </Text>
+            </Space>
+          </Card>
+        )}
+
+        <Card title="高频反馈物品">
+          {items.length > 0 ? (
+            <Space wrap>
+              {items.map(item => (
+                <Tag
+                  key={item.item_id}
+                  color="blue"
+                  data-testid="item-feedback-item"
+                  onClick={() => loadItem(item.item_id)}
+                  style={{ cursor: 'pointer' }}
+                >
+                  {item.item_id} · {item.feedback_count}
+                </Tag>
+              ))}
+            </Space>
+          ) : (
+            <Text type="secondary">暂无数据</Text>
+          )}
         </Card>
 
-        <Drawer
-          open={drawerVisible}
-          onClose={() => setDrawerVisible(false)}
-          width={420}
-          title="详情"
-        >
-          {selected ? (
-            <Descriptions column={1} bordered>
-              <Descriptions.Item label="Item">
-                {selected.item_id}
-              </Descriptions.Item>
-              <Descriptions.Item label="反馈数">
-                {selected.feedback_count}
-              </Descriptions.Item>
-              <Descriptions.Item label="平均评分">
-                {selected.avg_rating}
-              </Descriptions.Item>
-              <Descriptions.Item label="好评率">
-                <Tag color="green">
-                  {Math.round((selected.like_ratio || 0) * 100)}%
-                </Tag>
-              </Descriptions.Item>
-              <Descriptions.Item label="最近反馈">
-                {selected.last_feedback_time}
-              </Descriptions.Item>
-            </Descriptions>
-          ) : (
-            <Typography.Text>未选择</Typography.Text>
-          )}
-        </Drawer>
+        {selected && (
+          <Card title="反馈类型分布">
+            <Space wrap>
+              {Object.entries(selected.feedback_distribution || {}).map(
+                ([key, value]) => (
+                  <Tag key={key}>
+                    {key}: {value}
+                  </Tag>
+                )
+              )}
+            </Space>
+          </Card>
+        )}
       </Space>
     </div>
   )

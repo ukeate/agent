@@ -3,7 +3,8 @@
 """
 
 from typing import Dict, List, Optional, Any
-from fastapi import APIRouter, HTTPException, Depends, BackgroundTasks, status, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, HTTPException, Depends, BackgroundTasks, status, WebSocket, WebSocketDisconnect, Query
+from fastapi.responses import Response
 from pydantic import Field
 import json
 from datetime import datetime
@@ -100,6 +101,24 @@ class MessagesResponse(ApiBaseModel):
     total_count: int
     returned_count: int
     offset: int
+
+class ConversationSummaryResponse(ApiBaseModel):
+    """对话摘要响应"""
+    conversation_id: str
+    message_count: int
+    round_count: int
+    key_points: List[str]
+    decisions_made: List[str]
+    action_items: List[str]
+    participants_summary: Dict[str, str]
+
+class ConversationAnalysisResponse(ApiBaseModel):
+    """对话分析响应"""
+    conversation_id: str
+    sentiment_analysis: Dict[str, float]
+    topic_distribution: Dict[str, float]
+    interaction_patterns: List[Dict[str, Any]]
+    recommendations: List[str]
 
 # API路由
 @router.post(
@@ -381,16 +400,122 @@ async def get_conversation_messages(
         )
 
 @router.get(
+    "/conversation/{conversation_id}/summary",
+    response_model=ConversationSummaryResponse,
+    summary="获取对话摘要",
+    description="生成并返回对话摘要信息"
+)
+async def get_conversation_summary(
+    conversation_id: str,
+    service: MultiAgentService = Depends(get_multi_agent_service),
+) -> ConversationSummaryResponse:
+    """获取对话摘要"""
+    try:
+        result = await service.get_conversation_summary(conversation_id)
+        return ConversationSummaryResponse(**result)
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(e)
+        )
+    except Exception as e:
+        logger.error(
+            "获取对话摘要失败",
+            conversation_id=conversation_id,
+            error=str(e),
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"获取对话摘要失败: {str(e)}"
+        )
+
+@router.post(
+    "/conversation/{conversation_id}/analyze",
+    response_model=ConversationAnalysisResponse,
+    summary="分析对话内容",
+    description="分析对话内容并返回建议与统计"
+)
+async def analyze_conversation(
+    conversation_id: str,
+    service: MultiAgentService = Depends(get_multi_agent_service),
+) -> ConversationAnalysisResponse:
+    """分析对话内容"""
+    try:
+        result = await service.analyze_conversation(conversation_id)
+        return ConversationAnalysisResponse(**result)
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(e)
+        )
+    except Exception as e:
+        logger.error(
+            "分析对话内容失败",
+            conversation_id=conversation_id,
+            error=str(e),
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"分析对话内容失败: {str(e)}"
+        )
+
+@router.get(
+    "/conversation/{conversation_id}/export",
+    summary="导出对话内容",
+    description="导出对话内容为JSON文件"
+)
+async def export_conversation(
+    conversation_id: str,
+    format: str = Query("json"),
+    service: MultiAgentService = Depends(get_multi_agent_service),
+) -> Response:
+    """导出对话内容"""
+    if format.lower() != "json":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="仅支持json格式导出"
+        )
+    try:
+        payload = await service.export_conversation(conversation_id)
+        content = json.dumps(payload, ensure_ascii=False, indent=2)
+        filename = f"conversation_{conversation_id}.json"
+        return Response(
+            content=content,
+            media_type="application/json",
+            headers={"Content-Disposition": f"attachment; filename={filename}"},
+        )
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(e)
+        )
+    except Exception as e:
+        logger.error(
+            "导出对话内容失败",
+            conversation_id=conversation_id,
+            error=str(e),
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"导出对话内容失败: {str(e)}"
+        )
+
+@router.get(
     "/conversations",
     summary="列出活跃对话",
     description="获取所有活跃的多智能体对话列表"
 )
 async def list_conversations(
+    limit: int = Query(20, ge=1, le=200),
+    offset: int = Query(0, ge=0),
     service: MultiAgentService = Depends(get_multi_agent_service),
 ) -> List[Dict[str, Any]]:
     """列出活跃对话"""
     try:
-        conversations = await service.list_active_conversations()
+        conversations = await service.list_active_conversations(
+            limit=limit,
+            offset=offset,
+        )
         
         logger.info(
             "获取活跃对话列表成功",

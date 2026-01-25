@@ -121,22 +121,31 @@ const HealthMonitorPage: React.FC<HealthMonitorPageProps> = ({
         ])
       if (!mountedRef.current) return false
 
-      const healthOk = healthResult.status === 'fulfilled'
-      const metricsOk = metricsResult.status === 'fulfilled'
-      const alertsOk = alertsResult.status === 'fulfilled'
+      let healthOk = healthResult.status === 'fulfilled'
+      let metricsOk = metricsResult.status === 'fulfilled'
+      let alertsOk = alertsResult.status === 'fulfilled'
+      const failureDetails: string[] = []
 
       if (!healthOk) {
         logger.error('获取健康状态失败:', healthResult.reason)
+        failureDetails.push('健康状态')
       }
       if (!metricsOk) {
         logger.error('获取系统指标失败:', metricsResult.reason)
+        failureDetails.push('系统指标')
       }
       if (!alertsOk) {
         logger.error('获取健康告警失败:', alertsResult.reason)
+        failureDetails.push('告警')
       }
 
       if (healthOk) {
         const healthStatus = healthResult.value as HealthCheckResult
+        if (healthStatus.error) {
+          healthOk = false
+          setHealthChecks([])
+          failureDetails.push(`健康状态: ${healthStatus.error}`)
+        } else {
         const components = healthStatus.components ?? {}
         const lastCheckTime = new Date(
           healthStatus.timestamp || Date.now()
@@ -176,10 +185,18 @@ const HealthMonitorPage: React.FC<HealthMonitorPageProps> = ({
           }
         )
         setHealthChecks(checks)
+        }
+      } else {
+        setHealthChecks([])
       }
 
       if (metricsOk) {
         const metricsPayload = metricsResult.value as SystemMetrics
+        if (metricsPayload.error) {
+          metricsOk = false
+          setSystemMetrics([])
+          failureDetails.push(`系统指标: ${metricsPayload.error}`)
+        } else {
         const metrics: SystemMetric[] = []
         const systemInfo = metricsPayload.system
         const performanceInfo = metricsPayload.performance
@@ -249,10 +266,18 @@ const HealthMonitorPage: React.FC<HealthMonitorPageProps> = ({
         }
 
         setSystemMetrics(metrics)
+        }
+      } else {
+        setSystemMetrics([])
       }
 
       if (alertsOk) {
         const alertsPayload = alertsResult.value as HealthAlertsResponse
+        if (alertsPayload.error) {
+          alertsOk = false
+          setAlerts([])
+          failureDetails.push(`告警: ${alertsPayload.error}`)
+        } else {
         const alertList: Alert[] = (alertsPayload.alerts || []).map(
           (alert: HealthAlert) => {
             const timestampMs = resolveTimestampMs(alert.timestamp)
@@ -277,13 +302,19 @@ const HealthMonitorPage: React.FC<HealthMonitorPageProps> = ({
           }
         )
         setAlerts(alertList)
+        }
+      } else {
+        setAlerts([])
       }
       success = healthOk && metricsOk && alertsOk
       if (mountedRef.current) {
-        const failedParts = []
-        if (!healthOk) failedParts.push('健康状态')
-        if (!metricsOk) failedParts.push('系统指标')
-        if (!alertsOk) failedParts.push('告警')
+        const failedParts = failureDetails.length
+          ? failureDetails
+          : [
+              !healthOk ? '健康状态' : null,
+              !metricsOk ? '系统指标' : null,
+              !alertsOk ? '告警' : null,
+            ].filter(Boolean)
         setLastUpdateAt(new Date().toLocaleString())
         setLastUpdateError(
           failedParts.length > 0

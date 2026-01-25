@@ -6,9 +6,18 @@ import {
   setStoredTokens,
 } from './authStorage'
 
-const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '')
+export const API_PREFIX = '/api/v1'
 
-const API_PREFIX = '/api/v1'
+export const normalizeApiBaseUrl = (value: string) => {
+  const trimmed = (value || '').trim().replace(/\/+$/, '')
+  if (!trimmed) return ''
+  if (trimmed.toLowerCase().endsWith(API_PREFIX)) {
+    return trimmed.slice(0, trimmed.length - API_PREFIX.length)
+  }
+  return trimmed
+}
+
+const API_BASE_URL = normalizeApiBaseUrl(import.meta.env.VITE_API_BASE_URL || '')
 
 const ABSOLUTE_URL = /^https?:\/\//i
 

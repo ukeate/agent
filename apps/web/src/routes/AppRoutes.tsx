@@ -8,6 +8,7 @@ import FeatureComingSoon from '../components/FeatureComingSoon'
 // 懒加载所有页面组件
 const ChatPage = lazy(() => import('../pages/ChatPage'))
 const WorkspacePage = lazy(() => import('../pages/WorkspacePage'))
+const PageIndexPage = lazy(() => import('../pages/PageIndexPage'))
 const ConversationHistoryPage = lazy(
   () => import('../pages/ConversationHistoryPage')
 )
@@ -923,6 +924,7 @@ const AppRoutes = () => {
     {/* 🤖 智能体系统 */}
     <Route path="/" element={<Navigate to={defaultPath} replace />} />
     <Route path="/workspace" element={<WorkspacePage />} />
+    <Route path="/page-index" element={<PageIndexPage />} />
     <Route path="/chat" element={<ChatPage />} />
     <Route path="/history" element={<ConversationHistoryPage />} />
     <Route path="/multi-agent" element={<MultiAgentPage />} />

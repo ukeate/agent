@@ -45,7 +45,7 @@ export const RatingComponent: React.FC<RatingComponentProps> = ({
       case 'small':
         return 'w-4 h-4'
       case 'large':
-        return 'w-8 h-8'
+        return 'w-11 h-11'
       default:
         return 'w-6 h-6'
     }
@@ -140,11 +140,13 @@ export const RatingComponent: React.FC<RatingComponentProps> = ({
                   : 'cursor-pointer hover:scale-110'
               }
               ${isSubmitting ? 'animate-pulse' : ''}
+              ${star <= currentRating ? 'selected' : ''}
             `}
             disabled={disabled || isSubmitting}
             onClick={() => handleRatingClick(star)}
             onMouseEnter={() => handleMouseEnter(star)}
             aria-label={`评分 ${star} 星`}
+            data-testid={`rating-star-${star}`}
           >
             <svg
               className={`

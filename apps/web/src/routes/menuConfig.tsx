@@ -164,6 +164,11 @@ export const MENU_ITEMS: MenuProps['items'] = [
     label: '工作台概览',
   },
   {
+    key: 'page-index',
+    icon: <UnorderedListOutlined />,
+    label: '页面索引',
+  },
+  {
     key: 'chat',
     icon: <MessageOutlined />,
     label: '单代理对话 (React Agent)',
@@ -513,27 +518,27 @@ export const MENU_ITEMS: MenuProps['items'] = [
   {
     key: 'feedback-system',
     icon: <HeartOutlined />,
-    label: '反馈系统总览',
+    label: <span data-testid="nav-feedback">反馈系统总览</span>,
   },
   {
     key: 'feedback-analytics',
     icon: <LineChartOutlined />,
-    label: '反馈数据分析',
+    label: <span data-testid="nav-feedback-analytics">反馈数据分析</span>,
   },
   {
     key: 'user-feedback-profiles',
     icon: <UserOutlined />,
-    label: '用户反馈档案',
+    label: <span data-testid="nav-user-feedback-profiles">用户反馈档案</span>,
   },
   {
     key: 'item-feedback-analysis',
     icon: <TrophyOutlined />,
-    label: '推荐项分析',
+    label: <span data-testid="nav-item-feedback">推荐项分析</span>,
   },
   {
     key: 'feedback-quality-monitor',
     icon: <EyeOutlined />,
-    label: '反馈质量监控',
+    label: <span data-testid="nav-feedback-quality">反馈质量监控</span>,
   },
 
   // 📈 智能行为分析系统

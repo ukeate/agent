@@ -50,9 +50,10 @@ export interface ConversationStatusResponse {
   participants: ConversationParticipant[]
   config: ConversationConfig
   real_time_stats?: {
-    active_agents: number
-    pending_messages: number
-    avg_response_time: number
+    active_speaker?: string | null
+    next_expected_speaker?: string | null
+    conversation_progress?: number
+    estimated_completion?: string | null
   }
 }
 

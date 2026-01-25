@@ -1,5 +1,5 @@
 import React from 'react'
-import { Agent } from '../../stores/multiAgentStore'
+import type { Agent } from '../../types/multiAgent'
 
 interface AgentAvatarProps {
   agent: Agent

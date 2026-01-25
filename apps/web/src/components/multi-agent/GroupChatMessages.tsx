@@ -1,5 +1,6 @@
 import React from 'react'
-import { MultiAgentMessage, Agent } from '../../stores/multiAgentStore'
+import { MultiAgentMessage } from '../../stores/multiAgentStore'
+import type { Agent } from '../../types/multiAgent'
 import { AgentAvatar, RoleBadge } from './AgentAvatar'
 import MarkdownRenderer from '../ui/MarkdownRenderer'
 

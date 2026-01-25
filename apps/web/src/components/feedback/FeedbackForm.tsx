@@ -25,6 +25,7 @@ export interface FeedbackFormProps {
   onSubmitError?: (error: Error) => void
   className?: string
   compact?: boolean
+  touchMode?: boolean
 }
 
 interface FeedbackState {
@@ -49,6 +50,7 @@ export const FeedbackForm: React.FC<FeedbackFormProps> = ({
   onSubmitError,
   className = '',
   compact = false,
+  touchMode = false,
 }) => {
   const [feedbackState, setFeedbackState] = useState<FeedbackState>({
     rating: 0,
@@ -219,9 +221,15 @@ export const FeedbackForm: React.FC<FeedbackFormProps> = ({
   const containerClass = compact
     ? 'space-y-3 p-3 bg-gray-50 rounded-lg'
     : 'space-y-6 p-6 bg-white border border-gray-200 rounded-xl shadow-sm'
+  const controlSize = touchMode ? 'large' : compact ? 'small' : 'medium'
+  const summary = getFeedbackSummary()
+  const showSummary = !compact && (showAdvanced || summary.length > 0)
 
   return (
-    <div className={`${containerClass} ${className}`}>
+    <div
+      className={`${containerClass} ${className}`}
+      data-testid="feedback-form"
+    >
       {/* 标题 */}
       {!compact && (
         <div className="flex items-center justify-between">
@@ -229,6 +237,7 @@ export const FeedbackForm: React.FC<FeedbackFormProps> = ({
           <button
             onClick={() => setShowAdvanced(!showAdvanced)}
             className="text-sm text-blue-600 hover:text-blue-800 transition-colors"
+            data-testid="advanced-options"
           >
             {showAdvanced ? '收起' : '更多选项'}
           </button>
@@ -246,7 +255,7 @@ export const FeedbackForm: React.FC<FeedbackFormProps> = ({
               itemId={itemId}
               userId={userId}
               sessionId={sessionId}
-              size={compact ? 'small' : 'medium'}
+              size={controlSize}
               showLabel={!compact}
               onRatingChange={handleRatingChange}
               onSubmitSuccess={rating =>
@@ -266,7 +275,7 @@ export const FeedbackForm: React.FC<FeedbackFormProps> = ({
               itemId={itemId}
               userId={userId}
               sessionId={sessionId}
-              size={compact ? 'small' : 'medium'}
+              size={controlSize}
               onStateChange={handleLikeStateChange}
               onSubmitSuccess={action =>
                 onSubmitSuccess?.({ type: 'like', action, ...feedbackState })
@@ -285,7 +294,7 @@ export const FeedbackForm: React.FC<FeedbackFormProps> = ({
               itemId={itemId}
               userId={userId}
               sessionId={sessionId}
-              size={compact ? 'small' : 'medium'}
+              size={controlSize}
               showLabel={!compact}
               onBookmarkChange={handleBookmarkChange}
               onSubmitSuccess={bookmarked =>
@@ -316,6 +325,7 @@ export const FeedbackForm: React.FC<FeedbackFormProps> = ({
               placeholder={commentPlaceholder}
               maxLength={maxCommentLength}
               disabled={commentSubmitted || isSubmittingComment}
+              data-testid="comment-textarea"
               className={`
                 w-full px-3 py-2 border border-gray-300 rounded-md resize-none
                 focus:ring-2 focus:ring-blue-500 focus:border-transparent
@@ -328,7 +338,7 @@ export const FeedbackForm: React.FC<FeedbackFormProps> = ({
             />
 
             <div className="flex items-center justify-between text-xs text-gray-500">
-              <span id="comment-help">
+              <span id="comment-help" data-testid="character-count">
                 {feedbackState.comment.length}/{maxCommentLength} 字符
               </span>
 
@@ -336,6 +346,7 @@ export const FeedbackForm: React.FC<FeedbackFormProps> = ({
                 <button
                   onClick={handleCommentSubmit}
                   disabled={isSubmittingComment || validationErrors.length > 0}
+                  data-testid="submit-comment"
                   className={`
                     px-3 py-1 rounded-md text-xs font-medium
                     transition-colors duration-200
@@ -354,7 +365,10 @@ export const FeedbackForm: React.FC<FeedbackFormProps> = ({
 
           {/* 验证错误 */}
           {validationErrors.length > 0 && (
-            <div className="text-xs text-red-600 space-y-1">
+            <div
+              className="text-xs text-red-600 space-y-1"
+              data-testid="validation-error"
+            >
               {validationErrors.map((error, index) => (
                 <div key={index}>• {error}</div>
               ))}
@@ -363,7 +377,10 @@ export const FeedbackForm: React.FC<FeedbackFormProps> = ({
 
           {/* 评论成功提示 */}
           {commentSubmitted && (
-            <div className="flex items-center space-x-2 text-xs text-green-600">
+            <div
+              className="flex items-center space-x-2 text-xs text-green-600"
+              data-testid="comment-success"
+            >
               <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
                 <path
                   fillRule="evenodd"
@@ -378,13 +395,11 @@ export const FeedbackForm: React.FC<FeedbackFormProps> = ({
       )}
 
       {/* 反馈摘要 */}
-      {!compact && showAdvanced && (
+      {showSummary && (
         <div className="pt-4 border-t border-gray-200">
-          <div className="text-sm text-gray-600">
+          <div className="text-sm text-gray-600" data-testid="feedback-summary">
             <span className="font-medium">反馈摘要: </span>
-            {getFeedbackSummary().length > 0
-              ? getFeedbackSummary().join(', ')
-              : '暂无反馈'}
+            {summary.length > 0 ? summary.join(', ') : '暂无反馈'}
           </div>
         </div>
       )}

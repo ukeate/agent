@@ -24,6 +24,7 @@ import {
   HistoryOutlined,
   ReloadOutlined,
   SearchOutlined,
+  CopyOutlined,
   StarFilled,
   StarOutlined,
 } from '@ant-design/icons'
@@ -34,16 +35,18 @@ import {
   type MenuItem,
 } from '../routes/menuIndex'
 import {
-  buildMenuResults,
+  buildNavigationResults,
   getMenuItemIcon,
   getMenuMetaText,
-  resolveDirectNavigationTarget,
+  getNavigationMetaText,
+  resolveDirectNavigationMeta,
   resolveNavigationPath,
 } from '../routes/menuSearch'
 import { renderHighlightedText } from '../utils/highlightText'
 import { normalizeSearchText, resolveDeferredQuery } from '../utils/searchText'
 import { getHealthStatusInfo } from '../utils/healthStatus'
 import { clampIndex, wrapIndex } from '../utils/number'
+import { copyToClipboard } from '../utils/clipboard'
 import {
   MENU_STORAGE_EVENTS,
   readStoredLastRoute,
@@ -123,13 +126,14 @@ const WorkspacePage: React.FC = () => {
   }, [searchValue])
 
   const searchQuery = resolveDeferredQuery(searchValue, deferredSearchValue)
+  const searchQueryTrimmed = searchQuery.trim()
   const normalizedQuery = normalizeSearchText(searchQuery)
   const hasQuery = normalizedQuery.length > 0
   const {
     path: directPath,
     targetPath: directTargetPath,
-    isRegistered: directRegistered,
-  } = resolveDirectNavigationTarget(searchValue, MENU_KEY_SET)
+    label: directLabel,
+  } = resolveDirectNavigationMeta(searchValue, MENU_KEY_SET)
   const favoriteKeySet = useMemo(() => new Set(favoriteKeys), [favoriteKeys])
 
   const coreItems = useMemo(
@@ -164,7 +168,7 @@ const WorkspacePage: React.FC = () => {
   const searchResults = useMemo(
     () =>
       hasQuery
-        ? buildMenuResults(
+        ? buildNavigationResults(
             MENU_INDEX.menuKeys,
             searchQuery,
             SEARCH_LIMIT,
@@ -231,6 +235,15 @@ const WorkspacePage: React.FC = () => {
   const clearRecents = useCallback(() => {
     setRecentKeys([])
   }, [setRecentKeys])
+  const handleCopyPath = useCallback(async (path: string) => {
+    if (!path) return
+    try {
+      await copyToClipboard(path)
+      message.success('路径已复制')
+    } catch {
+      message.error('复制失败')
+    }
+  }, [])
 
   return (
     <div style={{ padding: 24 }}>
@@ -308,9 +321,7 @@ const WorkspacePage: React.FC = () => {
                         navigate(directTargetPath)
                       }}
                     >
-                      {`直达 ${directTargetPath}${
-                        directRegistered ? '' : '（未收录）'
-                      }`}
+                      {directLabel}
                     </Button>
                   </div>
                 )}
@@ -327,7 +338,10 @@ const WorkspacePage: React.FC = () => {
                           {searchResults.map((item, index) => {
                             const active = index === searchActiveIndex
                             const menuKey = String(item.key)
-                            const isFavorite = favoriteKeySet.has(menuKey)
+                            const canFavorite = MENU_KEY_SET.has(menuKey)
+                            const isFavorite =
+                              canFavorite && favoriteKeySet.has(menuKey)
+                            const copyPath = resolveNavigationPath(menuKey)
                             return (
                               <div
                                 key={`workspace-search-${menuKey}`}
@@ -341,7 +355,7 @@ const WorkspacePage: React.FC = () => {
                                   size="small"
                                   type={active ? 'primary' : 'text'}
                                   icon={getMenuItemIcon(item)}
-                                  title={getMenuMetaText(menuKey)}
+                                  title={getNavigationMetaText(menuKey)}
                                   onClick={() => {
                                     setSearchValue('')
                                     navigate(resolveNavigationPath(menuKey))
@@ -356,23 +370,39 @@ const WorkspacePage: React.FC = () => {
                                     searchQuery
                                   )}
                                 </Button>
-                                <Tooltip title={isFavorite ? '取消收藏' : '收藏'}>
+                                {canFavorite && (
+                                  <Tooltip
+                                    title={isFavorite ? '取消收藏' : '收藏'}
+                                  >
+                                    <Button
+                                      size="small"
+                                      type="text"
+                                      icon={
+                                        isFavorite ? (
+                                          <StarFilled
+                                            style={{ color: '#fadb14' }}
+                                          />
+                                        ) : (
+                                          <StarOutlined />
+                                        )
+                                      }
+                                      onClick={event => {
+                                        event.preventDefault()
+                                        event.stopPropagation()
+                                        toggleFavorite(menuKey)
+                                      }}
+                                    />
+                                  </Tooltip>
+                                )}
+                                <Tooltip title="复制路径">
                                   <Button
                                     size="small"
                                     type="text"
-                                    icon={
-                                      isFavorite ? (
-                                        <StarFilled
-                                          style={{ color: '#fadb14' }}
-                                        />
-                                      ) : (
-                                        <StarOutlined />
-                                      )
-                                    }
+                                    icon={<CopyOutlined />}
                                     onClick={event => {
                                       event.preventDefault()
                                       event.stopPropagation()
-                                      toggleFavorite(menuKey)
+                                      handleCopyPath(copyPath)
                                     }}
                                   />
                                 </Tooltip>
@@ -380,6 +410,25 @@ const WorkspacePage: React.FC = () => {
                             )
                           })}
                         </Space>
+                      </div>
+                    )}
+                    {searchQueryTrimmed && (
+                      <div style={{ marginTop: 8 }}>
+                        <Button
+                          size="small"
+                          type="link"
+                          style={{ padding: 0 }}
+                          onClick={() => {
+                            const params = new URLSearchParams()
+                            params.set('q', searchQueryTrimmed)
+                            setSearchValue('')
+                            navigate(
+                              `/page-index?${params.toString()}`
+                            )
+                          }}
+                        >
+                          查看更多结果
+                        </Button>
                       </div>
                     )}
                   </>
@@ -494,6 +543,8 @@ const WorkspacePage: React.FC = () => {
                 const updatedText = updatedAt
                   ? new Date(updatedAt).toLocaleString()
                   : ''
+                const lastMessageLabel =
+                  lastMessage?.role === 'user' ? '用户' : '助手'
                 return (
                   <List.Item
                     actions={[
@@ -510,9 +561,13 @@ const WorkspacePage: React.FC = () => {
                     <List.Item.Meta
                       title={conversation.title || '对话'}
                       description={
-                        lastMessage?.content
-                          ? `${lastMessage.role === 'user' ? '用户' : '助手'}: ${lastMessage.content}`
-                          : '暂无消息'
+                        lastMessage?.content ? (
+                          <Text type="secondary" className="text-xs line-clamp-2">
+                            {lastMessageLabel}: {lastMessage.content}
+                          </Text>
+                        ) : (
+                          '暂无消息'
+                        )
                       }
                     />
                     <div className="text-xs text-gray-400">{updatedText}</div>

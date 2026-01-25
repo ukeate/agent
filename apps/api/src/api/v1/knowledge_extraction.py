@@ -19,6 +19,7 @@ from src.ai.knowledge_graph.data_models import (
     EntityModel, RelationModel,
     Entity, Relation, KnowledgeGraph
 )
+from src.ai.knowledge_graph.batch_processor import BatchProcessor, BatchConfig
 from src.api.base_model import ApiBaseModel
 from src.ai.knowledge_graph.entity_recognizer import MultiModelEntityRecognizer
 from src.ai.knowledge_graph.relation_extractor import RelationExtractor
